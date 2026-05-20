@@ -57,13 +57,8 @@ const sharedLocalesMetadata = (() => {
   return { default: 'en-US', locales: {}, namespaces: [] };
 })();
 
-// Only expose real user-facing locales to the frontend env
-const allowedFrontendLocales = new Set(['en-US', 'zh-CN']);
-const filteredLocales = Object.fromEntries(
-  Object.entries(sharedLocalesMetadata.locales || {}).filter(([code]) =>
-    allowedFrontendLocales.has(code),
-  ),
-);
+// locales.json owns the real user-facing locale surface.
+const filteredLocales = sharedLocalesMetadata.locales || {};
 // Filter out any invalid namespace identifiers
 const isValidNs = (s: unknown): s is string =>
   typeof s === 'string' && /^[A-Za-z0-9_.-]+$/.test(s);

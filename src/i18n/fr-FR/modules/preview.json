@@ -1,0 +1,6 @@
+{
+  "__namespace__": "module.preview",
+  "llmError": "Erreur d’appel LLM",
+  "previewAll": "Prévisualiser le cours",
+  "previewModeBanner": "Ce lien est un lien de prévisualisation visible uniquement par l’éditeur du cours"
+}

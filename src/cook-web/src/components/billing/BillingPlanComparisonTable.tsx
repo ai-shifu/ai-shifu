@@ -1,4 +1,3 @@
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -27,6 +26,12 @@ import {
   getPlanScaleKeys,
 } from './BillingOverviewCards';
 import styles from './BillingPlanComparisonTable.module.scss';
+
+// Language-neutral typographic enumerators that anchor each metric row label
+// to the matching footnote item. Not user-facing copy, so they stay out of
+// i18n.
+const ROW_ENUM_LEARNER = '①';
+const ROW_ENUM_VALIDITY = '②';
 
 type FeatureRow = {
   i18nKey: string;
@@ -111,7 +116,6 @@ type ColumnDescriptor = {
   creditAmount: string;
   featured: boolean;
   validityShort: string;
-  validityTooltip: string;
   studentLabel?: string;
   features: boolean[];
   action: ColumnAction;
@@ -122,32 +126,22 @@ type BillingTranslator = (
   options?: Record<string, unknown>,
 ) => string;
 
-function resolvePlanValidityDisplay(
+function resolvePlanValidityShort(
   t: BillingTranslator,
   plan: BillingPlan,
-): { short: string; tooltip: string } {
+): string {
   const intervalCount = Math.max(plan.billing_interval_count || 0, 1);
   if (plan.billing_interval === 'month') {
-    return {
-      short: t('module.billing.package.validityShort.monthly', {
-        count: intervalCount,
-      }),
-      tooltip: t('module.billing.package.validityTooltip.monthly', {
-        count: intervalCount,
-      }),
-    };
+    return t('module.billing.package.validityShort.monthly', {
+      count: intervalCount,
+    });
   }
   if (plan.billing_interval === 'year') {
-    return {
-      short: t('module.billing.package.validityShort.yearly', {
-        count: intervalCount,
-      }),
-      tooltip: t('module.billing.package.validityTooltip.yearly', {
-        count: intervalCount,
-      }),
-    };
+    return t('module.billing.package.validityShort.yearly', {
+      count: intervalCount,
+    });
   }
-  return { short: '', tooltip: '' };
+  return '';
 }
 
 export type BillingPlanComparisonTableProps = {
@@ -235,11 +229,6 @@ export function BillingPlanComparisonTable({
             days: trialOffer.valid_days,
           })
         : emptyValue,
-      validityTooltip: trialOffer
-        ? t('module.billing.package.validityTooltip.free', {
-            days: trialOffer.valid_days,
-          })
-        : '',
       studentLabel: trialScale ? t(trialScale.students) : undefined,
       features: featureRows.map(
         row => row.unlockIndex === -1 || trialFeatureSet.has(row.i18nKey),
@@ -293,10 +282,7 @@ export function BillingPlanComparisonTable({
         credits: formatBillingCreditAmount(plan.credit_amount),
       }),
       featured: isCurrentPlan,
-      ...(() => {
-        const v = resolvePlanValidityDisplay(t, plan);
-        return { validityShort: v.short, validityTooltip: v.tooltip };
-      })(),
+      validityShort: resolvePlanValidityShort(t, plan),
       studentLabel: planScale ? t(planScale.students) : undefined,
       features: featureRows.map(
         row => row.unlockIndex === -1 || idx >= row.unlockIndex,
@@ -430,6 +416,7 @@ export function BillingPlanComparisonTable({
               >
                 <div className={styles.cellLabel}>
                   {t('module.billing.package.table.studentsRowLabel')}
+                  <span className='ml-1 font-medium'>{ROW_ENUM_LEARNER}</span>
                 </div>
                 <div className={styles.cellValue}>
                   {col.studentLabel || emptyValue}
@@ -445,30 +432,10 @@ export function BillingPlanComparisonTable({
               >
                 <div className={styles.cellLabel}>
                   {t('module.billing.package.table.validityRowLabel')}
+                  <span className='ml-1 font-medium'>{ROW_ENUM_VALIDITY}</span>
                 </div>
                 <div className={styles.cellValue}>
-                  <TooltipProvider delayDuration={0}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span
-                          className={styles.validityHint}
-                          tabIndex={col.validityTooltip ? 0 : -1}
-                        >
-                          {col.validityShort || emptyValue}
-                          {col.validityTooltip ? (
-                            <InformationCircleIcon
-                              className={styles.validityIcon}
-                            />
-                          ) : null}
-                        </span>
-                      </TooltipTrigger>
-                      {col.validityTooltip ? (
-                        <TooltipContent className={styles.validityTooltipBody}>
-                          {col.validityTooltip}
-                        </TooltipContent>
-                      ) : null}
-                    </Tooltip>
-                  </TooltipProvider>
+                  <span>{col.validityShort || emptyValue}</span>
                 </div>
               </td>
             ))}

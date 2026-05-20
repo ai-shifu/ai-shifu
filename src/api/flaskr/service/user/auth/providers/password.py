@@ -23,6 +23,7 @@ from flaskr.service.user.repository import (
     load_user_aggregate_by_identifier,
 )
 from flaskr.service.user.password_utils import verify_password
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.utils import generate_token
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
@@ -35,7 +36,12 @@ class PasswordAuthProvider(AuthProvider):
     supports_challenge = False
 
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
-        identifier = request.identifier.strip()
+        raw_identifier = request.identifier.strip()
+        identifier = (
+            raw_identifier.lower()
+            if "@" in raw_identifier
+            else normalize_phone_identifier(raw_identifier)
+        )
         password = request.code  # reuse code field for password
 
         if not identifier or not password:

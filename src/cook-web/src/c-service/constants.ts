@@ -1,10 +1,6 @@
-export const languages = [
-  {
-    value: 'zh-CN',
-    label: '中文',
-  },
-  {
-    value: 'en-US',
-    label: 'English',
-  },
-];
+import { localeEntries } from '@/lib/i18n-locales';
+
+export const languages = localeEntries.map(([value, { label }]) => ({
+  value,
+  label,
+}));

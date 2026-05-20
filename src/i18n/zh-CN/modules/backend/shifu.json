@@ -1,6 +1,10 @@
 {
   "__namespace__": "server.shifu",
   "__flat__": {
+    "copyCourseDemoNotAllowed": "内置引导课程不支持复制",
+    "copyCourseDraftNotFound": "当前课程缺少可复制的最新草稿",
+    "copyCourseTitleFallback": "课程",
+    "copyCourseTitleSuffix": "-副本",
     "defaultChapterName": "未命名章",
     "defaultLessonName": "未命名节",
     "draftConflict": "课程内容已被其他用户更新",

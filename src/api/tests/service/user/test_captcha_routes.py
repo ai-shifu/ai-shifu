@@ -67,6 +67,27 @@ def test_captcha_verify_rejects_wrong_code(test_client, app):
     assert body["code"] == 1009
 
 
+def test_captcha_verify_localizes_wrong_code_message(test_client, app):
+    captcha = _get_captcha(test_client, app)
+
+    response = test_client.post(
+        "/api/user/captcha/verify",
+        data=json.dumps(
+            {
+                "captcha_id": captcha["captcha_id"],
+                "captcha_code": "9999",
+                "language": "zh-CN",
+            }
+        ),
+        content_type="application/json",
+    )
+    body = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert body["code"] == 1009
+    assert body["message"] == "图形验证码错误"
+
+
 def test_captcha_verify_deletes_after_attempt_limit(test_client, app):
     original_attempts = app.config.get("CAPTCHA_MAX_VERIFY_ATTEMPTS")
     app.config["CAPTCHA_MAX_VERIFY_ATTEMPTS"] = 1
@@ -107,6 +128,18 @@ def test_send_sms_code_requires_captcha_ticket(test_client, app):
 
     assert response.status_code == 200
     assert body["code"] == 1009
+
+
+def test_send_sms_code_localizes_missing_captcha_ticket_message(test_client, app):
+    response, body = _post_json(
+        test_client,
+        "/api/user/send_sms_code",
+        {"mobile": "13800138000", "language": "zh-CN"},
+    )
+
+    assert response.status_code == 200
+    assert body["code"] == 1009
+    assert body["message"] == "图形验证码错误"
 
 
 def test_send_sms_code_consumes_ticket_once(test_client, app, monkeypatch):
@@ -163,3 +196,33 @@ def test_console_send_sms_code_does_not_require_captcha_ticket(
     assert response.status_code == 200
     assert body["code"] == 0
     assert body["data"]["expire_in"] > 0
+
+
+def test_console_send_sms_code_normalizes_cn_prefix(test_client, app, monkeypatch):
+    import flaskr.service.user.utils as user_utils
+    from flaskr.service.user.models import UserVerifyCode
+
+    captured = []
+    monkeypatch.setattr(
+        user_utils,
+        "send_sms_code_ali",
+        lambda _app, _mobile, _code: captured.append(_mobile) or True,
+    )
+
+    response, body = _post_json(
+        test_client,
+        "/api/user/console_send_sms_code",
+        {"mobile": "+8613800138003"},
+    )
+
+    assert response.status_code == 200
+    assert body["code"] == 0
+    assert captured == ["13800138003"]
+
+    with app.app_context():
+        record = (
+            UserVerifyCode.query.filter_by(phone="13800138003")
+            .order_by(UserVerifyCode.id.desc())
+            .first()
+        )
+        assert record is not None

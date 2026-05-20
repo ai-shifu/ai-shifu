@@ -96,7 +96,7 @@ export function AdminBillingPageClient({
 
   return (
     <div
-      className='h-full min-h-0 overflow-hidden overscroll-none bg-stone-50 p-0'
+      className='h-full min-h-0 overflow-hidden overscroll-none p-0'
       data-testid='admin-billing-page'
     >
       <div className='flex h-full min-h-0 flex-col px-1 pb-6'>
@@ -107,12 +107,18 @@ export function AdminBillingPageClient({
         >
           <TabsList
             data-testid='admin-billing-tabs'
-            className='shrink-0'
+            className='h-9 shrink-0 self-center rounded-md bg-muted/40'
           >
-            <TabsTrigger value='packages'>
+            <TabsTrigger
+              value='packages'
+              className='rounded-md'
+            >
               {t('module.billing.page.tabs.plans')}
             </TabsTrigger>
-            <TabsTrigger value='details'>
+            <TabsTrigger
+              value='details'
+              className='rounded-md'
+            >
               {t('module.billing.page.tabs.ledger')}
             </TabsTrigger>
           </TabsList>

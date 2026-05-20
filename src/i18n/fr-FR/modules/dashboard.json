@@ -1,0 +1,75 @@
+{
+  "__namespace__": "module.dashboard",
+  "detail": {
+    "basicInfo": {
+      "chapterCount": "Nombre de chapitres",
+      "courseName": "Nom du cours",
+      "createdAt": "Créé le",
+      "learnerCount": "Nombre d’apprenants",
+      "title": "Informations de base"
+    },
+    "charts": {
+      "chapterProgress": "Distribution de la progression par chapitre",
+      "learningTrend": "Tendance de l’activité d’apprentissage",
+      "placeholder": "Les graphiques arrivent bientôt",
+      "questionsByChapter": "Questions de suivi par chapitre",
+      "questionsByTime": "Questions de suivi par heure",
+      "title": "Graphiques"
+    },
+    "courseIdLabel": "ID du cours",
+    "learners": {
+      "columns": {
+        "lastActiveAt": "Dernière activité",
+        "name": "Apprenant",
+        "progress": "Progression",
+        "questions": "Total des questions"
+      },
+      "empty": "La liste des apprenants arrive bientôt",
+      "title": "Liste des apprenants"
+    },
+    "metrics": {
+      "activeLearnersLast7Days": "Apprenants actifs au cours des 7 derniers jours",
+      "avgLearningDuration": "Durée moyenne d’apprentissage",
+      "avgQuestionsPerLearner": "Nombre moyen de questions par apprenant",
+      "completedLearners": "Apprenants ayant terminé",
+      "completionRate": "Taux d’achèvement",
+      "orderAmount": "Montant de commande",
+      "orderCount": "Nombre de commandes",
+      "title": "Indicateurs clés",
+      "totalQuestions": "Total des questions de suivi"
+    },
+    "subtitle": "Les informations de base du cours et les indicateurs clés utilisent désormais les données en direct. Les graphiques et la liste des apprenants sont encore en construction.",
+    "title": "Détail du cours"
+  },
+  "entry": {
+    "kpi": {
+      "courses": "Cours",
+      "learners": "Total apprenants",
+      "orderAmount": "Montant total des commandes",
+      "orders": "Total des commandes"
+    },
+    "table": {
+      "course": "Cours",
+      "empty": "Aucun cours",
+      "lastActive": "Dernière activité",
+      "learners": "Apprenants",
+      "orderAmount": "Montant de commande",
+      "orders": "Commandes",
+      "reset": "Réinitialiser",
+      "scopeNote": "Périmètre : seules les données des cours que vous avez créés et possédez sont incluses. Les cours collaboratifs sont exclus.",
+      "search": "Rechercher",
+      "searchPlaceholder": "Recherche par nom ou ID de cours",
+      "title": "Liste des cours",
+      "totalCount": "Total : {count}"
+    }
+  },
+  "filters": {
+    "dateRangePlaceholder": "Sélectionner une plage de dates",
+    "reset": "Réinitialiser"
+  },
+  "pagination": {
+    "next": "Suivant",
+    "prev": "Précédent"
+  },
+  "title": "Tableau de bord"
+}

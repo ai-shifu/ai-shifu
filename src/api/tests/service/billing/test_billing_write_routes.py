@@ -18,6 +18,7 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_BUCKET_STATUS_EXPIRED,
     BILLING_ORDER_TYPE_TOPUP,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_REFUND,
@@ -58,7 +59,7 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.provider_state import (
     apply_billing_subscription_provider_update,
 )
-from flaskr.service.billing.queries import calculate_billing_cycle_end
+from flaskr.service.billing.queries import calculate_self_managed_billing_cycle_end
 import flaskr.service.billing.subscriptions as billing_subscriptions_module
 from flaskr.service.billing.subscriptions import (
     grant_paid_order_credits,
@@ -923,11 +924,27 @@ class TestBillingWriteRoutes:
             assert bucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
             assert subscription.current_period_start_at == order.paid_at
             assert bucket.effective_from == order.paid_at
-            assert subscription.current_period_end_at == calculate_billing_cycle_end(
-                product,
-                cycle_start_at=order.paid_at,
+            assert (
+                subscription.current_period_end_at
+                == calculate_self_managed_billing_cycle_end(
+                    product,
+                    cycle_start_at=order.paid_at,
+                )
             )
             assert bucket.effective_to == subscription.current_period_end_at
+            ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=bill_order_bid,
+            ).one()
+            assert ledger.expires_at == subscription.current_period_end_at
+            assert subscription.current_period_end_at == datetime(
+                order.paid_at.year,
+                order.paid_at.month,
+                order.paid_at.day,
+                23,
+                59,
+                59,
+            ) + timedelta(days=29)
             assert raw_order.status == 1
             assert raw_order.charge_id == "ch_billing_test"
             assert (
@@ -2073,7 +2090,7 @@ class TestBillingWriteRoutes:
         app = billing_write_client["app"]
         current_cycle_start = datetime(2026, 4, 1, 0, 0, 0)
         renewal_cycle_start = datetime(2026, 5, 1, 0, 0, 0)
-        renewal_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+        renewal_cycle_end = datetime(2026, 5, 30, 23, 59, 59)
 
         class FrozenDateTime(datetime):
             @classmethod
@@ -2207,7 +2224,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         app = billing_write_client["app"]
         renewal_cycle_start = datetime(2026, 5, 1, 0, 0, 0)
-        renewal_cycle_end = datetime(2026, 6, 1, 0, 0, 0)
+        renewal_cycle_end = datetime(2026, 5, 30, 23, 59, 59)
         paid_at = datetime(2026, 6, 5, 10, 0, 0)
 
         with app.app_context():
@@ -2267,15 +2284,17 @@ class TestBillingWriteRoutes:
 
             assert granted is True
             assert bucket.effective_from == paid_at
-            assert bucket.effective_to == datetime(2026, 7, 5, 10, 0, 0)
+            assert bucket.effective_to == datetime(2026, 7, 4, 23, 59, 59)
             assert order.metadata_json["applied_cycle_start_at"] == paid_at.isoformat()
             assert (
                 order.metadata_json["applied_cycle_end_at"]
-                == datetime(2026, 7, 5, 10, 0, 0).isoformat()
+                == datetime(2026, 7, 4, 23, 59, 59).isoformat()
             )
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.current_period_start_at == paid_at
-            assert subscription.current_period_end_at == datetime(2026, 7, 5, 10, 0, 0)
+            assert subscription.current_period_end_at == datetime(
+                2026, 7, 4, 23, 59, 59
+            )
 
     def test_existing_subscription_grant_realigns_future_dated_cycle_on_replay(
         self, billing_write_client
@@ -2346,13 +2365,270 @@ class TestBillingWriteRoutes:
             assert initial_grant is True
             assert replay_grant is False
             assert bucket.effective_from == paid_at
-            assert bucket.effective_to == calculate_billing_cycle_end(
+            assert bucket.effective_to == calculate_self_managed_billing_cycle_end(
                 product,
                 cycle_start_at=paid_at,
             )
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.current_period_start_at == bucket.effective_from
             assert subscription.current_period_end_at == bucket.effective_to
+
+    def test_paid_subscription_start_reactivates_reused_expired_bucket(
+        self, billing_write_client
+    ) -> None:
+        app = billing_write_client["app"]
+        paid_at = datetime(2026, 5, 11, 14, 11, 8)
+        expired_at = datetime(2026, 5, 5, 19, 22, 1)
+
+        with app.app_context():
+            product = BillingProduct.query.filter_by(
+                product_bid="bill-product-plan-monthly"
+            ).one()
+            wallet = CreditWallet(
+                wallet_bid="wallet-reactivate-expired",
+                creator_bid="creator-1",
+                available_credits=Decimal("0"),
+                reserved_credits=Decimal("0"),
+                lifetime_granted_credits=Decimal("1000.0000000000"),
+                lifetime_consumed_credits=Decimal("9.8500000000"),
+                last_settled_usage_id=0,
+                version=0,
+                created_at=expired_at,
+                updated_at=expired_at,
+            )
+            subscription = BillingSubscription(
+                subscription_bid="sub-reactivate-expired",
+                creator_bid="creator-1",
+                product_bid="bill-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+                billing_provider="pingxx",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=None,
+                current_period_end_at=None,
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+                created_at=paid_at,
+                updated_at=paid_at,
+            )
+            expired_bucket = CreditWalletBucket(
+                wallet_bucket_bid="bucket-reactivate-expired",
+                wallet_bid=wallet.wallet_bid,
+                creator_bid="creator-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid="bill-trial-expired-1",
+                priority=20,
+                original_credits=Decimal("1000.0000000000"),
+                available_credits=Decimal("0"),
+                reserved_credits=Decimal("0"),
+                consumed_credits=Decimal("9.8500000000"),
+                expired_credits=Decimal("990.1500000000"),
+                effective_from=datetime(2026, 4, 20, 19, 22, 1),
+                effective_to=expired_at,
+                status=CREDIT_BUCKET_STATUS_EXPIRED,
+                metadata_json={
+                    "bill_order_bid": "bill-trial-expired-1",
+                    "subscription_bid": "sub-trial-expired",
+                    "product_bid": BILLING_TRIAL_PRODUCT_BID,
+                    "payment_provider": "manual",
+                },
+                created_at=datetime(2026, 4, 20, 19, 22, 1),
+                updated_at=expired_at,
+            )
+            order = BillingOrder(
+                bill_order_bid="bill-reactivate-expired-1",
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-reactivate-expired",
+                currency="CNY",
+                payable_amount=990,
+                paid_amount=990,
+                payment_provider="pingxx",
+                channel="wx_pub_qr",
+                provider_reference_id="ch_reactivate_expired_1",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=paid_at,
+                metadata_json={},
+            )
+            dao.db.session.add(wallet)
+            dao.db.session.add(subscription)
+            dao.db.session.add(expired_bucket)
+            dao.db.session.add(order)
+            dao.db.session.flush()
+
+            granted = grant_paid_order_credits(app, order)
+            dao.db.session.commit()
+
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            bucket = CreditWalletBucket.query.filter_by(
+                wallet_bucket_bid="bucket-reactivate-expired"
+            ).one()
+            grant_entry = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid="bill-reactivate-expired-1",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            ).one()
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-reactivate-expired"
+            ).one()
+
+            assert granted is True
+            assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+            assert bucket.source_bid == "bill-reactivate-expired-1"
+            assert bucket.available_credits == Decimal("5.0000000000")
+            assert bucket.effective_from == paid_at
+            assert bucket.effective_to == calculate_self_managed_billing_cycle_end(
+                product,
+                cycle_start_at=paid_at,
+            )
+            assert wallet.available_credits == Decimal("5.0000000000")
+            assert grant_entry.wallet_bucket_bid == bucket.wallet_bucket_bid
+            assert grant_entry.amount == Decimal("5.0000000000")
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+
+    def test_paid_subscription_replay_repairs_existing_expired_bucket_status(
+        self, billing_write_client
+    ) -> None:
+        app = billing_write_client["app"]
+        paid_at = datetime(2026, 5, 11, 14, 11, 8)
+        expired_at = datetime(2026, 5, 5, 19, 22, 1)
+
+        with app.app_context():
+            product = BillingProduct.query.filter_by(
+                product_bid="bill-product-plan-monthly"
+            ).one()
+            cycle_end = calculate_self_managed_billing_cycle_end(
+                product,
+                cycle_start_at=paid_at,
+            )
+            wallet = CreditWallet(
+                wallet_bid="wallet-repair-existing-expired",
+                creator_bid="creator-1",
+                available_credits=Decimal("50.0000000000"),
+                reserved_credits=Decimal("0"),
+                lifetime_granted_credits=Decimal("1050.0000000000"),
+                lifetime_consumed_credits=Decimal("9.8500000000"),
+                last_settled_usage_id=0,
+                version=0,
+                created_at=expired_at,
+                updated_at=paid_at,
+            )
+            subscription = BillingSubscription(
+                subscription_bid="sub-repair-existing-expired",
+                creator_bid="creator-1",
+                product_bid="bill-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+                billing_provider="pingxx",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=None,
+                current_period_end_at=None,
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+                created_at=paid_at,
+                updated_at=paid_at,
+            )
+            expired_bucket = CreditWalletBucket(
+                wallet_bucket_bid="bucket-repair-existing-expired",
+                wallet_bid=wallet.wallet_bid,
+                creator_bid="creator-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid="bill-repair-existing-expired-1",
+                priority=20,
+                original_credits=Decimal("1050.0000000000"),
+                available_credits=Decimal("50.0000000000"),
+                reserved_credits=Decimal("0"),
+                consumed_credits=Decimal("9.8500000000"),
+                expired_credits=Decimal("990.1500000000"),
+                effective_from=paid_at,
+                effective_to=cycle_end,
+                status=CREDIT_BUCKET_STATUS_EXPIRED,
+                metadata_json={
+                    "bill_order_bid": "bill-repair-existing-expired-1",
+                    "subscription_bid": "sub-repair-existing-expired",
+                    "product_bid": "bill-product-plan-monthly",
+                    "payment_provider": "pingxx",
+                },
+                created_at=datetime(2026, 4, 20, 19, 22, 1),
+                updated_at=paid_at,
+            )
+            order = BillingOrder(
+                bill_order_bid="bill-repair-existing-expired-1",
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-repair-existing-expired",
+                currency="CNY",
+                payable_amount=990,
+                paid_amount=990,
+                payment_provider="pingxx",
+                channel="wx_pub_qr",
+                provider_reference_id="ch_repair_existing_expired_1",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=paid_at,
+                metadata_json={},
+            )
+            grant_entry = CreditLedgerEntry(
+                ledger_bid="ledger-repair-existing-expired",
+                creator_bid="creator-1",
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=expired_bucket.wallet_bucket_bid,
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid=order.bill_order_bid,
+                idempotency_key=f"grant:{order.bill_order_bid}",
+                amount=Decimal("50.0000000000"),
+                balance_after=Decimal("50.0000000000"),
+                expires_at=cycle_end,
+                consumable_from=paid_at,
+                metadata_json={
+                    "bill_order_bid": order.bill_order_bid,
+                    "subscription_bid": subscription.subscription_bid,
+                    "product_bid": order.product_bid,
+                    "payment_provider": "pingxx",
+                    "grant_reason": "subscription",
+                    "bucket_credit_state": "available",
+                },
+            )
+            dao.db.session.add(wallet)
+            dao.db.session.add(subscription)
+            dao.db.session.add(expired_bucket)
+            dao.db.session.add(order)
+            dao.db.session.add(grant_entry)
+            dao.db.session.flush()
+
+            granted = grant_paid_order_credits(app, order)
+            dao.db.session.commit()
+
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            bucket = CreditWalletBucket.query.filter_by(
+                wallet_bucket_bid="bucket-repair-existing-expired"
+            ).one()
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-repair-existing-expired"
+            ).one()
+
+            assert granted is False
+            assert (
+                CreditLedgerEntry.query.filter_by(
+                    creator_bid="creator-1",
+                    source_bid="bill-repair-existing-expired-1",
+                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                ).count()
+                == 1
+            )
+            assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
+            assert bucket.available_credits == Decimal("50.0000000000")
+            assert bucket.effective_from == paid_at
+            assert bucket.effective_to == cycle_end
+            assert wallet.available_credits == Decimal("50.0000000000")
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+            assert subscription.current_period_end_at == cycle_end
 
     def test_refund_paid_stripe_order_marks_order_refunded(
         self, billing_write_client

@@ -102,10 +102,15 @@ const api = {
   getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',
   getAdminOrderShifus: 'GET /order/admin/orders/shifus',
   importActivationOrder: 'POST /order/admin/orders/import-activation',
+  getAdminOperationUsersOverview: 'GET /shifu/admin/operations/users/overview',
   getAdminOperationUsers: 'GET /shifu/admin/operations/users',
+  getAdminOperationOrdersOverview:
+    'GET /shifu/admin/operations/orders/overview',
   getAdminOperationOrders: 'GET /shifu/admin/operations/orders',
   getAdminOperationOrderDetail:
     'GET /shifu/admin/operations/orders/{order_bid}/detail',
+  getAdminOperationCreditOrdersOverview:
+    'GET /shifu/admin/operations/orders/credits/overview',
   getAdminOperationCreditOrders: 'GET /shifu/admin/operations/orders/credits',
   getAdminOperationCreditOrderDetail:
     'GET /shifu/admin/operations/orders/credits/{bill_order_bid}/detail',
@@ -139,8 +144,14 @@ const api = {
     'GET /shifu/admin/operations/users/{user_bid}/detail',
   getAdminOperationUserCredits:
     'GET /shifu/admin/operations/users/{user_bid}/credits',
+  getAdminOperationUserGrantBootstrap:
+    'GET /shifu/admin/operations/users/{user_bid}/credit-grant/bootstrap',
   grantAdminOperationUserCredits:
     'POST /shifu/admin/operations/users/{user_bid}/credits/grant',
+  grantAdminOperationUserPackage:
+    'POST /shifu/admin/operations/users/{user_bid}/packages/grant',
+  getAdminOperationCoursesOverview:
+    'GET /shifu/admin/operations/courses/overview',
   getAdminOperationCourses: 'GET /shifu/admin/operations/courses',
   getAdminOperationCoursePrompt:
     'GET /shifu/admin/operations/courses/{shifu_bid}/prompt',
@@ -148,6 +159,8 @@ const api = {
     'GET /shifu/admin/operations/courses/{shifu_bid}/detail',
   getAdminOperationCourseUsers:
     'GET /shifu/admin/operations/courses/{shifu_bid}/users',
+  getAdminOperationCourseCreditUsages:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/credit-usages',
   getAdminOperationCourseRatings:
     'GET /shifu/admin/operations/courses/{shifu_bid}/ratings',
   getAdminOperationCourseFollowUps:
@@ -156,6 +169,8 @@ const api = {
     'GET /shifu/admin/operations/courses/{shifu_bid}/follow-ups/{generated_block_bid}/detail',
   getAdminOperationCourseChapterDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/chapters/{outline_item_bid}/detail',
+  copyAdminOperationCourse:
+    'POST /shifu/admin/operations/courses/{shifu_bid}/copy',
   transferAdminOperationCourseCreator:
     'POST /shifu/admin/operations/courses/{shifu_bid}/transfer-creator',
 

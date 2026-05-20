@@ -124,7 +124,7 @@
   "permissionLabel": "Permission",
   "permissionLimit": "Up to {count} shared users are allowed",
   "permissionLoading": "Loading...",
-  "permissionManage": "Manage",
+  "permissionManage": "Shared permissions",
   "permissionOwnerNotAllowed": "You can't grant permissions to the course creator",
   "permissionPhoneInvalid": "Please enter valid phone numbers: {values}",
   "permissionPhoneLabel": "Phone numbers",

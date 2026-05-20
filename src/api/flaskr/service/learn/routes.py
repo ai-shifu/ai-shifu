@@ -73,6 +73,13 @@ def _is_generator_close_error(exc: RuntimeError) -> bool:
     return str(exc) == "generator ignored GeneratorExit"
 
 
+def _release_db_session(app: Flask, *, source: str) -> None:
+    try:
+        db.session.remove()
+    except Exception:
+        app.logger.warning("%s db session cleanup failed", source, exc_info=True)
+
+
 def _stream_sse_response(
     app: Flask,
     *,
@@ -96,7 +103,10 @@ def _stream_sse_response(
             yield _to_sse_data_line(error_event_factory(exc))
             if terminal_event_factory is not None:
                 yield _to_sse_data_line(terminal_event_factory())
+        finally:
+            _release_db_session(app, source="learn stream_sse_response")
 
+    _release_db_session(app, source="learn stream_sse_response")
     return Response(
         stream_with_context(event_stream()),
         headers={"Cache-Control": "no-cache"},
@@ -126,7 +136,10 @@ def _stream_passthrough_response(
         except Exception:
             app.logger.error(error_log, exc_info=True)
             raise
+        finally:
+            _release_db_session(app, source="learn stream_passthrough_response")
 
+    _release_db_session(app, source="learn stream_passthrough_response")
     return Response(
         stream_with_context(event_stream()),
         headers={"Cache-Control": "no-cache"},

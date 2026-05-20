@@ -26,6 +26,7 @@ import {
 import api from '@/api';
 import { debounce } from 'lodash';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
+import { normalizeModelOptions } from './modelOptions';
 import {
   createContext,
   ReactElement,
@@ -1458,37 +1459,6 @@ export const ShifuProvider = ({
       blockProperties,
       currentShifu?.bid || '',
     );
-  };
-
-  const normalizeModelOptions = (list: any): ModelOption[] => {
-    if (!Array.isArray(list)) return [];
-    const seen = new Set<string>();
-    const options: ModelOption[] = [];
-
-    list.forEach(item => {
-      if (typeof item === 'string') {
-        const value = item.trim();
-        if (value && !seen.has(value)) {
-          seen.add(value);
-          options.push({ value, label: value });
-        }
-        return;
-      }
-
-      if (item && typeof item === 'object') {
-        const value = String(item.model || item.value || '').trim();
-        if (!value || seen.has(value)) {
-          return;
-        }
-        const labelSource =
-          item.display_name || item.displayName || item.label || value;
-        const label = String(labelSource || value).trim() || value;
-        seen.add(value);
-        options.push({ value, label });
-      }
-    });
-
-    return options;
   };
 
   const loadModels = async () => {

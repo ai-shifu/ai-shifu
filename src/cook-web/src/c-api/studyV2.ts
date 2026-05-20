@@ -81,6 +81,7 @@ export const SSE_OUTPUT_TYPE = {
   // Audio types for TTS
   AUDIO_SEGMENT: 'audio_segment',
   AUDIO_COMPLETE: 'audio_complete',
+  AUDIO_BACKFILL_READY: 'audio_backfill_ready',
   NEW_SLIDE: 'new_slide',
 } as const;
 export type SSE_OUTPUT_TYPE =
@@ -136,6 +137,7 @@ export interface StudyRecordItem {
   user_input?: string;
   payload?: StudyRecordPayload;
   isHistory?: boolean;
+  is_final?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
 }
@@ -198,9 +200,12 @@ export interface AudioSegmentData {
   duration_ms: number;
   is_final: boolean;
   position?: number;
+  stream_element_number?: number;
+  stream_element_type?: string;
   element_id?: string;
   slide_id?: string;
-  av_contract?: Record<string, any> | null;
+  av_contract?: Record<string, unknown> | null;
+  subtitle_cues?: SubtitleCueData[];
 }
 
 export interface AudioCompleteData {
@@ -208,8 +213,11 @@ export interface AudioCompleteData {
   audio_bid: string;
   duration_ms: number;
   position?: number;
+  stream_element_number?: number;
+  stream_element_type?: string;
   slide_id?: string;
-  av_contract?: Record<string, any> | null;
+  av_contract?: Record<string, unknown> | null;
+  subtitle_cues?: SubtitleCueData[];
 }
 
 export interface ListenSlideData {
@@ -250,12 +258,14 @@ const dispatchSseBusinessError = (
   source: { dispatchEvent: (event: Event) => void },
   error: { message: string; code?: number },
 ) => {
-  const event = new CustomEvent('error');
-  Object.assign(event, {
+  const event = new CustomEvent('error', {
     detail: error,
-    data: error.message,
-    responseCode: error.code,
-  });
+  }) as CustomEvent<{ message: string; code?: number }> & {
+    data?: string;
+    responseCode?: number;
+  };
+  event.data = error.message;
+  event.responseCode = error.code;
   source.dispatchEvent(event);
 };
 

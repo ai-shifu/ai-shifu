@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useBillingOverview } from '@/hooks/useBillingData';
+import { CONTACT_RAIL_I18N_KEY } from '@/components/contact/ContactSideRail';
 import { buildAdminMenuItems } from './admin-menu';
 import AdminLayout from './layout';
 import { SidebarContent } from './SidebarContent';
@@ -51,6 +52,21 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/components/contact/ContactSideRail', () => ({
+  __esModule: true,
+  CONTACT_RAIL_I18N_KEY: 'component.navigation.contactUs',
+  ContactSideRail: ({ label }: { label?: string }) =>
+    mockEnvState.contactUsUrl ? (
+      <a
+        href={mockEnvState.contactUsUrl}
+        rel='noopener noreferrer'
+        target='_blank'
+      >
+        {label ?? 'component.navigation.contactUs'}
+      </a>
+    ) : null,
+}));
+
 jest.mock('@/c-common/hooks/useDisclosure', () => ({
   useDisclosure: () => ({
     open: false,
@@ -59,27 +75,36 @@ jest.mock('@/c-common/hooks/useDisclosure', () => ({
   }),
 }));
 
-jest.mock('@/config/environment', () => ({
-  environment: {
-    logoWideUrl: '/logo.png',
-  },
-}));
+const mockEnvState = {
+  logoWideUrl: '/logo.png',
+  logoHorizontal: '',
+  logoSquareUrl: '',
+  logoVertical: '',
+  homeUrl: 'https://creator.example.com/home',
+  contactUsUrl: 'https://ai-shifu.cn/contact.html',
+  billingEnabled: 'true',
+};
 
 jest.mock('@/c-store', () => ({
   __esModule: true,
   useEnvStore: (
-    selector:
-      | ((state: { logoWideUrl: string; billingEnabled: string }) => unknown)
-      | undefined,
-  ) =>
-    selector?.({ logoWideUrl: '/logo.png', billingEnabled: 'true' }) ??
-    '/logo.png',
+    selector: ((state: typeof mockEnvState) => unknown) | undefined,
+  ) => selector?.(mockEnvState) ?? mockEnvState.logoWideUrl,
+}));
+
+jest.mock('@/c-store/envStore', () => ({
+  __esModule: true,
+  useEnvStore: (
+    selector: ((state: typeof mockEnvState) => unknown) | undefined,
+  ) => selector?.(mockEnvState) ?? mockEnvState.logoWideUrl,
 }));
 
 const mockUserStoreState = {
   isInitialized: true,
   isGuest: false,
+  isLoggedIn: true,
   userInfo: {
+    user_id: 'user-1',
     is_operator: false,
   },
 };
@@ -135,7 +160,6 @@ describe('SidebarContent', () => {
     onFooterClick: jest.fn(),
     onUserMenuClose: jest.fn(),
     userMenuClassName: 'user-menu',
-    logoSrc: '/logo.png',
     billingOverviewLoading: false,
     billingOverview: undefined,
   };
@@ -332,11 +356,25 @@ describe('AdminLayout', () => {
   });
 
   beforeEach(() => {
+    mockEnvState.logoWideUrl = '/logo.png';
+    mockEnvState.logoHorizontal = '';
+    mockEnvState.logoSquareUrl = '';
+    mockEnvState.logoVertical = '';
+    mockEnvState.homeUrl = 'https://creator.example.com/home';
+    mockEnvState.contactUsUrl = 'https://ai-shifu.cn/contact.html';
+    mockEnvState.billingEnabled = 'true';
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = false;
+    mockUserStoreState.isLoggedIn = true;
     mockUserStoreState.userInfo = {
+      user_id: 'user-1',
       is_operator: false,
     };
+    Object.assign(window.location, {
+      href: 'http://localhost:3000',
+      pathname: '/',
+      search: '',
+    });
     mockMutateBillingOverview.mockReset();
     mockUseBillingOverview.mockReturnValue({
       data: buildBillingOverview({}),
@@ -349,6 +387,7 @@ describe('AdminLayout', () => {
   test('shows sidebar loading placeholder before user state is ready', () => {
     mockUserStoreState.isInitialized = false;
     mockUserStoreState.userInfo = null as unknown as {
+      user_id: string;
       is_operator: false;
     };
 
@@ -367,7 +406,9 @@ describe('AdminLayout', () => {
   test('keeps sidebar in loading state for guests before redirect completes', () => {
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = true;
+    mockUserStoreState.isLoggedIn = false;
     mockUserStoreState.userInfo = null as unknown as {
+      user_id: string;
       is_operator: false;
     };
 
@@ -383,10 +424,67 @@ describe('AdminLayout', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('keeps sidebar loading when user info is missing after initialization', () => {
+    mockUserStoreState.isInitialized = true;
+    mockUserStoreState.isGuest = false;
+    mockUserStoreState.isLoggedIn = true;
+    mockUserStoreState.userInfo = null as unknown as {
+      user_id: string;
+      is_operator: false;
+    };
+
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    expect(screen.getByLabelText('admin-sidebar-loading')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'common.core.shifu' }),
+    ).not.toBeInTheDocument();
+    expect(window.location.href).toBe('http://localhost:3000');
+  });
+
+  test('renders the shared contact side rail for admin routes', () => {
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    const contactLink = screen.getByRole('link', {
+      name: CONTACT_RAIL_I18N_KEY,
+    });
+
+    expect(contactLink).toHaveAttribute(
+      'href',
+      'https://ai-shifu.cn/contact.html',
+    );
+    expect(contactLink).toHaveAttribute('target', '_blank');
+    expect(contactLink).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  test('does not render the shared contact side rail when contact url is empty', () => {
+    mockEnvState.contactUsUrl = '';
+
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    expect(
+      screen.queryByRole('link', { name: CONTACT_RAIL_I18N_KEY }),
+    ).not.toBeInTheDocument();
+  });
+
   test('redirects guests to login from admin routes handled only by the layout', async () => {
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = true;
+    mockUserStoreState.isLoggedIn = false;
     mockUserStoreState.userInfo = null as unknown as {
+      user_id: string;
       is_operator: false;
     };
     Object.assign(window.location, {
@@ -408,10 +506,12 @@ describe('AdminLayout', () => {
     });
   });
 
-  test('renders sidebar once initialization completes even if user info is unavailable', () => {
+  test('keeps sidebar loading until user info resolves after initialization', () => {
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = false;
+    mockUserStoreState.isLoggedIn = true;
     mockUserStoreState.userInfo = null as unknown as {
+      user_id: string;
       is_operator: false;
     };
 
@@ -421,12 +521,27 @@ describe('AdminLayout', () => {
       </AdminLayout>,
     );
 
+    expect(screen.getByLabelText('admin-sidebar-loading')).toBeInTheDocument();
     expect(
-      screen.queryByLabelText('admin-sidebar-loading'),
+      screen.queryByRole('link', { name: 'common.core.shifu' }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'common.core.shifu' }),
-    ).toBeInTheDocument();
+  });
+
+  test('links the admin logo to the configured home URL', () => {
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    expect(screen.getAllByAltText('logo')[0].closest('a')).toHaveAttribute(
+      'href',
+      'https://creator.example.com/home',
+    );
+    expect(screen.getAllByAltText('logo')[0].closest('a')).toHaveAttribute(
+      'target',
+      '_blank',
+    );
   });
 
   test('renders the billing navigation entry and membership card with credits', () => {
@@ -449,7 +564,7 @@ describe('AdminLayout', () => {
     expect(
       screen.getByText('module.billing.sidebar.nonMemberBalanceTitle'),
     ).toBeInTheDocument();
-    expect(screen.getByText('12500')).toBeInTheDocument();
+    expect(screen.getByText('12,500')).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: 'module.billing.sidebar.usageCta',
@@ -489,7 +604,9 @@ describe('AdminLayout', () => {
       '/admin/billing?tab=packages',
     );
     expect(screen.queryByText(/0(?:\.0+)?/)).not.toBeInTheDocument();
-    expect(screen.getByText('--')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.sidebar.placeholderValue'),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: 'module.billing.sidebar.usageCta',

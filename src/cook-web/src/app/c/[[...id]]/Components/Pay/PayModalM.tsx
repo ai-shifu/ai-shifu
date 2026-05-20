@@ -453,6 +453,20 @@ export const PayModalM = ({
     onCouponCodeModalOpen();
   }, [onCouponCodeModalOpen]);
 
+  const closeCouponCodeModal = useCallback(() => {
+    setCouponCodeInput('');
+    onCouponCodeModalClose();
+  }, [onCouponCodeModalClose]);
+
+  const handleCouponCodeModalOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) {
+        closeCouponCodeModal();
+      }
+    },
+    [closeCouponCodeModal],
+  );
+
   const onStripeChannelClick = useCallback(() => {
     onPayChannelChange(PAY_CHANNEL_STRIPE);
   }, [onPayChannelChange]);
@@ -490,17 +504,16 @@ export const PayModalM = ({
       channel: resolveRequestChannel(payChannel),
       paymentChannel: resolvePaymentChannel(payChannel),
     });
-    setCouponCodeInput('');
     trackEvent('learner_coupon_apply', {
       shifu_bid: courseId,
       coupon_code: couponCodeInput,
     });
-    onCouponCodeModalClose();
+    closeCouponCodeModal();
   }, [
     applyCoupon,
+    closeCouponCodeModal,
     couponCodeInput,
     courseId,
-    onCouponCodeModalClose,
     payChannel,
     resolvePaymentChannel,
     resolveRequestChannel,
@@ -776,7 +789,10 @@ export const PayModalM = ({
       </Dialog>
 
       {couponCodeModalOpen && (
-        <Dialog open={couponCodeModalOpen}>
+        <Dialog
+          open={couponCodeModalOpen}
+          onOpenChange={handleCouponCodeModalOpenChange}
+        >
           <DialogContent className={cn('w-5/6', styles.couponCodeModal)}>
             <DialogHeader>
               <DialogTitle>{t('module.groupon.title')}</DialogTitle>
@@ -784,6 +800,7 @@ export const PayModalM = ({
             <div className={styles.couponCodeInputWrapper}>
               <SettingInputM
                 title={t('module.groupon.title')}
+                value={couponCodeInput}
                 onChange={value => setCouponCodeInput(value)}
               />
             </div>

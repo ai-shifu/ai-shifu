@@ -8,6 +8,7 @@ const mockRefresh = jest.fn();
 const mockScrollIntoView = jest.fn();
 const mockBrowserTimeZone = jest.fn(() => 'UTC');
 let currentUserBid = 'user-1';
+let mockLanguage = 'en-US';
 const translationCache = new Map<string, { t: (key: string) => string }>();
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -92,7 +93,14 @@ jest.mock('@/lib/browser-timezone', () => ({
 }));
 
 jest.mock('react-i18next', () => ({
-  useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
+  useTranslation: (namespace?: string | string[]) => ({
+    ...baseTranslation(namespace),
+    i18n: {
+      get language() {
+        return mockLanguage;
+      },
+    },
+  }),
 }));
 
 jest.mock('@/components/ui/tooltip', () => ({
@@ -173,6 +181,63 @@ jest.mock('@/components/ui/Tabs', () => {
     },
   };
 });
+
+jest.mock('@/components/ui/Select', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const SelectContext = ReactModule.createContext<{
+    value: string;
+    onValueChange: (value: string) => void;
+  }>({
+    value: '',
+    onValueChange: () => undefined,
+  });
+
+  return {
+    __esModule: true,
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange: (value: string) => void;
+    }>) => (
+      <SelectContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </SelectContext.Provider>
+    ),
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectItem: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(SelectContext);
+      return (
+        <button
+          type='button'
+          onClick={() => context.onValueChange(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+  };
+});
+
+jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
+  __esModule: true,
+  default: ({ placeholder }: { placeholder: string }) => (
+    <div>{placeholder}</div>
+  ),
+}));
 
 const mockGetAdminOperationUserDetail =
   api.getAdminOperationUserDetail as jest.Mock;
@@ -260,6 +325,7 @@ describe('AdminOperationUserDetailPage', () => {
 
   beforeEach(() => {
     currentUserBid = 'user-1';
+    mockLanguage = 'en-US';
     mockPush.mockReset();
     mockRefresh.mockReset();
     mockScrollIntoView.mockReset();
@@ -286,8 +352,15 @@ describe('AdminOperationUserDetailPage', () => {
         user_bid: 'user-1',
         page_index: 1,
         page_size: 10,
+        credit_type: '',
+        grant_source: '',
+        course_query: '',
+        usage_mode: '',
+        start_time: '',
+        end_time: '',
       });
     });
+    expect(mockGetAdminOperationUserCredits).toHaveBeenCalledTimes(1);
 
     expect(
       await screen.findByText('module.operationsUser.detail.title'),
@@ -297,6 +370,18 @@ describe('AdminOperationUserDetailPage', () => {
     expect(
       screen.getByText('module.operationsUser.roleLabels.operator'),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.userId'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.status'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.loginMethods'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.updatedAt'),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('¥88.50')).toBeInTheDocument();
     expect(screen.getAllByText('35.5').length).toBeGreaterThan(0);
     expect(screen.getByText('27.5')).toBeInTheDocument();
@@ -336,16 +421,102 @@ describe('AdminOperationUserDetailPage', () => {
     expect(pageContainer).not.toHaveClass('overflow-auto');
   });
 
-  test('renders detail timestamps in the viewer timezone when UTC crosses local day boundaries', async () => {
+  test('formats credits without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+    mockGetAdminOperationUserDetail.mockResolvedValue({
+      ...detailResponse,
+      available_credits: '10000',
+      subscription_credits: '10000',
+      topup_credits: '5000',
+    });
+    mockGetAdminOperationUserCredits.mockResolvedValue({
+      ...creditsResponse,
+      summary: {
+        ...creditsResponse.summary,
+        available_credits: '10000',
+        subscription_credits: '10000',
+        topup_credits: '5000',
+      },
+      items: [
+        {
+          ...creditsResponse.items[0],
+          amount: '5000',
+          balance_after: '10000',
+        },
+      ],
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    expect((await screen.findAllByText('10000')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('5000').length).toBeGreaterThan(0);
+    expect(screen.queryByText('10,000')).not.toBeInTheDocument();
+    expect(screen.queryByText('5,000')).not.toBeInTheDocument();
+  });
+
+  test('searches consume credit rows with course filters', async () => {
+    render(<AdminOperationUserDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserCredits).toHaveBeenCalledWith({
+        user_bid: 'user-1',
+        page_index: 1,
+        page_size: 10,
+        credit_type: '',
+        grant_source: '',
+        course_query: '',
+        usage_mode: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.typeOptions.consume',
+      }),
+    );
+
+    fireEvent.change(
+      await screen.findByPlaceholderText(
+        'module.operationsUser.detail.creditLedgerFilters.coursePlaceholder',
+      ),
+      { target: { value: 'course-42' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.usageModeOptions.ask',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.order.filters.search' }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserCredits).toHaveBeenLastCalledWith({
+        user_bid: 'user-1',
+        page_index: 1,
+        page_size: 10,
+        credit_type: 'consume',
+        grant_source: '',
+        course_query: 'course-42',
+        usage_mode: 'ask',
+        start_time: '',
+        end_time: '',
+      });
+    });
+  });
+
+  test('renders detail timestamps with operator naive formatting', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
-    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+    mockGetAdminOperationUserDetail.mockResolvedValue({
       ...detailResponse,
       last_login_at: '2026-04-15T01:30:00Z',
       last_learning_at: '2026-04-15T02:30:00Z',
       created_at: '2026-04-14T01:15:00Z',
       updated_at: '2026-04-14T03:45:00Z',
     });
-    mockGetAdminOperationUserCredits.mockResolvedValueOnce({
+    mockGetAdminOperationUserCredits.mockResolvedValue({
       ...creditsResponse,
       summary: {
         ...creditsResponse.summary,
@@ -364,18 +535,17 @@ describe('AdminOperationUserDetailPage', () => {
 
     await screen.findByText('module.operationsUser.detail.title');
 
-    expect(screen.getByText('2026-04-14 18:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-14 19:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-13 18:15:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-13 20:45:00')).toBeInTheDocument();
-    expect(screen.getAllByText('2026-04-30 18:00:00').length).toBeGreaterThan(
+    expect(screen.getByText('2026-04-15 01:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-15 02:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-14 01:15:00')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-05-01 01:00:00').length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByText('2026-04-17 18:00:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-18 01:00:00')).toBeInTheDocument();
   });
 
   test('keeps note column empty for system ledger rows without manual note', async () => {
-    mockGetAdminOperationUserCredits.mockResolvedValueOnce({
+    mockGetAdminOperationUserCredits.mockResolvedValue({
       ...creditsResponse,
       items: [
         {
@@ -458,6 +628,160 @@ describe('AdminOperationUserDetailPage', () => {
         name: 'module.operationsUser.detail.tabs.credits',
       }),
     ).toHaveAttribute('data-state', 'active');
+  });
+
+  test('activates the learning courses tab when the learning hash is present', async () => {
+    window.location.hash = '#learning-courses';
+
+    render(<AdminOperationUserDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('tab', {
+          name: 'module.operationsUser.detail.tabs.learningCourses',
+        }),
+      ).toHaveAttribute('data-state', 'active');
+    });
+  });
+
+  test('activates the created courses tab when the created hash is present', async () => {
+    window.location.hash = '#created-courses';
+
+    render(<AdminOperationUserDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('tab', {
+          name: 'module.operationsUser.detail.tabs.createdCourses',
+        }),
+      ).toHaveAttribute('data-state', 'active');
+    });
+  });
+
+  test('jumps to the learning courses tab from the overview card', async () => {
+    render(<AdminOperationUserDetailPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.table.learningCourses: 1',
+      }),
+    );
+
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.operationsUser.detail.tabs.learningCourses',
+      }),
+    ).toHaveAttribute('data-state', 'active');
+    expect(mockScrollIntoView).toHaveBeenCalled();
+  });
+
+  test('jumps to the created courses tab from the overview card', async () => {
+    render(<AdminOperationUserDetailPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.table.createdCourses: 1',
+      }),
+    );
+
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.operationsUser.detail.tabs.createdCourses',
+      }),
+    ).toHaveAttribute('data-state', 'active');
+    expect(mockScrollIntoView).toHaveBeenCalled();
+  });
+
+  test('resets the detail tab hash when switching to another user', async () => {
+    const originalReplaceState = window.history.replaceState.bind(
+      window.history,
+    );
+    const replaceStateSpy = jest
+      .spyOn(window.history, 'replaceState')
+      .mockImplementation((data, unused, url) => {
+        originalReplaceState(data, unused, url);
+        if (typeof url === 'string') {
+          window.location.hash = new URL(url, 'http://localhost').hash;
+        }
+      });
+    try {
+      const { rerender } = render(<AdminOperationUserDetailPage />);
+
+      await waitFor(() => {
+        expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
+          user_bid: 'user-1',
+        });
+      });
+
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'module.operationsUser.table.learningCourses: 1',
+        }),
+      );
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenCalled();
+        expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? '')).toContain(
+          '#learning-courses',
+        );
+      });
+
+      currentUserBid = 'user-2';
+      window.location.hash = '#learning-courses';
+      mockGetAdminOperationUserDetail.mockResolvedValue({
+        ...detailResponse,
+        user_bid: 'user-2',
+        email: 'user-2@example.com',
+      });
+      rerender(<AdminOperationUserDetailPage />);
+
+      await waitFor(() => {
+        expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
+          user_bid: 'user-2',
+        });
+      });
+
+      await waitFor(() => {
+        expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? '')).toContain(
+          '#credits',
+        );
+        expect(
+          screen.getByRole('tab', {
+            name: 'module.operationsUser.detail.tabs.credits',
+          }),
+        ).toHaveAttribute('data-state', 'active');
+      });
+    } finally {
+      replaceStateSpy.mockRestore();
+    }
+  });
+
+  test('uses course summary counts when they differ from preview list length', async () => {
+    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+      ...detailResponse,
+      learning_course_count: 12,
+      created_course_count: 8,
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.table.learningCourses: 12',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses: 8',
+      }),
+    ).toBeInTheDocument();
   });
 
   test('uses course status translations for unknown course states', async () => {

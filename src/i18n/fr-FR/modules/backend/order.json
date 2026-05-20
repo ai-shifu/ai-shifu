@@ -1,0 +1,30 @@
+{
+  "__namespace__": "server.order",
+  "__flat__": {
+    "checkout": "Paiement",
+    "courseNotPaid": "Cours non acheté, veuillez d’abord acheter le cours",
+    "emailAlreadyActivated": "L’e-mail {email} est déjà activé pour ce cours",
+    "learnStatusBranch": "Branche",
+    "learnStatusCompleted": "Terminé",
+    "learnStatusInProgress": "En apprentissage",
+    "learnStatusLocked": "Verrouillé",
+    "learnStatusNotStarted": "Prêt",
+    "learnStatusRefund": "Remboursement",
+    "learnStatusReset": "Réinitialisé",
+    "learnStatusUnavailable": "Indisponible",
+    "mobileAlreadyActivated": "Le mobile {mobile} est déjà activé pour ce cours",
+    "orderHasPaid": "La commande a déjà été payée",
+    "orderNotFound": "Commande introuvable",
+    "orderRefundError": "Échec du remboursement",
+    "orderStatusError": "Le statut de la commande n’est pas valide pour cette opération",
+    "orderStatusInit": "Non initié",
+    "orderStatusRefund": "Remboursé",
+    "orderStatusSuccess": "Réussi",
+    "orderStatusTimeout": "Expiré",
+    "orderStatusToBePaid": "À payer",
+    "payItemBasePrice": "Prix de base",
+    "payItemCoupon": "Coupon",
+    "payItemProduct": "Produit",
+    "payItemPromotion": "Promotion"
+  }
+}

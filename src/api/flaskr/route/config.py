@@ -73,12 +73,14 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 **{
                     "zh-CN": get_config("LEGAL_AGREEMENT_URL_ZH_CN", "") or "",
                     "en-US": get_config("LEGAL_AGREEMENT_URL_EN_US", "") or "",
+                    "fr-FR": get_config("LEGAL_AGREEMENT_URL_FR_FR", "") or "",
                 }
             ),
             privacy=RuntimeLocalizedUrlDTO(
                 **{
                     "zh-CN": get_config("LEGAL_PRIVACY_URL_ZH_CN", "") or "",
                     "en-US": get_config("LEGAL_PRIVACY_URL_EN_US", "") or "",
+                    "fr-FR": get_config("LEGAL_PRIVACY_URL_FR_FR", "") or "",
                 }
             ),
         )
@@ -112,6 +114,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         logo_square_url = branding.logo_square_url or get_config("LOGO_SQUARE_URL", "")
         favicon_url = branding.favicon_url or get_config("FAVICON_URL", "")
         home_url = branding.home_url or get_config("HOME_URL", "/")
+        contact_us_url = branding.contact_us_url or get_config("CONTACT_US_URL", "")
 
         config = RuntimeConfigDTO(
             courseId=get_config("DEFAULT_COURSE_ID", ""),
@@ -156,6 +159,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             defaultLoginMethod=get_config("DEFAULT_LOGIN_METHOD", "phone"),
             googleOauthRedirect=build_google_oauth_callback_url(),
             homeUrl=home_url,
+            contactUsUrl=contact_us_url,
             currencySymbol=get_config("CURRENCY_SYMBOL", "¥"),
             legalUrls=legal_urls,
             genMdfApiUrl=get_config("GEN_MDF_API_URL", ""),

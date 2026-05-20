@@ -12,7 +12,7 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    padding: 0 20px;
+    padding: 0;
     background: linear-gradient(
       180deg,
       var(--base-background, #fff) 0%,
@@ -23,6 +23,15 @@
     font-size: 14px;
     color: var(--base-muted-foreground, #737373);
     line-height: 20px;
+
+    .headerMain {
+      display: flex;
+      width: 100%;
+      min-height: 64px;
+      align-items: center;
+      padding: 0 20px;
+      box-sizing: border-box;
+    }
 
     .headerContent {
       min-width: 0;
@@ -41,14 +50,30 @@
     }
 
     .headerActions {
-      position: absolute;
-      right: 20px;
-      top: 50%;
-      transform: translateY(-50%);
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      margin-left: auto;
+      flex-shrink: 0;
     }
+  }
+
+  .previewHeader {
+    height: 104px;
+    align-items: flex-start;
+    padding: 0;
+    flex-direction: column;
+    justify-content: flex-start;
+
+    .headerMain {
+      min-height: 64px;
+    }
+  }
+
+  .previewHeaderBanner {
+    order: 0;
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .headerMobile {
@@ -200,6 +225,16 @@
     overflow-y: auto;
     padding-top: 64px;
     box-sizing: border-box;
+  }
+
+  &.previewModeDesktop {
+    .chatComponents {
+      padding-top: 104px;
+    }
+
+    .UserSettings {
+      margin-top: 104px;
+    }
   }
 
   .chatComponentsHidden {

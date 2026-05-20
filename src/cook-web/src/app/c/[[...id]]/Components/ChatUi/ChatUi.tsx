@@ -14,6 +14,7 @@ import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import CourseHeaderSummary from '../CourseHeaderSummary';
 import LearningModeSwitch from '../LearningModeSwitch';
+import PreviewHeaderBanner from '../PreviewHeaderBanner';
 
 interface ChatUiProps {
   chapterId: string;
@@ -92,6 +93,9 @@ export const ChatUi = ({
       className={cn(
         styles.ChatUi,
         frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '',
+        previewMode && frameLayout !== FRAME_LAYOUT_MOBILE
+          ? styles.previewModeDesktop
+          : '',
         isListenMode ? styles.listenMode : '',
         isListenMode && isListenPlayerVisible
           ? styles.listenModeWithPlayer
@@ -104,20 +108,30 @@ export const ChatUi = ({
     >
       {
         showHeader ? (
-          <div className={styles.header}>
-            <div className={styles.headerContent}>
-              <CourseHeaderSummary
-                courseAvatar={courseAvatar}
-                courseName={courseName}
-                className={styles.courseSummary}
-                titleClassName={styles.courseSummaryTitle}
-              />
-            </div>
-            {showModeToggle ? (
-              <div className={styles.headerActions}>
-                <LearningModeSwitch size='desktop' />
-              </div>
+          <div
+            className={cn(
+              styles.header,
+              previewMode ? styles.previewHeader : '',
+            )}
+          >
+            {previewMode ? (
+              <PreviewHeaderBanner className={styles.previewHeaderBanner} />
             ) : null}
+            <div className={styles.headerMain}>
+              <div className={styles.headerContent}>
+                <CourseHeaderSummary
+                  courseAvatar={courseAvatar}
+                  courseName={courseName}
+                  className={styles.courseSummary}
+                  titleClassName={styles.courseSummaryTitle}
+                />
+              </div>
+              {showModeToggle ? (
+                <div className={styles.headerActions}>
+                  <LearningModeSwitch size='desktop' />
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null
         // <div className={styles.headerMobile}></div>

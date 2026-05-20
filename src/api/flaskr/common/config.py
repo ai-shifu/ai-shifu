@@ -163,6 +163,12 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Cook Web logo/home redirect URL (default: /)",
         group="frontend",
     ),
+    "CONTACT_US_URL": EnvVar(
+        name="CONTACT_US_URL",
+        default="",
+        description="Cook Web floating contact CTA URL (default: empty string to hide the CTA)",
+        group="frontend",
+    ),
     "HOST_URL": EnvVar(
         name="HOST_URL",
         default="",
@@ -241,6 +247,37 @@ ENV_VARS: Dict[str, EnvVar] = {
         default=10,
         type=int,
         description="Timeout in seconds for backend Umami API requests",
+        group="analytics",
+    ),
+    "ANALYTICS_DATABASE_URI": EnvVar(
+        name="ANALYTICS_DATABASE_URI",
+        default="",
+        description=(
+            "Read-only replica DSN for creator-analytics DSL queries. "
+            "Leave empty to fall back to the primary database (logs a warning)."
+        ),
+        secret=True,
+        group="analytics",
+    ),
+    "ANALYTICS_DATABASE_POOL_SIZE": EnvVar(
+        name="ANALYTICS_DATABASE_POOL_SIZE",
+        default=5,
+        type=int,
+        description="Connection pool size for the creator-analytics read-only engine",
+        group="analytics",
+    ),
+    "ANALYTICS_QUERY_TIMEOUT_SECONDS": EnvVar(
+        name="ANALYTICS_QUERY_TIMEOUT_SECONDS",
+        default=15,
+        type=int,
+        description="Per-query timeout in seconds for creator-analytics DSL execution",
+        group="analytics",
+    ),
+    "ANALYTICS_QUERY_LIMIT_MAX": EnvVar(
+        name="ANALYTICS_QUERY_LIMIT_MAX",
+        default=1000,
+        type=int,
+        description="Upper bound for the DSL `limit` field accepted by creator-analytics",
         group="analytics",
     ),
     "DEFAULT_COURSE_ID": EnvVar(
@@ -335,6 +372,12 @@ Default: "phone".""",
         description="Service agreement URL for English (en-US) users. Leave empty to disable the link.",
         group="legal",
     ),
+    "LEGAL_AGREEMENT_URL_FR_FR": EnvVar(
+        name="LEGAL_AGREEMENT_URL_FR_FR",
+        default="",
+        description="Service agreement URL for French (fr-FR) users. Leave empty to disable the link.",
+        group="legal",
+    ),
     "LEGAL_PRIVACY_URL_ZH_CN": EnvVar(
         name="LEGAL_PRIVACY_URL_ZH_CN",
         default="",
@@ -345,6 +388,12 @@ Default: "phone".""",
         name="LEGAL_PRIVACY_URL_EN_US",
         default="",
         description="Privacy policy URL for English (en-US) users. Leave empty to disable the link.",
+        group="legal",
+    ),
+    "LEGAL_PRIVACY_URL_FR_FR": EnvVar(
+        name="LEGAL_PRIVACY_URL_FR_FR",
+        default="",
+        description="Privacy policy URL for French (fr-FR) users. Leave empty to disable the link.",
         group="legal",
     ),
     # LLM Configuration

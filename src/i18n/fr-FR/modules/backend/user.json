@@ -1,0 +1,27 @@
+{
+  "__namespace__": "server.user",
+  "__flat__": {
+    "checkCodeError": "Le captcha d'image est incorrect",
+    "checkCodeExpired": "Le captcha d'image a expiré",
+    "emailSendFailed": "Échec de l'envoi de l'e-mail",
+    "emailSendTooFrequent": "E-mails envoyés trop fréquemment",
+    "emailVerificationSubject": "AI-Shifu : Votre code de vérification",
+    "googleOAuthStateInvalid": "La connexion Google a expiré ou n'est pas valide, veuillez réessayer.",
+    "invalidCredentials": "Mot de passe incorrect",
+    "ipBanned": "Les requêtes depuis cette adresse IP sont temporairement bloquées",
+    "languageNotFound": "Langue introuvable",
+    "login": "Connexion",
+    "mailCheckError": "Erreur du code de vérification par e-mail",
+    "mailSendExpired": "Le code de vérification par e-mail a expiré",
+    "passwordAlreadySet": "Mot de passe déjà défini",
+    "passwordNeedsDigit": "Le mot de passe doit contenir au moins un chiffre",
+    "passwordNeedsLetter": "Le mot de passe doit contenir au moins une lettre",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
+    "smsCheckError": "Erreur du code de vérification SMS",
+    "smsSendExpired": "Le code de vérification SMS a expiré",
+    "smsSendTooFrequent": "SMS envoyés trop fréquemment",
+    "userNotFound": "Utilisateur introuvable",
+    "userNotLogin": "Utilisateur non connecté",
+    "userTokenExpired": "Jeton expiré"
+  }
+}

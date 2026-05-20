@@ -83,6 +83,7 @@ def build_default_runtime_billing_context(
             logo_square_url=None,
             favicon_url=None,
             home_url=None,
+            contact_us_url=None,
         ),
         domain=RuntimeBillingDomainDTO(
             request_host=normalized_host,
@@ -121,6 +122,7 @@ def _build_branding_payload(
             logo_square_url=None,
             favicon_url=None,
             home_url=None,
+            contact_us_url=None,
         )
 
     return RuntimeBillingBrandingDTO(
@@ -128,4 +130,5 @@ def _build_branding_payload(
         logo_square_url=pick("logo_square_url", "logoSquareUrl"),
         favicon_url=pick("favicon_url", "faviconUrl"),
         home_url=pick("home_url", "homeUrl"),
+        contact_us_url=pick("contact_us_url", "contactUsUrl"),
     )

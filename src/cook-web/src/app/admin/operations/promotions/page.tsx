@@ -740,53 +740,6 @@ const SearchActions = ({
   </div>
 );
 
-const PromotionEditPolicyNotice = ({
-  title,
-  partialTimeHint,
-  summary,
-  editableFieldsLabel,
-  editableFields,
-  conditionalFieldsLabel,
-  conditionalFields,
-  lockedFieldsLabel,
-  lockedFields,
-  lockedReason,
-}: {
-  title: string;
-  partialTimeHint: string;
-  summary: string;
-  editableFieldsLabel: string;
-  editableFields: string;
-  conditionalFieldsLabel?: string;
-  conditionalFields?: string;
-  lockedFieldsLabel: string;
-  lockedFields: string;
-  lockedReason: string;
-}) => (
-  <div className='rounded-lg border border-amber-200 bg-amber-50/70 p-4 md:col-span-2'>
-    <div className='space-y-2 text-sm text-amber-950'>
-      <p className='font-medium'>{title}</p>
-      <p>{partialTimeHint}</p>
-      <p>{summary}</p>
-      <p>
-        <span className='font-medium'>{editableFieldsLabel}</span>
-        {editableFields}
-      </p>
-      {conditionalFieldsLabel && conditionalFields ? (
-        <p>
-          <span className='font-medium'>{conditionalFieldsLabel}</span>
-          {conditionalFields}
-        </p>
-      ) : null}
-      <p>
-        <span className='font-medium'>{lockedFieldsLabel}</span>
-        {lockedFields}
-      </p>
-      <p className='text-amber-800'>{lockedReason}</p>
-    </div>
-  </div>
-);
-
 const PromotionStatusConfirmDialog = ({
   changeTarget,
   submitting,
@@ -1885,18 +1838,6 @@ const PromotionCouponDialog = ({
               }
             />
           </FormField>
-          {isEditing ? (
-            <PromotionEditPolicyNotice
-              title={tPromotion('messages.editPolicyTitle')}
-              partialTimeHint={tPromotion('messages.partialTimeEditHint')}
-              summary={tPromotion('messages.couponEditPolicyHint')}
-              editableFieldsLabel={tPromotion('messages.editableFieldsLabel')}
-              editableFields={tPromotion('messages.couponEditableFields')}
-              lockedFieldsLabel={tPromotion('messages.lockedFieldsLabel')}
-              lockedFields={tPromotion('messages.couponLockedFields')}
-              lockedReason={tPromotion('messages.couponLockedReason')}
-            />
-          ) : null}
         </div>
         <DialogFooter>
           <Button
@@ -2208,24 +2149,6 @@ const PromotionCampaignDialog = ({
               />
             </FormField>
           </div>
-          {isEditing ? (
-            <PromotionEditPolicyNotice
-              title={tPromotion('messages.editPolicyTitle')}
-              partialTimeHint={tPromotion('messages.partialTimeEditHint')}
-              summary={tPromotion('messages.campaignEditPolicyHint')}
-              editableFieldsLabel={tPromotion('messages.editableFieldsLabel')}
-              editableFields={tPromotion('messages.campaignEditableFields')}
-              conditionalFieldsLabel={tPromotion(
-                'messages.conditionalEditableFieldsLabel',
-              )}
-              conditionalFields={tPromotion(
-                'messages.campaignConditionalFields',
-              )}
-              lockedFieldsLabel={tPromotion('messages.lockedFieldsLabel')}
-              lockedFields={tPromotion('messages.campaignLockedFields')}
-              lockedReason={tPromotion('messages.campaignLockedReason')}
-            />
-          ) : null}
         </div>
         <DialogFooter>
           <Button

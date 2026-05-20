@@ -19,4 +19,8 @@ declare module 'markdown-flow-ui/slide' {
   interface Element {
     ask_list?: unknown[];
   }
+
+  interface SlideProps {
+    bufferingText?: string;
+  }
 }

@@ -8,6 +8,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Generator, Iterable, Optional, Union
 from flaskr.service.learn.const import (
+    INPUT_TYPE_ASK,
     ROLE_STUDENT,
     ROLE_TEACHER,
     CONTEXT_INTERACTION_NEXT,
@@ -1243,6 +1244,7 @@ class RunScriptContextV2:
     _input: str
     _can_continue: bool
     _last_position: int
+    _stop_event: threading.Event | None = None
 
     def __init__(
         self,
@@ -1254,6 +1256,7 @@ class RunScriptContextV2:
         is_paid: bool,
         preview_mode: bool,
         listen: bool = False,
+        stop_event: threading.Event | None = None,
     ):
         self._last_position = -1
         self.app = app
@@ -1269,6 +1272,7 @@ class RunScriptContextV2:
         self.current_outline_item = None
         self._run_type = RunType.INPUT
         self._can_continue = True
+        self._stop_event = stop_event
         self._element_index_cursor = 0
         self._langfuse_output_chunks: list[str] = []
 
@@ -1326,6 +1330,19 @@ class RunScriptContextV2:
         )
         context_local.current_context = self
 
+    def _stop_requested(self) -> bool:
+        return bool(self._stop_event is not None and self._stop_event.is_set())
+
+    def _stop_if_requested(self) -> None:
+        if self._stop_requested():
+            self.app.logger.info("run_script context cancelled")
+            raise GeneratorExit()
+
+    def _iter_until_active(self, items: Iterable[Any]) -> Generator[Any, None, None]:
+        for item in items:
+            self._stop_if_requested()
+            yield item
+
     @staticmethod
     def get_current_context(app: Flask) -> Union["RunScriptContextV2", None]:
         if not hasattr(context_local, "current_context"):
@@ -1356,7 +1373,11 @@ class RunScriptContextV2:
         )
 
     def _should_stream_tts(self) -> bool:
-        return (not self._preview_mode) and bool(getattr(self, "_listen", False))
+        return (
+            (not self._preview_mode)
+            and getattr(self, "_input_type", None) != INPUT_TYPE_ASK
+            and bool(getattr(self, "_listen", False))
+        )
 
     def _try_create_tts_processor(
         self,
@@ -1497,12 +1518,16 @@ class RunScriptContextV2:
                 apply_shifu_context_snapshot(parent_shifu_context)
                 try:
                     for item in stream_result:
+                        if self._stop_requested():
+                            break
                         result_queue.put(("item", item))
                 except Exception as exc:
                     result_queue.put(("error", exc))
                 finally:
                     with contextlib.suppress(Exception):
                         stream_result.close()
+                    with contextlib.suppress(Exception):
+                        db.session.remove()
                     result_queue.put(("done", None))
 
         producer_thread = threading.Thread(
@@ -1514,11 +1539,13 @@ class RunScriptContextV2:
 
         try:
             while True:
+                self._stop_if_requested()
                 try:
                     kind, payload = result_queue.get(timeout=poll_timeout)
                 except queue.Empty:
                     if idle_callback is None:
                         continue
+                    self._stop_if_requested()
                     for idle_item in idle_callback():
                         yield ("idle", idle_item)
                     continue
@@ -1530,7 +1557,11 @@ class RunScriptContextV2:
                     raise payload
                 break
         finally:
-            producer_thread.join(timeout=0.1)
+            producer_thread.join(timeout=1.0)
+            if producer_thread.is_alive():
+                self.app.logger.warning(
+                    "mdflow stream producer thread did not stop in time"
+                )
 
     def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
         # Order so that a record which has started learning wins over a
@@ -2247,6 +2278,7 @@ class RunScriptContextV2:
         )
 
     def run_inner(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
+        self._stop_if_requested()
         self._current_attend = self._get_current_attend(self._outline_item_info.bid)
         app.logger.info(
             f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
@@ -2350,7 +2382,7 @@ class RunScriptContextV2:
                 tts_processor = None
                 ask_stream_exc: BaseException | None = None
                 try:
-                    for event in res:
+                    for event in self._iter_until_active(res):
                         if event.type == GeneratedType.CONTENT and isinstance(
                             event.content, str
                         ):
@@ -2382,7 +2414,7 @@ class RunScriptContextV2:
                             skip_emit=isinstance(ask_stream_exc, GeneratorExit),
                         )
             else:
-                yield from res
+                yield from self._iter_until_active(res)
 
             self._can_continue = False
             db.session.flush()

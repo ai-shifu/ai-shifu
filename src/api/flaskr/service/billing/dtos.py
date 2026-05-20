@@ -527,6 +527,20 @@ class OperatorCreditOrderDTO(BillingBaseDTO):
 
 
 @register_schema_to_swagger
+class OperatorCreditOrderOverviewDTO(BillingBaseDTO):
+    total_order_count: int = 0
+    paid_order_count: int = 0
+    pending_order_count: int = 0
+    refunded_order_count: int = 0
+    closed_order_count: int = 0
+    canceled_order_count: int = 0
+    available_credit_total: int | float = 0
+    paid_amount_total: int = 0
+    currency: str = "CNY"
+    paid_amount_totals_by_currency: dict[str, int] = Field(default_factory=dict)
+
+
+@register_schema_to_swagger
 class OperatorCreditOrdersPageDTO(BillingBaseDTO):
     items: list[OperatorCreditOrderDTO]
     page: int
@@ -591,6 +605,7 @@ class BillingLedgerAdjustResultDTO(BillingBaseDTO):
 class RuntimeLocalizedUrlDTO(BillingBaseDTO):
     zh_cn: str = Field(alias="zh-CN")
     en_us: str = Field(alias="en-US")
+    fr_fr: str = Field(alias="fr-FR")
 
 
 class RuntimeLegalUrlsDTO(BillingBaseDTO):
@@ -607,6 +622,7 @@ class RuntimeBillingBrandingDTO(BillingBaseDTO):
     logo_square_url: str | None = None
     favicon_url: str | None = None
     home_url: str | None = None
+    contact_us_url: str | None = None
 
 
 class RuntimeBillingDomainDTO(BillingBaseDTO):
@@ -647,6 +663,7 @@ class RuntimeConfigDTO(BillingBaseDTO):
     defaultLoginMethod: str
     googleOauthRedirect: str
     homeUrl: str
+    contactUsUrl: str
     currencySymbol: str
     legalUrls: RuntimeLegalUrlsDTO
     genMdfApiUrl: str

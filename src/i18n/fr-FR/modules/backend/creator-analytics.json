@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.creatorAnalytics",
+  "__flat__": {
+    "invalidAggregate": "La requête utilise une fonction d’agrégation non autorisée.",
+    "invalidColumn": "La colonne demandée ne figure pas dans la liste autorisée.",
+    "invalidDsl": "La description de la requête n’est pas valide.",
+    "invalidLimit": "La limite ou le décalage est hors plage.",
+    "invalidOperator": "La requête utilise un opérateur non autorisé.",
+    "invalidTable": "La table demandée ne figure pas dans la liste autorisée.",
+    "noPermission": "Vous n’avez pas l’autorisation de consulter les analyses de ce cours.",
+    "queryTimeout": "La requête a dépassé le temps imparti. Réduisez le périmètre et réessayez."
+  }
+}

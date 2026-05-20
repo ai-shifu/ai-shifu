@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -11,7 +12,6 @@ import { ErrorWithCode } from '@/lib/request';
 import OperationsPage from './page';
 
 const mockReplace = jest.fn();
-const mockPush = jest.fn();
 const mockToast = jest.fn();
 const mockErrorDisplay = jest.fn();
 const mockCopyText = jest.fn();
@@ -19,8 +19,18 @@ const originalLocation = window.location;
 const originalFetch = global.fetch;
 const originalWindow = global.window;
 const RETRY_LABEL = 'retry';
+const MOCK_DIALOG_CLOSE_LABEL = 'mock-dialog-close';
 const LONG_COURSE_PROMPT =
   'You are a patient course assistant. Help learners build understanding step by step, summarize key ideas clearly, and always connect each answer back to the course context.';
+let mockLanguage = 'en-US';
+const DEFAULT_OVERVIEW = {
+  total_course_count: 24,
+  draft_course_count: 8,
+  published_course_count: 16,
+  created_last_7d_course_count: 5,
+  learning_active_30d_course_count: 11,
+  paid_order_30d_course_count: 7,
+};
 
 const mockUserState: {
   isInitialized: boolean;
@@ -34,18 +44,45 @@ const mockUserState: {
   },
 };
 
+const mockEnvState: {
+  loginMethodsEnabled: string[];
+  defaultLoginMethod: string;
+  currencySymbol: string;
+} = {
+  loginMethodsEnabled: ['email'],
+  defaultLoginMethod: 'email',
+  currencySymbol: '¥',
+};
+
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: mockReplace,
-    push: mockPush,
   }),
+}));
+
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ href: string }>) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
 }));
 
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getAdminOperationCoursesOverview: jest.fn(),
     getAdminOperationCourses: jest.fn(),
     getAdminOperationCoursePrompt: jest.fn(),
+    copyAdminOperationCourse: jest.fn(),
     transferAdminOperationCourseCreator: jest.fn(),
   },
 }));
@@ -64,23 +101,42 @@ jest.mock('@/c-store', () => ({
       defaultLoginMethod: string;
       currencySymbol: string;
     }) => unknown,
-  ) =>
-    selector({
-      loginMethodsEnabled: ['email'],
-      defaultLoginMethod: 'email',
-      currencySymbol: '¥',
-    }),
+  ) => selector(mockEnvState),
 }));
 
 jest.mock('react-i18next', () => ({
+  Trans: ({
+    i18nKey,
+    values,
+  }: {
+    i18nKey: string;
+    values?: Record<string, string | number | undefined>;
+  }) => (
+    <span>
+      {i18nKey}
+      {values ? ` ${Object.values(values).filter(Boolean).join(' ')}` : ''}
+    </span>
+  ),
   useTranslation: (namespace?: string | string[]) => {
     const ns = Array.isArray(namespace) ? namespace[0] : namespace;
     return {
-      t: (key: string, params?: { count?: number }) => {
+      t: (
+        key: string,
+        params?: Record<string, string | number | undefined>,
+      ) => {
         const resolvedKey = ns && ns !== 'translation' ? `${ns}.${key}` : key;
         return params?.count !== undefined
           ? `${resolvedKey}:${params.count}`
-          : resolvedKey;
+          : params && Object.keys(params).length > 0
+            ? `${resolvedKey} ${Object.values(params)
+                .filter(value => value !== undefined)
+                .join(' ')}`
+            : resolvedKey;
+      },
+      i18n: {
+        get language() {
+          return mockLanguage;
+        },
       },
     };
   },
@@ -178,8 +234,25 @@ jest.mock('@/components/ui/Select', () => {
 
 jest.mock('@/components/ui/Dialog', () => ({
   __esModule: true,
-  Dialog: ({ open, children }: React.PropsWithChildren<{ open?: boolean }>) =>
-    open ? <div>{children}</div> : null,
+  Dialog: ({
+    open,
+    onOpenChange,
+    children,
+  }: React.PropsWithChildren<{
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+  }>) =>
+    open ? (
+      <div>
+        <button
+          type='button'
+          onClick={() => onOpenChange?.(false)}
+        >
+          {MOCK_DIALOG_CLOSE_LABEL}
+        </button>
+        {children}
+      </div>
+    ) : null,
   DialogContent: ({ children }: React.PropsWithChildren) => (
     <div role='dialog'>{children}</div>
   ),
@@ -343,9 +416,12 @@ jest.mock('@/components/ui/DropdownMenu', () => {
   };
 });
 
+const mockGetAdminOperationCoursesOverview =
+  api.getAdminOperationCoursesOverview as jest.Mock;
 const mockGetAdminOperationCourses = api.getAdminOperationCourses as jest.Mock;
 const mockGetAdminOperationCoursePrompt =
   api.getAdminOperationCoursePrompt as jest.Mock;
+const mockCopyAdminOperationCourse = api.copyAdminOperationCourse as jest.Mock;
 const mockTransferAdminOperationCourseCreator =
   api.transferAdminOperationCourseCreator as jest.Mock;
 
@@ -361,7 +437,9 @@ const createDeferred = <T,>() => {
 
 describe('OperationsPage', () => {
   const renderAndWaitForLoadedPage = async () => {
-    render(<OperationsPage />);
+    await act(async () => {
+      render(<OperationsPage />);
+    });
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourses).toHaveBeenCalled();
@@ -370,7 +448,54 @@ describe('OperationsPage', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('loading-indicator')).not.toBeInTheDocument();
     });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCoursesOverview).toHaveBeenCalled();
+    });
   };
+
+  test('loads course overview after the initial list request settles', async () => {
+    const listDeferred = createDeferred<{
+      items: Array<Record<string, unknown>>;
+      page: number;
+      page_count: number;
+      page_size: number;
+      total: number;
+    }>();
+    const overviewDeferred =
+      createDeferred<Record<string, number | undefined>>();
+    mockGetAdminOperationCourses.mockReturnValueOnce(listDeferred.promise);
+    mockGetAdminOperationCoursesOverview.mockReturnValueOnce(
+      overviewDeferred.promise,
+    );
+
+    await act(async () => {
+      render(<OperationsPage />);
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenCalledTimes(1);
+    });
+    expect(mockGetAdminOperationCoursesOverview).not.toHaveBeenCalled();
+
+    await act(async () => {
+      listDeferred.resolve({
+        items: [],
+        page: 1,
+        page_count: 1,
+        page_size: 20,
+        total: 0,
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCoursesOverview).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      overviewDeferred.resolve(DEFAULT_OVERVIEW);
+    });
+  });
 
   beforeAll(() => {
     Object.defineProperty(window, 'location', {
@@ -393,24 +518,30 @@ describe('OperationsPage', () => {
 
   beforeEach(() => {
     mockReplace.mockReset();
-    mockPush.mockReset();
     mockToast.mockReset();
     mockErrorDisplay.mockReset();
     mockCopyText.mockReset();
+    mockGetAdminOperationCoursesOverview.mockReset();
     mockGetAdminOperationCourses.mockReset();
     mockGetAdminOperationCoursePrompt.mockReset();
+    mockCopyAdminOperationCourse.mockReset();
     mockTransferAdminOperationCourseCreator.mockReset();
+    mockLanguage = 'en-US';
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
     mockUserState.userInfo = {
       is_operator: true,
     };
+    mockEnvState.loginMethodsEnabled = ['email'];
+    mockEnvState.defaultLoginMethod = 'email';
+    mockEnvState.currencySymbol = '¥';
     Object.assign(window.location, {
       href: '',
       pathname: '/admin/operations',
       search: '',
     });
 
+    mockGetAdminOperationCoursesOverview.mockResolvedValue(DEFAULT_OVERVIEW);
     mockGetAdminOperationCourses.mockResolvedValue({
       items: [
         {
@@ -458,6 +589,7 @@ describe('OperationsPage', () => {
     mockGetAdminOperationCoursePrompt.mockResolvedValue({
       course_prompt: LONG_COURSE_PROMPT,
     });
+    mockCopyAdminOperationCourse.mockResolvedValue({});
     mockTransferAdminOperationCourseCreator.mockResolvedValue({});
   });
 
@@ -480,6 +612,7 @@ describe('OperationsPage', () => {
         course_name: '',
         creator_keyword: '',
         course_status: '',
+        quick_filter: '',
         start_time: '',
         end_time: '',
         updated_start_time: '',
@@ -488,6 +621,21 @@ describe('OperationsPage', () => {
     );
 
     expect(screen.getByText('Course 1')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.operationsCourse.overview.title'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('24')).toBeInTheDocument();
+    expect(screen.getByText('11')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(
+        'module.operationsCourse.overview.tooltips.totalCourses',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(
+        'module.operationsCourse.overview.tooltips.totalCourses',
+      ).tagName,
+    ).toBe('BUTTON');
     expect(screen.getByText('gpt-4.1-mini')).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
@@ -514,15 +662,41 @@ describe('OperationsPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('formats overview counts without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+    mockGetAdminOperationCoursesOverview.mockResolvedValueOnce({
+      ...DEFAULT_OVERVIEW,
+      total_course_count: 76384,
+    });
+    mockGetAdminOperationCourses.mockResolvedValueOnce({
+      items: [],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 0,
+    });
+
+    await renderAndWaitForLoadedPage();
+
+    expect(screen.getByText('76384')).toBeInTheDocument();
+    expect(screen.queryByText('76,384')).not.toBeInTheDocument();
+  });
+
   test('navigates from course name and transfers creator from the action menu', async () => {
     await renderAndWaitForLoadedPage();
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Course 1',
-      }),
+    expect(screen.getByRole('link', { name: 'Course 1' })).toHaveAttribute(
+      'href',
+      '/admin/operations/course-1',
     );
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1');
+    expect(screen.getByRole('link', { name: 'Course 1' })).toHaveAttribute(
+      'target',
+      '_blank',
+    );
+    expect(screen.getByRole('link', { name: 'Course 1' })).toHaveAttribute(
+      'rel',
+      'noopener noreferrer',
+    );
 
     const firstRow = screen.getByText('Course 1').closest('tr');
     expect(firstRow).not.toBeNull();
@@ -578,12 +752,12 @@ describe('OperationsPage', () => {
         'module.operationsCourse.transferCreatorDialog.confirmTitle',
       ),
     ).toBeInTheDocument();
-    expect(within(confirmDialog).getByText('Course 1')).toBeInTheDocument();
+    expect(within(confirmDialog).getByText(/Course 1/)).toBeInTheDocument();
     expect(
-      within(confirmDialog).getByText('creator@example.com'),
+      within(confirmDialog).getByText(/creator@example\.com/),
     ).toBeInTheDocument();
     expect(
-      within(confirmDialog).getByText('next-creator@example.com'),
+      within(confirmDialog).getByText(/next-creator@example\.com/),
     ).toBeInTheDocument();
 
     fireEvent.click(
@@ -610,6 +784,310 @@ describe('OperationsPage', () => {
     expect(
       screen.queryByText('module.operationsCourse.transferCreatorDialog.title'),
     ).not.toBeInTheDocument();
+  });
+
+  test('shows inline validation and request errors for copy course', async () => {
+    mockCopyAdminOperationCourse.mockRejectedValueOnce(
+      new Error('copy failed'),
+    );
+
+    await renderAndWaitForLoadedPage();
+
+    const firstRow = screen.getByText('Course 1').closest('tr');
+    expect(firstRow).not.toBeNull();
+
+    fireEvent.click(
+      within(firstRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.copyCourse',
+      }),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.operationsCourse.copyCourseDialog.identifierRequired',
+      ),
+    ).toBeInTheDocument();
+    expect(mockCopyAdminOperationCourse).not.toHaveBeenCalled();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.copyCourseDialog.contactPlaceholderEmail',
+      ),
+      {
+        target: { value: 'copy-target@example.com' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    const confirmDialog = screen.getByRole('alertdialog');
+    fireEvent.click(
+      within(confirmDialog).getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    expect(await screen.findByText('copy failed')).toBeInTheDocument();
+    expect(mockCopyAdminOperationCourse).toHaveBeenCalledWith({
+      shifu_bid: 'course-1',
+      contact_type: 'email',
+      identifier: 'copy-target@example.com',
+      new_course_name:
+        'Course 1module.operationsCourse.copyCourseDialog.courseNameSuffix',
+    });
+  });
+
+  test('copies course successfully and refreshes the list and overview', async () => {
+    await renderAndWaitForLoadedPage();
+
+    const firstRow = screen.getByText('Course 1').closest('tr');
+    expect(firstRow).not.toBeNull();
+
+    fireEvent.click(
+      within(firstRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.copyCourse',
+      }),
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.copyCourseDialog.contactPlaceholderEmail',
+      ),
+      {
+        target: { value: 'copy-owner@example.com' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    const confirmDialog = screen.getByRole('alertdialog');
+    fireEvent.click(
+      within(confirmDialog).getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockCopyAdminOperationCourse).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        contact_type: 'email',
+        identifier: 'copy-owner@example.com',
+        new_course_name:
+          'Course 1module.operationsCourse.copyCourseDialog.courseNameSuffix',
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(mockGetAdminOperationCoursesOverview).toHaveBeenCalledTimes(2);
+    });
+
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.operationsCourse.copyCourseDialog.submitSuccess',
+    });
+  });
+
+  test('supports switching copy contact type when phone and email are both enabled', async () => {
+    mockEnvState.loginMethodsEnabled = ['phone', 'email'];
+    mockEnvState.defaultLoginMethod = 'phone';
+
+    await renderAndWaitForLoadedPage();
+
+    const firstRow = screen.getByText('Course 1').closest('tr');
+    expect(firstRow).not.toBeNull();
+
+    fireEvent.click(
+      within(firstRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.copyCourse',
+      }),
+    );
+
+    const copyDialog = screen.getByRole('dialog');
+    expect(within(copyDialog).getByText('15811112222')).toBeInTheDocument();
+
+    expect(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.copyCourseDialog.contactPlaceholderPhone',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.contactTypeEmail',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        within(copyDialog).getByText('creator@example.com'),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.copyCourseDialog.contactPlaceholderEmail',
+      ),
+      {
+        target: { value: 'copy-via-email@example.com' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    const confirmDialog = screen.getByRole('alertdialog');
+    fireEvent.click(
+      within(confirmDialog).getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockCopyAdminOperationCourse).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        contact_type: 'email',
+        identifier: 'copy-via-email@example.com',
+        new_course_name:
+          'Course 1module.operationsCourse.copyCourseDialog.courseNameSuffix',
+      });
+    });
+  });
+
+  test('keeps system creator label in transfer and copy dialogs', async () => {
+    await renderAndWaitForLoadedPage();
+
+    const systemRow = screen.getByText('Custom System Course').closest('tr');
+    expect(systemRow).not.toBeNull();
+
+    fireEvent.click(
+      within(systemRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.transferCreator',
+      }),
+    );
+
+    const transferDialog = screen.getByRole('dialog');
+    expect(within(transferDialog).getByText('system')).toBeInTheDocument();
+
+    fireEvent.click(
+      within(transferDialog).getByRole('button', {
+        name: 'common.core.cancel',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText(
+          'module.operationsCourse.transferCreatorDialog.title',
+        ),
+      ).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      within(systemRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.copyCourse',
+      }),
+    );
+
+    const copyDialog = screen.getByRole('dialog');
+    expect(within(copyDialog).getByText('system')).toBeInTheDocument();
+  });
+
+  test('ignores close events while copy course request is pending', async () => {
+    const deferred = createDeferred<Record<string, never>>();
+    mockCopyAdminOperationCourse.mockReturnValueOnce(deferred.promise);
+
+    await renderAndWaitForLoadedPage();
+
+    const firstRow = screen.getByText('Course 1').closest('tr');
+    expect(firstRow).not.toBeNull();
+
+    fireEvent.click(
+      within(firstRow as HTMLElement).getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', {
+        name: 'module.operationsCourse.actions.copyCourse',
+      }),
+    );
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.copyCourseDialog.contactPlaceholderEmail',
+      ),
+      {
+        target: { value: 'pending-copy@example.com' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'module.operationsCourse.copyCourseDialog.confirm',
+      }),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: MOCK_DIALOG_CLOSE_LABEL }),
+    );
+
+    expect(
+      screen.getByText('module.operationsCourse.copyCourseDialog.title'),
+    ).toBeInTheDocument();
+
+    deferred.resolve({});
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('module.operationsCourse.copyCourseDialog.title'),
+      ).not.toBeInTheDocument();
+    });
   });
 
   test('opens course prompt detail dialog and toggles expand state', async () => {
@@ -723,9 +1201,104 @@ describe('OperationsPage', () => {
       expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
         expect.objectContaining({
           course_status: 'published',
+          quick_filter: '',
         }),
       );
     });
+  });
+
+  test('clicking a status overview card applies the matching quick filter and syncs status', async () => {
+    await renderAndWaitForLoadedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsCourse\.overview\.metrics\.draftCourses/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          course_status: 'unpublished',
+          quick_filter: 'draft',
+          shifu_bid: '',
+          course_name: '',
+          creator_keyword: '',
+        }),
+      );
+    });
+
+    expect(
+      screen.getByText('module.operationsCourse.overview.activeFilter'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: /module\.operationsCourse\.overview\.metrics\.draftCourses module\.chat\.lessonFeedbackClearInput/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test('clicking an activity overview card applies and clears the quick filter chip', async () => {
+    await renderAndWaitForLoadedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsCourse\.overview\.metrics\.ordered30d/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: 'paid_order_30d',
+        }),
+      );
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsCourse\.overview\.metrics\.ordered30d module\.chat\.lessonFeedbackClearInput/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: '',
+          course_status: '',
+          start_time: '',
+          end_time: '',
+          updated_start_time: '',
+          updated_end_time: '',
+        }),
+      );
+    });
+  });
+
+  test('clicking the recent courses overview card syncs the calendar-day range', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-05-06T10:00:00Z'));
+
+    try {
+      await renderAndWaitForLoadedPage();
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /module\.operationsCourse\.overview\.metrics\.createdLast7d/i,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            quick_filter: 'created_last_7d',
+            start_time: '2026-04-30',
+            end_time: '2026-05-06',
+          }),
+        );
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test('shows inline validation and request errors for transfer creator', async () => {

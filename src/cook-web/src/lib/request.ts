@@ -1,6 +1,7 @@
 import { useUserStore } from '@/store';
 import { getStringEnv } from '@/c-utils/envUtils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
+import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
 import { toast } from '@/hooks/useToast';
 import i18n from 'i18next';
 import { v4 as uuidv4 } from 'uuid';
@@ -28,14 +29,83 @@ export type BusinessResponse = {
   data?: unknown;
 };
 
+type RequestDebugMeta = {
+  url?: string;
+  method?: string;
+  requestToken?: string;
+  httpStatus?: number;
+};
+
 // ===== Error Handling =====
 export class ErrorWithCode extends Error {
   code: number;
+  status?: number;
   constructor(message: string, code: number) {
     super(message);
     this.code = code;
   }
 }
+
+const REQUEST_DEBUG_PATTERNS = [
+  '/api/learn/shifu/',
+  '/api/user/info',
+  '/api/user/require_tmp',
+] as const;
+
+const maskTokenForDebug = (token?: string) => {
+  const normalizedToken = String(token || '').trim();
+  if (!normalizedToken) {
+    return 'empty';
+  }
+
+  if (normalizedToken.length <= 8) {
+    return `len:${normalizedToken.length}`;
+  }
+
+  return `${normalizedToken.slice(0, 4)}...${normalizedToken.slice(-4)}(len:${normalizedToken.length})`;
+};
+
+const shouldLogRequestDebug = (url?: string) => {
+  const normalizedUrl = String(url || '');
+  return REQUEST_DEBUG_PATTERNS.some(pattern =>
+    normalizedUrl.includes(pattern),
+  );
+};
+
+const buildRequestDebugPayload = (
+  error: unknown,
+  meta: RequestDebugMeta = {},
+) => {
+  const typedError = error as Partial<ErrorWithCode> & {
+    status?: number;
+    cause?: unknown;
+  };
+  const currentToken = useUserStore.getState().getToken?.() || '';
+
+  return {
+    url: meta.url || '',
+    method: meta.method || '',
+    errorName: typedError?.name || 'Error',
+    errorMessage: typedError?.message || '',
+    businessCode: typedError?.code ?? '',
+    httpStatus: typedError?.status ?? meta.httpStatus ?? '',
+    requestToken: maskTokenForDebug(meta.requestToken),
+    currentToken: maskTokenForDebug(currentToken),
+    tokenChanged:
+      Boolean(meta.requestToken) &&
+      Boolean(currentToken) &&
+      meta.requestToken !== currentToken,
+    online:
+      typeof navigator !== 'undefined' ? String(navigator.onLine) : 'unknown',
+    userAgent:
+      typeof navigator !== 'undefined' ? navigator.userAgent : 'server',
+    path:
+      typeof window !== 'undefined'
+        ? `${window.location.pathname}${window.location.search}`
+        : '',
+    cause: typedError?.cause || '',
+  };
+};
 
 // Unified error handling function
 const handleApiError = (error: ErrorWithCode, showToast = true) => {
@@ -62,18 +132,35 @@ const handleAuthRecovery = async () => {
     typeof window === 'undefined' ||
     (window as any).__IS_LOGGING_OUT__
   ) {
+    debugInfo('[auth-chain] recovery skipped', {
+      isHandlingAuthError,
+      isLoggingOut: Boolean(
+        typeof window !== 'undefined' && (window as any).__IS_LOGGING_OUT__,
+      ),
+    });
     return;
   }
 
   const { logout } = useUserStore.getState();
   if (!logout) {
+    debugWarn(
+      '[auth-chain] recovery skipped because logout handler is missing',
+    );
     return;
   }
 
   isHandlingAuthError = true;
   try {
+    debugInfo('[auth-chain] recovery start', {
+      path:
+        typeof window !== 'undefined'
+          ? `${window.location.pathname}${window.location.search}`
+          : '',
+    });
     await logout(false);
+    debugInfo('[auth-chain] recovery finished with guest session');
   } catch (authError) {
+    debugError('[auth-chain] recovery failed', authError);
     console.warn('Failed to recover from auth error:', authError);
   } finally {
     isHandlingAuthError = false;
@@ -118,11 +205,16 @@ export const parseBusinessResponsePayload = (
 export const handleBusinessCode = async (
   response: BusinessResponse,
   requestToken?: string,
+  meta: RequestDebugMeta = {},
 ) => {
   const error = new ErrorWithCode(
     response.message || i18n.t('common.core.unknownError'),
     response.code || -1,
-  );
+  ) as ErrorWithCode & { status?: number };
+
+  if (typeof meta.httpStatus === 'number') {
+    error.status = meta.httpStatus;
+  }
 
   const isAuthError = AUTH_ERROR_CODES.has(response.code);
   const currentToken = useUserStore.getState().getToken?.();
@@ -130,6 +222,37 @@ export const handleBusinessCode = async (
     isAuthError && currentToken && requestToken !== currentToken;
 
   if (response.code !== 0) {
+    if (isAuthError) {
+      debugWarn('[auth-chain] auth business error received', {
+        httpStatus: meta.httpStatus ?? '',
+        responseCode: response.code,
+        responseMessage: response.message || '',
+        requestToken: maskTokenForDebug(requestToken),
+        currentToken: maskTokenForDebug(currentToken),
+        tokenChangedDuringRequest,
+        url: meta.url || '',
+        method: meta.method || '',
+      });
+    }
+
+    if (shouldLogRequestDebug(meta.url)) {
+      debugWarn('[request-debug] business error', {
+        url: meta.url || '',
+        method: meta.method || '',
+        httpStatus: meta.httpStatus ?? '',
+        responseCode: response.code,
+        responseMessage: response.message || '',
+        isAuthError,
+        requestToken: maskTokenForDebug(requestToken),
+        currentToken: maskTokenForDebug(currentToken),
+        tokenChangedDuringRequest,
+        path:
+          typeof window !== 'undefined'
+            ? `${window.location.pathname}${window.location.search}`
+            : '',
+      });
+    }
+
     // Special status codes do not show toast
     if (!isAuthError) {
       handleApiError(error);
@@ -138,6 +261,11 @@ export const handleBusinessCode = async (
     // If the token has changed since this request was sent, treat the auth error
     // as stale and avoid logging the user out with a newer session active.
     if (tokenChangedDuringRequest) {
+      debugInfo('[auth-chain] auth recovery aborted because token changed', {
+        requestToken: maskTokenForDebug(requestToken),
+        currentToken: maskTokenForDebug(currentToken),
+        url: meta.url || '',
+      });
       return Promise.reject(error);
     }
 
@@ -159,7 +287,14 @@ export const handleBusinessCode = async (
       const currentPath = encodeURIComponent(
         location.pathname + location.search,
       );
-      window.location.href = `/login?redirect=${currentPath}`;
+      const redirectUrl = `/login?redirect=${currentPath}`;
+      debugWarn('[auth-chain] login redirect start', {
+        httpStatus: meta.httpStatus ?? '',
+        redirectUrl,
+        responseCode: response.code,
+        responseMessage: response.message || '',
+      });
+      window.location.href = redirectUrl;
     }
 
     // Permission error (only on client side)
@@ -279,12 +414,32 @@ export class Request {
   }
 
   private async interceptFetch(url: string, config: RequestConfig) {
+    let fullUrl = url;
+    let requestMethod = String(config.method || 'GET');
+    let tokenUsed = '';
+
     try {
       const {
-        url: fullUrl,
+        url: resolvedFullUrl,
         config: mergedConfig,
-        tokenUsed,
+        tokenUsed: resolvedTokenUsed,
       } = await this.prepareConfig(url, config);
+      fullUrl = resolvedFullUrl;
+      tokenUsed = resolvedTokenUsed;
+      requestMethod = String(mergedConfig.method || config.method || 'GET');
+
+      if (shouldLogRequestDebug(fullUrl)) {
+        debugInfo('[request-debug] start', {
+          url: fullUrl,
+          method: requestMethod,
+          requestToken: maskTokenForDebug(tokenUsed),
+          path:
+            typeof window !== 'undefined'
+              ? `${window.location.pathname}${window.location.search}`
+              : '',
+        });
+      }
+
       const response = await fetch(fullUrl, mergedConfig);
 
       if (!response.ok) {
@@ -292,24 +447,64 @@ export class Request {
         const errorMessage = isDevelopment
           ? `Request failed with status ${response.status}`
           : 'Network request failed';
-        throw new ErrorWithCode(errorMessage, response.status);
+        const httpError = new ErrorWithCode(
+          errorMessage,
+          response.status,
+        ) as ErrorWithCode & { status?: number };
+        httpError.status = response.status;
+        throw httpError;
       }
 
       const res = await response.json();
 
       // Check business status code
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
+        if (shouldLogRequestDebug(fullUrl)) {
+          debugInfo('[request-debug] response envelope', {
+            url: fullUrl,
+            method: requestMethod,
+            httpStatus: response.status,
+            responseCode: res.code,
+            responseMessage: res.message || '',
+          });
+        }
         const isAuthError = AUTH_ERROR_CODES.has(res.code);
         // If it's login page, we only skip non-auth errors to allow UI to handle business errors
         // But Auth errors (1001, 1004, 1005) MUST be handled by global handler to clear token
         if (location.pathname.includes('/login') && !isAuthError) {
           return res;
         }
-        return handleBusinessCode(res, tokenUsed);
+        return handleBusinessCode(res, tokenUsed, {
+          url: fullUrl,
+          method: requestMethod,
+          requestToken: tokenUsed,
+          httpStatus: response.status,
+        });
+      }
+
+      if (shouldLogRequestDebug(fullUrl)) {
+        debugInfo('[request-debug] response ok', {
+          url: fullUrl,
+          method: requestMethod,
+          httpStatus: response.status,
+          responseCode: '',
+        });
       }
 
       return res;
     } catch (error: any) {
+      if (shouldLogRequestDebug(fullUrl)) {
+        debugError(
+          '[request-debug] fetch failure',
+          buildRequestDebugPayload(error, {
+            url: fullUrl,
+            method: requestMethod,
+            requestToken: tokenUsed,
+            httpStatus:
+              typeof error?.status === 'number' ? error.status : undefined,
+          }),
+        );
+      }
       handleApiError(error);
       throw error;
     }

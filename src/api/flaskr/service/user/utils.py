@@ -8,7 +8,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flaskr.i18n import _
 
-from ..common.models import raise_error
+from ..common.models import raise_error, raise_param_error
 from flaskr.common.cache_provider import cache as redis
 from ...dao import db
 from flaskr.api.sms.aliyun import send_sms_code_ali
@@ -19,6 +19,7 @@ import json
 
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
 from flaskr.service.user.token_store import token_store
 from flaskr.util import generate_id
@@ -70,6 +71,53 @@ def get_user_language(user):
     return "en-US"
 
 
+def mark_creator_role_if_needed(user_id: str) -> bool:
+    """Mark an existing user as creator and report whether this is a new grant."""
+
+    normalized_user_id = str(user_id or "").strip()
+    if not normalized_user_id:
+        return False
+
+    entity = get_user_entity_by_bid(normalized_user_id)
+    if entity is None:
+        return False
+    if bool(entity.is_creator):
+        return False
+
+    mark_user_roles(normalized_user_id, is_creator=True)
+    return True
+
+
+def run_creator_granted_post_auth(
+    app: Flask,
+    *,
+    user_id: str,
+    source: str,
+    login_context: str | None = None,
+    created_new_user: bool = False,
+    language: str | None = None,
+) -> None:
+    """Run post-auth hooks for flows that grant creator access outside login."""
+
+    normalized_user_id = str(user_id or "").strip()
+    if not normalized_user_id:
+        return
+
+    from flaskr.service.user.post_auth import PostAuthContext, run_post_auth_extensions
+
+    run_post_auth_extensions(
+        app,
+        PostAuthContext(
+            user_id=normalized_user_id,
+            source=source,
+            login_context=login_context,
+            created_new_user=created_new_user,
+            language=language,
+            creator_granted_now=True,
+        ),
+    )
+
+
 # generate token
 def generate_token(app: Flask, user_id: str) -> str:
     def _generate() -> str:
@@ -100,7 +148,10 @@ def send_sms_code(
     captcha_ticket: str = None,
     require_captcha: bool = True,
 ):
+    phone = normalize_phone_identifier(phone)
     with app.app_context():
+        if not phone:
+            raise_param_error("mobile")
         if require_captcha:
             consume_captcha_ticket(app, captcha_ticket)
 
@@ -172,6 +223,10 @@ def send_sms_code(
 
 def send_email_code(app: Flask, email: str, ip: str = None, language: str = None):
     with app.app_context():
+        email = str(email or "").strip().lower()
+        if not email:
+            raise_error("server.common.unknownError")
+
         # Check IP ban status
         if ip:
             ip_ban_key = app.config["REDIS_KEY_PREFIX_IP_BAN"] + ip
@@ -287,12 +342,7 @@ def ensure_creator_demo_permissions_and_first_lesson(
     The function name is kept for compatibility. First lesson draft creation
     is handled by course creation flows.
     """
-    entity = get_user_entity_by_bid(user_id)
-    creator_granted_now = bool(entity is not None and not bool(entity.is_creator))
-
-    # Mark user as creator in canonical user entity
-    mark_user_roles(user_id, is_creator=True)
-
+    creator_granted_now = mark_creator_role_if_needed(user_id)
     ensure_demo_course_permissions(app, user_id)
     return creator_granted_now
 

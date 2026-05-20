@@ -1,0 +1,14 @@
+{
+  "__namespace__": "component.header",
+  "cancel": "Annuler",
+  "close": "Fermer",
+  "confirm": "Confirmer",
+  "confirmPublish": "Confirmer la publication ?",
+  "confirmPublishDescription": "La publication mettra à jour le contenu actuellement en ligne. Veuillez confirmer avant de publier.",
+  "goToView": "Voir",
+  "publish": "Publier",
+  "publishSuccess": "Publication réussie",
+  "publishSuccessDescription": "Publication réussie, veuillez consulter la vue",
+  "readonly": "Lecture seule",
+  "saved": "Enregistré"
+}

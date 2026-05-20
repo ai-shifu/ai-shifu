@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import { AlertCircle, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
 import api from '@/api';
@@ -10,6 +11,10 @@ import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import {
+  formatAdminCount,
+  formatAdminCredits,
+} from '@/app/admin/lib/numberFormat';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -50,25 +55,32 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
-import { buildBillingSwrKey, formatBillingCredits } from '@/lib/billing';
+import { buildBillingSwrKey } from '@/lib/billing';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { cn } from '@/lib/utils';
 import { ErrorWithCode } from '@/lib/request';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
-import { formatOperatorUtcDateTime } from './dateTime';
+import { formatOperatorNaiveDateTime } from './dateTime';
 import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
   AdminOperationUserCourseItem,
+  AdminOperationUserDetailResponse,
   AdminOperationUserItem,
   AdminOperationUserListResponse,
+  AdminOperationUserOverview,
 } from '../operation-user-types';
 
 type UserFilters = {
@@ -80,11 +92,40 @@ type UserFilters = {
   end_time: string;
 };
 
+type UserQuickFilterKey =
+  | ''
+  | 'creator'
+  | 'learner'
+  | 'registered'
+  | 'paid'
+  | 'created_last_30d'
+  | 'registered_last_30d'
+  | 'learning_active_30d'
+  | 'paid_last_30d'
+  | 'guest';
+
 type ErrorState = { message: string; code?: number };
 
 const PAGE_SIZE = 20;
 const ALL_OPTION_VALUE = '__all__';
 const EMPTY_STATE_LABEL = '--';
+const USER_STATUS_UNREGISTERED = 'unregistered';
+const USER_STATUS_PAID = 'paid';
+const USER_QUICK_FILTER_CREATOR = 'creator';
+const USER_QUICK_FILTER_LEARNER = 'learner';
+const USER_QUICK_FILTER_REGISTERED = 'registered';
+const USER_QUICK_FILTER_PAID = 'paid';
+const USER_QUICK_FILTER_CREATED_LAST_30D = 'created_last_30d';
+const USER_QUICK_FILTER_REGISTERED_LAST_30D = 'registered_last_30d';
+const USER_QUICK_FILTER_LEARNING_ACTIVE_30D = 'learning_active_30d';
+const USER_QUICK_FILTER_PAID_LAST_30D = 'paid_last_30d';
+const USER_QUICK_FILTER_GUEST = 'guest';
+const QUICK_FILTER_STRUCTURED_FIELDS = new Set<keyof UserFilters>([
+  'user_status',
+  'user_role',
+  'start_time',
+  'end_time',
+]);
 const COLUMN_MIN_WIDTH = 90;
 const COLUMN_MAX_WIDTH = 420;
 const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationsUsersColumnWidths';
@@ -107,6 +148,18 @@ const DEFAULT_COLUMN_WIDTHS = {
   updatedAt: 180,
   action: 120,
 } as const;
+const EMPTY_USER_OVERVIEW: AdminOperationUserOverview = {
+  total_user_count: 0,
+  registered_user_count: 0,
+  creator_user_count: 0,
+  learner_user_count: 0,
+  paid_user_count: 0,
+  created_last_30d_user_count: 0,
+  registered_last_30d_user_count: 0,
+  learning_active_30d_user_count: 0,
+  paid_last_30d_user_count: 0,
+  guest_user_count: 0,
+};
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 const createDefaultFilters = (): UserFilters => ({
   identifier: '',
@@ -116,6 +169,26 @@ const createDefaultFilters = (): UserFilters => ({
   start_time: '',
   end_time: '',
 });
+
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const buildCreatedLast30DaysFilters = (): Pick<
+  UserFilters,
+  'start_time' | 'end_time'
+> => {
+  const endDate = new Date();
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 29);
+  return {
+    start_time: formatLocalDate(startDate),
+    end_time: formatLocalDate(endDate),
+  };
+};
 
 const renderTooltipText = (text?: string, className?: string) => {
   return (
@@ -169,22 +242,24 @@ type CourseDialogState = {
   user: AdminOperationUserItem;
   courses: AdminOperationUserCourseItem[];
   type: 'learning' | 'created';
+  loading: boolean;
+  error: string;
 };
 
 type CourseListPreviewProps = {
-  courses: AdminOperationUserCourseItem[];
+  count: number;
   emptyLabel: string;
   ariaLabel: string;
   onView: () => void;
 };
 
 const CourseListPreview = ({
-  courses,
+  count,
   emptyLabel,
   ariaLabel,
   onView,
 }: CourseListPreviewProps) => {
-  if (!courses.length) {
+  if (count <= 0) {
     return (
       <div className='py-1 text-center text-sm text-muted-foreground'>
         {emptyLabel}
@@ -195,11 +270,11 @@ const CourseListPreview = ({
   return (
     <button
       type='button'
-      aria-label={`${ariaLabel} (${courses.length})`}
+      aria-label={`${ariaLabel} (${count})`}
       className='py-1 text-center text-sm font-semibold text-primary transition-colors hover:text-primary/80'
       onClick={onView}
     >
-      {courses.length}
+      {count}
     </button>
   );
 };
@@ -207,6 +282,28 @@ const CourseListPreview = ({
 /**
  * t('module.operationsUser.title')
  * t('module.operationsUser.emptyList')
+ * t('module.operationsUser.overview.title')
+ * t('module.operationsUser.overview.activeFilter')
+ * t('module.operationsUser.overview.metrics.totalUsers')
+ * t('module.operationsUser.overview.metrics.registeredUsers')
+ * t('module.operationsUser.overview.metrics.creators')
+ * t('module.operationsUser.overview.metrics.learners')
+ * t('module.operationsUser.overview.metrics.paidUsers')
+ * t('module.operationsUser.overview.metrics.newUsers30d')
+ * t('module.operationsUser.overview.metrics.registeredUsers30d')
+ * t('module.operationsUser.overview.metrics.learningActive30d')
+ * t('module.operationsUser.overview.metrics.paidUsers30d')
+ * t('module.operationsUser.overview.metrics.guests')
+ * t('module.operationsUser.overview.tooltips.totalUsers')
+ * t('module.operationsUser.overview.tooltips.registeredUsers')
+ * t('module.operationsUser.overview.tooltips.creators')
+ * t('module.operationsUser.overview.tooltips.learners')
+ * t('module.operationsUser.overview.tooltips.paidUsers')
+ * t('module.operationsUser.overview.tooltips.newUsers30d')
+ * t('module.operationsUser.overview.tooltips.registeredUsers30d')
+ * t('module.operationsUser.overview.tooltips.learningActive30d')
+ * t('module.operationsUser.overview.tooltips.paidUsers30d')
+ * t('module.operationsUser.overview.tooltips.guests')
  * t('module.operationsUser.filters.mobile')
  * t('module.operationsUser.filters.email')
  * t('module.operationsUser.filters.nickname')
@@ -286,6 +383,9 @@ export default function AdminOperationUsersPage() {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ErrorState | null>(null);
+  const [userOverview, setUserOverview] =
+    useState<AdminOperationUserOverview>(EMPTY_USER_OVERVIEW);
+  const [userOverviewError, setUserOverviewError] = useState('');
   const [users, setUsers] = useState<AdminOperationUserItem[]>([]);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -300,7 +400,9 @@ export default function AdminOperationUsersPage() {
   const [appliedFilters, setAppliedFilters] = useState<UserFilters>(() =>
     createDefaultFilters(),
   );
+  const [quickFilter, setQuickFilter] = useState<UserQuickFilterKey>('');
   const requestIdRef = useRef(0);
+  const courseDialogRequestIdRef = useRef(0);
   const { mutate } = useSWRConfig();
   const lastRequestedPageRef = useRef(1);
   const { getColumnStyle, getResizeHandleProps } =
@@ -326,6 +428,13 @@ export default function AdminOperationUsersPage() {
       return tOperationsUsers(`roleLabels.${normalized}`);
     },
     [tOperationsUsers],
+  );
+
+  const canGrantBenefitsToUser = useCallback(
+    (user: AdminOperationUserItem) =>
+      user.user_roles.includes('creator') ||
+      user.user_roles.includes('operator'),
+    [],
   );
 
   const resolveLoginMethodLabel = useCallback(
@@ -383,7 +492,7 @@ export default function AdminOperationUsersPage() {
   const resolveCreditsExpireAtLabel = React.useCallback(
     (user: AdminOperationUserItem) => {
       if (user.credits_expire_at) {
-        return formatOperatorUtcDateTime(user.credits_expire_at);
+        return formatOperatorNaiveDateTime(user.credits_expire_at);
       }
       if (Number(user.available_credits || 0) > 0) {
         return tOperationsUsers('credits.longTerm');
@@ -393,8 +502,28 @@ export default function AdminOperationUsersPage() {
     [tOperationsUsers],
   );
 
+  const fetchUserOverview = useCallback(async () => {
+    try {
+      const response = (await api.getAdminOperationUsersOverview({})) as
+        | AdminOperationUserOverview
+        | undefined;
+      setUserOverview(response ?? EMPTY_USER_OVERVIEW);
+      setUserOverviewError('');
+    } catch (requestError) {
+      const resolvedError = requestError as ErrorWithCode;
+      setUserOverviewError(
+        resolvedError.message || t('common.core.networkError'),
+      );
+    }
+  }, [t]);
+
   const fetchUsers = useCallback(
-    async (targetPage: number, filters: UserFilters) => {
+    async (
+      targetPage: number,
+      filters: UserFilters,
+      nextQuickFilter?: UserQuickFilterKey,
+    ) => {
+      const resolvedQuickFilter = nextQuickFilter ?? '';
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
       lastRequestedPageRef.current = targetPage;
@@ -408,6 +537,7 @@ export default function AdminOperationUsersPage() {
           nickname: filters.nickname.trim(),
           user_status: filters.user_status,
           user_role: filters.user_role,
+          quick_filter: resolvedQuickFilter,
           start_time: filters.start_time,
           end_time: filters.end_time,
         })) as AdminOperationUserListResponse;
@@ -437,24 +567,136 @@ export default function AdminOperationUsersPage() {
     [t],
   );
 
+  const openCourseDialog = useCallback(
+    async (user: AdminOperationUserItem, type: 'learning' | 'created') => {
+      const requestId = courseDialogRequestIdRef.current + 1;
+      courseDialogRequestIdRef.current = requestId;
+      setCourseDialog({
+        user,
+        type,
+        courses: [],
+        loading: true,
+        error: '',
+      });
+
+      try {
+        const detail = (await api.getAdminOperationUserDetail({
+          user_bid: user.user_bid,
+        })) as AdminOperationUserDetailResponse;
+        if (requestId !== courseDialogRequestIdRef.current) {
+          return;
+        }
+        setCourseDialog({
+          user,
+          type,
+          courses:
+            type === 'learning'
+              ? detail.learning_courses || []
+              : detail.created_courses || [],
+          loading: false,
+          error: '',
+        });
+      } catch (requestError) {
+        if (requestId !== courseDialogRequestIdRef.current) {
+          return;
+        }
+        const resolvedError = requestError as ErrorWithCode;
+        setCourseDialog({
+          user,
+          type,
+          courses: [],
+          loading: false,
+          error: resolvedError.message || t('common.core.networkError'),
+        });
+      }
+    },
+    [t],
+  );
+
   React.useEffect(() => {
     if (!isReady) {
       return;
     }
-    void fetchUsers(1, appliedFilters);
-  }, [appliedFilters, fetchUsers, isReady]);
+    const initialFilters = createDefaultFilters();
+    setDraftFilters(initialFilters);
+    setAppliedFilters(initialFilters);
+    setQuickFilter('');
+    void (async () => {
+      await fetchUsers(1, initialFilters, '');
+      await fetchUserOverview();
+    })();
+  }, [fetchUserOverview, fetchUsers, isReady]);
+
+  const clearQuickFilterIfConflicted = useCallback(
+    (key: keyof UserFilters, value: string) => {
+      if (!quickFilter) {
+        return;
+      }
+      if (!QUICK_FILTER_STRUCTURED_FIELDS.has(key)) {
+        return;
+      }
+
+      if (quickFilter === USER_QUICK_FILTER_PAID && key === 'user_status') {
+        if (value === USER_STATUS_PAID) {
+          return;
+        }
+        setQuickFilter('');
+        return;
+      }
+
+      if (quickFilter === USER_QUICK_FILTER_GUEST && key === 'user_status') {
+        if (value === USER_STATUS_UNREGISTERED) {
+          return;
+        }
+        setQuickFilter('');
+        return;
+      }
+
+      if (quickFilter === USER_QUICK_FILTER_CREATED_LAST_30D) {
+        const expected = buildCreatedLast30DaysFilters();
+        if (
+          (key === 'start_time' && value !== expected.start_time) ||
+          (key === 'end_time' && value !== expected.end_time)
+        ) {
+          setQuickFilter('');
+          return;
+        }
+        if (key === 'user_status' || key === 'user_role') {
+          setQuickFilter('');
+        }
+        return;
+      }
+
+      setQuickFilter('');
+    },
+    [quickFilter],
+  );
+
+  const updateDraftFilter = useCallback(
+    (key: keyof UserFilters, value: string) => {
+      clearQuickFilterIfConflicted(key, value);
+      setDraftFilters(current => ({
+        ...current,
+        [key]: value,
+      }));
+    },
+    [clearQuickFilterIfConflicted],
+  );
 
   const handleSearch = () => {
     const nextFilters = { ...draftFilters };
     setAppliedFilters(nextFilters);
     setPageIndex(1);
+    void fetchUsers(1, nextFilters, quickFilter);
   };
 
   const handleReset = () => {
     const nextFilters = createDefaultFilters();
     setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
+    setQuickFilter('');
     setPageIndex(1);
+    void fetchUsers(1, nextFilters, '');
   };
 
   const handlePageChange = (nextPage: number) => {
@@ -462,15 +704,15 @@ export default function AdminOperationUsersPage() {
       return;
     }
     setPageIndex(nextPage);
-    void fetchUsers(nextPage, appliedFilters);
+    void fetchUsers(nextPage, appliedFilters, quickFilter);
   };
 
   const handleGrantSuccess = useCallback(() => {
-    void fetchUsers(pageIndex, appliedFilters);
+    void fetchUsers(pageIndex, appliedFilters, quickFilter);
     void mutate(
       buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY, getBrowserTimeZone()),
     );
-  }, [appliedFilters, fetchUsers, mutate, pageIndex]);
+  }, [appliedFilters, fetchUsers, mutate, pageIndex, quickFilter]);
 
   const renderResizeHandle = (key: ColumnKey) => (
     <span
@@ -521,6 +763,124 @@ export default function AdminOperationUsersPage() {
     },
   ];
 
+  const applyQuickFilter = useCallback(
+    (targetQuickFilter: UserQuickFilterKey) => {
+      if (targetQuickFilter && targetQuickFilter === quickFilter) {
+        const cleared = createDefaultFilters();
+        setDraftFilters(cleared);
+        setAppliedFilters(cleared);
+        setQuickFilter('');
+        setPageIndex(1);
+        void fetchUsers(1, cleared, '');
+        return;
+      }
+
+      const nextFilters = createDefaultFilters();
+      if (targetQuickFilter === USER_QUICK_FILTER_PAID) {
+        nextFilters.user_status = USER_STATUS_PAID;
+      } else if (targetQuickFilter === USER_QUICK_FILTER_GUEST) {
+        nextFilters.user_status = USER_STATUS_UNREGISTERED;
+      } else if (targetQuickFilter === USER_QUICK_FILTER_CREATED_LAST_30D) {
+        Object.assign(nextFilters, buildCreatedLast30DaysFilters());
+      }
+
+      setDraftFilters(nextFilters);
+      setAppliedFilters(nextFilters);
+      setQuickFilter(targetQuickFilter);
+      setPageIndex(1);
+      void fetchUsers(1, nextFilters, targetQuickFilter);
+    },
+    [fetchUsers, quickFilter],
+  );
+
+  const overviewCards = useMemo(
+    () => [
+      {
+        key: 'total',
+        label: tOperationsUsers('overview.metrics.totalUsers'),
+        value: userOverview.total_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.totalUsers'),
+        quickFilterKey: '' as UserQuickFilterKey,
+      },
+      {
+        key: 'registered',
+        label: tOperationsUsers('overview.metrics.registeredUsers'),
+        value: userOverview.registered_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.registeredUsers'),
+        quickFilterKey: USER_QUICK_FILTER_REGISTERED as UserQuickFilterKey,
+      },
+      {
+        key: 'paid',
+        label: tOperationsUsers('overview.metrics.paidUsers'),
+        value: userOverview.paid_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.paidUsers'),
+        quickFilterKey: USER_QUICK_FILTER_PAID as UserQuickFilterKey,
+      },
+      {
+        key: 'creators',
+        label: tOperationsUsers('overview.metrics.creators'),
+        value: userOverview.creator_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.creators'),
+        quickFilterKey: USER_QUICK_FILTER_CREATOR as UserQuickFilterKey,
+      },
+      {
+        key: 'learners',
+        label: tOperationsUsers('overview.metrics.learners'),
+        value: userOverview.learner_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.learners'),
+        quickFilterKey: USER_QUICK_FILTER_LEARNER as UserQuickFilterKey,
+      },
+      {
+        key: 'guests',
+        label: tOperationsUsers('overview.metrics.guests'),
+        value: userOverview.guest_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.guests'),
+        quickFilterKey: USER_QUICK_FILTER_GUEST as UserQuickFilterKey,
+      },
+      {
+        key: 'new-30d',
+        label: tOperationsUsers('overview.metrics.newUsers30d'),
+        value: userOverview.created_last_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.newUsers30d'),
+        quickFilterKey:
+          USER_QUICK_FILTER_CREATED_LAST_30D as UserQuickFilterKey,
+      },
+      {
+        key: 'registered-30d',
+        label: tOperationsUsers('overview.metrics.registeredUsers30d'),
+        value: userOverview.registered_last_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.registeredUsers30d'),
+        quickFilterKey:
+          USER_QUICK_FILTER_REGISTERED_LAST_30D as UserQuickFilterKey,
+      },
+      {
+        key: 'learning-active-30d',
+        label: tOperationsUsers('overview.metrics.learningActive30d'),
+        value: userOverview.learning_active_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.learningActive30d'),
+        quickFilterKey:
+          USER_QUICK_FILTER_LEARNING_ACTIVE_30D as UserQuickFilterKey,
+      },
+      {
+        key: 'paid-30d',
+        label: tOperationsUsers('overview.metrics.paidUsers30d'),
+        value: userOverview.paid_last_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.paidUsers30d'),
+        quickFilterKey: USER_QUICK_FILTER_PAID_LAST_30D as UserQuickFilterKey,
+      },
+    ],
+    [tOperationsUsers, userOverview],
+  );
+
+  const activeQuickFilterCard = useMemo(() => {
+    if (!quickFilter) {
+      return null;
+    }
+    return (
+      overviewCards.find(card => card.quickFilterKey === quickFilter) ?? null
+    );
+  }, [overviewCards, quickFilter]);
+
   const collapsedFilterItems = [
     {
       key: 'identifier',
@@ -530,12 +890,7 @@ export default function AdminOperationUsersPage() {
           value={draftFilters.identifier}
           placeholder={identifierLabel}
           clearLabel={t('common.core.close')}
-          onChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              identifier: value,
-            }))
-          }
+          onChange={value => updateDraftFilter('identifier', value)}
         />
       ),
     },
@@ -547,12 +902,7 @@ export default function AdminOperationUsersPage() {
           value={draftFilters.nickname}
           placeholder={tOperationsUsers('filters.nickname')}
           clearLabel={t('common.core.close')}
-          onChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              nickname: value,
-            }))
-          }
+          onChange={value => updateDraftFilter('nickname', value)}
         />
       ),
     },
@@ -567,10 +917,10 @@ export default function AdminOperationUsersPage() {
         <Select
           value={draftFilters.user_status || ALL_OPTION_VALUE}
           onValueChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              user_status: value === ALL_OPTION_VALUE ? '' : value,
-            }))
+            updateDraftFilter(
+              'user_status',
+              value === ALL_OPTION_VALUE ? '' : value,
+            )
           }
         >
           <SelectTrigger>
@@ -599,10 +949,10 @@ export default function AdminOperationUsersPage() {
         <Select
           value={draftFilters.user_role || ALL_OPTION_VALUE}
           onValueChange={value =>
-            setDraftFilters(current => ({
-              ...current,
-              user_role: value === ALL_OPTION_VALUE ? '' : value,
-            }))
+            updateDraftFilter(
+              'user_role',
+              value === ALL_OPTION_VALUE ? '' : value,
+            )
           }
         >
           <SelectTrigger>
@@ -631,13 +981,10 @@ export default function AdminOperationUsersPage() {
           placeholder={`${t('module.operationsCourse.filters.startTime')} ~ ${t('module.operationsCourse.filters.endTime')}`}
           resetLabel={t('module.order.filters.reset')}
           clearLabel={t('common.core.close')}
-          onChange={({ start, end }) =>
-            setDraftFilters(current => ({
-              ...current,
-              start_time: start,
-              end_time: end,
-            }))
-          }
+          onChange={({ start, end }) => {
+            updateDraftFilter('start_time', start);
+            updateDraftFilter('end_time', end);
+          }}
         />
       ),
     },
@@ -654,7 +1001,11 @@ export default function AdminOperationUsersPage() {
           errorCode={error.code || 0}
           errorMessage={error.message}
           onRetry={() =>
-            fetchUsers(lastRequestedPageRef.current, appliedFilters)
+            fetchUsers(
+              lastRequestedPageRef.current,
+              appliedFilters,
+              quickFilter,
+            )
           }
         />
       </div>
@@ -671,8 +1022,76 @@ export default function AdminOperationUsersPage() {
             </h1>
           </div>
 
+          <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm'>
+            <div className='mb-3'>
+              <h2 className='text-base font-semibold text-foreground'>
+                {tOperationsUsers('overview.title')}
+              </h2>
+            </div>
+            {userOverviewError ? (
+              <div className='mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'>
+                <AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />
+                <span>{tOperationsUsers('overview.staleData')}</span>
+              </div>
+            ) : null}
+            <div className='grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-5'>
+              {overviewCards.map(card => (
+                <div
+                  key={card.key}
+                  className='rounded-lg border border-border/70 bg-muted/20 p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
+                >
+                  <div className='flex items-start justify-between gap-2'>
+                    <button
+                      type='button'
+                      aria-label={card.label}
+                      className='group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
+                      onClick={() => applyQuickFilter(card.quickFilterKey)}
+                    >
+                      <div className='text-sm text-muted-foreground'>
+                        {card.label}
+                      </div>
+                      <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
+                        {formatAdminCount(card.value, i18n.language)}
+                      </div>
+                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type='button'
+                          aria-label={card.tooltip}
+                          className='inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
+                        >
+                          <QuestionMarkCircleIcon className='h-4 w-4' />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className='max-w-56 text-left leading-5'>
+                        {card.tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'>
             <div className='space-y-4'>
+              {activeQuickFilterCard ? (
+                <div className='flex flex-wrap items-center gap-2'>
+                  <span className='text-sm text-muted-foreground'>
+                    {tOperationsUsers('overview.activeFilter')}
+                  </span>
+                  <button
+                    type='button'
+                    aria-label={`${activeQuickFilterCard.label} ${t('common.core.close')}`}
+                    className='inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground transition-colors hover:bg-muted'
+                    onClick={() => applyQuickFilter('')}
+                  >
+                    <span>{activeQuickFilterCard.label}</span>
+                    <X className='h-3.5 w-3.5' />
+                  </button>
+                </div>
+              ) : null}
               <div
                 className={cn(
                   'grid gap-4',
@@ -938,6 +1357,8 @@ export default function AdminOperationUsersPage() {
                           {userDetailUrl ? (
                             <Link
                               href={userDetailUrl}
+                              target='_blank'
+                              rel='noopener noreferrer'
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
                               {renderTooltipText(user.user_bid)}
@@ -957,6 +1378,8 @@ export default function AdminOperationUsersPage() {
                           ) : userDetailUrl && primaryContact ? (
                             <Link
                               href={userDetailUrl}
+                              target='_blank'
+                              rel='noopener noreferrer'
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
                               {renderTooltipText(primaryContact)}
@@ -1002,17 +1425,16 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('learningCourses')}
                         >
                           <CourseListPreview
-                            courses={user.learning_courses}
+                            count={
+                              user.learning_course_count ??
+                              user.learning_courses.length
+                            }
                             emptyLabel={EMPTY_STATE_LABEL}
                             ariaLabel={tOperationsUsers(
                               'table.learningCourses',
                             )}
                             onView={() =>
-                              setCourseDialog({
-                                user,
-                                courses: user.learning_courses,
-                                type: 'learning',
-                              })
+                              void openCourseDialog(user, 'learning')
                             }
                           />
                         </TableCell>
@@ -1021,15 +1443,14 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('createdCourses')}
                         >
                           <CourseListPreview
-                            courses={user.created_courses}
+                            count={
+                              user.created_course_count ??
+                              user.created_courses.length
+                            }
                             emptyLabel={EMPTY_STATE_LABEL}
                             ariaLabel={tOperationsUsers('table.createdCourses')}
                             onView={() =>
-                              setCourseDialog({
-                                user,
-                                courses: user.created_courses,
-                                type: 'created',
-                              })
+                              void openCourseDialog(user, 'created')
                             }
                           />
                         </TableCell>
@@ -1048,11 +1469,13 @@ export default function AdminOperationUsersPage() {
                           {userDetailUrl && user.available_credits ? (
                             <Link
                               href={`${userDetailUrl}#credits`}
+                              target='_blank'
+                              rel='noopener noreferrer'
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
                               {renderTooltipText(
                                 user.available_credits
-                                  ? formatBillingCredits(
+                                  ? formatAdminCredits(
                                       Number(user.available_credits),
                                       i18n.language,
                                     )
@@ -1062,7 +1485,7 @@ export default function AdminOperationUsersPage() {
                           ) : (
                             renderTooltipText(
                               user.available_credits
-                                ? formatBillingCredits(
+                                ? formatAdminCredits(
                                     Number(user.available_credits),
                                     i18n.language,
                                   )
@@ -1081,7 +1504,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('lastLoginAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorUtcDateTime(user.last_login_at),
+                            formatOperatorNaiveDateTime(user.last_login_at),
                           )}
                         </TableCell>
                         <TableCell
@@ -1089,7 +1512,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('lastLearningAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorUtcDateTime(user.last_learning_at),
+                            formatOperatorNaiveDateTime(user.last_learning_at),
                           )}
                         </TableCell>
                         <TableCell
@@ -1097,7 +1520,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('createdAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorUtcDateTime(user.created_at),
+                            formatOperatorNaiveDateTime(user.created_at),
                           )}
                         </TableCell>
                         <TableCell
@@ -1105,7 +1528,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('updatedAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorUtcDateTime(user.updated_at),
+                            formatOperatorNaiveDateTime(user.updated_at),
                           )}
                         </TableCell>
                         <TableCell
@@ -1133,7 +1556,12 @@ export default function AdminOperationUsersPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align='center'>
                                 <DropdownMenuItem
-                                  onClick={() => setGrantDialogUser(user)}
+                                  disabled={!canGrantBenefitsToUser(user)}
+                                  onClick={() => {
+                                    if (canGrantBenefitsToUser(user)) {
+                                      setGrantDialogUser(user);
+                                    }
+                                  }}
                                 >
                                   {tOperationsUsers('actions.grantCredits')}
                                 </DropdownMenuItem>
@@ -1172,6 +1600,7 @@ export default function AdminOperationUsersPage() {
             open={Boolean(courseDialog)}
             onOpenChange={open => {
               if (!open) {
+                courseDialogRequestIdRef.current += 1;
                 setCourseDialog(null);
               }
             }}
@@ -1198,78 +1627,90 @@ export default function AdminOperationUsersPage() {
 
               <div className='rounded-lg border border-border'>
                 <div className='max-h-[60vh] overflow-auto'>
-                  <Table className='table-fixed'>
-                    <colgroup>
-                      <col className='w-[34%]' />
-                      <col className='w-[46%]' />
-                      <col className='w-[20%]' />
-                    </colgroup>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className='bg-muted text-center sticky top-0 z-20'>
-                          {tOperationsUsers('courseSummary.dialog.courseName')}
-                        </TableHead>
-                        <TableHead className='bg-muted text-center sticky top-0 z-20'>
-                          {tOperationsUsers('courseSummary.dialog.courseId')}
-                        </TableHead>
-                        <TableHead className='bg-muted text-center sticky top-0 z-20'>
-                          {tOperationsUsers('courseSummary.dialog.status')}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {courseDialog?.courses?.length ? (
-                        courseDialog.courses.map(course => {
-                          const courseDetailUrl =
-                            buildAdminOperationsCourseDetailUrl(
-                              course.shifu_bid,
-                            );
-                          return (
-                            <TableRow
-                              key={`${courseDialog.type}-${course.shifu_bid}`}
-                            >
-                              <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
-                                {courseDetailUrl ? (
-                                  <Link
-                                    href={courseDetailUrl}
-                                    className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
-                                  >
+                  {courseDialog?.loading ? (
+                    <div className='flex h-40 items-center justify-center'>
+                      <Loading />
+                    </div>
+                  ) : courseDialog?.error ? (
+                    <div className='flex h-40 items-center justify-center px-6 text-sm text-destructive'>
+                      {courseDialog.error}
+                    </div>
+                  ) : (
+                    <Table className='table-fixed'>
+                      <colgroup>
+                        <col className='w-[34%]' />
+                        <col className='w-[46%]' />
+                        <col className='w-[20%]' />
+                      </colgroup>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                            {tOperationsUsers(
+                              'courseSummary.dialog.courseName',
+                            )}
+                          </TableHead>
+                          <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                            {tOperationsUsers('courseSummary.dialog.courseId')}
+                          </TableHead>
+                          <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                            {tOperationsUsers('courseSummary.dialog.status')}
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {courseDialog?.courses?.length ? (
+                          courseDialog.courses.map(course => {
+                            const courseDetailUrl =
+                              buildAdminOperationsCourseDetailUrl(
+                                course.shifu_bid,
+                              );
+                            return (
+                              <TableRow
+                                key={`${courseDialog.type}-${course.shifu_bid}`}
+                              >
+                                <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
+                                  {courseDetailUrl ? (
+                                    <Link
+                                      href={courseDetailUrl}
+                                      className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
+                                    >
+                                      <AdminTooltipText
+                                        text={course.course_name}
+                                        emptyValue={EMPTY_STATE_LABEL}
+                                      />
+                                    </Link>
+                                  ) : (
                                     <AdminTooltipText
                                       text={course.course_name}
                                       emptyValue={EMPTY_STATE_LABEL}
                                     />
-                                  </Link>
-                                ) : (
+                                  )}
+                                </TableCell>
+                                <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
                                   <AdminTooltipText
-                                    text={course.course_name}
+                                    text={course.shifu_bid}
                                     emptyValue={EMPTY_STATE_LABEL}
                                   />
-                                )}
-                              </TableCell>
-                              <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
-                                <AdminTooltipText
-                                  text={course.shifu_bid}
-                                  emptyValue={EMPTY_STATE_LABEL}
-                                />
-                              </TableCell>
-                              <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
-                                <AdminTooltipText
-                                  text={resolveCourseStatusLabel(
-                                    course.course_status,
-                                  )}
-                                  emptyValue={EMPTY_STATE_LABEL}
-                                />
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      ) : (
-                        <TableEmpty colSpan={3}>
-                          {tOperationsUsers('courseSummary.empty')}
-                        </TableEmpty>
-                      )}
-                    </TableBody>
-                  </Table>
+                                </TableCell>
+                                <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
+                                  <AdminTooltipText
+                                    text={resolveCourseStatusLabel(
+                                      course.course_status,
+                                    )}
+                                    emptyValue={EMPTY_STATE_LABEL}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        ) : (
+                          <TableEmpty colSpan={3}>
+                            {tOperationsUsers('courseSummary.empty')}
+                          </TableEmpty>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
               </div>
             </DialogContent>

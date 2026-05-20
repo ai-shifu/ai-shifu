@@ -26,7 +26,10 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_SEEDS,
 )
 from flaskr.service.billing.models import BillingProduct, CreditUsageRate
-from flaskr.service.billing.queries import calculate_billing_cycle_end
+from flaskr.service.billing.queries import (
+    calculate_billing_cycle_end,
+    calculate_self_managed_billing_cycle_end,
+)
 from flaskr.service.metering import consts as metering_consts
 from flaskr.service.promo import consts as promo_consts
 from flaskr.service.shifu import consts as shifu_consts
@@ -125,6 +128,42 @@ def test_calculate_billing_cycle_end_supports_day_month_and_year_intervals() -> 
         yearly_product,
         cycle_start_at=cycle_start,
     ) == datetime(2027, 4, 16, 12, 0, 0)
+
+
+def test_calculate_self_managed_billing_cycle_end_uses_validity_day_end() -> None:
+    daily_product = BillingProduct(
+        billing_interval=BILLING_INTERVAL_DAY,
+        billing_interval_count=7,
+    )
+    monthly_product = BillingProduct(
+        billing_interval=BILLING_INTERVAL_MONTH,
+        billing_interval_count=1,
+    )
+    yearly_product = BillingProduct(
+        billing_interval=BILLING_INTERVAL_YEAR,
+        billing_interval_count=1,
+    )
+
+    assert calculate_self_managed_billing_cycle_end(
+        daily_product,
+        cycle_start_at=datetime(2026, 4, 16, 12, 0, 0),
+    ) == datetime(2026, 4, 22, 23, 59, 59)
+    assert calculate_self_managed_billing_cycle_end(
+        monthly_product,
+        cycle_start_at=datetime(2026, 4, 16, 12, 0, 0),
+    ) == datetime(2026, 5, 15, 23, 59, 59)
+    assert calculate_self_managed_billing_cycle_end(
+        monthly_product,
+        cycle_start_at=datetime(2026, 1, 31, 12, 0, 0),
+    ) == datetime(2026, 3, 1, 23, 59, 59)
+    assert calculate_self_managed_billing_cycle_end(
+        yearly_product,
+        cycle_start_at=datetime(2026, 4, 16, 12, 0, 0),
+    ) == datetime(2027, 4, 16, 23, 59, 59)
+    assert calculate_self_managed_billing_cycle_end(
+        yearly_product,
+        cycle_start_at=datetime(2024, 2, 29, 12, 0, 0),
+    ) == datetime(2025, 3, 1, 23, 59, 59)
 
 
 def test_credit_usage_rate_model_registers_unique_constraints() -> None:

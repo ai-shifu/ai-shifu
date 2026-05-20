@@ -8,7 +8,14 @@ import pytest
 import sys
 
 from flaskr.dao import db
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.shifu import admin as admin_module
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -18,7 +25,9 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
@@ -27,10 +36,10 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.models import CreditWallet, CreditWalletBucket
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingProduct,
     BillingSubscription,
     CreditLedgerEntry,
 )
-from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
@@ -38,14 +47,21 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_SUCCESS,
 )
 from flaskr.service.order.models import Order
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.admin import (
+    get_operator_user_grant_bootstrap,
     grant_operator_user_credits,
+    grant_operator_user_package,
+    get_operator_user_overview,
     get_operator_user_credits,
     get_operator_user_detail,
     list_operator_users,
 )
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserPackageGrantRequestDTO,
+    AdminOperationUserListDTO,
+    AdminOperationUserOverviewDTO,
     AdminOperationUserSummaryDTO,
 )
 from flaskr.service.shifu.models import (
@@ -68,6 +84,7 @@ from flaskr.service.user.models import (
     UserToken,
 )
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+from tests.common.fixtures.billing_products import build_bill_products
 
 
 @pytest.fixture(autouse=True)
@@ -87,7 +104,10 @@ def _mock_bcrypt_module(monkeypatch):
 def _isolate_tables(app):
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
+        db.session.query(BillUsageRecord).delete()
         db.session.query(BillingOrder).delete()
+        db.session.query(BillingSubscription).delete()
+        db.session.query(BillingProduct).delete()
         db.session.query(CreditWalletBucket).delete()
         db.session.query(CreditWallet).delete()
         db.session.query(LearnProgressRecord).delete()
@@ -104,7 +124,10 @@ def _isolate_tables(app):
     yield
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
+        db.session.query(BillUsageRecord).delete()
         db.session.query(BillingOrder).delete()
+        db.session.query(BillingSubscription).delete()
+        db.session.query(BillingProduct).delete()
         db.session.query(CreditWalletBucket).delete()
         db.session.query(CreditWallet).delete()
         db.session.query(LearnProgressRecord).delete()
@@ -165,6 +188,7 @@ def _seed_user(
     created_at: datetime,
     updated_at: datetime,
     providers: list[tuple[str, str]] | None = None,
+    credential_created_at: datetime | None = None,
 ):
     entity = create_user_entity(
         user_bid=user_bid,
@@ -180,7 +204,7 @@ def _seed_user(
     db.session.flush()
 
     for provider_name, identifier in providers or []:
-        upsert_credential(
+        credential = upsert_credential(
             app,
             user_bid=user_bid,
             provider_name=provider_name,
@@ -190,6 +214,9 @@ def _seed_user(
             metadata={},
             verified=True,
         )
+        if credential_created_at:
+            credential.created_at = credential_created_at
+            credential.updated_at = credential_created_at
     db.session.commit()
     db.session.remove()
 
@@ -315,12 +342,13 @@ def _seed_billing_subscription(
     subscription_bid: str,
     current_period_start_at: datetime,
     current_period_end_at: datetime,
+    product_bid: str = "product-1",
     status: int = BILLING_SUBSCRIPTION_STATUS_ACTIVE,
 ):
     subscription = BillingSubscription(
         subscription_bid=subscription_bid,
         creator_bid=creator_bid,
-        product_bid="product-1",
+        product_bid=product_bid,
         status=status,
         billing_provider="manual",
         provider_subscription_id="",
@@ -408,6 +436,46 @@ def _seed_credit_ledger_entry(
     db.session.commit()
     db.session.remove()
     return entry
+
+
+def _seed_bill_usage_record(
+    *,
+    usage_bid: str,
+    user_bid: str,
+    shifu_bid: str,
+    progress_record_bid: str,
+    outline_item_bid: str,
+    usage_type: int,
+    usage_scene: int,
+    created_at: datetime,
+    extra: dict | None = None,
+):
+    usage = BillUsageRecord(
+        usage_bid=usage_bid,
+        parent_usage_bid="",
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_item_bid=outline_item_bid,
+        progress_record_bid=progress_record_bid,
+        generated_block_bid="",
+        audio_bid="",
+        request_id=f"request-{usage_bid}",
+        trace_id=f"trace-{usage_bid}",
+        usage_type=usage_type,
+        record_level=0,
+        usage_scene=usage_scene,
+        provider="openai",
+        model="gpt-4o-mini",
+        billable=1,
+        status=0,
+        extra=extra or {},
+    )
+    usage.created_at = created_at
+    usage.updated_at = created_at
+    db.session.add(usage)
+    db.session.commit()
+    db.session.remove()
+    return usage
 
 
 def _seed_learn_progress(
@@ -500,7 +568,7 @@ def test_list_operator_users_returns_paginated_summaries_with_resolved_metadata(
 
         result = list_operator_users(app, 1, 1, {})
 
-    assert isinstance(result, PageNationDTO)
+    assert isinstance(result, AdminOperationUserListDTO)
     assert result.total == 2
     assert len(result.data) == 1
     item = result.data[0]
@@ -571,6 +639,49 @@ def test_list_operator_users_filters_by_identifier_status_role_and_created_time(
     assert result.data[0].created_courses == []
 
 
+def test_list_operator_users_filters_creator_role_includes_operator_creators(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="operator-creator",
+            identify="13900003333",
+            nickname="Operator Creator",
+            state=USER_STATE_REGISTERED,
+            is_creator=True,
+            is_operator=True,
+            created_at=datetime(2026, 4, 3, 9, 0, 0),
+            updated_at=datetime(2026, 4, 3, 10, 0, 0),
+            providers=[("phone", "13900003333")],
+        )
+        _seed_user(
+            app,
+            user_bid="creator-only",
+            identify="13900004444",
+            nickname="Creator Only",
+            state=USER_STATE_REGISTERED,
+            is_creator=True,
+            created_at=datetime(2026, 4, 2, 9, 0, 0),
+            updated_at=datetime(2026, 4, 2, 10, 0, 0),
+            providers=[("phone", "13900004444")],
+        )
+
+        result = list_operator_users(
+            app,
+            1,
+            20,
+            {
+                "user_role": "creator",
+            },
+        )
+
+    assert [item.user_bid for item in result.data] == [
+        "operator-creator",
+        "creator-only",
+    ]
+    assert result.data[0].user_roles == ["operator", "creator"]
+    assert result.data[1].user_roles == ["creator"]
+
+
 def test_list_operator_users_filters_by_email_identifier(app):
     with app.app_context():
         _seed_user(
@@ -602,6 +713,246 @@ def test_list_operator_users_filters_by_email_identifier(app):
     assert result.data[0].created_courses == []
 
 
+def test_list_operator_users_returns_overview_summary_and_applies_quick_filters(
+    app, monkeypatch
+):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 5, 6, 12, 0, 0, tzinfo=tz)
+
+    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-guest",
+            identify="guest@example.com",
+            nickname="Guest User",
+            state=USER_STATE_UNREGISTERED,
+            created_at=datetime(2026, 5, 5, 9, 0, 0),
+            updated_at=datetime(2026, 5, 5, 10, 0, 0),
+            providers=[("email", "guest@example.com")],
+        )
+        _seed_user(
+            app,
+            user_bid="user-creator",
+            identify="creator@example.com",
+            nickname="Creator User",
+            state=USER_STATE_REGISTERED,
+            is_creator=True,
+            created_at=datetime(2026, 5, 1, 9, 0, 0),
+            updated_at=datetime(2026, 5, 1, 10, 0, 0),
+            providers=[("email", "creator@example.com")],
+            credential_created_at=datetime(2026, 5, 1, 9, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-learner",
+            identify="learner@example.com",
+            nickname="Learner User",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "learner@example.com")],
+            credential_created_at=datetime(2026, 4, 20, 9, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-paid",
+            identify="paid@example.com",
+            nickname="Paid User",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            providers=[("email", "paid@example.com")],
+            credential_created_at=datetime(2026, 5, 2, 8, 0, 0),
+        )
+        _seed_learn_progress(
+            shifu_bid="course-learning-active",
+            outline_item_bid="lesson-learning-active",
+            user_bid="user-learner",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 5, 4, 8, 0, 0),
+        )
+        _seed_success_order(
+            order_bid="order-paid-recent",
+            shifu_bid="course-paid-recent",
+            user_bid="user-paid",
+            created_at=datetime(2026, 5, 3, 8, 0, 0),
+        )
+
+        overview = get_operator_user_overview(app)
+        result = list_operator_users(app, 1, 20, {})
+        learner_result = list_operator_users(app, 1, 20, {"quick_filter": "learner"})
+        recent_paid_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "paid_last_30d"}
+        )
+        registered_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "registered"}
+        )
+        recent_registered_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "registered_last_30d"}
+        )
+
+    assert isinstance(result, AdminOperationUserListDTO)
+    assert isinstance(overview, AdminOperationUserOverviewDTO)
+    assert overview.total_user_count == 4
+    assert overview.registered_user_count == 3
+    assert overview.creator_user_count == 1
+    assert overview.learner_user_count == 2
+    assert overview.paid_user_count == 1
+    assert overview.created_last_30d_user_count == 3
+    assert overview.registered_last_30d_user_count == 3
+    assert overview.learning_active_30d_user_count == 1
+    assert overview.paid_last_30d_user_count == 1
+    assert overview.guest_user_count == 1
+    assert [item.user_bid for item in registered_result.data] == [
+        "user-creator",
+        "user-learner",
+        "user-paid",
+    ]
+    assert [item.user_bid for item in recent_registered_result.data] == [
+        "user-creator",
+        "user-learner",
+        "user-paid",
+    ]
+    assert [item.user_bid for item in learner_result.data] == [
+        "user-learner",
+        "user-paid",
+    ]
+    assert [item.user_bid for item in recent_paid_result.data] == ["user-paid"]
+
+
+def test_list_operator_users_recent_windows_exclude_future_records_and_keep_microseconds(
+    app, monkeypatch
+):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 5, 6, 23, 59, 59, 250000, tzinfo=tz)
+
+    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-created-in-range",
+            identify="created-in-range@example.com",
+            nickname="Created In Range",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+            updated_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+            providers=[("email", "created-in-range@example.com")],
+            credential_created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+        )
+        _seed_user(
+            app,
+            user_bid="user-created-future",
+            identify="created-future@example.com",
+            nickname="Created Future",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+            updated_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+            providers=[("email", "created-future@example.com")],
+            credential_created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+        )
+        _seed_user(
+            app,
+            user_bid="user-learning-in-range",
+            identify="learning-in-range@example.com",
+            nickname="Learning In Range",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+            providers=[("email", "learning-in-range@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-learning-future",
+            identify="learning-future@example.com",
+            nickname="Learning Future",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 1, 10, 0, 0),
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            providers=[("email", "learning-future@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 10, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-paid-in-range",
+            identify="paid-in-range@example.com",
+            nickname="Paid In Range",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 1, 8, 0, 0),
+            updated_at=datetime(2026, 4, 1, 8, 0, 0),
+            providers=[("email", "paid-in-range@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 8, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-paid-future",
+            identify="paid-future@example.com",
+            nickname="Paid Future",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+            providers=[("email", "paid-future@example.com")],
+            credential_created_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        _seed_learn_progress(
+            shifu_bid="course-learning-in-range",
+            outline_item_bid="lesson-learning-in-range",
+            user_bid="user-learning-in-range",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+        )
+        _seed_learn_progress(
+            shifu_bid="course-learning-future",
+            outline_item_bid="lesson-learning-future",
+            user_bid="user-learning-future",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+        )
+        _seed_success_order(
+            order_bid="order-paid-in-range",
+            shifu_bid="course-paid-in-range",
+            user_bid="user-paid-in-range",
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 125000),
+        )
+        _seed_success_order(
+            order_bid="order-paid-future",
+            shifu_bid="course-paid-future",
+            user_bid="user-paid-future",
+            created_at=datetime(2026, 5, 6, 23, 59, 59, 750000),
+        )
+
+        overview = get_operator_user_overview(app)
+        created_last_30d_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "created_last_30d"}
+        )
+        learning_active_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "learning_active_30d"}
+        )
+        paid_last_30d_result = list_operator_users(
+            app, 1, 20, {"quick_filter": "paid_last_30d"}
+        )
+
+    assert overview.created_last_30d_user_count == 1
+    assert overview.learning_active_30d_user_count == 1
+    assert overview.paid_last_30d_user_count == 1
+    assert [item.user_bid for item in created_last_30d_result.data] == [
+        "user-created-in-range"
+    ]
+    assert [item.user_bid for item in learning_active_result.data] == [
+        "user-learning-in-range"
+    ]
+    assert [item.user_bid for item in paid_last_30d_result.data] == [
+        "user-paid-in-range"
+    ]
+
+
 def test_list_operator_users_caps_page_size(app):
     with app.app_context():
         _seed_user(
@@ -627,7 +978,7 @@ def test_list_operator_users_caps_page_size(app):
 
         result = list_operator_users(app, 1, 999, {})
 
-    assert isinstance(result, PageNationDTO)
+    assert isinstance(result, AdminOperationUserListDTO)
     assert result.page_size == 100
     assert result.total == 2
     assert len(result.data) == 2
@@ -694,6 +1045,8 @@ def test_list_operator_users_returns_learning_and_created_courses(app):
         )
 
         result = list_operator_users(app, 1, 20, {})
+        creator_detail = get_operator_user_detail(app, "creator-user")
+        learner_detail = get_operator_user_detail(app, "learner-user")
 
     assert result.total == 2
     assert [item.user_bid for item in result.data] == ["creator-user", "learner-user"]
@@ -704,23 +1057,31 @@ def test_list_operator_users_returns_learning_and_created_courses(app):
     assert creator_item.user_roles == ["creator", "learner"]
     assert learner_item.user_roles == ["learner"]
 
-    assert [course.course_name for course in creator_item.created_courses] == [
+    assert creator_item.created_course_count == 3
+    assert creator_item.learning_course_count == 1
+    assert learner_item.learning_course_count == 1
+    assert learner_item.created_course_count == 0
+    assert creator_item.created_courses == []
+    assert creator_item.learning_courses == []
+    assert learner_item.learning_courses == []
+    assert learner_item.created_courses == []
+
+    assert [course.course_name for course in creator_detail.created_courses] == [
         "Published Course",
         "Draft Course",
         "Learned Course",
     ]
-    assert [course.course_status for course in creator_item.created_courses] == [
+    assert [course.course_status for course in creator_detail.created_courses] == [
         "published",
         "unpublished",
         "published",
     ]
-    assert [course.course_name for course in creator_item.learning_courses] == [
+    assert [course.course_name for course in creator_detail.learning_courses] == [
         "Published Course"
     ]
-    assert [course.course_name for course in learner_item.learning_courses] == [
+    assert [course.course_name for course in learner_detail.learning_courses] == [
         "Learned Course"
     ]
-    assert learner_item.created_courses == []
 
 
 def test_list_operator_users_includes_creator_credit_summaries(app):
@@ -1131,6 +1492,277 @@ def test_get_operator_user_credits_maps_usage_rows_to_operator_display_codes(app
     assert result.items[0].note_code == "preview_consume"
 
 
+def test_get_operator_user_credits_filters_consume_grant_and_other_rows(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-filter-user",
+            identify="credits-filter@example.com",
+            nickname="Credits Filter",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "credits-filter@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            available_credits="20.0000000000",
+        )
+        _seed_course(
+            model=DraftShifu,
+            shifu_bid="course-ask",
+            title="Ask Mastery",
+            creator_user_bid="credits-filter-user",
+            created_at=datetime(2026, 4, 10, 8, 0, 0),
+            updated_at=datetime(2026, 4, 10, 8, 0, 0),
+        )
+        _seed_course(
+            model=DraftShifu,
+            shifu_bid="course-listen",
+            title="Listen Basics",
+            creator_user_bid="credits-filter-user",
+            created_at=datetime(2026, 4, 10, 9, 0, 0),
+            updated_at=datetime(2026, 4, 10, 9, 0, 0),
+        )
+        _seed_billing_order(
+            creator_bid="credits-filter-user",
+            bill_order_bid="order-subscription-filter",
+            metadata_json={"checkout_type": "subscription"},
+        )
+        _seed_billing_order(
+            creator_bid="credits-filter-user",
+            bill_order_bid="order-trial-filter",
+            metadata_json={"checkout_type": "trial_bootstrap"},
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-ask-filter",
+            user_bid="credits-filter-user",
+            shifu_bid="course-ask",
+            progress_record_bid="progress-ask-filter",
+            outline_item_bid="lesson-ask-filter",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+            extra={"generation_name": "lesson_ask/filter"},
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-listen-filter",
+            user_bid="credits-filter-user",
+            shifu_bid="course-listen",
+            progress_record_bid="progress-listen-filter",
+            outline_item_bid="lesson-listen-filter",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            created_at=datetime(2026, 4, 18, 10, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-consume-filter",
+            ledger_bid="ledger-consume-ask-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-ask-filter",
+            amount="-1.0000000000",
+            balance_after="19.0000000000",
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-consume-filter",
+            ledger_bid="ledger-consume-listen-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-listen-filter",
+            amount="-2.0000000000",
+            balance_after="17.0000000000",
+            created_at=datetime(2026, 4, 18, 10, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-grant-filter",
+            ledger_bid="ledger-grant-subscription-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="order-subscription-filter",
+            amount="5.0000000000",
+            balance_after="22.0000000000",
+            created_at=datetime(2026, 4, 18, 11, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-grant-filter",
+            ledger_bid="ledger-grant-trial-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="order-trial-filter",
+            amount="3.0000000000",
+            balance_after="25.0000000000",
+            created_at=datetime(2026, 4, 18, 12, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-other-filter",
+            ledger_bid="ledger-expire-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            source_bid="expire-filter",
+            amount="-4.0000000000",
+            balance_after="21.0000000000",
+            created_at=datetime(2026, 4, 18, 13, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-other-filter",
+            ledger_bid="ledger-refund-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_REFUND,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="refund-filter",
+            amount="1.0000000000",
+            balance_after="22.0000000000",
+            created_at=datetime(2026, 4, 18, 14, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-filter-user",
+            wallet_bid="wallet-credits-filter-user",
+            wallet_bucket_bid="bucket-other-filter",
+            ledger_bid="ledger-manual-debit-filter",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+            source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            source_bid="manual-debit-filter",
+            amount="-1.0000000000",
+            balance_after="21.0000000000",
+            created_at=datetime(2026, 4, 18, 15, 0, 0),
+        )
+
+        consume_id_result = get_operator_user_credits(
+            app,
+            user_bid="credits-filter-user",
+            page_index=1,
+            page_size=20,
+            filters={
+                "credit_type": "consume",
+                "course_query": "course-ask",
+                "usage_mode": "ask",
+            },
+        )
+        consume_name_result = get_operator_user_credits(
+            app,
+            user_bid="credits-filter-user",
+            page_index=1,
+            page_size=20,
+            filters={
+                "credit_type": "consume",
+                "course_query": "Ask",
+                "usage_mode": "ask",
+            },
+        )
+        grant_result = get_operator_user_credits(
+            app,
+            user_bid="credits-filter-user",
+            page_index=1,
+            page_size=20,
+            filters={
+                "credit_type": "grant",
+                "grant_source": "trial_subscription",
+            },
+        )
+        other_result = get_operator_user_credits(
+            app,
+            user_bid="credits-filter-user",
+            page_index=1,
+            page_size=20,
+            filters={"credit_type": "other"},
+        )
+
+    assert [item.ledger_bid for item in consume_id_result.items] == [
+        "ledger-consume-ask-filter"
+    ]
+    assert consume_id_result.total == 1
+
+    assert [item.ledger_bid for item in consume_name_result.items] == [
+        "ledger-consume-ask-filter"
+    ]
+    assert consume_name_result.total == 1
+
+    assert [item.ledger_bid for item in grant_result.items] == [
+        "ledger-grant-trial-filter"
+    ]
+    assert grant_result.total == 1
+
+    assert [item.ledger_bid for item in other_result.items] == [
+        "ledger-manual-debit-filter",
+        "ledger-refund-filter",
+        "ledger-expire-filter",
+    ]
+    assert other_result.total == 3
+
+
+def test_get_operator_user_credits_keeps_consume_rows_without_usage_when_unfiltered(
+    app,
+):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-missing-usage-user",
+            identify="credits-missing-usage@example.com",
+            nickname="Credits Missing Usage",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "credits-missing-usage@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="credits-missing-usage-user",
+            wallet_bid="wallet-credits-missing-usage-user",
+            available_credits="8.0000000000",
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-missing-usage-user",
+            wallet_bid="wallet-credits-missing-usage-user",
+            wallet_bucket_bid="bucket-consume-missing-usage",
+            ledger_bid="ledger-consume-missing-usage",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-missing",
+            amount="-1.0000000000",
+            balance_after="7.0000000000",
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+
+        unfiltered_result = get_operator_user_credits(
+            app,
+            user_bid="credits-missing-usage-user",
+            page_index=1,
+            page_size=20,
+            filters={"credit_type": "consume"},
+        )
+        filtered_result = get_operator_user_credits(
+            app,
+            user_bid="credits-missing-usage-user",
+            page_index=1,
+            page_size=20,
+            filters={
+                "credit_type": "consume",
+                "usage_mode": "ask",
+            },
+        )
+
+    assert [item.ledger_bid for item in unfiltered_result.items] == [
+        "ledger-consume-missing-usage"
+    ]
+    assert unfiltered_result.total == 1
+    assert filtered_result.total == 0
+
+
 def test_get_operator_user_credits_excludes_topup_from_available_without_subscription(
     app,
 ):
@@ -1332,6 +1964,7 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app
             identify="credits-grant-target@example.com",
             nickname="Credits Grant Target",
             state=USER_STATE_PAID,
+            is_creator=True,
             created_at=datetime(2026, 4, 20, 9, 0, 0),
             updated_at=datetime(2026, 4, 20, 10, 0, 0),
             providers=[("email", "credits-grant-target@example.com")],
@@ -1346,6 +1979,7 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app
                 amount="5",
                 grant_source="compensation",
                 validity_preset="7d",
+                display_name="模型扣费补偿",
                 note="ops support",
             ),
         )
@@ -1370,6 +2004,8 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app
     assert result.grant_source == "compensation"
     assert result.validity_preset == "7d"
     assert result.expires_at.endswith("Z")
+    assert result.display_name == "模型扣费补偿"
+    assert result.note == "ops support"
     assert result.summary.available_credits == "5"
     assert result.summary.subscription_credits == "5"
     assert result.summary.topup_credits == "0"
@@ -1378,11 +2014,15 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app
     assert bucket.source_type == CREDIT_SOURCE_TYPE_MANUAL
     assert bucket.metadata_json["grant_source"] == "compensation"
     assert bucket.metadata_json["validity_preset"] == "7d"
+    assert "display_name" not in bucket.metadata_json
+    assert "note" not in bucket.metadata_json
     assert ledger is not None
     assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
     assert ledger.source_type == CREDIT_SOURCE_TYPE_MANUAL
     assert ledger.metadata_json["grant_type"] == "manual_grant"
     assert ledger.metadata_json["grant_channel"] == "operator_user_management"
+    assert ledger.metadata_json["display_name"] == "模型扣费补偿"
+    assert ledger.metadata_json["note"] == "ops support"
 
 
 def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(app):
@@ -1393,6 +2033,7 @@ def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(app):
             identify="credits-grant-idempotent@example.com",
             nickname="Credits Grant Idempotent",
             state=USER_STATE_PAID,
+            is_creator=True,
             created_at=datetime(2026, 4, 20, 9, 0, 0),
             updated_at=datetime(2026, 4, 20, 10, 0, 0),
             providers=[("email", "credits-grant-idempotent@example.com")],
@@ -1439,6 +2080,7 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
             identify="credits-grant-idempotent-persisted@example.com",
             nickname="Credits Grant Idempotent Persisted",
             state=USER_STATE_PAID,
+            is_creator=True,
             created_at=datetime(2026, 4, 20, 9, 0, 0),
             updated_at=datetime(2026, 4, 20, 10, 0, 0),
             providers=[("email", "credits-grant-idempotent-persisted@example.com")],
@@ -1449,6 +2091,7 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
             amount="5",
             grant_source="reward",
             validity_preset="1d",
+            display_name="first display",
             note="first grant",
         )
         second_payload = AdminOperationUserCreditGrantRequestDTO(
@@ -1456,6 +2099,7 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
             amount="9",
             grant_source="compensation",
             validity_preset="7d",
+            display_name="second display",
             note="second grant",
         )
         first_result = grant_operator_user_credits(
@@ -1477,6 +2121,202 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
     assert second_result.grant_source == "reward"
     assert second_result.validity_preset == "1d"
     assert second_result.expires_at == first_result.expires_at
+    assert second_result.display_name == "first display"
+    assert second_result.note == "first grant"
+
+
+def test_grant_operator_user_credits_rejects_regular_user_targets(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-grant-regular",
+            identify="credits-grant-regular@example.com",
+            nickname="Credits Grant Regular",
+            state=USER_STATE_PAID,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "credits-grant-regular@example.com")],
+        )
+
+        with pytest.raises(AppException) as exc_info:
+            grant_operator_user_credits(
+                app,
+                user_bid="credits-grant-regular",
+                operator_user_bid="operator-1",
+                payload=AdminOperationUserCreditGrantRequestDTO(
+                    request_id="grant-request-regular",
+                    amount="5",
+                    grant_source="reward",
+                    validity_preset="1d",
+                    note="unsupported target",
+                ),
+            )
+
+    assert (
+        exc_info.value.code
+        == ERROR_CODE["server.billing.adminPlanGrantRoleUnsupported"]
+    )
+
+
+def test_get_operator_user_grant_bootstrap_returns_active_plans(app):
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="package-bootstrap-target",
+            identify="package-bootstrap-target@example.com",
+            nickname="Package Bootstrap Target",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "package-bootstrap-target@example.com")],
+        )
+        _seed_billing_subscription(
+            creator_bid="package-bootstrap-target",
+            subscription_bid="subscription-package-bootstrap-target",
+            product_bid="bill-product-plan-monthly",
+            current_period_start_at=datetime(2026, 4, 20, 9, 0, 0),
+            current_period_end_at=datetime(2026, 5, 20, 23, 59, 59),
+        )
+
+        result = get_operator_user_grant_bootstrap(
+            app,
+            user_bid="package-bootstrap-target",
+        )
+
+    assert len(result.plans) == 1
+    assert result.plans[0].product_bid == "bill-product-plan-monthly"
+    assert (
+        result.current_subscription_product_display_name_i18n_key
+        == "module.billing.catalog.plans.creatorMonthly.title"
+    )
+    assert result.notification_status == "template_pending"
+
+
+def test_grant_operator_user_package_creates_manual_paid_order_and_summary(app):
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="package-grant-target",
+            identify="package-grant-target@example.com",
+            nickname="Package Grant Target",
+            state=USER_STATE_PAID,
+            is_operator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "package-grant-target@example.com")],
+        )
+
+        result = grant_operator_user_package(
+            app,
+            user_bid="package-grant-target",
+            operator_user_bid="operator-1",
+            payload=AdminOperationUserPackageGrantRequestDTO(
+                request_id="package-grant-request-1",
+                product_bid="bill-product-plan-monthly",
+                note="ops package",
+            ),
+        )
+
+        order = (
+            BillingOrder.query.filter_by(
+                creator_bid="package-grant-target",
+                bill_order_bid=result.bill_order_bid,
+            )
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+        subscription = (
+            BillingSubscription.query.filter_by(
+                creator_bid="package-grant-target",
+                subscription_bid=result.subscription_bid,
+            )
+            .order_by(BillingSubscription.id.desc())
+            .first()
+        )
+        ledger = (
+            CreditLedgerEntry.query.filter_by(
+                creator_bid="package-grant-target",
+                source_bid=result.bill_order_bid,
+            )
+            .order_by(CreditLedgerEntry.id.desc())
+            .first()
+        )
+
+    assert result.user_bid == "package-grant-target"
+    assert result.product_bid == "bill-product-plan-monthly"
+    assert result.notification_status == "template_pending"
+    assert result.summary.available_credits == "5"
+    assert result.summary.subscription_credits == "5"
+    assert result.current_period_start_at.endswith("Z")
+    assert result.current_period_end_at.endswith("Z")
+    assert order is not None
+    assert order.status == BILLING_ORDER_STATUS_PAID
+    assert order.payment_provider == "manual"
+    assert order.metadata_json["checkout_type"] == "admin_manual_plan_grant"
+    assert order.metadata_json["request_id"] == "package-grant-request-1"
+    assert (
+        order.metadata_json["notification_extensions"]["admin_manual_plan_grant"][
+            "status"
+        ]
+        == "template_pending"
+    )
+    assert subscription is not None
+    assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+    assert ledger is not None
+    assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
+    assert ledger.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
+    assert ledger.metadata_json["bill_order_bid"] == result.bill_order_bid
+
+
+def test_grant_operator_user_package_is_idempotent_for_repeated_request_id(app):
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="package-grant-idempotent",
+            identify="package-grant-idempotent@example.com",
+            nickname="Package Grant Idempotent",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "package-grant-idempotent@example.com")],
+        )
+
+        payload = AdminOperationUserPackageGrantRequestDTO(
+            request_id="package-grant-idempotent-request",
+            product_bid="bill-product-plan-monthly",
+            note="retry-safe package",
+        )
+        first_result = grant_operator_user_package(
+            app,
+            user_bid="package-grant-idempotent",
+            operator_user_bid="operator-1",
+            payload=payload,
+        )
+        second_result = grant_operator_user_package(
+            app,
+            user_bid="package-grant-idempotent",
+            operator_user_bid="operator-1",
+            payload=payload,
+        )
+        orders = BillingOrder.query.filter_by(
+            creator_bid="package-grant-idempotent",
+            deleted=0,
+        ).all()
+
+    assert second_result.bill_order_bid == first_result.bill_order_bid
+    assert second_result.subscription_bid == first_result.subscription_bid
+    assert len(orders) == 1
 
 
 def test_list_operator_users_counts_redeem_orders_in_total_paid_amount(app):
@@ -1765,10 +2605,13 @@ def test_list_operator_users_includes_shared_course_learners_in_learning_courses
         )
 
         result = list_operator_users(app, 1, 20, {"user_role": "learner"})
+        detail = get_operator_user_detail(app, "shared-learner-user")
 
     assert [item.user_bid for item in result.data] == ["shared-learner-user"]
     assert result.data[0].user_role == "learner"
-    assert [course.course_name for course in result.data[0].learning_courses] == [
+    assert result.data[0].learning_course_count == 1
+    assert result.data[0].learning_courses == []
+    assert [course.course_name for course in detail.learning_courses] == [
         "Shared Course"
     ]
 
@@ -1784,6 +2627,64 @@ def test_admin_operation_users_route_requires_operator(test_client, monkeypatch)
 
     assert response.status_code == 200
     assert payload["code"] == 401
+
+
+def test_admin_operation_users_overview_route_requires_operator(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/overview",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+
+def test_admin_operation_users_overview_route_returns_payload(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-overview-route-1",
+            identify="overview-route-1@example.com",
+            nickname="Overview Route User 1",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 5, 1, 8, 0, 0),
+            updated_at=datetime(2026, 5, 1, 8, 0, 0),
+            providers=[("email", "overview-route-1@example.com")],
+            credential_created_at=datetime(2026, 5, 1, 8, 0, 0),
+        )
+        _seed_user(
+            app,
+            user_bid="user-overview-route-2",
+            identify="13812340001",
+            nickname="Overview Route User 2",
+            state=USER_STATE_UNREGISTERED,
+            created_at=datetime(2026, 5, 2, 8, 0, 0),
+            updated_at=datetime(2026, 5, 2, 8, 0, 0),
+        )
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/overview",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["total_user_count"] == 2
+    assert payload["data"]["registered_user_count"] == 1
+    assert payload["data"]["guest_user_count"] == 1
 
 
 def test_admin_operation_users_route_returns_filtered_payload(
@@ -1831,6 +2732,7 @@ def test_admin_operation_users_route_returns_filtered_payload(
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["total"] == 1
+    assert "summary" not in payload["data"]
     assert payload["data"]["items"] == [
         {
             "user_bid": "user-route-1",
@@ -1844,7 +2746,9 @@ def test_admin_operation_users_route_returns_filtered_payload(
             "registration_source": "phone",
             "language": "en-US",
             "learning_courses": [],
+            "learning_course_count": 0,
             "created_courses": [],
+            "created_course_count": 0,
             "total_paid_amount": "0",
             "available_credits": "",
             "subscription_credits": "",
@@ -1898,7 +2802,9 @@ def test_admin_operation_user_detail_route_returns_payload(
         "registration_source": "phone",
         "language": "en-US",
         "learning_courses": [],
+        "learning_course_count": 0,
         "created_courses": [],
+        "created_course_count": 0,
         "total_paid_amount": "0",
         "available_credits": "",
         "subscription_credits": "",
@@ -2031,6 +2937,7 @@ def test_admin_operation_user_credit_grant_route_returns_payload(
             identify="credit-grant-route@example.com",
             nickname="Credit Grant Route User",
             state=USER_STATE_PAID,
+            is_creator=True,
             created_at=datetime(2026, 4, 20, 8, 0, 0),
             updated_at=datetime(2026, 4, 20, 12, 0, 0),
             providers=[("email", "credit-grant-route@example.com")],
@@ -2061,6 +2968,165 @@ def test_admin_operation_user_credit_grant_route_returns_payload(
     assert payload["data"]["summary"]["available_credits"] == "3"
     assert payload["data"]["summary"]["credits_expire_at"].endswith("Z")
     assert payload["data"]["summary"]["has_active_subscription"] is False
+
+
+def test_admin_operation_user_grant_bootstrap_route_returns_active_plans(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="user-grant-bootstrap-route",
+            identify="user-grant-bootstrap-route@example.com",
+            nickname="Grant Bootstrap Route User",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 8, 0, 0),
+            updated_at=datetime(2026, 4, 20, 12, 0, 0),
+            providers=[("email", "user-grant-bootstrap-route@example.com")],
+        )
+        _seed_billing_subscription(
+            creator_bid="user-grant-bootstrap-route",
+            subscription_bid="subscription-user-grant-bootstrap-route",
+            product_bid="bill-product-plan-monthly",
+            current_period_start_at=datetime(2026, 4, 20, 8, 0, 0),
+            current_period_end_at=datetime(2026, 5, 20, 23, 59, 59),
+        )
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/user-grant-bootstrap-route/credit-grant/bootstrap",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["notification_status"] == "template_pending"
+    assert (
+        payload["data"]["current_subscription_product_display_name_i18n_key"]
+        == "module.billing.catalog.plans.creatorMonthly.title"
+    )
+    assert payload["data"]["plans"][0]["product_bid"] == "bill-product-plan-monthly"
+
+
+def test_admin_operation_user_grant_bootstrap_route_requires_operator(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="user-grant-bootstrap-route-denied",
+            identify="user-grant-bootstrap-route-denied@example.com",
+            nickname="Grant Bootstrap Route Denied",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 8, 0, 0),
+            updated_at=datetime(2026, 4, 20, 12, 0, 0),
+            providers=[("email", "user-grant-bootstrap-route-denied@example.com")],
+        )
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/user-grant-bootstrap-route-denied/credit-grant/bootstrap",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+
+def test_admin_operation_user_package_grant_route_returns_payload(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="user-package-grant-route",
+            identify="user-package-grant-route@example.com",
+            nickname="Package Grant Route User",
+            state=USER_STATE_PAID,
+            is_operator=True,
+            created_at=datetime(2026, 4, 20, 8, 0, 0),
+            updated_at=datetime(2026, 4, 20, 12, 0, 0),
+            providers=[("email", "user-package-grant-route@example.com")],
+        )
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/users/user-package-grant-route/packages/grant",
+        json={
+            "request_id": "route-package-grant-request-1",
+            "product_bid": "bill-product-plan-monthly",
+            "note": "route package check",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["user_bid"] == "user-package-grant-route"
+    assert payload["data"]["product_bid"] == "bill-product-plan-monthly"
+    assert payload["data"]["bill_order_bid"]
+    assert payload["data"]["subscription_bid"]
+    assert payload["data"]["notification_status"] == "template_pending"
+    assert payload["data"]["summary"]["available_credits"] == "5"
+    assert payload["data"]["current_period_end_at"].endswith("Z")
+
+
+def test_admin_operation_user_package_grant_route_requires_operator(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch, is_operator=False)
+
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-monthly"])
+        )
+        _seed_user(
+            app,
+            user_bid="user-package-grant-route-denied",
+            identify="user-package-grant-route-denied@example.com",
+            nickname="Package Grant Route Denied",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 8, 0, 0),
+            updated_at=datetime(2026, 4, 20, 12, 0, 0),
+            providers=[("email", "user-package-grant-route-denied@example.com")],
+        )
+
+    response = test_client.post(
+        "/api/shifu/admin/operations/users/user-package-grant-route-denied/packages/grant",
+        json={
+            "request_id": "route-package-grant-request-denied",
+            "product_bid": "bill-product-plan-monthly",
+            "note": "route denied",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
 
 
 def test_admin_operation_user_credit_grant_route_requires_operator(
@@ -2308,3 +3374,90 @@ def test_get_operator_user_detail_normalizes_unknown_login_methods(app):
 
     assert isinstance(result, AdminOperationUserSummaryDTO)
     assert result.login_methods == ["unknown", "email"]
+
+
+def test_registration_source_map_skips_user_query_when_users_argument_is_empty(
+    app, monkeypatch
+):
+    class ForbiddenUserQuery:
+        def filter(self, *_args, **_kwargs):
+            raise AssertionError("expected no user query when users=[] is provided")
+
+    with app.app_context():
+        monkeypatch.setattr(
+            admin_module.UserEntity,
+            "query",
+            ForbiddenUserQuery(),
+            raising=False,
+        )
+
+        result = admin_module._load_operator_user_registration_source_map(
+            ["user-1", "user-2"],
+            users=[],
+            credential_rows=[
+                SimpleNamespace(
+                    user_bid="user-1",
+                    provider_name="email",
+                    created_at=datetime(2026, 5, 1, 10, 0, 0),
+                    id=1,
+                )
+            ],
+        )
+
+    assert result == {"user-1": "email"}
+
+
+def test_registration_source_map_skips_unknown_provider_when_supported_one_exists(app):
+    with app.app_context():
+        result = admin_module._load_operator_user_registration_source_map(
+            ["user-1"],
+            users=[],
+            credential_rows=[
+                SimpleNamespace(
+                    user_bid="user-1",
+                    provider_name="password",
+                    created_at=datetime(2026, 5, 1, 10, 0, 0),
+                    id=1,
+                ),
+                SimpleNamespace(
+                    user_bid="user-1",
+                    provider_name="email",
+                    created_at=datetime(2026, 5, 1, 10, 5, 0),
+                    id=2,
+                ),
+            ],
+        )
+
+    assert result == {"user-1": "email"}
+
+
+def test_contact_map_skips_user_query_when_users_argument_is_empty(app, monkeypatch):
+    class ForbiddenUserQuery:
+        def filter(self, *_args, **_kwargs):
+            raise AssertionError("expected no user query when users=[] is provided")
+
+    with app.app_context():
+        monkeypatch.setattr(
+            admin_module.UserEntity,
+            "query",
+            ForbiddenUserQuery(),
+            raising=False,
+        )
+
+        result = admin_module._load_operator_user_contact_map(
+            ["user-1", "user-2"],
+            users=[],
+            credential_rows=[
+                SimpleNamespace(
+                    user_bid="user-1",
+                    provider_name="phone",
+                    state=CREDENTIAL_STATE_VERIFIED,
+                    identifier="13800000000",
+                    id=1,
+                )
+            ],
+        )
+
+    assert result["user-1"]["mobile"] == "13800000000"
+    assert result["user-1"]["login_methods"] == ["phone"]
+    assert result["user-2"] == {"mobile": "", "email": "", "login_methods": []}

@@ -2,7 +2,7 @@
 
 import type React from 'react';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -40,6 +40,7 @@ export function PhoneLogin({
   const [phoneError, setPhoneError] = useState('');
   const [captchaError, setCaptchaError] = useState('');
   const [showTermsDialog, setShowTermsDialog] = useState(false);
+  const previousCountdownRef = useRef(0);
   const { t } = useTranslation();
   const { loginWithSmsCode, sendSmsCode } = useAuth({
     onSuccess: onLoginSuccess,
@@ -129,13 +130,25 @@ export function PhoneLogin({
     setPhoneOtp(normalizeOtp(e.target.value));
   };
 
-  const refreshCaptchaSilently = async () => {
-    try {
-      await refreshCaptcha();
-    } catch {
-      // The API request layer displays failures; keep the current UI stable.
+  const resetCaptchaChallenge = useCallback(
+    (options?: { clearError?: boolean }) => {
+      setCaptchaCode('');
+      if (options?.clearError) {
+        setCaptchaError('');
+      }
+      void refreshCaptcha({ clearCode: false }).catch(() => {
+        // The API request layer displays failures; keep the current UI stable.
+      });
+    },
+    [refreshCaptcha, setCaptchaCode],
+  );
+
+  useEffect(() => {
+    if (previousCountdownRef.current > 0 && countdown === 0) {
+      resetCaptchaChallenge({ clearError: true });
     }
-  };
+    previousCountdownRef.current = countdown;
+  }, [countdown, resetCaptchaChallenge]);
 
   const getCaptchaTicket = async () => {
     if (!captchaCode.trim()) {
@@ -153,12 +166,12 @@ export function PhoneLogin({
     } catch (error: any) {
       const message = error?.message || t('module.auth.captchaVerifyFailed');
       setCaptchaError(message);
+      resetCaptchaChallenge();
       toast({
         title: t('module.auth.captchaVerifyFailed'),
         description: message,
         variant: 'destructive',
       });
-      await refreshCaptchaSilently();
       return '';
     }
   };
@@ -176,7 +189,6 @@ export function PhoneLogin({
 
       if (response.code == 0) {
         startOtpFlow();
-        void refreshCaptchaSilently();
         toast({
           title: t('module.auth.sendSuccess'),
           description: t('module.auth.checkYourSms'),
@@ -185,14 +197,12 @@ export function PhoneLogin({
     } catch (error) {
       if (isSmsRateLimitedError(error)) {
         startOtpFlow();
-        void refreshCaptchaSilently();
         toast({
           title: t('module.auth.checkYourSms'),
           description: t('server.user.smsSendTooFrequent'),
         });
         return;
       }
-      void refreshCaptchaSilently();
       // Error already handled in sendSmsCode
     } finally {
       setIsLoading(false);
@@ -300,8 +310,7 @@ export function PhoneLogin({
             }
           }}
           onRefresh={() => {
-            setCaptchaError('');
-            void refreshCaptchaSilently();
+            resetCaptchaChallenge({ clearError: true });
           }}
         />
 

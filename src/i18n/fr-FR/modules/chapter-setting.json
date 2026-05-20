@@ -1,0 +1,23 @@
+{
+  "__namespace__": "module.chapterSetting",
+  "addLesson": "Ajouter une leçon",
+  "chapterName": "Nom du chapitre",
+  "chapterNamePlaceholder": "Veuillez saisir le nom du chapitre",
+  "chapterPrompt": "Prompt de chapitre",
+  "chapterPromptHint": "Définissez la génération de contenu du chapitre, le public, le ton et les garde-fous",
+  "chapterSettingsTitle": "Paramètres du chapitre",
+  "free": "Gratuit",
+  "guest": "Sans connexion",
+  "hidden": "Masqué",
+  "isHidden": "Visibilité",
+  "learningPermission": "Autorisation d’apprentissage",
+  "lessonName": "Nom de la leçon",
+  "lessonNamePlaceholder": "Veuillez saisir le nom de la leçon",
+  "lessonPrompt": "Prompt de leçon",
+  "lessonPromptHint": "Définissez la génération de contenu de la leçon, le public, le ton et les garde-fous",
+  "lessonPromptPlaceholder": "Veuillez saisir le prompt. Si ce champ est vide, la génération du contenu de la leçon sera contrainte par le prompt du chapitre.",
+  "lessonSettingsTitle": "Paramètres de la leçon",
+  "paid": "Payé",
+  "promptPlaceholder": "Veuillez saisir le prompt",
+  "visible": "Visible"
+}

@@ -189,7 +189,6 @@ $color-on-accent: #fff;
   border-top: 1px solid var(--base-border, #e5e5e5);
   text-align: left;
   vertical-align: top;
-  background: rgba(0, 82, 217, 0.03);
 }
 
 .scenarioText {
@@ -214,27 +213,6 @@ $color-on-accent: #fff;
 .cellValue {
   color: $color-fg;
   @include font-body;
-}
-
-// --- Validity tooltip ------------------------------------------------------
-
-.validityHint {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  cursor: help;
-}
-
-.validityIcon {
-  width: 14px;
-  height: 14px;
-  color: $color-muted;
-  flex-shrink: 0;
-}
-
-.validityTooltipBody {
-  max-width: 280px;
-  line-height: 18px;
 }
 
 // --- Feature column list ---------------------------------------------------

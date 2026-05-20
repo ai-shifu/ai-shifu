@@ -193,6 +193,89 @@ def _load_latest_audio_by_block_position(
     return latest_by_block_position
 
 
+def _explicit_payload_audio_position(
+    payload_audio: ElementAudioDTO | None,
+) -> int | None:
+    if payload_audio is None:
+        return None
+
+    position = int(getattr(payload_audio, "position", 0) or 0)
+    has_complete_audio = bool(
+        (getattr(payload_audio, "audio_url", "") or "").strip()
+        or (getattr(payload_audio, "audio_bid", "") or "").strip()
+        or int(getattr(payload_audio, "duration_ms", 0) or 0) > 0
+        or getattr(payload_audio, "subtitle_cues", None)
+    )
+    if has_complete_audio or position != 0:
+        return position
+    return None
+
+
+def _build_implicit_audio_position_by_element(
+    elements: list[ElementDTO],
+    *,
+    available_positions_by_block: dict[str, list[int]],
+) -> dict[int, int]:
+    speakable_elements_by_block: dict[str, list[ElementDTO]] = {}
+    for element in elements:
+        block_bid = str(element.generated_block_bid or "")
+        if not block_bid or not element.is_speakable:
+            continue
+        speakable_elements_by_block.setdefault(block_bid, []).append(element)
+
+    position_by_element_id: dict[int, int] = {}
+    for block_bid, speakable_elements in speakable_elements_by_block.items():
+        available_positions = available_positions_by_block.get(block_bid, [])
+        if not available_positions:
+            continue
+
+        used_positions: set[int] = set()
+        for element in speakable_elements:
+            payload = element.payload or ElementPayloadDTO()
+            explicit_position = _explicit_payload_audio_position(payload.audio)
+            if (
+                explicit_position is None
+                or explicit_position not in available_positions
+            ):
+                continue
+            position_by_element_id[id(element)] = explicit_position
+            used_positions.add(explicit_position)
+
+        fallback_elements: list[ElementDTO] = []
+        for index, element in enumerate(speakable_elements):
+            element_identity = id(element)
+            if element_identity in position_by_element_id:
+                continue
+
+            preferred_position = index if index in available_positions else None
+            if (
+                preferred_position is not None
+                and preferred_position not in used_positions
+            ):
+                position_by_element_id[element_identity] = preferred_position
+                used_positions.add(preferred_position)
+                continue
+            fallback_elements.append(element)
+
+        for element in fallback_elements:
+            element_identity = id(element)
+            if element_identity in position_by_element_id:
+                continue
+            fallback_position = next(
+                (
+                    position
+                    for position in available_positions
+                    if position not in used_positions
+                ),
+                None,
+            )
+            if fallback_position is not None:
+                position_by_element_id[element_identity] = fallback_position
+                used_positions.add(fallback_position)
+
+    return position_by_element_id
+
+
 def _enrich_elements_with_persisted_audio(
     elements: list[ElementDTO],
 ) -> list[ElementDTO]:
@@ -210,6 +293,14 @@ def _enrich_elements_with_persisted_audio(
     available_positions_by_block: dict[str, list[int]] = {}
     for block_bid, position in latest_audio_by_key.keys():
         available_positions_by_block.setdefault(block_bid, []).append(position)
+    available_positions_by_block = {
+        block_bid: sorted(set(positions))
+        for block_bid, positions in available_positions_by_block.items()
+    }
+    implicit_position_by_element_id = _build_implicit_audio_position_by_element(
+        elements,
+        available_positions_by_block=available_positions_by_block,
+    )
 
     for element in elements:
         block_bid = str(element.generated_block_bid or "")
@@ -225,15 +316,16 @@ def _enrich_elements_with_persisted_audio(
             continue
 
         resolved_position: int | None = None
-        if payload_audio is not None:
-            resolved_position = int(getattr(payload_audio, "position", 0) or 0)
+        explicit_position = _explicit_payload_audio_position(payload_audio)
+        if explicit_position is not None:
+            resolved_position = explicit_position
         else:
             available_positions = available_positions_by_block.get(block_bid, [])
-            if len(available_positions) == 1:
+            if element.is_speakable:
+                resolved_position = implicit_position_by_element_id.get(id(element))
+            elif len(available_positions) == 1:
                 resolved_position = int(available_positions[0])
-            elif 0 in available_positions and (
-                element.audio_url or element.is_speakable
-            ):
+            elif element.audio_url and 0 in available_positions:
                 resolved_position = 0
 
         if resolved_position is None:

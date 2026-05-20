@@ -12,7 +12,7 @@ API Reference:
 import uuid
 import logging
 import threading
-from typing import Optional, List
+from typing import Any, Optional, List
 
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
@@ -43,6 +43,125 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Volcengine TTS WebSocket endpoint
 VOLCENGINE_TTS_WS_URL = "wss://openspeech.bytedance.com/api/v3/tts/bidirection"
+
+
+def _timestamp_seconds_to_ms(value: Any) -> int:
+    try:
+        return max(int(round(float(value) * 1000)), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _volcengine_time_ms(item: dict[str, Any], keys: tuple[str, ...]) -> int:
+    for key in keys:
+        if key not in item:
+            continue
+        value = item.get(key)
+        if value is None or value == "":
+            continue
+        if key.endswith("_ms") or key.endswith("Ms"):
+            try:
+                return max(int(round(float(value))), 0)
+            except (TypeError, ValueError):
+                return 0
+        return _timestamp_seconds_to_ms(value)
+    return 0
+
+
+def _volcengine_words_to_sentence_cue(
+    words: list[Any],
+    *,
+    text: str = "",
+    segment_index: int = 0,
+) -> list[dict[str, Any]]:
+    normalized_words = [item for item in words if isinstance(item, dict)]
+    if not normalized_words:
+        return []
+
+    start_ms = _volcengine_time_ms(
+        normalized_words[0],
+        ("start_ms", "startMs", "start_time", "startTime", "start"),
+    )
+    end_ms = _volcengine_time_ms(
+        normalized_words[-1],
+        ("end_ms", "endMs", "end_time", "endTime", "end"),
+    )
+    cue_text = str(text or "").strip()
+    if not cue_text:
+        cue_text = "".join(str(item.get("word", "") or "") for item in normalized_words)
+    cue_text = cue_text.strip()
+    if not cue_text:
+        return []
+    return [
+        {
+            "text": cue_text,
+            "start_ms": start_ms,
+            "end_ms": max(end_ms, start_ms),
+            "segment_index": segment_index,
+        }
+    ]
+
+
+def _extract_volcengine_subtitle_cues(
+    payload: Any,
+    *,
+    segment_index: int = 0,
+) -> list[dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return []
+
+    containers: list[dict[str, Any]] = []
+    if isinstance(payload.get("subtitles"), dict):
+        containers.append(payload["subtitles"])
+    if payload:
+        containers.append(payload)
+
+    cues: list[dict[str, Any]] = []
+    current_segment_index = max(int(segment_index or 0), 0)
+    for container in containers:
+        sentences = container.get("sentences")
+        if isinstance(sentences, list):
+            for sentence in sentences:
+                if not isinstance(sentence, dict):
+                    continue
+                text = str(sentence.get("text", "") or "").strip()
+                if not text:
+                    continue
+                start_ms = _volcengine_time_ms(
+                    sentence,
+                    ("start_ms", "startMs", "start_time", "startTime", "start"),
+                )
+                end_ms = _volcengine_time_ms(
+                    sentence,
+                    ("end_ms", "endMs", "end_time", "endTime", "end"),
+                )
+                cues.append(
+                    {
+                        "text": text,
+                        "start_ms": start_ms,
+                        "end_ms": max(end_ms, start_ms),
+                        "segment_index": current_segment_index,
+                    }
+                )
+                current_segment_index += 1
+
+        words = container.get("words")
+        if isinstance(words, list):
+            word_cues = _volcengine_words_to_sentence_cue(
+                words,
+                text=str(container.get("text", "") or ""),
+                segment_index=current_segment_index,
+            )
+            cues.extend(word_cues)
+            current_segment_index += len(word_cues)
+
+    return cues
+
+
+def _volcengine_uses_subtitle_event(resource_id: str) -> bool:
+    normalized_resource_id = (resource_id or "").strip().lower()
+    return normalized_resource_id.startswith(("seed-tts-2", "seed-icl-2"))
+
 
 # Volcengine TTS models
 VOLCENGINE_MODELS = [
@@ -329,6 +448,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
                 inferred_resource_id,
             )
             resource_id = inferred_resource_id
+        use_subtitle_event = _volcengine_uses_subtitle_event(resource_id)
         # Optional model version for req_params.model is intentionally not
         # configured via env; use provider defaults.
         model_version = ""
@@ -345,8 +465,10 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         # Collect audio data
         audio_chunks: List[bytes] = []
+        subtitle_cues: list[dict[str, Any]] = []
         error_message: Optional[str] = None
         connection_established = threading.Event()
+        session_started = threading.Event()
         session_finished = threading.Event()
         total_duration_ms = 0
 
@@ -379,6 +501,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
                     elif frame.event == Event.SESSION_STARTED:
                         logger.debug(f"Session started: {frame.session_id}")
+                        session_started.set()
 
                     elif frame.event == Event.SESSION_FINISHED:
                         logger.debug(f"Session finished: {frame.session_id}")
@@ -392,6 +515,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
                     elif frame.event == Event.SESSION_FAILED:
                         error_message = f"Session failed: {frame.payload}"
                         logger.error(error_message)
+                        session_started.set()
                         session_finished.set()
 
                     elif frame.event == Event.TTS_RESPONSE:
@@ -413,15 +537,32 @@ class VolcengineTTSProvider(BaseTTSProvider):
                                 "duration_ms", 0
                             )
                             total_duration_ms += duration
+                            subtitle_cues.extend(
+                                _extract_volcengine_subtitle_cues(
+                                    frame.payload,
+                                    segment_index=len(subtitle_cues),
+                                )
+                            )
+
+                    elif frame.event == Event.TTS_SUBTITLE:
+                        logger.debug(f"Subtitle: {frame.payload}")
+                        subtitle_cues.extend(
+                            _extract_volcengine_subtitle_cues(
+                                frame.payload,
+                                segment_index=len(subtitle_cues),
+                            )
+                        )
 
                     elif frame.message_type == MessageType.ERROR_INFORMATION:
                         error_message = f"Error {frame.error_code}: {frame.payload}"
                         logger.error(error_message)
+                        session_started.set()
                         session_finished.set()
 
             except Exception as e:
                 logger.error(f"Error processing message: {e}")
                 error_message = str(e)
+                session_started.set()
                 session_finished.set()
 
         def on_error(ws, error):
@@ -429,6 +570,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
             error_message = str(error)
             logger.error(f"WebSocket error: {error}")
             connection_established.set()
+            session_started.set()
             session_finished.set()
 
         def on_close(ws, close_status_code, close_msg):
@@ -480,13 +622,18 @@ class VolcengineTTSProvider(BaseTTSProvider):
                 volume=voice_settings.volume,
                 emotion=voice_settings.emotion,
                 model=model_version,
+                enable_timestamp=not use_subtitle_event,
+                enable_subtitle=use_subtitle_event,
             )
             ws.send(start_session_frame, opcode=websocket.ABNF.OPCODE_BINARY)
 
-            # Small delay to ensure session is started
-            import time
+            if not session_started.wait(timeout=10):
+                if error_message:
+                    raise ValueError(error_message)
+                raise ValueError("Timeout waiting for TTS session to start")
 
-            time.sleep(0.1)
+            if error_message:
+                raise ValueError(error_message)
 
             # Send TaskRequest with text
             logger.debug(f"Sending TaskRequest with text length={len(text)}")
@@ -516,6 +663,14 @@ class VolcengineTTSProvider(BaseTTSProvider):
             ws_thread.join(timeout=5)
 
         if not audio_chunks:
+            logger.warning(
+                "Volcengine TTS session finished with no audio: resource_id=%s speaker=%s text_len=%s session_id=%s connect_id=%s",
+                resource_id,
+                voice_settings.voice_id,
+                len(text or ""),
+                session_id,
+                connect_id,
+            )
             raise ValueError("No audio data received")
 
         # Combine audio chunks
@@ -529,6 +684,11 @@ class VolcengineTTSProvider(BaseTTSProvider):
             total_duration_ms = (
                 int(len(audio_data) / bytes_per_ms) if bytes_per_ms > 0 else 0
             )
+        if subtitle_cues:
+            total_duration_ms = max(
+                total_duration_ms,
+                max(int(cue.get("end_ms", 0) or 0) for cue in subtitle_cues),
+            )
 
         logger.info(
             f"Volcengine TTS synthesis completed: duration={total_duration_ms}ms, "
@@ -541,6 +701,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
             sample_rate=audio_settings.sample_rate,
             format=audio_settings.format,
             word_count=len(text),
+            subtitle_cues=subtitle_cues,
         )
 
     def get_provider_config(self) -> ProviderConfig:

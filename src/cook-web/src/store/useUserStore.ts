@@ -4,6 +4,7 @@ import { tokenTool } from '@/c-service/storeUtil';
 import { genUuid } from '@/c-utils/common';
 import { subscribeWithSelector } from 'zustand/middleware';
 
+import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
 import { removeParamFromUrl } from '@/c-utils/urlUtils';
 import i18n from '@/i18n';
 import { UserStoreState } from '@/c-types/store';
@@ -43,11 +44,19 @@ const getGuestTempId = (): string => {
 // Helper function to register as guest user
 const registerAsGuest = async (): Promise<string> => {
   // Always fetch a fresh guest token to avoid expiration issues
+  debugInfo('[auth-chain] register guest start', {
+    hasExistingToken: Boolean(tokenTool.get().token),
+  });
   tokenTool.remove();
-  const res = await registerTmp({ temp_id: getGuestTempId() });
+  const tempId = getGuestTempId();
+  const res = await registerTmp({ temp_id: tempId });
   identifyUmamiUser(res?.userInfo);
   const token = res.token;
   tokenTool.set({ token, faked: true });
+  debugInfo('[auth-chain] register guest success', {
+    tempId,
+    hasToken: Boolean(token),
+  });
   return token;
 };
 
@@ -126,6 +135,11 @@ export const useUserStore = create<
     logout: async (reload = true) => {
       let didTriggerReload = false;
       const tokenDataBeforeLogout = tokenTool.get();
+      debugWarn('[auth-chain] logout start', {
+        reload,
+        isGuestBeforeLogout: tokenDataBeforeLogout.faked,
+        hasTokenBeforeLogout: Boolean(tokenDataBeforeLogout.token),
+      });
       const resetLogoutFlag = () => {
         if (typeof window !== 'undefined') {
           (window as any).__IS_LOGGING_OUT__ = false;
@@ -140,6 +154,13 @@ export const useUserStore = create<
         // Keep temp_id only for guest-session auth recovery flows.
         if (reload || !tokenDataBeforeLogout.faked) {
           rotateGuestTempId();
+          debugInfo(
+            '[auth-chain] rotated guest temp id before logout recovery',
+            {
+              reload,
+              wasGuest: tokenDataBeforeLogout.faked,
+            },
+          );
         }
         clearGoogleOAuthSession();
         await registerAsGuest();
@@ -148,6 +169,9 @@ export const useUserStore = create<
         }));
 
         get()._updateUserStatus();
+        debugInfo('[auth-chain] logout state switched to guest session', {
+          reload,
+        });
 
         if (reload && typeof window !== 'undefined') {
           const url = removeParamFromUrl(window.location.href, [
@@ -155,12 +179,19 @@ export const useUserStore = create<
             'state',
             'redirect',
           ]);
+          debugWarn('[auth-chain] logout page reload start', {
+            targetUrl: url,
+          });
           window.location.assign(url);
           didTriggerReload = true;
         }
+      } catch (logoutError) {
+        debugError('[auth-chain] logout failed', logoutError);
+        throw logoutError;
       } finally {
         if (!didTriggerReload) {
           resetLogoutFlag();
+          debugInfo('[auth-chain] logout flag reset without page reload');
         }
       }
     },
@@ -187,6 +218,11 @@ export const useUserStore = create<
         const tokenData = tokenTool.get();
         const initialToken = tokenData.token;
         let tokenChangedDuringFetch = false;
+        let appliedGuestFallbackWithoutToken = false;
+        debugInfo('[auth-chain] initUser start', {
+          hasInitialToken: Boolean(initialToken),
+          isGuestToken: tokenData.faked,
+        });
 
         try {
           // If no token, register as guest
@@ -212,6 +248,9 @@ export const useUserStore = create<
           // (common for OAuth flows). Respect the newer token and skip overwriting
           // state with stale guest data.
           if (tokenChangedDuringFetch) {
+            debugInfo(
+              '[auth-chain] initUser aborted because token changed during user info fetch',
+            );
             return;
           }
 
@@ -237,7 +276,34 @@ export const useUserStore = create<
           tokenChangedDuringFetch =
             !!latestTokenData.token && latestTokenData.token !== initialToken;
 
+          debugWarn('[auth-chain] initUser failed', {
+            errorMessage: error?.message || String(err),
+            businessCode: error?.code ?? '',
+            httpStatus: error?.status ?? '',
+            errorCode: error?.code ?? '',
+            errorStatus: error?.status ?? '',
+            tokenChangedDuringFetch,
+            latestTokenIsGuest: latestTokenData.faked,
+            hasLatestToken: Boolean(latestTokenData.token),
+          });
+
           if (tokenChangedDuringFetch) {
+            debugInfo(
+              '[auth-chain] initUser recovery skipped because token changed',
+            );
+            return;
+          }
+
+          // Keep admin and other protected surfaces out of a false
+          // authenticated state when guest bootstrap fails before any token exists.
+          if (!initialToken && !latestTokenData.token) {
+            appliedGuestFallbackWithoutToken = true;
+            set({
+              userInfo: null,
+              isGuest: true,
+              isLoggedIn: false,
+              isInitialized: true,
+            });
             return;
           }
 
@@ -247,8 +313,18 @@ export const useUserStore = create<
             error?.code === 1005 ||
             error?.code === 1001
           ) {
+            debugWarn('[auth-chain] initUser entering auth recovery branch', {
+              businessCode: error?.code ?? '',
+              httpStatus: error?.status ?? '',
+              errorCode: error?.code ?? '',
+              errorStatus: error?.status ?? '',
+            });
             if (!latestTokenData.faked) {
               await registerAsGuest();
+            } else {
+              debugInfo(
+                '[auth-chain] initUser kept current guest token because latest token is already marked as guest',
+              );
             }
             set(() => ({
               userInfo: null,
@@ -263,6 +339,9 @@ export const useUserStore = create<
             );
           }
         } finally {
+          if (appliedGuestFallbackWithoutToken) {
+            return;
+          }
           get()._updateUserStatus();
         }
       })();

@@ -56,12 +56,15 @@ def runtime_config_client(monkeypatch):
         "LOGIN_METHODS_ENABLED": "phone",
         "DEFAULT_LOGIN_METHOD": "phone",
         "HOME_URL": "/",
+        "CONTACT_US_URL": "",
         "HOST_URL": "https://app.example.com",
         "CURRENCY_SYMBOL": "¥",
         "LEGAL_AGREEMENT_URL_ZH_CN": "/legal/agreement/zh",
         "LEGAL_AGREEMENT_URL_EN_US": "/legal/agreement/en",
+        "LEGAL_AGREEMENT_URL_FR_FR": "/legal/agreement/fr",
         "LEGAL_PRIVACY_URL_ZH_CN": "/legal/privacy/zh",
         "LEGAL_PRIVACY_URL_EN_US": "/legal/privacy/en",
+        "LEGAL_PRIVACY_URL_FR_FR": "",
         "GEN_MDF_API_URL": "",
     }
 
@@ -111,6 +114,7 @@ def runtime_config_client(monkeypatch):
                             "logo_square_url": "https://cdn.example.com/creator-square.png",
                             "favicon_url": "https://cdn.example.com/creator-favicon.ico",
                             "home_url": "https://creator.example.com/home",
+                            "contact_us_url": "https://creator.example.com/contact",
                         }
                     },
                     effective_from=now - timedelta(days=2),
@@ -171,6 +175,7 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     assert payload["logoSquareUrl"] == "https://cdn.example.com/creator-square.png"
     assert payload["faviconUrl"] == "https://cdn.example.com/creator-favicon.ico"
     assert payload["homeUrl"] == "https://creator.example.com/home"
+    assert payload["contactUsUrl"] == "https://creator.example.com/contact"
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 4
     assert payload["googleOauthRedirect"] == (
@@ -188,10 +193,12 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
         "logo_square_url": "https://cdn.example.com/creator-square.png",
         "favicon_url": "https://cdn.example.com/creator-favicon.ico",
         "home_url": "https://creator.example.com/home",
+        "contact_us_url": "https://creator.example.com/contact",
     }
     assert payload["legalUrls"]["agreement"] == {
         "zh-CN": "/legal/agreement/zh",
         "en-US": "/legal/agreement/en",
+        "fr-FR": "/legal/agreement/fr",
     }
     assert payload["domain"] == {
         "request_host": "creator.example.com",
@@ -247,6 +254,7 @@ def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective
     assert payload["logoSquareUrl"] == "https://cdn.example.com/global-square.png"
     assert payload["faviconUrl"] == "https://cdn.example.com/global-favicon.ico"
     assert payload["homeUrl"] == "/"
+    assert payload["contactUsUrl"] == ""
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 4
     assert payload["entitlements"] == {
@@ -261,6 +269,7 @@ def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective
         "logo_square_url": None,
         "favicon_url": None,
         "home_url": None,
+        "contact_us_url": None,
     }
     assert payload["domain"] == {
         "request_host": "inactive.example.com",
@@ -284,6 +293,7 @@ def test_runtime_config_uses_shifu_context_for_creator_branding(
 
     assert payload["logoWideUrl"] == "https://cdn.example.com/creator-wide.png"
     assert payload["homeUrl"] == "https://creator.example.com/home"
+    assert payload["contactUsUrl"] == "https://creator.example.com/contact"
     assert payload["billingEnabled"] is True
     assert payload["entitlements"]["branding_enabled"] is True
     assert payload["domain"] == {
@@ -322,6 +332,7 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
     assert config.__json__()["legalUrls"]["privacy"] == {
         "zh-CN": "/legal/privacy/zh",
         "en-US": "/legal/privacy/en",
+        "fr-FR": "",
     }
 
 
@@ -356,6 +367,7 @@ def test_default_runtime_billing_context_is_database_free(monkeypatch) -> None:
             "logo_square_url": None,
             "favicon_url": None,
             "home_url": None,
+            "contact_us_url": None,
         },
         "domain": {
             "request_host": "creator.example.com",
@@ -432,6 +444,7 @@ def test_runtime_config_falls_back_when_billing_context_build_fails(
     assert payload["logoSquareUrl"] == "https://cdn.example.com/global-square.png"
     assert payload["faviconUrl"] == "https://cdn.example.com/global-favicon.ico"
     assert payload["homeUrl"] == "/"
+    assert payload["contactUsUrl"] == ""
     assert payload["entitlements"] == {
         "branding_enabled": False,
         "custom_domain_enabled": False,

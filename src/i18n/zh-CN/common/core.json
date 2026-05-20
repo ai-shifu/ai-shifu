@@ -22,6 +22,7 @@
   "errorSaveFailed": "保存失败：服务器响应无效",
   "expand": "展开",
   "follow": "关注",
+  "legalFallbackEnglishNotice": "法语法律文件暂未提供。下方英文版本为当前参考版本。",
   "logout": "退出",
   "mobileUnsupportedDescription": "请前往 PC 端查看",
   "mobileUnsupportedTitle": "本页面暂不支持移动端",

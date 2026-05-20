@@ -5,6 +5,7 @@ export interface AskMessage {
   content: string;
   isStreaming?: boolean;
   element_bid?: string;
+  shouldUseTypewriter?: boolean;
 }
 
 interface AskAnchorLike {
@@ -19,6 +20,7 @@ export const normalizeAskMessageList = (askList: AskMessage[] = []) =>
   askList.map(item => ({
     ...item,
     content: item.content || '',
+    shouldUseTypewriter: item.shouldUseTypewriter ?? false,
   }));
 
 export const areAskMessageListsEqual = (
@@ -40,7 +42,8 @@ export const areAskMessageListsEqual = (
       item.type === nextItem?.type &&
       item.content === nextItem?.content &&
       item.element_bid === nextItem?.element_bid &&
-      item.isStreaming === nextItem?.isStreaming
+      item.isStreaming === nextItem?.isStreaming &&
+      item.shouldUseTypewriter === nextItem?.shouldUseTypewriter
     );
   });
 };
