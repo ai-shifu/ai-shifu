@@ -597,7 +597,8 @@ export default function AdminOperationUsersPage() {
       throw new Error('Missing user bid');
     }
 
-    const cachedDetail = courseDialogDetailCacheRef.current.get(normalizedUserBid);
+    const cachedDetail =
+      courseDialogDetailCacheRef.current.get(normalizedUserBid);
     if (cachedDetail) {
       return cachedDetail;
     }
@@ -608,9 +609,11 @@ export default function AdminOperationUsersPage() {
       return inFlightRequest;
     }
 
-    const request = (api.getAdminOperationUserDetail({
-      user_bid: normalizedUserBid,
-    }) as Promise<AdminOperationUserDetailResponse>)
+    const request = (
+      api.getAdminOperationUserDetail({
+        user_bid: normalizedUserBid,
+      }) as Promise<AdminOperationUserDetailResponse>
+    )
       .then(detail => {
         courseDialogDetailCacheRef.current.set(normalizedUserBid, detail);
         return detail;
@@ -625,9 +628,13 @@ export default function AdminOperationUsersPage() {
 
   const openCourseDialog = useCallback(
     async (user: AdminOperationUserItem, type: 'learning' | 'created') => {
-      const cachedDetail = courseDialogDetailCacheRef.current.get(user.user_bid);
+      const cachedDetail = courseDialogDetailCacheRef.current.get(
+        user.user_bid,
+      );
       if (cachedDetail) {
-        setCourseDialog(buildCourseDialogStateFromDetail(user, type, cachedDetail));
+        setCourseDialog(
+          buildCourseDialogStateFromDetail(user, type, cachedDetail),
+        );
         return;
       }
 
