@@ -777,7 +777,11 @@ export const NewChatComponents = ({
       return;
     }
 
-    if (isLoading || isOutputInProgress || Boolean(currentTypewriterElementBid)) {
+    if (
+      isLoading ||
+      isOutputInProgress ||
+      Boolean(currentTypewriterElementBid)
+    ) {
       setIsReadFeedbackReady(false);
       return;
     }
@@ -1085,7 +1089,13 @@ export const NewChatComponents = ({
       });
       resizeObserver.disconnect();
     };
-  }, [checkScroll, isListenModeActive, isScrollableElement, items, mobileStyle]);
+  }, [
+    checkScroll,
+    isListenModeActive,
+    isScrollableElement,
+    items,
+    mobileStyle,
+  ]);
 
   useEffect(() => {
     if (mobileStyle) {
@@ -1424,7 +1434,7 @@ export const NewChatComponents = ({
                         padding: getReadModeElementPadding(idx === 0),
                       }}
                     >
-                        {isLongPressed && mobileStyle && (
+                      {isLongPressed && mobileStyle && (
                         <div className='long-press-overlay' />
                       )}
                       {item.element_bid === readModeFeedbackElementBid ? (
