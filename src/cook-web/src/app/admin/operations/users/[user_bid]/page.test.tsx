@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import api from '@/api';
 import AdminOperationUserDetailPage from './page';
 
@@ -606,11 +612,12 @@ describe('AdminOperationUserDetailPage', () => {
     expect(
       screen.getAllByText('module.operationsUser.detail.title').length,
     ).toBeGreaterThan(0);
+    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
     expect(
-      screen.getByRole('link', {
-        name: 'module.operationsUser.detail.title',
-      }).tagName,
-    ).not.toBe('A');
+      within(breadcrumb)
+        .getByText('module.operationsUser.detail.title')
+        .closest('a'),
+    ).toBeNull();
   });
 
   test('does not request detail or credits when the route param cannot be decoded', async () => {
