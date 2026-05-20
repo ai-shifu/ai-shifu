@@ -267,7 +267,39 @@ export default function AskBlock({
           }
 
           if (response.type === SSE_OUTPUT_TYPE.ERROR) {
-            finalizeStreamingMessage();
+            // Backend rejected the ask (commonly the parallel-ask semaphore
+            // was full, see runscript_v2._ask_sem_acquire). The ask is not
+            // persisted, so a stale placeholder would survive a page reload
+            // as a question without an answer. Roll back the local ASK +
+            // ANSWER we appended before opening the SSE, restore the user's
+            // text so they can retry, and surface the backend's localized
+            // reason via toast.
+            setAskList(element_bid, prev => {
+              const next = [...prev];
+              if (
+                next.length &&
+                next[next.length - 1].type === BLOCK_TYPE.ANSWER
+              ) {
+                next.pop();
+              }
+              if (
+                next.length &&
+                next[next.length - 1].type === BLOCK_TYPE.ASK
+              ) {
+                next.pop();
+              }
+              return next;
+            });
+            setInputValue(question);
+
+            const backendMessage =
+              typeof response.content === 'string' ? response.content : '';
+            toast({
+              title:
+                backendMessage || t('module.chat.outputInProgress'),
+            });
+
+            isStreamingRef.current = false;
             sseRef.current?.close();
             return;
           }
@@ -351,6 +383,7 @@ export default function AskBlock({
     replaceStreamingAnswerMessage,
     setAskList,
     updateStreamingAnswerMessage,
+    t,
   ]);
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
