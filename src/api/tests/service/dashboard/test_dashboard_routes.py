@@ -1275,9 +1275,7 @@ class TestDashboardRoutes:
         assert learners_payload["data"]["items"][1]["mobile"] == "13800138000"
         assert learners_payload["data"]["items"][1]["learning_status"] == "learning"
         assert learners_payload["data"]["items"][2]["nickname"] == "Charlie"
-        assert (
-            learners_payload["data"]["items"][2]["learning_status"] == "not_started"
-        )
+        assert learners_payload["data"]["items"][2]["learning_status"] == "not_started"
         assert learners_payload["data"]["items"][2]["last_learning_at"] == ""
         assert learners_payload["data"]["items"][2]["last_learning_at_display"] == ""
 

@@ -220,7 +220,9 @@ def _resolve_dashboard_outline_keyword_match_bids(
         chapter_title = str(context.get("chapter_title", "") or "").lower()
         lesson_title = str(context.get("lesson_title", "") or "").lower()
         if any(
-            normalized_keyword in value for value in [chapter_title, lesson_title] if value
+            normalized_keyword in value
+            for value in [chapter_title, lesson_title]
+            if value
         ):
             matched_outline_item_bids.add(str(outline_item_bid or "").strip())
     return matched_outline_item_bids
@@ -1530,7 +1532,10 @@ def _build_dashboard_course_learners(
         joined_at_sentinel,
     )
     earliest_order_or_auth_expression = case(
-        (order_joined_at_expression <= auth_joined_at_expression, order_joined_at_expression),
+        (
+            order_joined_at_expression <= auth_joined_at_expression,
+            order_joined_at_expression,
+        ),
         else_=auth_joined_at_expression,
     )
     joined_at_expression = case(
@@ -1646,9 +1651,7 @@ def _build_dashboard_course_learners(
                 mobile=str(contact.get("mobile", "") or "").strip(),
                 email=str(contact.get("email", "") or "").strip(),
                 nickname=str(getattr(row, "nickname", "") or "").strip(),
-                learned_lesson_count=int(
-                    getattr(row, "learned_lesson_count", 0) or 0
-                ),
+                learned_lesson_count=int(getattr(row, "learned_lesson_count", 0) or 0),
                 total_lesson_count=total_lesson_count,
                 learning_status=str(getattr(row, "learning_status", "") or ""),
                 follow_up_count=int(getattr(row, "follow_up_count", 0) or 0),
@@ -2172,7 +2175,9 @@ def build_dashboard_course_ratings(
         if start_dt is not None:
             filtered_query = filtered_query.filter(rated_at_expression >= start_dt)
         if end_dt_exclusive is not None:
-            filtered_query = filtered_query.filter(rated_at_expression < end_dt_exclusive)
+            filtered_query = filtered_query.filter(
+                rated_at_expression < end_dt_exclusive
+            )
 
         total = (
             db.session.query(db.func.count())

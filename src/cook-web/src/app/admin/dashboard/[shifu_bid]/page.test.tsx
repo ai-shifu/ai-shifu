@@ -205,9 +205,13 @@ jest.mock('@/components/ui/Select', () => ({
       {children}
     </div>
   ),
-  SelectTrigger: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  SelectTrigger: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   SelectValue: () => <span>select-value</span>,
-  SelectContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  SelectContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   SelectItem: ({
     children,
     value,
