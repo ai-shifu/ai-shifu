@@ -29,6 +29,22 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ href: string }>) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -214,18 +230,15 @@ describe('AdminOperationCourseRatingsPage', () => {
     });
   });
 
-  test('renders rating list and can return to course detail', async () => {
+  test('renders rating list with breadcrumb navigation', async () => {
     render(<AdminOperationCourseRatingsPage />);
 
     expect(
-      await screen.findByText('module.operationsCourse.detail.ratings.title'),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsCourse.detail.ratings.title',
+      }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'module.operationsCourse.detail.ratings.summary.scopeHint',
-      ),
-    ).toBeInTheDocument();
-
     await waitFor(() => {
       expect(mockGetAdminOperationCourseRatings).toHaveBeenCalledWith({
         shifu_bid: 'course-1',
@@ -249,13 +262,16 @@ describe('AdminOperationCourseRatingsPage', () => {
         .length,
     ).toBeGreaterThan(0);
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCourse.detail.ratings.back',
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.title',
       }),
-    );
-
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1');
+    ).toHaveAttribute('href', '/admin/operations');
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.detail.title',
+      }),
+    ).toHaveAttribute('href', '/admin/operations/course-1');
   });
 
   test('formats rating summary counts without grouping in Chinese locale', async () => {
@@ -357,7 +373,10 @@ describe('AdminOperationCourseRatingsPage', () => {
 
     render(<AdminOperationCourseRatingsPage />);
 
-    await screen.findByText('module.operationsCourse.detail.ratings.title');
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'module.operationsCourse.detail.ratings.title',
+    });
 
     expect(
       screen.getByPlaceholderText(

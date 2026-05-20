@@ -19,7 +19,6 @@
     "longTerm": "Valide à long terme"
   },
   "detail": {
-    "back": "Retour à la gestion des utilisateurs",
     "basicInfo": "Informations de base",
     "createdCourses": "Cours créés",
     "creditExpireAtHint": "Lorsque plusieurs périodes de validité existent, l’expiration la plus proche est affichée en premier.",

@@ -38,6 +38,22 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ href: string }>) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -257,16 +273,14 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     });
   });
 
-  test('renders follow-up list and can return to course detail', async () => {
+  test('renders follow-up list with breadcrumb navigation', async () => {
     render(<AdminOperationCourseFollowUpsPage />);
 
     expect(
-      await screen.findByText('module.operationsCourse.detail.followUps.title'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'module.operationsCourse.detail.followUps.summary.scopeHint',
-      ),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsCourse.detail.followUps.title',
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -288,13 +302,16 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     expect(screen.getByText('Second follow-up question')).toBeInTheDocument();
     expect(screen.getAllByText('13900001235').length).toBeGreaterThan(0);
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCourse.detail.followUps.back',
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.title',
       }),
-    );
-
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1');
+    ).toHaveAttribute('href', '/admin/operations');
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.detail.title',
+      }),
+    ).toHaveAttribute('href', '/admin/operations/course-1');
   });
 
   test('formats follow-up summary counts without grouping in Chinese locale', async () => {
@@ -451,7 +468,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     ).toBeInTheDocument();
   });
 
-  test('renders summary time in the viewer timezone when UTC crosses local day boundaries', async () => {
+  test('renders summary time with UTC formatting when UTC crosses local day boundaries', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
       summary: {
@@ -487,8 +504,8 @@ describe('AdminOperationCourseFollowUpsPage', () => {
 
     await screen.findByText('Cross-day follow-up question');
 
-    expect(screen.getByText('2026-04-04')).toBeInTheDocument();
-    expect(screen.getByText('18:30:00')).toBeInTheDocument();
+    expect(document.body.textContent).toContain('2026-04-04');
+    expect(document.body.textContent).toContain('18:30:00');
   });
 
   test('ignores a late detail response after the drawer is closed', async () => {

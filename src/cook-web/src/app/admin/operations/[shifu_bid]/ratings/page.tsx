@@ -40,6 +40,7 @@ import {
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
+import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
 import {
   buildAdminOperationsCourseDetailUrl,
   buildAdminOperationsCourseRatingsUrl,
@@ -228,7 +229,6 @@ function ClearableTextInput({
 
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
- * t('module.operationsCourse.detail.ratings.back')
  * t('module.operationsCourse.detail.ratings.title')
  * t('module.operationsCourse.detail.ratings.openMetric')
  * t('module.operationsCourse.detail.ratings.emptyValue')
@@ -236,7 +236,6 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.ratings.summary.ratingCount')
  * t('module.operationsCourse.detail.ratings.summary.userCount')
  * t('module.operationsCourse.detail.ratings.summary.latestRatedAt')
- * t('module.operationsCourse.detail.ratings.summary.scopeHint')
  * t('module.operationsCourse.detail.ratings.filters.userKeyword')
  * t('module.operationsCourse.detail.ratings.filters.userKeywordPlaceholderPhone')
  * t('module.operationsCourse.detail.ratings.filters.userKeywordPlaceholderEmail')
@@ -411,7 +410,6 @@ export default function AdminOperationCourseRatingsPage() {
   const outlineColumnLabel = hasChapterHierarchy
     ? tOperations('detail.ratings.table.chapter')
     : tOperations('detail.ratings.table.lesson');
-  const summaryScopeHint = tOperations('detail.ratings.summary.scopeHint');
   const userKeywordInputId = 'rating-user-keyword-filter';
   const outlineKeywordInputId = 'rating-outline-keyword-filter';
   const ratingTimeFilterAriaLabel = tOperations(
@@ -727,24 +725,23 @@ export default function AdminOperationCourseRatingsPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-        <div className='mb-5 flex shrink-0 flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between'>
-          <div className='space-y-1'>
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {tOperations('detail.ratings.title')}
-            </h1>
-            <p className='text-sm text-muted-foreground'>{summaryScopeHint}</p>
-          </div>
-          <Button
-            variant='outline'
-            className='sm:mr-3'
-            onClick={() => {
-              if (detailPageUrl) {
-                router.push(detailPageUrl);
-              }
-            }}
-          >
-            {tOperations('detail.ratings.back')}
-          </Button>
+        <div className='mb-5 shrink-0 space-y-3 pt-6'>
+          <AdminOperationsBreadcrumb
+            items={[
+              {
+                label: tOperations('title'),
+                href: '/admin/operations',
+              },
+              {
+                label: tOperations('detail.title'),
+                href: detailPageUrl || undefined,
+              },
+              { label: tOperations('detail.ratings.title') },
+            ]}
+          />
+          <h1 className='text-2xl font-semibold text-gray-900'>
+            {tOperations('detail.ratings.title')}
+          </h1>
         </div>
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>

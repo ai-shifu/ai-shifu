@@ -303,7 +303,10 @@ const flushMicrotasks = async () => {
 
 const renderResolvedPage = async () => {
   render(<AdminOperationUsersPage />);
-  await screen.findByText('module.operationsUser.title');
+  await screen.findByRole('heading', {
+    level: 1,
+    name: 'module.operationsUser.title',
+  });
   await screen.findByText(String(DEFAULT_OVERVIEW.total_user_count));
 };
 
@@ -514,8 +517,12 @@ describe('AdminOperationUsersPage', () => {
     });
 
     expect(
-      await screen.findByText('module.operationsUser.title'),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsUser.title',
+      }),
     ).toBeInTheDocument();
+    expect(screen.getAllByText('module.operationsUser.title')).toHaveLength(1);
     expect(
       screen.getByText('module.operationsUser.overview.title'),
     ).toBeInTheDocument();
@@ -886,7 +893,10 @@ describe('AdminOperationUsersPage', () => {
 
   test('reinitializing the page clears the stale quick filter state', async () => {
     const { rerender } = render(<AdminOperationUsersPage />);
-    await screen.findByText('module.operationsUser.title');
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'module.operationsUser.title',
+    });
     await screen.findByText(String(DEFAULT_OVERVIEW.total_user_count));
 
     fireEvent.click(
