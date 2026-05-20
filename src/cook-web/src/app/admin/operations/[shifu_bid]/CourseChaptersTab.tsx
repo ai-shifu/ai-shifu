@@ -50,7 +50,7 @@ type CourseChaptersTabProps = {
     secondary: string;
   };
   formatCount: (value: number, locale: string) => string;
-  formatAdminNaiveDateTime: (value?: string) => string;
+  formatAdminUtcDateTime: (value?: string) => string;
   getColumnStyle: (key: ChapterColumnKey) => {
     width: number;
     minWidth: number;
@@ -73,7 +73,7 @@ export default function CourseChaptersTab({
   resolveContentStatusLabel,
   resolveModifierDisplay,
   formatCount,
-  formatAdminNaiveDateTime,
+  formatAdminUtcDateTime,
   getColumnStyle,
   getResizeHandleProps,
   tOperations,
@@ -307,7 +307,7 @@ export default function CourseChaptersTab({
                       >
                         <AdminTooltipText
                           text={
-                            formatAdminNaiveDateTime(chapter.updated_at) ||
+                            formatAdminUtcDateTime(chapter.updated_at) ||
                             emptyValue
                           }
                           emptyValue={emptyValue}

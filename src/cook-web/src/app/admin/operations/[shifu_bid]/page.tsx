@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import { copyText } from '@/c-utils/textutils';
@@ -1320,12 +1320,12 @@ export default function AdminOperationCourseDetailPage() {
       {
         label: tOperations('detail.fields.createdAt'),
         value:
-          formatAdminNaiveDateTime(detail.basic_info.created_at) || emptyValue,
+          formatAdminUtcDateTime(detail.basic_info.created_at) || emptyValue,
       },
       {
         label: tOperations('detail.fields.updatedAt'),
         value:
-          formatAdminNaiveDateTime(detail.basic_info.updated_at) || emptyValue,
+          formatAdminUtcDateTime(detail.basic_info.updated_at) || emptyValue,
       },
     ],
     [
@@ -1434,7 +1434,7 @@ export default function AdminOperationCourseDetailPage() {
                   resolveContentStatusLabel={resolveContentStatusLabel}
                   resolveModifierDisplay={resolveModifierDisplay}
                   formatCount={formatCount}
-                  formatAdminNaiveDateTime={formatAdminNaiveDateTime}
+                  formatAdminUtcDateTime={formatAdminUtcDateTime}
                   getColumnStyle={getChapterColumnStyle}
                   getResizeHandleProps={getChapterResizeHandleProps}
                   tOperations={tOperations}

@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/tooltip';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
-import { formatOperatorNaiveDateTime } from '../dateTime';
+import { formatOperatorUtcDateTime } from '../dateTime';
 import type {
   AdminOperationUserCourseItem,
   AdminOperationUserCreditFilters,
@@ -554,7 +554,7 @@ export default function AdminOperationUserDetailPage() {
   };
   const resolveCreditsExpireAt = useCallback(() => {
     if (creditSummary.credits_expire_at) {
-      return formatOperatorNaiveDateTime(creditSummary.credits_expire_at);
+      return formatOperatorUtcDateTime(creditSummary.credits_expire_at);
     }
     if (Number(creditSummary.available_credits || 0) > 0) {
       return tOperationsUsers('credits.longTerm');
@@ -619,12 +619,12 @@ export default function AdminOperationUserDetailPage() {
       {
         key: 'lastLoginAt',
         label: tOperationsUsers('table.lastLoginAt'),
-        value: formatOperatorNaiveDateTime(detail.last_login_at),
+        value: formatOperatorUtcDateTime(detail.last_login_at),
       },
       {
         key: 'createdAt',
         label: tOperationsUsers('table.createdAt'),
-        value: formatOperatorNaiveDateTime(detail.created_at),
+        value: formatOperatorUtcDateTime(detail.created_at),
       },
     ],
     [
@@ -677,7 +677,7 @@ export default function AdminOperationUserDetailPage() {
       {
         key: 'lastLearningAt',
         label: tOperationsUsers('table.lastLearningAt'),
-        value: formatOperatorNaiveDateTime(detail.last_learning_at),
+        value: formatOperatorUtcDateTime(detail.last_learning_at),
       },
     ],
     [
