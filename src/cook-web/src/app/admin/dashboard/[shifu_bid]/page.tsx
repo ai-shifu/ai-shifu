@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
@@ -24,6 +24,7 @@ import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { useUserStore } from '@/store';
 import type {
   DashboardCourseDetailLearnerItem,
+  DashboardCourseLearnersResponse,
   DashboardCourseDetailResponse,
 } from '@/types/dashboard';
 import {
@@ -58,13 +59,14 @@ const EMPTY_DETAIL: DashboardCourseDetailResponse = {
     total_follow_up_count: 0,
     rating_score: '',
   },
-  learners: {
-    page: 1,
-    page_count: 0,
-    page_size: 20,
-    total: 0,
-    items: [],
-  },
+};
+
+const EMPTY_LEARNERS: DashboardCourseLearnersResponse = {
+  page: 1,
+  page_count: 0,
+  page_size: 20,
+  total: 0,
+  items: [],
 };
 
 const formatCount = (value: number, emptyValue: string): string => {
@@ -95,8 +97,12 @@ export default function AdminDashboardCourseDetailPage() {
 
   const [detail, setDetail] =
     useState<DashboardCourseDetailResponse>(EMPTY_DETAIL);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<ErrorState | null>(null);
+  const [learners, setLearners] =
+    useState<DashboardCourseLearnersResponse>(EMPTY_LEARNERS);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [learnersLoading, setLearnersLoading] = useState(false);
+  const [detailError, setDetailError] = useState<ErrorState | null>(null);
+  const [learnersError, setLearnersError] = useState<ErrorState | null>(null);
   const [learnerKeywordInput, setLearnerKeywordInput] = useState('');
   const [learnerKeyword, setLearnerKeyword] = useState('');
   const [learnerStatusInput, setLearnerStatusInput] =
@@ -110,6 +116,8 @@ export default function AdminDashboardCourseDetailPage() {
   const [learnerLastLearningStart, setLearnerLastLearningStart] = useState('');
   const [learnerLastLearningEnd, setLearnerLastLearningEnd] = useState('');
   const [learnerPage, setLearnerPage] = useState(1);
+  const detailRequestIdRef = useRef(0);
+  const learnersRequestIdRef = useRef(0);
 
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
@@ -143,46 +151,101 @@ export default function AdminDashboardCourseDetailPage() {
 
   const fetchDetail = useCallback(async () => {
     if (!shifuBid.trim()) {
-      setError({ message: t('common.core.unknownError') });
+      setDetail(EMPTY_DETAIL);
+      setDetailError({ message: t('common.core.unknownError') });
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    const requestId = detailRequestIdRef.current + 1;
+    detailRequestIdRef.current = requestId;
+    setDetailLoading(true);
+    setDetailError(null);
     try {
       const response = (await api.getDashboardCourseDetail({
         shifu_bid: shifuBid,
-        page_index: learnerPage,
-        page_size: 20,
-        keyword: learnerKeyword,
-        learning_status: learnerStatus === 'all' ? '' : learnerStatus,
-        last_learning_start_time: learnerLastLearningStart,
-        last_learning_end_time: learnerLastLearningEnd,
         ...(timezone ? { timezone } : {}),
       })) as DashboardCourseDetailResponse;
+      if (requestId !== detailRequestIdRef.current) {
+        return;
+      }
       setDetail(response || EMPTY_DETAIL);
     } catch (err) {
+      if (requestId !== detailRequestIdRef.current) {
+        return;
+      }
       setDetail(EMPTY_DETAIL);
       if (err instanceof ErrorWithCode) {
-        setError({ message: err.message, code: err.code });
+        setDetailError({ message: err.message, code: err.code });
       } else if (err instanceof Error) {
-        setError({ message: err.message });
+        setDetailError({ message: err.message });
       } else {
-        setError({ message: t('common.core.unknownError') });
+        setDetailError({ message: t('common.core.unknownError') });
       }
     } finally {
-      setLoading(false);
+      if (requestId === detailRequestIdRef.current) {
+        setDetailLoading(false);
+      }
     }
-  }, [
-    learnerKeyword,
-    learnerLastLearningEnd,
-    learnerLastLearningStart,
-    learnerPage,
-    learnerStatus,
-    shifuBid,
-    t,
-    timezone,
-  ]);
+  }, [shifuBid, t, timezone]);
+
+  const fetchLearners = useCallback(
+    async (
+      nextPage: number,
+      nextFilters: {
+        keyword: string;
+        learningStatus: LearnerFilterStatus;
+        lastLearningStart: string;
+        lastLearningEnd: string;
+      },
+    ) => {
+      if (!shifuBid.trim()) {
+        setLearners(EMPTY_LEARNERS);
+        setLearnersError({ message: t('common.core.unknownError') });
+        return;
+      }
+
+      const requestId = learnersRequestIdRef.current + 1;
+      learnersRequestIdRef.current = requestId;
+      setLearnersLoading(true);
+      setLearnersError(null);
+      try {
+        const response = (await api.getDashboardCourseLearners({
+          shifu_bid: shifuBid,
+          page_index: nextPage,
+          page_size: 20,
+          keyword: nextFilters.keyword,
+          learning_status:
+            nextFilters.learningStatus === 'all'
+              ? ''
+              : nextFilters.learningStatus,
+          last_learning_start_time: nextFilters.lastLearningStart,
+          last_learning_end_time: nextFilters.lastLearningEnd,
+          ...(timezone ? { timezone } : {}),
+        })) as DashboardCourseLearnersResponse;
+        if (requestId !== learnersRequestIdRef.current) {
+          return;
+        }
+        setLearners(response || EMPTY_LEARNERS);
+      } catch (err) {
+        if (requestId !== learnersRequestIdRef.current) {
+          return;
+        }
+        setLearners(EMPTY_LEARNERS);
+        if (err instanceof ErrorWithCode) {
+          setLearnersError({ message: err.message, code: err.code });
+        } else if (err instanceof Error) {
+          setLearnersError({ message: err.message });
+        } else {
+          setLearnersError({ message: t('common.core.unknownError') });
+        }
+      } finally {
+        if (requestId === learnersRequestIdRef.current) {
+          setLearnersLoading(false);
+        }
+      }
+    },
+    [shifuBid, t, timezone],
+  );
 
   useEffect(() => {
     if (!isInitialized || !isGuest) {
@@ -201,6 +264,27 @@ export default function AdminDashboardCourseDetailPage() {
     }
     fetchDetail();
   }, [fetchDetail, isGuest, isInitialized]);
+
+  useEffect(() => {
+    if (!isInitialized || isGuest) {
+      return;
+    }
+    fetchLearners(learnerPage, {
+      keyword: learnerKeyword,
+      learningStatus: learnerStatus,
+      lastLearningStart: learnerLastLearningStart,
+      lastLearningEnd: learnerLastLearningEnd,
+    });
+  }, [
+    fetchLearners,
+    isGuest,
+    isInitialized,
+    learnerKeyword,
+    learnerLastLearningEnd,
+    learnerLastLearningStart,
+    learnerPage,
+    learnerStatus,
+  ]);
 
   const handleLearnerSearch = useCallback(() => {
     setLearnerPage(1);
@@ -351,7 +435,29 @@ export default function AdminDashboardCourseDetailPage() {
     ],
   );
 
-  if (!isInitialized || isGuest || (loading && !detail.basic_info.shifu_bid)) {
+  const handleRetry = useCallback(() => {
+    fetchDetail();
+    fetchLearners(learnerPage, {
+      keyword: learnerKeyword,
+      learningStatus: learnerStatus,
+      lastLearningStart: learnerLastLearningStart,
+      lastLearningEnd: learnerLastLearningEnd,
+    });
+  }, [
+    fetchDetail,
+    fetchLearners,
+    learnerKeyword,
+    learnerLastLearningEnd,
+    learnerLastLearningStart,
+    learnerPage,
+    learnerStatus,
+  ]);
+
+  if (
+    !isInitialized ||
+    isGuest ||
+    (detailLoading && !detail.basic_info.shifu_bid)
+  ) {
     return (
       <div className='flex h-full items-center justify-center'>
         <Loading />
@@ -359,13 +465,13 @@ export default function AdminDashboardCourseDetailPage() {
     );
   }
 
-  if (error && !loading) {
+  if (detailError && !detailLoading) {
     return (
       <div className='h-full p-0'>
         <ErrorDisplay
-          errorCode={error.code || 500}
-          errorMessage={error.message}
-          onRetry={fetchDetail}
+          errorCode={detailError.code || 500}
+          errorMessage={detailError.message}
+          onRetry={handleRetry}
         />
       </div>
     );
@@ -457,9 +563,9 @@ export default function AdminDashboardCourseDetailPage() {
           />
 
           <DashboardCourseLearnersCard
-            learners={detail.learners}
-            loading={loading}
-            error={error}
+            learners={learners}
+            loading={learnersLoading}
+            error={learnersError}
             keyword={learnerKeywordInput}
             learningStatus={learnerStatusInput}
             lastLearningStart={learnerLastLearningStartInput}

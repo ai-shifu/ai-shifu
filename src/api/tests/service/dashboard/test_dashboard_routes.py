@@ -1227,12 +1227,14 @@ class TestDashboardRoutes:
             )
             db.session.commit()
 
-        resp = test_client.get("/api/dashboard/shifus/course-detail/detail")
-        payload = resp.get_json(force=True)
+        detail_resp = test_client.get("/api/dashboard/shifus/course-detail/detail")
+        detail_payload = detail_resp.get_json(force=True)
+        learners_resp = test_client.get("/api/dashboard/shifus/course-detail/learners")
+        learners_payload = learners_resp.get_json(force=True)
 
-        assert resp.status_code == 200
-        assert payload["code"] == 0
-        assert payload["data"]["basic_info"] == {
+        assert detail_resp.status_code == 200
+        assert detail_payload["code"] == 0
+        assert detail_payload["data"]["basic_info"] == {
             "shifu_bid": "course-detail",
             "course_name": "Detail Course",
             "course_status": "published",
@@ -1241,7 +1243,7 @@ class TestDashboardRoutes:
             "chapter_count": 3,
             "learner_count": 3,
         }
-        assert payload["data"]["metrics"] == {
+        assert detail_payload["data"]["metrics"] == {
             "order_count": 3,
             "order_amount": "60.00",
             "new_learner_count_last_7_days": 2,
@@ -1252,30 +1254,34 @@ class TestDashboardRoutes:
             "total_follow_up_count": 3,
             "rating_score": "4.0",
         }
-        assert payload["data"]["learners"]["page"] == 1
-        assert payload["data"]["learners"]["page_size"] == 20
-        assert payload["data"]["learners"]["page_count"] == 1
-        assert payload["data"]["learners"]["total"] == 3
-        assert [item["user_bid"] for item in payload["data"]["learners"]["items"]] == [
+        assert "learners" not in detail_payload["data"]
+
+        assert learners_resp.status_code == 200
+        assert learners_payload["code"] == 0
+        assert learners_payload["data"]["page"] == 1
+        assert learners_payload["data"]["page_size"] == 20
+        assert learners_payload["data"]["page_count"] == 1
+        assert learners_payload["data"]["total"] == 3
+        assert [item["user_bid"] for item in learners_payload["data"]["items"]] == [
             "learner-1",
             "learner-2",
             "learner-3",
         ]
-        assert payload["data"]["learners"]["items"][0]["email"] == "alice@example.com"
-        assert payload["data"]["learners"]["items"][0]["nickname"] == "Alice"
-        assert payload["data"]["learners"]["items"][0]["learned_lesson_count"] == 3
-        assert payload["data"]["learners"]["items"][0]["learning_status"] == "completed"
-        assert payload["data"]["learners"]["items"][0]["follow_up_count"] == 2
-        assert payload["data"]["learners"]["items"][1]["mobile"] == "13800138000"
-        assert payload["data"]["learners"]["items"][1]["learning_status"] == "learning"
-        assert payload["data"]["learners"]["items"][2]["nickname"] == "Charlie"
+        assert learners_payload["data"]["items"][0]["email"] == "alice@example.com"
+        assert learners_payload["data"]["items"][0]["nickname"] == "Alice"
+        assert learners_payload["data"]["items"][0]["learned_lesson_count"] == 3
+        assert learners_payload["data"]["items"][0]["learning_status"] == "completed"
+        assert learners_payload["data"]["items"][0]["follow_up_count"] == 2
+        assert learners_payload["data"]["items"][1]["mobile"] == "13800138000"
+        assert learners_payload["data"]["items"][1]["learning_status"] == "learning"
+        assert learners_payload["data"]["items"][2]["nickname"] == "Charlie"
         assert (
-            payload["data"]["learners"]["items"][2]["learning_status"] == "not_started"
+            learners_payload["data"]["items"][2]["learning_status"] == "not_started"
         )
-        assert payload["data"]["learners"]["items"][2]["last_learning_at"] == ""
-        assert payload["data"]["learners"]["items"][2]["last_learning_at_display"] == ""
+        assert learners_payload["data"]["items"][2]["last_learning_at"] == ""
+        assert learners_payload["data"]["items"][2]["last_learning_at_display"] == ""
 
-    def test_course_detail_supports_learner_search_and_pagination(
+    def test_course_learners_supports_search_and_pagination(
         self,
         monkeypatch,
         test_client,
@@ -1361,45 +1367,40 @@ class TestDashboardRoutes:
             db.session.commit()
 
         resp = test_client.get(
-            "/api/dashboard/shifus/course-learner-list/detail?page_index=2&page_size=1"
+            "/api/dashboard/shifus/course-learner-list/learners?page_index=2&page_size=1"
         )
         payload = resp.get_json(force=True)
 
         assert resp.status_code == 200
         assert payload["code"] == 0
-        assert payload["data"]["learners"]["page"] == 2
-        assert payload["data"]["learners"]["page_size"] == 1
-        assert payload["data"]["learners"]["page_count"] == 3
-        assert payload["data"]["learners"]["total"] == 3
-        assert payload["data"]["learners"]["items"][0]["user_bid"] == "learner-beta"
+        assert payload["data"]["page"] == 2
+        assert payload["data"]["page_size"] == 1
+        assert payload["data"]["page_count"] == 3
+        assert payload["data"]["total"] == 3
+        assert payload["data"]["items"][0]["user_bid"] == "learner-beta"
 
         search_resp = test_client.get(
-            "/api/dashboard/shifus/course-learner-list/detail?keyword=beta@example.com"
+            "/api/dashboard/shifus/course-learner-list/learners?keyword=beta@example.com"
         )
         search_payload = search_resp.get_json(force=True)
 
         assert search_resp.status_code == 200
         assert search_payload["code"] == 0
-        assert search_payload["data"]["learners"]["total"] == 1
-        assert (
-            search_payload["data"]["learners"]["items"][0]["user_bid"] == "learner-beta"
-        )
-        assert (
-            search_payload["data"]["learners"]["items"][0]["email"]
-            == "beta@example.com"
-        )
+        assert search_payload["data"]["total"] == 1
+        assert search_payload["data"]["items"][0]["user_bid"] == "learner-beta"
+        assert search_payload["data"]["items"][0]["email"] == "beta@example.com"
 
         phone_partial_resp = test_client.get(
-            "/api/dashboard/shifus/course-learner-list/detail?keyword=1380013"
+            "/api/dashboard/shifus/course-learner-list/learners?keyword=1380013"
         )
         phone_partial_payload = phone_partial_resp.get_json(force=True)
 
         assert phone_partial_resp.status_code == 200
         assert phone_partial_payload["code"] == 0
-        assert phone_partial_payload["data"]["learners"]["total"] == 0
+        assert phone_partial_payload["data"]["total"] == 0
 
         filtered_resp = test_client.get(
-            "/api/dashboard/shifus/course-learner-list/detail"
+            "/api/dashboard/shifus/course-learner-list/learners"
             "?keyword=Alpha"
             "&learning_status=completed"
             "&last_learning_start_time=2026-04-09"
@@ -1409,23 +1410,21 @@ class TestDashboardRoutes:
 
         assert filtered_resp.status_code == 200
         assert filtered_payload["code"] == 0
-        assert filtered_payload["data"]["learners"]["total"] == 1
-        assert filtered_payload["data"]["learners"]["items"][0]["user_bid"] == (
-            "learner-alpha"
-        )
+        assert filtered_payload["data"]["total"] == 1
+        assert filtered_payload["data"]["items"][0]["user_bid"] == "learner-alpha"
 
         clamped_resp = test_client.get(
-            "/api/dashboard/shifus/course-learner-list/detail?page_index=99&page_size=2"
+            "/api/dashboard/shifus/course-learner-list/learners?page_index=99&page_size=2"
         )
         clamped_payload = clamped_resp.get_json(force=True)
 
         assert clamped_resp.status_code == 200
         assert clamped_payload["code"] == 0
-        assert clamped_payload["data"]["learners"]["page"] == 2
-        assert clamped_payload["data"]["learners"]["page_count"] == 2
-        assert [
-            item["user_bid"] for item in clamped_payload["data"]["learners"]["items"]
-        ] == ["learner-gamma"]
+        assert clamped_payload["data"]["page"] == 2
+        assert clamped_payload["data"]["page_count"] == 2
+        assert [item["user_bid"] for item in clamped_payload["data"]["items"]] == [
+            "learner-gamma"
+        ]
 
     @pytest.mark.parametrize(
         ("query_string", "expected_param"),
@@ -1438,7 +1437,7 @@ class TestDashboardRoutes:
             ),
         ],
     )
-    def test_course_detail_rejects_invalid_learner_date_filters(
+    def test_course_learners_rejects_invalid_learner_date_filters(
         self,
         monkeypatch,
         test_client,
@@ -1456,8 +1455,68 @@ class TestDashboardRoutes:
             db.session.commit()
 
         response = test_client.get(
-            f"/api/dashboard/shifus/course-detail-invalid-date/detail?{query_string}"
+            f"/api/dashboard/shifus/course-detail-invalid-date/learners?{query_string}"
         )
+        payload = response.get_json(force=True)
+
+        assert response.status_code == 200
+        assert payload["message"] == f"Params Error {expected_param}"
+
+    @pytest.mark.parametrize(
+        ("path", "expected_param"),
+        [
+            ("/api/dashboard/entry?page_index=invalid&page_size=20", "page_index"),
+            ("/api/dashboard/entry?page_index=1&page_size=invalid", "page_size"),
+            (
+                "/api/dashboard/shifus/course-pagination-check/learners"
+                "?page_index=invalid&page_size=20",
+                "page_index",
+            ),
+            (
+                "/api/dashboard/shifus/course-pagination-check/learners"
+                "?page_index=1&page_size=invalid",
+                "page_size",
+            ),
+            (
+                "/api/dashboard/shifus/course-pagination-check/follow-ups"
+                "?page_index=invalid&page_size=20",
+                "page_index",
+            ),
+            (
+                "/api/dashboard/shifus/course-pagination-check/follow-ups"
+                "?page_index=1&page_size=invalid",
+                "page_size",
+            ),
+            (
+                "/api/dashboard/shifus/course-pagination-check/ratings"
+                "?page_index=invalid&page_size=20",
+                "page_index",
+            ),
+            (
+                "/api/dashboard/shifus/course-pagination-check/ratings"
+                "?page_index=1&page_size=invalid",
+                "page_size",
+            ),
+        ],
+    )
+    def test_paginated_routes_reject_invalid_pagination_args(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+        path,
+        expected_param,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        with app.app_context():
+            self._seed_dashboard_course(
+                shifu_bid="course-pagination-check",
+                title="Pagination Check Course",
+            )
+            db.session.commit()
+
+        response = test_client.get(path)
         payload = response.get_json(force=True)
 
         assert response.status_code == 200

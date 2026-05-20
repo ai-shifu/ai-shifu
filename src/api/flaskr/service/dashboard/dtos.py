@@ -275,15 +275,11 @@ class DashboardCourseDetailDTO(BaseModel):
     metrics: DashboardCourseDetailMetricsDTO = Field(
         ..., description="Course detail metrics", required=False
     )
-    learners: DashboardCourseDetailLearnersDTO = Field(
-        ..., description="Course learner list", required=False
-    )
 
     def __json__(self) -> Dict[str, Any]:
         return {
             "basic_info": self.basic_info.__json__(),
             "metrics": self.metrics.__json__(),
-            "learners": self.learners.__json__(),
         }
 
 

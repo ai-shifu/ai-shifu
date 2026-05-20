@@ -72,8 +72,9 @@ export type DashboardCourseDetailLearners = {
 export type DashboardCourseDetailResponse = {
   basic_info: DashboardCourseDetailBasicInfo;
   metrics: DashboardCourseDetailMetrics;
-  learners: DashboardCourseDetailLearners;
 };
+
+export type DashboardCourseLearnersResponse = DashboardCourseDetailLearners;
 
 export type DashboardCourseFollowUpSummary = {
   follow_up_count: number;
