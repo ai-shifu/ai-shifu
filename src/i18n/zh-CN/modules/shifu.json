@@ -8,6 +8,7 @@
     "title": "授课提示词"
   },
   "history": {
+    "backToDocument": "返回文档",
     "collapse": "收起",
     "confirmDescription": "确认恢复后，当前节内容将被该版本完整覆盖。",
     "confirmLoadFailed": "加载版本内容失败，请稍后重试",
