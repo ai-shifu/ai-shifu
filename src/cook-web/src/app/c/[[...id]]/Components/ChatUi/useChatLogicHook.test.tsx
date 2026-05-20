@@ -2867,4 +2867,41 @@ describe('useChatLogicHook stream cleanup', () => {
     );
     expect(result.current.reGenerateConfirm.open).toBe(false);
   });
+
+  it('drops orphan history follow-ups whose anchor element is absent from records', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'ask',
+          content: '接下来学什么',
+          generated_block_bid: 'ask-block-1',
+          element_bid: 'ask-element-1',
+          payload: { anchor_element_bid: 'missing-anchor' },
+        },
+        {
+          element_type: 'answer',
+          content: '咱们已经学完了...',
+          generated_block_bid: 'ask-block-1',
+          element_bid: 'answer-element-1',
+          payload: {
+            anchor_element_bid: 'missing-anchor',
+            ask_element_bid: 'ask-element-1',
+          },
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(
+      result.current.items.some(item => item.type === ChatContentItemType.ASK),
+    ).toBe(false);
+  });
 });

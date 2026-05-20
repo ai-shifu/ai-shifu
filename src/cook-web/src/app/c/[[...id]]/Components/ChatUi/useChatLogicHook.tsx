@@ -2494,6 +2494,17 @@ function useChatLogicHook({
     (records: StudyRecordItem[]) => {
       const result: ChatContentItem[] = [];
 
+      // Index every element bid present in this snapshot so we can detect
+      // orphan follow-ups whose anchor element is no longer surfaced
+      // (reset, deactivated, or living in a different progress record).
+      const presentElementBids = new Set<string>();
+      for (const record of records) {
+        const bid = resolveElementItemBid(record);
+        if (bid) {
+          presentElementBids.add(bid);
+        }
+      }
+
       records.forEach((item: StudyRecordItem) => {
         const itemBid = resolveElementItemBid(item);
         const elementType = resolveRecordElementType(item);
@@ -2505,6 +2516,12 @@ function useChatLogicHook({
         if (isAskOrAnswerElementType(elementType)) {
           const parentElementBid = resolveAskAnchorElementBid(item, result);
           if (!parentElementBid) {
+            return;
+          }
+          // Without a host element record, upsertAskMessageByParent falls
+          // through to `parentContentIndex < 0` and pushes the ask to the
+          // top of the chat list. Skip the orphan instead.
+          if (!presentElementBids.has(parentElementBid)) {
             return;
           }
           const nextResult = upsertAskMessageByParent(result, {
