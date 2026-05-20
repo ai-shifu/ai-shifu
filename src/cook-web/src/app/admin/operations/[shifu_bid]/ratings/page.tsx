@@ -229,7 +229,6 @@ function ClearableTextInput({
 
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
- * t('module.operationsCourse.detail.ratings.back')
  * t('module.operationsCourse.detail.ratings.title')
  * t('module.operationsCourse.detail.ratings.openMetric')
  * t('module.operationsCourse.detail.ratings.emptyValue')
@@ -237,7 +236,6 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.ratings.summary.ratingCount')
  * t('module.operationsCourse.detail.ratings.summary.userCount')
  * t('module.operationsCourse.detail.ratings.summary.latestRatedAt')
- * t('module.operationsCourse.detail.ratings.summary.scopeHint')
  * t('module.operationsCourse.detail.ratings.filters.userKeyword')
  * t('module.operationsCourse.detail.ratings.filters.userKeywordPlaceholderPhone')
  * t('module.operationsCourse.detail.ratings.filters.userKeywordPlaceholderEmail')

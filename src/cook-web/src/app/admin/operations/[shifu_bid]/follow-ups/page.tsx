@@ -251,14 +251,12 @@ function ClearableTextInput({
 }
 
 /**
- * t('module.operationsCourse.detail.followUps.back')
  * t('module.operationsCourse.detail.followUps.title')
  * t('module.operationsCourse.detail.followUps.openMetric')
  * t('module.operationsCourse.detail.followUps.summary.followUpCount')
  * t('module.operationsCourse.detail.followUps.summary.userCount')
  * t('module.operationsCourse.detail.followUps.summary.lessonCount')
  * t('module.operationsCourse.detail.followUps.summary.latestFollowUpAt')
- * t('module.operationsCourse.detail.followUps.summary.scopeHint')
  * t('module.operationsCourse.detail.followUps.filters.userKeyword')
  * t('module.operationsCourse.detail.followUps.filters.userKeywordPlaceholder')
  * t('module.operationsCourse.detail.followUps.filters.userKeywordPlaceholderPhone')

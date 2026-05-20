@@ -31,7 +31,6 @@
     "title": "Prompt du cours"
   },
   "detail": {
-    "back": "Retour à la liste",
     "basicInfo": "Informations de base",
     "boolean": {
       "no": "Non",
@@ -126,7 +125,6 @@
       "updatedAt": "Mis à jour le"
     },
     "followUps": {
-      "back": "Retour au détail du cours",
       "drawer": {
         "currentRecordHint": "Lire dans l’ordre : sortie originale -> suivi actuel -> réponse système actuelle.",
         "fields": {
@@ -174,7 +172,6 @@
         "followUpCount": "Suivis",
         "latestFollowUpAt": "Dernier suivi",
         "lessonCount": "Leçons",
-        "scopeHint": "Ces métriques de synthèse reflètent le jeu de résultats filtré actuel.",
         "userCount": "Utilisateurs"
       },
       "table": {
@@ -212,7 +209,6 @@
       "openMetric": "Ouvrir les données de commande"
     },
     "ratings": {
-      "back": "Retour au détail du cours",
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Recherche chapitre / leçon",
@@ -248,7 +244,6 @@
         "averageScore": "Note moyenne",
         "latestRatedAt": "Dernière note",
         "ratingCount": "Notes",
-        "scopeHint": "Ces métriques de synthèse reflètent le jeu de résultats filtré actuel.",
         "userCount": "Utilisateurs"
       },
       "table": {

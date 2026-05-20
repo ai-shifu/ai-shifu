@@ -19,7 +19,6 @@
     "longTerm": "长期有效"
   },
   "detail": {
-    "back": "返回用户管理",
     "basicInfo": "基础信息",
     "createdCourses": "创作课程",
     "creditExpireAtHint": "多个有效期优先展示最早到期时间",

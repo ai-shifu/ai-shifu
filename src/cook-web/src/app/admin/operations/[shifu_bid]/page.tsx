@@ -162,7 +162,6 @@ const createCourseCreditUsageFilters =
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
  * t('module.operationsCourse.detail.title')
- * t('module.operationsCourse.detail.back')
  * t('module.operationsCourse.detail.basicInfo')
  * t('module.operationsCourse.detail.metrics')
  * t('module.operationsCourse.detail.chapters')

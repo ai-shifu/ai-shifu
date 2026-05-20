@@ -31,7 +31,6 @@
     "title": "Course Prompt"
   },
   "detail": {
-    "back": "Back to list",
     "basicInfo": "Basic Info",
     "boolean": {
       "no": "No",
@@ -126,7 +125,6 @@
       "updatedAt": "Updated At"
     },
     "followUps": {
-      "back": "Back to course detail",
       "drawer": {
         "currentRecordHint": "Read in order: original output -> current follow-up -> current system answer.",
         "fields": {
@@ -174,7 +172,6 @@
         "followUpCount": "Follow-ups",
         "latestFollowUpAt": "Latest Follow-up",
         "lessonCount": "Lessons",
-        "scopeHint": "These summary metrics reflect the current filtered result set.",
         "userCount": "Users"
       },
       "table": {
@@ -212,7 +209,6 @@
       "openMetric": "Open order data"
     },
     "ratings": {
-      "back": "Back to course detail",
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Chapter / Lesson Search",
@@ -248,7 +244,6 @@
         "averageScore": "Average Rating",
         "latestRatedAt": "Latest Rating",
         "ratingCount": "Ratings",
-        "scopeHint": "These summary metrics reflect the current filtered result set.",
         "userCount": "Users"
       },
       "table": {

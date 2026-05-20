@@ -101,7 +101,6 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
 
 /**
  * t('module.operationsUser.detail.title')
- * t('module.operationsUser.detail.back')
  * t('module.operationsUser.detail.basicInfo')
  * t('module.operationsUser.detail.overview')
  * t('module.operationsUser.detail.creditsOverview')

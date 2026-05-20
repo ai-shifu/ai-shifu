@@ -31,7 +31,6 @@
     "title": "课程提示词"
   },
   "detail": {
-    "back": "返回课程列表",
     "basicInfo": "基础信息",
     "boolean": {
       "no": "否",
@@ -126,7 +125,6 @@
       "updatedAt": "更新时间"
     },
     "followUps": {
-      "back": "返回课程详情",
       "drawer": {
         "currentRecordHint": "按“被追问的原始输出 -> 本次追问 -> 本次系统回答”的顺序阅读",
         "fields": {
@@ -174,7 +172,6 @@
         "followUpCount": "追问总数",
         "latestFollowUpAt": "最近追问时间",
         "lessonCount": "涉及节数",
-        "scopeHint": "以下统计基于当前筛选结果",
         "userCount": "追问用户数"
       },
       "table": {
@@ -212,7 +209,6 @@
       "openMetric": "查看订单数据"
     },
     "ratings": {
-      "back": "返回课程详情",
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "章/节搜索",
@@ -248,7 +244,6 @@
         "averageScore": "平均评分",
         "latestRatedAt": "最近评分时间",
         "ratingCount": "评分次数",
-        "scopeHint": "以下统计基于当前筛选结果",
         "userCount": "评分用户数"
       },
       "table": {
