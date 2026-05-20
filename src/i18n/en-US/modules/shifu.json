@@ -8,6 +8,7 @@
     "title": "Teaching Prompts"
   },
   "history": {
+    "backToDocument": "Back to document",
     "collapse": "Collapse",
     "confirmDescription": "After confirmation, the current lesson content will be fully replaced by this version.",
     "confirmLoadFailed": "Failed to load this version content. Please try again later.",

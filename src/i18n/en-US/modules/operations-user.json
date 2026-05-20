@@ -19,7 +19,6 @@
     "longTerm": "Long-term valid"
   },
   "detail": {
-    "back": "Back to User Management",
     "basicInfo": "Basic Information",
     "createdCourses": "Created Courses",
     "creditExpireAtHint": "When multiple validity periods exist, the earliest expiry is shown first.",

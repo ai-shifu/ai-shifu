@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
@@ -10,7 +10,6 @@ import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
-import { Button } from '@/components/ui/Button';
 import {
   Tooltip,
   TooltipContent,
@@ -19,7 +18,8 @@ import {
 } from '@/components/ui/tooltip';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
-import { formatOperatorNaiveDateTime } from '../dateTime';
+import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
+import { formatOperatorUtcDateTime } from '../dateTime';
 import type {
   AdminOperationUserCourseItem,
   AdminOperationUserCreditFilters,
@@ -101,7 +101,6 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
 
 /**
  * t('module.operationsUser.detail.title')
- * t('module.operationsUser.detail.back')
  * t('module.operationsUser.detail.basicInfo')
  * t('module.operationsUser.detail.overview')
  * t('module.operationsUser.detail.creditsOverview')
@@ -227,7 +226,6 @@ export default function AdminOperationUserDetailPage() {
   const { t, i18n } = useTranslation();
   const { t: tOperationsUsers } = useTranslation('module.operationsUser');
   const { t: tOperationsCourse } = useTranslation('module.operationsCourse');
-  const router = useRouter();
   const params = useParams<{ user_bid: string }>();
   const { isReady } = useOperatorGuard();
   const loginMethodsEnabled = useEnvStore(
@@ -554,7 +552,7 @@ export default function AdminOperationUserDetailPage() {
   };
   const resolveCreditsExpireAt = useCallback(() => {
     if (creditSummary.credits_expire_at) {
-      return formatOperatorNaiveDateTime(creditSummary.credits_expire_at);
+      return formatOperatorUtcDateTime(creditSummary.credits_expire_at);
     }
     if (Number(creditSummary.available_credits || 0) > 0) {
       return tOperationsUsers('credits.longTerm');
@@ -619,12 +617,12 @@ export default function AdminOperationUserDetailPage() {
       {
         key: 'lastLoginAt',
         label: tOperationsUsers('table.lastLoginAt'),
-        value: formatOperatorNaiveDateTime(detail.last_login_at),
+        value: formatOperatorUtcDateTime(detail.last_login_at),
       },
       {
         key: 'createdAt',
         label: tOperationsUsers('table.createdAt'),
-        value: formatOperatorNaiveDateTime(detail.created_at),
+        value: formatOperatorUtcDateTime(detail.created_at),
       },
     ],
     [
@@ -677,7 +675,7 @@ export default function AdminOperationUserDetailPage() {
       {
         key: 'lastLearningAt',
         label: tOperationsUsers('table.lastLearningAt'),
-        value: formatOperatorNaiveDateTime(detail.last_learning_at),
+        value: formatOperatorUtcDateTime(detail.last_learning_at),
       },
     ],
     [
@@ -768,19 +766,19 @@ export default function AdminOperationUserDetailPage() {
         data-testid='admin-operation-user-detail-page'
       >
         <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-          <div className='mb-5 flex shrink-0 flex-col gap-3 px-1 pt-6 sm:flex-row sm:items-start sm:justify-between'>
-            <div>
-              <h1 className='text-2xl font-semibold text-gray-900'>
-                {tOperationsUsers('detail.title')}
-              </h1>
-            </div>
-            <Button
-              variant='outline'
-              className='sm:mr-3'
-              onClick={() => router.push('/admin/operations/users')}
-            >
-              {tOperationsUsers('detail.back')}
-            </Button>
+          <div className='mb-5 shrink-0 space-y-3 px-1 pt-6'>
+            <AdminOperationsBreadcrumb
+              items={[
+                {
+                  label: tOperationsUsers('title'),
+                  href: '/admin/operations/users',
+                },
+                { label: tOperationsUsers('detail.title') },
+              ]}
+            />
+            <h1 className='text-2xl font-semibold text-gray-900'>
+              {tOperationsUsers('detail.title')}
+            </h1>
           </div>
 
           <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>

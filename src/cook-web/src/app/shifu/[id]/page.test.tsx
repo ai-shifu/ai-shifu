@@ -17,10 +17,13 @@ jest.mock('next/dynamic', () => ({
     function MockShifuRoot(props: {
       id: string;
       initialLessonId: string | null;
+      initialViewMode?: 'edit' | 'history';
     }) {
       return (
         <div data-testid='mock-shifu-root'>
-          {props.id}:{props.initialLessonId}
+          {`${props.id}:${props.initialLessonId}:${
+            props.initialViewMode || 'edit'
+          }`}
         </div>
       );
     },
@@ -54,7 +57,7 @@ describe('ShifuPage', () => {
     );
 
     expect(screen.getByTestId('mock-shifu-root')).toHaveTextContent(
-      'shifu-1:lesson-42',
+      'shifu-1:lesson-42:edit',
     );
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });

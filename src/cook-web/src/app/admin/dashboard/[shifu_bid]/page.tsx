@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
@@ -17,27 +17,33 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/Breadcrumb';
 import { Card, CardContent } from '@/components/ui/Card';
-import {
-  Table,
-  TableBody,
-  TableEmpty,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/Table';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ErrorWithCode } from '@/lib/request';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { useUserStore } from '@/store';
-import type { DashboardCourseDetailResponse } from '@/types/dashboard';
-import { buildAdminOrdersUrl } from '../admin-dashboard-routes';
+import type {
+  DashboardCourseDetailLearnerItem,
+  DashboardCourseLearnersResponse,
+  DashboardCourseDetailResponse,
+} from '@/types/dashboard';
+import {
+  buildAdminDashboardCourseFollowUpsUrl,
+  buildAdminDashboardCourseRatingsUrl,
+  buildAdminOrdersUrl,
+} from '../admin-dashboard-routes';
 import { formatOrderAmount } from '../dashboardCourseTableRow';
+import CourseMetricsCardGrid from '../../operations/[shifu_bid]/CourseMetricsCardGrid';
+import DashboardCourseLearnersCard from './DashboardCourseLearnersCard';
 
 type ErrorState = { message: string; code?: number };
+type LearnerFilterStatus = 'all' | 'not_started' | 'learning' | 'completed';
 
 const EMPTY_DETAIL: DashboardCourseDetailResponse = {
   basic_info: {
     shifu_bid: '',
     course_name: '',
+    course_status: 'published',
     created_at: '',
     chapter_count: 0,
     learner_count: 0,
@@ -45,27 +51,22 @@ const EMPTY_DETAIL: DashboardCourseDetailResponse = {
   metrics: {
     order_count: 0,
     order_amount: '0.00',
+    new_learner_count_last_7_days: 0,
+    learning_learner_count: 0,
     completed_learner_count: 0,
     completion_rate: '0.00',
     active_learner_count_last_7_days: 0,
     total_follow_up_count: 0,
-    avg_follow_up_count_per_learner: '0.00',
-    avg_learning_duration_seconds: 0,
+    rating_score: '',
   },
 };
 
-const formatDateTime = (
-  value: string,
-  emptyValue: string,
-  displayValue?: string,
-): string => {
-  if (displayValue) {
-    return displayValue;
-  }
-  if (!value) {
-    return emptyValue;
-  }
-  return value;
+const EMPTY_LEARNERS: DashboardCourseLearnersResponse = {
+  page: 1,
+  page_count: 0,
+  page_size: 20,
+  total: 0,
+  items: [],
 };
 
 const formatCount = (value: number, emptyValue: string): string => {
@@ -83,17 +84,6 @@ const formatPercent = (value: string, emptyValue: string): string => {
   return `${normalized}%`;
 };
 
-const formatDuration = (seconds: number): string => {
-  const normalizedSeconds =
-    Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
-  const hours = Math.floor(normalizedSeconds / 3600);
-  const minutes = Math.floor((normalizedSeconds % 3600) / 60);
-  const remainingSeconds = normalizedSeconds % 60;
-  return [hours, minutes, remainingSeconds]
-    .map(part => String(part).padStart(2, '0'))
-    .join(':');
-};
-
 export default function AdminDashboardCourseDetailPage() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -101,59 +91,161 @@ export default function AdminDashboardCourseDetailPage() {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currencySymbol = useEnvStore(state => state.currencySymbol || '¥');
+  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
+  const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
   const timezone = getBrowserTimeZone();
 
   const [detail, setDetail] =
     useState<DashboardCourseDetailResponse>(EMPTY_DETAIL);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<ErrorState | null>(null);
+  const [learners, setLearners] =
+    useState<DashboardCourseLearnersResponse>(EMPTY_LEARNERS);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [learnersLoading, setLearnersLoading] = useState(false);
+  const [detailError, setDetailError] = useState<ErrorState | null>(null);
+  const [learnersError, setLearnersError] = useState<ErrorState | null>(null);
+  const [learnerKeywordInput, setLearnerKeywordInput] = useState('');
+  const [learnerKeyword, setLearnerKeyword] = useState('');
+  const [learnerStatusInput, setLearnerStatusInput] =
+    useState<LearnerFilterStatus>('all');
+  const [learnerStatus, setLearnerStatus] =
+    useState<LearnerFilterStatus>('all');
+  const [learnerLastLearningStartInput, setLearnerLastLearningStartInput] =
+    useState('');
+  const [learnerLastLearningEndInput, setLearnerLastLearningEndInput] =
+    useState('');
+  const [learnerLastLearningStart, setLearnerLastLearningStart] = useState('');
+  const [learnerLastLearningEnd, setLearnerLastLearningEnd] = useState('');
+  const [learnerPage, setLearnerPage] = useState(1);
+  const detailRequestIdRef = useRef(0);
+  const learnersRequestIdRef = useRef(0);
 
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
     : params?.shifu_bid || '';
   const emptyValue = '--';
   const orderListUrl = buildAdminOrdersUrl(shifuBid);
-
-  const chartLabels = [
-    t('module.dashboard.detail.charts.questionsByChapter'),
-    t('module.dashboard.detail.charts.questionsByTime'),
-    t('module.dashboard.detail.charts.learningTrend'),
-    t('module.dashboard.detail.charts.chapterProgress'),
-  ];
-  const learnerTableColumnLabels = [
-    t('module.dashboard.detail.learners.columns.name'),
-    t('module.dashboard.detail.learners.columns.progress'),
-    t('module.dashboard.detail.learners.columns.questions'),
-    t('module.dashboard.detail.learners.columns.lastActiveAt'),
-  ];
+  const followUpListUrl = buildAdminDashboardCourseFollowUpsUrl(shifuBid);
+  const ratingsPageUrl = buildAdminDashboardCourseRatingsUrl(shifuBid);
+  const learnerSearchPlaceholder = useMemo(() => {
+    const contactMode = resolveContactMode(
+      loginMethodsEnabled,
+      defaultLoginMethod,
+    );
+    return contactMode === 'email'
+      ? t('module.dashboard.detail.learners.searchPlaceholderEmail')
+      : t('module.dashboard.detail.learners.searchPlaceholderPhone');
+  }, [defaultLoginMethod, loginMethodsEnabled, t]);
+  const learnerContactMode = useMemo(
+    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+    [defaultLoginMethod, loginMethodsEnabled],
+  );
+  const courseStatusLabel = useMemo(() => {
+    if (detail.basic_info.course_status === 'published') {
+      return t('module.dashboard.detail.basicInfo.statusLabels.published');
+    }
+    if (detail.basic_info.course_status === 'unpublished') {
+      return t('module.dashboard.detail.basicInfo.statusLabels.unpublished');
+    }
+    return detail.basic_info.course_status || emptyValue;
+  }, [detail.basic_info.course_status, emptyValue, t]);
 
   const fetchDetail = useCallback(async () => {
     if (!shifuBid.trim()) {
-      setError({ message: t('common.core.unknownError') });
+      setDetail(EMPTY_DETAIL);
+      setDetailError({ message: t('common.core.unknownError') });
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    const requestId = detailRequestIdRef.current + 1;
+    detailRequestIdRef.current = requestId;
+    setDetailLoading(true);
+    setDetailError(null);
     try {
       const response = (await api.getDashboardCourseDetail({
         shifu_bid: shifuBid,
         ...(timezone ? { timezone } : {}),
       })) as DashboardCourseDetailResponse;
+      if (requestId !== detailRequestIdRef.current) {
+        return;
+      }
       setDetail(response || EMPTY_DETAIL);
     } catch (err) {
+      if (requestId !== detailRequestIdRef.current) {
+        return;
+      }
       setDetail(EMPTY_DETAIL);
       if (err instanceof ErrorWithCode) {
-        setError({ message: err.message, code: err.code });
+        setDetailError({ message: err.message, code: err.code });
       } else if (err instanceof Error) {
-        setError({ message: err.message });
+        setDetailError({ message: err.message });
       } else {
-        setError({ message: t('common.core.unknownError') });
+        setDetailError({ message: t('common.core.unknownError') });
       }
     } finally {
-      setLoading(false);
+      if (requestId === detailRequestIdRef.current) {
+        setDetailLoading(false);
+      }
     }
   }, [shifuBid, t, timezone]);
+
+  const fetchLearners = useCallback(
+    async (
+      nextPage: number,
+      nextFilters: {
+        keyword: string;
+        learningStatus: LearnerFilterStatus;
+        lastLearningStart: string;
+        lastLearningEnd: string;
+      },
+    ) => {
+      if (!shifuBid.trim()) {
+        setLearners(EMPTY_LEARNERS);
+        setLearnersError({ message: t('common.core.unknownError') });
+        return;
+      }
+
+      const requestId = learnersRequestIdRef.current + 1;
+      learnersRequestIdRef.current = requestId;
+      setLearnersLoading(true);
+      setLearnersError(null);
+      try {
+        const response = (await api.getDashboardCourseLearners({
+          shifu_bid: shifuBid,
+          page_index: nextPage,
+          page_size: 20,
+          keyword: nextFilters.keyword,
+          learning_status:
+            nextFilters.learningStatus === 'all'
+              ? ''
+              : nextFilters.learningStatus,
+          last_learning_start_time: nextFilters.lastLearningStart,
+          last_learning_end_time: nextFilters.lastLearningEnd,
+          ...(timezone ? { timezone } : {}),
+        })) as DashboardCourseLearnersResponse;
+        if (requestId !== learnersRequestIdRef.current) {
+          return;
+        }
+        setLearners(response || EMPTY_LEARNERS);
+      } catch (err) {
+        if (requestId !== learnersRequestIdRef.current) {
+          return;
+        }
+        setLearners(EMPTY_LEARNERS);
+        if (err instanceof ErrorWithCode) {
+          setLearnersError({ message: err.message, code: err.code });
+        } else if (err instanceof Error) {
+          setLearnersError({ message: err.message });
+        } else {
+          setLearnersError({ message: t('common.core.unknownError') });
+        }
+      } finally {
+        if (requestId === learnersRequestIdRef.current) {
+          setLearnersLoading(false);
+        }
+      }
+    },
+    [shifuBid, t, timezone],
+  );
 
   useEffect(() => {
     if (!isInitialized || !isGuest) {
@@ -173,6 +265,56 @@ export default function AdminDashboardCourseDetailPage() {
     fetchDetail();
   }, [fetchDetail, isGuest, isInitialized]);
 
+  useEffect(() => {
+    if (!isInitialized || isGuest) {
+      return;
+    }
+    fetchLearners(learnerPage, {
+      keyword: learnerKeyword,
+      learningStatus: learnerStatus,
+      lastLearningStart: learnerLastLearningStart,
+      lastLearningEnd: learnerLastLearningEnd,
+    });
+  }, [
+    fetchLearners,
+    isGuest,
+    isInitialized,
+    learnerKeyword,
+    learnerLastLearningEnd,
+    learnerLastLearningStart,
+    learnerPage,
+    learnerStatus,
+  ]);
+
+  const handleLearnerSearch = useCallback(() => {
+    setLearnerPage(1);
+    setLearnerKeyword(learnerKeywordInput.trim());
+    setLearnerStatus(learnerStatusInput);
+    setLearnerLastLearningStart(learnerLastLearningStartInput);
+    setLearnerLastLearningEnd(learnerLastLearningEndInput);
+  }, [
+    learnerKeywordInput,
+    learnerLastLearningEndInput,
+    learnerLastLearningStartInput,
+    learnerStatusInput,
+  ]);
+
+  const handleLearnerReset = useCallback(() => {
+    setLearnerKeywordInput('');
+    setLearnerKeyword('');
+    setLearnerStatusInput('all');
+    setLearnerStatus('all');
+    setLearnerLastLearningStartInput('');
+    setLearnerLastLearningEndInput('');
+    setLearnerLastLearningStart('');
+    setLearnerLastLearningEnd('');
+    setLearnerPage(1);
+  }, []);
+
+  const handleLearnerPageChange = useCallback((nextPage: number) => {
+    setLearnerPage(nextPage);
+  }, []);
+
   const handleOrderClick = useCallback(() => {
     if (!orderListUrl) {
       return;
@@ -180,17 +322,61 @@ export default function AdminDashboardCourseDetailPage() {
     router.push(orderListUrl);
   }, [orderListUrl, router]);
 
-  const metricCards = useMemo(
+  const handleFollowUpClick = useCallback(() => {
+    if (!followUpListUrl) {
+      return;
+    }
+    router.push(followUpListUrl);
+  }, [followUpListUrl, router]);
+
+  const handleRatingClick = useCallback(() => {
+    if (!ratingsPageUrl) {
+      return;
+    }
+    router.push(ratingsPageUrl);
+  }, [ratingsPageUrl, router]);
+
+  const handleLearnerFollowUpClick = useCallback(
+    (learner: DashboardCourseDetailLearnerItem) => {
+      const preferredKeyword =
+        learnerContactMode === 'email'
+          ? learner.email ||
+            learner.mobile ||
+            learner.nickname ||
+            learner.user_bid
+          : learner.mobile ||
+            learner.email ||
+            learner.nickname ||
+            learner.user_bid;
+      const targetUrl = buildAdminDashboardCourseFollowUpsUrl(shifuBid, {
+        userBid: learner.user_bid,
+        keyword: preferredKeyword,
+      });
+      if (!targetUrl) {
+        return;
+      }
+      router.push(targetUrl);
+    },
+    [learnerContactMode, router, shifuBid],
+  );
+
+  const coreDataItems = useMemo(
     () => [
       {
         label: t('module.dashboard.detail.metrics.orderCount'),
         value: formatCount(detail.metrics.order_count, emptyValue),
         onClick: orderListUrl ? handleOrderClick : undefined,
+        actionLabel: `${t('module.dashboard.detail.metrics.orderCount')}-value`,
       },
       {
         label: t('module.dashboard.detail.metrics.orderAmount'),
         value: formatOrderAmount(detail.metrics.order_amount, currencySymbol),
         onClick: orderListUrl ? handleOrderClick : undefined,
+        actionLabel: `${t('module.dashboard.detail.metrics.orderAmount')}-value`,
+      },
+      {
+        label: t('module.dashboard.detail.metrics.learningLearners'),
+        value: formatCount(detail.metrics.learning_learner_count, emptyValue),
       },
       {
         label: t('module.dashboard.detail.metrics.completedLearners'),
@@ -199,6 +385,13 @@ export default function AdminDashboardCourseDetailPage() {
       {
         label: t('module.dashboard.detail.metrics.completionRate'),
         value: formatPercent(detail.metrics.completion_rate, emptyValue),
+      },
+      {
+        label: t('module.dashboard.detail.metrics.newLearnersLast7Days'),
+        value: formatCount(
+          detail.metrics.new_learner_count_last_7_days,
+          emptyValue,
+        ),
       },
       {
         label: t('module.dashboard.detail.metrics.activeLearnersLast7Days'),
@@ -210,27 +403,61 @@ export default function AdminDashboardCourseDetailPage() {
       {
         label: t('module.dashboard.detail.metrics.totalQuestions'),
         value: formatCount(detail.metrics.total_follow_up_count, emptyValue),
+        onClick: followUpListUrl ? handleFollowUpClick : undefined,
+        actionLabel: `${t('module.dashboard.detail.metrics.totalQuestions')}-value`,
       },
       {
-        label: t('module.dashboard.detail.metrics.avgQuestionsPerLearner'),
-        value: detail.metrics.avg_follow_up_count_per_learner || emptyValue,
-      },
-      {
-        label: t('module.dashboard.detail.metrics.avgLearningDuration'),
-        value: formatDuration(detail.metrics.avg_learning_duration_seconds),
+        label: t('module.dashboard.detail.metrics.rating'),
+        value: detail.metrics.rating_score || emptyValue,
+        onClick: ratingsPageUrl ? handleRatingClick : undefined,
+        actionLabel: `${t('module.dashboard.detail.metrics.rating')}-value`,
       },
     ],
     [
       currencySymbol,
-      detail.metrics,
+      detail.metrics.active_learner_count_last_7_days,
+      detail.metrics.completed_learner_count,
+      detail.metrics.completion_rate,
+      detail.metrics.learning_learner_count,
+      detail.metrics.new_learner_count_last_7_days,
+      detail.metrics.order_amount,
+      detail.metrics.order_count,
+      detail.metrics.rating_score,
+      detail.metrics.total_follow_up_count,
       emptyValue,
+      followUpListUrl,
+      handleFollowUpClick,
       handleOrderClick,
+      handleRatingClick,
       orderListUrl,
+      ratingsPageUrl,
       t,
     ],
   );
 
-  if (!isInitialized || isGuest || (loading && !detail.basic_info.shifu_bid)) {
+  const handleRetry = useCallback(() => {
+    fetchDetail();
+    fetchLearners(learnerPage, {
+      keyword: learnerKeyword,
+      learningStatus: learnerStatus,
+      lastLearningStart: learnerLastLearningStart,
+      lastLearningEnd: learnerLastLearningEnd,
+    });
+  }, [
+    fetchDetail,
+    fetchLearners,
+    learnerKeyword,
+    learnerLastLearningEnd,
+    learnerLastLearningStart,
+    learnerPage,
+    learnerStatus,
+  ]);
+
+  if (
+    !isInitialized ||
+    isGuest ||
+    (detailLoading && !detail.basic_info.shifu_bid)
+  ) {
     return (
       <div className='flex h-full items-center justify-center'>
         <Loading />
@@ -238,181 +465,126 @@ export default function AdminDashboardCourseDetailPage() {
     );
   }
 
-  if (error && !loading) {
+  if (detailError && !detailLoading) {
     return (
       <div className='h-full p-0'>
         <ErrorDisplay
-          errorCode={error.code || 500}
-          errorMessage={error.message}
-          onRetry={fetchDetail}
+          errorCode={detailError.code || 500}
+          errorMessage={detailError.message}
+          onRetry={handleRetry}
         />
       </div>
     );
   }
 
   return (
-    <div className='h-full overflow-auto pr-1'>
-      <div className='space-y-5 pb-6'>
-        <div className='space-y-3'>
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link href='/admin/dashboard'>
-                    {t('module.dashboard.title')}
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>
-                  {t('module.dashboard.detail.title')}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-
-          <div className='space-y-1'>
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {t('module.dashboard.detail.title')}
-            </h1>
-            <div className='text-sm text-muted-foreground'>
-              <span>{t('module.dashboard.detail.courseIdLabel')}</span>
-              <span className='ml-1 font-medium text-foreground'>
-                {detail.basic_info.shifu_bid || shifuBid || emptyValue}
-              </span>
-            </div>
-            <p className='text-sm text-muted-foreground'>
-              {t('module.dashboard.detail.subtitle')}
-            </p>
+    <TooltipProvider delayDuration={150}>
+      <div className='h-full overflow-auto pr-1'>
+        <div className='space-y-5 pb-6'>
+          <div className='space-y-3'>
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link href='/admin/dashboard'>
+                      {t('module.dashboard.title')}
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>
+                    {t('module.dashboard.detail.title')}
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
           </div>
-        </div>
 
-        <Card>
-          <CardContent className='p-5'>
-            <div className='mb-4'>
-              <h2 className='text-base font-semibold text-foreground'>
-                {t('module.dashboard.detail.basicInfo.title')}
-              </h2>
-            </div>
-            <dl className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
-              <div className='space-y-1'>
-                <dt className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.detail.basicInfo.courseName')}
-                </dt>
-                <dd className='text-sm font-medium text-foreground'>
-                  {detail.basic_info.course_name || emptyValue}
-                </dd>
+          <Card>
+            <CardContent className='p-5'>
+              <div className='mb-4'>
+                <h2 className='text-base font-semibold text-foreground'>
+                  {t('module.dashboard.detail.basicInfo.title')}
+                </h2>
               </div>
-              <div className='space-y-1'>
-                <dt className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.detail.basicInfo.createdAt')}
-                </dt>
-                <dd className='text-sm font-medium text-foreground'>
-                  {formatDateTime(
-                    detail.basic_info.created_at,
-                    emptyValue,
-                    detail.basic_info.created_at_display,
-                  )}
-                </dd>
-              </div>
-              <div className='space-y-1'>
-                <dt className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.detail.basicInfo.chapterCount')}
-                </dt>
-                <dd className='text-sm font-medium text-foreground'>
-                  {formatCount(detail.basic_info.chapter_count, emptyValue)}
-                </dd>
-              </div>
-              <div className='space-y-1'>
-                <dt className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.detail.basicInfo.learnerCount')}
-                </dt>
-                <dd className='text-sm font-medium text-foreground'>
-                  {formatCount(detail.basic_info.learner_count, emptyValue)}
-                </dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
-
-        <div className='space-y-3'>
-          <h2 className='text-base font-semibold text-foreground'>
-            {t('module.dashboard.detail.metrics.title')}
-          </h2>
-          <div className='grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4'>
-            {metricCards.map(metricCard => (
-              <Card key={metricCard.label}>
-                <CardContent className='p-4'>
-                  <div className='text-sm text-muted-foreground'>
-                    {metricCard.label}
-                  </div>
-                  {metricCard.onClick ? (
-                    <button
-                      type='button'
-                      onClick={metricCard.onClick}
-                      className='mt-3 text-left text-2xl font-semibold text-primary transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-                      aria-label={`${metricCard.label}-value`}
-                    >
-                      {metricCard.value}
-                    </button>
-                  ) : (
-                    <div className='mt-3 text-2xl font-semibold text-foreground'>
-                      {metricCard.value}
+              <dl className='grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.65fr_1.2fr_0.9fr_0.75fr_0.75fr] xl:gap-5'>
+                <div className='space-y-1'>
+                  <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
+                    {t('module.dashboard.detail.courseIdLabel')}
+                  </dt>
+                  <dd className='text-sm font-medium text-foreground'>
+                    <div className='whitespace-nowrap text-sm font-medium text-foreground'>
+                      {detail.basic_info.shifu_bid || shifuBid || emptyValue}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+                  </dd>
+                </div>
+                <div className='space-y-1'>
+                  <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
+                    {t('module.dashboard.detail.basicInfo.courseName')}
+                  </dt>
+                  <dd className='text-sm font-medium text-foreground'>
+                    <div className='break-all text-sm font-medium text-foreground'>
+                      {detail.basic_info.course_name || emptyValue}
+                    </div>
+                  </dd>
+                </div>
+                <div className='space-y-1 xl:pl-4'>
+                  <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
+                    {t('module.dashboard.detail.basicInfo.status')}
+                  </dt>
+                  <dd className='text-sm font-medium text-foreground'>
+                    {courseStatusLabel}
+                  </dd>
+                </div>
+                <div className='space-y-1 xl:pl-4'>
+                  <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
+                    {t('module.dashboard.detail.basicInfo.learnerCount')}
+                  </dt>
+                  <dd className='text-sm font-medium text-foreground'>
+                    {formatCount(detail.basic_info.learner_count, emptyValue)}
+                  </dd>
+                </div>
+                <div className='space-y-1 xl:pl-4'>
+                  <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
+                    {t('module.dashboard.detail.basicInfo.chapterCount')}
+                  </dt>
+                  <dd className='text-sm font-medium text-foreground'>
+                    {formatCount(detail.basic_info.chapter_count, emptyValue)}
+                  </dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
 
-        <div className='space-y-3'>
-          <h2 className='text-base font-semibold text-foreground'>
-            {t('module.dashboard.detail.charts.title')}
-          </h2>
-          <div className='grid grid-cols-1 gap-4 xl:grid-cols-2'>
-            {chartLabels.map(chartLabel => (
-              <Card key={chartLabel}>
-                <CardContent className='flex h-56 flex-col p-5'>
-                  <div className='text-sm font-medium text-foreground'>
-                    {chartLabel}
-                  </div>
-                  <div className='mt-4 flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 text-sm text-muted-foreground'>
-                    {t('module.dashboard.detail.charts.placeholder')}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+          <CourseMetricsCardGrid
+            title={t('module.dashboard.detail.metrics.title')}
+            cards={coreDataItems}
+          />
 
-        <Card>
-          <CardContent className='p-0'>
-            <div className='border-b border-border px-5 py-4'>
-              <h2 className='text-base font-semibold text-foreground'>
-                {t('module.dashboard.detail.learners.title')}
-              </h2>
-            </div>
-            <div className='p-5 pt-0'>
-              <Table className='min-w-[720px]'>
-                <TableHeader>
-                  <TableRow>
-                    {learnerTableColumnLabels.map(columnLabel => (
-                      <TableHead key={columnLabel}>{columnLabel}</TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableEmpty colSpan={learnerTableColumnLabels.length}>
-                    {t('module.dashboard.detail.learners.empty')}
-                  </TableEmpty>
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+          <DashboardCourseLearnersCard
+            learners={learners}
+            loading={learnersLoading}
+            error={learnersError}
+            keyword={learnerKeywordInput}
+            learningStatus={learnerStatusInput}
+            lastLearningStart={learnerLastLearningStartInput}
+            lastLearningEnd={learnerLastLearningEndInput}
+            searchPlaceholder={learnerSearchPlaceholder}
+            emptyValue={emptyValue}
+            onKeywordChange={setLearnerKeywordInput}
+            onLearningStatusChange={value => setLearnerStatusInput(value)}
+            onLastLearningTimeChange={({ start, end }) => {
+              setLearnerLastLearningStartInput(start);
+              setLearnerLastLearningEndInput(end);
+            }}
+            onSearch={handleLearnerSearch}
+            onReset={handleLearnerReset}
+            onPageChange={handleLearnerPageChange}
+            onFollowUpClick={handleLearnerFollowUpClick}
+          />
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

@@ -5,17 +5,17 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import { copyText } from '@/c-utils/textutils';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
-import { Button } from '@/components/ui/Button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { fail, show } from '@/hooks/useToast';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
+import AdminOperationsBreadcrumb from '../AdminOperationsBreadcrumb';
 import {
   buildAdminOperationsCourseFollowUpsUrl,
   buildAdminOperationsOrdersUrl,
@@ -162,7 +162,6 @@ const createCourseCreditUsageFilters =
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
  * t('module.operationsCourse.detail.title')
- * t('module.operationsCourse.detail.back')
  * t('module.operationsCourse.detail.basicInfo')
  * t('module.operationsCourse.detail.metrics')
  * t('module.operationsCourse.detail.chapters')
@@ -1320,12 +1319,12 @@ export default function AdminOperationCourseDetailPage() {
       {
         label: tOperations('detail.fields.createdAt'),
         value:
-          formatAdminNaiveDateTime(detail.basic_info.created_at) || emptyValue,
+          formatAdminUtcDateTime(detail.basic_info.created_at) || emptyValue,
       },
       {
         label: tOperations('detail.fields.updatedAt'),
         value:
-          formatAdminNaiveDateTime(detail.basic_info.updated_at) || emptyValue,
+          formatAdminUtcDateTime(detail.basic_info.updated_at) || emptyValue,
       },
     ],
     [
@@ -1374,17 +1373,19 @@ export default function AdminOperationCourseDetailPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-        <div className='mb-5 flex shrink-0 flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between'>
+        <div className='mb-5 shrink-0 space-y-3 pt-6'>
+          <AdminOperationsBreadcrumb
+            items={[
+              {
+                label: tOperations('title'),
+                href: '/admin/operations',
+              },
+              { label: tOperations('detail.title') },
+            ]}
+          />
           <h1 className='text-2xl font-semibold text-gray-900'>
             {tOperations('detail.title')}
           </h1>
-          <Button
-            variant='outline'
-            className='sm:mr-3'
-            onClick={() => router.push('/admin/operations')}
-          >
-            {tOperations('detail.back')}
-          </Button>
         </div>
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>
@@ -1434,7 +1435,7 @@ export default function AdminOperationCourseDetailPage() {
                   resolveContentStatusLabel={resolveContentStatusLabel}
                   resolveModifierDisplay={resolveModifierDisplay}
                   formatCount={formatCount}
-                  formatAdminNaiveDateTime={formatAdminNaiveDateTime}
+                  formatAdminUtcDateTime={formatAdminUtcDateTime}
                   getColumnStyle={getChapterColumnStyle}
                   getResizeHandleProps={getChapterResizeHandleProps}
                   tOperations={tOperations}

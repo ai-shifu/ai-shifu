@@ -12,7 +12,7 @@ import {
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { ClearableTextInput } from '@/app/admin/operations/orders/orderUiShared';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -532,7 +532,7 @@ export default function CourseCreditUsageTab({
                           style={getColumnStyle('createdAt')}
                         >
                           <AdminTooltipText
-                            text={formatAdminNaiveDateTime(row.created_at)}
+                            text={formatAdminUtcDateTime(row.created_at)}
                             emptyValue={emptyValue}
                             className='mx-auto block max-w-full tabular-nums'
                           />

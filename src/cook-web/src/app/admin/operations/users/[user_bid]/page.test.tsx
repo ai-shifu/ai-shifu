@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import api from '@/api';
 import AdminOperationUserDetailPage from './page';
 
@@ -363,7 +369,10 @@ describe('AdminOperationUserDetailPage', () => {
     expect(mockGetAdminOperationUserCredits).toHaveBeenCalledTimes(1);
 
     expect(
-      await screen.findByText('module.operationsUser.detail.title'),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsUser.detail.title',
+      }),
     ).toBeInTheDocument();
     expect(screen.getAllByText('Nick').length).toBeGreaterThan(0);
     expect(screen.getByText('user-1@example.com')).toBeInTheDocument();
@@ -507,7 +516,7 @@ describe('AdminOperationUserDetailPage', () => {
     });
   });
 
-  test('renders detail timestamps with operator naive formatting', async () => {
+  test('renders detail timestamps with operator UTC formatting', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationUserDetail.mockResolvedValue({
       ...detailResponse,
@@ -533,15 +542,18 @@ describe('AdminOperationUserDetailPage', () => {
 
     render(<AdminOperationUserDetailPage />);
 
-    await screen.findByText('module.operationsUser.detail.title');
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'module.operationsUser.detail.title',
+    });
 
-    expect(screen.getByText('2026-04-15 01:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-15 02:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-14 01:15:00')).toBeInTheDocument();
-    expect(screen.getAllByText('2026-05-01 01:00:00').length).toBeGreaterThan(
+    expect(screen.getByText('2026-04-14 18:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-14 19:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-13 18:15:00')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-04-30 18:00:00').length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByText('2026-04-18 01:00:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-17 18:00:00')).toBeInTheDocument();
   });
 
   test('keeps note column empty for system ledger rows without manual note', async () => {
@@ -585,18 +597,27 @@ describe('AdminOperationUserDetailPage', () => {
     expect(screen.getByText('--')).toBeInTheDocument();
   });
 
-  test('back button returns to user list', async () => {
+  test('renders user detail with breadcrumb navigation', async () => {
     render(<AdminOperationUserDetailPage />);
 
     await waitFor(() => {
       expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'module.operationsUser.detail.back' }),
-    );
-
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations/users');
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsUser.title',
+      }),
+    ).toHaveAttribute('href', '/admin/operations/users');
+    expect(
+      screen.getAllByText('module.operationsUser.detail.title').length,
+    ).toBeGreaterThan(0);
+    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
+    expect(
+      within(breadcrumb)
+        .getByText('module.operationsUser.detail.title')
+        .closest('a'),
+    ).toBeNull();
   });
 
   test('does not request detail or credits when the route param cannot be decoded', async () => {
