@@ -1107,7 +1107,7 @@ describe('AdminOperationUsersPage', () => {
         'module.operationsUser.courseSummary.dialog.createdTitle',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('Created Course')).toBeInTheDocument();
+    expect(await screen.findByText('Created Course')).toBeInTheDocument();
     expect(screen.getByText('course-2')).toBeInTheDocument();
     expect(
       screen.getByText('module.operationsCourse.statusLabels.unpublished'),
@@ -1115,6 +1115,39 @@ describe('AdminOperationUsersPage', () => {
     expect(
       screen.getByRole('link', { name: 'Created Course' }),
     ).toHaveAttribute('href', '/admin/operations/course-2');
+  });
+
+  test('reuses cached detail data when reopening course dialog for the same user', async () => {
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (2)',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+    });
+
+    expect(await screen.findByText('Created Course')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.learningCourses (1)',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsUser.courseSummary.dialog.learningTitle',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Learned Course')).toBeInTheDocument();
+    expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
   });
 
   test('links the user id cell when the primary contact is empty', async () => {

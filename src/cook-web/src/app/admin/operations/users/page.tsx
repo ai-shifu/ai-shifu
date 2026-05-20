@@ -403,6 +403,12 @@ export default function AdminOperationUsersPage() {
   const [quickFilter, setQuickFilter] = useState<UserQuickFilterKey>('');
   const requestIdRef = useRef(0);
   const courseDialogRequestIdRef = useRef(0);
+  const courseDialogDetailCacheRef = useRef(
+    new Map<string, AdminOperationUserDetailResponse>(),
+  );
+  const courseDialogDetailRequestCacheRef = useRef(
+    new Map<string, Promise<AdminOperationUserDetailResponse>>(),
+  );
   const { mutate } = useSWRConfig();
   const lastRequestedPageRef = useRef(1);
   const { getColumnStyle, getResizeHandleProps } =
@@ -567,8 +573,64 @@ export default function AdminOperationUsersPage() {
     [t],
   );
 
+  const buildCourseDialogStateFromDetail = useCallback(
+    (
+      user: AdminOperationUserItem,
+      type: 'learning' | 'created',
+      detail: AdminOperationUserDetailResponse,
+    ): CourseDialogState => ({
+      user,
+      type,
+      courses:
+        type === 'learning'
+          ? detail.learning_courses || []
+          : detail.created_courses || [],
+      loading: false,
+      error: '',
+    }),
+    [],
+  );
+
+  const getCourseDialogDetail = useCallback(async (userBid: string) => {
+    const normalizedUserBid = userBid.trim();
+    if (!normalizedUserBid) {
+      throw new Error('Missing user bid');
+    }
+
+    const cachedDetail = courseDialogDetailCacheRef.current.get(normalizedUserBid);
+    if (cachedDetail) {
+      return cachedDetail;
+    }
+
+    const inFlightRequest =
+      courseDialogDetailRequestCacheRef.current.get(normalizedUserBid);
+    if (inFlightRequest) {
+      return inFlightRequest;
+    }
+
+    const request = (api.getAdminOperationUserDetail({
+      user_bid: normalizedUserBid,
+    }) as Promise<AdminOperationUserDetailResponse>)
+      .then(detail => {
+        courseDialogDetailCacheRef.current.set(normalizedUserBid, detail);
+        return detail;
+      })
+      .finally(() => {
+        courseDialogDetailRequestCacheRef.current.delete(normalizedUserBid);
+      });
+
+    courseDialogDetailRequestCacheRef.current.set(normalizedUserBid, request);
+    return request;
+  }, []);
+
   const openCourseDialog = useCallback(
     async (user: AdminOperationUserItem, type: 'learning' | 'created') => {
+      const cachedDetail = courseDialogDetailCacheRef.current.get(user.user_bid);
+      if (cachedDetail) {
+        setCourseDialog(buildCourseDialogStateFromDetail(user, type, cachedDetail));
+        return;
+      }
+
       const requestId = courseDialogRequestIdRef.current + 1;
       courseDialogRequestIdRef.current = requestId;
       setCourseDialog({
@@ -580,22 +642,11 @@ export default function AdminOperationUsersPage() {
       });
 
       try {
-        const detail = (await api.getAdminOperationUserDetail({
-          user_bid: user.user_bid,
-        })) as AdminOperationUserDetailResponse;
+        const detail = await getCourseDialogDetail(user.user_bid);
         if (requestId !== courseDialogRequestIdRef.current) {
           return;
         }
-        setCourseDialog({
-          user,
-          type,
-          courses:
-            type === 'learning'
-              ? detail.learning_courses || []
-              : detail.created_courses || [],
-          loading: false,
-          error: '',
-        });
+        setCourseDialog(buildCourseDialogStateFromDetail(user, type, detail));
       } catch (requestError) {
         if (requestId !== courseDialogRequestIdRef.current) {
           return;
@@ -610,7 +661,7 @@ export default function AdminOperationUsersPage() {
         });
       }
     },
-    [t],
+    [buildCourseDialogStateFromDetail, getCourseDialogDetail, t],
   );
 
   React.useEffect(() => {
