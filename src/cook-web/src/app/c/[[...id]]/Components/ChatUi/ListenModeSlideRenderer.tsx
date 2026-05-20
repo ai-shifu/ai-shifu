@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
@@ -1146,7 +1154,7 @@ const ListenModeSlideRenderer = ({
     ],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!shouldDelayTailInteractionFeedbackPrompt) {
       setHasSettledTailInteraction(true);
       return;
