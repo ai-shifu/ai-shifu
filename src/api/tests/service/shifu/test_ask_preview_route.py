@@ -290,6 +290,50 @@ def test_ask_preview_route_provider_only_accepts_coze_workflow(
     assert payload["data"]["fallback_used"] is False
 
 
+def test_ask_preview_route_provider_only_accepts_get_biji_knowledge(
+    monkeypatch, test_client
+):
+    _mock_authenticated_user(monkeypatch)
+
+    def fake_stream_ask_provider_response(*args, **kwargs):
+        _ = args
+        provider = kwargs.get("provider", "")
+        assert provider == "get_biji_knowledge"
+        yield SimpleNamespace(content="get biji result")
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        fake_stream_ask_provider_response,
+        raising=False,
+    )
+
+    resp = test_client.post(
+        "/api/shifu/ask/preview",
+        headers=_auth_headers(),
+        json={
+            "query": "hello",
+            "ask_provider_config": {
+                "provider": "get_biji_knowledge",
+                "mode": "provider_only",
+                "config": {
+                    "api_key": "gk-live-1",
+                    "client_id": "cli-1",
+                    "topic_id": "topic-1",
+                    "top_k": 5,
+                },
+            },
+        },
+    )
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["answer"] == "get biji result"
+    assert payload["data"]["provider"] == "get_biji_knowledge"
+    assert payload["data"]["requested_provider"] == "get_biji_knowledge"
+    assert payload["data"]["fallback_used"] is False
+
+
 def test_ask_preview_route_uses_authenticated_creator_for_debug_billing(
     monkeypatch, test_client
 ):

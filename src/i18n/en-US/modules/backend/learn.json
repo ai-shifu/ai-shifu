@@ -1,6 +1,8 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "askProviderNoResults": "No relevant knowledge base content was found.",
+    "askProviderResultCreatedAt": "Created at",
     "askProviderTimeout": "The external knowledge service timed out. Please try again later.",
     "askProviderUnavailable": "The external knowledge service is temporarily unavailable.",
     "generatedBlockNotFound": "Generated block not found",

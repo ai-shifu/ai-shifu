@@ -20,6 +20,7 @@
     "coze": "Utiliser l’API de chat du bot Coze pour le suivi.",
     "coze_workflow": "Utiliser l’API d’exécution de workflow Coze pour le suivi.",
     "dify": "Utiliser l’application de chat Dify pour le suivi.",
+    "get_biji_knowledge": "Utiliser le rappel sémantique de la base de connaissances Get Biji pour le suivi.",
     "llm": "Utiliser uniquement le LLM de suivi intégré.",
     "volc_knowledge": "Utiliser l’API de recherche de base de connaissances Volcengine pour le suivi."
   },
@@ -54,6 +55,24 @@
         "label": "URL de base"
       }
     },
+    "get_biji_knowledge": {
+      "api_key": {
+        "hint": "Clé OpenAPI Get Biji.",
+        "label": "Clé API"
+      },
+      "client_id": {
+        "hint": "Client ID OpenAPI Get Biji.",
+        "label": "Client ID"
+      },
+      "top_k": {
+        "hint": "Nombre de résultats de rappel sémantique, 1-10.",
+        "label": "Top K"
+      },
+      "topic_id": {
+        "hint": "Topic ID de la base de connaissances Get Biji.",
+        "label": "Topic ID"
+      }
+    },
     "volc_knowledge": {
       "account_id": {
         "hint": "ID de compte Volcengine pour l’en-tête V-Account-Id.",
@@ -81,6 +100,7 @@
     "coze": "Coze",
     "coze_workflow": "Workflow Coze",
     "dify": "Dify",
+    "get_biji_knowledge": "Base de connaissances Get Biji",
     "llm": "LLM",
     "volc_knowledge": "Base de connaissances Volcengine"
   },

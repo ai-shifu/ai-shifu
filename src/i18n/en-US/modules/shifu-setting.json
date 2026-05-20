@@ -20,6 +20,7 @@
     "coze": "Use the Coze bot chat API for follow-up.",
     "coze_workflow": "Use the Coze workflow run API for follow-up.",
     "dify": "Use the Dify chat app for follow-up.",
+    "get_biji_knowledge": "Use Get Biji knowledge base semantic recall for follow-up.",
     "llm": "Use the built-in follow-up LLM only.",
     "volc_knowledge": "Use the Volcengine knowledge base search API for follow-up."
   },
@@ -54,6 +55,24 @@
         "label": "Base URL"
       }
     },
+    "get_biji_knowledge": {
+      "api_key": {
+        "hint": "Get Biji OpenAPI key.",
+        "label": "API Key"
+      },
+      "client_id": {
+        "hint": "Get Biji OpenAPI client ID.",
+        "label": "Client ID"
+      },
+      "top_k": {
+        "hint": "Number of semantic recall results, 1-10.",
+        "label": "Top K"
+      },
+      "topic_id": {
+        "hint": "Get Biji knowledge base topic ID.",
+        "label": "Topic ID"
+      }
+    },
     "volc_knowledge": {
       "account_id": {
         "hint": "Volcengine account ID for the V-Account-Id header.",
@@ -81,6 +100,7 @@
     "coze": "Coze",
     "coze_workflow": "Coze Workflow",
     "dify": "Dify",
+    "get_biji_knowledge": "Get Biji Knowledge Base",
     "llm": "LLM",
     "volc_knowledge": "Volcengine Knowledge Base"
   },
