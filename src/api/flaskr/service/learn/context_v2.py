@@ -2045,7 +2045,7 @@ class RunScriptContextV2:
                 return True
         return False
 
-    def _maybe_emit_feedback_before_access_gate(
+    def _maybe_emit_feedback_after_access_gate(
         self,
         *,
         parsed_interaction: dict,
@@ -2138,10 +2138,10 @@ class RunScriptContextV2:
         current_outline_completed: bool,
         has_next_outline_item: bool,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        if current_outline_completed:
-            yield from self._emit_lesson_feedback_interaction(progress_record)
         if has_next_outline_item:
             yield from self._emit_next_chapter_interaction(progress_record)
+        if current_outline_completed:
+            yield from self._emit_lesson_feedback_interaction(progress_record)
 
     def _get_default_llm_settings(self) -> LLMSettings:
         return LLMSettings(
@@ -2547,12 +2547,6 @@ class RunScriptContextV2:
                 for button in parsed_interaction.get("buttons"):
                     if button.get("value") == "_sys_pay":
                         if not self._is_paid:
-                            yield from self._maybe_emit_feedback_before_access_gate(
-                                parsed_interaction=parsed_interaction,
-                                progress_record=run_script_info.attend,
-                                is_tail_gate=run_script_info.block_position
-                                >= len(block_list) - 1,
-                            )
                             # Use translated content from database if available
                             interaction_content = (
                                 generated_block.block_content_conf
@@ -2581,6 +2575,12 @@ class RunScriptContextV2:
                                 generated_block_bid=generated_block.generated_block_bid,
                                 type=GeneratedType.INTERACTION,
                                 content=interaction_content,
+                            )
+                            yield from self._maybe_emit_feedback_after_access_gate(
+                                parsed_interaction=parsed_interaction,
+                                progress_record=run_script_info.attend,
+                                is_tail_gate=run_script_info.block_position
+                                >= len(block_list) - 1,
                             )
                             self._can_continue = False
                             db.session.flush()
@@ -2599,12 +2599,6 @@ class RunScriptContextV2:
                             db.session.flush()
                             return
                         else:
-                            yield from self._maybe_emit_feedback_before_access_gate(
-                                parsed_interaction=parsed_interaction,
-                                progress_record=run_script_info.attend,
-                                is_tail_gate=run_script_info.block_position
-                                >= len(block_list) - 1,
-                            )
                             # Use translated content from database if available
                             interaction_content = (
                                 generated_block.block_content_conf
@@ -2633,6 +2627,12 @@ class RunScriptContextV2:
                                 generated_block_bid=generated_block.generated_block_bid,
                                 type=GeneratedType.INTERACTION,
                                 content=interaction_content,
+                            )
+                            yield from self._maybe_emit_feedback_after_access_gate(
+                                parsed_interaction=parsed_interaction,
+                                progress_record=run_script_info.attend,
+                                is_tail_gate=run_script_info.block_position
+                                >= len(block_list) - 1,
                             )
                             self._can_continue = False
                             db.session.flush()
@@ -2962,11 +2962,6 @@ class RunScriptContextV2:
             if block.block_type == BlockType.INTERACTION:
                 interaction_parser: InteractionParser = InteractionParser()
                 parsed_interaction = interaction_parser.parse(block.content)
-                yield from self._maybe_emit_feedback_before_access_gate(
-                    parsed_interaction=parsed_interaction,
-                    progress_record=run_script_info.attend,
-                    is_tail_gate=run_script_info.block_position >= len(block_list) - 1,
-                )
                 if (
                     parsed_interaction.get("buttons")
                     and len(parsed_interaction.get("buttons")) > 0
@@ -3019,6 +3014,11 @@ class RunScriptContextV2:
                     generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.INTERACTION,
                     content=rendered_content,
+                )
+                yield from self._maybe_emit_feedback_after_access_gate(
+                    parsed_interaction=parsed_interaction,
+                    progress_record=run_script_info.attend,
+                    is_tail_gate=run_script_info.block_position >= len(block_list) - 1,
                 )
                 self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
@@ -3313,17 +3313,17 @@ class RunScriptContextV2:
         except PaidException:
             app.logger.info("PaidException")
             self._can_continue = False
-            yield from self._emit_feedback_before_exception_gate()
             yield from self._emit_current_progress_gate_interaction(
                 f"?[{_('server.order.checkout')}//_sys_pay]"
             )
+            yield from self._emit_feedback_before_exception_gate()
         except UserNotLoginException:
             app.logger.info("UserNotLoginException")
             self._can_continue = False
-            yield from self._emit_feedback_before_exception_gate()
             yield from self._emit_current_progress_gate_interaction(
                 f"?[{_('server.user.login')}//_sys_login]"
             )
+            yield from self._emit_feedback_before_exception_gate()
 
     def has_next(self) -> bool:
         return self._can_continue

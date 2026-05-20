@@ -86,6 +86,7 @@ interface ListenModeSlideRendererProps {
     isAudioPlaying: boolean;
     isAudioSequenceActive: boolean;
   }) => void;
+  onLessonFeedbackPromptStateChange?: (ready: boolean) => void;
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
 }
 
@@ -410,6 +411,7 @@ const ListenModeSlideRenderer = ({
   onSend,
   onPlayerVisibilityChange,
   onPlaybackStateChange,
+  onLessonFeedbackPromptStateChange,
   onMobileViewModeChange,
 }: ListenModeSlideRendererProps) => {
   const { t } = useTranslation();
@@ -458,8 +460,12 @@ const ListenModeSlideRenderer = ({
   const storedAskListByAnchorElementBid = useAskStateStore(
     state => state.askListByAnchorElementBid,
   );
-  const { lastInteractionBid, lastItemIsInteraction, firstContentItem } =
-    useListenContentData(items);
+  const {
+    lastInteractionBid,
+    lastItemIsInteraction,
+    lastItemIsLessonFeedbackInteraction,
+    firstContentItem,
+  } = useListenContentData(items);
   const baseAskListByAnchorElementBid = useMemo(
     () => buildAskListByAnchorElementBid(items),
     [items],
@@ -1112,6 +1118,25 @@ const ListenModeSlideRenderer = ({
     });
   }, [onPlaybackStateChange, playbackState]);
 
+  const isLessonFeedbackPromptReady = useMemo(() => {
+    if (!lastItemIsLessonFeedbackInteraction) {
+      return false;
+    }
+
+    if (markerStepCount <= 0) {
+      return false;
+    }
+
+    return (
+      playbackState.currentStepIndex === markerStepCount - 1 &&
+      !getListenPlaybackSequenceActive(playbackState)
+    );
+  }, [lastItemIsLessonFeedbackInteraction, markerStepCount, playbackState]);
+
+  useEffect(() => {
+    onLessonFeedbackPromptStateChange?.(isLessonFeedbackPromptReady);
+  }, [isLessonFeedbackPromptReady, onLessonFeedbackPromptStateChange]);
+
   useEffect(() => {
     previousMarkerStepKeyRef.current = '';
     setPlaybackState({
@@ -1137,8 +1162,9 @@ const ListenModeSlideRenderer = ({
         isAudioPlaying: false,
         isAudioSequenceActive: false,
       });
+      onLessonFeedbackPromptStateChange?.(false);
     },
-    [onPlaybackStateChange],
+    [onLessonFeedbackPromptStateChange, onPlaybackStateChange],
   );
 
   const playerCustomActions = useCallback(

@@ -466,6 +466,24 @@ def get_learn_record(
             )
         )
         if (
+            progress_record.status == LEARN_STATUS_COMPLETED
+            and has_next_outline
+            and not has_tail_access_gate
+            and not has_next_chapter_button
+        ):
+            button_label = _("server.learn.nextChapterButton")
+            fallback_content = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
+            records.append(
+                LegacyGeneratedBlockRecord(
+                    generated_block_bid=generate_id(app),
+                    content=fallback_content,
+                    like_status=LikeStatus.NONE,
+                    block_type=BlockType.INTERACTION,
+                    user_input="",
+                )
+            )
+
+        if (
             progress_record.status == LEARN_STATUS_COMPLETED or has_tail_access_gate
         ) and not has_feedback_interaction:
             saved_feedback = (
@@ -495,37 +513,7 @@ def get_learn_record(
                 block_type=BlockType.INTERACTION,
                 user_input=feedback_generated_content,
             )
-            next_button_index = next(
-                (
-                    index
-                    for index, record in enumerate(records)
-                    if record.block_type == BlockType.INTERACTION
-                    and CONTEXT_INTERACTION_NEXT in record.content
-                ),
-                len(records),
-            )
-            insert_index = next_button_index
-            if has_tail_access_gate:
-                insert_index = min(insert_index, len(records) - 1)
-            records.insert(insert_index, feedback_record)
-
-        if (
-            progress_record.status == LEARN_STATUS_COMPLETED
-            and has_next_outline
-            and not has_tail_access_gate
-            and not has_next_chapter_button
-        ):
-            button_label = _("server.learn.nextChapterButton")
-            fallback_content = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
-            records.append(
-                LegacyGeneratedBlockRecord(
-                    generated_block_bid=generate_id(app),
-                    content=fallback_content,
-                    like_status=LikeStatus.NONE,
-                    block_type=BlockType.INTERACTION,
-                    user_input="",
-                )
-            )
+            records.append(feedback_record)
         return LegacyLearnRecord(
             records=records,
         )

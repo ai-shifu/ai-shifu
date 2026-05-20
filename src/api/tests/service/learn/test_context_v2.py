@@ -341,8 +341,8 @@ class CompletionTailInteractionTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(calls, ["feedback", "next"])
-        self.assertEqual(events, ["feedback-event", "next-event"])
+        self.assertEqual(calls, ["next", "feedback"])
+        self.assertEqual(events, ["next-event", "feedback-event"])
 
     def test_skips_next_when_no_next_outline(self):
         ctx = _make_context()
@@ -1673,7 +1673,7 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
         with patch("flaskr.service.learn.context_v2._", lambda key: key):
             outputs = list(ctx.run(app))
 
-        self.assertEqual(outputs, ["feedback", "?[server.order.checkout//_sys_pay]"])
+        self.assertEqual(outputs, ["?[server.order.checkout//_sys_pay]", "feedback"])
 
 
 if __name__ == "__main__":
