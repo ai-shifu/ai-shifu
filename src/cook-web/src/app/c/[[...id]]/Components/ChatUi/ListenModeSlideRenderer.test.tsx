@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import type React from 'react';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
+import {
+  isListenLessonFeedbackPromptReady,
+  shouldDelayListenFeedbackPromptForTailInteraction,
+} from './lessonFeedbackPromptState';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -43,7 +47,8 @@ jest.mock('@/c-utils/lesson-feedback-interaction-defaults', () => ({
 }));
 
 jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
-  isLessonFeedbackInteractionContent: () => false,
+  isLessonFeedbackInteractionContent: (content?: string) =>
+    mockIsLessonFeedbackInteractionContent(content),
 }));
 
 jest.mock('@/c-utils/system-interaction', () => ({
@@ -65,6 +70,7 @@ const getMockSlide = () =>
 describe('ListenModeSlideRenderer', () => {
   beforeEach(() => {
     getMockSlide().mockClear();
+    mockIsLessonFeedbackInteractionContent.mockClear();
   });
 
   it('does not show the audio preparation text for normal loading', () => {
@@ -178,4 +184,40 @@ describe('ListenModeSlideRenderer', () => {
       }),
     );
   });
+
+  it('keeps lesson feedback pending until the trailing visible interaction settles', () => {
+    expect(
+      shouldDelayListenFeedbackPromptForTailInteraction({
+        lastItemIsLessonFeedbackInteraction: true,
+        markerStepCount: 3,
+        currentStepIndex: 2,
+        currentStepHasAudio: false,
+        currentStepHasBlockingInteraction: false,
+        currentStepElementType: 'interaction',
+      }),
+    ).toBe(true);
+
+    expect(
+      isListenLessonFeedbackPromptReady({
+        lastItemIsLessonFeedbackInteraction: true,
+        markerStepCount: 3,
+        currentStepIndex: 2,
+        isPlaybackSequenceActive: false,
+        hasSettledTailInteraction: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      isListenLessonFeedbackPromptReady({
+        lastItemIsLessonFeedbackInteraction: true,
+        markerStepCount: 3,
+        currentStepIndex: 2,
+        isPlaybackSequenceActive: false,
+        hasSettledTailInteraction: true,
+      }),
+    ).toBe(true);
+  });
 });
+const mockIsLessonFeedbackInteractionContent = jest.fn(
+  (content?: string) => content?.includes('lesson_feedback') ?? false,
+);

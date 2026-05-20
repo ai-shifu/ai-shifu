@@ -132,6 +132,39 @@ def _is_access_gate_interaction(
     return False
 
 
+def _find_feedback_interaction_index(
+    records: list[LegacyGeneratedBlockRecord],
+) -> int:
+    for index, record in enumerate(records):
+        if (
+            record.block_type == BlockType.INTERACTION
+            and is_lesson_feedback_interaction(record.content)
+        ):
+            return index
+    return -1
+
+
+def _insert_record_before_feedback_tail(
+    records: list[LegacyGeneratedBlockRecord],
+    record: LegacyGeneratedBlockRecord,
+) -> None:
+    feedback_index = _find_feedback_interaction_index(records)
+    if feedback_index < 0:
+        records.append(record)
+        return
+    records.insert(feedback_index, record)
+
+
+def _move_feedback_interaction_to_tail(
+    records: list[LegacyGeneratedBlockRecord],
+) -> None:
+    feedback_index = _find_feedback_interaction_index(records)
+    if feedback_index < 0 or feedback_index == len(records) - 1:
+        return
+    feedback_record = records.pop(feedback_index)
+    records.append(feedback_record)
+
+
 def _collect_outline_bids(struct: HistoryItem) -> list[str]:
     outline_bids = []
     q = queue.Queue()
@@ -473,14 +506,15 @@ def get_learn_record(
         ):
             button_label = _("server.learn.nextChapterButton")
             fallback_content = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
-            records.append(
+            _insert_record_before_feedback_tail(
+                records,
                 LegacyGeneratedBlockRecord(
                     generated_block_bid=generate_id(app),
                     content=fallback_content,
                     like_status=LikeStatus.NONE,
                     block_type=BlockType.INTERACTION,
                     user_input="",
-                )
+                ),
             )
 
         if (
@@ -514,6 +548,7 @@ def get_learn_record(
                 user_input=feedback_generated_content,
             )
             records.append(feedback_record)
+        _move_feedback_interaction_to_tail(records)
         return LegacyLearnRecord(
             records=records,
         )

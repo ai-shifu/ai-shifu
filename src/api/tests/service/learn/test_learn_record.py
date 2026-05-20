@@ -23,7 +23,10 @@ if dao.db is None:
 from flaskr.i18n import _
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import BlockType
-from flaskr.service.learn.lesson_feedback import is_lesson_feedback_interaction
+from flaskr.service.learn.lesson_feedback import (
+    build_lesson_feedback_interaction_md,
+    is_lesson_feedback_interaction,
+)
 from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.order.consts import (
@@ -280,6 +283,58 @@ class LearnRecordFallbackTests(unittest.TestCase):
         self.assertEqual(len(result.records), 2)
         self.assertIn("_sys_pay", result.records[0].content)
         self.assertNotIn(CONTEXT_INTERACTION_NEXT, result.records[0].content)
+        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+
+    def test_inserts_fallback_next_before_existing_feedback(self):
+        self._seed_struct(["outline-1", "outline-2"])
+        progress = self._create_progress(LEARN_STATUS_COMPLETED)
+        self._add_interaction_block(
+            progress,
+            build_lesson_feedback_interaction_md(),
+            position=0,
+        )
+
+        with self.app.test_request_context():
+            self._set_request_user()
+            result = get_learn_record(
+                self.app,
+                progress.shifu_bid,
+                progress.outline_item_bid,
+                progress.user_bid,
+                False,
+            )
+
+        self.assertEqual(len(result.records), 2)
+        self.assertIn(CONTEXT_INTERACTION_NEXT, result.records[0].content)
+        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+
+    def test_moves_existing_feedback_to_tail_when_next_already_persisted(self):
+        self._seed_struct(["outline-1", "outline-2"])
+        progress = self._create_progress(LEARN_STATUS_COMPLETED)
+        button_label = _("server.learn.nextChapterButton")
+        self._add_interaction_block(
+            progress,
+            build_lesson_feedback_interaction_md(),
+            position=0,
+        )
+        self._add_interaction_block(
+            progress,
+            f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]",
+            position=1,
+        )
+
+        with self.app.test_request_context():
+            self._set_request_user()
+            result = get_learn_record(
+                self.app,
+                progress.shifu_bid,
+                progress.outline_item_bid,
+                progress.user_bid,
+                False,
+            )
+
+        self.assertEqual(len(result.records), 2)
+        self.assertIn(CONTEXT_INTERACTION_NEXT, result.records[0].content)
         self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
 
 

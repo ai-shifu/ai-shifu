@@ -2058,7 +2058,7 @@ class RunScriptContextV2:
             return
         yield from self._emit_lesson_feedback_interaction(progress_record)
 
-    def _emit_feedback_before_exception_gate(
+    def _emit_feedback_after_exception_gate(
         self,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if not self._outline_item_info:
@@ -2097,26 +2097,63 @@ class RunScriptContextV2:
             return
         yield from self._emit_lesson_feedback_interaction(latest_completed_progress)
 
+    def _ensure_current_attend_for_gate_interaction(self) -> LearnProgressRecord | None:
+        if self._current_attend:
+            return self._current_attend
+        if not self._outline_item_info:
+            return None
+
+        outline_bid = getattr(self._outline_item_info, "bid", "")
+        shifu_bid = getattr(self._outline_item_info, "shifu_bid", "")
+        user_bid = getattr(self._user_info, "user_id", "")
+        if not outline_bid or not shifu_bid or not user_bid:
+            return None
+
+        current_attend = (
+            LearnProgressRecord.query.filter(
+                LearnProgressRecord.outline_item_bid == outline_bid,
+                LearnProgressRecord.user_bid == user_bid,
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+            )
+            .order_by(LearnProgressRecord.id.desc())
+            .first()
+        )
+        if current_attend is None:
+            current_attend = LearnProgressRecord(
+                progress_record_bid=generate_id(self.app),
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                user_bid=user_bid,
+                status=LEARN_STATUS_NOT_STARTED,
+                block_position=0,
+            )
+            db.session.add(current_attend)
+            db.session.flush()
+
+        self._current_attend = current_attend
+        return current_attend
+
     def _emit_current_progress_gate_interaction(
         self,
         content: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        if not self._current_attend:
+        current_attend = self._ensure_current_attend_for_gate_interaction()
+        if not current_attend:
             return
-        outline_bid = self._current_attend.outline_item_bid or getattr(
+        outline_bid = current_attend.outline_item_bid or getattr(
             self._outline_item_info, "bid", ""
         )
         if not outline_bid:
             return
         generated_block: LearnGeneratedBlock = init_generated_block(
             self.app,
-            shifu_bid=self._current_attend.shifu_bid,
+            shifu_bid=current_attend.shifu_bid,
             outline_item_bid=outline_bid,
-            progress_record_bid=self._current_attend.progress_record_bid,
+            progress_record_bid=current_attend.progress_record_bid,
             user_bid=self._user_info.user_id,
             block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
             mdflow=content,
-            block_index=self._current_attend.block_position,
+            block_index=current_attend.block_position,
         )
         generated_block.role = ROLE_TEACHER
         generated_block.block_content_conf = content
@@ -3316,14 +3353,14 @@ class RunScriptContextV2:
             yield from self._emit_current_progress_gate_interaction(
                 f"?[{_('server.order.checkout')}//_sys_pay]"
             )
-            yield from self._emit_feedback_before_exception_gate()
+            yield from self._emit_feedback_after_exception_gate()
         except UserNotLoginException:
             app.logger.info("UserNotLoginException")
             self._can_continue = False
             yield from self._emit_current_progress_gate_interaction(
                 f"?[{_('server.user.login')}//_sys_login]"
             )
-            yield from self._emit_feedback_before_exception_gate()
+            yield from self._emit_feedback_after_exception_gate()
 
     def has_next(self) -> bool:
         return self._can_continue

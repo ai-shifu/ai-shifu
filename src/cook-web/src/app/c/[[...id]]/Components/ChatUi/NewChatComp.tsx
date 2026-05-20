@@ -24,7 +24,6 @@ import { useCourseStore } from '@/c-store/useCourseStore';
 import { fail, toast } from '@/hooks/useToast';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
-import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
@@ -76,6 +75,7 @@ import {
   projectListenModeItems,
   projectReadModeItems,
 } from './chatUiModeProjection';
+import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
@@ -504,12 +504,7 @@ export const NewChatComponents = ({
     [visibleReadModeItems],
   );
   const readModeFeedbackElementBid = useMemo(
-    () =>
-      visibleReadModeItems.find(
-        item =>
-          item.type === ChatContentItemType.INTERACTION &&
-          isLessonFeedbackInteractionContent(item.content),
-      )?.element_bid || '',
+    () => findLastVisibleLessonFeedbackElementBid(visibleReadModeItems),
     [visibleReadModeItems],
   );
   const isTrailingVisibleReadModeItemText = useMemo(

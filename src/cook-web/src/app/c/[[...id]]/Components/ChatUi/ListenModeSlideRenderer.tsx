@@ -40,6 +40,11 @@ import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import { DEFAULT_LISTEN_MOBILE_VIEW_MODE } from './listenModeTypes';
+import {
+  isListenLessonFeedbackPromptReady,
+  LESSON_FEEDBACK_TAIL_INTERACTION_SETTLE_DELAY_MS,
+  shouldDelayListenFeedbackPromptForTailInteraction,
+} from './lessonFeedbackPromptState';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -434,6 +439,8 @@ const ListenModeSlideRenderer = ({
     isAudioPlaying: false,
     isAudioWaiting: false,
   });
+  const [hasSettledTailInteraction, setHasSettledTailInteraction] =
+    useState(false);
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
   const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
@@ -1118,20 +1125,57 @@ const ListenModeSlideRenderer = ({
     });
   }, [onPlaybackStateChange, playbackState]);
 
+  const shouldDelayTailInteractionFeedbackPrompt = useMemo(
+    () =>
+      shouldDelayListenFeedbackPromptForTailInteraction({
+        lastItemIsLessonFeedbackInteraction,
+        markerStepCount,
+        currentStepIndex: playbackState.currentStepIndex,
+        currentStepHasAudio: playbackState.currentStepHasAudio,
+        currentStepHasBlockingInteraction:
+          playbackState.currentStepHasBlockingInteraction,
+        currentStepElementType: currentMarkerStepElement?.type,
+      }),
+    [
+      currentMarkerStepElement?.type,
+      lastItemIsLessonFeedbackInteraction,
+      markerStepCount,
+      playbackState.currentStepHasAudio,
+      playbackState.currentStepHasBlockingInteraction,
+      playbackState.currentStepIndex,
+    ],
+  );
+
+  useEffect(() => {
+    if (!shouldDelayTailInteractionFeedbackPrompt) {
+      setHasSettledTailInteraction(true);
+      return;
+    }
+
+    setHasSettledTailInteraction(false);
+    const timer = window.setTimeout(() => {
+      setHasSettledTailInteraction(true);
+    }, LESSON_FEEDBACK_TAIL_INTERACTION_SETTLE_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [currentMarkerStepKey, shouldDelayTailInteractionFeedbackPrompt]);
+
   const isLessonFeedbackPromptReady = useMemo(() => {
-    if (!lastItemIsLessonFeedbackInteraction) {
-      return false;
-    }
-
-    if (markerStepCount <= 0) {
-      return false;
-    }
-
-    return (
-      playbackState.currentStepIndex === markerStepCount - 1 &&
-      !getListenPlaybackSequenceActive(playbackState)
-    );
-  }, [lastItemIsLessonFeedbackInteraction, markerStepCount, playbackState]);
+    return isListenLessonFeedbackPromptReady({
+      lastItemIsLessonFeedbackInteraction,
+      markerStepCount,
+      currentStepIndex: playbackState.currentStepIndex,
+      isPlaybackSequenceActive: getListenPlaybackSequenceActive(playbackState),
+      hasSettledTailInteraction,
+    });
+  }, [
+    hasSettledTailInteraction,
+    lastItemIsLessonFeedbackInteraction,
+    markerStepCount,
+    playbackState,
+  ]);
 
   useEffect(() => {
     onLessonFeedbackPromptStateChange?.(isLessonFeedbackPromptReady);
@@ -1148,7 +1192,8 @@ const ListenModeSlideRenderer = ({
       isAudioPlaying: false,
       isAudioWaiting: false,
     });
-  }, [lessonId, markerSequenceKey]);
+    setHasSettledTailInteraction(false);
+  }, [lessonId, markerSequenceKey, markerStepCount]);
 
   useEffect(() => {
     setPlaybackState(prevState =>
