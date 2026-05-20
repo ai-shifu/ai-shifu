@@ -363,7 +363,10 @@ describe('AdminOperationUserDetailPage', () => {
     expect(mockGetAdminOperationUserCredits).toHaveBeenCalledTimes(1);
 
     expect(
-      await screen.findByText('module.operationsUser.detail.title'),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsUser.detail.title',
+      }),
     ).toBeInTheDocument();
     expect(screen.getAllByText('Nick').length).toBeGreaterThan(0);
     expect(screen.getByText('user-1@example.com')).toBeInTheDocument();
@@ -533,7 +536,10 @@ describe('AdminOperationUserDetailPage', () => {
 
     render(<AdminOperationUserDetailPage />);
 
-    await screen.findByText('module.operationsUser.detail.title');
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'module.operationsUser.detail.title',
+    });
 
     expect(screen.getByText('2026-04-15 01:30:00')).toBeInTheDocument();
     expect(screen.getByText('2026-04-15 02:30:00')).toBeInTheDocument();
@@ -585,18 +591,18 @@ describe('AdminOperationUserDetailPage', () => {
     expect(screen.getByText('--')).toBeInTheDocument();
   });
 
-  test('back button returns to user list', async () => {
+  test('renders user detail with breadcrumb navigation', async () => {
     render(<AdminOperationUserDetailPage />);
 
     await waitFor(() => {
       expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'module.operationsUser.detail.back' }),
-    );
-
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations/users');
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsUser.title',
+      }),
+    ).toHaveAttribute('href', '/admin/operations/users');
   });
 
   test('does not request detail or credits when the route param cannot be decoded', async () => {
