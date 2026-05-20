@@ -198,7 +198,7 @@ export default function FollowUpDetailSheet({
     return normalizedNickname;
   }, [basicInfo?.nickname, defaultUserName, emptyValue]);
   const turnIndexLabel = useMemo(() => {
-    if (!basicInfo?.turn_index) {
+    if (basicInfo?.turn_index == null) {
       return emptyValue;
     }
     return t('module.dashboard.detail.followUps.turnIndex', {

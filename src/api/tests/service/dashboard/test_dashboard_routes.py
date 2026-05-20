@@ -1432,6 +1432,10 @@ class TestDashboardRoutes:
         [
             ("last_learning_start_time=invalid-date", "last_learning_start_time"),
             ("last_learning_end_time=invalid-date", "last_learning_end_time"),
+            (
+                "last_learning_start_time=2026-04-10&last_learning_end_time=2026-04-09",
+                "last_learning_start_time/last_learning_end_time",
+            ),
         ],
     )
     def test_course_detail_rejects_invalid_learner_date_filters(
@@ -1623,6 +1627,7 @@ class TestDashboardRoutes:
             ("has_comment=not_bool", "has_comment"),
             ("start_time=invalid-date", "start_time"),
             ("end_time=invalid-date", "end_time"),
+            ("start_time=2026-04-06&end_time=2026-04-05", "start_time/end_time"),
         ],
     )
     def test_course_ratings_reject_invalid_filters(
@@ -1897,6 +1902,7 @@ class TestDashboardRoutes:
         [
             ("start_time=invalid-date", "start_time"),
             ("end_time=invalid-date", "end_time"),
+            ("start_time=2026-04-06&end_time=2026-04-05", "start_time/end_time"),
         ],
     )
     def test_course_follow_ups_reject_invalid_date_filters(

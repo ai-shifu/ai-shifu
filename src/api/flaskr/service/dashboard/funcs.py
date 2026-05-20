@@ -983,6 +983,12 @@ def _build_dashboard_course_learners(
         param_name="last_learning_end_time",
         end_of_day=True,
     )
+    _validate_dashboard_date_range(
+        start_dt=last_learning_start_dt,
+        end_dt_exclusive=last_learning_end_dt_exclusive,
+        start_param_name="last_learning_start_time",
+        end_param_name="last_learning_end_time",
+    )
     normalized_learner_bids = [
         str(user_bid or "").strip()
         for user_bid in learner_bids
@@ -1151,6 +1157,19 @@ def _parse_dashboard_date_boundary(
     return boundary
 
 
+def _validate_dashboard_date_range(
+    *,
+    start_dt: Optional[datetime],
+    end_dt_exclusive: Optional[datetime],
+    start_param_name: str,
+    end_param_name: str,
+) -> None:
+    if start_dt is None or end_dt_exclusive is None:
+        return
+    if start_dt >= end_dt_exclusive:
+        raise_param_error(f"{start_param_name}/{end_param_name}")
+
+
 def build_dashboard_course_follow_ups(
     app: Flask,
     user_id: str,
@@ -1230,6 +1249,12 @@ def build_dashboard_course_follow_ups(
             end_time,
             param_name="end_time",
             end_of_day=True,
+        )
+        _validate_dashboard_date_range(
+            start_dt=start_dt,
+            end_dt_exclusive=end_dt_exclusive,
+            start_param_name="start_time",
+            end_param_name="end_time",
         )
 
         filtered_query = db.session.query(follow_up_base)
@@ -1533,6 +1558,12 @@ def build_dashboard_course_ratings(
             end_time,
             param_name="end_time",
             end_of_day=True,
+        )
+        _validate_dashboard_date_range(
+            start_dt=start_dt,
+            end_dt_exclusive=end_dt_exclusive,
+            start_param_name="start_time",
+            end_param_name="end_time",
         )
         full_latest_rated_at: Optional[datetime] = None
         full_total_score = 0

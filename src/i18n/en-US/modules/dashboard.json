@@ -134,7 +134,7 @@
         "userKeywordPlaceholderEmail": "Enter nickname / email",
         "userKeywordPlaceholderPhone": "Enter nickname / phone"
       },
-      "scoreValue": "{{score}} Stars",
+      "scoreValue": "{score} Stars",
       "summary": {
         "averageScore": "Average Rating",
         "latestRatedAt": "Latest Rating",

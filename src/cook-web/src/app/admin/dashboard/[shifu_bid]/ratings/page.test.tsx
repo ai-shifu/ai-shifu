@@ -169,6 +169,8 @@ jest.mock('@/components/ui/Select', () => ({
 }));
 
 describe('AdminDashboardCourseRatingsPage', () => {
+  const originalLocation = window.location;
+
   beforeEach(() => {
     mockGetDashboardCourseRatings.mockReset();
     mockBrowserTimeZone.mockReset();
@@ -203,6 +205,23 @@ describe('AdminDashboardCourseRatingsPage', () => {
       page_size: 20,
       total: 2,
       page_count: 1,
+    });
+
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        href: 'http://localhost/admin/dashboard/course-1/ratings',
+        pathname: '/admin/dashboard/course-1/ratings',
+        search: '',
+      },
+    });
+  });
+
+  afterAll(() => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
     });
   });
 
@@ -304,5 +323,19 @@ describe('AdminDashboardCourseRatingsPage', () => {
         timezone: 'Asia/Shanghai',
       });
     });
+  });
+
+  test('redirects guests to login instead of staying on the loading state', async () => {
+    mockUserState.isGuest = true;
+
+    render(<AdminDashboardCourseRatingsPage />);
+
+    await waitFor(() => {
+      expect(window.location.href).toBe(
+        '/login?redirect=%2Fadmin%2Fdashboard%2Fcourse-1%2Fratings',
+      );
+    });
+
+    expect(mockGetDashboardCourseRatings).not.toHaveBeenCalled();
   });
 });

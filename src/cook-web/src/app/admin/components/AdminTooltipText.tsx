@@ -53,7 +53,7 @@ export default function AdminTooltipText({
 
     window.addEventListener('resize', updateOverflowState);
     return () => window.removeEventListener('resize', updateOverflowState);
-  }, [isOverflowing, value]);
+  }, [displayText, value]);
 
   const content = (
     <span

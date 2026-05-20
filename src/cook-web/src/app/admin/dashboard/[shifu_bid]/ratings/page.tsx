@@ -351,6 +351,17 @@ export default function AdminDashboardCourseRatingsPage() {
   );
 
   useEffect(() => {
+    if (!isInitialized || !isGuest) {
+      return;
+    }
+
+    const currentPath = encodeURIComponent(
+      window.location.pathname + window.location.search,
+    );
+    window.location.href = `/login?redirect=${currentPath}`;
+  }, [isGuest, isInitialized]);
+
+  useEffect(() => {
     if (!isInitialized || isGuest) {
       return;
     }

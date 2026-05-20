@@ -134,13 +134,13 @@
         "userKeywordPlaceholderEmail": "Saisir pseudo / e-mail",
         "userKeywordPlaceholderPhone": "Saisir pseudo / téléphone"
       },
-      "scoreValue": "{{score}} etoiles",
+      "scoreValue": "{score} étoiles",
       "summary": {
         "averageScore": "Note moyenne",
-        "latestRatedAt": "Derniere note",
+        "latestRatedAt": "Dernière note",
         "ratingCount": "Nombre de notes",
-        "scopeHint": "Consultez les notes et commentaires utiles au createur afin d’identifier les évolutions de satisfaction et les leçons à améliorer.",
-        "userCount": "Apprenants ayant note"
+        "scopeHint": "Consultez les notes et commentaires utiles au créateur afin d’identifier les évolutions de satisfaction et les leçons à améliorer.",
+        "userCount": "Apprenants ayant noté"
       },
       "table": {
         "comment": "Commentaire",
