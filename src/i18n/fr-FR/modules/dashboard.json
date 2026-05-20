@@ -93,7 +93,7 @@
         "userKeyword": "Apprenant"
       },
       "searchPlaceholderEmail": "Saisir pseudo / e-mail",
-      "searchPlaceholderPhone": "Saisir pseudo / telephone",
+      "searchPlaceholderPhone": "Saisir pseudo / téléphone",
       "status": {
         "completed": "Terminé",
         "learning": "En cours",
@@ -101,7 +101,8 @@
       },
       "title": "Liste des apprenants",
       "totalCount": "Total : {count} apprenants",
-      "viewFollowUps": "Voir les questions"
+      "viewFollowUps": "Voir les questions",
+      "viewFollowUpsForLearner": "Voir les questions de {learner}"
     },
     "metrics": {
       "activeLearnersLast7Days": "Apprenants actifs (7 j)",

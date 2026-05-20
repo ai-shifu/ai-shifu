@@ -84,6 +84,11 @@ const buildContactLine = (
   return learner.user_bid || emptyValue;
 };
 
+const buildLearnerAccessibleLabel = (
+  learner: DashboardCourseDetailLearnerItem,
+): string =>
+  learner.nickname || learner.mobile || learner.email || learner.user_bid;
+
 function ClearableTextInput({
   value,
   placeholder,
@@ -393,7 +398,10 @@ export default function DashboardCourseLearnersCard({
                               variant='link'
                               className='h-auto px-0 py-0 font-medium tabular-nums'
                               aria-label={t(
-                                'module.dashboard.detail.learners.viewFollowUps',
+                                'module.dashboard.detail.learners.viewFollowUpsForLearner',
+                                {
+                                  learner: buildLearnerAccessibleLabel(learner),
+                                },
                               )}
                               onClick={() => onFollowUpClick(learner)}
                             >

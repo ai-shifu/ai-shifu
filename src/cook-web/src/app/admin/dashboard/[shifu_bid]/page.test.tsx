@@ -318,7 +318,7 @@ describe('AdminDashboardCourseDetailPage', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.dashboard.detail.learners.viewFollowUps',
+        name: 'module.dashboard.detail.learners.viewFollowUpsForLearner',
       }),
     );
 

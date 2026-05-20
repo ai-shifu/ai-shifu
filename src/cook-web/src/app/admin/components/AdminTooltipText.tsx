@@ -43,17 +43,33 @@ export default function AdminTooltipText({
 
     updateOverflowState();
 
+    let resizeObserver: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(() => {
+      resizeObserver = new ResizeObserver(() => {
         updateOverflowState();
       });
-      observer.observe(element);
-      return () => observer.disconnect();
+      resizeObserver.observe(element);
+    }
+
+    let mutationObserver: MutationObserver | null = null;
+    if (typeof MutationObserver !== 'undefined') {
+      mutationObserver = new MutationObserver(() => {
+        updateOverflowState();
+      });
+      mutationObserver.observe(element, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
     }
 
     window.addEventListener('resize', updateOverflowState);
-    return () => window.removeEventListener('resize', updateOverflowState);
-  }, [displayText, value]);
+    return () => {
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+      window.removeEventListener('resize', updateOverflowState);
+    };
+  }, [value]);
 
   const content = (
     <span

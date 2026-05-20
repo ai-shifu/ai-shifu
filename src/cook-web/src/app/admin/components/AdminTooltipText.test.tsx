@@ -1,6 +1,27 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import AdminTooltipText from './AdminTooltipText';
+
+class MockResizeObserver {
+  observe() {}
+  disconnect() {}
+}
+
+class MockMutationObserver {
+  private callback: MutationCallback;
+
+  constructor(callback: MutationCallback) {
+    this.callback = callback;
+  }
+
+  observe() {}
+
+  disconnect() {}
+
+  trigger() {
+    this.callback([], this as unknown as MutationObserver);
+  }
+}
 
 jest.mock('@/components/ui/tooltip', () => ({
   __esModule: true,
@@ -12,7 +33,25 @@ jest.mock('@/components/ui/tooltip', () => ({
 }));
 
 describe('AdminTooltipText', () => {
+  let mutationObserver: MockMutationObserver | null = null;
+
   beforeEach(() => {
+    mutationObserver = null;
+    Object.defineProperty(window, 'ResizeObserver', {
+      configurable: true,
+      writable: true,
+      value: MockResizeObserver,
+    });
+    Object.defineProperty(window, 'MutationObserver', {
+      configurable: true,
+      writable: true,
+      value: class extends MockMutationObserver {
+        constructor(callback: MutationCallback) {
+          super(callback);
+          mutationObserver = this;
+        }
+      },
+    });
     Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
       configurable: true,
       get() {
@@ -80,5 +119,36 @@ describe('AdminTooltipText', () => {
     expect(screen.getByText('Course One')).toBeInTheDocument();
     expect(screen.queryByTestId('tooltip-content')).not.toBeInTheDocument();
     expect(screen.queryByText('  Course One  ')).not.toBeInTheDocument();
+  });
+
+  test('updates overflow state when display text changes without changing value', async () => {
+    const { rerender } = render(
+      <AdminTooltipText
+        text='Stable tooltip value'
+        displayText='Short label'
+        emptyValue='--'
+      />,
+    );
+
+    expect(screen.getByText('Short label')).toBeInTheDocument();
+    expect(screen.queryByTestId('tooltip-content')).not.toBeInTheDocument();
+
+    rerender(
+      <AdminTooltipText
+        text='Stable tooltip value'
+        displayText='Long content value'
+        emptyValue='--'
+      />,
+    );
+
+    act(() => {
+      mutationObserver?.trigger();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('tooltip-content')).toHaveTextContent(
+        'Stable tooltip value',
+      );
+    });
   });
 });

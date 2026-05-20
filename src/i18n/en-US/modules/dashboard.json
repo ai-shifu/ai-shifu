@@ -101,7 +101,8 @@
       },
       "title": "Learner List",
       "totalCount": "Total {count} learners",
-      "viewFollowUps": "View Follow-ups"
+      "viewFollowUps": "View Follow-ups",
+      "viewFollowUpsForLearner": "View follow-ups for {learner}"
     },
     "metrics": {
       "activeLearnersLast7Days": "Active Learners (7 Days)",

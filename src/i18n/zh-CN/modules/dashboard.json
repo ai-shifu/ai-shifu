@@ -101,7 +101,8 @@
       },
       "title": "学员列表",
       "totalCount": "共 {count} 位学员",
-      "viewFollowUps": "查看追问"
+      "viewFollowUps": "查看追问",
+      "viewFollowUpsForLearner": "查看 {learner} 的追问"
     },
     "metrics": {
       "activeLearnersLast7Days": "7日内活跃学员",
