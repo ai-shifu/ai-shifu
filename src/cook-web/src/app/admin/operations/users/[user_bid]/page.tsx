@@ -777,11 +777,9 @@ export default function AdminOperationUserDetailPage() {
                 { label: tOperationsUsers('detail.title') },
               ]}
             />
-            <div>
-              <h1 className='text-2xl font-semibold text-gray-900'>
-                {tOperationsUsers('detail.title')}
-              </h1>
-            </div>
+            <h1 className='text-2xl font-semibold text-gray-900'>
+              {tOperationsUsers('detail.title')}
+            </h1>
           </div>
 
           <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>

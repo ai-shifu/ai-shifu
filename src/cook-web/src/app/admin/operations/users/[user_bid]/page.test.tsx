@@ -603,6 +603,14 @@ describe('AdminOperationUserDetailPage', () => {
         name: 'module.operationsUser.title',
       }),
     ).toHaveAttribute('href', '/admin/operations/users');
+    expect(
+      screen.getAllByText('module.operationsUser.detail.title').length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsUser.detail.title',
+      }).tagName,
+    ).not.toBe('A');
   });
 
   test('does not request detail or credits when the route param cannot be decoded', async () => {

@@ -43,6 +43,10 @@ export default function AdminOperationsBreadcrumb({
                   <BreadcrumbLink asChild>
                     <Link href={item.href}>{item.label}</Link>
                   </BreadcrumbLink>
+                ) : !isLastItem ? (
+                  <span className='text-sm font-normal text-muted-foreground'>
+                    {item.label}
+                  </span>
                 ) : (
                   <BreadcrumbPage>{item.label}</BreadcrumbPage>
                 )}
