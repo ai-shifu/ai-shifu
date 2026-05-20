@@ -6,39 +6,156 @@
       "courseName": "Course Name",
       "createdAt": "Created At",
       "learnerCount": "Learner Count",
+      "status": "Course Status",
+      "statusLabels": {
+        "published": "Published",
+        "unpublished": "Unpublished"
+      },
       "title": "Basic Information"
     },
-    "charts": {
-      "chapterProgress": "Chapter Progress Distribution",
-      "learningTrend": "Learning Activity Trend",
-      "placeholder": "Charts are coming soon",
-      "questionsByChapter": "Follow-up Questions by Chapter",
-      "questionsByTime": "Follow-up Questions by Time",
-      "title": "Charts"
-    },
     "courseIdLabel": "Course ID",
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "Review the current learner question and answer to spot where learners get stuck and whether the lesson wording is clear.",
+        "fields": {
+          "currentAnswer": "Current Answer",
+          "currentFollowUp": "Current Follow-up",
+          "followUpTime": "Follow-up Time",
+          "lesson": "Related Lesson",
+          "nickname": "Nickname",
+          "turnIndex": "Turn",
+          "user": "Learner"
+        },
+        "sections": {
+          "basicInfo": "Basic Information",
+          "currentRecord": "Current Record",
+          "timeline": "Follow-up Timeline"
+        },
+        "timeline": {
+          "current": "Current",
+          "student": "Learner",
+          "teacher": "Course Reply"
+        },
+        "title": "Follow-up Detail"
+      },
+      "filters": {
+        "chapterKeyword": "Chapter",
+        "chapterKeywordPlaceholder": "Enter chapter / lesson name",
+        "followUpTime": "Follow-up Time",
+        "lessonKeyword": "Lesson",
+        "lessonKeywordPlaceholder": "Enter lesson name",
+        "reset": "Reset",
+        "resultCount": "Total {count}",
+        "search": "Search",
+        "timePlaceholder": "Select time range",
+        "userKeyword": "Learner",
+        "userKeywordPlaceholderEmail": "Enter nickname / email",
+        "userKeywordPlaceholderPhone": "Enter nickname / phone"
+      },
+      "summary": {
+        "followUpCount": "Total Follow-ups",
+        "latestFollowUpAt": "Latest Follow-up",
+        "lessonCount": "Lessons Involved",
+        "scopeHint": "Review learner follow-ups around course content to identify frequent sticking points and lessons that need improvement.",
+        "userCount": "Learners With Follow-ups"
+      },
+      "table": {
+        "action": "Action",
+        "chapter": "Chapter",
+        "content": "Follow-up Content",
+        "createdAt": "Follow-up Time",
+        "detailAction": "Detail",
+        "empty": "No follow-up data yet",
+        "lesson": "Lesson",
+        "title": "Follow-up List",
+        "turnIndex": "Turn",
+        "user": "Learner"
+      },
+      "title": "Follow-up Data",
+      "turnIndex": "Turn {count}",
+      "turnIndexHelp": "Turn order is based on follow-up time within the same learning record."
+    },
     "learners": {
       "columns": {
-        "lastActiveAt": "Last Active",
+        "joinedAt": "Joined At",
+        "lastLearningAt": "Last Learning",
         "name": "Learner",
         "progress": "Progress",
-        "questions": "Total Questions"
+        "questions": "Total Questions",
+        "status": "Learning Status"
       },
-      "empty": "Learner list is coming soon",
-      "title": "Learner List"
+      "empty": "No learners yet",
+      "filters": {
+        "lastLearningTime": "Last Learning Time",
+        "lastLearningTimePlaceholder": "Select time range",
+        "learningStatus": "Learning Status",
+        "statusAll": "All",
+        "userKeyword": "Learner"
+      },
+      "searchPlaceholderEmail": "Enter nickname / email",
+      "searchPlaceholderPhone": "Enter nickname / phone",
+      "status": {
+        "completed": "Completed",
+        "learning": "Learning",
+        "notStarted": "Not Started"
+      },
+      "title": "Learner List",
+      "totalCount": "Total {count} learners",
+      "viewFollowUps": "View Follow-ups",
+      "viewFollowUpsForLearner": "View follow-ups for {learner}"
     },
     "metrics": {
-      "activeLearnersLast7Days": "Active Learners in Last 7 Days",
-      "avgLearningDuration": "Average Learning Duration",
-      "avgQuestionsPerLearner": "Average Questions per Learner",
+      "activeLearnersLast7Days": "Active Learners (7 Days)",
       "completedLearners": "Completers",
       "completionRate": "Completion Rate",
+      "learningLearners": "Learners In Progress",
+      "newLearnersLast7Days": "New Learners (7 Days)",
       "orderAmount": "Order Amount",
-      "orderCount": "Order Count",
-      "title": "Key Metrics",
-      "totalQuestions": "Total Follow-up Questions"
+      "orderCount": "Orders",
+      "rating": "Course Rating",
+      "title": "Core Data",
+      "totalQuestions": "Follow-up Questions"
     },
-    "subtitle": "Basic course info and key metrics now use live data. Charts and learner list are still under construction.",
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Chapter",
+        "chapterKeywordPlaceholder": "Enter chapter / lesson name",
+        "commentStatus": "Comment",
+        "commentStatusAll": "All",
+        "commentStatusCommented": "With Comment Only",
+        "ratingTime": "Rating Time",
+        "reset": "Reset",
+        "resultCount": "Total {count}",
+        "score": "Rating",
+        "scoreAll": "All Ratings",
+        "search": "Search",
+        "timePlaceholder": "Select time range",
+        "userKeyword": "Learner",
+        "userKeywordPlaceholderEmail": "Enter nickname / email",
+        "userKeywordPlaceholderPhone": "Enter nickname / phone"
+      },
+      "scoreValue": "{score} Stars",
+      "summary": {
+        "averageScore": "Average Rating",
+        "latestRatedAt": "Latest Rating",
+        "ratingCount": "Ratings",
+        "scopeHint": "Review lesson ratings and creator-relevant feedback so you can spot satisfaction shifts and lessons that need refinement.",
+        "userCount": "Learners Who Rated"
+      },
+      "table": {
+        "comment": "Comment",
+        "empty": "No rating data yet",
+        "guestUser": "Guest Learner",
+        "lesson": "Lesson",
+        "ratedAt": "Rating Time",
+        "score": "Rating",
+        "title": "Rating List",
+        "user": "Learner"
+      },
+      "title": "Rating Data"
+    },
+    "subtitle": "Basic course info, key metrics, and learner activity data are all powered by live reporting.",
     "title": "Course Detail"
   },
   "entry": {
