@@ -34,6 +34,9 @@ jest.mock('@/components/ui/tooltip', () => ({
 
 describe('AdminTooltipText', () => {
   let mutationObserver: MockMutationObserver | null = null;
+  const registerMutationObserver = (observer: MockMutationObserver) => {
+    mutationObserver = observer;
+  };
 
   beforeEach(() => {
     mutationObserver = null;
@@ -48,22 +51,20 @@ describe('AdminTooltipText', () => {
       value: class extends MockMutationObserver {
         constructor(callback: MutationCallback) {
           super(callback);
-          mutationObserver = this;
+          registerMutationObserver(this);
         }
       },
     });
     Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
       configurable: true,
       get() {
-        const text = this.textContent?.trim() ?? '';
-        return text === 'Long content value' ? 80 : 120;
+        return this.textContent?.trim() === 'Long content value' ? 80 : 120;
       },
     });
     Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
       configurable: true,
       get() {
-        const text = this.textContent?.trim() ?? '';
-        return text === 'Long content value' ? 160 : 120;
+        return this.textContent?.trim() === 'Long content value' ? 160 : 120;
       },
     });
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
