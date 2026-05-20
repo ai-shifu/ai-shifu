@@ -510,7 +510,7 @@ describe('AdminOperationUserDetailPage', () => {
     });
   });
 
-  test('renders detail timestamps with operator naive formatting', async () => {
+  test('renders detail timestamps with operator UTC formatting', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationUserDetail.mockResolvedValue({
       ...detailResponse,
@@ -541,13 +541,13 @@ describe('AdminOperationUserDetailPage', () => {
       name: 'module.operationsUser.detail.title',
     });
 
-    expect(screen.getByText('2026-04-15 01:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-15 02:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-14 01:15:00')).toBeInTheDocument();
-    expect(screen.getAllByText('2026-05-01 01:00:00').length).toBeGreaterThan(
+    expect(screen.getByText('2026-04-14 18:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-14 19:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-13 18:15:00')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-04-30 18:00:00').length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByText('2026-04-18 01:00:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-17 18:00:00')).toBeInTheDocument();
   });
 
   test('keeps note column empty for system ledger rows without manual note', async () => {

@@ -6,39 +6,156 @@
       "courseName": "课程名称",
       "createdAt": "创建时间",
       "learnerCount": "学员数",
+      "status": "课程状态",
+      "statusLabels": {
+        "published": "已发布",
+        "unpublished": "未发布"
+      },
       "title": "基础信息"
     },
-    "charts": {
-      "chapterProgress": "章节学习进度分布图",
-      "learningTrend": "学习活跃趋势图",
-      "placeholder": "图表能力建设中，敬请期待",
-      "questionsByChapter": "追问数量按章节分布图",
-      "questionsByTime": "追问数量按时间分布图",
-      "title": "图表区"
-    },
     "courseIdLabel": "课程 ID",
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "查看当前追问及对应回答，帮助判断学员卡点与课程表达是否清晰。",
+        "fields": {
+          "currentAnswer": "当前回答",
+          "currentFollowUp": "当前追问",
+          "followUpTime": "追问时间",
+          "lesson": "关联章节",
+          "nickname": "昵称",
+          "turnIndex": "轮次",
+          "user": "学员"
+        },
+        "sections": {
+          "basicInfo": "基本信息",
+          "currentRecord": "当前记录",
+          "timeline": "追问时间线"
+        },
+        "timeline": {
+          "current": "当前",
+          "student": "学员",
+          "teacher": "课程回答"
+        },
+        "title": "追问详情"
+      },
+      "filters": {
+        "chapterKeyword": "章节",
+        "chapterKeywordPlaceholder": "输入章节 / 小节名称",
+        "followUpTime": "追问时间",
+        "lessonKeyword": "小节",
+        "lessonKeywordPlaceholder": "输入小节名称",
+        "reset": "重置",
+        "resultCount": "共 {count} 条",
+        "search": "查询",
+        "timePlaceholder": "选择时间范围",
+        "userKeyword": "学员",
+        "userKeywordPlaceholderEmail": "输入昵称 / 邮箱",
+        "userKeywordPlaceholderPhone": "输入昵称 / 手机号"
+      },
+      "summary": {
+        "followUpCount": "累计追问数",
+        "latestFollowUpAt": "最近追问时间",
+        "lessonCount": "涉及小节数",
+        "scopeHint": "查看学员围绕课程内容发起的追问，帮助判断高频卡点与需要优化的章节。",
+        "userCount": "追问学员数"
+      },
+      "table": {
+        "action": "操作",
+        "chapter": "章节",
+        "content": "追问内容",
+        "createdAt": "追问时间",
+        "detailAction": "详情",
+        "empty": "暂无追问数据",
+        "lesson": "小节",
+        "title": "追问列表",
+        "turnIndex": "轮次",
+        "user": "学员"
+      },
+      "title": "追问数据",
+      "turnIndex": "第 {count} 轮",
+      "turnIndexHelp": "追问轮次按同一学习记录中的追问时间顺序排序"
+    },
     "learners": {
       "columns": {
-        "lastActiveAt": "最近活跃时间",
+        "joinedAt": "加入时间",
+        "lastLearningAt": "最近学习时间",
         "name": "学员",
         "progress": "学习进度",
-        "questions": "累计追问数"
+        "questions": "累计追问数",
+        "status": "学习状态"
       },
-      "empty": "学员列表能力建设中，敬请期待",
-      "title": "学员列表"
+      "empty": "暂无学员",
+      "filters": {
+        "lastLearningTime": "最近学习时间",
+        "lastLearningTimePlaceholder": "选择时间范围",
+        "learningStatus": "学习状态",
+        "statusAll": "全部",
+        "userKeyword": "学员"
+      },
+      "searchPlaceholderEmail": "输入昵称 / 邮箱",
+      "searchPlaceholderPhone": "输入昵称 / 手机号",
+      "status": {
+        "completed": "已完成",
+        "learning": "学习中",
+        "notStarted": "未开始"
+      },
+      "title": "学员列表",
+      "totalCount": "共 {count} 位学员",
+      "viewFollowUps": "查看追问",
+      "viewFollowUpsForLearner": "查看 {learner} 的追问"
     },
     "metrics": {
-      "activeLearnersLast7Days": "近7天活跃学员数",
-      "avgLearningDuration": "平均学习时长",
-      "avgQuestionsPerLearner": "人均追问数",
+      "activeLearnersLast7Days": "7日内活跃学员",
       "completedLearners": "完课人数",
       "completionRate": "完课率",
+      "learningLearners": "在学人数",
+      "newLearnersLast7Days": "7日内新增学员",
       "orderAmount": "订单金额",
       "orderCount": "订单数",
-      "title": "核心指标",
-      "totalQuestions": "累计追问数"
+      "rating": "课程评分",
+      "title": "核心数据",
+      "totalQuestions": "追问数"
     },
-    "subtitle": "课程基础信息和核心指标已支持真实取数，图表区和学员列表仍在建设中。",
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "章节",
+        "chapterKeywordPlaceholder": "输入章节 / 小节名称",
+        "commentStatus": "评价内容",
+        "commentStatusAll": "全部",
+        "commentStatusCommented": "仅看有评价",
+        "ratingTime": "评分时间",
+        "reset": "重置",
+        "resultCount": "共 {count} 条",
+        "score": "评分",
+        "scoreAll": "全部评分",
+        "search": "查询",
+        "timePlaceholder": "选择时间范围",
+        "userKeyword": "学员",
+        "userKeywordPlaceholderEmail": "输入昵称 / 邮箱",
+        "userKeywordPlaceholderPhone": "输入昵称 / 手机号"
+      },
+      "scoreValue": "{score} 分",
+      "summary": {
+        "averageScore": "平均评分",
+        "latestRatedAt": "最近评分时间",
+        "ratingCount": "评分数",
+        "scopeHint": "查看学员对课程章节的评分与反馈，帮助判断课程满意度和需要补强的内容。",
+        "userCount": "评分学员数"
+      },
+      "table": {
+        "comment": "评价内容",
+        "empty": "暂无评分数据",
+        "guestUser": "匿名学员",
+        "lesson": "章节",
+        "ratedAt": "评分时间",
+        "score": "评分",
+        "title": "评分列表",
+        "user": "学员"
+      },
+      "title": "评分数据"
+    },
+    "subtitle": "课程基础信息、核心指标和学员学习数据均为实时统计。",
     "title": "课程详情"
   },
   "entry": {

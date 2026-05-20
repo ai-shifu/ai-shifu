@@ -468,7 +468,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     ).toBeInTheDocument();
   });
 
-  test('renders summary time with operator naive formatting when UTC crosses local day boundaries', async () => {
+  test('renders summary time with UTC formatting when UTC crosses local day boundaries', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
       summary: {
@@ -504,8 +504,8 @@ describe('AdminOperationCourseFollowUpsPage', () => {
 
     await screen.findByText('Cross-day follow-up question');
 
-    expect(document.body.textContent).toContain('2026-04-05');
-    expect(document.body.textContent).toContain('01:30:00');
+    expect(document.body.textContent).toContain('2026-04-04');
+    expect(document.body.textContent).toContain('18:30:00');
   });
 
   test('ignores a late detail response after the drawer is closed', async () => {

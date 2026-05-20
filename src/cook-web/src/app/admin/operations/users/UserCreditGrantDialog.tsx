@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
-import { formatOperatorNaiveDateTime } from './dateTime';
+import { formatOperatorUtcDateTime } from './dateTime';
 import type {
   AdminOperationUserBenefitGrantResponse,
   AdminOperationUserCreditGrantRequest,
@@ -115,7 +115,7 @@ const resolveCurrentExpiry = (
     return '--';
   }
   if (user.credits_expire_at) {
-    return formatOperatorNaiveDateTime(user.credits_expire_at);
+    return formatOperatorUtcDateTime(user.credits_expire_at);
   }
   if (Number(user.available_credits || 0) > 0) {
     return longTermLabel;
