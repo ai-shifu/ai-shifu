@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from flask import Flask
+from sqlalchemy import and_, or_
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -31,7 +32,7 @@ from flaskr.service.dashboard.dtos import (
     DashboardEntryDTO,
     DashboardEntrySummaryDTO,
 )
-from flaskr.service.learn.const import ROLE_STUDENT
+from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
@@ -43,17 +44,12 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_SUCCESS,
 )
 from flaskr.service.order.models import Order
-from flaskr.service.shifu.consts import BLOCK_TYPE_MDASK_VALUE
-from flaskr.service.shifu.demo_courses import is_builtin_demo_course
-from flaskr.service.shifu.admin import (
-    _build_course_follow_up_base_subquery,
-    _build_course_outline_context_map,
-    _build_follow_up_user_keyword_filter,
-    _format_average_score,
-    _load_follow_up_groups_for_progress_record,
-    _resolve_follow_up_answer_content,
-    _resolve_follow_up_matching_outline_bids,
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
 )
+from flaskr.service.shifu.demo_courses import is_builtin_demo_course
 from flaskr.service.shifu.models import (
     AiCourseAuth,
     DraftShifu,
@@ -98,6 +94,12 @@ def _format_percentage(numerator: int, denominator: int) -> str:
     return _format_money((Decimal(numerator) * Decimal("100")) / Decimal(denominator))
 
 
+def _format_average_score(value: Optional[Decimal]) -> str:
+    if value is None:
+        return ""
+    return "{0:.1f}".format(value)
+
+
 def _normalize_dashboard_identifier(value: str) -> str:
     normalized = str(value or "").strip()
     if "@" in normalized:
@@ -127,6 +129,209 @@ def _dashboard_learner_keyword_matches(
     if normalized_keyword.isdigit():
         return bool(normalized_mobile) and normalized_keyword == normalized_mobile
     return False
+
+
+def _build_course_outline_context_map(
+    outline_items: Sequence[PublishedOutlineItem],
+) -> Dict[str, Dict[str, str]]:
+    outline_item_map = {
+        str(getattr(item, "outline_item_bid", "") or "").strip(): item
+        for item in outline_items
+        if str(getattr(item, "outline_item_bid", "") or "").strip()
+    }
+    context_map: Dict[str, Dict[str, str]] = {}
+
+    for outline_item_bid, item in outline_item_map.items():
+        lesson_title = str(getattr(item, "title", "") or "").strip()
+        lesson_outline_item_bid = outline_item_bid
+        chapter_title = lesson_title
+        chapter_outline_item_bid = outline_item_bid
+        current_item = item
+        visited_bids = {outline_item_bid}
+
+        while current_item is not None:
+            parent_bid = str(getattr(current_item, "parent_bid", "") or "").strip()
+            if not parent_bid or parent_bid in visited_bids:
+                break
+            visited_bids.add(parent_bid)
+            parent_item = outline_item_map.get(parent_bid)
+            if parent_item is None:
+                break
+            chapter_title = str(getattr(parent_item, "title", "") or "").strip()
+            chapter_outline_item_bid = parent_bid
+            current_item = parent_item
+
+        context_map[outline_item_bid] = {
+            "chapter_outline_item_bid": chapter_outline_item_bid,
+            "chapter_title": chapter_title,
+            "lesson_outline_item_bid": lesson_outline_item_bid,
+            "lesson_title": lesson_title,
+        }
+
+    return context_map
+
+
+def _build_course_follow_up_base_subquery(shifu_bid: str):
+    return (
+        db.session.query(
+            LearnGeneratedBlock.id.label("id"),
+            LearnGeneratedBlock.generated_block_bid.label("generated_block_bid"),
+            LearnGeneratedBlock.progress_record_bid.label("progress_record_bid"),
+            LearnGeneratedBlock.user_bid.label("user_bid"),
+            LearnGeneratedBlock.outline_item_bid.label("outline_item_bid"),
+            LearnGeneratedBlock.generated_content.label("follow_up_content"),
+            LearnGeneratedBlock.created_at.label("created_at"),
+            db.func.row_number()
+            .over(
+                partition_by=LearnGeneratedBlock.progress_record_bid,
+                order_by=(
+                    LearnGeneratedBlock.created_at.asc(),
+                    LearnGeneratedBlock.id.asc(),
+                ),
+            )
+            .label("turn_index"),
+        )
+        .filter(
+            LearnGeneratedBlock.shifu_bid == shifu_bid,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+            LearnGeneratedBlock.role == ROLE_STUDENT,
+        )
+        .subquery()
+    )
+
+
+def _build_follow_up_user_keyword_filter(
+    user_bid_column,
+    keyword: str,
+):
+    normalized = _normalize_dashboard_identifier(keyword)
+    if not normalized:
+        return None
+
+    credential_match_exists = (
+        db.session.query(AuthCredential.id)
+        .filter(
+            AuthCredential.user_bid == user_bid_column,
+            AuthCredential.deleted == 0,
+            AuthCredential.provider_name.in_(["phone", "email", "google"]),
+            AuthCredential.identifier.ilike(f"%{normalized}%"),
+        )
+        .exists()
+    )
+
+    user_filters = [UserEntity.nickname.ilike(f"%{normalized}%")]
+    if "@" in normalized or normalized.isdigit():
+        user_filters.append(UserEntity.user_identify.ilike(f"%{normalized}%"))
+
+    user_match_exists = (
+        db.session.query(UserEntity.id)
+        .filter(
+            UserEntity.user_bid == user_bid_column,
+            UserEntity.deleted == 0,
+            or_(*user_filters),
+        )
+        .exists()
+    )
+
+    return or_(credential_match_exists, user_match_exists)
+
+
+def _resolve_follow_up_matching_outline_bids(
+    outline_context_map: Dict[str, Dict[str, str]],
+    chapter_keyword: str,
+) -> Optional[Set[str]]:
+    normalized_keyword = str(chapter_keyword or "").strip().lower()
+    if not normalized_keyword:
+        return None
+
+    return {
+        outline_item_bid
+        for outline_item_bid, context in outline_context_map.items()
+        if normalized_keyword
+        in str(context.get("chapter_title", "") or "").strip().lower()
+        or normalized_keyword
+        in str(context.get("lesson_title", "") or "").strip().lower()
+    }
+
+
+def _resolve_follow_up_answer_block(
+    blocks: Sequence[LearnGeneratedBlock],
+    index: int,
+) -> LearnGeneratedBlock | None:
+    ask_position = int(blocks[index].position or 0)
+    for next_block in blocks[index + 1 :]:
+        next_block_type = int(next_block.type or 0)
+        next_block_role = int(next_block.role or 0)
+        if (
+            next_block_type == BLOCK_TYPE_MDASK_VALUE
+            and next_block_role == ROLE_STUDENT
+        ):
+            return None
+        if next_block_type == BLOCK_TYPE_MDANSWER_VALUE:
+            return next_block
+        if (
+            next_block_type == BLOCK_TYPE_MDCONTENT_VALUE
+            and next_block_role == ROLE_TEACHER
+            and int(next_block.position or 0) == ask_position
+        ):
+            return next_block
+    return None
+
+
+def _resolve_follow_up_answer_content(block: LearnGeneratedBlock | None) -> str:
+    if block is None:
+        return ""
+
+    generated_content = str(getattr(block, "generated_content", "") or "").strip()
+    if generated_content:
+        return generated_content
+
+    return str(getattr(block, "block_content_conf", "") or "").strip()
+
+
+def _load_follow_up_groups_for_progress_record(
+    progress_record_bid: str,
+) -> list[dict[str, LearnGeneratedBlock | None]]:
+    normalized_progress_record_bid = str(progress_record_bid or "").strip()
+    if not normalized_progress_record_bid:
+        return []
+
+    blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.progress_record_bid == normalized_progress_record_bid,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+            or_(
+                and_(
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+                    LearnGeneratedBlock.role == ROLE_STUDENT,
+                ),
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDANSWER_VALUE,
+                and_(
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+                    LearnGeneratedBlock.role == ROLE_TEACHER,
+                ),
+            ),
+        )
+        .order_by(LearnGeneratedBlock.created_at.asc(), LearnGeneratedBlock.id.asc())
+        .all()
+    )
+    groups: list[dict[str, LearnGeneratedBlock | None]] = []
+    for index, block in enumerate(blocks):
+        if (
+            int(block.type or 0) != BLOCK_TYPE_MDASK_VALUE
+            or int(block.role or 0) != ROLE_STUDENT
+        ):
+            continue
+        groups.append(
+            {
+                "ask_block": block,
+                "answer_block": _resolve_follow_up_answer_block(blocks, index),
+            }
+        )
+    return groups
 
 
 def _load_dashboard_course_user_contact_map(
