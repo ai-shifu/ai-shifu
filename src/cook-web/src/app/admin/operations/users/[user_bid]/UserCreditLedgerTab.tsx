@@ -39,7 +39,7 @@ import {
   FILTER_ALL_OPTION,
   sanitizeCreditFiltersByType,
 } from './creditFilterUtils';
-import { formatOperatorNaiveDateTime } from '../dateTime';
+import { formatOperatorUtcDateTime } from '../dateTime';
 
 type ErrorState = { message: string; code?: number };
 
@@ -480,7 +480,7 @@ export default function UserCreditLedgerTab({
                     <TableRow key={item.ledger_bid}>
                       <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
                         <AdminTooltipText
-                          text={formatOperatorNaiveDateTime(item.created_at)}
+                          text={formatOperatorUtcDateTime(item.created_at)}
                           emptyValue={emptyValue}
                         />
                       </TableCell>
@@ -540,7 +540,7 @@ export default function UserCreditLedgerTab({
                       </TableCell>
                       <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
                         <AdminTooltipText
-                          text={formatOperatorNaiveDateTime(item.expires_at)}
+                          text={formatOperatorUtcDateTime(item.expires_at)}
                           emptyValue={emptyValue}
                         />
                       </TableCell>
