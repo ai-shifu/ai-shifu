@@ -448,8 +448,7 @@ export default function AdminOperationCourseRatingsPage() {
         key: 'latestRatedAt',
         label: tOperations('detail.ratings.summary.latestRatedAt'),
         value:
-          formatAdminUtcDateTime(ratings.summary.latest_rated_at) ||
-          emptyValue,
+          formatAdminUtcDateTime(ratings.summary.latest_rated_at) || emptyValue,
         tone: 'timestamp' as const,
       },
     ],

@@ -255,9 +255,7 @@ export default function CreditOrderDetailDialog({
                 />
                 <DetailRow
                   label={t('module.order.fields.createdAt')}
-                  value={
-                    formatAdminUtcDateTime(order.created_at) || emptyValue
-                  }
+                  value={formatAdminUtcDateTime(order.created_at) || emptyValue}
                 />
                 <DetailRow
                   label={tOperationsOrder('creditOrders.detail.labels.paidAt')}
