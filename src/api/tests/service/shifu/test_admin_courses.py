@@ -1211,6 +1211,7 @@ def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(app
     normal_bid = uuid.uuid4().hex[:32]
 
     with app.app_context():
+        DraftOutlineItem.query.delete()
         PublishedShifu.query.delete()
         DraftShifu.query.delete()
         db.session.commit()
