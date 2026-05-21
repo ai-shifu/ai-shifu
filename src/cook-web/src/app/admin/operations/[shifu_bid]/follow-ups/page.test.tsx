@@ -529,6 +529,31 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     expect(screen.getAllByText('Lesson 1').length).toBeGreaterThan(0);
   });
 
+  test('clears draft filters on reset without refetching when applied filters are already default', async () => {
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    await screen.findByText('Second follow-up question');
+    mockGetAdminOperationCourseFollowUps.mockClear();
+
+    const keywordInput = screen.getByPlaceholderText(
+      'module.operationsCourse.detail.followUps.filters.userKeywordPlaceholderPhone',
+    );
+    fireEvent.change(keywordInput, {
+      target: { value: 'unsaved draft' },
+    });
+
+    expect(keywordInput).toHaveValue('unsaved draft');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.filters.reset',
+      }),
+    );
+
+    expect(keywordInput).toHaveValue('');
+    expect(mockGetAdminOperationCourseFollowUps).not.toHaveBeenCalled();
+  });
+
   test('shows a descriptive source fallback when original output cannot be resolved', async () => {
     mockGetAdminOperationCourseFollowUpDetail.mockResolvedValueOnce({
       basic_info: {

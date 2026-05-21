@@ -2460,7 +2460,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     assert lightweight_filtered_response.status_code == 200
     assert lightweight_filtered_payload["code"] == 0
     assert lightweight_filtered_payload["data"]["summary"] == {
-        "follow_up_count": 0,
+        "follow_up_count": 1,
         "user_count": 0,
         "lesson_count": 0,
         "latest_follow_up_at": "",

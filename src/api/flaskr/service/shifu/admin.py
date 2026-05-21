@@ -5229,7 +5229,7 @@ def get_operator_course_follow_ups(
                 ),
             )
         else:
-            summary = AdminOperationCourseFollowUpSummaryDTO()
+            summary = AdminOperationCourseFollowUpSummaryDTO(follow_up_count=total)
         return AdminOperationCourseFollowUpListDTO(
             summary=summary,
             items=items,

@@ -584,6 +584,9 @@ export default function AdminOperationCourseFollowUpsPage() {
       return;
     }
     setFiltersDraft(nextFilters);
+    if (pageIndex === 1 && areFollowUpFiltersEqual(nextFilters, filters)) {
+      return;
+    }
     setFilters(nextFilters);
     setPageIndex(1);
   }, [filters, filtersDraft, pageIndex]);
