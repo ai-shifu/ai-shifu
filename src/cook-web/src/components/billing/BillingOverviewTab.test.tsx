@@ -469,6 +469,11 @@ describe('BillingOverviewTab', () => {
     expect(
       screen.getByTestId('billing-plan-card-bill-product-plan-yearly-premium'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-yearly-premium-price-summary',
+      ),
+    ).toHaveClass('columnPriceSummary');
 
     await act(async () => {
       await user.click(
