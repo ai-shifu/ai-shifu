@@ -512,9 +512,7 @@ describe('ShifuEdit draft conflict checks', () => {
     const historyLink = screen.getByTitle('module.shifu.history.title');
     historyLink.click();
 
-    expect(mockTrackEvent).toHaveBeenCalledWith(
-      'creator_lesson_history_click',
-    );
+    expect(mockTrackEvent).toHaveBeenCalledWith('creator_lesson_history_click');
   });
 
   test('renders the dedicated history layout in history mode', async () => {
