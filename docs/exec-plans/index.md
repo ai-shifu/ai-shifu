@@ -19,6 +19,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 - [Agent-First Harness Migration](./completed/agent-first-harness-migration.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
+- [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
 
 ## Supporting Tracker
 

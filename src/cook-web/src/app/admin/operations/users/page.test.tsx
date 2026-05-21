@@ -1107,7 +1107,7 @@ describe('AdminOperationUsersPage', () => {
         'module.operationsUser.courseSummary.dialog.createdTitle',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('Created Course')).toBeInTheDocument();
+    expect(await screen.findByText('Created Course')).toBeInTheDocument();
     expect(screen.getByText('course-2')).toBeInTheDocument();
     expect(
       screen.getByText('module.operationsCourse.statusLabels.unpublished'),
@@ -1115,6 +1115,320 @@ describe('AdminOperationUsersPage', () => {
     expect(
       screen.getByRole('link', { name: 'Created Course' }),
     ).toHaveAttribute('href', '/admin/operations/course-2');
+  });
+
+  test('reuses cached detail data when reopening course dialog for the same user', async () => {
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (2)',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+    });
+
+    expect(await screen.findByText('Created Course')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.learningCourses (1)',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsUser.courseSummary.dialog.learningTitle',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Learned Course')).toBeInTheDocument();
+    expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+  });
+
+  test('deduplicates in-flight detail requests for the same user while switching dialog tabs', async () => {
+    const deferredDetail =
+      createDeferred<
+        Parameters<typeof mockGetAdminOperationUserDetail>[0] extends never
+          ? never
+          : Awaited<ReturnType<typeof api.getAdminOperationUserDetail>>
+      >();
+    mockGetAdminOperationUserDetail.mockReturnValueOnce(deferredDetail.promise);
+
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (2)',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.learningCourses (1)',
+      }),
+    );
+
+    expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      deferredDetail.resolve({
+        user_bid: 'user-1',
+        mobile: '13812345678',
+        email: 'user-1@example.com',
+        nickname: 'Nick',
+        user_status: 'paid',
+        user_role: 'operator',
+        user_roles: ['operator', 'creator', 'learner'],
+        login_methods: ['phone', 'google'],
+        registration_source: 'google',
+        language: 'zh-CN',
+        learning_course_count: 1,
+        learning_courses: [
+          {
+            shifu_bid: 'course-1',
+            course_name: 'Learned Course',
+            course_status: 'published',
+            completed_lesson_count: 1,
+            total_lesson_count: 4,
+          },
+        ],
+        created_course_count: 2,
+        created_courses: [
+          {
+            shifu_bid: 'course-2',
+            course_name: 'Created Course',
+            course_status: 'unpublished',
+            completed_lesson_count: 0,
+            total_lesson_count: 0,
+          },
+          {
+            shifu_bid: 'course-3',
+            course_name: 'Second Created Course',
+            course_status: 'published',
+            completed_lesson_count: 0,
+            total_lesson_count: 0,
+          },
+        ],
+        total_paid_amount: '88.50',
+        available_credits: '35.5',
+        subscription_credits: '27.5',
+        topup_credits: '8',
+        credits_expire_at: '2026-05-01T00:00:00Z',
+        has_active_subscription: false,
+        last_login_at: '2026-04-15T09:00:00Z',
+        last_learning_at: '2026-04-15T10:00:00Z',
+        created_at: '2026-04-14T10:00:00Z',
+        updated_at: '2026-04-14T11:00:00Z',
+      });
+      await deferredDetail.promise;
+    });
+
+    expect(
+      await screen.findByText(
+        'module.operationsUser.courseSummary.dialog.learningTitle',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Learned Course')).toBeInTheDocument();
+  });
+
+  test('keeps cached dialog state when an older request resolves later', async () => {
+    const deferredUserOneDetail =
+      createDeferred<
+        Awaited<ReturnType<typeof api.getAdminOperationUserDetail>>
+      >();
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-1',
+          mobile: '13812345678',
+          email: 'user-1@example.com',
+          nickname: 'Nick',
+          user_status: 'paid',
+          user_role: 'operator',
+          user_roles: ['operator', 'creator', 'learner'],
+          login_methods: ['phone', 'google'],
+          registration_source: 'google',
+          language: 'zh-CN',
+          learning_course_count: 1,
+          learning_courses: [],
+          created_course_count: 2,
+          created_courses: [],
+          total_paid_amount: '88.50',
+          available_credits: '35.5',
+          subscription_credits: '27.5',
+          topup_credits: '8',
+          credits_expire_at: '2026-05-01T00:00:00Z',
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+        {
+          user_bid: 'user-2',
+          mobile: '13912345678',
+          email: 'user-2@example.com',
+          nickname: 'Other User',
+          user_status: 'paid',
+          user_role: 'learner',
+          user_roles: ['learner'],
+          login_methods: ['phone'],
+          registration_source: 'phone',
+          language: 'zh-CN',
+          learning_course_count: 1,
+          learning_courses: [],
+          created_course_count: 1,
+          created_courses: [],
+          total_paid_amount: '12.00',
+          available_credits: '5',
+          subscription_credits: '5',
+          topup_credits: '0',
+          credits_expire_at: '2026-05-01T00:00:00Z',
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 2,
+    });
+    mockGetAdminOperationUserDetail.mockImplementation(({ user_bid }) => {
+      if (user_bid === 'user-1') {
+        return deferredUserOneDetail.promise;
+      }
+      if (user_bid === 'user-2') {
+        return Promise.resolve({
+          user_bid: 'user-2',
+          mobile: '13912345678',
+          email: 'user-2@example.com',
+          nickname: 'Other User',
+          user_status: 'paid',
+          user_role: 'learner',
+          user_roles: ['learner'],
+          login_methods: ['phone'],
+          registration_source: 'phone',
+          language: 'zh-CN',
+          learning_course_count: 1,
+          learning_courses: [
+            {
+              shifu_bid: 'course-9',
+              course_name: 'Cached Learned Course',
+              course_status: 'published',
+              completed_lesson_count: 2,
+              total_lesson_count: 5,
+            },
+          ],
+          created_course_count: 1,
+          created_courses: [
+            {
+              shifu_bid: 'course-8',
+              course_name: 'Cached Created Course',
+              course_status: 'published',
+              completed_lesson_count: 0,
+              total_lesson_count: 0,
+            },
+          ],
+          total_paid_amount: '12.00',
+          available_credits: '5',
+          subscription_credits: '5',
+          topup_credits: '0',
+          credits_expire_at: '2026-05-01T00:00:00Z',
+          has_active_subscription: false,
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        });
+      }
+      return Promise.reject(new Error(`unexpected user ${user_bid}`));
+    });
+
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (1)',
+      }),
+    );
+
+    expect(
+      await screen.findByText('Cached Created Course'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (2)',
+      }),
+    );
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'module.operationsUser.table.learningCourses (1)',
+      })[1],
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsUser.courseSummary.dialog.learningTitle',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      deferredUserOneDetail.resolve({
+        user_bid: 'user-1',
+        mobile: '13812345678',
+        email: 'user-1@example.com',
+        nickname: 'Nick',
+        user_status: 'paid',
+        user_role: 'operator',
+        user_roles: ['operator', 'creator', 'learner'],
+        login_methods: ['phone', 'google'],
+        registration_source: 'google',
+        language: 'zh-CN',
+        learning_course_count: 1,
+        learning_courses: [
+          {
+            shifu_bid: 'course-1',
+            course_name: 'Learned Course',
+            course_status: 'published',
+            completed_lesson_count: 1,
+            total_lesson_count: 4,
+          },
+        ],
+        created_course_count: 2,
+        created_courses: [
+          {
+            shifu_bid: 'course-2',
+            course_name: 'Created Course',
+            course_status: 'unpublished',
+            completed_lesson_count: 0,
+            total_lesson_count: 0,
+          },
+        ],
+        total_paid_amount: '88.50',
+        available_credits: '35.5',
+        subscription_credits: '27.5',
+        topup_credits: '8',
+        credits_expire_at: '2026-05-01T00:00:00Z',
+        has_active_subscription: false,
+        last_login_at: '2026-04-15T09:00:00Z',
+        last_learning_at: '2026-04-15T10:00:00Z',
+        created_at: '2026-04-14T10:00:00Z',
+        updated_at: '2026-04-14T11:00:00Z',
+      });
+      await deferredUserOneDetail.promise;
+    });
+    await flushMicrotasks();
+
+    expect(screen.getByText('Cached Learned Course')).toBeInTheDocument();
+    expect(screen.queryByText('Learned Course')).not.toBeInTheDocument();
   });
 
   test('links the user id cell when the primary contact is empty', async () => {
