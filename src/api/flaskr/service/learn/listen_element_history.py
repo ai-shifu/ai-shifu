@@ -675,14 +675,18 @@ def _merge_progress_elements(
         for group_key in ordered_group_keys:
             merged_elements.extend(persisted_groups.get(group_key, []))
             merged_elements.extend(legacy_groups.get(group_key, []))
-        merged_elements = _attach_follow_up_history_to_anchor_payload(merged_elements)
-        collected_elements.extend(
-            _merge_follow_up_elements_after_anchor(merged_elements)
-        )
+        # Defer follow-up attaching/merging to a global pass below so that an
+        # ask whose progress_record_bid differs from its anchor's (a common
+        # outcome when the main run had not yet committed and the ask session
+        # created its own LearnProgressRecord under MVCC isolation) can still
+        # locate its anchor across progress boundaries.
+        collected_elements.extend(merged_elements)
         if include_non_navigable and collected_events is not None:
             for event in persisted_events or []:
                 collected_events.append(event)
 
+    collected_elements = _attach_follow_up_history_to_anchor_payload(collected_elements)
+    collected_elements = _merge_follow_up_elements_after_anchor(collected_elements)
     return collected_elements, collected_events
 
 

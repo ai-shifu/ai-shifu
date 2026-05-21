@@ -1564,13 +1564,22 @@ class RunScriptContextV2:
                 )
 
     def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
+        # Order so that a record which has started learning wins over a
+        # fresh NOT_STARTED placeholder. A parallel ask SSE running before
+        # the main run committed cannot see the main row under MVCC and
+        # falls through to creating a sibling at block_position=0; without
+        # this ordering the next main-flow SSE would pick that fresh row
+        # by id.desc() and restart the lesson from the first block.
         attend_info: LearnProgressRecord = (
             LearnProgressRecord.query.filter(
                 LearnProgressRecord.outline_item_bid == outline_bid,
                 LearnProgressRecord.user_bid == self._user_info.user_id,
                 LearnProgressRecord.status != LEARN_STATUS_RESET,
             )
-            .order_by(LearnProgressRecord.id.desc())
+            .order_by(
+                (LearnProgressRecord.status == LEARN_STATUS_NOT_STARTED).asc(),
+                LearnProgressRecord.id.desc(),
+            )
             .first()
         )
         if not attend_info:
@@ -3453,8 +3462,15 @@ class RunScriptContextV2:
                     anchor_generated_block_bid = (
                         anchor_element.generated_block_bid or ""
                     )
-                    if self._input_type == "ask":
-                        self._anchor_element_bid = reload_element_bid
+                # Trust the frontend-supplied element_bid for ask runs even if
+                # the row is not yet visible in this session: the main run
+                # holds the element in an uncommitted transaction, so MVCC
+                # isolation hides it from the parallel ask session. Recording
+                # it here ensures handle_input_ask receives the real
+                # element_bid instead of an empty anchor that would force a
+                # synthetic fallback in listen_element_run_sidecar.
+                if self._input_type == "ask":
+                    self._anchor_element_bid = reload_element_bid
 
             # Frontend element-protocol flows may still pass element_bid through
             # reload_generated_block_bid. Always prefer the persisted source block
