@@ -6,6 +6,7 @@ import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Card, CardContent } from '@/components/ui/Card';
 import { AppPagination } from '@/components/pagination/AppPagination';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { cn } from '@/lib/utils';
 import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
 import { BILLING_SECTION_TITLE_CLASS } from './billingSectionTitleClass';
 import {
@@ -18,6 +19,11 @@ import {
 } from '@/lib/billing';
 
 const RECENT_ITEMS_LIMIT = 10;
+
+type BillingRecentActivitySectionProps = {
+  className?: string;
+  stretchToFill?: boolean;
+};
 
 function formatSignedCredits(value: number, locale: string): string {
   const normalizedValue = Number(value || 0);
@@ -58,7 +64,10 @@ function UsageTableSkeleton() {
   );
 }
 
-export function BillingRecentActivitySection() {
+export function BillingRecentActivitySection({
+  className,
+  stretchToFill = false,
+}: BillingRecentActivitySectionProps) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
   const timezone = getBrowserTimeZone();
@@ -97,7 +106,10 @@ export function BillingRecentActivitySection() {
   return (
     <section
       id='billing-recent-orders'
-      className='space-y-6'
+      className={cn(
+        stretchToFill ? 'flex min-h-0 flex-col gap-6' : 'space-y-6',
+        className,
+      )}
       data-testid='billing-usage-table-section'
     >
       <div>
@@ -107,10 +119,15 @@ export function BillingRecentActivitySection() {
       </div>
 
       <Card
-        className='overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] shadow-[var(--shadow-xs-offset-x,0)_var(--shadow-xs-offset-y,1px)_var(--shadow-xs-blur-radius,2px)_var(--shadow-xs-spread-radius,0)_var(--shadow-xs-color,rgba(0,0,0,0.05))]'
+        className={cn(
+          'overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] shadow-[var(--shadow-xs-offset-x,0)_var(--shadow-xs-offset-y,1px)_var(--shadow-xs-blur-radius,2px)_var(--shadow-xs-spread-radius,0)_var(--shadow-xs-color,rgba(0,0,0,0.05))]',
+          stretchToFill && 'flex min-h-0 flex-1 flex-col',
+        )}
         data-testid='billing-usage-table-card'
       >
-        <CardContent className='p-0'>
+        <CardContent
+          className={cn('p-0', stretchToFill && 'flex min-h-0 flex-1 flex-col')}
+        >
           {ledgerError ? (
             <div className='rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
               {t('module.billing.ledger.loadError')}
@@ -119,7 +136,7 @@ export function BillingRecentActivitySection() {
 
           {!ledgerError ? (
             <div
-              className='overflow-auto'
+              className={cn('overflow-auto', stretchToFill && 'min-h-0 flex-1')}
               data-testid='billing-usage-table-scroll'
             >
               <div className='min-w-[720px]'>
