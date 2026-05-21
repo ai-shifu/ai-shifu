@@ -1175,9 +1175,7 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
         )
         db.session.commit()
 
-        with patch(
-            "flaskr.service.shifu.admin._load_user_map"
-        ) as user_map_mock:
+        with patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock:
             user_map_mock.return_value = {
                 creator_bid: {
                     "mobile": "15811112222",
