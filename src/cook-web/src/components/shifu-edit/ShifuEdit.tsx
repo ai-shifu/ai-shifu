@@ -1184,6 +1184,9 @@ const ScriptEditor = ({
     : t('module.shifu.previewArea.open');
 
   const previewDisabledReason = t('module.shifu.previewArea.disabled');
+  const handleHistoryEntryClick = useCallback(() => {
+    trackEvent('creator_lesson_history_click');
+  }, [trackEvent]);
   const historyPageUrl = useMemo(() => {
     return buildUrlWithLessonId(`/shifu/${id}/history`, currentNode?.bid || '');
   }, [currentNode?.bid, id]);
@@ -1564,6 +1567,7 @@ const ScriptEditor = ({
                             href={historyPageUrl}
                             target='_blank'
                             rel='noopener noreferrer'
+                            onClick={handleHistoryEntryClick}
                             aria-label={t('module.shifu.history.title')}
                             title={t('module.shifu.history.title')}
                           >

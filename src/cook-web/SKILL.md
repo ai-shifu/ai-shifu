@@ -10,6 +10,7 @@
 ## Project-Wide Constraints
 
 - Treat URL parameters as explicit overrides: use `lessonid` for lesson targeting, let `listen` query override learner mode when present, and fall back to course-level `tts_enabled` to decide whether listen mode is available while keeping `read` as the default. When no course-scoped `course_learning_mode:*` storage exists yet and there is no explicit URL override, persist the resolved default mode immediately so first-load behavior and local storage stay in sync.
+- 学习页如果要新增和初始化模式有关的埋点，优先在写回 `course_learning_mode:*` 之前先读取并上报原始 localStorage 值，避免“首进自动补写默认值”覆盖掉用户上一次真实固定的模式。
 - 当 `listen=true` 先以听课模式初始化、后续又因为旧课兼容或能力检查回退到阅读模式时，要基于当前模式重新同步移动端正文里的追问按钮，不要只依赖首轮数据装配结果。
 - Streaming chat must use `element_bid` as the stable render key, with compatibility fields backfilled in the shared normalization entry point.
 - When the same logic is reused by more than two files, extract it into shared `utils/constants/hooks` instead of duplicating it.
@@ -29,6 +30,7 @@
 - admin 课程卡片如果产品要求更扁平的视觉，优先直接去掉 box-shadow，只保留边框和 hover 淡蓝底色，不要同时保留阴影和背景变色造成层级过重。
 - 后台页面和 `shifu` 详情页这类桌面工作台如果要新增右侧固定联系入口，优先抽成共享悬浮组件挂在 layout 或页面根层；颜色复用 `bg-primary / text-primary-foreground`，外链统一新开页跳转，避免在多个页面各写一份定位和跳转逻辑。
 - `/shifu/[id]` 作者工作台页默认不要展示右侧 `ContactSideRail`；这类全局悬浮入口是否出现要按页面场景单独决策，避免把后台或营销辅助入口直接带进创作主流程。
+- `/shifu/[id]` 作者工作台顶部这类会触发新开页或路由跳转的工具按钮，如果要补埋点，优先直接挂在真实点击入口上调用 `useTracking().trackEvent`，并在导航发生前上报；产品没要求业务参数时不要额外补自定义参数，保持事件语义单一。
 - 如果前端要新增一个和 `HOME_URL` 类似的运行时配置项，优先沿 `common/config.py -> route/config.py -> billing runtime DTO -> cook-web environment/envStore/initializeEnvData` 这条链路一次性补齐；默认值、creator branding override、store 字段和页面显隐逻辑一起落地，避免只改页面读取不改 runtime config。
 - 课程设置这类 `Sheet` 表单弹层如果头部下方有分隔线，表单滚动内容区优先显式补 `padding-top: 24px`，不要让第一组字段紧贴分隔线开始。
 - 这类带右侧倍率或状态徽标的下拉选项，如果选中态需要显示勾选标记，优先把勾放进右侧预留列，并通过共享 `SelectItem` 暴露定位能力；左侧不要额外保留空列占位，且 trigger / option 的左内边距要和表单里的 `Input` 基线一致，再给右侧徽标和勾选标记留出足够间距。

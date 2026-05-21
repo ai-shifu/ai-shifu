@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { parseUrlParams } from '@/c-utils/urlUtils';
 // import routes from './Router/index';
 // import { useRoutes } from 'react-router-dom';
@@ -19,6 +19,7 @@ import {
 } from '@/c-constants/uiConstants';
 import { getCourseInfo } from '@/c-api/course';
 import { tracking } from '@/c-common/tools/tracking';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import {
   EnvStoreState,
   SystemStoreState,
@@ -46,7 +47,9 @@ export default function ChatLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const trackedLearningModeStorageRef = useRef<string>('');
   const { i18n, t } = useTranslation();
+  const { trackEvent } = useTracking();
   const routeParams = useParams<{ id?: string[] }>();
 
   const [checkWxcode, setCheckWxcode] = useState<boolean>(false);
@@ -196,6 +199,32 @@ export default function ChatLayout({
     updateSkip,
     updateShowLearningModeToggle,
   ]);
+
+  useEffect(() => {
+    if (!storageCourseId) {
+      return;
+    }
+
+    const trackingKey = [
+      storageCourseId,
+      hasListenModeOverride ? 'override' : 'default',
+      listenModeParam === null ? 'none' : listenModeParam ? 'listen' : 'read',
+    ].join(':');
+
+    if (trackedLearningModeStorageRef.current === trackingKey) {
+      return;
+    }
+
+    trackedLearningModeStorageRef.current = trackingKey;
+    const storedLearningMode = readLearningModeFromStorage(storageCourseId);
+
+    if (storedLearningMode === null) {
+      return;
+    }
+    void trackEvent('learner_last_learning_mode', {
+      learning_mode: storedLearningMode,
+    });
+  }, [hasListenModeOverride, listenModeParam, storageCourseId, trackEvent]);
 
   useEffect(() => {
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
