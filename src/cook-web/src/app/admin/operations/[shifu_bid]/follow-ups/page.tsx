@@ -120,7 +120,9 @@ const createFollowUpFilters = (): FollowUpFilters => ({
   endTime: '',
 });
 
-const normalizeFollowUpFilters = (filters: FollowUpFilters): FollowUpFilters => ({
+const normalizeFollowUpFilters = (
+  filters: FollowUpFilters,
+): FollowUpFilters => ({
   keyword: filters.keyword.trim(),
   chapterKeyword: filters.chapterKeyword.trim(),
   startTime: filters.startTime,
@@ -384,7 +386,8 @@ export default function AdminOperationCourseFollowUpsPage() {
       }
 
       const resolvedFilters = normalizeFollowUpFilters(nextFilters ?? filters);
-      const shouldRefreshFullSummary = isDefaultFollowUpFilters(resolvedFilters);
+      const shouldRefreshFullSummary =
+        isDefaultFollowUpFilters(resolvedFilters);
       const requestId = listRequestIdRef.current + 1;
       listRequestIdRef.current = requestId;
       setLoading(true);
@@ -405,7 +408,9 @@ export default function AdminOperationCourseFollowUpsPage() {
           return;
         }
         if (shouldRefreshFullSummary) {
-          setFullSummary(response?.summary || EMPTY_FOLLOW_UPS_RESPONSE.summary);
+          setFullSummary(
+            response?.summary || EMPTY_FOLLOW_UPS_RESPONSE.summary,
+          );
         }
         setFollowUps({
           summary: response?.summary || EMPTY_FOLLOW_UPS_RESPONSE.summary,
@@ -542,8 +547,7 @@ export default function AdminOperationCourseFollowUpsPage() {
         key: 'latestFollowUpAt',
         label: tOperations('detail.followUps.summary.latestFollowUpAt'),
         value:
-          formatAdminUtcDateTime(fullSummary.latest_follow_up_at) ||
-          emptyValue,
+          formatAdminUtcDateTime(fullSummary.latest_follow_up_at) || emptyValue,
         tone: 'timestamp' as const,
       },
     ],

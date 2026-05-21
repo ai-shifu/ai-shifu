@@ -402,7 +402,9 @@ describe('AdminOperationCourseFollowUpsPage', () => {
 
     render(<AdminOperationCourseFollowUpsPage />);
 
-    expect(await screen.findByText('All follow-up question')).toBeInTheDocument();
+    expect(
+      await screen.findByText('All follow-up question'),
+    ).toBeInTheDocument();
     expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText('7')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();

@@ -5144,8 +5144,7 @@ def get_operator_course_follow_ups(
         else:
             summary_row = None
             total = int(
-                db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar()
-                or 0
+                db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar() or 0
             )
 
         if total == 0:
