@@ -295,8 +295,7 @@ export default function AskBlock({
             const backendMessage =
               typeof response.content === 'string' ? response.content : '';
             toast({
-              title:
-                backendMessage || t('module.chat.outputInProgress'),
+              title: backendMessage || t('module.chat.outputInProgress'),
             });
 
             isStreamingRef.current = false;
