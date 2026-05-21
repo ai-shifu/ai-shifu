@@ -86,11 +86,26 @@ $color-on-accent: #fff;
 // ============================================================================
 
 .columnHead {
-  padding: 20px 16px 18px !important;
+  padding: 0 16px !important;
   background: var(--base-card, #fff);
-  border-bottom: 1px solid var(--base-border, #e5e5e5);
-  vertical-align: top !important;
+  vertical-align: middle !important;
   text-align: center;
+}
+
+.columnTitleHead {
+  height: 56px;
+  padding: 20px 16px 4px !important;
+}
+
+.columnPriceHead {
+  height: 104px;
+  padding: 0 16px 4px !important;
+}
+
+.columnActionHead {
+  height: 64px;
+  padding: 4px 16px 18px !important;
+  border-bottom: 1px solid var(--base-border, #e5e5e5);
 }
 
 .columnTitleRow {
@@ -125,15 +140,22 @@ $color-on-accent: #fff;
   fill: currentcolor;
 }
 
+.columnPriceSummary {
+  display: flex;
+  min-height: 96px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .columnPrice {
-  margin-top: 16px;
   text-align: center;
   color: $color-fg;
   @include font-headline;
 }
 
 .columnCreditAmount {
-  margin-top: 8px;
   text-align: center;
   color: $color-fg;
   @include font-headline;
@@ -149,12 +171,10 @@ $color-on-accent: #fff;
 .columnActionWrap {
   display: block;
   width: 100%;
-  margin-top: 16px;
 }
 
 .columnAction {
   width: 100%;
-  margin-top: 16px;
   height: var(--height-h-9, 36px);
   border-radius: var(--border-radius-rounded-md, 8px);
   @include font-action;
@@ -176,7 +196,35 @@ $color-on-accent: #fff;
   ) !important;
 }
 
+.featuredColumnTitle {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 82, 217, 0.06) 0%,
+    rgba(0, 82, 217, 0.05) 100%
+  ) !important;
+}
+
+.featuredColumnPrice {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 82, 217, 0.05) 0%,
+    rgba(0, 82, 217, 0.035) 100%
+  ) !important;
+}
+
+.featuredColumnAction {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 82, 217, 0.035) 0%,
+    rgba(0, 82, 217, 0.02) 100%
+  ) !important;
+}
+
 .featuredColumn .columnTitle {
+  color: $color-accent;
+}
+
+.featuredColumnTitle .columnTitle {
   color: $color-accent;
 }
 
