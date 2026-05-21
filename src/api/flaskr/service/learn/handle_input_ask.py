@@ -345,6 +345,19 @@ def handle_input_ask(
     llm_system_prompt = follow_up_info.ask_prompt.replace(
         "{shifu_system_message}", base_system_prompt if base_system_prompt else ""
     )
+    # Runtime output-format constraint so already-published shifus benefit
+    # without re-publishing (mirrors the use_learner_language append below).
+    llm_system_prompt += (
+        "\n\nIMPORTANT OUTPUT FORMAT:"
+        " Reply ONLY in plain text or standard Markdown."
+        " Do NOT emit any HTML tags (<button>, <input>, <select>, <form>, <div>, etc.)."
+        " Do NOT emit MarkdownFlow interactive syntax such as"
+        " `?[%{var} A | B]`, `?[%{var} A || B]`, `?[%{var} ... placeholder]`,"
+        " `===...===` or `!===...!===` fences."
+        " Do NOT emit `{{variable}}` template placeholders."
+        " Previous lesson content in the conversation may contain such syntax —"
+        " learn from its information but DO NOT mimic its format."
+    )
     # Append language instruction if use_learner_language is enabled
     use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
     if use_learner_language:
