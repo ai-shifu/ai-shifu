@@ -40,13 +40,11 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    BILLING_TRIAL_PRODUCT_BID,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_BUCKET_STATUS_EXPIRED,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
-    CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
@@ -498,9 +496,9 @@ def ensure_subscription_renewal_order(
             paid_amount=0,
             payment_provider=provider_name,
             channel="subscription" if provider_name == "stripe" else "alipay_qr",
-            provider_reference_id=(
-                provider_reference_id if provider_name == "stripe" else ""
-            ),
+            provider_reference_id=provider_reference_id
+            if provider_name == "stripe"
+            else "",
             status=BILLING_ORDER_STATUS_PENDING,
             metadata_json=metadata,
         )
@@ -778,201 +776,6 @@ def _build_bucket_metadata_from_order(order: BillingOrder) -> dict[str, Any]:
     ).to_metadata_json()
 
 
-def _expired_trial_carryover_idempotency_key(
-    *,
-    order: BillingOrder,
-    bucket: CreditWalletBucket,
-) -> str:
-    return ":".join(
-        (
-            "carryover_expired_trial",
-            str(order.bill_order_bid or ""),
-            str(bucket.wallet_bucket_bid or ""),
-        )
-    )
-
-
-def _load_expired_trial_carryover_entry(
-    *,
-    order: BillingOrder,
-    bucket: CreditWalletBucket,
-) -> CreditLedgerEntry | None:
-    idempotency_key = _expired_trial_carryover_idempotency_key(
-        order=order,
-        bucket=bucket,
-    )
-    return (
-        CreditLedgerEntry.query.filter(
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.creator_bid == order.creator_bid,
-            CreditLedgerEntry.idempotency_key == idempotency_key,
-        )
-        .order_by(CreditLedgerEntry.id.desc())
-        .first()
-    )
-
-
-def _load_order_product_bid(order_bid: str) -> str:
-    normalized_order_bid = _normalize_bid(order_bid)
-    if not normalized_order_bid:
-        return ""
-    product_bid = (
-        BillingOrder.query.filter(
-            BillingOrder.deleted == 0,
-            BillingOrder.bill_order_bid == normalized_order_bid,
-        )
-        .order_by(BillingOrder.id.desc())
-        .with_entities(BillingOrder.product_bid)
-        .scalar()
-    )
-    return _normalize_bid(product_bid)
-
-
-def _ledger_entry_references_trial_product(entry: CreditLedgerEntry) -> bool:
-    metadata = entry.metadata_json if isinstance(entry.metadata_json, dict) else {}
-    if _normalize_bid(metadata.get("product_bid")) == BILLING_TRIAL_PRODUCT_BID:
-        return True
-    return _load_order_product_bid(entry.source_bid) == BILLING_TRIAL_PRODUCT_BID
-
-
-def _bucket_metadata_references_trial_product(bucket: CreditWalletBucket) -> bool:
-    metadata = bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}
-    if _normalize_bid(metadata.get("product_bid")) == BILLING_TRIAL_PRODUCT_BID:
-        return True
-    return _load_order_product_bid(bucket.source_bid) == BILLING_TRIAL_PRODUCT_BID
-
-
-def _resolve_expired_trial_carryover_amount(bucket: CreditWalletBucket) -> Decimal:
-    expired_balance = _quantize_credit_amount(bucket.expired_credits)
-    if expired_balance <= 0:
-        return Decimal("0")
-
-    expire_entries = (
-        CreditLedgerEntry.query.filter(
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.creator_bid == bucket.creator_bid,
-            CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
-            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-        )
-        .order_by(CreditLedgerEntry.id.asc())
-        .all()
-    )
-    trial_expired_total = sum(
-        (
-            _to_decimal(entry.amount).copy_abs()
-            for entry in expire_entries
-            if _ledger_entry_references_trial_product(entry)
-        ),
-        start=Decimal("0"),
-    )
-    if trial_expired_total <= 0 and _bucket_metadata_references_trial_product(bucket):
-        trial_expired_total = expired_balance
-    if trial_expired_total <= 0:
-        return Decimal("0")
-
-    carryover_entries = (
-        CreditLedgerEntry.query.filter(
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.creator_bid == bucket.creator_bid,
-            CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
-            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-        )
-        .order_by(CreditLedgerEntry.id.asc())
-        .all()
-    )
-    already_carried = sum(
-        (
-            _to_decimal(entry.amount)
-            for entry in carryover_entries
-            if (
-                isinstance(entry.metadata_json, dict)
-                and entry.metadata_json.get("adjustment_reason")
-                == "expired_trial_carryover"
-            )
-        ),
-        start=Decimal("0"),
-    )
-    remaining_trial_expired = _quantize_credit_amount(
-        trial_expired_total - already_carried
-    )
-    if remaining_trial_expired <= 0:
-        return Decimal("0")
-    return _quantize_credit_amount(min(expired_balance, remaining_trial_expired))
-
-
-def _restore_expired_trial_credit_carryover_for_order(
-    *,
-    bucket: CreditWalletBucket,
-    order: BillingOrder,
-) -> Decimal:
-    if int(order.order_type or 0) not in {
-        BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-        BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-    }:
-        return Decimal("0")
-    if _normalize_bid(order.product_bid) == BILLING_TRIAL_PRODUCT_BID:
-        return Decimal("0")
-    carryover_amount = _resolve_expired_trial_carryover_amount(bucket)
-    if carryover_amount <= 0:
-        return Decimal("0")
-    if _load_expired_trial_carryover_entry(order=order, bucket=bucket) is not None:
-        return Decimal("0")
-
-    bucket.available_credits = _quantize_credit_amount(
-        _to_decimal(bucket.available_credits) + carryover_amount
-    )
-    bucket.expired_credits = _quantize_credit_amount(
-        _to_decimal(bucket.expired_credits) - carryover_amount
-    )
-    metadata = bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}
-    bucket.metadata_json = {
-        **metadata,
-        "expired_trial_carryover_order_bid": order.bill_order_bid,
-        "expired_trial_carryover_amount": str(carryover_amount),
-    }
-    return carryover_amount
-
-
-def _build_expired_trial_carryover_ledger_entry(
-    app: Flask,
-    *,
-    wallet: CreditWallet,
-    bucket: CreditWalletBucket,
-    order: BillingOrder,
-    amount: Decimal,
-    effective_from: datetime,
-    effective_to: datetime | None,
-    balance_after: Decimal,
-) -> CreditLedgerEntry:
-    return CreditLedgerEntry(
-        ledger_bid=generate_id(app),
-        creator_bid=order.creator_bid,
-        wallet_bid=wallet.wallet_bid,
-        wallet_bucket_bid=bucket.wallet_bucket_bid,
-        entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-        source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-        source_bid=order.bill_order_bid,
-        idempotency_key=_expired_trial_carryover_idempotency_key(
-            order=order,
-            bucket=bucket,
-        ),
-        amount=amount,
-        balance_after=balance_after,
-        expires_at=effective_to,
-        consumable_from=effective_from,
-        metadata_json=_normalize_json_object(
-            {
-                "bill_order_bid": order.bill_order_bid,
-                "subscription_bid": order.subscription_bid or None,
-                "product_bid": order.product_bid,
-                "payment_provider": order.payment_provider,
-                "adjustment_reason": "expired_trial_carryover",
-                "source_trial_bucket_bid": bucket.wallet_bucket_bid,
-            }
-        ).to_metadata_json(),
-    )
-
-
 def _load_grant_ledger_entry_for_order(order: BillingOrder) -> CreditLedgerEntry | None:
     return (
         CreditLedgerEntry.query.filter(
@@ -1029,13 +832,6 @@ def _repair_existing_paid_order_grant_bucket(
         bucket.source_bid = order.bill_order_bid
         changed = True
 
-    carryover_amount = _restore_expired_trial_credit_carryover_for_order(
-        bucket=bucket,
-        order=order,
-    )
-    if carryover_amount > 0:
-        changed = True
-
     previous_status = int(bucket.status or 0)
     if previous_status == CREDIT_BUCKET_STATUS_EXPIRED and (
         _to_decimal(bucket.available_credits) > 0
@@ -1062,19 +858,6 @@ def _repair_existing_paid_order_grant_bucket(
         reserved_credits=wallet.reserved_credits,
         updated_at=now,
     )
-    if carryover_amount > 0:
-        db.session.add(
-            _build_expired_trial_carryover_ledger_entry(
-                app,
-                wallet=wallet,
-                bucket=bucket,
-                order=order,
-                amount=carryover_amount,
-                effective_from=effective_from or now,
-                effective_to=effective_to,
-                balance_after=_quantize_credit_amount(wallet.available_credits),
-            )
-        )
     return True
 
 
@@ -1164,7 +947,7 @@ def _upsert_paid_order_credit_bucket(
     amount: Decimal,
     effective_from: datetime,
     effective_to: datetime | None,
-) -> tuple[CreditWalletBucket, bool, Decimal]:
+) -> tuple[CreditWalletBucket, bool]:
     bucket = load_or_create_credit_bucket_by_category(
         app,
         wallet=wallet,
@@ -1178,17 +961,21 @@ def _upsert_paid_order_credit_bucket(
     now = datetime.now()
     current_available = _to_decimal(bucket.available_credits)
     current_reserved = _to_decimal(bucket.reserved_credits)
-    expired_trial_carryover_amount = Decimal("0")
 
     bucket.wallet_bid = wallet.wallet_bid
     bucket.bucket_category = grant_context.bucket_category
     bucket.source_type = resolve_bucket_source_type_for_category(
         grant_context.bucket_category
     )
+    bucket.source_bid = order.bill_order_bid
     bucket.priority = grant_context.priority
     bucket.original_credits = _quantize_credit_amount(
         _to_decimal(bucket.original_credits) + amount
     )
+    bucket.metadata_json = {
+        **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
+        **_build_bucket_metadata_from_order(order),
+    }
 
     reserve_grant = False
     if grant_context.bucket_category == CREDIT_BUCKET_CATEGORY_TOPUP:
@@ -1220,13 +1007,6 @@ def _upsert_paid_order_credit_bucket(
                     order=order,
                     transition_at=effective_from,
                 )
-            else:
-                expired_trial_carryover_amount = (
-                    _restore_expired_trial_credit_carryover_for_order(
-                        bucket=bucket,
-                        order=order,
-                    )
-                )
             bucket.available_credits = _quantize_credit_amount(
                 _to_decimal(bucket.available_credits) + amount
             )
@@ -1236,16 +1016,11 @@ def _upsert_paid_order_credit_bucket(
             bucket.effective_from = effective_from
             bucket.effective_to = effective_to
 
-    bucket.source_bid = order.bill_order_bid
-    bucket.metadata_json = {
-        **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
-        **_build_bucket_metadata_from_order(order),
-    }
     bucket.updated_at = now
     _prepare_bucket_for_runtime_reuse(bucket)
     sync_credit_bucket_status(bucket)
     db.session.add(bucket)
-    return bucket, reserve_grant, expired_trial_carryover_amount
+    return bucket, reserve_grant
 
 
 def _activate_reserved_subscription_grant_for_order(
@@ -1384,16 +1159,14 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         effective_from=effective_from,
     )
 
-    bucket, reserve_grant, expired_trial_carryover_amount = (
-        _upsert_paid_order_credit_bucket(
-            app,
-            wallet=wallet,
-            order=order,
-            grant_context=grant_context,
-            amount=amount,
-            effective_from=effective_from,
-            effective_to=effective_to,
-        )
+    bucket, reserve_grant = _upsert_paid_order_credit_bucket(
+        app,
+        wallet=wallet,
+        order=order,
+        grant_context=grant_context,
+        amount=amount,
+        effective_from=effective_from,
+        effective_to=effective_to,
     )
     if (
         grant_context.bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
@@ -1413,20 +1186,6 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
 
     refresh_credit_wallet_snapshot(wallet)
     balance_after = _quantize_credit_amount(wallet.available_credits)
-    if expired_trial_carryover_amount > 0:
-        carryover_balance_after = _quantize_credit_amount(balance_after - amount)
-        db.session.add(
-            _build_expired_trial_carryover_ledger_entry(
-                app,
-                wallet=wallet,
-                bucket=bucket,
-                order=order,
-                amount=expired_trial_carryover_amount,
-                effective_from=effective_from,
-                effective_to=effective_to,
-                balance_after=carryover_balance_after,
-            )
-        )
     next_lifetime_granted = _quantize_credit_amount(
         _to_decimal(wallet.lifetime_granted_credits) + amount
     )

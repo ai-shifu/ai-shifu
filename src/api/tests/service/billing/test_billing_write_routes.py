@@ -20,8 +20,6 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_BUCKET_STATUS_EXPIRED,
     BILLING_ORDER_TYPE_TOPUP,
-    CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-    CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_LEDGER_ENTRY_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_GIFT,
@@ -2473,11 +2471,6 @@ class TestBillingWriteRoutes:
                 source_bid="bill-reactivate-expired-1",
                 entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
             ).one()
-            carryover_entry = CreditLedgerEntry.query.filter_by(
-                creator_bid="creator-1",
-                source_bid="bill-reactivate-expired-1",
-                entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-            ).one()
             subscription = BillingSubscription.query.filter_by(
                 subscription_bid="sub-reactivate-expired"
             ).one()
@@ -2485,23 +2478,15 @@ class TestBillingWriteRoutes:
             assert granted is True
             assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
             assert bucket.source_bid == "bill-reactivate-expired-1"
-            assert bucket.available_credits == Decimal("995.1500000000")
-            assert bucket.expired_credits == Decimal("0E-10")
+            assert bucket.available_credits == Decimal("5.0000000000")
             assert bucket.effective_from == paid_at
             assert bucket.effective_to == calculate_self_managed_billing_cycle_end(
                 product,
                 cycle_start_at=paid_at,
             )
-            assert wallet.available_credits == Decimal("995.1500000000")
-            assert wallet.lifetime_granted_credits == Decimal("1005.0000000000")
+            assert wallet.available_credits == Decimal("5.0000000000")
             assert grant_entry.wallet_bucket_bid == bucket.wallet_bucket_bid
             assert grant_entry.amount == Decimal("5.0000000000")
-            assert carryover_entry.wallet_bucket_bid == bucket.wallet_bucket_bid
-            assert carryover_entry.amount == Decimal("990.1500000000")
-            assert (
-                carryover_entry.metadata_json["adjustment_reason"]
-                == "expired_trial_carryover"
-            )
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
 
     def test_paid_subscription_replay_repairs_existing_expired_bucket_status(
@@ -2610,30 +2595,11 @@ class TestBillingWriteRoutes:
                     "bucket_credit_state": "available",
                 },
             )
-            expired_trial_entry = CreditLedgerEntry(
-                ledger_bid="ledger-repair-existing-expired-trial-expire",
-                creator_bid="creator-1",
-                wallet_bid=wallet.wallet_bid,
-                wallet_bucket_bid=expired_bucket.wallet_bucket_bid,
-                entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-                source_bid="bill-trial-expired-replay-1",
-                idempotency_key="expire:bucket-repair-existing-expired",
-                amount=Decimal("-990.1500000000"),
-                balance_after=Decimal("0"),
-                expires_at=expired_at,
-                consumable_from=datetime(2026, 4, 20, 19, 22, 1),
-                metadata_json={
-                    "expired_bucket_bid": expired_bucket.wallet_bucket_bid,
-                    "product_bid": BILLING_TRIAL_PRODUCT_BID,
-                },
-            )
             dao.db.session.add(wallet)
             dao.db.session.add(subscription)
             dao.db.session.add(expired_bucket)
             dao.db.session.add(order)
             dao.db.session.add(grant_entry)
-            dao.db.session.add(expired_trial_entry)
             dao.db.session.flush()
 
             granted = grant_paid_order_credits(app, order)
@@ -2657,19 +2623,10 @@ class TestBillingWriteRoutes:
                 == 1
             )
             assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
-            assert bucket.available_credits == Decimal("1040.1500000000")
-            assert bucket.expired_credits == Decimal("0E-10")
+            assert bucket.available_credits == Decimal("50.0000000000")
             assert bucket.effective_from == paid_at
             assert bucket.effective_to == cycle_end
-            assert wallet.available_credits == Decimal("1040.1500000000")
-            assert (
-                CreditLedgerEntry.query.filter_by(
-                    creator_bid="creator-1",
-                    source_bid="bill-repair-existing-expired-1",
-                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-                ).count()
-                == 1
-            )
+            assert wallet.available_credits == Decimal("50.0000000000")
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.current_period_end_at == cycle_end
 
