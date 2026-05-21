@@ -115,6 +115,7 @@ export default function ChatLayout({
   const params = parseUrlParams() as Record<string, string>;
   const routeCourseId = Array.isArray(routeParams?.id) ? routeParams.id[0] : '';
   const storageCourseId = routeCourseId || params.courseId || courseId;
+  const outlineBid = params.lessonid || '';
   const currChannel = params.channel || '';
   const isPreviewMode = parseBooleanQueryParam(params.preview) ?? false;
   const isSkipMode = parseBooleanQueryParam(params.skip) ?? false;
@@ -222,9 +223,17 @@ export default function ChatLayout({
       return;
     }
     void trackEvent('learner_last_learning_mode', {
+      shifu_bid: storageCourseId,
+      outline_bid: outlineBid,
       learning_mode: storedLearningMode,
     });
-  }, [hasListenModeOverride, listenModeParam, storageCourseId, trackEvent]);
+  }, [
+    hasListenModeOverride,
+    listenModeParam,
+    outlineBid,
+    storageCourseId,
+    trackEvent,
+  ]);
 
   useEffect(() => {
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
