@@ -277,9 +277,9 @@
       "providerAlipay": "Alipay",
       "providerManual": "Manuel",
       "providerPingxx": "Pingxx",
-      "providerWithChannel": "{provider} / {channel}",
       "providerStripe": "Stripe",
-      "providerWechatpay": "WeChat Pay"
+      "providerWechatpay": "WeChat Pay",
+      "providerWithChannel": "{provider} / {channel}"
     },
     "plans": {
       "creatorMonthly": {
