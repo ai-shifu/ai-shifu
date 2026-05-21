@@ -7,9 +7,42 @@
     "requeue": "重发"
   },
   "config": {
-    "description": "直接编辑通知策略 JSON。供应商密钥仍来自环境变量或 Secret，不在这里配置。",
-    "invalidJson": "配置 JSON 格式不正确。",
+    "description": "通过表单维护通知开关、模板、阈值、频控和名单。供应商密钥仍来自环境变量或 Secret，不在这里配置。",
+    "fields": {
+      "blacklistCreatorBids": "黑名单 Creator BID",
+      "blacklistMobiles": "黑名单手机号",
+      "dailySmsLimit": "每日短信预算",
+      "disableDebug": "禁用调试",
+      "dryRunRequired": "要求 Dry-run",
+      "enabled": "启用积分短信通知",
+      "mergeSameCreator": "同一创作者合并",
+      "optOutCreatorBids": "退订 Creator BID",
+      "optOutMobiles": "退订手机号",
+      "perCreatorPerTypePerDay": "每创作者/类型每日上限",
+      "perMobilePerDay": "每手机号每日上限",
+      "quietEnd": "免打扰结束",
+      "quietHoursEnabled": "启用免打扰",
+      "quietStart": "免打扰开始",
+      "smsUnitCost": "短信单价",
+      "softlimitEnabled": "启用 softlimit",
+      "softlimitSms": "softlimit 短信提醒",
+      "softlimitThreshold": "softlimit 阈值",
+      "teacherPageAlert": "老师端页面提醒",
+      "templateCode": "短信模板 Code",
+      "thresholds": "余额阈值",
+      "timezone": "时区",
+      "windows": "到期提醒窗口"
+    },
+    "invalidConfig": "配置保存失败，请检查表单内容。",
     "saved": "配置已保存。",
+    "sections": {
+      "budget": "预算",
+      "frequency": "频控",
+      "lists": "黑名单与退订",
+      "quietHours": "免打扰",
+      "softlimit": "Softlimit",
+      "types": "通知类型"
+    },
     "title": "运营策略配置"
   },
   "dryRun": {

@@ -49,13 +49,17 @@ const mockGetConfig =
   api.getAdminOperationCreditNotificationConfig as jest.Mock;
 const mockGetRecords = api.getAdminOperationCreditNotifications as jest.Mock;
 const mockRequeue = api.requeueAdminOperationCreditNotification as jest.Mock;
+const mockUpdateConfig =
+  api.updateAdminOperationCreditNotificationConfig as jest.Mock;
 
 describe('AdminOperationCreditNotificationsPage', () => {
   beforeEach(() => {
     mockGetConfig.mockReset();
     mockGetRecords.mockReset();
     mockRequeue.mockReset();
+    mockUpdateConfig.mockReset();
     mockGetConfig.mockResolvedValue({ enabled: false });
+    mockUpdateConfig.mockResolvedValue({ enabled: false });
     mockGetRecords.mockResolvedValue({
       page: 1,
       page_size: 20,
@@ -112,6 +116,42 @@ describe('AdminOperationCreditNotificationsPage', () => {
       expect(mockRequeue).toHaveBeenCalledWith({
         notification_bid: 'notification-1',
       });
+    });
+  });
+
+  it('saves structured config changes without exposing a raw JSON editor', async () => {
+    const { container } = render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+
+    expect(container.querySelector('textarea')).toBeNull();
+
+    const templateInputs = screen.getAllByLabelText(
+      'module.operationsCreditNotifications.config.fields.templateCode',
+    ) as HTMLInputElement[];
+    fireEvent.change(templateInputs[1], {
+      target: { value: 'TPL-GRANT-UPDATED' },
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'sms',
+          types: expect.objectContaining({
+            credit_granted: expect.objectContaining({
+              template_code: 'TPL-GRANT-UPDATED',
+            }),
+          }),
+        }),
+      );
     });
   });
 });

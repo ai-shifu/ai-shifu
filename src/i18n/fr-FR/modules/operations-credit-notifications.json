@@ -7,9 +7,42 @@
     "requeue": "Relancer"
   },
   "config": {
-    "description": "Modifiez directement le JSON de politique de notification. Les identifiants fournisseur viennent toujours des variables d’environnement ou des Secrets.",
-    "invalidJson": "Le JSON de configuration est invalide.",
+    "description": "Utilisez le formulaire pour gérer les interrupteurs, modèles, seuils, contrôles de fréquence et listes. Les identifiants fournisseur viennent toujours des variables d’environnement ou des Secrets.",
+    "fields": {
+      "blacklistCreatorBids": "Creator BID bloqués",
+      "blacklistMobiles": "Mobiles bloqués",
+      "dailySmsLimit": "Budget SMS quotidien",
+      "disableDebug": "Désactiver le debug",
+      "dryRunRequired": "Dry-run requis",
+      "enabled": "Activer les SMS de crédits",
+      "mergeSameCreator": "Fusionner le même créateur",
+      "optOutCreatorBids": "Creator BID désabonnés",
+      "optOutMobiles": "Mobiles désabonnés",
+      "perCreatorPerTypePerDay": "Limite quotidienne créateur/type",
+      "perMobilePerDay": "Limite quotidienne par mobile",
+      "quietEnd": "Fin des heures calmes",
+      "quietHoursEnabled": "Activer les heures calmes",
+      "quietStart": "Début des heures calmes",
+      "smsUnitCost": "Coût unitaire SMS",
+      "softlimitEnabled": "Activer softlimit",
+      "softlimitSms": "Alerte SMS softlimit",
+      "softlimitThreshold": "Seuil softlimit",
+      "teacherPageAlert": "Alerte page enseignant",
+      "templateCode": "Code modèle SMS",
+      "thresholds": "Seuils de solde",
+      "timezone": "Fuseau horaire",
+      "windows": "Fenêtres de rappel d’expiration"
+    },
+    "invalidConfig": "Impossible d’enregistrer la configuration. Vérifiez les valeurs du formulaire.",
     "saved": "Configuration enregistrée.",
+    "sections": {
+      "budget": "Budget",
+      "frequency": "Contrôles de fréquence",
+      "lists": "Blocages et désabonnements",
+      "quietHours": "Heures calmes",
+      "softlimit": "Softlimit",
+      "types": "Types de notification"
+    },
     "title": "Configuration opérateur"
   },
   "dryRun": {

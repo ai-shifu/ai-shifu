@@ -50,7 +50,7 @@ Implemented v1 of the积分通知中心:
 - Durable `notification_records` table and disabled-by-default `BILL_CREDIT_NOTIFICATION_SMS_CONFIG` policy.
 - SMS-only notification service with policy validation, dedupe, staging, delivery, skip states, failed-provider requeue, dry-run, and SMS cost estimate.
 - `credit_granted` hooks in paid/manual/trial grant flows, plus scheduled scan tasks for `credit_expiring` and `low_balance`.
-- Operator APIs and frontend page for record search, config JSON, dry-run, and failed-provider requeue.
+- Operator APIs and frontend page for record search, structured policy config, dry-run, and failed-provider requeue.
 - Billing overview exposes `credit_status`, `debug_allowed`, and `softlimit_threshold`; preview/debug paths enforce softlimit in both frontend and backend.
 - Focused backend, task, and frontend tests cover staging, dedupe, skip, provider retry, scan windows, softlimit, Celery schedule/config, operator page rendering, and frontend preview blocking.
 

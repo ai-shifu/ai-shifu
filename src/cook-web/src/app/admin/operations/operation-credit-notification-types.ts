@@ -64,3 +64,56 @@ export type AdminOperationCreditNotificationRequeueResponse = {
   enqueued?: boolean;
   message?: string;
 };
+
+export type CreditNotificationFixedThreshold = {
+  kind: 'fixed';
+  value: string;
+};
+
+export type CreditNotificationTypePolicy = {
+  enabled: boolean;
+  template_code: string;
+  windows?: string[];
+  merge_same_creator?: boolean;
+  thresholds?: CreditNotificationFixedThreshold[];
+};
+
+export type AdminOperationCreditNotificationPolicy = {
+  enabled: boolean;
+  channel: 'sms';
+  types: {
+    credit_expiring: CreditNotificationTypePolicy;
+    credit_granted: CreditNotificationTypePolicy;
+    low_balance: CreditNotificationTypePolicy;
+  };
+  softlimit: {
+    enabled: boolean;
+    threshold: CreditNotificationFixedThreshold;
+    teacher_page_alert: boolean;
+    disable_debug: boolean;
+    sms_enabled: boolean;
+  };
+  frequency: {
+    per_mobile_per_day: number;
+    per_creator_per_type_per_day: number;
+  };
+  quiet_hours: {
+    enabled: boolean;
+    start: string;
+    end: string;
+    timezone: string;
+  };
+  blacklist: {
+    creator_bids: string[];
+    mobiles: string[];
+  };
+  opt_out: {
+    creator_bids: string[];
+    mobiles: string[];
+  };
+  budget: {
+    daily_sms_limit: number;
+    dry_run_required: boolean;
+    sms_unit_cost: string;
+  };
+};

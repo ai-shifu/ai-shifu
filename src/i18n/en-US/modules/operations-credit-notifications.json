@@ -7,9 +7,42 @@
     "requeue": "Requeue"
   },
   "config": {
-    "description": "Edit the notification policy JSON directly. Provider credentials still come from environment variables or Secrets, not this config.",
-    "invalidJson": "The config JSON is invalid.",
+    "description": "Use the form to maintain notification switches, templates, thresholds, frequency controls, and lists. Provider credentials still come from environment variables or Secrets, not this config.",
+    "fields": {
+      "blacklistCreatorBids": "Blocked creator BIDs",
+      "blacklistMobiles": "Blocked mobiles",
+      "dailySmsLimit": "Daily SMS budget",
+      "disableDebug": "Disable debug",
+      "dryRunRequired": "Require dry-run",
+      "enabled": "Enable credit SMS notifications",
+      "mergeSameCreator": "Merge same creator",
+      "optOutCreatorBids": "Opt-out creator BIDs",
+      "optOutMobiles": "Opt-out mobiles",
+      "perCreatorPerTypePerDay": "Per creator/type daily limit",
+      "perMobilePerDay": "Per mobile daily limit",
+      "quietEnd": "Quiet hours end",
+      "quietHoursEnabled": "Enable quiet hours",
+      "quietStart": "Quiet hours start",
+      "smsUnitCost": "SMS unit cost",
+      "softlimitEnabled": "Enable softlimit",
+      "softlimitSms": "Softlimit SMS alert",
+      "softlimitThreshold": "Softlimit threshold",
+      "teacherPageAlert": "Teacher page alert",
+      "templateCode": "SMS template code",
+      "thresholds": "Balance thresholds",
+      "timezone": "Timezone",
+      "windows": "Expiry reminder windows"
+    },
+    "invalidConfig": "Config could not be saved. Check the form values.",
     "saved": "Config saved.",
+    "sections": {
+      "budget": "Budget",
+      "frequency": "Frequency controls",
+      "lists": "Blocklist and opt-outs",
+      "quietHours": "Quiet hours",
+      "softlimit": "Softlimit",
+      "types": "Notification types"
+    },
     "title": "Operator policy config"
   },
   "dryRun": {
