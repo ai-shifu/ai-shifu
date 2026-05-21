@@ -6,6 +6,10 @@ import {
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
 
+const mockIsLessonFeedbackInteractionContent = jest.fn(
+  (content?: string) => content?.includes('lesson_feedback') ?? false,
+);
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -218,6 +222,3 @@ describe('ListenModeSlideRenderer', () => {
     ).toBe(true);
   });
 });
-const mockIsLessonFeedbackInteractionContent = jest.fn(
-  (content?: string) => content?.includes('lesson_feedback') ?? false,
-);
