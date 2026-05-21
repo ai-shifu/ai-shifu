@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
@@ -40,6 +48,11 @@ import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import { DEFAULT_LISTEN_MOBILE_VIEW_MODE } from './listenModeTypes';
+import {
+  isListenLessonFeedbackPromptReady,
+  LESSON_FEEDBACK_TAIL_INTERACTION_SETTLE_DELAY_MS,
+  shouldDelayListenFeedbackPromptForTailInteraction,
+} from './lessonFeedbackPromptState';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -86,6 +99,7 @@ interface ListenModeSlideRendererProps {
     isAudioPlaying: boolean;
     isAudioSequenceActive: boolean;
   }) => void;
+  onLessonFeedbackPromptStateChange?: (ready: boolean) => void;
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
 }
 
@@ -410,6 +424,7 @@ const ListenModeSlideRenderer = ({
   onSend,
   onPlayerVisibilityChange,
   onPlaybackStateChange,
+  onLessonFeedbackPromptStateChange,
   onMobileViewModeChange,
 }: ListenModeSlideRendererProps) => {
   const { t } = useTranslation();
@@ -432,6 +447,8 @@ const ListenModeSlideRenderer = ({
     isAudioPlaying: false,
     isAudioWaiting: false,
   });
+  const [hasSettledTailInteraction, setHasSettledTailInteraction] =
+    useState(false);
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
   const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
@@ -458,8 +475,12 @@ const ListenModeSlideRenderer = ({
   const storedAskListByAnchorElementBid = useAskStateStore(
     state => state.askListByAnchorElementBid,
   );
-  const { lastInteractionBid, lastItemIsInteraction, firstContentItem } =
-    useListenContentData(items);
+  const {
+    lastInteractionBid,
+    lastItemIsInteraction,
+    lastItemIsLessonFeedbackInteraction,
+    firstContentItem,
+  } = useListenContentData(items);
   const baseAskListByAnchorElementBid = useMemo(
     () => buildAskListByAnchorElementBid(items),
     [items],
@@ -1112,6 +1133,62 @@ const ListenModeSlideRenderer = ({
     });
   }, [onPlaybackStateChange, playbackState]);
 
+  const shouldDelayTailInteractionFeedbackPrompt = useMemo(
+    () =>
+      shouldDelayListenFeedbackPromptForTailInteraction({
+        lastItemIsLessonFeedbackInteraction,
+        markerStepCount,
+        currentStepIndex: playbackState.currentStepIndex,
+        currentStepHasAudio: playbackState.currentStepHasAudio,
+        currentStepHasBlockingInteraction:
+          playbackState.currentStepHasBlockingInteraction,
+        currentStepElementType: currentMarkerStepElement?.type,
+      }),
+    [
+      currentMarkerStepElement?.type,
+      lastItemIsLessonFeedbackInteraction,
+      markerStepCount,
+      playbackState.currentStepHasAudio,
+      playbackState.currentStepHasBlockingInteraction,
+      playbackState.currentStepIndex,
+    ],
+  );
+
+  useLayoutEffect(() => {
+    if (!shouldDelayTailInteractionFeedbackPrompt) {
+      setHasSettledTailInteraction(true);
+      return;
+    }
+
+    setHasSettledTailInteraction(false);
+    const timer = window.setTimeout(() => {
+      setHasSettledTailInteraction(true);
+    }, LESSON_FEEDBACK_TAIL_INTERACTION_SETTLE_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [currentMarkerStepKey, shouldDelayTailInteractionFeedbackPrompt]);
+
+  const isLessonFeedbackPromptReady = useMemo(() => {
+    return isListenLessonFeedbackPromptReady({
+      lastItemIsLessonFeedbackInteraction,
+      markerStepCount,
+      currentStepIndex: playbackState.currentStepIndex,
+      isPlaybackSequenceActive: getListenPlaybackSequenceActive(playbackState),
+      hasSettledTailInteraction,
+    });
+  }, [
+    hasSettledTailInteraction,
+    lastItemIsLessonFeedbackInteraction,
+    markerStepCount,
+    playbackState,
+  ]);
+
+  useEffect(() => {
+    onLessonFeedbackPromptStateChange?.(isLessonFeedbackPromptReady);
+  }, [isLessonFeedbackPromptReady, onLessonFeedbackPromptStateChange]);
+
   useEffect(() => {
     previousMarkerStepKeyRef.current = '';
     setPlaybackState({
@@ -1123,7 +1200,8 @@ const ListenModeSlideRenderer = ({
       isAudioPlaying: false,
       isAudioWaiting: false,
     });
-  }, [lessonId, markerSequenceKey]);
+    setHasSettledTailInteraction(false);
+  }, [lessonId, markerSequenceKey, markerStepCount]);
 
   useEffect(() => {
     setPlaybackState(prevState =>
@@ -1137,8 +1215,9 @@ const ListenModeSlideRenderer = ({
         isAudioPlaying: false,
         isAudioSequenceActive: false,
       });
+      onLessonFeedbackPromptStateChange?.(false);
     },
-    [onPlaybackStateChange],
+    [onLessonFeedbackPromptStateChange, onPlaybackStateChange],
   );
 
   const playerCustomActions = useCallback(

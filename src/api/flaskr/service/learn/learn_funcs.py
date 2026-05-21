@@ -132,6 +132,39 @@ def _is_access_gate_interaction(
     return False
 
 
+def _find_feedback_interaction_index(
+    records: list[LegacyGeneratedBlockRecord],
+) -> int:
+    for index, record in enumerate(records):
+        if (
+            record.block_type == BlockType.INTERACTION
+            and is_lesson_feedback_interaction(record.content)
+        ):
+            return index
+    return -1
+
+
+def _insert_record_before_feedback_tail(
+    records: list[LegacyGeneratedBlockRecord],
+    record: LegacyGeneratedBlockRecord,
+) -> None:
+    feedback_index = _find_feedback_interaction_index(records)
+    if feedback_index < 0:
+        records.append(record)
+        return
+    records.insert(feedback_index, record)
+
+
+def _move_feedback_interaction_to_tail(
+    records: list[LegacyGeneratedBlockRecord],
+) -> None:
+    feedback_index = _find_feedback_interaction_index(records)
+    if feedback_index < 0 or feedback_index == len(records) - 1:
+        return
+    feedback_record = records.pop(feedback_index)
+    records.append(feedback_record)
+
+
 def _collect_outline_bids(struct: HistoryItem) -> list[str]:
     outline_bids = []
     q = queue.Queue()
@@ -466,6 +499,25 @@ def get_learn_record(
             )
         )
         if (
+            progress_record.status == LEARN_STATUS_COMPLETED
+            and has_next_outline
+            and not has_tail_access_gate
+            and not has_next_chapter_button
+        ):
+            button_label = _("server.learn.nextChapterButton")
+            fallback_content = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
+            _insert_record_before_feedback_tail(
+                records,
+                LegacyGeneratedBlockRecord(
+                    generated_block_bid=generate_id(app),
+                    content=fallback_content,
+                    like_status=LikeStatus.NONE,
+                    block_type=BlockType.INTERACTION,
+                    user_input="",
+                ),
+            )
+
+        if (
             progress_record.status == LEARN_STATUS_COMPLETED or has_tail_access_gate
         ) and not has_feedback_interaction:
             saved_feedback = (
@@ -495,37 +547,8 @@ def get_learn_record(
                 block_type=BlockType.INTERACTION,
                 user_input=feedback_generated_content,
             )
-            next_button_index = next(
-                (
-                    index
-                    for index, record in enumerate(records)
-                    if record.block_type == BlockType.INTERACTION
-                    and CONTEXT_INTERACTION_NEXT in record.content
-                ),
-                len(records),
-            )
-            insert_index = next_button_index
-            if has_tail_access_gate:
-                insert_index = min(insert_index, len(records) - 1)
-            records.insert(insert_index, feedback_record)
-
-        if (
-            progress_record.status == LEARN_STATUS_COMPLETED
-            and has_next_outline
-            and not has_tail_access_gate
-            and not has_next_chapter_button
-        ):
-            button_label = _("server.learn.nextChapterButton")
-            fallback_content = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
-            records.append(
-                LegacyGeneratedBlockRecord(
-                    generated_block_bid=generate_id(app),
-                    content=fallback_content,
-                    like_status=LikeStatus.NONE,
-                    block_type=BlockType.INTERACTION,
-                    user_input="",
-                )
-            )
+            records.append(feedback_record)
+        _move_feedback_interaction_to_tail(records)
         return LegacyLearnRecord(
             records=records,
         )

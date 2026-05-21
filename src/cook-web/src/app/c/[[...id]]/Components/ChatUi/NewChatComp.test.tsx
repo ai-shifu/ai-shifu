@@ -3,7 +3,13 @@ import {
   projectListenModeItems,
   projectReadModeItems,
 } from './chatUiModeProjection';
+import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+
+jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
+  isLessonFeedbackInteractionContent: (content?: string) =>
+    content?.includes('sys_lesson_feedback_score') ?? false,
+}));
 
 describe('NewChatComp read mode loading gate', () => {
   it('keeps existing read content visible while a run is still loading', () => {
@@ -244,5 +250,27 @@ describe('NewChatComp mode projections', () => {
         shouldUseTypewriter: false,
       }),
     );
+  });
+
+  it('tracks the latest visible lesson feedback interaction anchor', () => {
+    expect(
+      findLastVisibleLessonFeedbackElementBid([
+        {
+          element_bid: 'feedback-old',
+          content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+          type: ChatContentItemType.INTERACTION,
+        },
+        {
+          element_bid: 'content-1',
+          content: 'Lesson content',
+          type: ChatContentItemType.CONTENT,
+        },
+        {
+          element_bid: 'feedback-new',
+          content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+          type: ChatContentItemType.INTERACTION,
+        },
+      ]),
+    ).toBe('feedback-new');
   });
 });

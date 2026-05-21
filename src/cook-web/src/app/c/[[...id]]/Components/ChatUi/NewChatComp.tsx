@@ -75,6 +75,7 @@ import {
   projectListenModeItems,
   projectReadModeItems,
 } from './chatUiModeProjection';
+import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
@@ -172,13 +173,12 @@ export const NewChatComponents = ({
   // });
 
   const [showScrollDown, setShowScrollDown] = useState(false);
-  const [isAtBottom, setIsAtBottom] = useState(false);
+  const [isReadFeedbackReady, setIsReadFeedbackReady] = useState(false);
+  const [isReadFeedbackAnchorVisible, setIsReadFeedbackAnchorVisible] =
+    useState(false);
+  const [readFeedbackTriggerElement, setReadFeedbackTriggerElement] =
+    useState<HTMLDivElement | null>(null);
   const listenTtsToastShownRef = useRef(false);
-  const listenFeedbackReadyTimerRef = useRef<number | null>(null);
-  const [listenPlaybackState, setListenPlaybackState] = useState({
-    isAudioPlaying: false,
-    isAudioSequenceActive: false,
-  });
   const [isListenFeedbackReady, setIsListenFeedbackReady] = useState(false);
   const listenAudioBackfillInFlightRef = useRef<Record<string, Promise<any>>>(
     {},
@@ -213,26 +213,60 @@ export const NewChatComponents = ({
     [],
   );
 
+  const isScrollableElement = useCallback((element?: HTMLElement | null) => {
+    if (!element) {
+      return false;
+    }
+
+    return element.scrollHeight > element.clientHeight + 1;
+  }, []);
+
+  const resolveScrollPresentation = useCallback(() => {
+    const localContainers: HTMLElement[] = [];
+
+    if (chatRef.current) {
+      localContainers.push(chatRef.current);
+      if (chatRef.current.parentElement) {
+        localContainers.push(chatRef.current.parentElement);
+      }
+    }
+
+    const containers: Array<HTMLElement | Document> = [...localContainers];
+    const shouldUseDocumentScroll =
+      mobileStyle || !localContainers.some(isScrollableElement);
+
+    // Desktop read mode sometimes scrolls on the page instead of the chat body.
+    // Fall back to the document scroll position so lesson feedback does not open early.
+    if (shouldUseDocumentScroll) {
+      containers.push(document);
+    }
+
+    const shouldShow = containers.some(container => !isNearBottom(container));
+    return {
+      shouldShow,
+    };
+  }, [isNearBottom, isScrollableElement, mobileStyle]);
+
+  const resolveReadFeedbackObserverRoot = useCallback(() => {
+    const chatContainer = chatRef.current;
+    if (chatContainer && isScrollableElement(chatContainer)) {
+      return chatContainer;
+    }
+
+    const parentContainer = chatContainer?.parentElement;
+    if (parentContainer && isScrollableElement(parentContainer)) {
+      return parentContainer;
+    }
+
+    return null;
+  }, [isScrollableElement]);
+
   const checkScroll = useCallback(() => {
     requestAnimationFrame(() => {
-      const containers: Array<HTMLElement | Document> = [];
-
-      if (chatRef.current) {
-        containers.push(chatRef.current);
-        if (chatRef.current.parentElement) {
-          containers.push(chatRef.current.parentElement);
-        }
-      }
-
-      if (mobileStyle) {
-        containers.push(document);
-      }
-
-      const shouldShow = containers.some(container => !isNearBottom(container));
-      setIsAtBottom(!shouldShow);
-      setShowScrollDown(shouldShow);
+      const nextPresentation = resolveScrollPresentation();
+      setShowScrollDown(nextPresentation.shouldShow);
     });
-  }, [isNearBottom, mobileStyle]);
+  }, [resolveScrollPresentation]);
 
   const { openPayModal, payModalResult, resetedLessonId, resettingLessonId } =
     useCourseStore(
@@ -270,9 +304,6 @@ export const NewChatComponents = ({
     useState(promptContextKey);
   const shouldShowAudioAction = previewMode || isListenModeActive;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
-  const isListenPlaybackBusy =
-    listenPlaybackState.isAudioPlaying ||
-    listenPlaybackState.isAudioSequenceActive;
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
@@ -387,7 +418,9 @@ export const NewChatComponents = ({
     listenRequestEnabled: isListenModeActive,
     shouldPromptLessonFeedback:
       isPromptContextSettled &&
-      (isListenModeActive ? isListenFeedbackReady : isAtBottom),
+      (isListenModeActive
+        ? isListenFeedbackReady
+        : isReadFeedbackReady && isReadFeedbackAnchorVisible),
     // scrollToBottom,
     showOutputInProgressToast,
     onPayModalOpen,
@@ -468,6 +501,10 @@ export const NewChatComponents = ({
       [...visibleReadModeItems]
         .reverse()
         .find(item => isReadModeTextContentItem(item))?.element_bid || '',
+    [visibleReadModeItems],
+  );
+  const readModeFeedbackElementBid = useMemo(
+    () => findLastVisibleLessonFeedbackElementBid(visibleReadModeItems),
     [visibleReadModeItems],
   );
   const isTrailingVisibleReadModeItemText = useMemo(
@@ -553,9 +590,44 @@ export const NewChatComponents = ({
   }, [isListenModeActive, isLoading, onListenPlayerVisibilityChange]);
 
   useEffect(() => {
-    setIsAtBottom(false);
     setShowScrollDown(false);
   }, [isListenModeActive, lessonId]);
+
+  useEffect(() => {
+    if (isListenModeActive) {
+      setIsReadFeedbackAnchorVisible(false);
+      setReadFeedbackTriggerElement(null);
+      return;
+    }
+
+    if (!readFeedbackTriggerElement) {
+      setIsReadFeedbackAnchorVisible(false);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      entries => {
+        const [entry] = entries;
+        setIsReadFeedbackAnchorVisible(Boolean(entry?.isIntersecting));
+      },
+      {
+        root: resolveReadFeedbackObserverRoot(),
+        threshold: 0.98,
+      },
+    );
+
+    observer.observe(readFeedbackTriggerElement);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [
+    isListenModeActive,
+    lessonId,
+    mobileStyle,
+    readFeedbackTriggerElement,
+    resolveReadFeedbackObserverRoot,
+  ]);
 
   useEffect(() => {
     setReadModeTypewriterCache(prevCache =>
@@ -678,37 +750,57 @@ export const NewChatComponents = ({
 
   useEffect(() => {
     setIsListenFeedbackReady(false);
+    setIsReadFeedbackReady(false);
     setSettledPromptContextKey(promptContextKey);
   }, [promptContextKey]);
 
   useEffect(() => {
-    if (listenFeedbackReadyTimerRef.current !== null) {
-      window.clearTimeout(listenFeedbackReadyTimerRef.current);
-      listenFeedbackReadyTimerRef.current = null;
-    }
-
     if (!isListenModeActive) {
-      setIsListenFeedbackReady(true);
-      return;
-    }
-
-    if (isLoading || isListenPlaybackBusy) {
       setIsListenFeedbackReady(false);
       return;
     }
 
-    listenFeedbackReadyTimerRef.current = window.setTimeout(() => {
-      setIsListenFeedbackReady(true);
-      listenFeedbackReadyTimerRef.current = null;
-    }, 1200);
+    if (isLoading) {
+      setIsListenFeedbackReady(false);
+      return;
+    }
+  }, [isListenModeActive, isLoading, lessonId]);
+
+  useEffect(() => {
+    if (isListenModeActive) {
+      setIsReadFeedbackReady(false);
+      return;
+    }
+
+    if (
+      isLoading ||
+      isOutputInProgress ||
+      Boolean(currentTypewriterElementBid)
+    ) {
+      setIsReadFeedbackReady(false);
+      return;
+    }
+
+    setIsReadFeedbackReady(false);
+
+    const rafId = window.requestAnimationFrame(() => {
+      const nextPresentation = resolveScrollPresentation();
+      setShowScrollDown(nextPresentation.shouldShow);
+      setIsReadFeedbackReady(true);
+    });
 
     return () => {
-      if (listenFeedbackReadyTimerRef.current !== null) {
-        window.clearTimeout(listenFeedbackReadyTimerRef.current);
-        listenFeedbackReadyTimerRef.current = null;
-      }
+      window.cancelAnimationFrame(rafId);
     };
-  }, [isListenModeActive, isLoading, isListenPlaybackBusy, lessonId]);
+  }, [
+    currentTypewriterElementBid,
+    isListenModeActive,
+    isLoading,
+    isOutputInProgress,
+    items.length,
+    promptContextKey,
+    resolveScrollPresentation,
+  ]);
 
   const listenModeItems = useMemo(
     () =>
@@ -949,6 +1041,11 @@ export const NewChatComponents = ({
     const container = chatRef.current;
     const parentContainer = container?.parentElement;
     const listeners: Array<{ element: EventTarget; handler: () => void }> = [];
+    const shouldTrackWindowScroll =
+      mobileStyle ||
+      ![container, parentContainer].some(
+        element => element && isScrollableElement(element),
+      );
 
     if (container) {
       container.addEventListener('scroll', checkScroll, { passive: true });
@@ -962,7 +1059,7 @@ export const NewChatComponents = ({
       listeners.push({ element: parentContainer, handler: checkScroll });
     }
 
-    if (mobileStyle) {
+    if (shouldTrackWindowScroll) {
       window.addEventListener('scroll', checkScroll, { passive: true });
       listeners.push({ element: window, handler: checkScroll });
     }
@@ -987,7 +1084,13 @@ export const NewChatComponents = ({
       });
       resizeObserver.disconnect();
     };
-  }, [checkScroll, isListenModeActive, items, mobileStyle]);
+  }, [
+    checkScroll,
+    isListenModeActive,
+    isScrollableElement,
+    items,
+    mobileStyle,
+  ]);
 
   useEffect(() => {
     if (mobileStyle) {
@@ -1117,7 +1220,7 @@ export const NewChatComponents = ({
             onMobileViewModeChange={onListenMobileViewModeChange}
             onSend={memoizedOnSend}
             onPlayerVisibilityChange={onListenPlayerVisibilityChange}
-            onPlaybackStateChange={setListenPlaybackState}
+            onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
           />
         ) : (
           <div
@@ -1329,6 +1432,13 @@ export const NewChatComponents = ({
                       {isLongPressed && mobileStyle && (
                         <div className='long-press-overlay' />
                       )}
+                      {item.element_bid === readModeFeedbackElementBid ? (
+                        <div
+                          ref={setReadFeedbackTriggerElement}
+                          aria-hidden='true'
+                          className='h-px w-full'
+                        />
+                      ) : null}
                       {/*
                         Keep typewriter enabled when the current element content
                         has already grown beyond the finished cache snapshot.

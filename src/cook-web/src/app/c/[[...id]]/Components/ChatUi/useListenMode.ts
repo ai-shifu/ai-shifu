@@ -198,6 +198,10 @@ export const useListenContentData = (items: ChatContentItem[]) => {
       lastItemIsInteraction: lastItem?.type === ChatContentItemType.INTERACTION,
     };
   }, [audioAndInteractionList]);
+  const lastItemIsLessonFeedbackInteraction = useMemo(
+    () => isLessonFeedbackInteractionItem(audioAndInteractionList.at(-1)),
+    [audioAndInteractionList],
+  );
 
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -257,6 +261,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
     ttsReadyElementBids,
     lastInteractionBid,
     lastItemIsInteraction,
+    lastItemIsLessonFeedbackInteraction,
     firstContentItem,
   };
 };
