@@ -1,0 +1,56 @@
+{
+  "__namespace__": "module.operationsCreditNotifications",
+  "actions": {
+    "applyConfig": "Enregistrer",
+    "dryRun": "Dry-run",
+    "refresh": "Actualiser",
+    "requeue": "Relancer"
+  },
+  "config": {
+    "description": "Modifiez directement le JSON de politique de notification. Les identifiants fournisseur viennent toujours des variables d’environnement ou des Secrets.",
+    "invalidJson": "Le JSON de configuration est invalide.",
+    "saved": "Configuration enregistrée.",
+    "title": "Configuration opérateur"
+  },
+  "dryRun": {
+    "candidateCount": "{count} enregistrements prévus",
+    "empty": "Aucun résultat dry-run.",
+    "title": "Résultat dry-run"
+  },
+  "empty": "Aucun enregistrement de notification de crédits.",
+  "filters": {
+    "creatorBid": "Creator BID",
+    "mobile": "Mobile",
+    "notificationType": "Type de notification",
+    "sourceBid": "ID source",
+    "status": "Statut"
+  },
+  "loadError": "Impossible de charger les notifications de crédits. Actualisez puis réessayez.",
+  "messages": {
+    "requeueDone": "Tâche de relance envoyée."
+  },
+  "status": {
+    "failed_provider": "Fournisseur échoué",
+    "pending": "En attente",
+    "sent": "Envoyé",
+    "skipped_no_mobile": "Sans mobile",
+    "skipped_opt_out": "Ignoré",
+    "suppressed_duplicate": "Doublon"
+  },
+  "subtitle": "Consultez la livraison des notifications de crédits attribués, expirants ou bas, et configurez la politique SMS.",
+  "table": {
+    "createdAt": "Créé le",
+    "creator": "Créateur",
+    "dedupeKey": "Clé d’idempotence",
+    "error": "Erreur",
+    "notification": "Notification",
+    "source": "Source",
+    "template": "Modèle"
+  },
+  "title": "Notifications de crédits",
+  "type": {
+    "credit_expiring": "Expiration des crédits",
+    "credit_granted": "Attribution de crédits",
+    "low_balance": "Solde bas"
+  }
+}

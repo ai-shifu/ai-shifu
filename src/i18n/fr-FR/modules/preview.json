@@ -1,5 +1,6 @@
 {
   "__namespace__": "module.preview",
+  "debugDisabledBySoftLimit": "Le solde de crédits est sous le seuil d’alerte. La prévisualisation de débogage est désactivée.",
   "llmError": "Erreur d’appel LLM",
   "previewAll": "Prévisualiser le cours",
   "previewModeBanner": "Ce lien est un lien de prévisualisation visible uniquement par l’éditeur du cours"

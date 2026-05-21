@@ -25,6 +25,11 @@ HTTP_REQUEST_DURATION = Histogram(
     ("method", "path", "status"),
     buckets=(0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30),
 )
+CREDIT_NOTIFICATION_EVENTS = Counter(
+    "ai_shifu_credit_notification_events_total",
+    "Credit notification lifecycle events.",
+    ("event", "notification_type", "channel", "status"),
+)
 
 
 def _bool_config(app: Flask, key: str, default: bool = False) -> bool:
@@ -155,6 +160,25 @@ def init_observability(app: Flask) -> Flask:
 
     app._ai_shifu_observability_initialized = True
     return app
+
+
+def record_credit_notification_event(
+    event: str,
+    *,
+    notification_type: str = "",
+    channel: str = "",
+    status: str = "",
+    count: int = 1,
+) -> None:
+    try:
+        CREDIT_NOTIFICATION_EVENTS.labels(
+            str(event or "unknown"),
+            str(notification_type or "unknown"),
+            str(channel or "unknown"),
+            str(status or "unknown"),
+        ).inc(max(0, int(count or 0)))
+    except Exception:
+        return
 
 
 def _request_path_label() -> str:

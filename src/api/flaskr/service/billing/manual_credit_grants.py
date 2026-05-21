@@ -12,6 +12,7 @@ from flask import Flask
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.uuid import generate_id
 
+from .credit_notifications import stage_credit_granted_notification
 from .primitives import (
     credit_decimal_to_number as _credit_decimal_to_number,
     normalize_bid as _normalize_bid,
@@ -195,6 +196,13 @@ def grant_manual_credits_to_user(
         )
         if grant_result.status not in {"granted", "noop_existing"}:
             raise_error("server.common.systemError")
+        if grant_result.status == "granted" and grant_result.ledger_bid:
+            stage_credit_granted_notification(
+                app,
+                ledger_bid=grant_result.ledger_bid,
+                commit=True,
+                enqueue=True,
+            )
 
         persisted_metadata = dict(grant_result.metadata_json or {})
         return ManualCreditGrantResult(

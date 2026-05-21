@@ -14,6 +14,7 @@ _DEFAULT_BROKER_URL = "redis://localhost:6379/0"
 _DEFAULT_BILLING_RENEWAL_CRON = "* * * * *"
 _DEFAULT_BILLING_BUCKET_EXPIRE_CRON = "* * * * *"
 _DEFAULT_BILLING_LOW_BALANCE_CRON = "0 * * * *"
+_DEFAULT_BILLING_CREDIT_EXPIRING_CRON = "0 * * * *"
 
 __CELERY_APP__: Celery | None = None
 
@@ -104,6 +105,14 @@ def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, Any]:
                 flask_app,
                 "BILLING_LOW_BALANCE_CRON",
                 _DEFAULT_BILLING_LOW_BALANCE_CRON,
+            ),
+        },
+        "billing.scan_credit_expiring_notifications.schedule": {
+            "task": "billing.scan_credit_expiring_notifications",
+            "schedule": _resolve_billing_crontab(
+                flask_app,
+                "BILLING_CREDIT_EXPIRING_CRON",
+                _DEFAULT_BILLING_CREDIT_EXPIRING_CRON,
             ),
         },
     }

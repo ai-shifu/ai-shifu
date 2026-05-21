@@ -1,5 +1,6 @@
 {
   "__namespace__": "module.preview",
+  "debugDisabledBySoftLimit": "Credit balance is below the reminder threshold. Preview debugging is disabled.",
   "llmError": "LLM Invocation Error",
   "previewAll": "Preview Course",
   "previewModeBanner": "This link is a preview link and is only visible to the course publisher"

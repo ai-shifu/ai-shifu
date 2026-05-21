@@ -7,6 +7,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 ## Active
 
 - [Agent-First Harness Phase 2](./active/agent-first-harness-phase-2.md)
+- [ExecPlan: Billing Credit Notifications](./active/billing-credit-notifications.md)
 - [Creator Dashboard Course Ownership Optimization](./active/creator-dashboard-course-ownership-optimization.md)
 - [Creator Dashboard Course Ratings](./active/creator-dashboard-course-ratings.md)
 - [Creator Dashboard Learners SQL Optimization](./active/creator-dashboard-learners-sql-optimization.md)

@@ -1,0 +1,56 @@
+{
+  "__namespace__": "module.operationsCreditNotifications",
+  "actions": {
+    "applyConfig": "Save config",
+    "dryRun": "Dry-run",
+    "refresh": "Refresh",
+    "requeue": "Requeue"
+  },
+  "config": {
+    "description": "Edit the notification policy JSON directly. Provider credentials still come from environment variables or Secrets, not this config.",
+    "invalidJson": "The config JSON is invalid.",
+    "saved": "Config saved.",
+    "title": "Operator policy config"
+  },
+  "dryRun": {
+    "candidateCount": "{count} candidate records",
+    "empty": "No dry-run result yet.",
+    "title": "Dry-run result"
+  },
+  "empty": "No credit notification records.",
+  "filters": {
+    "creatorBid": "Creator BID",
+    "mobile": "Mobile",
+    "notificationType": "Notification type",
+    "sourceBid": "Source ID",
+    "status": "Status"
+  },
+  "loadError": "Credit notification data could not be loaded. Refresh and try again.",
+  "messages": {
+    "requeueDone": "Requeue task submitted."
+  },
+  "status": {
+    "failed_provider": "Provider failed",
+    "pending": "Pending",
+    "sent": "Sent",
+    "skipped_no_mobile": "No mobile",
+    "skipped_opt_out": "Skipped",
+    "suppressed_duplicate": "Duplicate"
+  },
+  "subtitle": "Inspect credit grant, expiry, and low-balance notification delivery, and configure SMS policy.",
+  "table": {
+    "createdAt": "Created at",
+    "creator": "Creator",
+    "dedupeKey": "Dedupe key",
+    "error": "Error",
+    "notification": "Notification",
+    "source": "Source",
+    "template": "Template"
+  },
+  "title": "Credit Notifications",
+  "type": {
+    "credit_expiring": "Credit expiry",
+    "credit_granted": "Credit grant",
+    "low_balance": "Low balance"
+  }
+}

@@ -32,6 +32,10 @@ from .consts import (
     BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS,
 )
 from .dtos import BillingTrialOfferDTO, BillingTrialWelcomeAckDTO
+from .credit_notifications import (
+    enqueue_credit_notification as _enqueue_credit_notification,
+    stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
+)
 from .models import BillingOrder, BillingProduct, BillingSubscription, CreditLedgerEntry
 from .primitives import coerce_bool as _coerce_bool
 from .primitives import credit_decimal_to_number as _credit_decimal_to_number
@@ -441,6 +445,48 @@ def _bootstrap_trial_subscription(
     if not granted:
         raise RuntimeError("trial_order_credit_grant_failed")
 
+    grant_notification = _stage_credit_granted_notification_for_order(
+        app,
+        creator_bid=order.creator_bid,
+        bill_order_bid=order.bill_order_bid,
+        commit=False,
+        enqueue=False,
+    )
+    if grant_notification.get("status") == "pending":
+        order_metadata = (
+            order.metadata_json if isinstance(order.metadata_json, dict) else {}
+        )
+        order_metadata["credit_granted_notification_bid"] = str(
+            grant_notification.get("notification_bid") or ""
+        ).strip()
+        order.metadata_json = order_metadata
+        db.session.add(order)
+
+
+def _enqueue_trial_credit_notification(app: Flask, creator_bid: str) -> None:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return
+    with app.app_context():
+        order = (
+            BillingOrder.query.filter(
+                BillingOrder.deleted == 0,
+                BillingOrder.creator_bid == normalized_creator_bid,
+                BillingOrder.bill_order_bid
+                == _build_trial_order_bid(normalized_creator_bid),
+            )
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+        metadata = order.metadata_json if order is not None else {}
+        notification_bid = (
+            str((metadata or {}).get("credit_granted_notification_bid") or "").strip()
+            if isinstance(metadata, dict)
+            else ""
+        )
+    if notification_bid:
+        _enqueue_credit_notification(app, notification_bid=notification_bid)
+
 
 def _resolve_trial_bootstrap_status(
     creator_bid: str,
@@ -608,6 +654,7 @@ def _backfill_missing_creator_trial_credits(
                     trigger="cli_backfill_missing_creator_trial",
                 )
                 db.session.commit()
+                _enqueue_trial_credit_notification(app, current_creator_bid)
             except IntegrityError:
                 db.session.rollback()
                 records.append(
@@ -821,6 +868,7 @@ def _bootstrap_new_creator_trial_credits(app: Flask, creator_bid: str) -> None:
                 trigger="post_auth_creator_grant",
             )
             db.session.commit()
+            _enqueue_trial_credit_notification(app, normalized_creator_bid)
         except IntegrityError:
             db.session.rollback()
         except Exception:

@@ -1,5 +1,6 @@
 {
   "__namespace__": "module.preview",
+  "debugDisabledBySoftLimit": "积分余额已低于提醒阈值，暂不能预览调试。",
   "llmError": "LLM 调用错误",
   "previewAll": "预览",
   "previewModeBanner": "当前链接为预览链接，仅课程发布者可查看"

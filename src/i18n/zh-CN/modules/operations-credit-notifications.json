@@ -1,0 +1,56 @@
+{
+  "__namespace__": "module.operationsCreditNotifications",
+  "actions": {
+    "applyConfig": "保存配置",
+    "dryRun": "Dry-run",
+    "refresh": "刷新",
+    "requeue": "重发"
+  },
+  "config": {
+    "description": "直接编辑通知策略 JSON。供应商密钥仍来自环境变量或 Secret，不在这里配置。",
+    "invalidJson": "配置 JSON 格式不正确。",
+    "saved": "配置已保存。",
+    "title": "运营策略配置"
+  },
+  "dryRun": {
+    "candidateCount": "预计命中 {count} 条",
+    "empty": "暂无 dry-run 结果。",
+    "title": "Dry-run 结果"
+  },
+  "empty": "暂无积分通知记录。",
+  "filters": {
+    "creatorBid": "Creator BID",
+    "mobile": "手机号",
+    "notificationType": "通知类型",
+    "sourceBid": "来源 ID",
+    "status": "状态"
+  },
+  "loadError": "积分通知数据读取失败，请刷新后重试。",
+  "messages": {
+    "requeueDone": "已提交重发任务。"
+  },
+  "status": {
+    "failed_provider": "供应商失败",
+    "pending": "待发送",
+    "sent": "已发送",
+    "skipped_no_mobile": "无手机号",
+    "skipped_opt_out": "已跳过",
+    "suppressed_duplicate": "重复抑制"
+  },
+  "subtitle": "查看积分到账、到期和低余额提醒的投递状态，并配置短信策略。",
+  "table": {
+    "createdAt": "创建时间",
+    "creator": "创作者",
+    "dedupeKey": "幂等键",
+    "error": "错误",
+    "notification": "通知",
+    "source": "来源",
+    "template": "模板"
+  },
+  "title": "积分通知",
+  "type": {
+    "credit_expiring": "积分到期",
+    "credit_granted": "积分到账",
+    "low_balance": "余额提醒"
+  }
+}

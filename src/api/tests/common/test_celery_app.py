@@ -34,6 +34,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
         BILLING_RENEWAL_CRON="*/2 * * * *",
         BILLING_BUCKET_EXPIRE_CRON="*/15 * * * *",
         BILLING_LOW_BALANCE_CRON="30 * * * *",
+        BILLING_CREDIT_EXPIRING_CRON="45 * * * *",
     )
 
     celery_app = celery_app_module.create_celery_app(flask_app=flask_app)
@@ -48,6 +49,9 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert "billing.expire_wallet_buckets" in celery_app.tasks
     assert "billing.reconcile_provider_reference" in celery_app.tasks
     assert "billing.send_low_balance_alert" in celery_app.tasks
+    assert "billing.scan_credit_expiring_notifications" in celery_app.tasks
+    assert "billing.scan_low_balance_notifications" in celery_app.tasks
+    assert "billing.send_credit_notification" in celery_app.tasks
     assert "billing.send_subscription_purchase_sms" in celery_app.tasks
     assert "billing.dispatch_due_renewal_events" in celery_app.tasks
     assert "billing.run_renewal_event" in celery_app.tasks
@@ -67,6 +71,10 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert beat_schedule["billing.send_low_balance_alert.schedule"]["task"] == (
         "billing.send_low_balance_alert"
     )
+    assert (
+        beat_schedule["billing.scan_credit_expiring_notifications.schedule"]["task"]
+        == "billing.scan_credit_expiring_notifications"
+    )
     _assert_cron_schedule(
         beat_schedule["billing.dispatch_due_renewal_events.schedule"]["schedule"],
         minute="*/2",
@@ -80,6 +88,13 @@ def test_create_celery_app_reuses_flask_config() -> None:
     _assert_cron_schedule(
         beat_schedule["billing.send_low_balance_alert.schedule"]["schedule"],
         minute="30",
+        hour="*",
+    )
+    _assert_cron_schedule(
+        beat_schedule["billing.scan_credit_expiring_notifications.schedule"][
+            "schedule"
+        ],
+        minute="45",
         hour="*",
     )
 
@@ -304,6 +319,13 @@ def test_create_celery_app_uses_default_billing_beat_crons() -> None:
     )
     _assert_cron_schedule(
         beat_schedule["billing.send_low_balance_alert.schedule"]["schedule"],
+        minute="0",
+        hour="*",
+    )
+    _assert_cron_schedule(
+        beat_schedule["billing.scan_credit_expiring_notifications.schedule"][
+            "schedule"
+        ],
         minute="0",
         hour="*",
     )

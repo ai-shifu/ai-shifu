@@ -88,6 +88,7 @@
   "askTemperature": "Température de suivi",
   "askTemperatureHint": "Définir la créativité de génération du suivi (0-2)",
   "askTitle": "Paramètres de suivi",
+  "debugDisabledBySoftLimit": "Le solde de crédits est sous le seuil d’alerte. La prévisualisation de débogage est désactivée.",
   "draftConflictDescription": "Ce cours a été mis à jour par {phone}. Chargez le contenu le plus récent pour continuer à modifier en sécurité.",
   "draftConflictRefresh": "Charger la dernière version",
   "draftConflictSynced": "Cette leçon a été mise à jour par {phone}. Le contenu le plus récent a été synchronisé.",

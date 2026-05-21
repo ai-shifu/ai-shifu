@@ -6,6 +6,7 @@
     "adminPlanGrantRoleUnsupported": "Seuls les créateurs et les opérateurs peuvent recevoir des crédits ou des forfaits attribués manuellement.",
     "creditInsufficient": "Crédits insuffisants. Achetez une recharge ou un abonnement avant de continuer.",
     "customDomainDisabled": "Les domaines personnalisés ne sont pas activés pour ce créateur.",
+    "debugDisabledBySoftLimit": "Les crédits sont sous le seuil de rappel configuré. Rechargez ou abonnez-vous avant de continuer les prévisualisations de débogage.",
     "disabled": "La facturation est actuellement désactivée.",
     "domainBindingNotFound": "La liaison de domaine personnalisé demandée est introuvable.",
     "domainHostConflict": "Ce domaine personnalisé est déjà lié à un autre créateur.",

@@ -8,6 +8,7 @@ from flaskr.service.billing.consts import (
     BILLING_INTERVAL_DAY,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_YEAR,
+    BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
     BILL_CONFIG_KEY_CREDIT_PRECISION,
     BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
     BILL_CONFIG_KEY_RATE_VERSION,
@@ -25,7 +26,11 @@ from flaskr.service.billing.consts import (
     BILL_SYS_CONFIG_SEEDS,
     CREDIT_USAGE_RATE_SEEDS,
 )
-from flaskr.service.billing.models import BillingProduct, CreditUsageRate
+from flaskr.service.billing.models import (
+    BillingProduct,
+    CreditUsageRate,
+    NotificationRecord,
+)
 from flaskr.service.billing.queries import (
     calculate_billing_cycle_end,
     calculate_self_managed_billing_cycle_end,
@@ -178,14 +183,37 @@ def test_credit_usage_rate_model_registers_unique_constraints() -> None:
 
 
 def test_billing_sys_config_seeds_cover_required_bootstrap_keys() -> None:
-    assert len(BILL_SYS_CONFIG_SEEDS) == 4
+    assert len(BILL_SYS_CONFIG_SEEDS) == 5
     assert {row["key"] for row in BILL_SYS_CONFIG_SEEDS} == {
+        BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
         BILL_CONFIG_KEY_CREDIT_PRECISION,
         BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
         BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
         BILL_CONFIG_KEY_RATE_VERSION,
     }
     assert all(row["is_encrypted"] == 0 for row in BILL_SYS_CONFIG_SEEDS)
+
+
+def test_notification_records_model_uses_shared_notification_table() -> None:
+    table = NotificationRecord.__table__
+
+    assert NotificationRecord.__tablename__ == "notification_records"
+    assert "notification_bid" in table.c
+    assert "notification_type" in table.c
+    assert "channel" in table.c
+    assert "creator_bid" in table.c
+    assert "dedupe_key" in table.c
+    assert "template_params" in table.c
+    assert "policy_snapshot" in table.c
+    assert "provider_response" in table.c
+
+    unique_constraint_names = {
+        constraint.name
+        for constraint in table.constraints
+        if getattr(constraint, "name", None)
+    }
+    assert "uq_notification_records_notification_bid" in unique_constraint_names
+    assert "uq_notification_records_dedupe_key" in unique_constraint_names
 
 
 def test_billing_consts_keep_7100_segment_isolated_and_reuse_metering_usage_codes() -> (

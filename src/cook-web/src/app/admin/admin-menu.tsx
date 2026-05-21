@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   BriefcaseIcon,
+  BellAlertIcon,
   DocumentIcon,
   PresentationChartLineIcon,
   ShoppingCartIcon,
@@ -70,6 +71,12 @@ export const buildAdminMenuItems = ({
           id: 'operations-promotion',
           label: t('common.core.promotionManagement'),
           href: '/admin/operations/promotions',
+        },
+        {
+          id: 'operations-credit-notification',
+          icon: <BellAlertIcon className='w-4 h-4' />,
+          label: t('common.core.creditNotificationManagement'),
+          href: '/admin/operations/credit-notifications',
         },
       ],
     });

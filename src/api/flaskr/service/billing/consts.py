@@ -294,6 +294,84 @@ BILL_CONFIG_KEY_CREDIT_PRECISION = "BILL_CREDIT_PRECISION"
 BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD = "BILL_LOW_BALANCE_THRESHOLD"
 BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG = "BILL_RENEWAL_TASK_CONFIG"
 BILL_CONFIG_KEY_RATE_VERSION = "BILL_RATE_VERSION"
+BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG = "BILL_CREDIT_NOTIFICATION_SMS_CONFIG"
+
+CREDIT_NOTIFICATION_TYPE_EXPIRING = "credit_expiring"
+CREDIT_NOTIFICATION_TYPE_GRANTED = "credit_granted"
+CREDIT_NOTIFICATION_TYPE_LOW_BALANCE = "low_balance"
+CREDIT_NOTIFICATION_CHANNEL_SMS = "sms"
+
+CREDIT_NOTIFICATION_STATUS_PENDING = "pending"
+CREDIT_NOTIFICATION_STATUS_SENT = "sent"
+CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE = "skipped_no_mobile"
+CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT = "skipped_opt_out"
+CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE = "suppressed_duplicate"
+CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER = "failed_provider"
+
+CREDIT_NOTIFICATION_PROCESSABLE_STATUSES = {
+    CREDIT_NOTIFICATION_STATUS_PENDING,
+    CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+}
+
+DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG = {
+    "enabled": False,
+    "channel": CREDIT_NOTIFICATION_CHANNEL_SMS,
+    "types": {
+        CREDIT_NOTIFICATION_TYPE_EXPIRING: {
+            "enabled": False,
+            "template_code": "",
+            "windows": ["7d", "3d", "1d", "0d"],
+            "merge_same_creator": True,
+        },
+        CREDIT_NOTIFICATION_TYPE_GRANTED: {
+            "enabled": False,
+            "template_code": "",
+        },
+        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE: {
+            "enabled": False,
+            "template_code": "",
+            "thresholds": [
+                {
+                    "kind": "fixed",
+                    "value": "0",
+                }
+            ],
+        },
+    },
+    "softlimit": {
+        "enabled": False,
+        "threshold": {
+            "kind": "fixed",
+            "value": "0",
+        },
+        "teacher_page_alert": True,
+        "disable_debug": True,
+        "sms_enabled": False,
+    },
+    "frequency": {
+        "per_mobile_per_day": 3,
+        "per_creator_per_type_per_day": 1,
+    },
+    "quiet_hours": {
+        "enabled": False,
+        "start": "22:00",
+        "end": "09:00",
+        "timezone": "Asia/Shanghai",
+    },
+    "blacklist": {
+        "creator_bids": [],
+        "mobiles": [],
+    },
+    "opt_out": {
+        "creator_bids": [],
+        "mobiles": [],
+    },
+    "budget": {
+        "daily_sms_limit": 0,
+        "dry_run_required": True,
+        "sms_unit_cost": "0",
+    },
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -410,6 +488,19 @@ BILL_SYS_CONFIG_SEEDS = (
         "value": "bootstrap-v1",
         "is_encrypted": 0,
         "remark": "Billing rate version bootstrap marker",
+        "deleted": 0,
+        "updated_by": "system",
+    },
+    {
+        "config_bid": "bill-config-credit-notification-sms",
+        "key": BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
+        "value": json.dumps(
+            DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG,
+            separators=(",", ":"),
+            sort_keys=True,
+        ),
+        "is_encrypted": 0,
+        "remark": "Credit notification SMS policy config",
         "deleted": 0,
         "updated_by": "system",
     },
