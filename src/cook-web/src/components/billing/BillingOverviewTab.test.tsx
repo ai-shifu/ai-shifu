@@ -36,6 +36,13 @@ jest.mock('react-i18next', () => ({
       ) {
         return `${key}:${options.count}`;
       }
+      if (
+        key === 'module.billing.catalog.labels.providerWithChannel' &&
+        typeof options?.provider === 'string' &&
+        typeof options?.channel === 'string'
+      ) {
+        return `${options.provider} / ${options.channel}`;
+      }
       return key;
     },
     i18n: {
@@ -946,7 +953,9 @@ describe('BillingOverviewTab', () => {
 
     expect(
       screen.getByText(
-        'module.billing.catalog.labels.providerPingxx / module.pay.wechatPay',
+        (_content, element) =>
+          element?.textContent ===
+          'module.billing.catalog.labels.providerPingxx / module.pay.wechatPay',
       ),
     ).toBeInTheDocument();
 

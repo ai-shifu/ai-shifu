@@ -127,7 +127,10 @@ function resolveCheckoutChannelLabel(
   }
 
   if (target.provider === 'pingxx') {
-    return `${resolveBillingProviderLabel(t, target.provider)} / ${resolveBillingPingxxChannelLabel(t, selectedPingxxChannel)}`;
+    return t('module.billing.catalog.labels.providerWithChannel', {
+      provider: resolveBillingProviderLabel(t, target.provider),
+      channel: resolveBillingPingxxChannelLabel(t, selectedPingxxChannel),
+    });
   }
 
   if (target.provider === 'alipay') {

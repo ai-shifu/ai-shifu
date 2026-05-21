@@ -277,6 +277,7 @@
       "providerAlipay": "支付宝",
       "providerManual": "人工开通",
       "providerPingxx": "Pingxx",
+      "providerWithChannel": "{provider} / {channel}",
       "providerStripe": "Stripe",
       "providerWechatpay": "微信支付"
     },
