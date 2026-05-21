@@ -407,9 +407,22 @@ def handle_input_ask(
 
     # RAG retrieval has been removed from this system
 
+    # Prepend a format constraint so the model replies in plain text / Markdown
+    # and does not mimic HTML or MarkdownFlow interactive syntax that appears
+    # in earlier lesson content / conversation history.
+    format_constraint = (
+        "IMPORTANT — Reply ONLY in plain text or standard Markdown. "
+        "Do NOT emit HTML tags (<button>, <input>, <select>, <form>, <div>, etc.). "
+        "Do NOT emit MarkdownFlow interactive syntax such as `?[%... | ...]`, "
+        "`?[%... || ...]`, `===...===` or `!===...!===` fences. "
+        "Do NOT emit double-brace template placeholders. "
+        "Earlier lesson content in this conversation may contain such syntax — "
+        "DO NOT mimic its format.\n\n"
+        "User question:\n"
+    )
     # Append language instruction to user input if use_learner_language is enabled
     use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
-    user_content = input
+    user_content = format_constraint + input
     if use_learner_language:
         output_language = get_markdownflow_output_language()
         user_content += f"\n\n(IMPORTANT: You MUST respond in {output_language}.)"
