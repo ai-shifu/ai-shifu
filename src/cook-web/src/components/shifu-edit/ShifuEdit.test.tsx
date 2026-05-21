@@ -4,6 +4,7 @@ import ScriptEditor from './ShifuEdit';
 
 const refreshLabel = 'refresh';
 const mockMarkdownFlowEditor = jest.fn();
+const mockTrackEvent = jest.fn();
 
 jest.mock('next/dynamic', () => () => {
   const MockMarkdownFlowEditor = (props: Record<string, unknown>) => {
@@ -135,7 +136,7 @@ jest.mock('@/c-store', () => ({
   useEnvStore: jest.fn(() => 'https://example.com'),
 }));
 jest.mock('@/c-common/hooks/useTracking', () => ({
-  useTracking: () => ({ trackEvent: jest.fn() }),
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 jest.mock('@/c-utils/urlUtils', () => ({
   buildUrlWithLessonId: jest.fn((url: string, lessonId: string) =>
@@ -270,6 +271,7 @@ describe('ShifuEdit draft conflict checks', () => {
 
   beforeEach(() => {
     mockMarkdownFlowEditor.mockReset();
+    mockTrackEvent.mockReset();
     mockLoadDraftMeta.mockReset();
     mockLoadModels.mockReset();
     mockLoadChapters.mockReset();
@@ -500,6 +502,17 @@ describe('ShifuEdit draft conflict checks', () => {
     );
     expect(historyLink.getAttribute('target')).toBe('_blank');
     expect(historyLink.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  test('tracks history entry clicks for the current lesson', async () => {
+    setLessonNode();
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    const historyLink = screen.getByTitle('module.shifu.history.title');
+    historyLink.click();
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('creator_lesson_history_click');
   });
 
   test('renders the dedicated history layout in history mode', async () => {
