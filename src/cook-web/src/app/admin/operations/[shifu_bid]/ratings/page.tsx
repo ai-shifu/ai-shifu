@@ -333,6 +333,7 @@ export default function AdminOperationCourseRatingsPage() {
   const [filtersDraft, setFiltersDraft] =
     useState<RatingFilters>(createRatingFilters);
   const requestIdRef = useRef(0);
+  const fullSummaryLoadedRef = useRef(false);
 
   const detailPageUrl = useMemo(
     () => buildAdminOperationsCourseDetailUrl(shifuBid),
@@ -355,13 +356,16 @@ export default function AdminOperationCourseRatingsPage() {
       if (!shifuBid) {
         setRatings(EMPTY_RATINGS_RESPONSE);
         setFullSummary(EMPTY_RATINGS_RESPONSE.summary);
+        fullSummaryLoadedRef.current = false;
         setError({ message: unknownErrorMessage });
         setLoading(false);
         return;
       }
 
       const resolvedFilters = normalizeRatingFilters(nextFilters);
-      const shouldRefreshFullSummary = isDefaultRatingFilters(resolvedFilters);
+      const shouldRefreshFullSummary =
+        isDefaultRatingFilters(resolvedFilters) &&
+        !fullSummaryLoadedRef.current;
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
       setLoading(true);
@@ -398,6 +402,7 @@ export default function AdminOperationCourseRatingsPage() {
         }
         if (shouldRefreshFullSummary) {
           setFullSummary(response?.summary || EMPTY_RATINGS_RESPONSE.summary);
+          fullSummaryLoadedRef.current = true;
         }
         setRatings(response || EMPTY_RATINGS_RESPONSE);
       } catch (err) {
@@ -521,6 +526,12 @@ export default function AdminOperationCourseRatingsPage() {
     if (pageIndex === 1 && areRatingFiltersEqual(nextFilters, filters)) {
       return;
     }
+    if (
+      isDefaultRatingFilters(nextFilters) &&
+      !isDefaultRatingFilters(filters)
+    ) {
+      fullSummaryLoadedRef.current = false;
+    }
     setFilters(nextFilters);
     setPageIndex(1);
   }, [filters, filtersDraft, pageIndex]);
@@ -535,6 +546,9 @@ export default function AdminOperationCourseRatingsPage() {
       return;
     }
     setFiltersDraft(nextFilters);
+    if (!areRatingFiltersEqual(nextFilters, filters)) {
+      fullSummaryLoadedRef.current = false;
+    }
     setFilters(nextFilters);
     setPageIndex(1);
   }, [filters, filtersDraft, pageIndex]);

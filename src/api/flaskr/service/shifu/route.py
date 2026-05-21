@@ -1880,7 +1880,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               in: query
               type: boolean
               required: false
-              description: Whether to include expensive summary metrics
+              description: Whether to include expensive summary metrics. Defaults to true. When false, summary fields are returned as defaults while total and page_count still reflect the filtered result.
         responses:
             200:
                 description: Operator course rating list

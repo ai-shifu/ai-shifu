@@ -5283,28 +5283,17 @@ def get_operator_course_ratings(
             LearnLessonFeedback.updated_at,
             LearnLessonFeedback.created_at,
         )
-        rating_base_query = db.session.query(
-            LearnLessonFeedback.id.label("id"),
-            LearnLessonFeedback.lesson_feedback_bid.label("lesson_feedback_bid"),
-            LearnLessonFeedback.progress_record_bid.label("progress_record_bid"),
-            LearnLessonFeedback.user_bid.label("user_bid"),
-            LearnLessonFeedback.outline_item_bid.label("outline_item_bid"),
-            LearnLessonFeedback.score.label("score"),
-            LearnLessonFeedback.comment.label("comment"),
-            LearnLessonFeedback.mode.label("mode"),
-            rated_at_expression.label("rated_at"),
-        ).filter(
+        base_filters = [
             LearnLessonFeedback.shifu_bid == normalized_shifu_bid,
             LearnLessonFeedback.deleted == 0,
-        )
+        ]
 
-        filtered_query = rating_base_query
         user_keyword_filter = _build_follow_up_user_keyword_filter(
             LearnLessonFeedback.user_bid,
             keyword,
         )
         if user_keyword_filter is not None:
-            filtered_query = filtered_query.filter(user_keyword_filter)
+            base_filters.append(user_keyword_filter)
 
         matching_outline_item_bids = _resolve_follow_up_matching_outline_bids(
             outline_context_map,
@@ -5320,44 +5309,49 @@ def get_operator_course_ratings(
                     total=0,
                     page_count=0,
                 )
-            filtered_query = filtered_query.filter(
+            base_filters.append(
                 LearnLessonFeedback.outline_item_bid.in_(
                     sorted(matching_outline_item_bids)
                 )
             )
 
         if normalized_score_filter is not None:
-            filtered_query = filtered_query.filter(
-                LearnLessonFeedback.score == normalized_score_filter
-            )
+            base_filters.append(LearnLessonFeedback.score == normalized_score_filter)
         if mode_filter:
-            filtered_query = filtered_query.filter(
-                LearnLessonFeedback.mode == mode_filter
-            )
+            base_filters.append(LearnLessonFeedback.mode == mode_filter)
         if has_comment_filter == "true":
-            filtered_query = filtered_query.filter(
+            base_filters.append(
                 db.func.trim(db.func.coalesce(LearnLessonFeedback.comment, "")) != ""
             )
         if start_time:
-            filtered_query = filtered_query.filter(rated_at_expression >= start_time)
+            base_filters.append(rated_at_expression >= start_time)
         if end_time:
-            filtered_query = filtered_query.filter(rated_at_expression <= end_time)
+            base_filters.append(rated_at_expression <= end_time)
 
-        filtered_ratings = filtered_query.subquery()
+        summary_source = (
+            db.session.query(
+                LearnLessonFeedback.id.label("id"),
+                LearnLessonFeedback.score.label("score"),
+                LearnLessonFeedback.user_bid.label("user_bid"),
+                rated_at_expression.label("rated_at"),
+            )
+            .filter(*base_filters)
+            .subquery()
+        )
         if include_summary:
             summary_row = db.session.query(
-                db.func.avg(filtered_ratings.c.score).label("average_score"),
-                db.func.count(filtered_ratings.c.id).label("rating_count"),
+                db.func.avg(summary_source.c.score).label("average_score"),
+                db.func.count(summary_source.c.id).label("rating_count"),
                 db.func.count(
-                    db.func.distinct(db.func.nullif(filtered_ratings.c.user_bid, ""))
+                    db.func.distinct(db.func.nullif(summary_source.c.user_bid, ""))
                 ).label("user_count"),
-                db.func.max(filtered_ratings.c.rated_at).label("latest_rated_at"),
+                db.func.max(summary_source.c.rated_at).label("latest_rated_at"),
             ).one()
             total = int(getattr(summary_row, "rating_count", 0) or 0)
         else:
             summary_row = None
             total = int(
-                db.session.query(db.func.count(filtered_ratings.c.id)).scalar() or 0
+                db.session.query(db.func.count(summary_source.c.id)).scalar() or 0
             )
 
         if total == 0:
@@ -5371,15 +5365,26 @@ def get_operator_course_ratings(
             )
 
         start = (safe_page_index - 1) * safe_page_size
-        ordered_query = db.session.query(filtered_ratings).order_by(
-            filtered_ratings.c.rated_at.desc(),
-            filtered_ratings.c.id.desc(),
+        page_query = db.session.query(
+            LearnLessonFeedback.id.label("id"),
+            LearnLessonFeedback.lesson_feedback_bid.label("lesson_feedback_bid"),
+            LearnLessonFeedback.progress_record_bid.label("progress_record_bid"),
+            LearnLessonFeedback.user_bid.label("user_bid"),
+            LearnLessonFeedback.outline_item_bid.label("outline_item_bid"),
+            LearnLessonFeedback.score.label("score"),
+            LearnLessonFeedback.comment.label("comment"),
+            LearnLessonFeedback.mode.label("mode"),
+            rated_at_expression.label("rated_at"),
+        ).filter(*base_filters)
+        ordered_query = page_query.order_by(
+            rated_at_expression.desc(),
+            LearnLessonFeedback.id.desc(),
         )
         if sort_by == "score_asc":
-            ordered_query = db.session.query(filtered_ratings).order_by(
-                filtered_ratings.c.score.asc(),
-                filtered_ratings.c.rated_at.desc(),
-                filtered_ratings.c.id.desc(),
+            ordered_query = page_query.order_by(
+                LearnLessonFeedback.score.asc(),
+                rated_at_expression.desc(),
+                LearnLessonFeedback.id.desc(),
             )
         page_rows = ordered_query.offset(start).limit(safe_page_size).all()
         user_map = _load_user_map(
