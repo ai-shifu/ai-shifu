@@ -244,7 +244,14 @@ function show(description: string, duration = 20000) {
   });
 }
 
-const toastApi = { useToast, toast, showDefaultToast, showErrorToast, fail, show };
+const toastApi = {
+  useToast,
+  toast,
+  showDefaultToast,
+  showErrorToast,
+  fail,
+  show,
+};
 
 export { useToast, toast, showDefaultToast, showErrorToast, fail, show };
 
