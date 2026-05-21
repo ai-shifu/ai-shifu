@@ -7,7 +7,6 @@ import { parseUrlParams } from '@/c-utils/urlUtils';
 // import { ConfigProvider } from 'antd';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useTranslation } from 'react-i18next';
-import type { LearningMode } from './Components/learningModeOptions';
 import { debugError, debugInfo } from '@/c-utils/debugConsole';
 
 import { useShallow } from 'zustand/react/shallow';
@@ -32,6 +31,7 @@ import {
   readLearningModeFromStorage,
   writeLearningModeToStorage,
 } from './Components/learningModeStorage';
+import { resolveCourseLearningMode } from './Components/learningModePreference';
 
 const parseBooleanQueryParam = (value?: string) => {
   if (typeof value !== 'string') {
@@ -39,34 +39,6 @@ const parseBooleanQueryParam = (value?: string) => {
   }
 
   return value.trim().toLowerCase() === 'true';
-};
-
-const resolveLearningMode = ({
-  courseTtsEnabled,
-  hasListenModeOverride,
-  listenModeParam,
-  storedLearningMode,
-}: {
-  courseTtsEnabled: boolean | null;
-  hasListenModeOverride: boolean;
-  listenModeParam: boolean | null;
-  storedLearningMode: LearningMode | null;
-}): LearningMode => {
-  if (hasListenModeOverride) {
-    if (courseTtsEnabled === null) {
-      return listenModeParam === true ? 'listen' : 'read';
-    }
-
-    return listenModeParam === true && courseTtsEnabled === true
-      ? 'listen'
-      : 'read';
-  }
-
-  if (storedLearningMode === 'listen' && courseTtsEnabled !== false) {
-    return 'listen';
-  }
-
-  return 'read';
 };
 
 export default function ChatLayout({
@@ -227,7 +199,7 @@ export default function ChatLayout({
 
   useEffect(() => {
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
-    const nextLearningMode = resolveLearningMode({
+    const nextLearningMode = resolveCourseLearningMode({
       courseTtsEnabled,
       hasListenModeOverride,
       listenModeParam,
@@ -259,11 +231,7 @@ export default function ChatLayout({
       return;
     }
 
-    if (storedLearningMode === null && learningMode === 'read') {
-      return;
-    }
-
-    // Keep the course-scoped preference synced after user toggles mode.
+    // Keep the course-scoped preference synced after auto resolution or manual toggles.
     writeLearningModeToStorage(storageCourseId, learningMode);
   }, [hasListenModeOverride, learningMode, storageCourseId]);
 
