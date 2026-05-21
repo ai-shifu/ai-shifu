@@ -2904,4 +2904,151 @@ describe('useChatLogicHook stream cleanup', () => {
       result.current.items.some(item => item.type === ChatContentItemType.ASK),
     ).toBe(false);
   });
+
+  describe('regenerate during a running stream', () => {
+    const HISTORY_WITH_TWO_INTERACTIONS = {
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'intro',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          element_type: 'interaction',
+          content: '?[%{{var_old}} A | B]',
+          generated_block_bid: 'interaction-old',
+          element_bid: 'interaction-old',
+          like_status: 'none',
+          user_input: 'A',
+        },
+        {
+          element_type: 'interaction',
+          content: '?[%{{var_new}} X | Y]',
+          generated_block_bid: 'interaction-new',
+          element_bid: 'interaction-new',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    };
+
+    const renderWithStreamingRun = async () => {
+      mockGetLessonStudyRecord.mockResolvedValueOnce(
+        HISTORY_WITH_TWO_INTERACTIONS,
+      );
+      const renderResult = renderHook(
+        () => useChatLogicHook(buildBaseParams()),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(renderResult.result.current.isLoading).toBe(false),
+      );
+
+      act(() => {
+        renderResult.result.current.onSend(
+          { variableName: 'var_new', selectedValues: ['X'] },
+          'interaction-new',
+        );
+      });
+      await waitFor(() => expect(activeRun).toBeDefined());
+
+      await act(async () => {
+        await activeRun?.onMessage({
+          generated_block_bid: 'content-new',
+          type: SSE_OUTPUT_TYPE.ELEMENT,
+          content: {
+            element_bid: 'content-new',
+            generated_block_bid: 'content-new',
+            element_type: 'content',
+            content: 'streaming...',
+            like_status: 'none',
+          },
+        });
+      });
+      await waitFor(() =>
+        expect(renderResult.result.current.isOutputInProgress).toBe(true),
+      );
+      return renderResult;
+    };
+
+    it('pops the regenerate confirm dialog instead of toasting while the stream is running', async () => {
+      const { result } = await renderWithStreamingRun();
+      const initialSource = activeRun?.source;
+      const runCallCountBeforeRegen = mockGetRunMessage.mock.calls.length;
+      (toast as jest.Mock).mockClear();
+
+      act(() => {
+        result.current.onSend(
+          { variableName: 'var_old', selectedValues: ['B'] },
+          'interaction-old',
+        );
+      });
+
+      expect(result.current.reGenerateConfirm.open).toBe(true);
+      expect(toast).not.toHaveBeenCalled();
+      expect(initialSource?.close).not.toHaveBeenCalled();
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(runCallCountBeforeRegen);
+    });
+
+    it('aborts the running stream and submits the new variables when the user confirms regenerate', async () => {
+      const { result } = await renderWithStreamingRun();
+      act(() => {
+        result.current.onSend(
+          { variableName: 'var_old', selectedValues: ['B'] },
+          'interaction-old',
+        );
+      });
+      expect(result.current.reGenerateConfirm.open).toBe(true);
+
+      const initialSource = activeRun?.source;
+      const runCallCountBeforeConfirm = mockGetRunMessage.mock.calls.length;
+
+      await act(async () => {
+        result.current.reGenerateConfirm.onConfirm();
+      });
+
+      await waitFor(() =>
+        expect(mockGetRunMessage).toHaveBeenCalledTimes(
+          runCallCountBeforeConfirm + 1,
+        ),
+      );
+      expect(initialSource?.close).toHaveBeenCalled();
+      expect(result.current.reGenerateConfirm.open).toBe(false);
+
+      const lastCall =
+        mockGetRunMessage.mock.calls[mockGetRunMessage.mock.calls.length - 1];
+      expect(lastCall[3]).toMatchObject({
+        input: { var_old: expect.anything() },
+        input_type: SSE_INPUT_TYPE.NORMAL,
+      });
+    });
+
+    it('keeps the running stream and discards the pending submit when the user cancels regenerate', async () => {
+      const { result } = await renderWithStreamingRun();
+      act(() => {
+        result.current.onSend(
+          { variableName: 'var_old', selectedValues: ['B'] },
+          'interaction-old',
+        );
+      });
+      expect(result.current.reGenerateConfirm.open).toBe(true);
+
+      const initialSource = activeRun?.source;
+      const runCallCountBeforeCancel = mockGetRunMessage.mock.calls.length;
+
+      act(() => {
+        result.current.reGenerateConfirm.onCancel();
+      });
+
+      expect(initialSource?.close).not.toHaveBeenCalled();
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(runCallCountBeforeCancel);
+      expect(result.current.reGenerateConfirm.open).toBe(false);
+    });
+  });
 });
