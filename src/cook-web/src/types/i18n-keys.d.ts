@@ -370,6 +370,7 @@ export type I18nKey =
   | 'module.billing.catalog.labels.providerAlipay'
   | 'module.billing.catalog.labels.providerManual'
   | 'module.billing.catalog.labels.providerPingxx'
+  | 'module.billing.catalog.labels.providerWithChannel'
   | 'module.billing.catalog.labels.providerStripe'
   | 'module.billing.catalog.labels.providerWechatpay'
   | 'module.billing.catalog.plans.creatorMonthly.description'

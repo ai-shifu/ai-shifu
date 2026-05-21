@@ -873,6 +873,10 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.catalog.labels.providerAlipay'),
     t('module.billing.catalog.labels.providerManual'),
     t('module.billing.catalog.labels.providerPingxx'),
+    t('module.billing.catalog.labels.providerWithChannel', {
+      provider: t('module.billing.catalog.labels.providerPingxx'),
+      channel: t('module.pay.wechatPay'),
+    }),
     t('module.billing.catalog.labels.providerStripe'),
     t('module.billing.catalog.labels.providerWechatpay'),
     t('module.billing.catalog.plans.creatorMonthly.description'),

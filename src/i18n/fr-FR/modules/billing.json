@@ -276,9 +276,10 @@
       "perYear": "annuel",
       "providerAlipay": "Alipay",
       "providerManual": "Manuel",
-      "providerPingxx": "Pingxx / Alipay QR",
+      "providerPingxx": "Pingxx",
       "providerStripe": "Stripe",
-      "providerWechatpay": "WeChat Pay"
+      "providerWechatpay": "WeChat Pay",
+      "providerWithChannel": "{provider} / {channel}"
     },
     "plans": {
       "creatorMonthly": {
