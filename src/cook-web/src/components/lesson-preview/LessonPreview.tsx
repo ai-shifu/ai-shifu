@@ -69,6 +69,7 @@ interface LessonPreviewProps {
 }
 
 const noop = () => {};
+const ENABLE_PREVIEW_TYPEWRITER = false;
 
 const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
@@ -139,7 +140,10 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   }, [items]);
 
   const visibleItems = React.useMemo(
-    () => buildVisiblePreviewItems(items, previewTypewriterCache),
+    () =>
+      ENABLE_PREVIEW_TYPEWRITER
+        ? buildVisiblePreviewItems(items, previewTypewriterCache)
+        : items,
     [items, previewTypewriterCache],
   );
 
@@ -217,6 +221,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   );
 
   React.useEffect(() => {
+    if (!ENABLE_PREVIEW_TYPEWRITER) {
+      return;
+    }
     setPreviewTypewriterCache(prevCache =>
       syncPreviewTypewriterCache(items, prevCache),
     );
@@ -361,7 +368,11 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                       copyButtonText={copyButtonText}
                       copiedButtonText={copiedButtonText}
                       onSend={onSend}
-                      onTypeFinished={handlePreviewTypeFinished}
+                      onTypeFinished={
+                        ENABLE_PREVIEW_TYPEWRITER
+                          ? handlePreviewTypeFinished
+                          : undefined
+                      }
                     />
                     {isCreditInsufficient ? (
                       <Button
@@ -391,15 +402,22 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     blockBid={
                       item.element_bid || item.generated_block_bid || ''
                     }
-                    enableStreamingTypewriter={shouldEnablePreviewTypewriter(
-                      item,
-                      previewTypewriterCache[item.element_bid || ''],
-                    )}
+                    enableStreamingTypewriter={
+                      ENABLE_PREVIEW_TYPEWRITER &&
+                      shouldEnablePreviewTypewriter(
+                        item,
+                        previewTypewriterCache[item.element_bid || ''],
+                      )
+                    }
                     confirmButtonText={confirmButtonText}
                     copyButtonText={copyButtonText}
                     copiedButtonText={copiedButtonText}
                     onSend={onSend}
-                    onTypeFinished={handlePreviewTypeFinished}
+                    onTypeFinished={
+                      ENABLE_PREVIEW_TYPEWRITER
+                        ? handlePreviewTypeFinished
+                        : undefined
+                    }
                   />
                 </div>
               );
