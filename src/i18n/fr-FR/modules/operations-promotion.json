@@ -146,8 +146,7 @@
     "ended": "Terminé",
     "expired": "Expiré",
     "inactive": "Désactivé",
-    "notStarted": "Non commencé",
-    "upcoming": "À venir"
+    "notStarted": "Non commencé"
   },
   "summary": {
     "activeCampaignCount": "Campagnes actives",

@@ -408,30 +408,27 @@ const resolveCouponScopeLabel = (
   return EMPTY_VALUE;
 };
 
+const PROMOTION_STATUS_FALLBACK_KEYS: Record<string, string> = {
+  active: 'status.active',
+  ended: 'status.ended',
+  expired: 'status.expired',
+  inactive: 'status.inactive',
+  not_started: 'status.notStarted',
+  upcoming: 'status.notStarted',
+};
+
 const resolvePromotionStatusLabel = (
   tPromotion: (key: string) => string,
   statusKey?: string,
   status?: string,
 ) => {
-  if (!statusKey) {
-    const fallbackKey =
-      status === 'upcoming'
-        ? 'status.upcoming'
-        : status === 'active'
-          ? 'status.active'
-          : status === 'inactive'
-            ? 'status.inactive'
-            : status === 'ended'
-              ? 'status.ended'
-              : status === 'not_started'
-                ? 'status.notStarted'
-                : status === 'expired'
-                  ? 'status.expired'
-                  : '';
-    return fallbackKey ? tPromotion(fallbackKey) : EMPTY_VALUE;
+  const fallbackKey = status ? PROMOTION_STATUS_FALLBACK_KEYS[status] : '';
+  const translationKey = statusKey ? toPromotionRelativeKey(statusKey) : fallbackKey;
+  if (!translationKey) {
+    return EMPTY_VALUE;
   }
-  const translated = tPromotion(toPromotionRelativeKey(statusKey));
-  return translated && translated !== statusKey ? translated : EMPTY_VALUE;
+  const translated = tPromotion(translationKey);
+  return translated && translated !== translationKey ? translated : EMPTY_VALUE;
 };
 
 const resolvePromotionStatusBadgeClassName = (status?: string) => {
