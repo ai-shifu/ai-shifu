@@ -2179,7 +2179,7 @@ def test_get_operator_user_grant_bootstrap_returns_active_plans(app):
             subscription_bid="subscription-package-bootstrap-target",
             product_bid="bill-product-plan-monthly",
             current_period_start_at=datetime(2026, 4, 20, 9, 0, 0),
-            current_period_end_at=datetime(2026, 5, 20, 23, 59, 59),
+            current_period_end_at=datetime(2099, 5, 20, 23, 59, 59),
         )
 
         result = get_operator_user_grant_bootstrap(
@@ -2997,7 +2997,7 @@ def test_admin_operation_user_grant_bootstrap_route_returns_active_plans(
             subscription_bid="subscription-user-grant-bootstrap-route",
             product_bid="bill-product-plan-monthly",
             current_period_start_at=datetime(2026, 4, 20, 8, 0, 0),
-            current_period_end_at=datetime(2026, 5, 20, 23, 59, 59),
+            current_period_end_at=datetime(2099, 5, 20, 23, 59, 59),
         )
 
     response = test_client.get(
