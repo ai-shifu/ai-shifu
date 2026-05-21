@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { getPaymentAgreementUrl } from '@/c-utils/urlUtils';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -23,7 +23,9 @@ type BillingCheckoutDialogProps = {
   priceLabel: string;
   productName: string;
   providerLabel: string;
+  agreed: boolean;
   onConfirm: () => void;
+  onAgreedChange: (agreed: boolean) => void;
   onOpenChange: (open: boolean) => void;
   onPingxxChannelChange?: (channel: BillingPingxxChannel) => void;
 };
@@ -37,17 +39,14 @@ export function BillingCheckoutDialog({
   priceLabel,
   productName,
   providerLabel,
+  agreed,
   onConfirm,
+  onAgreedChange,
   onOpenChange,
   onPingxxChannelChange,
 }: BillingCheckoutDialogProps) {
   const { t } = useTranslation();
-  const [agreed, setAgreed] = useState(false);
   const agreementUrl = getPaymentAgreementUrl();
-
-  useEffect(() => {
-    if (!open) setAgreed(false);
-  }, [open]);
 
   return (
     <Dialog
@@ -109,7 +108,7 @@ export function BillingCheckoutDialog({
             <Checkbox
               id='billing-checkout-agreement'
               checked={agreed}
-              onCheckedChange={checked => setAgreed(checked === true)}
+              onCheckedChange={checked => onAgreedChange(checked === true)}
             />
             <label
               htmlFor='billing-checkout-agreement'

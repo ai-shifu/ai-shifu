@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { LoaderIcon } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +35,9 @@ type BillingPingxxQrDialogProps = {
   provider?: BillingProvider;
   qrUrl: string;
   selectedChannel: BillingPingxxChannel;
+  agreed: boolean;
   onChannelChange: (channel: BillingPingxxChannel) => void;
+  onAgreedChange: (agreed: boolean) => void;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -49,11 +51,12 @@ export function BillingPingxxQrDialog({
   provider = 'pingxx',
   qrUrl,
   selectedChannel,
+  agreed,
   onChannelChange,
+  onAgreedChange,
   onOpenChange,
 }: BillingPingxxQrDialogProps) {
   const { t, i18n } = useTranslation();
-  const [agreed, setAgreed] = useState(false);
   const agreementUrl = getPaymentAgreementUrl();
   const availableChannels =
     provider === 'alipay'
@@ -61,10 +64,6 @@ export function BillingPingxxQrDialog({
       : provider === 'wechatpay'
         ? (['wx_pub_qr'] as BillingPingxxChannel[])
         : BILLING_PINGXX_CHANNELS;
-
-  useEffect(() => {
-    if (!open) setAgreed(false);
-  }, [open]);
 
   return (
     <Dialog
@@ -138,7 +137,7 @@ export function BillingPingxxQrDialog({
             <Checkbox
               id='billing-pingxx-agreement'
               checked={agreed}
-              onCheckedChange={checked => setAgreed(checked === true)}
+              onCheckedChange={checked => onAgreedChange(checked === true)}
             />
             <label
               htmlFor='billing-pingxx-agreement'

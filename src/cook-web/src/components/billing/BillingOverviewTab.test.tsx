@@ -944,6 +944,12 @@ describe('BillingOverviewTab', () => {
       );
     });
 
+    expect(
+      screen.getByText(
+        'module.billing.catalog.labels.providerPingxx / module.pay.wechatPay',
+      ),
+    ).toBeInTheDocument();
+
     await acceptBillingAgreement(user);
 
     await act(async () => {
@@ -965,6 +971,12 @@ describe('BillingOverviewTab', () => {
     });
 
     expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox')).toBeChecked();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.pay.clickRefresh',
+      }),
+    ).toBeEnabled();
 
     await act(async () => {
       await user.click(screen.getByTestId('billing-pingxx-channel-alipay_qr'));

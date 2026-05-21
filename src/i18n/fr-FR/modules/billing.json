@@ -276,7 +276,7 @@
       "perYear": "annuel",
       "providerAlipay": "Alipay",
       "providerManual": "Manuel",
-      "providerPingxx": "Pingxx / Alipay QR",
+      "providerPingxx": "Pingxx",
       "providerStripe": "Stripe",
       "providerWechatpay": "WeChat Pay"
     },
