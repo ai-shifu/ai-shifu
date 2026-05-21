@@ -423,7 +423,9 @@ const resolvePromotionStatusLabel = (
   status?: string,
 ) => {
   const fallbackKey = status ? PROMOTION_STATUS_FALLBACK_KEYS[status] : '';
-  const translationKey = statusKey ? toPromotionRelativeKey(statusKey) : fallbackKey;
+  const translationKey = statusKey
+    ? toPromotionRelativeKey(statusKey)
+    : fallbackKey;
   if (!translationKey) {
     return EMPTY_VALUE;
   }
