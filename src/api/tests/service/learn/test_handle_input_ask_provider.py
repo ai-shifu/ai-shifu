@@ -546,10 +546,12 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
         for event in events
         if event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
     )
-    assert captured["messages"] == [
-        {"role": "system", "content": "COURSE_PROMPT"},
-        {"role": "user", "content": "hello"},
-    ]
+    assert len(captured["messages"]) == 2
+    assert captured["messages"][0] == {"role": "system", "content": "COURSE_PROMPT"}
+    assert captured["messages"][1]["role"] == "user"
+    user_content = captured["messages"][1]["content"]
+    assert user_content.endswith("hello")
+    assert "plain text or standard Markdown" in user_content
 
 
 # ---------------------------------------------------------------------------
