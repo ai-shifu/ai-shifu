@@ -146,7 +146,8 @@
     "ended": "已结束",
     "expired": "已过期",
     "inactive": "已停用",
-    "notStarted": "未开始"
+    "notStarted": "未开始",
+    "upcoming": "未开始"
   },
   "summary": {
     "activeCampaignCount": "生效中活动",
