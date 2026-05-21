@@ -1922,18 +1922,23 @@ def _build_operator_visible_course_filter(
     title_column,
     created_user_bid_column,
 ):
+    normalized_shifu_bid = db.func.trim(db.func.coalesce(shifu_bid_column, ""))
+    normalized_title = db.func.trim(db.func.coalesce(title_column, ""))
+    normalized_created_user_bid = db.func.trim(
+        db.func.coalesce(created_user_bid_column, "")
+    )
     conditions = [
-        db.func.length(db.func.trim(db.func.coalesce(shifu_bid_column, ""))) > 0,
+        db.func.length(normalized_shifu_bid) > 0,
         not_(
             and_(
-                created_user_bid_column == "system",
-                title_column.in_(sorted(BUILTIN_DEMO_TITLES)),
+                normalized_created_user_bid == "system",
+                normalized_title.in_(sorted(BUILTIN_DEMO_TITLES)),
             )
         ),
     ]
     demo_shifu_bids = sorted(load_demo_shifu_bids())
     if demo_shifu_bids:
-        conditions.append(not_(shifu_bid_column.in_(demo_shifu_bids)))
+        conditions.append(not_(normalized_shifu_bid.in_(demo_shifu_bids)))
     return and_(*conditions)
 
 
@@ -6891,7 +6896,9 @@ def list_operator_courses(
             for course in page_items
             for user_bid in [
                 course.created_user_bid,
-                course.activity_updated_user_bid or course.updated_user_bid,
+                resolve_activity(course).get("updated_user_bid")
+                or course.activity_updated_user_bid
+                or course.updated_user_bid,
             ]
             if user_bid and user_bid != "system"
         }

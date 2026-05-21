@@ -1175,7 +1175,22 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
         )
         db.session.commit()
 
-        result = list_operator_courses(app, 1, 20, {})
+        with patch(
+            "flaskr.service.shifu.admin._load_user_map"
+        ) as user_map_mock:
+            user_map_mock.return_value = {
+                creator_bid: {
+                    "mobile": "15811112222",
+                    "email": "creator@example.com",
+                    "nickname": "Creator One",
+                },
+                "editor-1": {
+                    "mobile": "13200001111",
+                    "email": "editor@example.com",
+                    "nickname": "Editor One",
+                },
+            }
+            result = list_operator_courses(app, 1, 20, {})
 
     assert result.total == 3
     assert [item.shifu_bid for item in result.items] == [
@@ -1186,8 +1201,62 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
     assert result.items[0].course_name == "Draft Wins Course"
     assert result.items[0].course_status == "published"
     assert result.items[0].updated_at == "2025-05-01T10:00:00Z"
+    assert result.items[0].updater_user_bid == "editor-1"
+    assert result.items[0].updater_nickname == "Editor One"
     assert result.items[1].course_status == "unpublished"
     assert result.items[2].course_status == "published"
+
+
+def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(app):
+    creator_bid = uuid.uuid4().hex[:32]
+    demo_bid = uuid.uuid4().hex[:32]
+    normal_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
+        db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=demo_bid,
+                    title=" AI-Shifu Creation Guide ",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("0"),
+                    created_user_bid=" system ",
+                    updated_user_bid="system",
+                    created_at=datetime(2025, 4, 29, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 29, 9, 0, 0),
+                ),
+                DraftShifu(
+                    shifu_bid=normal_bid,
+                    title="Normal Draft Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("19"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 28, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 28, 9, 0, 0),
+                ),
+            ]
+        )
+        db.session.commit()
+
+        result = list_operator_courses(app, 1, 20, {})
+
+    assert result.total == 1
+    assert [item.shifu_bid for item in result.items] == [normal_bid]
 
 
 def test_merge_courses_checks_published_visibility_once():
