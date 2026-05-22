@@ -14,6 +14,7 @@ const mockPush = jest.fn();
 const mockGetAdminOperationCourseDetail = jest.fn();
 const mockGetAdminOperationCourseUsers = jest.fn();
 const mockGetAdminOperationCourseCreditUsages = jest.fn();
+const mockGetAdminOperationCourseCreditUsageDetails = jest.fn();
 const mockGetAdminOperationCourseChapterDetail = jest.fn();
 const mockCopyText = jest.fn();
 const mockToastShow = jest.fn();
@@ -69,6 +70,8 @@ jest.mock('@/api', () => ({
       mockGetAdminOperationCourseUsers(...args),
     getAdminOperationCourseCreditUsages: (...args: unknown[]) =>
       mockGetAdminOperationCourseCreditUsages(...args),
+    getAdminOperationCourseCreditUsageDetails: (...args: unknown[]) =>
+      mockGetAdminOperationCourseCreditUsageDetails(...args),
     getAdminOperationCourseChapterDetail: (...args: unknown[]) =>
       mockGetAdminOperationCourseChapterDetail(...args),
   },
@@ -289,6 +292,7 @@ describe('AdminOperationCourseDetailPage', () => {
     mockGetAdminOperationCourseDetail.mockReset();
     mockGetAdminOperationCourseUsers.mockReset();
     mockGetAdminOperationCourseCreditUsages.mockReset();
+    mockGetAdminOperationCourseCreditUsageDetails.mockReset();
     mockGetAdminOperationCourseChapterDetail.mockReset();
     mockCopyText.mockReset();
     mockToastShow.mockReset();
@@ -363,6 +367,25 @@ describe('AdminOperationCourseDetailPage', () => {
       page_size: 20,
       total: 1,
     });
+    mockGetAdminOperationCourseCreditUsageDetails.mockResolvedValue({
+      items: [
+        {
+          usage_bid: 'usage-1',
+          consumed_credits: 7,
+          input_tokens: 1200,
+          output_tokens: 80,
+          word_count: 0,
+          duration_ms: 0,
+          segment_count: 0,
+          output_summary: 'First generated output summary',
+          created_at: '2026-04-08T12:20:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+    });
     mockGetAdminOperationCourseDetail.mockResolvedValue({
       basic_info: {
         shifu_bid: 'course-1',
@@ -382,6 +405,11 @@ describe('AdminOperationCourseDetailPage', () => {
         order_amount: '88',
         follow_up_count: 9,
         rating_score: '4.2',
+        credit_consumed_total: 120,
+        credit_usage_count: 18,
+        credit_user_count: 6,
+        completed_credit_user_count: 3,
+        completed_user_avg_credits: 20,
       },
       chapters: [
         {
@@ -444,12 +472,19 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.getByText('Course One')).toBeInTheDocument();
     expect(screen.getAllByText('13800001234').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
-    const visitorsMetricCard = screen
-      .getByText('module.operationsCourse.detail.metricsLabels.visitCount30d')
-      .closest('.rounded-lg');
-    expect(visitorsMetricCard).not.toBeNull();
     expect(
-      within(visitorsMetricCard as HTMLElement).getByText('34'),
+      screen.queryByText(
+        'module.operationsCourse.detail.metricsLabels.visitCount30d',
+      ),
+    ).not.toBeInTheDocument();
+    const creditsMetricCard = screen
+      .getByText(
+        'module.operationsCourse.detail.metricsLabels.creditConsumedTotal',
+      )
+      .closest('.rounded-lg');
+    expect(creditsMetricCard).not.toBeNull();
+    expect(
+      within(creditsMetricCard as HTMLElement).getByText('120'),
     ).toBeInTheDocument();
     expect(screen.getByText('¥88')).toBeInTheDocument();
     expect(screen.getByText('4.2')).toBeInTheDocument();
@@ -529,11 +564,44 @@ describe('AdminOperationCourseDetailPage', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText(
+      screen.getByText(
         'module.operationsCourse.detail.creditUsage.table.usageCount',
       ),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
     expect(screen.getByText('17')).toBeInTheDocument();
+  });
+
+  test('opens credit usage detail dialog from usage count', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await openCreditUsageTab();
+
+    fireEvent.click(await screen.findByRole('button', { name: '2' }));
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseCreditUsageDetails).toHaveBeenCalledWith(
+        {
+          shifu_bid: 'course-1',
+          page: 1,
+          page_size: 10,
+          user_bid: 'student-1',
+          outline_item_bid: 'lesson-1',
+          mode: 'learn',
+        },
+      );
+    });
+
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog).getByText(
+        'module.operationsCourse.detail.creditUsage.details.title',
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        within(dialog).getByText('First generated output summary'),
+      ).toBeInTheDocument();
+    });
   });
 
   test('formats course metrics and learning progress without grouping in Chinese locale', async () => {
@@ -580,14 +648,20 @@ describe('AdminOperationCourseDetailPage', () => {
         order_amount: '88',
         follow_up_count: 9000,
         rating_score: '4.2',
+        credit_consumed_total: 11000,
+        credit_usage_count: 8000,
+        credit_user_count: 3000,
+        completed_credit_user_count: 2000,
+        completed_user_avg_credits: 5.5,
       },
       chapters: [],
     });
 
     render(<AdminOperationCourseDetailPage />);
 
-    expect(await screen.findByText('76384')).toBeInTheDocument();
-    expect(screen.queryByText('76,384')).not.toBeInTheDocument();
+    expect(await screen.findByText('12000')).toBeInTheDocument();
+    expect(screen.getByText('11000')).toBeInTheDocument();
+    expect(screen.queryByText('12,000')).not.toBeInTheDocument();
 
     await openUsersTab();
     expect(screen.getByText('1000 / 2000')).toBeInTheDocument();
@@ -646,9 +720,9 @@ describe('AdminOperationCourseDetailPage', () => {
     await screen.findByText('Course One');
 
     expect(
-      screen.queryByRole('button', {
-        name: 'module.operationsCourse.detail.metricsLabels.visitCount30d',
-      }),
+      screen.queryByText(
+        'module.operationsCourse.detail.metricsLabels.visitCount30d',
+      ),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', {
@@ -773,6 +847,11 @@ describe('AdminOperationCourseDetailPage', () => {
         order_amount: '88',
         follow_up_count: 9,
         rating_score: '4.2',
+        credit_consumed_total: 120,
+        credit_usage_count: 18,
+        credit_user_count: 6,
+        completed_credit_user_count: 3,
+        completed_user_avg_credits: 20,
       },
       chapters: [
         {

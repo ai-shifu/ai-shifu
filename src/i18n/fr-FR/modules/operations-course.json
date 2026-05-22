@@ -95,6 +95,23 @@
       "modelSummary": {
         "multiple": "{model} et {count} modèles"
       },
+      "details": {
+        "collapse": "Réduire",
+        "empty": "Aucun détail de consommation",
+        "expand": "...",
+        "table": {
+          "createdAt": "Consommé le",
+          "credits": "Crédits",
+          "inputTokens": "Tokens d'entrée",
+          "outputSummary": "Résumé de sortie",
+          "outputTokens": "Tokens de sortie",
+          "ttsWordCount": "Mots synthétisés",
+          "ttsDuration": "Durée audio",
+          "ttsSegmentCount": "Segments",
+          "ttsContent": "Contenu synthétisé"
+        },
+        "title": "Détails de consommation des crédits"
+      },
       "modes": {
         "ask": "Relance",
         "learn": "Lecture",
@@ -104,7 +121,7 @@
       },
       "table": {
         "chapter": "Chapitre",
-        "createdAt": "Heure de consommation",
+        "createdAt": "Dernière consommation",
         "credits": "Total des crédits consommés",
         "empty": "Aucun enregistrement de consommation de crédits",
         "lesson": "Leçon",
@@ -203,7 +220,11 @@
       "orderAmount": "Revenus collectés (codes coupon inclus)",
       "orderCount": "Commandes",
       "ratingScore": "Note",
-      "visitCount30d": "Visiteurs (30 j)"
+      "visitCount30d": "Visiteurs (30 j)",
+      "creditConsumedTotal": "Crédits consommés",
+      "creditUsageCount": "Nombre de consommations de crédits",
+      "creditUserCount": "Utilisateurs consommateurs de crédits",
+      "completedUserAvgCredits": "Moy. crédits consommés par utilisateur terminé"
     },
     "orders": {
       "openMetric": "Ouvrir les données de commande"

@@ -95,6 +95,23 @@
       "modelSummary": {
         "multiple": "{model} 等 {count} 个"
       },
+      "details": {
+        "collapse": "收起",
+        "empty": "暂无消耗明细",
+        "expand": "...",
+        "table": {
+          "createdAt": "消耗时间",
+          "credits": "消耗积分",
+          "inputTokens": "输入 Tokens",
+          "outputSummary": "输出摘要",
+          "outputTokens": "输出 Tokens",
+          "ttsWordCount": "合成字数",
+          "ttsDuration": "音频时长",
+          "ttsSegmentCount": "分段数",
+          "ttsContent": "合成内容"
+        },
+        "title": "积分消耗明细"
+      },
       "modes": {
         "ask": "追问",
         "learn": "阅读",
@@ -104,7 +121,7 @@
       },
       "table": {
         "chapter": "章节",
-        "createdAt": "消耗时间",
+        "createdAt": "最近消耗时间",
         "credits": "总消耗积分",
         "empty": "暂无积分消耗记录",
         "lesson": "小节",
@@ -203,7 +220,11 @@
       "orderAmount": "实收总额（含兑换码）",
       "orderCount": "订单数",
       "ratingScore": "评分",
-      "visitCount30d": "近30天访问人数"
+      "visitCount30d": "近30天访问人数",
+      "creditConsumedTotal": "总消耗积分",
+      "creditUsageCount": "积分消耗次数",
+      "creditUserCount": "积分消耗用户数",
+      "completedUserAvgCredits": "完课用户平均积分消耗"
     },
     "orders": {
       "openMetric": "查看订单数据"

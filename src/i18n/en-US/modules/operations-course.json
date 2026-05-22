@@ -95,6 +95,23 @@
       "modelSummary": {
         "multiple": "{model} and {count} models"
       },
+      "details": {
+        "collapse": "Collapse",
+        "empty": "No usage details",
+        "expand": "...",
+        "table": {
+          "createdAt": "Consumed At",
+          "credits": "Credits",
+          "inputTokens": "Input Tokens",
+          "outputSummary": "Output Summary",
+          "outputTokens": "Output Tokens",
+          "ttsWordCount": "Synthesized Words",
+          "ttsDuration": "Audio Duration",
+          "ttsSegmentCount": "Segments",
+          "ttsContent": "Synthesized Content"
+        },
+        "title": "Credit Usage Details"
+      },
       "modes": {
         "ask": "Follow-up",
         "learn": "Read",
@@ -104,7 +121,7 @@
       },
       "table": {
         "chapter": "Chapter",
-        "createdAt": "Consumed At",
+        "createdAt": "Latest Consumed At",
         "credits": "Total Credits Consumed",
         "empty": "No credit usage records",
         "lesson": "Lesson",
@@ -203,7 +220,11 @@
       "orderAmount": "Collected Revenue (Incl. Coupon Codes)",
       "orderCount": "Orders",
       "ratingScore": "Rating",
-      "visitCount30d": "Visitors (30d)"
+      "visitCount30d": "Visitors (30d)",
+      "creditConsumedTotal": "Total Credits Consumed",
+      "creditUsageCount": "Credit Usage Count",
+      "creditUserCount": "Credit Usage Users",
+      "completedUserAvgCredits": "Avg Credits Consumed per Completed User"
     },
     "orders": {
       "openMetric": "Open order data"
