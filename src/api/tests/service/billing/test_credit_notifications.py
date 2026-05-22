@@ -872,6 +872,54 @@ def test_low_balance_estimated_days_uses_fallback_fixed_threshold_when_history_i
         assert notification.metadata_json["fallback_from"] == "estimated_days"
 
 
+def test_low_balance_estimated_days_skips_when_valid_daily_consumption_is_missing(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    now = datetime(2026, 5, 21, 8, 0, 0)
+    _seed_creator(app)
+    _enable_policy(
+        app,
+        low_balance_thresholds=[
+            {
+                "kind": "estimated_days",
+                "days": 7,
+                "lookback_days": 7,
+                "min_consumed_days": 2,
+                "fallback_fixed_value": "5",
+            }
+        ],
+    )
+    enqueue_calls: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
+        lambda app, *, notification_bid: enqueue_calls.append(notification_bid),
+    )
+
+    with app.app_context():
+        _seed_wallet(available_credits="0")
+        _seed_daily_consumption(stat_date="2026-05-20", amount="0")
+        dao.db.session.commit()
+
+    payload = scan_low_balance_notifications(app, now=now)
+    dry_run_payload = scan_low_balance_notifications(app, now=now, dry_run=True)
+
+    assert payload["candidate_count"] == 0
+    assert payload["created_count"] == 0
+    assert payload["enqueued_count"] == 0
+    assert payload["notifications"] == []
+    assert enqueue_calls == []
+    assert dry_run_payload["candidate_count"] == 0
+    assert dry_run_payload["notifications"][0]["reason"] == (
+        "missing_daily_consumption_summary"
+    )
+    assert dry_run_payload["notifications"][0]["estimated_remaining_days"] == ""
+    assert dry_run_payload["notifications"][0]["threshold"] == ""
+    with app.app_context():
+        assert NotificationRecord.query.count() == 0
+
+
 def test_failed_provider_notification_can_be_requeued(
     credit_notifications_app: Flask,
     monkeypatch: pytest.MonkeyPatch,

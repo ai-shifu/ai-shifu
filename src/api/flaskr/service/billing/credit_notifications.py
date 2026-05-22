@@ -1378,10 +1378,32 @@ def scan_low_balance_notifications(
                     has_fallback = (
                         fallback_value is not None and str(fallback_value).strip()
                     )
-                    if (
-                        consumed_days < min_consumed_days
-                        or avg_daily_consumption <= _ZERO
-                    ):
+                    if consumed_days <= 0 or avg_daily_consumption <= _ZERO:
+                        if dry_run:
+                            notifications.append(
+                                _low_balance_dry_run_payload(
+                                    status="skipped",
+                                    creator_bid=wallet.creator_bid,
+                                    source_bid=wallet.creator_bid,
+                                    dedupe_key=build_low_balance_estimated_days_dedupe_key(
+                                        wallet.creator_bid,
+                                        days=days,
+                                        lookback_days=lookback_days,
+                                        day=scan_now.date(),
+                                    ),
+                                    template_params=_low_balance_template_params(
+                                        available=available,
+                                        threshold_kind=(
+                                            LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS
+                                        ),
+                                        trigger_days=days,
+                                        lookback_days=lookback_days,
+                                    ),
+                                    reason="missing_daily_consumption_summary",
+                                )
+                            )
+                        continue
+                    if consumed_days < min_consumed_days:
                         if has_fallback:
                             fallback_threshold = _decimal_from_policy(
                                 fallback_value,
@@ -1412,11 +1434,6 @@ def scan_low_balance_notifications(
                                     }
                                 )
                             elif dry_run:
-                                reason = (
-                                    "insufficient_consumed_days"
-                                    if consumed_days < min_consumed_days
-                                    else "zero_average_daily_consumption"
-                                )
                                 notifications.append(
                                     _low_balance_dry_run_payload(
                                         status="skipped",
@@ -1434,18 +1451,16 @@ def scan_low_balance_notifications(
                                             ),
                                             threshold=str(fallback_threshold),
                                         ),
-                                        reason=f"{reason}_fallback_not_reached",
+                                        reason=(
+                                            "insufficient_consumed_days_"
+                                            "fallback_not_reached"
+                                        ),
                                     )
                                 )
                             if not dedupe_key:
                                 continue
                         else:
                             if dry_run:
-                                reason = (
-                                    "insufficient_consumed_days"
-                                    if consumed_days < min_consumed_days
-                                    else "zero_average_daily_consumption"
-                                )
                                 notifications.append(
                                     _low_balance_dry_run_payload(
                                         status="skipped",
@@ -1468,7 +1483,7 @@ def scan_low_balance_notifications(
                                                 avg_daily_consumption
                                             ),
                                         ),
-                                        reason=reason,
+                                        reason="insufficient_consumed_days",
                                     )
                                 )
                             continue

@@ -55,7 +55,7 @@ Implemented v1 of the积分通知中心:
 - SMS-only notification service with policy validation, dedupe, staging, delivery, skip states, failed-provider requeue, dry-run, and SMS cost estimate.
 - `credit_granted` hooks in paid/manual/trial grant flows, plus scheduled scan tasks for `credit_expiring` and `low_balance`.
 - Operator APIs and frontend page for record search, structured policy config, dry-run, and failed-provider requeue.
-- Low-balance reminders can optionally trigger by estimated remaining days, using finalized daily consume summaries with fixed-threshold fallback when configured.
+- Low-balance reminders can optionally trigger by estimated remaining days, using finalized daily consume summaries. Fixed-threshold fallback only applies when there is partial valid consumption history; missing or zero daily consumption summaries do not send estimated-days reminders.
 - Billing overview exposes `credit_status`, `debug_allowed`, and `softlimit_threshold`; preview/debug paths enforce softlimit in both frontend and backend.
 - Focused backend, task, and frontend tests cover staging, dedupe, skip, provider retry, scan windows, softlimit, Celery schedule/config, operator page rendering, and frontend preview blocking.
 
