@@ -56,9 +56,10 @@ jest.mock('react-i18next', () => ({
 
 jest.mock('@/hooks/useToast', () => ({
   __esModule: true,
-  useToast: () => ({
-    toast: mockToast,
-  }),
+  showDefaultToast: (description: unknown, options?: Record<string, unknown>) =>
+    mockToast({ ...options, description }),
+  showErrorToast: (description: unknown, options?: Record<string, unknown>) =>
+    mockToast({ ...options, description, variant: 'destructive' }),
 }));
 
 jest.mock('@/components/loading', () => ({
@@ -986,6 +987,7 @@ describe('AdminOperationPromotionsPage', () => {
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
         description: 'redemptions failed',
+        variant: 'destructive',
       });
     });
 
@@ -1330,6 +1332,7 @@ describe('AdminOperationPromotionsPage', () => {
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
         description: 'status failed',
+        variant: 'destructive',
       });
     });
   });
@@ -1931,6 +1934,7 @@ describe('AdminOperationPromotionsPage', () => {
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
         description: 'detail failed',
+        variant: 'destructive',
       });
     });
 
@@ -2166,6 +2170,7 @@ describe('AdminOperationPromotionsPage', () => {
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
         description: 'codes failed',
+        variant: 'destructive',
       });
     });
 
@@ -2398,6 +2403,7 @@ describe('AdminOperationPromotionsPage', () => {
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
         description: 'usages failed',
+        variant: 'destructive',
       });
     });
 
