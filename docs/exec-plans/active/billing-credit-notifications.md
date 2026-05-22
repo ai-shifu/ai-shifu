@@ -20,6 +20,7 @@
 - [x] 2026-05-21 17:07 CST: Added operator APIs and frontend page for notification records, policy config, dry-run, and retry.
 - [x] 2026-05-21 17:07 CST: Added teacher-facing balance state and softlimit debug blocking on frontend and backend preview/debug paths.
 - [x] 2026-05-21 17:07 CST: Added focused backend/task/frontend tests and ran validation; architecture boundary check is blocked only by unrelated pre-existing untracked route-support files.
+- [x] 2026-05-22 18:35 CST: Extended low-balance notifications with estimated-days thresholds based on finalized daily ledger consumption, structured operator form fields, dry-run details, and focused tests.
 
 ## Surprises & Discoveries
 
@@ -39,6 +40,9 @@
   - `credit_expiring:{wallet_bucket_bid}:{window}`
   - `credit_granted:{ledger_bid}`
   - `low_balance:{creator_bid}:{threshold}:{date}`
+  - `low_balance:{creator_bid}:estimated_days:{days}:lookback:{lookback_days}:{date}`
+- `low_balance` supports `fixed` and `estimated_days` threshold policies; `estimated_days` reads `bill_daily_ledger_summary` for complete prior natural days only.
+- `softlimit.threshold` remains fixed-only in v1 so daily consumption estimation cannot change debug-blocking behavior.
 - Do not reuse `/api/user/send_sms_code`, `/api/user/console_send_sms_code`, or captcha templates.
 - softlimit is enforced on both frontend and backend: frontend disables teacher debug entry, backend debug/preview APIs validate `debug_allowed`.
 - hardlimit remains a billing admission/runtime boundary and is not controlled by notification policy.
@@ -51,6 +55,7 @@ Implemented v1 of the积分通知中心:
 - SMS-only notification service with policy validation, dedupe, staging, delivery, skip states, failed-provider requeue, dry-run, and SMS cost estimate.
 - `credit_granted` hooks in paid/manual/trial grant flows, plus scheduled scan tasks for `credit_expiring` and `low_balance`.
 - Operator APIs and frontend page for record search, structured policy config, dry-run, and failed-provider requeue.
+- Low-balance reminders can optionally trigger by estimated remaining days, using finalized daily consume summaries with fixed-threshold fallback when configured.
 - Billing overview exposes `credit_status`, `debug_allowed`, and `softlimit_threshold`; preview/debug paths enforce softlimit in both frontend and backend.
 - Focused backend, task, and frontend tests cover staging, dedupe, skip, provider retry, scan windows, softlimit, Celery schedule/config, operator page rendering, and frontend preview blocking.
 
@@ -169,6 +174,7 @@ Likely frontend surfaces:
 - `credit_granted` uses the ledger BID so repeated grant requests that reuse an existing ledger do not send another notification.
 - `credit_expiring` uses bucket BID plus window, so repeated scans of the same bucket/window are safe.
 - `low_balance` uses creator, threshold, and date, so repeated daily scans do not spam the same creator.
+- `low_balance` estimated-days rules use creator, trigger days, lookback days, and date, so fixed and automatic thresholds remain independently idempotent.
 - Worker delivery should lock the record and only process `pending` or `failed_provider`.
 - If a provider call fails, keep the record in `failed_provider` with response/error details so it can be retried.
 - No-mobile, opt-out, blacklist, frequency, budget, and duplicate suppression are terminal unless the policy explicitly changes and an operator chooses a new action.
@@ -184,6 +190,9 @@ Likely frontend surfaces:
   - `wallet_bucket_bid`
   - `ledger_bid`
   - `creator_bid`
+- Low-balance threshold policy variants:
+  - `{ "kind": "fixed", "value": "..." }`
+  - `{ "kind": "estimated_days", "days": 7, "lookback_days": 7, "min_consumed_days": 2, "fallback_fixed_value": "0" }`
 - New or updated task entries:
   - `billing.scan_credit_expiring_notifications`
   - `billing.scan_low_balance_notifications`

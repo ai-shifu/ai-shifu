@@ -30,6 +30,9 @@ import type {
   AdminOperationCreditNotificationItem,
   AdminOperationCreditNotificationListResponse,
   AdminOperationCreditNotificationRequeueResponse,
+  CreditNotificationEstimatedDaysThreshold,
+  CreditNotificationFixedThreshold,
+  CreditNotificationThreshold,
 } from '../operation-credit-notification-types';
 
 type NotificationFilters = {
@@ -49,6 +52,14 @@ const NOTIFICATION_TYPES = [
   'credit_granted',
   'low_balance',
 ] as const;
+const DEFAULT_ESTIMATED_DAYS_THRESHOLD: CreditNotificationEstimatedDaysThreshold =
+  {
+    kind: 'estimated_days',
+    days: 7,
+    lookback_days: 7,
+    min_consumed_days: 2,
+    fallback_fixed_value: '0',
+  };
 
 const createDefaultFilters = (): NotificationFilters => ({
   creator_bid: '',
@@ -149,6 +160,11 @@ const readNumber = (value: unknown, fallback: number): number => {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 };
 
+const readPositiveNumber = (value: unknown, fallback: number): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+};
+
 const readString = (value: unknown, fallback = ''): string => {
   const normalized = String(value ?? '').trim();
   return normalized || fallback;
@@ -163,6 +179,50 @@ const readThresholdValue = (
   }
   return { kind: 'fixed', value: fallback };
 };
+
+const readLowBalanceThreshold = (
+  value: unknown,
+): CreditNotificationThreshold | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const kind = readString(value.kind, 'fixed');
+  if (kind === 'estimated_days') {
+    const fallbackFixedValue =
+      value.fallback_fixed_value === undefined ||
+      value.fallback_fixed_value === null
+        ? undefined
+        : String(value.fallback_fixed_value).trim();
+    return {
+      kind: 'estimated_days',
+      days: readPositiveNumber(
+        value.days,
+        DEFAULT_ESTIMATED_DAYS_THRESHOLD.days,
+      ),
+      lookback_days: readPositiveNumber(
+        value.lookback_days,
+        DEFAULT_ESTIMATED_DAYS_THRESHOLD.lookback_days,
+      ),
+      min_consumed_days: readPositiveNumber(
+        value.min_consumed_days,
+        DEFAULT_ESTIMATED_DAYS_THRESHOLD.min_consumed_days,
+      ),
+      ...(fallbackFixedValue !== undefined
+        ? { fallback_fixed_value: fallbackFixedValue }
+        : {}),
+    };
+  }
+  return readThresholdValue(value, '0');
+};
+
+const isFixedThreshold = (
+  threshold: CreditNotificationThreshold,
+): threshold is CreditNotificationFixedThreshold => threshold.kind === 'fixed';
+
+const isEstimatedDaysThreshold = (
+  threshold: CreditNotificationThreshold,
+): threshold is CreditNotificationEstimatedDaysThreshold =>
+  threshold.kind === 'estimated_days';
 
 const normalizePolicy = (
   payload: unknown,
@@ -216,9 +276,9 @@ const normalizePolicy = (
           defaults.types.low_balance.enabled,
         ),
         template_code: readString(lowBalance.template_code),
-        thresholds: lowBalanceThresholds.map(item =>
-          readThresholdValue(item, '0'),
-        ),
+        thresholds: lowBalanceThresholds
+          .map(readLowBalanceThreshold)
+          .filter((item): item is CreditNotificationThreshold => item !== null),
       },
     },
     softlimit: {
@@ -289,8 +349,40 @@ const parseListInput = (value: string): string[] =>
 
 const formatListInput = (value: string[]): string => value.join(', ');
 
-const parseThresholdInput = (value: string) =>
+const parseThresholdInput = (
+  value: string,
+): CreditNotificationFixedThreshold[] =>
   parseListInput(value).map(item => ({ kind: 'fixed' as const, value: item }));
+
+const setEstimatedDaysThreshold = (
+  policy: AdminOperationCreditNotificationPolicy,
+  patch: Partial<CreditNotificationEstimatedDaysThreshold>,
+) => {
+  const thresholds = policy.types.low_balance.thresholds || [];
+  const fixedThresholds = thresholds.filter(isFixedThreshold);
+  const current =
+    thresholds.find(isEstimatedDaysThreshold) ||
+    DEFAULT_ESTIMATED_DAYS_THRESHOLD;
+  policy.types.low_balance.thresholds = [
+    ...fixedThresholds,
+    {
+      ...current,
+      ...patch,
+      kind: 'estimated_days',
+    },
+  ];
+};
+
+const removeEstimatedDaysThreshold = (
+  policy: AdminOperationCreditNotificationPolicy,
+) => {
+  const fixedThresholds = (policy.types.low_balance.thresholds || []).filter(
+    isFixedThreshold,
+  );
+  policy.types.low_balance.thresholds = fixedThresholds.length
+    ? fixedThresholds
+    : [{ kind: 'fixed', value: '0' }];
+};
 
 const formatValue = (value?: string | null) => {
   const normalized = String(value || '').trim();
@@ -315,6 +407,11 @@ export default function AdminOperationCreditNotificationsPage() {
   const [dryRunResult, setDryRunResult] =
     React.useState<AdminOperationCreditNotificationDryRunResponse | null>(null);
   const requestIdRef = React.useRef(0);
+  const lowBalanceThresholds = policy.types.low_balance.thresholds || [];
+  const fixedLowBalanceThresholds =
+    lowBalanceThresholds.filter(isFixedThreshold);
+  const estimatedDaysThreshold =
+    lowBalanceThresholds.find(isEstimatedDaysThreshold) || null;
 
   const resolveTypeLabel = React.useCallback(
     (value: string) =>
@@ -800,31 +897,176 @@ export default function AdminOperationCreditNotificationsPage() {
                         </>
                       ) : null}
                       {type === 'low_balance' ? (
-                        <div>
-                          <Label
-                            htmlFor='credit-notification-low-balance-thresholds'
-                            className='text-xs text-gray-600'
-                          >
-                            {t(
-                              'module.operationsCreditNotifications.config.fields.thresholds',
-                            )}
-                          </Label>
-                          <Input
-                            id='credit-notification-low-balance-thresholds'
-                            className='mt-1 h-9'
-                            value={formatListInput(
-                              (policy.types.low_balance.thresholds || []).map(
-                                threshold => threshold.value,
-                              ),
-                            )}
-                            onChange={event =>
-                              updatePolicy(draft => {
-                                draft.types.low_balance.thresholds =
-                                  parseThresholdInput(event.target.value);
-                              })
-                            }
-                          />
-                        </div>
+                        <>
+                          <div>
+                            <Label
+                              htmlFor='credit-notification-low-balance-thresholds'
+                              className='text-xs text-gray-600'
+                            >
+                              {t(
+                                'module.operationsCreditNotifications.config.fields.thresholds',
+                              )}
+                            </Label>
+                            <Input
+                              id='credit-notification-low-balance-thresholds'
+                              className='mt-1 h-9'
+                              value={formatListInput(
+                                fixedLowBalanceThresholds.map(
+                                  threshold => threshold.value,
+                                ),
+                              )}
+                              onChange={event =>
+                                updatePolicy(draft => {
+                                  const estimated = (
+                                    draft.types.low_balance.thresholds || []
+                                  ).find(isEstimatedDaysThreshold);
+                                  draft.types.low_balance.thresholds = [
+                                    ...parseThresholdInput(event.target.value),
+                                    ...(estimated ? [estimated] : []),
+                                  ];
+                                })
+                              }
+                            />
+                          </div>
+                          <div className='space-y-3 rounded border border-gray-100 p-2'>
+                            <div className='flex items-center justify-between gap-4'>
+                              <Label
+                                htmlFor='credit-notification-estimated-days-enabled'
+                                className='text-xs text-gray-600'
+                              >
+                                {t(
+                                  'module.operationsCreditNotifications.config.fields.estimatedDaysEnabled',
+                                )}
+                              </Label>
+                              <Switch
+                                id='credit-notification-estimated-days-enabled'
+                                checked={Boolean(estimatedDaysThreshold)}
+                                onCheckedChange={checked =>
+                                  updatePolicy(draft => {
+                                    if (checked) {
+                                      setEstimatedDaysThreshold(draft, {});
+                                      return;
+                                    }
+                                    removeEstimatedDaysThreshold(draft);
+                                  })
+                                }
+                              />
+                            </div>
+                            {estimatedDaysThreshold ? (
+                              <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'>
+                                <div>
+                                  <Label
+                                    htmlFor='credit-notification-estimated-days'
+                                    className='text-xs text-gray-600'
+                                  >
+                                    {t(
+                                      'module.operationsCreditNotifications.config.fields.estimatedDays',
+                                    )}
+                                  </Label>
+                                  <Input
+                                    id='credit-notification-estimated-days'
+                                    type='number'
+                                    min={1}
+                                    className='mt-1 h-9'
+                                    value={estimatedDaysThreshold.days}
+                                    onChange={event =>
+                                      updatePolicy(draft => {
+                                        setEstimatedDaysThreshold(draft, {
+                                          days: readPositiveNumber(
+                                            event.target.value,
+                                            DEFAULT_ESTIMATED_DAYS_THRESHOLD.days,
+                                          ),
+                                        });
+                                      })
+                                    }
+                                  />
+                                </div>
+                                <div>
+                                  <Label
+                                    htmlFor='credit-notification-lookback-days'
+                                    className='text-xs text-gray-600'
+                                  >
+                                    {t(
+                                      'module.operationsCreditNotifications.config.fields.lookbackDays',
+                                    )}
+                                  </Label>
+                                  <Input
+                                    id='credit-notification-lookback-days'
+                                    type='number'
+                                    min={1}
+                                    className='mt-1 h-9'
+                                    value={estimatedDaysThreshold.lookback_days}
+                                    onChange={event =>
+                                      updatePolicy(draft => {
+                                        setEstimatedDaysThreshold(draft, {
+                                          lookback_days: readPositiveNumber(
+                                            event.target.value,
+                                            DEFAULT_ESTIMATED_DAYS_THRESHOLD.lookback_days,
+                                          ),
+                                        });
+                                      })
+                                    }
+                                  />
+                                </div>
+                                <div>
+                                  <Label
+                                    htmlFor='credit-notification-min-consumed-days'
+                                    className='text-xs text-gray-600'
+                                  >
+                                    {t(
+                                      'module.operationsCreditNotifications.config.fields.minConsumedDays',
+                                    )}
+                                  </Label>
+                                  <Input
+                                    id='credit-notification-min-consumed-days'
+                                    type='number'
+                                    min={1}
+                                    className='mt-1 h-9'
+                                    value={
+                                      estimatedDaysThreshold.min_consumed_days
+                                    }
+                                    onChange={event =>
+                                      updatePolicy(draft => {
+                                        setEstimatedDaysThreshold(draft, {
+                                          min_consumed_days: readPositiveNumber(
+                                            event.target.value,
+                                            DEFAULT_ESTIMATED_DAYS_THRESHOLD.min_consumed_days,
+                                          ),
+                                        });
+                                      })
+                                    }
+                                  />
+                                </div>
+                                <div>
+                                  <Label
+                                    htmlFor='credit-notification-fallback-fixed-value'
+                                    className='text-xs text-gray-600'
+                                  >
+                                    {t(
+                                      'module.operationsCreditNotifications.config.fields.fallbackFixedValue',
+                                    )}
+                                  </Label>
+                                  <Input
+                                    id='credit-notification-fallback-fixed-value'
+                                    className='mt-1 h-9'
+                                    value={
+                                      estimatedDaysThreshold.fallback_fixed_value ||
+                                      ''
+                                    }
+                                    onChange={event =>
+                                      updatePolicy(draft => {
+                                        setEstimatedDaysThreshold(draft, {
+                                          fallback_fixed_value:
+                                            event.target.value,
+                                        });
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        </>
                       ) : null}
                     </div>
                   );

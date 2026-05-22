@@ -70,12 +70,24 @@ export type CreditNotificationFixedThreshold = {
   value: string;
 };
 
+export type CreditNotificationEstimatedDaysThreshold = {
+  kind: 'estimated_days';
+  days: number;
+  lookback_days: number;
+  min_consumed_days: number;
+  fallback_fixed_value?: string;
+};
+
+export type CreditNotificationThreshold =
+  | CreditNotificationFixedThreshold
+  | CreditNotificationEstimatedDaysThreshold;
+
 export type CreditNotificationTypePolicy = {
   enabled: boolean;
   template_code: string;
   windows?: string[];
   merge_same_creator?: boolean;
-  thresholds?: CreditNotificationFixedThreshold[];
+  thresholds?: CreditNotificationThreshold[];
 };
 
 export type AdminOperationCreditNotificationPolicy = {

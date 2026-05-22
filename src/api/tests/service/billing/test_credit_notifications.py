@@ -13,6 +13,7 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
     CREDIT_NOTIFICATION_STATUS_PENDING,
     CREDIT_NOTIFICATION_STATUS_SENT,
@@ -21,6 +22,7 @@ from flaskr.service.billing.consts import (
     CREDIT_NOTIFICATION_TYPE_GRANTED,
     CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
     CREDIT_SOURCE_TYPE_MANUAL,
+    CREDIT_SOURCE_TYPE_USAGE,
 )
 from flaskr.service.billing.credit_notifications import (
     assert_creator_debug_allowed,
@@ -33,6 +35,7 @@ from flaskr.service.billing.credit_notifications import (
     stage_credit_granted_notification,
 )
 from flaskr.service.billing.models import (
+    BillingDailyLedgerSummary,
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
@@ -103,7 +106,12 @@ def _seed_creator(
         dao.db.session.commit()
 
 
-def _enable_policy(app: Flask, *, softlimit: dict | None = None) -> None:
+def _enable_policy(
+    app: Flask,
+    *,
+    softlimit: dict | None = None,
+    low_balance_thresholds: list[dict[str, object]] | None = None,
+) -> None:
     save_credit_notification_policy(
         app,
         {
@@ -121,7 +129,8 @@ def _enable_policy(app: Flask, *, softlimit: dict | None = None) -> None:
                 CREDIT_NOTIFICATION_TYPE_LOW_BALANCE: {
                     "enabled": True,
                     "template_code": "TPL-LOW",
-                    "thresholds": [{"kind": "fixed", "value": "3"}],
+                    "thresholds": low_balance_thresholds
+                    or [{"kind": "fixed", "value": "3"}],
                 },
             },
             "frequency": {
@@ -203,6 +212,28 @@ def _seed_bucket(
             effective_from=datetime(2026, 5, 1, 0, 0, 0),
             effective_to=effective_to,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
+        )
+    )
+
+
+def _seed_daily_consumption(
+    *,
+    creator_bid: str = "creator-1",
+    stat_date: str,
+    amount: str,
+) -> None:
+    window_started_at = datetime.fromisoformat(f"{stat_date}T00:00:00")
+    dao.db.session.add(
+        BillingDailyLedgerSummary(
+            daily_ledger_summary_bid=f"daily-ledger-{creator_bid}-{stat_date}",
+            stat_date=stat_date,
+            creator_bid=creator_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            amount=Decimal(amount),
+            entry_count=1,
+            window_started_at=window_started_at,
+            window_ended_at=window_started_at + timedelta(days=1),
         )
     )
 
@@ -294,6 +325,97 @@ def test_credit_notification_policy_rejects_invalid_windows(
                         "enabled": True,
                         "template_code": "TPL-EXPIRING",
                         "windows": ["soon"],
+                    }
+                },
+            },
+        )
+
+
+def test_credit_notification_policy_accepts_estimated_days_threshold(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+
+    policy = save_credit_notification_policy(
+        app,
+        {
+            "enabled": True,
+            "types": {
+                CREDIT_NOTIFICATION_TYPE_LOW_BALANCE: {
+                    "enabled": True,
+                    "template_code": "TPL-LOW",
+                    "thresholds": [
+                        {
+                            "kind": "estimated_days",
+                            "days": 7,
+                            "lookback_days": 7,
+                            "min_consumed_days": 2,
+                            "fallback_fixed_value": "0",
+                        }
+                    ],
+                }
+            },
+        },
+    )
+
+    assert policy["types"][CREDIT_NOTIFICATION_TYPE_LOW_BALANCE]["thresholds"] == [
+        {
+            "kind": "estimated_days",
+            "days": 7,
+            "lookback_days": 7,
+            "min_consumed_days": 2,
+            "fallback_fixed_value": "0.00",
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "threshold",
+    [
+        {
+            "kind": "estimated_days",
+            "days": 0,
+            "lookback_days": 7,
+            "min_consumed_days": 2,
+        },
+        {
+            "kind": "estimated_days",
+            "days": 7,
+            "lookback_days": 0,
+            "min_consumed_days": 2,
+        },
+        {
+            "kind": "estimated_days",
+            "days": 7,
+            "lookback_days": 7,
+            "min_consumed_days": 0,
+        },
+        {
+            "kind": "estimated_days",
+            "days": 7,
+            "lookback_days": 7,
+            "min_consumed_days": 2,
+            "fallback_fixed_value": "bad-decimal",
+        },
+        {"kind": "unknown", "value": "1"},
+    ],
+)
+def test_credit_notification_policy_rejects_invalid_low_balance_thresholds(
+    credit_notifications_app: Flask,
+    threshold: dict[str, object],
+) -> None:
+    app = credit_notifications_app
+
+    with pytest.raises(AppException):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "types": {
+                    CREDIT_NOTIFICATION_TYPE_LOW_BALANCE: {
+                        "enabled": True,
+                        "template_code": "TPL-LOW",
+                        "thresholds": [threshold],
                     }
                 },
             },
@@ -400,6 +522,146 @@ def test_expiring_and_low_balance_scans_stage_deduped_notifications(
 
     with app.app_context():
         assert NotificationRecord.query.count() == 2
+
+
+def test_low_balance_estimated_days_scan_uses_daily_ledger_summary(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    now = datetime(2026, 5, 21, 8, 0, 0)
+    _seed_creator(app)
+    _enable_policy(
+        app,
+        low_balance_thresholds=[
+            {
+                "kind": "estimated_days",
+                "days": 7,
+                "lookback_days": 7,
+                "min_consumed_days": 2,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
+        lambda app, *, notification_bid: {
+            "status": "enqueued",
+            "notification_bid": notification_bid,
+            "enqueued": True,
+        },
+    )
+
+    with app.app_context():
+        _seed_wallet(available_credits="12")
+        _seed_daily_consumption(stat_date="2026-05-19", amount="-3")
+        _seed_daily_consumption(stat_date="2026-05-20", amount="-3")
+        dao.db.session.commit()
+
+    first = scan_low_balance_notifications(app, now=now)
+    second = scan_low_balance_notifications(app, now=now)
+
+    assert first["created_count"] == 1
+    assert first["enqueued_count"] == 1
+    assert first["notifications"][0]["dedupe_key"] == (
+        "low_balance:creator-1:estimated_days:7:lookback:7:2026-05-21"
+    )
+    assert second["created_count"] == 0
+    assert second["notifications"][0]["status"] == "suppressed_duplicate"
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_type=CREDIT_NOTIFICATION_TYPE_LOW_BALANCE
+        ).one()
+        assert notification.template_params_json == {
+            "available_credits": "12.00",
+            "avg_daily_consumption": "3.00",
+            "estimated_remaining_days": "4.00",
+            "lookback_days": "7",
+            "threshold": "",
+            "threshold_kind": "estimated_days",
+            "trigger_days": "7",
+        }
+        assert notification.metadata_json["consumed_days"] == 2
+
+
+def test_low_balance_estimated_days_dry_run_reports_non_candidate_reason(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    now = datetime(2026, 5, 21, 8, 0, 0)
+    _seed_creator(app)
+    _enable_policy(
+        app,
+        low_balance_thresholds=[
+            {
+                "kind": "estimated_days",
+                "days": 7,
+                "lookback_days": 7,
+                "min_consumed_days": 2,
+            }
+        ],
+    )
+
+    with app.app_context():
+        _seed_wallet(available_credits="30")
+        _seed_daily_consumption(stat_date="2026-05-19", amount="-3")
+        _seed_daily_consumption(stat_date="2026-05-20", amount="-3")
+        dao.db.session.commit()
+
+    payload = scan_low_balance_notifications(app, now=now, dry_run=True)
+
+    assert payload["candidate_count"] == 0
+    assert payload["created_count"] == 0
+    assert payload["status"] == "noop"
+    assert payload["notifications"][0]["reason"] == "remaining_days_above_threshold"
+    assert payload["notifications"][0]["estimated_remaining_days"] == "10.00"
+
+
+def test_low_balance_estimated_days_uses_fallback_fixed_threshold_when_history_is_sparse(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    now = datetime(2026, 5, 21, 8, 0, 0)
+    _seed_creator(app)
+    _enable_policy(
+        app,
+        low_balance_thresholds=[
+            {
+                "kind": "estimated_days",
+                "days": 7,
+                "lookback_days": 7,
+                "min_consumed_days": 2,
+                "fallback_fixed_value": "5",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
+        lambda app, *, notification_bid: {
+            "status": "enqueued",
+            "notification_bid": notification_bid,
+            "enqueued": True,
+        },
+    )
+
+    with app.app_context():
+        _seed_wallet(available_credits="4")
+        _seed_daily_consumption(stat_date="2026-05-20", amount="-3")
+        dao.db.session.commit()
+
+    payload = scan_low_balance_notifications(app, now=now)
+
+    assert payload["created_count"] == 1
+    assert payload["notifications"][0]["dedupe_key"] == (
+        "low_balance:creator-1:5.00:2026-05-21"
+    )
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_type=CREDIT_NOTIFICATION_TYPE_LOW_BALANCE
+        ).one()
+        assert notification.template_params_json["threshold_kind"] == "fixed"
+        assert notification.template_params_json["threshold"] == "5.00"
+        assert notification.metadata_json["fallback_from"] == "estimated_days"
 
 
 def test_failed_provider_notification_can_be_requeued(

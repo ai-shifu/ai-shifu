@@ -24,6 +24,7 @@ from flaskr.util.uuid import generate_id
 from .consts import (
     BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_NOTIFICATION_CHANNEL_SMS,
     CREDIT_NOTIFICATION_PROCESSABLE_STATUSES,
     CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
@@ -37,6 +38,7 @@ from .consts import (
     DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG,
 )
 from .models import (
+    BillingDailyLedgerSummary,
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
@@ -56,6 +58,8 @@ LIMIT_STATE_NORMAL = "normal"
 LIMIT_STATE_SOFTLIMIT = "softlimit"
 LIMIT_STATE_HARDLIMIT = "hardlimit"
 _ZERO = Decimal("0")
+LOW_BALANCE_THRESHOLD_KIND_FIXED = "fixed"
+LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS = "estimated_days"
 
 
 @dataclass(slots=True, frozen=True)
@@ -110,12 +114,32 @@ def _coerce_positive_int(value: Any, default: int = 0) -> int:
     return max(0, parsed)
 
 
+def _normalize_positive_int(value: Any, field_name: str) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise_param_error(field_name)
+    if parsed <= 0:
+        raise_param_error(field_name)
+    return parsed
+
+
 def _decimal_from_policy(value: Any, default: Decimal = _ZERO) -> Decimal:
     try:
         parsed = _quantize_credit_amount(Decimal(str(value or "0").strip()))
     except (InvalidOperation, TypeError, ValueError, ArithmeticError):
         return default
     return parsed if parsed.is_finite() else default
+
+
+def _normalize_policy_decimal(value: Any, field_name: str) -> Decimal:
+    try:
+        parsed = _quantize_credit_amount(Decimal(str(value or "0").strip()))
+    except (InvalidOperation, TypeError, ValueError, ArithmeticError):
+        raise_param_error(field_name)
+    if not parsed.is_finite():
+        raise_param_error(field_name)
+    return parsed
 
 
 def _require_mapping(value: Any, field_name: str) -> dict[str, Any]:
@@ -153,15 +177,65 @@ def _normalize_fixed_thresholds(value: Any, field_name: str) -> list[dict[str, s
         if not isinstance(item, dict):
             raise_param_error(field_name)
         kind = str(item.get("kind") or "fixed").strip()
-        if kind != "fixed":
+        if kind != LOW_BALANCE_THRESHOLD_KIND_FIXED:
             raise_param_error(field_name)
-        try:
-            amount = _quantize_credit_amount(Decimal(str(item.get("value") or "0")))
-        except (InvalidOperation, TypeError, ValueError, ArithmeticError):
+        amount = _normalize_policy_decimal(item.get("value"), field_name)
+        thresholds.append(
+            {"kind": LOW_BALANCE_THRESHOLD_KIND_FIXED, "value": str(amount)}
+        )
+    return thresholds
+
+
+def _normalize_low_balance_thresholds(
+    value: Any, field_name: str
+) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        raise_param_error(field_name)
+    thresholds: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
             raise_param_error(field_name)
-        if not amount.is_finite():
-            raise_param_error(field_name)
-        thresholds.append({"kind": "fixed", "value": str(amount)})
+        kind = str(item.get("kind") or LOW_BALANCE_THRESHOLD_KIND_FIXED).strip()
+        if kind == LOW_BALANCE_THRESHOLD_KIND_FIXED:
+            amount = _normalize_policy_decimal(
+                item.get("value"),
+                f"{field_name}.value",
+            )
+            thresholds.append(
+                {"kind": LOW_BALANCE_THRESHOLD_KIND_FIXED, "value": str(amount)}
+            )
+            continue
+        if kind == LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS:
+            threshold: dict[str, Any] = {
+                "kind": LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS,
+                "days": _normalize_positive_int(
+                    item.get("days"),
+                    f"{field_name}.days",
+                ),
+                "lookback_days": _normalize_positive_int(
+                    item.get("lookback_days"),
+                    f"{field_name}.lookback_days",
+                ),
+                "min_consumed_days": _normalize_positive_int(
+                    item.get("min_consumed_days"),
+                    f"{field_name}.min_consumed_days",
+                ),
+            }
+            if "fallback_fixed_value" in item:
+                raw_value = item.get("fallback_fixed_value")
+                raw_fallback = "" if raw_value is None else str(raw_value).strip()
+                if raw_fallback:
+                    threshold["fallback_fixed_value"] = str(
+                        _normalize_policy_decimal(
+                            raw_fallback,
+                            f"{field_name}.fallback_fixed_value",
+                        )
+                    )
+                else:
+                    threshold["fallback_fixed_value"] = ""
+            thresholds.append(threshold)
+            continue
+        raise_param_error(field_name)
     return thresholds
 
 
@@ -199,7 +273,7 @@ def _validate_policy_for_save(payload: dict[str, Any]) -> dict[str, Any]:
     expiring["windows"] = windows
 
     low_balance = type_policies[CREDIT_NOTIFICATION_TYPE_LOW_BALANCE]
-    low_balance["thresholds"] = _normalize_fixed_thresholds(
+    low_balance["thresholds"] = _normalize_low_balance_thresholds(
         low_balance.get("thresholds"),
         "types.low_balance.thresholds",
     )
@@ -350,6 +424,20 @@ def build_low_balance_dedupe_key(creator_bid: str, threshold: str, day: date) ->
     return (
         f"{CREDIT_NOTIFICATION_TYPE_LOW_BALANCE}:"
         f"{_normalize_bid(creator_bid)}:{str(threshold or '').strip()}:{day.isoformat()}"
+    )
+
+
+def build_low_balance_estimated_days_dedupe_key(
+    creator_bid: str,
+    *,
+    days: int,
+    lookback_days: int,
+    day: date,
+) -> str:
+    return (
+        f"{CREDIT_NOTIFICATION_TYPE_LOW_BALANCE}:"
+        f"{_normalize_bid(creator_bid)}:estimated_days:{int(days)}:"
+        f"lookback:{int(lookback_days)}:{day.isoformat()}"
     )
 
 
@@ -734,20 +822,136 @@ def scan_credit_expiring_notifications(
     }
 
 
-def _load_low_balance_thresholds(policy: dict[str, Any]) -> list[Decimal]:
+def _load_low_balance_thresholds(policy: dict[str, Any]) -> list[dict[str, Any]]:
     thresholds = _type_policy(policy, CREDIT_NOTIFICATION_TYPE_LOW_BALANCE).get(
         "thresholds"
     )
     if not isinstance(thresholds, list):
-        thresholds = [{"kind": "fixed", "value": "0"}]
-    values: list[Decimal] = []
+        thresholds = [{"kind": LOW_BALANCE_THRESHOLD_KIND_FIXED, "value": "0"}]
+    values: list[dict[str, Any]] = []
     for item in thresholds:
         if not isinstance(item, dict):
             continue
-        if str(item.get("kind") or "fixed").strip() != "fixed":
+        kind = str(item.get("kind") or LOW_BALANCE_THRESHOLD_KIND_FIXED).strip()
+        if kind == LOW_BALANCE_THRESHOLD_KIND_FIXED:
+            values.append(
+                {
+                    "kind": LOW_BALANCE_THRESHOLD_KIND_FIXED,
+                    "value": str(_decimal_from_policy(item.get("value"), _ZERO)),
+                }
+            )
             continue
-        values.append(_decimal_from_policy(item.get("value"), _ZERO))
-    return values or [_ZERO]
+        if kind != LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS:
+            continue
+        days = _coerce_positive_int(item.get("days"), 0)
+        lookback_days = _coerce_positive_int(item.get("lookback_days"), 0)
+        min_consumed_days = _coerce_positive_int(item.get("min_consumed_days"), 0)
+        if days <= 0 or lookback_days <= 0 or min_consumed_days <= 0:
+            continue
+        threshold: dict[str, Any] = {
+            "kind": LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS,
+            "days": days,
+            "lookback_days": lookback_days,
+            "min_consumed_days": min_consumed_days,
+        }
+        fallback_value = item.get("fallback_fixed_value")
+        if fallback_value is not None and str(fallback_value).strip():
+            threshold["fallback_fixed_value"] = str(
+                _decimal_from_policy(fallback_value, _ZERO)
+            )
+        values.append(threshold)
+    return values or [{"kind": LOW_BALANCE_THRESHOLD_KIND_FIXED, "value": str(_ZERO)}]
+
+
+def _load_creator_daily_consumption_stats(
+    *,
+    creator_bid: str,
+    scan_day: date,
+    lookback_days: int,
+) -> dict[str, Any]:
+    start_day = scan_day - timedelta(days=lookback_days)
+    rows = (
+        BillingDailyLedgerSummary.query.filter(
+            BillingDailyLedgerSummary.deleted == 0,
+            BillingDailyLedgerSummary.creator_bid == creator_bid,
+            BillingDailyLedgerSummary.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            BillingDailyLedgerSummary.stat_date >= start_day.isoformat(),
+            BillingDailyLedgerSummary.stat_date < scan_day.isoformat(),
+        )
+        .order_by(BillingDailyLedgerSummary.stat_date.asc())
+        .all()
+    )
+    daily_totals: dict[str, Decimal] = {}
+    for row in rows:
+        amount = abs(_to_decimal(row.amount))
+        if amount <= _ZERO:
+            continue
+        stat_date = str(row.stat_date or "").strip()
+        daily_totals[stat_date] = daily_totals.get(stat_date, _ZERO) + amount
+    consumed_days = len(daily_totals)
+    total_consumed = sum(daily_totals.values(), start=_ZERO)
+    avg_daily_consumption = (
+        _quantize_credit_amount(total_consumed / Decimal(consumed_days))
+        if consumed_days > 0
+        else _ZERO
+    )
+    return {
+        "lookback_days": int(lookback_days),
+        "consumed_days": consumed_days,
+        "total_consumed": _quantize_credit_amount(total_consumed),
+        "avg_daily_consumption": avg_daily_consumption,
+    }
+
+
+def _low_balance_template_params(
+    *,
+    available: Decimal,
+    threshold_kind: str,
+    threshold: str = "",
+    trigger_days: int | None = None,
+    lookback_days: int | None = None,
+    avg_daily_consumption: Decimal | None = None,
+    estimated_remaining_days: Decimal | None = None,
+) -> dict[str, Any]:
+    return {
+        "available_credits": _amount_text(available),
+        "threshold": str(threshold or "").strip(),
+        "threshold_kind": str(threshold_kind or "").strip(),
+        "trigger_days": str(trigger_days or ""),
+        "lookback_days": str(lookback_days or ""),
+        "avg_daily_consumption": (
+            _amount_text(avg_daily_consumption)
+            if avg_daily_consumption is not None
+            else ""
+        ),
+        "estimated_remaining_days": (
+            _amount_text(estimated_remaining_days)
+            if estimated_remaining_days is not None
+            else ""
+        ),
+    }
+
+
+def _low_balance_dry_run_payload(
+    *,
+    status: str,
+    creator_bid: str,
+    source_bid: str,
+    dedupe_key: str,
+    template_params: dict[str, Any],
+    reason: str = "",
+) -> dict[str, Any]:
+    payload = {
+        "status": status,
+        "notification_type": CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+        "creator_bid": creator_bid,
+        "source_bid": source_bid,
+        "dedupe_key": dedupe_key,
+        **template_params,
+    }
+    if reason:
+        payload["reason"] = reason
+    return payload
 
 
 def scan_low_balance_notifications(
@@ -779,26 +983,219 @@ def scan_low_balance_notifications(
             query = query.filter(CreditWallet.creator_bid == normalized_creator_bid)
         wallets = query.order_by(CreditWallet.id.asc()).limit(1000).all()
         notifications: list[dict[str, Any]] = []
+        daily_consumption_cache: dict[tuple[str, int], dict[str, Any]] = {}
         for wallet in wallets:
             available = _to_decimal(wallet.available_credits)
             for threshold in thresholds:
-                if available > threshold:
+                kind = str(
+                    threshold.get("kind") or LOW_BALANCE_THRESHOLD_KIND_FIXED
+                ).strip()
+                threshold_key = ""
+                dedupe_key = ""
+                template_params: dict[str, Any] = {}
+                metadata: dict[str, Any] = {"wallet_bid": wallet.wallet_bid}
+
+                if kind == LOW_BALANCE_THRESHOLD_KIND_FIXED:
+                    threshold_value = _decimal_from_policy(
+                        threshold.get("value"),
+                        _ZERO,
+                    )
+                    if available > threshold_value:
+                        continue
+                    threshold_key = str(threshold_value)
+                    dedupe_key = build_low_balance_dedupe_key(
+                        wallet.creator_bid,
+                        threshold_key,
+                        scan_now.date(),
+                    )
+                    template_params = _low_balance_template_params(
+                        available=available,
+                        threshold_kind=LOW_BALANCE_THRESHOLD_KIND_FIXED,
+                        threshold=threshold_key,
+                    )
+                    metadata["threshold_kind"] = LOW_BALANCE_THRESHOLD_KIND_FIXED
+
+                elif kind == LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS:
+                    days = _coerce_positive_int(threshold.get("days"), 0)
+                    lookback_days = _coerce_positive_int(
+                        threshold.get("lookback_days"),
+                        0,
+                    )
+                    min_consumed_days = _coerce_positive_int(
+                        threshold.get("min_consumed_days"),
+                        0,
+                    )
+                    if days <= 0 or lookback_days <= 0 or min_consumed_days <= 0:
+                        continue
+                    cache_key = (wallet.creator_bid, lookback_days)
+                    stats = daily_consumption_cache.get(cache_key)
+                    if stats is None:
+                        stats = _load_creator_daily_consumption_stats(
+                            creator_bid=wallet.creator_bid,
+                            scan_day=scan_now.date(),
+                            lookback_days=lookback_days,
+                        )
+                        daily_consumption_cache[cache_key] = stats
+                    avg_daily_consumption = _to_decimal(
+                        stats.get("avg_daily_consumption")
+                    )
+                    consumed_days = int(stats.get("consumed_days") or 0)
+                    fallback_value = threshold.get("fallback_fixed_value")
+                    has_fallback = (
+                        fallback_value is not None and str(fallback_value).strip()
+                    )
+                    if (
+                        consumed_days < min_consumed_days
+                        or avg_daily_consumption <= _ZERO
+                    ):
+                        if has_fallback:
+                            fallback_threshold = _decimal_from_policy(
+                                fallback_value,
+                                _ZERO,
+                            )
+                            if available <= fallback_threshold:
+                                threshold_key = str(fallback_threshold)
+                                dedupe_key = build_low_balance_dedupe_key(
+                                    wallet.creator_bid,
+                                    threshold_key,
+                                    scan_now.date(),
+                                )
+                                template_params = _low_balance_template_params(
+                                    available=available,
+                                    threshold_kind=LOW_BALANCE_THRESHOLD_KIND_FIXED,
+                                    threshold=threshold_key,
+                                )
+                                metadata.update(
+                                    {
+                                        "threshold_kind": (
+                                            LOW_BALANCE_THRESHOLD_KIND_FIXED
+                                        ),
+                                        "fallback_from": (
+                                            LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS
+                                        ),
+                                        "lookback_days": lookback_days,
+                                        "consumed_days": consumed_days,
+                                    }
+                                )
+                            elif dry_run:
+                                reason = (
+                                    "insufficient_consumed_days"
+                                    if consumed_days < min_consumed_days
+                                    else "zero_average_daily_consumption"
+                                )
+                                notifications.append(
+                                    _low_balance_dry_run_payload(
+                                        status="skipped",
+                                        creator_bid=wallet.creator_bid,
+                                        source_bid=wallet.creator_bid,
+                                        dedupe_key=build_low_balance_dedupe_key(
+                                            wallet.creator_bid,
+                                            str(fallback_threshold),
+                                            scan_now.date(),
+                                        ),
+                                        template_params=_low_balance_template_params(
+                                            available=available,
+                                            threshold_kind=(
+                                                LOW_BALANCE_THRESHOLD_KIND_FIXED
+                                            ),
+                                            threshold=str(fallback_threshold),
+                                        ),
+                                        reason=f"{reason}_fallback_not_reached",
+                                    )
+                                )
+                            if not dedupe_key:
+                                continue
+                        else:
+                            if dry_run:
+                                reason = (
+                                    "insufficient_consumed_days"
+                                    if consumed_days < min_consumed_days
+                                    else "zero_average_daily_consumption"
+                                )
+                                notifications.append(
+                                    _low_balance_dry_run_payload(
+                                        status="skipped",
+                                        creator_bid=wallet.creator_bid,
+                                        source_bid=wallet.creator_bid,
+                                        dedupe_key=build_low_balance_estimated_days_dedupe_key(
+                                            wallet.creator_bid,
+                                            days=days,
+                                            lookback_days=lookback_days,
+                                            day=scan_now.date(),
+                                        ),
+                                        template_params=_low_balance_template_params(
+                                            available=available,
+                                            threshold_kind=(
+                                                LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS
+                                            ),
+                                            trigger_days=days,
+                                            lookback_days=lookback_days,
+                                            avg_daily_consumption=(
+                                                avg_daily_consumption
+                                            ),
+                                        ),
+                                        reason=reason,
+                                    )
+                                )
+                            continue
+                    else:
+                        estimated_remaining_days = _quantize_credit_amount(
+                            available / avg_daily_consumption
+                        )
+                        dedupe_key = build_low_balance_estimated_days_dedupe_key(
+                            wallet.creator_bid,
+                            days=days,
+                            lookback_days=lookback_days,
+                            day=scan_now.date(),
+                        )
+                        template_params = _low_balance_template_params(
+                            available=available,
+                            threshold_kind=LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS,
+                            trigger_days=days,
+                            lookback_days=lookback_days,
+                            avg_daily_consumption=avg_daily_consumption,
+                            estimated_remaining_days=estimated_remaining_days,
+                        )
+                        metadata.update(
+                            {
+                                "threshold_kind": (
+                                    LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS
+                                ),
+                                "trigger_days": days,
+                                "lookback_days": lookback_days,
+                                "min_consumed_days": min_consumed_days,
+                                "consumed_days": consumed_days,
+                                "avg_daily_consumption": str(avg_daily_consumption),
+                                "estimated_remaining_days": str(
+                                    estimated_remaining_days
+                                ),
+                            }
+                        )
+                        if estimated_remaining_days > Decimal(days):
+                            if dry_run:
+                                notifications.append(
+                                    _low_balance_dry_run_payload(
+                                        status="skipped",
+                                        creator_bid=wallet.creator_bid,
+                                        source_bid=wallet.creator_bid,
+                                        dedupe_key=dedupe_key,
+                                        template_params=template_params,
+                                        reason="remaining_days_above_threshold",
+                                    )
+                                )
+                            continue
+                else:
                     continue
-                threshold_key = str(threshold)
-                dedupe_key = build_low_balance_dedupe_key(
-                    wallet.creator_bid,
-                    threshold_key,
-                    scan_now.date(),
-                )
+
                 if dry_run:
                     notifications.append(
-                        {
-                            "status": "candidate",
-                            "notification_type": CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
-                            "creator_bid": wallet.creator_bid,
-                            "source_bid": wallet.creator_bid,
-                            "dedupe_key": dedupe_key,
-                        }
+                        _low_balance_dry_run_payload(
+                            status="candidate",
+                            creator_bid=wallet.creator_bid,
+                            source_bid=wallet.creator_bid,
+                            dedupe_key=dedupe_key,
+                            template_params=template_params,
+                        )
                     )
                     continue
                 result = _stage_notification_record(
@@ -808,11 +1205,8 @@ def scan_low_balance_notifications(
                     source_type=SOURCE_TYPE_WALLET,
                     source_bid=wallet.creator_bid,
                     dedupe_key=dedupe_key,
-                    template_params={
-                        "available_credits": _amount_text(wallet.available_credits),
-                        "threshold": threshold_key,
-                    },
-                    metadata={"wallet_bid": wallet.wallet_bid},
+                    template_params=template_params,
+                    metadata=metadata,
                     policy=policy,
                 )
                 notifications.append(result.to_payload())
@@ -829,14 +1223,26 @@ def scan_low_balance_notifications(
             )
             item["enqueued"] = bool(enqueue_result.get("enqueued"))
             enqueued_count += int(bool(enqueue_result.get("enqueued")))
+    candidate_count = sum(
+        1
+        for item in notifications
+        if item.get("status")
+        in {
+            "candidate",
+            "pending",
+            "suppressed_duplicate",
+        }
+    )
+    created_count = sum(1 for item in notifications if item.get("status") == "pending")
     return {
-        "status": "created" if notifications else "noop",
-        "candidate_count": len(notifications),
-        "created_count": sum(
-            1 for item in notifications if item.get("status") == "pending"
-        ),
+        "status": "created" if candidate_count else "noop",
+        "candidate_count": candidate_count,
+        "created_count": created_count,
         "enqueued_count": enqueued_count,
-        "estimated_sms_cost": _estimated_sms_cost(policy, len(notifications))
+        "estimated_sms_cost": _estimated_sms_cost(
+            policy,
+            sum(1 for item in notifications if item.get("status") == "candidate"),
+        )
         if dry_run
         else "0",
         "dry_run": dry_run,

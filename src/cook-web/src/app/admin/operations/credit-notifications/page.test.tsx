@@ -154,4 +154,51 @@ describe('AdminOperationCreditNotificationsPage', () => {
       );
     });
   });
+
+  it('saves estimated-days low balance thresholds from the structured form', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+
+    fireEvent.click(
+      screen.getByLabelText(
+        'module.operationsCreditNotifications.config.fields.estimatedDaysEnabled',
+      ),
+    );
+    fireEvent.change(
+      screen.getByLabelText(
+        'module.operationsCreditNotifications.config.fields.estimatedDays',
+      ),
+      { target: { value: '5' } },
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          types: expect.objectContaining({
+            low_balance: expect.objectContaining({
+              thresholds: expect.arrayContaining([
+                { kind: 'fixed', value: '0' },
+                {
+                  kind: 'estimated_days',
+                  days: 5,
+                  lookback_days: 7,
+                  min_consumed_days: 2,
+                  fallback_fixed_value: '0',
+                },
+              ]),
+            }),
+          }),
+        }),
+      );
+    });
+  });
 });
