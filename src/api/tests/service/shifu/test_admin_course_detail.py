@@ -63,7 +63,6 @@ from flaskr.service.shifu.admin import (
     _coerce_operator_datetime,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
-    get_operator_course_credit_usages,
 )
 from flaskr.service.user.models import (
     AuthCredential,
@@ -2077,7 +2076,8 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert phone_filtered_payload["code"] == 0
     assert phone_filtered_payload["data"]["total"] == 1
     assert (
-        phone_filtered_payload["data"]["items"][0]["group_key"] == "student-1:lesson-1:listen"
+        phone_filtered_payload["data"]["items"][0]["group_key"]
+        == "student-1:lesson-1:listen"
     )
     assert phone_filtered_payload["data"]["items"][0]["usage_count"] == 1
     assert phone_filtered_payload["data"]["items"][0]["consumed_credits"] == 12

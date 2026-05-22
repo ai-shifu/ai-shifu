@@ -662,7 +662,9 @@ class AdminOperationCourseDetailMetricsDTO(BaseModel):
         default=0, description="Total consumed credits for this course", required=False
     )
     credit_usage_count: int = Field(
-        default=0, description="Distinct billed usage count for this course", required=False
+        default=0,
+        description="Distinct billed usage count for this course",
+        required=False,
     )
     credit_user_count: int = Field(
         default=0, description="Distinct users with billed credit usage", required=False
@@ -1079,7 +1081,9 @@ class AdminOperationCourseCreditUsageDetailItemDTO(BaseModel):
         description="Consumed credits",
         required=False,
     )
-    input_tokens: int = Field(default=0, description="Input token count", required=False)
+    input_tokens: int = Field(
+        default=0, description="Input token count", required=False
+    )
     output_tokens: int = Field(
         default=0, description="Output token count", required=False
     )

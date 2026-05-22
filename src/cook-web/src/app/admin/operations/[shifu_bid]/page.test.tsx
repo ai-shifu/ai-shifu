@@ -579,16 +579,16 @@ describe('AdminOperationCourseDetailPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: '2' }));
 
     await waitFor(() => {
-      expect(mockGetAdminOperationCourseCreditUsageDetails).toHaveBeenCalledWith(
-        {
-          shifu_bid: 'course-1',
-          page: 1,
-          page_size: 10,
-          user_bid: 'student-1',
-          outline_item_bid: 'lesson-1',
-          mode: 'learn',
-        },
-      );
+      expect(
+        mockGetAdminOperationCourseCreditUsageDetails,
+      ).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 10,
+        user_bid: 'student-1',
+        outline_item_bid: 'lesson-1',
+        mode: 'learn',
+      });
     });
 
     const dialog = screen.getByRole('dialog');

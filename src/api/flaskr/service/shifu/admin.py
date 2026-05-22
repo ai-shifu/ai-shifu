@@ -903,9 +903,9 @@ def _build_course_credit_usage_covered_completed_user_subquery(
     completed_lesson_counts = (
         db.session.query(
             LearnProgressRecord.user_bid.label("user_bid"),
-            db.func.count(
-                db.func.distinct(LearnProgressRecord.outline_item_bid)
-            ).label("learned_lesson_count"),
+            db.func.count(db.func.distinct(LearnProgressRecord.outline_item_bid)).label(
+                "learned_lesson_count"
+            ),
         )
         .filter(
             LearnProgressRecord.shifu_bid == shifu_bid,
@@ -945,9 +945,11 @@ def _build_operator_course_credit_metrics(
         ),
     ).one()
 
-    completed_user_subquery = _build_course_credit_usage_covered_completed_user_subquery(
-        shifu_bid=shifu_bid,
-        leaf_outline_bids=leaf_outline_bids,
+    completed_user_subquery = (
+        _build_course_credit_usage_covered_completed_user_subquery(
+            shifu_bid=shifu_bid,
+            leaf_outline_bids=leaf_outline_bids,
+        )
     )
     completed_credit_user_count = 0
     completed_credit_total = Decimal("0")
@@ -986,9 +988,7 @@ def _build_operator_course_credit_metrics(
         "credit_consumed_total": credit_decimal_to_number(
             abs(Decimal(str(getattr(aggregate_row, "credit_consumed_total", 0) or 0)))
         ),
-        "credit_usage_count": int(
-            getattr(aggregate_row, "credit_usage_count", 0) or 0
-        ),
+        "credit_usage_count": int(getattr(aggregate_row, "credit_usage_count", 0) or 0),
         "credit_user_count": int(getattr(aggregate_row, "credit_user_count", 0) or 0),
         "completed_credit_user_count": completed_credit_user_count,
         "completed_user_avg_credits": completed_user_avg_credits,
@@ -5065,9 +5065,7 @@ def get_operator_course_detail(
                 completed_credit_user_count=credit_metrics[
                     "completed_credit_user_count"
                 ],
-                completed_user_avg_credits=credit_metrics[
-                    "completed_user_avg_credits"
-                ],
+                completed_user_avg_credits=credit_metrics["completed_user_avg_credits"],
             ),
             chapters=_build_chapter_tree(
                 outline_items,
@@ -5315,7 +5313,9 @@ def get_operator_course_credit_usages(
         if view == COURSE_CREDIT_USAGE_VIEW_RAW:
             total = query.count()
             rows = (
-                query.order_by(BillUsageRecord.created_at.desc(), BillUsageRecord.id.desc())
+                query.order_by(
+                    BillUsageRecord.created_at.desc(), BillUsageRecord.id.desc()
+                )
                 .offset((safe_page_index - 1) * safe_page_size)
                 .limit(safe_page_size)
                 .all()
@@ -5357,9 +5357,14 @@ def get_operator_course_credit_usages(
             )
 
         usage_rows = query.subquery("operator_course_credit_usage_filtered")
-        generation_name_expr = db.func.lower(usage_rows.c.extra["generation_name"].as_string())
+        generation_name_expr = db.func.lower(
+            usage_rows.c.extra["generation_name"].as_string()
+        )
         usage_mode_expr = case(
-            (usage_rows.c.usage_type == BILL_USAGE_TYPE_TTS, COURSE_CREDIT_USAGE_MODE_LISTEN),
+            (
+                usage_rows.c.usage_type == BILL_USAGE_TYPE_TTS,
+                COURSE_CREDIT_USAGE_MODE_LISTEN,
+            ),
             (
                 and_(
                     usage_rows.c.usage_type != BILL_USAGE_TYPE_TTS,
@@ -5381,39 +5386,54 @@ def get_operator_course_credit_usages(
             + usage_mode_expr
         ).label("group_key")
 
-        grouped_query = db.session.query(
-            db.func.max(group_key_expr).label("group_key"),
-            db.func.max(usage_rows.c.usage_bid).label("usage_bid"),
-            db.func.max(usage_rows.c.progress_record_bid).label("progress_record_bid"),
-            db.func.max(usage_rows.c.generated_block_bid).label("generated_block_bid"),
-            usage_rows.c.user_bid.label("user_bid"),
-            usage_rows.c.outline_item_bid.label("outline_item_bid"),
-            usage_mode_expr,
-            db.func.max(usage_rows.c.provider).label("provider"),
-            db.func.max(usage_rows.c.model).label("model"),
-            db.func.count(db.func.distinct(usage_rows.c.usage_bid)).label("usage_count"),
-            db.func.count(
-                db.func.distinct(
-                    db.func.coalesce(usage_rows.c.provider, "")
-                    + literal("/")
-                    + db.func.coalesce(usage_rows.c.model, "")
-                )
-            ).label("model_variant_count"),
-            db.func.coalesce(db.func.sum(db.func.abs(usage_rows.c.ledger_amount)), 0).label(
-                "consumed_credits"
-            ),
-            db.func.max(usage_rows.c.created_at).label("created_at"),
-        ).select_from(usage_rows).group_by(
-            usage_rows.c.user_bid,
-            usage_rows.c.outline_item_bid,
-            usage_mode_expr,
+        grouped_query = (
+            db.session.query(
+                db.func.max(group_key_expr).label("group_key"),
+                db.func.max(usage_rows.c.usage_bid).label("usage_bid"),
+                db.func.max(usage_rows.c.progress_record_bid).label(
+                    "progress_record_bid"
+                ),
+                db.func.max(usage_rows.c.generated_block_bid).label(
+                    "generated_block_bid"
+                ),
+                usage_rows.c.user_bid.label("user_bid"),
+                usage_rows.c.outline_item_bid.label("outline_item_bid"),
+                usage_mode_expr,
+                db.func.max(usage_rows.c.provider).label("provider"),
+                db.func.max(usage_rows.c.model).label("model"),
+                db.func.count(db.func.distinct(usage_rows.c.usage_bid)).label(
+                    "usage_count"
+                ),
+                db.func.count(
+                    db.func.distinct(
+                        db.func.coalesce(usage_rows.c.provider, "")
+                        + literal("/")
+                        + db.func.coalesce(usage_rows.c.model, "")
+                    )
+                ).label("model_variant_count"),
+                db.func.coalesce(
+                    db.func.sum(db.func.abs(usage_rows.c.ledger_amount)), 0
+                ).label("consumed_credits"),
+                db.func.max(usage_rows.c.created_at).label("created_at"),
+            )
+            .select_from(usage_rows)
+            .group_by(
+                usage_rows.c.user_bid,
+                usage_rows.c.outline_item_bid,
+                usage_mode_expr,
+            )
         )
 
         grouped_subquery = grouped_query.subquery("operator_course_credit_usage_groups")
-        total = db.session.query(db.func.count()).select_from(grouped_subquery).scalar() or 0
+        total = (
+            db.session.query(db.func.count()).select_from(grouped_subquery).scalar()
+            or 0
+        )
         grouped_rows = (
             db.session.query(grouped_subquery)
-            .order_by(grouped_subquery.c.created_at.desc(), grouped_subquery.c.group_key.asc())
+            .order_by(
+                grouped_subquery.c.created_at.desc(), grouped_subquery.c.group_key.asc()
+            )
             .offset((safe_page_index - 1) * safe_page_size)
             .limit(safe_page_size)
             .all()
@@ -5435,7 +5455,9 @@ def get_operator_course_credit_usages(
                 {
                     "chapter_outline_item_bid": "",
                     "chapter_title": "",
-                    "lesson_outline_item_bid": str(getattr(row, "outline_item_bid", "") or ""),
+                    "lesson_outline_item_bid": str(
+                        getattr(row, "outline_item_bid", "") or ""
+                    ),
                     "lesson_title": "",
                 },
             )
@@ -5445,25 +5467,37 @@ def get_operator_course_credit_usages(
                 AdminOperationCourseCreditUsageItemDTO(
                     group_key=str(getattr(row, "group_key", "") or ""),
                     usage_bid=str(getattr(row, "usage_bid", "") or ""),
-                    progress_record_bid=str(getattr(row, "progress_record_bid", "") or ""),
-                    generated_block_bid=str(getattr(row, "generated_block_bid", "") or ""),
+                    progress_record_bid=str(
+                        getattr(row, "progress_record_bid", "") or ""
+                    ),
+                    generated_block_bid=str(
+                        getattr(row, "generated_block_bid", "") or ""
+                    ),
                     user_bid=user_bid,
                     mobile=str(user.get("mobile", "") or ""),
                     email=str(user.get("email", "") or ""),
                     nickname=str(user.get("nickname", "") or ""),
-                    chapter_outline_item_bid=str(context.get("chapter_outline_item_bid", "") or ""),
+                    chapter_outline_item_bid=str(
+                        context.get("chapter_outline_item_bid", "") or ""
+                    ),
                     chapter_title=str(context.get("chapter_title", "") or ""),
-                    lesson_outline_item_bid=str(context.get("lesson_outline_item_bid", "") or ""),
+                    lesson_outline_item_bid=str(
+                        context.get("lesson_outline_item_bid", "") or ""
+                    ),
                     lesson_title=str(context.get("lesson_title", "") or ""),
                     usage_mode=str(getattr(row, "usage_mode", "") or ""),
                     provider=str(getattr(row, "provider", "") or ""),
                     model=str(getattr(row, "model", "") or ""),
                     usage_count=int(getattr(row, "usage_count", 0) or 0),
-                    model_variant_count=int(getattr(row, "model_variant_count", 0) or 0),
+                    model_variant_count=int(
+                        getattr(row, "model_variant_count", 0) or 0
+                    ),
                     consumed_credits=credit_decimal_to_number(
                         Decimal(str(getattr(row, "consumed_credits", 0) or 0))
                     ),
-                    created_at=_format_operator_datetime(getattr(row, "created_at", None)),
+                    created_at=_format_operator_datetime(
+                        getattr(row, "created_at", None)
+                    ),
                 )
             )
 
@@ -5473,7 +5507,9 @@ def get_operator_course_credit_usages(
             page=safe_page_index,
             page_size=safe_page_size,
             total=int(total or 0),
-            page_count=math.ceil(int(total or 0) / safe_page_size) if safe_page_size else 0,
+            page_count=math.ceil(int(total or 0) / safe_page_size)
+            if safe_page_size
+            else 0,
         )
 
 

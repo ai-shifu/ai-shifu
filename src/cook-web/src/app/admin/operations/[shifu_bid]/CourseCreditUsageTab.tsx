@@ -474,343 +474,345 @@ export default function CourseCreditUsageTab({
     <>
       <Card className='overflow-hidden border-border/80 shadow-sm ring-1 ring-border/40'>
         <CardContent className='space-y-3 px-6 py-6'>
-        <form
-          className='rounded-xl border border-border bg-muted/20 p-3'
-          onSubmit={event => {
-            event.preventDefault();
-            onSearch();
-          }}
-        >
-          <div className='flex flex-col gap-3 xl:flex-row xl:items-end'>
-            <div className='flex flex-1 flex-col gap-2'>
-              <Label className='text-xs font-medium text-muted-foreground'>
-                {tOperations('detail.creditUsage.filters.userKeyword')}
-              </Label>
-              <ClearableTextInput
-                value={filtersDraft.keyword}
-                placeholder={keywordPlaceholder}
-                clearLabel={t('module.chat.lessonFeedbackClearInput')}
-                onChange={onKeywordChange}
-              />
-            </div>
-            <div className='flex flex-1 flex-col gap-2'>
-              <Label className='text-xs font-medium text-muted-foreground'>
-                {tOperations('detail.creditUsage.filters.mode')}
-              </Label>
-              <Select
-                value={filtersDraft.mode}
-                onValueChange={value =>
-                  onModeChange(
-                    value as AdminOperationCourseCreditUsageModeFilter,
-                  )
-                }
-              >
-                <SelectTrigger className='h-9'>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={FILTER_ALL_OPTION}>
-                    {tOperations('detail.creditUsage.filters.modeAll')}
-                  </SelectItem>
-                  <SelectItem value='learn'>
-                    {tOperations('detail.creditUsage.modes.learn')}
-                  </SelectItem>
-                  <SelectItem value='listen'>
-                    {tOperations('detail.creditUsage.modes.listen')}
-                  </SelectItem>
-                  <SelectItem value='ask'>
-                    {tOperations('detail.creditUsage.modes.ask')}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className='flex flex-1 flex-col gap-2'>
-              <Label className='text-xs font-medium text-muted-foreground'>
-                {tOperations('detail.creditUsage.filters.time')}
-              </Label>
-              <AdminDateRangeFilter
-                startValue={filtersDraft.startTime}
-                endValue={filtersDraft.endTime}
-                triggerAriaLabel={tOperations(
-                  'detail.creditUsage.filters.time',
-                )}
-                placeholder={tOperations(
-                  'detail.creditUsage.filters.timePlaceholder',
-                )}
-                resetLabel={tOperations('detail.creditUsage.filters.reset')}
-                clearLabel={clearLabel}
-                onChange={({ start, end }) => onDateRangeChange({ start, end })}
-              />
-            </div>
-            <div className='flex min-h-9 shrink-0 items-center justify-start gap-2 xl:justify-end'>
-              <Button
-                type='button'
-                variant='outline'
-                className='h-9 px-4'
-                onClick={onReset}
-                disabled={loading}
-              >
-                {t('module.order.filters.reset')}
-              </Button>
-              <Button
-                type='submit'
-                className='h-9 px-4'
-                disabled={loading}
-              >
-                {t('module.order.filters.search')}
-              </Button>
-            </div>
-          </div>
-          <div className='mt-3 pl-3 text-sm text-muted-foreground'>
-            {tOperations('detail.creditUsage.count', {
-              count: data.total,
-            })}
-          </div>
-        </form>
-
-        <AdminTableShell
-          loading={loading}
-          isEmpty={!error && rows.length === 0}
-          emptyContent={tOperations('detail.creditUsage.table.empty')}
-          emptyColSpan={9}
-          withTooltipProvider={!error}
-          tableWrapperClassName='overflow-auto'
-          loadingClassName='min-h-[240px]'
-          footer={
-            pageCount > 1 ? (
-              <AdminPagination
-                pageIndex={currentPage}
-                pageCount={pageCount}
-                onPageChange={onPageChange}
-                prevLabel={t('module.order.paginationPrev', 'Previous')}
-                nextLabel={t('module.order.paginationNext', 'Next')}
-                prevAriaLabel={t(
-                  'module.order.paginationPrevAriaLabel',
-                  'Go to previous page',
-                )}
-                nextAriaLabel={t(
-                  'module.order.paginationNextAriaLabel',
-                  'Go to next page',
-                )}
-                className='mx-0 w-auto justify-end'
-              />
-            ) : null
-          }
-          table={
-            error ? (
-              <div className='flex min-h-[240px] items-center justify-center p-6 text-center'>
-                <div className='space-y-2'>
-                  <div className='text-sm font-medium text-destructive'>
-                    {error.message}
-                  </div>
-                  {typeof error.code === 'number' ? (
-                    <div className='text-xs text-muted-foreground'>
-                      {error.code}
-                    </div>
-                  ) : null}
-                </div>
+          <form
+            className='rounded-xl border border-border bg-muted/20 p-3'
+            onSubmit={event => {
+              event.preventDefault();
+              onSearch();
+            }}
+          >
+            <div className='flex flex-col gap-3 xl:flex-row xl:items-end'>
+              <div className='flex flex-1 flex-col gap-2'>
+                <Label className='text-xs font-medium text-muted-foreground'>
+                  {tOperations('detail.creditUsage.filters.userKeyword')}
+                </Label>
+                <ClearableTextInput
+                  value={filtersDraft.keyword}
+                  placeholder={keywordPlaceholder}
+                  clearLabel={t('module.chat.lessonFeedbackClearInput')}
+                  onChange={onKeywordChange}
+                />
               </div>
-            ) : (
-              emptyRow => (
-                <Table className='table-auto'>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                          'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                        )}
-                        style={getColumnStyle('createdAt')}
-                      >
-                        {tOperations('detail.creditUsage.table.createdAt')}
-                        {renderResizeHandle('createdAt')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                          'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                        )}
-                        style={getColumnStyle('account')}
-                      >
-                        {accountLabel}
-                        {renderResizeHandle('account')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                          'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                        )}
-                        style={getColumnStyle('nickname')}
-                      >
-                        {tOperations('detail.creditUsage.table.nickname')}
-                        {renderResizeHandle('nickname')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                          'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                        )}
-                        style={getColumnStyle('mode')}
-                      >
-                        {tOperations('detail.creditUsage.table.mode')}
-                        {renderResizeHandle('mode')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                          'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                        )}
-                        style={getColumnStyle('chapter')}
-                      >
-                        {tOperations('detail.creditUsage.table.chapter')}
-                        {renderResizeHandle('chapter')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                          'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                        )}
-                        style={getColumnStyle('lesson')}
-                      >
-                        {tOperations('detail.creditUsage.table.lesson')}
-                        {renderResizeHandle('lesson')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                          'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                        )}
-                        style={getColumnStyle('usageCount')}
-                      >
-                        {tOperations('detail.creditUsage.table.usageCount')}
-                        {renderResizeHandle('usageCount')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-                          'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                        )}
-                        style={getColumnStyle('credits')}
-                      >
-                        {tOperations('detail.creditUsage.table.credits')}
-                        {renderResizeHandle('credits')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
-                          'h-10 whitespace-nowrap bg-muted/80 text-xs',
-                        )}
-                        style={getColumnStyle('model')}
-                      >
-                        {tOperations('detail.creditUsage.table.model')}
-                        {renderResizeHandle('model')}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {emptyRow}
-                    {rows.map(row => (
-                      <TableRow key={row.group_key || row.usage_bid}>
-                        <TableCell
-                          className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
+              <div className='flex flex-1 flex-col gap-2'>
+                <Label className='text-xs font-medium text-muted-foreground'>
+                  {tOperations('detail.creditUsage.filters.mode')}
+                </Label>
+                <Select
+                  value={filtersDraft.mode}
+                  onValueChange={value =>
+                    onModeChange(
+                      value as AdminOperationCourseCreditUsageModeFilter,
+                    )
+                  }
+                >
+                  <SelectTrigger className='h-9'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={FILTER_ALL_OPTION}>
+                      {tOperations('detail.creditUsage.filters.modeAll')}
+                    </SelectItem>
+                    <SelectItem value='learn'>
+                      {tOperations('detail.creditUsage.modes.learn')}
+                    </SelectItem>
+                    <SelectItem value='listen'>
+                      {tOperations('detail.creditUsage.modes.listen')}
+                    </SelectItem>
+                    <SelectItem value='ask'>
+                      {tOperations('detail.creditUsage.modes.ask')}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className='flex flex-1 flex-col gap-2'>
+                <Label className='text-xs font-medium text-muted-foreground'>
+                  {tOperations('detail.creditUsage.filters.time')}
+                </Label>
+                <AdminDateRangeFilter
+                  startValue={filtersDraft.startTime}
+                  endValue={filtersDraft.endTime}
+                  triggerAriaLabel={tOperations(
+                    'detail.creditUsage.filters.time',
+                  )}
+                  placeholder={tOperations(
+                    'detail.creditUsage.filters.timePlaceholder',
+                  )}
+                  resetLabel={tOperations('detail.creditUsage.filters.reset')}
+                  clearLabel={clearLabel}
+                  onChange={({ start, end }) =>
+                    onDateRangeChange({ start, end })
+                  }
+                />
+              </div>
+              <div className='flex min-h-9 shrink-0 items-center justify-start gap-2 xl:justify-end'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  className='h-9 px-4'
+                  onClick={onReset}
+                  disabled={loading}
+                >
+                  {t('module.order.filters.reset')}
+                </Button>
+                <Button
+                  type='submit'
+                  className='h-9 px-4'
+                  disabled={loading}
+                >
+                  {t('module.order.filters.search')}
+                </Button>
+              </div>
+            </div>
+            <div className='mt-3 pl-3 text-sm text-muted-foreground'>
+              {tOperations('detail.creditUsage.count', {
+                count: data.total,
+              })}
+            </div>
+          </form>
+
+          <AdminTableShell
+            loading={loading}
+            isEmpty={!error && rows.length === 0}
+            emptyContent={tOperations('detail.creditUsage.table.empty')}
+            emptyColSpan={9}
+            withTooltipProvider={!error}
+            tableWrapperClassName='overflow-auto'
+            loadingClassName='min-h-[240px]'
+            footer={
+              pageCount > 1 ? (
+                <AdminPagination
+                  pageIndex={currentPage}
+                  pageCount={pageCount}
+                  onPageChange={onPageChange}
+                  prevLabel={t('module.order.paginationPrev', 'Previous')}
+                  nextLabel={t('module.order.paginationNext', 'Next')}
+                  prevAriaLabel={t(
+                    'module.order.paginationPrevAriaLabel',
+                    'Go to previous page',
+                  )}
+                  nextAriaLabel={t(
+                    'module.order.paginationNextAriaLabel',
+                    'Go to next page',
+                  )}
+                  className='mx-0 w-auto justify-end'
+                />
+              ) : null
+            }
+            table={
+              error ? (
+                <div className='flex min-h-[240px] items-center justify-center p-6 text-center'>
+                  <div className='space-y-2'>
+                    <div className='text-sm font-medium text-destructive'>
+                      {error.message}
+                    </div>
+                    {typeof error.code === 'number' ? (
+                      <div className='text-xs text-muted-foreground'>
+                        {error.code}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                emptyRow => (
+                  <Table className='table-auto'>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead
+                          className={cn(
+                            ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                            'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                          )}
                           style={getColumnStyle('createdAt')}
                         >
-                          <AdminTooltipText
-                            text={formatAdminUtcDateTime(row.created_at)}
-                            emptyValue={emptyValue}
-                            className='mx-auto block max-w-full tabular-nums'
-                          />
-                        </TableCell>
-                        <TableCell
-                          className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                          {tOperations('detail.creditUsage.table.createdAt')}
+                          {renderResizeHandle('createdAt')}
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                            'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                          )}
                           style={getColumnStyle('account')}
                         >
-                          <AdminTooltipText
-                            text={resolveAccount(row)}
-                            emptyValue={emptyValue}
-                            className='mx-auto block max-w-[180px] text-foreground'
-                          />
-                        </TableCell>
-                        <TableCell
-                          className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                          {accountLabel}
+                          {renderResizeHandle('account')}
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                            'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                          )}
                           style={getColumnStyle('nickname')}
                         >
-                          <AdminTooltipText
-                            text={row.nickname || defaultUserName}
-                            emptyValue={emptyValue}
-                            className='mx-auto block max-w-[140px]'
-                          />
-                        </TableCell>
-                        <TableCell
-                          className='py-2.5 border-r border-border text-center last:border-r-0'
+                          {tOperations('detail.creditUsage.table.nickname')}
+                          {renderResizeHandle('nickname')}
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                            'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                          )}
                           style={getColumnStyle('mode')}
                         >
-                          <Badge
-                            variant='outline'
-                            className='border-0 bg-transparent px-0 py-0 text-xs font-medium text-foreground shadow-none'
-                          >
-                            {resolveModeLabel(row.usage_mode)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell
-                          className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                          {tOperations('detail.creditUsage.table.mode')}
+                          {renderResizeHandle('mode')}
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                            'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                          )}
                           style={getColumnStyle('chapter')}
                         >
-                          <AdminTooltipText
-                            text={row.chapter_title}
-                            emptyValue={emptyValue}
-                            className='mx-auto block max-w-[180px]'
-                          />
-                        </TableCell>
-                        <TableCell
-                          className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                          {tOperations('detail.creditUsage.table.chapter')}
+                          {renderResizeHandle('chapter')}
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                            'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                          )}
                           style={getColumnStyle('lesson')}
                         >
-                          <AdminTooltipText
-                            text={row.lesson_title}
-                            emptyValue={emptyValue}
-                            className='mx-auto block max-w-[180px]'
-                          />
-                        </TableCell>
-                        <TableCell
-                          className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                          {tOperations('detail.creditUsage.table.lesson')}
+                          {renderResizeHandle('lesson')}
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                            'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                          )}
                           style={getColumnStyle('usageCount')}
                         >
-                          <button
-                            type='button'
-                            className='tabular-nums text-primary hover:underline disabled:pointer-events-none disabled:text-foreground'
-                            disabled={!row.usage_count}
-                            onClick={() => handleOpenDetails(row)}
-                          >
-                            {row.usage_count}
-                          </button>
-                        </TableCell>
-                        <TableCell
-                          className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                          {tOperations('detail.creditUsage.table.usageCount')}
+                          {renderResizeHandle('usageCount')}
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                            'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                          )}
                           style={getColumnStyle('credits')}
                         >
-                          <span className='font-medium tabular-nums text-foreground'>
-                            {row.consumed_credits}
-                          </span>
-                        </TableCell>
-                        <TableCell
-                          className='py-2.5 text-center text-sm text-foreground'
+                          {tOperations('detail.creditUsage.table.credits')}
+                          {renderResizeHandle('credits')}
+                        </TableHead>
+                        <TableHead
+                          className={cn(
+                            ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS,
+                            'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                          )}
                           style={getColumnStyle('model')}
                         >
-                          <AdminTooltipText
-                            text={resolveModelDisplay(row)}
-                            emptyValue={emptyValue}
-                            className='mx-auto block max-w-[220px]'
-                          />
-                        </TableCell>
+                          {tOperations('detail.creditUsage.table.model')}
+                          {renderResizeHandle('model')}
+                        </TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {emptyRow}
+                      {rows.map(row => (
+                        <TableRow key={row.group_key || row.usage_bid}>
+                          <TableCell
+                            className='py-2.5 border-r border-border text-center text-xs text-muted-foreground/65 last:border-r-0'
+                            style={getColumnStyle('createdAt')}
+                          >
+                            <AdminTooltipText
+                              text={formatAdminUtcDateTime(row.created_at)}
+                              emptyValue={emptyValue}
+                              className='mx-auto block max-w-full tabular-nums'
+                            />
+                          </TableCell>
+                          <TableCell
+                            className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                            style={getColumnStyle('account')}
+                          >
+                            <AdminTooltipText
+                              text={resolveAccount(row)}
+                              emptyValue={emptyValue}
+                              className='mx-auto block max-w-[180px] text-foreground'
+                            />
+                          </TableCell>
+                          <TableCell
+                            className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                            style={getColumnStyle('nickname')}
+                          >
+                            <AdminTooltipText
+                              text={row.nickname || defaultUserName}
+                              emptyValue={emptyValue}
+                              className='mx-auto block max-w-[140px]'
+                            />
+                          </TableCell>
+                          <TableCell
+                            className='py-2.5 border-r border-border text-center last:border-r-0'
+                            style={getColumnStyle('mode')}
+                          >
+                            <Badge
+                              variant='outline'
+                              className='border-0 bg-transparent px-0 py-0 text-xs font-medium text-foreground shadow-none'
+                            >
+                              {resolveModeLabel(row.usage_mode)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell
+                            className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                            style={getColumnStyle('chapter')}
+                          >
+                            <AdminTooltipText
+                              text={row.chapter_title}
+                              emptyValue={emptyValue}
+                              className='mx-auto block max-w-[180px]'
+                            />
+                          </TableCell>
+                          <TableCell
+                            className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                            style={getColumnStyle('lesson')}
+                          >
+                            <AdminTooltipText
+                              text={row.lesson_title}
+                              emptyValue={emptyValue}
+                              className='mx-auto block max-w-[180px]'
+                            />
+                          </TableCell>
+                          <TableCell
+                            className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                            style={getColumnStyle('usageCount')}
+                          >
+                            <button
+                              type='button'
+                              className='tabular-nums text-primary hover:underline disabled:pointer-events-none disabled:text-foreground'
+                              disabled={!row.usage_count}
+                              onClick={() => handleOpenDetails(row)}
+                            >
+                              {row.usage_count}
+                            </button>
+                          </TableCell>
+                          <TableCell
+                            className='py-2.5 border-r border-border text-center text-sm text-foreground last:border-r-0'
+                            style={getColumnStyle('credits')}
+                          >
+                            <span className='font-medium tabular-nums text-foreground'>
+                              {row.consumed_credits}
+                            </span>
+                          </TableCell>
+                          <TableCell
+                            className='py-2.5 text-center text-sm text-foreground'
+                            style={getColumnStyle('model')}
+                          >
+                            <AdminTooltipText
+                              text={resolveModelDisplay(row)}
+                              emptyValue={emptyValue}
+                              className='mx-auto block max-w-[220px]'
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )
               )
-            )
-          }
-        />
+            }
+          />
         </CardContent>
       </Card>
 

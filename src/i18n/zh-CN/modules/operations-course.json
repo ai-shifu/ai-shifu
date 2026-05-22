@@ -82,6 +82,23 @@
     "creditUsage": {
       "count": "{count} 条记录",
       "description": "查看该课程的积分消耗记录。",
+      "details": {
+        "collapse": "收起",
+        "empty": "暂无消耗明细",
+        "expand": "...",
+        "table": {
+          "createdAt": "消耗时间",
+          "credits": "消耗积分",
+          "inputTokens": "输入 Tokens",
+          "outputSummary": "输出摘要",
+          "outputTokens": "输出 Tokens",
+          "ttsContent": "合成内容",
+          "ttsDuration": "音频时长",
+          "ttsSegmentCount": "分段数",
+          "ttsWordCount": "合成字数"
+        },
+        "title": "积分消耗明细"
+      },
       "filters": {
         "mode": "消耗场景",
         "modeAll": "全部",
@@ -94,23 +111,6 @@
       },
       "modelSummary": {
         "multiple": "{model} 等 {count} 个"
-      },
-      "details": {
-        "collapse": "收起",
-        "empty": "暂无消耗明细",
-        "expand": "...",
-        "table": {
-          "createdAt": "消耗时间",
-          "credits": "消耗积分",
-          "inputTokens": "输入 Tokens",
-          "outputSummary": "输出摘要",
-          "outputTokens": "输出 Tokens",
-          "ttsWordCount": "合成字数",
-          "ttsDuration": "音频时长",
-          "ttsSegmentCount": "分段数",
-          "ttsContent": "合成内容"
-        },
-        "title": "积分消耗明细"
       },
       "modes": {
         "ask": "追问",
@@ -215,16 +215,16 @@
     },
     "metrics": "数据概览",
     "metricsLabels": {
+      "completedUserAvgCredits": "完课用户平均积分消耗",
+      "creditConsumedTotal": "总消耗积分",
+      "creditUsageCount": "积分消耗次数",
+      "creditUserCount": "积分消耗用户数",
       "followUpCount": "追问数",
       "learnerCount": "学习人数",
       "orderAmount": "实收总额（含兑换码）",
       "orderCount": "订单数",
       "ratingScore": "评分",
-      "visitCount30d": "近30天访问人数",
-      "creditConsumedTotal": "总消耗积分",
-      "creditUsageCount": "积分消耗次数",
-      "creditUserCount": "积分消耗用户数",
-      "completedUserAvgCredits": "完课用户平均积分消耗"
+      "visitCount30d": "近30天访问人数"
     },
     "orders": {
       "openMetric": "查看订单数据"

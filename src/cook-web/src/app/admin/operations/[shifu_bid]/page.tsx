@@ -746,15 +746,24 @@ export default function AdminOperationCourseDetailPage() {
       },
       {
         label: tOperations('detail.metricsLabels.creditConsumedTotal'),
-        value: formatCount(detail.metrics.credit_consumed_total || 0, i18n.language),
+        value: formatCount(
+          detail.metrics.credit_consumed_total || 0,
+          i18n.language,
+        ),
       },
       {
         label: tOperations('detail.metricsLabels.creditUsageCount'),
-        value: formatCount(detail.metrics.credit_usage_count || 0, i18n.language),
+        value: formatCount(
+          detail.metrics.credit_usage_count || 0,
+          i18n.language,
+        ),
       },
       {
         label: tOperations('detail.metricsLabels.creditUserCount'),
-        value: formatCount(detail.metrics.credit_user_count || 0, i18n.language),
+        value: formatCount(
+          detail.metrics.credit_user_count || 0,
+          i18n.language,
+        ),
       },
       {
         label: tOperations('detail.metricsLabels.completedUserAvgCredits'),
