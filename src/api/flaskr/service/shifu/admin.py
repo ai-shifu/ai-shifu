@@ -5247,6 +5247,7 @@ def get_operator_course_ratings(
     page_index: int,
     page_size: int,
     filters: Optional[dict] = None,
+    include_summary: bool = True,
 ) -> AdminOperationCourseRatingListDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -5264,26 +5265,6 @@ def get_operator_course_ratings(
             normalized_shifu_bid
         )
         outline_context_map = _build_course_outline_context_map(outline_items)
-        rating_rows = (
-            LearnLessonFeedback.query.filter(
-                LearnLessonFeedback.shifu_bid == normalized_shifu_bid,
-                LearnLessonFeedback.deleted == 0,
-            )
-            .order_by(
-                LearnLessonFeedback.updated_at.desc(),
-                LearnLessonFeedback.id.desc(),
-            )
-            .all()
-        )
-        user_bids = sorted(
-            {
-                str(getattr(row, "user_bid", "") or "").strip()
-                for row in rating_rows
-                if str(getattr(row, "user_bid", "") or "").strip()
-            }
-        )
-        user_map = _load_user_map(user_bids)
-
         keyword = _normalize_identifier(str(filters.get("keyword", "") or "")).lower()
         chapter_keyword = str(filters.get("chapter_keyword", "") or "").strip().lower()
         score_filter = str(filters.get("score", "") or "").strip()
@@ -5305,20 +5286,128 @@ def get_operator_course_ratings(
         if str(filters.get("sort_by", "") or "").strip() and not sort_by:
             raise_param_error("sort_by")
 
-        filtered_items: list[
-            tuple[datetime, int, AdminOperationCourseRatingItemDTO]
-        ] = []
-        total_score = 0
-        latest_rated_at: Optional[datetime] = None
-        for row in rating_rows:
+        rated_at_expression = db.func.coalesce(
+            LearnLessonFeedback.updated_at,
+            LearnLessonFeedback.created_at,
+        )
+        base_filters = [
+            LearnLessonFeedback.shifu_bid == normalized_shifu_bid,
+            LearnLessonFeedback.deleted == 0,
+        ]
+
+        user_keyword_filter = _build_follow_up_user_keyword_filter(
+            LearnLessonFeedback.user_bid,
+            keyword,
+        )
+        if user_keyword_filter is not None:
+            base_filters.append(user_keyword_filter)
+
+        matching_outline_item_bids = _resolve_follow_up_matching_outline_bids(
+            outline_context_map,
+            chapter_keyword,
+        )
+        if matching_outline_item_bids is not None:
+            if not matching_outline_item_bids:
+                return AdminOperationCourseRatingListDTO(
+                    summary=AdminOperationCourseRatingSummaryDTO(),
+                    items=[],
+                    page=safe_page_index,
+                    page_size=safe_page_size,
+                    total=0,
+                    page_count=0,
+                )
+            base_filters.append(
+                LearnLessonFeedback.outline_item_bid.in_(
+                    sorted(matching_outline_item_bids)
+                )
+            )
+
+        if normalized_score_filter is not None:
+            base_filters.append(LearnLessonFeedback.score == normalized_score_filter)
+        if mode_filter:
+            base_filters.append(LearnLessonFeedback.mode == mode_filter)
+        if has_comment_filter == "true":
+            base_filters.append(
+                db.func.trim(db.func.coalesce(LearnLessonFeedback.comment, "")) != ""
+            )
+        if start_time:
+            base_filters.append(rated_at_expression >= start_time)
+        if end_time:
+            base_filters.append(rated_at_expression <= end_time)
+
+        summary_source = (
+            db.session.query(
+                LearnLessonFeedback.id.label("id"),
+                LearnLessonFeedback.score.label("score"),
+                LearnLessonFeedback.user_bid.label("user_bid"),
+                rated_at_expression.label("rated_at"),
+            )
+            .filter(*base_filters)
+            .subquery()
+        )
+        if include_summary:
+            summary_row = db.session.query(
+                db.func.avg(summary_source.c.score).label("average_score"),
+                db.func.count(summary_source.c.id).label("rating_count"),
+                db.func.count(
+                    db.func.distinct(db.func.nullif(summary_source.c.user_bid, ""))
+                ).label("user_count"),
+                db.func.max(summary_source.c.rated_at).label("latest_rated_at"),
+            ).one()
+            total = int(getattr(summary_row, "rating_count", 0) or 0)
+        else:
+            summary_row = None
+            total = int(
+                db.session.query(db.func.count(summary_source.c.id)).scalar() or 0
+            )
+
+        if total == 0:
+            return AdminOperationCourseRatingListDTO(
+                summary=AdminOperationCourseRatingSummaryDTO(),
+                items=[],
+                page=safe_page_index,
+                page_size=safe_page_size,
+                total=0,
+                page_count=0,
+            )
+
+        start = (safe_page_index - 1) * safe_page_size
+        page_query = db.session.query(
+            LearnLessonFeedback.id.label("id"),
+            LearnLessonFeedback.lesson_feedback_bid.label("lesson_feedback_bid"),
+            LearnLessonFeedback.progress_record_bid.label("progress_record_bid"),
+            LearnLessonFeedback.user_bid.label("user_bid"),
+            LearnLessonFeedback.outline_item_bid.label("outline_item_bid"),
+            LearnLessonFeedback.score.label("score"),
+            LearnLessonFeedback.comment.label("comment"),
+            LearnLessonFeedback.mode.label("mode"),
+            rated_at_expression.label("rated_at"),
+        ).filter(*base_filters)
+        ordered_query = page_query.order_by(
+            rated_at_expression.desc(),
+            LearnLessonFeedback.id.desc(),
+        )
+        if sort_by == "score_asc":
+            ordered_query = page_query.order_by(
+                LearnLessonFeedback.score.asc(),
+                rated_at_expression.desc(),
+                LearnLessonFeedback.id.desc(),
+            )
+        page_rows = ordered_query.offset(start).limit(safe_page_size).all()
+        user_map = _load_user_map(
+            sorted(
+                {
+                    str(getattr(row, "user_bid", "") or "").strip()
+                    for row in page_rows
+                    if str(getattr(row, "user_bid", "") or "").strip()
+                }
+            )
+        )
+
+        items: list[AdminOperationCourseRatingItemDTO] = []
+        for row in page_rows:
             user_bid = str(getattr(row, "user_bid", "") or "").strip()
             outline_item_bid = str(getattr(row, "outline_item_bid", "") or "").strip()
-            score = int(getattr(row, "score", 0) or 0)
-            comment = str(getattr(row, "comment", "") or "")
-            mode = _resolve_course_rating_mode(str(getattr(row, "mode", "") or ""))
-            rated_at = getattr(row, "updated_at", None) or getattr(
-                row, "created_at", None
-            )
             context = outline_context_map.get(
                 outline_item_bid,
                 {
@@ -5329,95 +5418,51 @@ def get_operator_course_ratings(
                 },
             )
             user = user_map.get(user_bid, {})
-
-            if keyword:
-                haystack = [
-                    str(user.get("mobile", "") or "").lower(),
-                    str(user.get("email", "") or "").lower(),
-                    str(user.get("nickname", "") or "").lower(),
-                ]
-                if not any(keyword in value for value in haystack if value):
-                    continue
-
-            if chapter_keyword:
-                chapter_haystack = [
-                    str(context.get("chapter_title", "") or "").lower(),
-                    str(context.get("lesson_title", "") or "").lower(),
-                ]
-                if not any(
-                    chapter_keyword in value for value in chapter_haystack if value
-                ):
-                    continue
-
-            if normalized_score_filter is not None and score != normalized_score_filter:
-                continue
-            if mode_filter and mode != mode_filter:
-                continue
-            if has_comment_filter == "true" and not comment.strip():
-                continue
-            if start_time and (rated_at is None or rated_at < start_time):
-                continue
-            if end_time and (rated_at is None or rated_at > end_time):
-                continue
-
-            if rated_at is not None and (
-                latest_rated_at is None or rated_at > latest_rated_at
-            ):
-                latest_rated_at = rated_at
-            filtered_items.append(
-                (
-                    rated_at or datetime.min,
-                    int(getattr(row, "id", 0) or 0),
-                    AdminOperationCourseRatingItemDTO(
-                        lesson_feedback_bid=str(
-                            getattr(row, "lesson_feedback_bid", "") or ""
-                        ),
-                        progress_record_bid=str(
-                            getattr(row, "progress_record_bid", "") or ""
-                        ),
-                        user_bid=user_bid,
-                        mobile=str(user.get("mobile", "") or ""),
-                        email=str(user.get("email", "") or ""),
-                        nickname=str(user.get("nickname", "") or ""),
-                        chapter_outline_item_bid=str(
-                            context.get("chapter_outline_item_bid", "") or ""
-                        ),
-                        chapter_title=str(context.get("chapter_title", "") or ""),
-                        lesson_outline_item_bid=str(
-                            context.get("lesson_outline_item_bid", "") or ""
-                        ),
-                        lesson_title=str(context.get("lesson_title", "") or ""),
-                        score=score,
-                        comment=comment,
-                        mode=mode,
-                        rated_at=_format_operator_datetime(rated_at),
+            items.append(
+                AdminOperationCourseRatingItemDTO(
+                    lesson_feedback_bid=str(
+                        getattr(row, "lesson_feedback_bid", "") or ""
                     ),
+                    progress_record_bid=str(
+                        getattr(row, "progress_record_bid", "") or ""
+                    ),
+                    user_bid=user_bid,
+                    mobile=str(user.get("mobile", "") or ""),
+                    email=str(user.get("email", "") or ""),
+                    nickname=str(user.get("nickname", "") or ""),
+                    chapter_outline_item_bid=str(
+                        context.get("chapter_outline_item_bid", "") or ""
+                    ),
+                    chapter_title=str(context.get("chapter_title", "") or ""),
+                    lesson_outline_item_bid=str(
+                        context.get("lesson_outline_item_bid", "") or ""
+                    ),
+                    lesson_title=str(context.get("lesson_title", "") or ""),
+                    score=int(getattr(row, "score", 0) or 0),
+                    comment=str(getattr(row, "comment", "") or ""),
+                    mode=_resolve_course_rating_mode(
+                        str(getattr(row, "mode", "") or "")
+                    ),
+                    rated_at=_format_operator_datetime(getattr(row, "rated_at", None)),
                 )
             )
-            total_score += score
 
-        filtered_items.sort(key=lambda item: (item[0], item[1]), reverse=True)
-        if sort_by == "score_asc":
-            filtered_items.sort(key=lambda item: item[2].score)
-
-        rows = [item for _, _, item in filtered_items]
-        total = len(rows)
-        start = (safe_page_index - 1) * safe_page_size
-        end = start + safe_page_size
-        average_score = (
-            _format_average_score(Decimal(total_score) / Decimal(total))
-            if total
-            else ""
-        )
-        summary = AdminOperationCourseRatingSummaryDTO(
-            average_score=average_score,
-            rating_count=total,
-            user_count=len({item.user_bid for item in rows if item.user_bid}),
-            latest_rated_at=_format_operator_datetime(latest_rated_at),
-        )
+        if include_summary:
+            summary = AdminOperationCourseRatingSummaryDTO(
+                average_score=_format_average_score(
+                    getattr(summary_row, "average_score", None)
+                ),
+                rating_count=total,
+                user_count=int(getattr(summary_row, "user_count", 0) or 0),
+                latest_rated_at=_format_operator_datetime(
+                    getattr(summary_row, "latest_rated_at", None)
+                ),
+            )
+        else:
+            summary = AdminOperationCourseRatingSummaryDTO()
         return AdminOperationCourseRatingListDTO(
             summary=summary,
-            items=rows[start:end],
+            items=items,
             page=safe_page_index,
             page_size=safe_page_size,
             total=total,
