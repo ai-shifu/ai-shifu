@@ -156,6 +156,8 @@ const api = {
     'GET /shifu/admin/operations/credit-notifications/config',
   updateAdminOperationCreditNotificationConfig:
     'POST /shifu/admin/operations/credit-notifications/config',
+  syncAdminOperationCreditNotificationTemplate:
+    'POST /shifu/admin/operations/credit-notifications/templates/sync',
   dryRunAdminOperationCreditNotifications:
     'POST /shifu/admin/operations/credit-notifications/dry-run',
   requeueAdminOperationCreditNotification:

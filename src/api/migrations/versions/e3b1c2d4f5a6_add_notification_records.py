@@ -334,6 +334,202 @@ def upgrade():
         ["source_type", "source_bid"],
         unique=False,
     )
+    op.create_table(
+        "notification_templates",
+        sa.Column(
+            "id",
+            mysql.BIGINT(),
+            autoincrement=True,
+            nullable=False,
+            comment="Primary key",
+        ),
+        sa.Column(
+            "notification_template_bid",
+            sa.String(length=36),
+            nullable=False,
+            comment="Notification template business identifier",
+        ),
+        sa.Column(
+            "channel",
+            sa.String(length=32),
+            nullable=False,
+            comment="Notification channel",
+        ),
+        sa.Column(
+            "provider",
+            sa.String(length=32),
+            nullable=False,
+            comment="Notification provider",
+        ),
+        sa.Column(
+            "template_code",
+            sa.String(length=128),
+            nullable=False,
+            comment="Provider template code",
+        ),
+        sa.Column(
+            "template_name",
+            sa.String(length=255),
+            nullable=False,
+            comment="Provider template name",
+        ),
+        sa.Column(
+            "template_content",
+            sa.Text(),
+            nullable=True,
+            comment="Provider template content",
+        ),
+        sa.Column(
+            "template_status",
+            sa.String(length=64),
+            nullable=False,
+            comment="Provider template audit status",
+        ),
+        sa.Column(
+            "template_type",
+            sa.String(length=64),
+            nullable=False,
+            comment="Provider template type",
+        ),
+        sa.Column(
+            "variable_attribute",
+            sa.JSON(),
+            nullable=True,
+            comment="Provider variable attribute payload",
+        ),
+        sa.Column(
+            "provider_response",
+            sa.JSON(),
+            nullable=True,
+            comment="Provider template query response summary",
+        ),
+        sa.Column(
+            "placeholders",
+            sa.JSON(),
+            nullable=True,
+            comment="Parsed template placeholders",
+        ),
+        sa.Column(
+            "sync_status",
+            sa.String(length=64),
+            nullable=False,
+            comment="Template sync status",
+        ),
+        sa.Column(
+            "error_code",
+            sa.String(length=128),
+            nullable=False,
+            comment="Template sync error code",
+        ),
+        sa.Column(
+            "error_message",
+            sa.Text(),
+            nullable=True,
+            comment="Template sync error message",
+        ),
+        sa.Column(
+            "last_synced_at",
+            sa.DateTime(),
+            nullable=True,
+            comment="Last provider sync timestamp",
+        ),
+        sa.Column(
+            "metadata",
+            sa.JSON(),
+            nullable=True,
+            comment="Notification template metadata",
+        ),
+        sa.Column(
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag",
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(),
+            nullable=False,
+            comment="Creation timestamp",
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(),
+            nullable=False,
+            comment="Last update timestamp",
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "notification_template_bid",
+            name="uq_notification_templates_template_bid",
+        ),
+        sa.UniqueConstraint(
+            "channel",
+            "provider",
+            "template_code",
+            name="uq_notification_templates_channel_provider_code",
+        ),
+        comment="Notification provider template metadata",
+    )
+    op.create_index(
+        op.f("ix_notification_templates_deleted"),
+        "notification_templates",
+        ["deleted"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_notification_templates_notification_template_bid"),
+        "notification_templates",
+        ["notification_template_bid"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_notification_templates_channel"),
+        "notification_templates",
+        ["channel"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_notification_templates_provider"),
+        "notification_templates",
+        ["provider"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_notification_templates_template_code"),
+        "notification_templates",
+        ["template_code"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_notification_templates_template_status"),
+        "notification_templates",
+        ["template_status"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_notification_templates_template_type"),
+        "notification_templates",
+        ["template_type"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_notification_templates_sync_status"),
+        "notification_templates",
+        ["sync_status"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_notification_templates_last_synced_at"),
+        "notification_templates",
+        ["last_synced_at"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_notification_templates_provider_status",
+        "notification_templates",
+        ["provider", "sync_status"],
+        unique=False,
+    )
 
     sys_configs = sa.table(
         "sys_configs",
@@ -378,4 +574,5 @@ def downgrade():
         ),
         {"key": CONFIG_KEY, "config_bid": CONFIG_BID},
     )
+    op.drop_table("notification_templates")
     op.drop_table("notification_records")

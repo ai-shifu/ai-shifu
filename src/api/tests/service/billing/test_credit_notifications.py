@@ -33,6 +33,7 @@ from flaskr.service.billing.credit_notifications import (
     scan_credit_expiring_notifications,
     scan_low_balance_notifications,
     stage_credit_granted_notification,
+    sync_credit_notification_template,
 )
 from flaskr.service.billing.models import (
     BillingDailyLedgerSummary,
@@ -40,6 +41,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
     NotificationRecord,
+    NotificationTemplate,
 )
 from flaskr.service.billing.tasks import (
     CreditNotificationRetryableError,
@@ -112,6 +114,7 @@ def _enable_policy(
     softlimit: dict | None = None,
     low_balance_thresholds: list[dict[str, object]] | None = None,
 ) -> None:
+    _seed_default_notification_templates(app)
     save_credit_notification_policy(
         app,
         {
@@ -238,6 +241,67 @@ def _seed_daily_consumption(
     )
 
 
+def _seed_notification_template(
+    app: Flask,
+    *,
+    template_code: str,
+    placeholders: list[str] | None = None,
+    template_content: str | None = None,
+    sync_status: str = "synced",
+) -> None:
+    resolved_placeholders = placeholders or []
+    resolved_content = template_content
+    if resolved_content is None:
+        resolved_content = " ".join(f"${{{item}}}" for item in resolved_placeholders)
+    with app.app_context():
+        existing = NotificationTemplate.query.filter_by(
+            channel="sms",
+            provider="aliyun",
+            template_code=template_code,
+            deleted=0,
+        ).first()
+        if existing is None:
+            existing = NotificationTemplate(
+                notification_template_bid=f"tpl-{template_code}"[:36],
+                channel="sms",
+                provider="aliyun",
+                template_code=template_code,
+                deleted=0,
+            )
+        existing.template_name = f"Template {template_code}"
+        existing.template_content = resolved_content
+        existing.template_status = "AUDIT_STATE_PASS"
+        existing.template_type = "0"
+        existing.variable_attribute_json = {}
+        existing.provider_response_json = {"code": "OK"}
+        existing.placeholders_json = resolved_placeholders
+        existing.sync_status = sync_status
+        existing.error_code = ""
+        existing.error_message = ""
+        existing.last_synced_at = datetime(2026, 5, 22, 0, 0, 0)
+        existing.metadata_json = {}
+        dao.db.session.add(existing)
+        dao.db.session.commit()
+
+
+def _seed_default_notification_templates(app: Flask) -> None:
+    _seed_notification_template(
+        app,
+        template_code="TPL-GRANT",
+        placeholders=["credits", "source", "expires_at"],
+    )
+    _seed_notification_template(
+        app,
+        template_code="TPL-EXPIRING",
+        placeholders=["credits", "expires_at", "window"],
+    )
+    _seed_notification_template(
+        app,
+        template_code="TPL-LOW",
+        placeholders=["available_credits", "threshold"],
+    )
+
+
 def test_credit_granted_notification_stages_once_and_delivers_sms(
     credit_notifications_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -335,6 +399,11 @@ def test_credit_notification_policy_accepts_estimated_days_threshold(
     credit_notifications_app: Flask,
 ) -> None:
     app = credit_notifications_app
+    _seed_notification_template(
+        app,
+        template_code="TPL-LOW",
+        placeholders=["available_credits"],
+    )
 
     policy = save_credit_notification_policy(
         app,
@@ -367,6 +436,145 @@ def test_credit_notification_policy_accepts_estimated_days_threshold(
             "fallback_fixed_value": "0.00",
         }
     ]
+
+
+def test_sync_credit_notification_template_persists_aliyun_template(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    app.config.update(
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID="test-key",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET="test-secret",
+    )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.get_sms_template_ali",
+        lambda app, *, template_code: SimpleNamespace(
+            body=SimpleNamespace(
+                code="OK",
+                message="OK",
+                request_id="req-template-1",
+                template_code=template_code,
+                template_name="Low balance",
+                template_content=(
+                    "Available ${available_credits}, unknown ${bad_variable}"
+                ),
+                template_status="AUDIT_STATE_PASS",
+                template_type="0",
+                variable_attribute={"available_credits": "credits"},
+            )
+        ),
+    )
+
+    payload = sync_credit_notification_template(
+        app,
+        notification_type=CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+        template_code="TPL-LOW-SYNC",
+    )
+
+    assert payload["sync_status"] == "synced"
+    assert payload["placeholders"] == ["available_credits", "bad_variable"]
+    assert payload["unsupported_placeholders"] == ["bad_variable"]
+    assert payload["compatible"] is False
+    with app.app_context():
+        template = NotificationTemplate.query.filter_by(
+            template_code="TPL-LOW-SYNC"
+        ).one()
+        assert template.template_content == (
+            "Available ${available_credits}, unknown ${bad_variable}"
+        )
+        assert template.placeholders_json == ["available_credits", "bad_variable"]
+
+
+def test_sync_credit_notification_template_reports_missing_credentials(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+
+    payload = sync_credit_notification_template(
+        app,
+        notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+        template_code="TPL-NO-CREDS",
+    )
+
+    assert payload["sync_status"] == "missing_credentials"
+    assert payload["error_code"] == "missing_credentials"
+    assert payload["compatible"] is False
+
+
+def test_credit_notification_policy_allows_synced_template_missing_variables(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    _seed_notification_template(
+        app,
+        template_code="TPL-GRANT-PARTIAL",
+        placeholders=["credits"],
+    )
+
+    policy = save_credit_notification_policy(
+        app,
+        {
+            "enabled": True,
+            "types": {
+                CREDIT_NOTIFICATION_TYPE_GRANTED: {
+                    "enabled": True,
+                    "template_code": "TPL-GRANT-PARTIAL",
+                }
+            },
+        },
+    )
+
+    assert policy["types"][CREDIT_NOTIFICATION_TYPE_GRANTED]["template_code"] == (
+        "TPL-GRANT-PARTIAL"
+    )
+
+
+def test_credit_notification_policy_rejects_unknown_template_variables(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    _seed_notification_template(
+        app,
+        template_code="TPL-GRANT-BAD",
+        placeholders=["credits", "bad_variable"],
+    )
+
+    with pytest.raises(AppException):
+        save_credit_notification_policy(
+            app,
+            {
+                "enabled": True,
+                "types": {
+                    CREDIT_NOTIFICATION_TYPE_GRANTED: {
+                        "enabled": True,
+                        "template_code": "TPL-GRANT-BAD",
+                    }
+                },
+            },
+        )
+
+
+def test_disabled_notification_type_does_not_require_template_validation(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+
+    policy = save_credit_notification_policy(
+        app,
+        {
+            "enabled": True,
+            "types": {
+                CREDIT_NOTIFICATION_TYPE_GRANTED: {
+                    "enabled": False,
+                    "template_code": "TPL-NOT-SYNCED",
+                }
+            },
+        },
+    )
+
+    assert policy["types"][CREDIT_NOTIFICATION_TYPE_GRANTED]["enabled"] is False
 
 
 @pytest.mark.parametrize(

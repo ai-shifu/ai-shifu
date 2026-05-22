@@ -10,6 +10,7 @@ jest.mock('@/api', () => ({
     getAdminOperationCreditNotifications: jest.fn(),
     dryRunAdminOperationCreditNotifications: jest.fn(),
     requeueAdminOperationCreditNotification: jest.fn(),
+    syncAdminOperationCreditNotificationTemplate: jest.fn(),
     updateAdminOperationCreditNotificationConfig: jest.fn(),
   },
 }));
@@ -49,6 +50,8 @@ const mockGetConfig =
   api.getAdminOperationCreditNotificationConfig as jest.Mock;
 const mockGetRecords = api.getAdminOperationCreditNotifications as jest.Mock;
 const mockRequeue = api.requeueAdminOperationCreditNotification as jest.Mock;
+const mockSyncTemplate =
+  api.syncAdminOperationCreditNotificationTemplate as jest.Mock;
 const mockUpdateConfig =
   api.updateAdminOperationCreditNotificationConfig as jest.Mock;
 
@@ -57,6 +60,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     mockGetConfig.mockReset();
     mockGetRecords.mockReset();
     mockRequeue.mockReset();
+    mockSyncTemplate.mockReset();
     mockUpdateConfig.mockReset();
     mockGetConfig.mockResolvedValue({ enabled: false });
     mockUpdateConfig.mockResolvedValue({ enabled: false });
@@ -78,7 +82,10 @@ describe('AdminOperationCreditNotificationsPage', () => {
           dedupe_key: 'credit_granted:ledger-1',
           status: 'failed_provider',
           template_code: 'TPL-GRANT',
-          template_params: {},
+          template_params: {
+            credits: '12.50',
+            source: 'operator',
+          },
           policy_snapshot: {},
           provider_response: {},
           error_code: 'provider_failed',
@@ -97,6 +104,27 @@ describe('AdminOperationCreditNotificationsPage', () => {
       notification_bid: 'notification-1',
       enqueued: true,
     });
+    mockSyncTemplate.mockResolvedValue({
+      notification_type: 'credit_expiring',
+      channel: 'sms',
+      provider: 'aliyun',
+      template_code: 'TPL-EXPIRING',
+      template_name: 'Expiring',
+      template_content: 'Credits ${credits} expire soon ${bad_variable}',
+      template_status: 'AUDIT_STATE_PASS',
+      template_type: '0',
+      variable_attribute: {},
+      provider_response: {},
+      placeholders: ['credits', 'bad_variable'],
+      supported_placeholders: ['credits', 'expires_at', 'window'],
+      unused_supported_placeholders: ['expires_at', 'window'],
+      unsupported_placeholders: ['bad_variable'],
+      sync_status: 'synced',
+      error_code: '',
+      error_message: '',
+      last_synced_at: '2026-05-22T00:00:00',
+      compatible: false,
+    });
   });
 
   it('lists failed provider records and requeues them', async () => {
@@ -105,6 +133,9 @@ describe('AdminOperationCreditNotificationsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('notification-1')).toBeInTheDocument();
     });
+    expect(
+      screen.getByText('{"credits":"12.50","source":"operator"}'),
+    ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -152,7 +183,87 @@ describe('AdminOperationCreditNotificationsPage', () => {
           }),
         }),
       );
+      expect(JSON.stringify(mockUpdateConfig.mock.calls[0][0])).not.toContain(
+        'placeholders',
+      );
     });
+  });
+
+  it('shows available template placeholders and tolerance copy', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.placeholders.tolerance',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        'module.operationsCreditNotifications.config.placeholders.available',
+      ),
+    ).toHaveLength(3);
+    expect(screen.getAllByText('${credits}')).toHaveLength(2);
+    expect(screen.getByText('${available_credits}')).toBeInTheDocument();
+    expect(screen.getByText('${avg_daily_consumption}')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.placeholders.avg_daily_consumption',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('syncs and displays Aliyun template variables without saving them into policy', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+
+    const templateInputs = screen.getAllByLabelText(
+      'module.operationsCreditNotifications.config.fields.templateCode',
+    ) as HTMLInputElement[];
+    fireEvent.change(templateInputs[0], {
+      target: { value: 'TPL-EXPIRING' },
+    });
+
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.syncTemplate',
+      })[0],
+    );
+
+    await waitFor(() => {
+      expect(mockSyncTemplate).toHaveBeenCalledWith({
+        notification_type: 'credit_expiring',
+        template_code: 'TPL-EXPIRING',
+      });
+    });
+    expect(
+      screen.getByText('Credits ${credits} expire soon ${bad_variable}'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('${bad_variable}')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.templateSync.incompatible',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalled();
+    });
+    const savedPayload = JSON.stringify(mockUpdateConfig.mock.calls[0][0]);
+    expect(savedPayload).not.toContain('template_content');
+    expect(savedPayload).not.toContain('unsupported_placeholders');
   });
 
   it('saves estimated-days low balance thresholds from the structured form', async () => {

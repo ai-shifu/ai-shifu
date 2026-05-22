@@ -4,7 +4,9 @@
     "applyConfig": "Save config",
     "dryRun": "Dry-run",
     "refresh": "Refresh",
-    "requeue": "Requeue"
+    "requeue": "Requeue",
+    "syncTemplate": "Query template",
+    "syncingTemplate": "Querying"
   },
   "config": {
     "description": "Use the form to maintain notification switches, templates, thresholds, frequency controls, and lists. Provider credentials still come from environment variables or Secrets, not this config.",
@@ -39,6 +41,21 @@
       "windows": "Expiry reminder windows"
     },
     "invalidConfig": "Config could not be saved. Check the form values.",
+    "placeholders": {
+      "available": "Available placeholders",
+      "available_credits": "Available credits",
+      "avg_daily_consumption": "Average daily consumption",
+      "credits": "Credit amount",
+      "estimated_remaining_days": "Estimated remaining days",
+      "expires_at": "Expiration time",
+      "lookback_days": "Consumption lookback days",
+      "source": "Grant source",
+      "threshold": "Fixed balance threshold",
+      "threshold_kind": "Threshold type",
+      "tolerance": "SMS templates may use only some placeholders; missing unused variables will not block saving or sending.",
+      "trigger_days": "Trigger remaining days",
+      "window": "Reminder window"
+    },
     "saved": "Config saved.",
     "sections": {
       "budget": "Budget",
@@ -47,6 +64,18 @@
       "quietHours": "Quiet hours",
       "softlimit": "Softlimit",
       "types": "Notification types"
+    },
+    "templateSync": {
+      "compatible": "Template variables are supported",
+      "content": "Template content",
+      "error": "Sync error",
+      "incompatible": "Template has unsupported variables",
+      "status": "Audit status",
+      "syncFailed": "Template query failed. Try again later.",
+      "templateCodeRequired": "Enter the SMS template code first.",
+      "unsupported": "Unsupported template variables",
+      "unused": "Unused system variables",
+      "variables": "Template variables"
     },
     "title": "Operator policy config"
   },
@@ -83,7 +112,8 @@
     "error": "Error",
     "notification": "Notification",
     "source": "Source",
-    "template": "Template"
+    "template": "Template",
+    "templateParams": "Param snapshot"
   },
   "title": "Credit Notifications",
   "type": {

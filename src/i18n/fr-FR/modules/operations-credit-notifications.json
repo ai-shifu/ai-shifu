@@ -4,7 +4,9 @@
     "applyConfig": "Enregistrer",
     "dryRun": "Dry-run",
     "refresh": "Actualiser",
-    "requeue": "Relancer"
+    "requeue": "Relancer",
+    "syncTemplate": "Interroger le modèle",
+    "syncingTemplate": "Interrogation"
   },
   "config": {
     "description": "Utilisez le formulaire pour gérer les interrupteurs, modèles, seuils, contrôles de fréquence et listes. Les identifiants fournisseur viennent toujours des variables d’environnement ou des Secrets.",
@@ -39,6 +41,21 @@
       "windows": "Fenêtres de rappel d’expiration"
     },
     "invalidConfig": "Impossible d’enregistrer la configuration. Vérifiez les valeurs du formulaire.",
+    "placeholders": {
+      "available": "Variables disponibles",
+      "available_credits": "Crédits disponibles",
+      "avg_daily_consumption": "Consommation moyenne quotidienne",
+      "credits": "Montant de crédits",
+      "estimated_remaining_days": "Jours restants estimés",
+      "expires_at": "Date d’expiration",
+      "lookback_days": "Jours d’historique consommation",
+      "source": "Source d’attribution",
+      "threshold": "Seuil fixe de solde",
+      "threshold_kind": "Type de seuil",
+      "tolerance": "Les modèles SMS peuvent n’utiliser qu’une partie des variables ; les variables inutilisées manquantes ne bloquent ni l’enregistrement ni l’envoi.",
+      "trigger_days": "Jours restants déclencheurs",
+      "window": "Fenêtre de rappel"
+    },
     "saved": "Configuration enregistrée.",
     "sections": {
       "budget": "Budget",
@@ -47,6 +64,18 @@
       "quietHours": "Heures calmes",
       "softlimit": "Softlimit",
       "types": "Types de notification"
+    },
+    "templateSync": {
+      "compatible": "Variables du modèle prises en charge",
+      "content": "Contenu du modèle",
+      "error": "Erreur de synchronisation",
+      "incompatible": "Le modèle contient des variables non prises en charge",
+      "status": "Statut d’audit",
+      "syncFailed": "Échec de la requête du modèle. Réessayez plus tard.",
+      "templateCodeRequired": "Saisissez d’abord le code du modèle SMS.",
+      "unsupported": "Variables du modèle non prises en charge",
+      "unused": "Variables système inutilisées",
+      "variables": "Variables du modèle"
     },
     "title": "Configuration opérateur"
   },
@@ -83,7 +112,8 @@
     "error": "Erreur",
     "notification": "Notification",
     "source": "Source",
-    "template": "Modèle"
+    "template": "Modèle",
+    "templateParams": "Paramètres"
   },
   "title": "Notifications de crédits",
   "type": {

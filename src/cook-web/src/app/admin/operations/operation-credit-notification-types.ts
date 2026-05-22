@@ -65,6 +65,34 @@ export type AdminOperationCreditNotificationRequeueResponse = {
   message?: string;
 };
 
+export type AdminOperationCreditNotificationTemplateSyncRequest = {
+  notification_type: CreditNotificationType;
+  template_code: string;
+};
+
+export type AdminOperationCreditNotificationTemplateSyncResponse = {
+  notification_template_bid?: string;
+  notification_type: CreditNotificationType;
+  channel: string;
+  provider: string;
+  template_code: string;
+  template_name: string;
+  template_content: string;
+  template_status: string;
+  template_type: string;
+  variable_attribute: Record<string, unknown>;
+  provider_response: Record<string, unknown>;
+  placeholders: string[];
+  supported_placeholders: string[];
+  unused_supported_placeholders: string[];
+  unsupported_placeholders: string[];
+  sync_status: string;
+  error_code: string;
+  error_message: string;
+  last_synced_at: string;
+  compatible: boolean;
+};
+
 export type CreditNotificationFixedThreshold = {
   kind: 'fixed';
   value: string;

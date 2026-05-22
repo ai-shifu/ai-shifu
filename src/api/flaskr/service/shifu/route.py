@@ -137,6 +137,7 @@ from flaskr.service.shifu.admin import (
     transfer_operator_course_creator,
     list_operator_credit_notifications,
     requeue_operator_credit_notification,
+    sync_operator_credit_notification_template,
     update_operator_credit_notification_config,
 )
 from flaskr.service.order.api import (
@@ -962,6 +963,24 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             raise_param_error("credit_notification_config")
         return make_common_response(
             update_operator_credit_notification_config(app, payload=payload)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/templates/sync",
+        methods=["POST"],
+    )
+    def admin_operation_credit_notification_template_sync():
+        """Sync one SMS template for operator credit notification config."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_template_sync")
+        return make_common_response(
+            sync_operator_credit_notification_template(
+                app,
+                notification_type=str(payload.get("notification_type") or ""),
+                template_code=str(payload.get("template_code") or ""),
+            )
         )
 
     @app.route(

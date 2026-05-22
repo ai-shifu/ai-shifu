@@ -7,12 +7,13 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 import json
+import re
 from typing import Any
 
 from flask import Flask
 from sqlalchemy.exc import IntegrityError
 
-from flaskr.api.sms.aliyun import send_sms_ali
+from flaskr.api.sms.aliyun import get_sms_template_ali, send_sms_ali
 from flaskr.common.observability import record_credit_notification_event
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -43,6 +44,7 @@ from .models import (
     CreditWallet,
     CreditWalletBucket,
     NotificationRecord,
+    NotificationTemplate,
 )
 from .notifications import load_creator_mobile_snapshot
 from .primitives import is_billing_enabled
@@ -60,6 +62,24 @@ LIMIT_STATE_HARDLIMIT = "hardlimit"
 _ZERO = Decimal("0")
 LOW_BALANCE_THRESHOLD_KIND_FIXED = "fixed"
 LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS = "estimated_days"
+NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN = "aliyun"
+NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED = "synced"
+NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER = "failed_provider"
+NOTIFICATION_TEMPLATE_SYNC_STATUS_MISSING_CREDENTIALS = "missing_credentials"
+_TEMPLATE_PLACEHOLDER_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS: dict[str, tuple[str, ...]] = {
+    CREDIT_NOTIFICATION_TYPE_GRANTED: ("credits", "source", "expires_at"),
+    CREDIT_NOTIFICATION_TYPE_EXPIRING: ("credits", "expires_at", "window"),
+    CREDIT_NOTIFICATION_TYPE_LOW_BALANCE: (
+        "available_credits",
+        "threshold",
+        "threshold_kind",
+        "trigger_days",
+        "lookback_days",
+        "avg_daily_consumption",
+        "estimated_remaining_days",
+    ),
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -369,6 +389,7 @@ def save_credit_notification_policy(
     if not isinstance(payload, dict):
         raise_param_error("policy")
     policy = _validate_policy_for_save(payload)
+    _validate_credit_notification_policy_templates(app, policy)
     serialized = json.dumps(
         policy, ensure_ascii=False, separators=(",", ":"), sort_keys=True
     )
@@ -402,6 +423,319 @@ def _template_code(policy: dict[str, Any], notification_type: str) -> str:
     return str(
         _type_policy(policy, notification_type).get("template_code") or ""
     ).strip()
+
+
+def _supported_template_placeholders(notification_type: str) -> set[str]:
+    placeholders = CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS.get(notification_type)
+    if placeholders is None:
+        raise_param_error("notification_type")
+    return set(placeholders)
+
+
+def _extract_template_placeholders(template_content: Any) -> list[str]:
+    content = str(template_content or "")
+    return sorted(set(_TEMPLATE_PLACEHOLDER_PATTERN.findall(content)))
+
+
+def _json_safe(value: Any) -> Any:
+    try:
+        json.dumps(value, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return str(value or "")
+    return value
+
+
+def _aliyun_sms_credentials_configured(app: Flask) -> bool:
+    return bool(
+        str(app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_ID") or "").strip()
+        and str(app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET") or "").strip()
+    )
+
+
+def _template_body_value(body: Any, field_name: str) -> str:
+    return str(getattr(body, field_name, "") or "").strip()
+
+
+def _provider_template_response_payload(
+    response: Any,
+    *,
+    requested_template_code: str,
+) -> dict[str, Any]:
+    body = getattr(response, "body", None)
+    if body is None:
+        return {"template_code": requested_template_code}
+    return {
+        "code": _template_body_value(body, "code"),
+        "message": _template_body_value(body, "message"),
+        "request_id": _template_body_value(body, "request_id"),
+        "template_code": requested_template_code,
+        "template_status": _template_body_value(body, "template_status"),
+        "template_type": _template_body_value(body, "template_type"),
+    }
+
+
+def _load_notification_template(template_code: str) -> NotificationTemplate | None:
+    return (
+        NotificationTemplate.query.filter(
+            NotificationTemplate.deleted == 0,
+            NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
+            NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
+            NotificationTemplate.template_code == template_code,
+        )
+        .order_by(NotificationTemplate.id.desc())
+        .first()
+    )
+
+
+def _get_or_create_notification_template(
+    app: Flask,
+    *,
+    template_code: str,
+    now: datetime,
+) -> NotificationTemplate:
+    template = _load_notification_template(template_code)
+    if template is not None:
+        return template
+    template = NotificationTemplate(
+        notification_template_bid=generate_id(app),
+        channel=CREDIT_NOTIFICATION_CHANNEL_SMS,
+        provider=NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
+        template_code=template_code,
+        template_name="",
+        template_content="",
+        template_status="",
+        template_type="",
+        variable_attribute_json={},
+        provider_response_json={},
+        placeholders_json=[],
+        sync_status=NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER,
+        error_code="",
+        error_message="",
+        last_synced_at=None,
+        metadata_json={},
+        deleted=0,
+        created_at=now,
+        updated_at=now,
+    )
+    db.session.add(template)
+    return template
+
+
+def _serialize_notification_template(
+    template: NotificationTemplate,
+    *,
+    notification_type: str,
+) -> dict[str, Any]:
+    supported = sorted(_supported_template_placeholders(notification_type))
+    actual = sorted(
+        str(item or "").strip()
+        for item in (template.placeholders_json or [])
+        if str(item or "").strip()
+    )
+    actual_set = set(actual)
+    supported_set = set(supported)
+    unsupported = sorted(actual_set - supported_set)
+    unused_supported = sorted(supported_set - actual_set)
+    sync_status = str(template.sync_status or "").strip()
+    return {
+        "notification_template_bid": template.notification_template_bid,
+        "notification_type": notification_type,
+        "channel": template.channel,
+        "provider": template.provider,
+        "template_code": template.template_code,
+        "template_name": template.template_name,
+        "template_content": template.template_content or "",
+        "template_status": template.template_status,
+        "template_type": template.template_type,
+        "variable_attribute": template.variable_attribute_json or {},
+        "provider_response": template.provider_response_json or {},
+        "placeholders": actual,
+        "supported_placeholders": supported,
+        "unused_supported_placeholders": unused_supported,
+        "unsupported_placeholders": unsupported,
+        "sync_status": sync_status,
+        "error_code": template.error_code,
+        "error_message": template.error_message or "",
+        "last_synced_at": template.last_synced_at.isoformat()
+        if template.last_synced_at
+        else "",
+        "compatible": sync_status == NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
+        and not unsupported,
+    }
+
+
+def _mark_template_sync_failed(
+    template: NotificationTemplate,
+    *,
+    now: datetime,
+    sync_status: str,
+    error_code: str,
+    error_message: str,
+    provider_response: dict[str, Any] | None = None,
+) -> None:
+    template.template_content = template.template_content or ""
+    template.placeholders_json = list(template.placeholders_json or [])
+    template.provider_response_json = dict(provider_response or {})
+    template.sync_status = sync_status
+    template.error_code = str(error_code or "").strip()[:128]
+    template.error_message = str(error_message or "").strip()
+    template.last_synced_at = now
+    template.updated_at = now
+    db.session.add(template)
+
+
+def sync_credit_notification_template(
+    app: Flask,
+    *,
+    notification_type: str,
+    template_code: str,
+) -> dict[str, Any]:
+    normalized_type = str(notification_type or "").strip()
+    _supported_template_placeholders(normalized_type)
+    normalized_template_code = str(template_code or "").strip()
+    if not normalized_template_code:
+        raise_param_error("template_code")
+
+    with app.app_context():
+        now = datetime.now()
+        template = _get_or_create_notification_template(
+            app,
+            template_code=normalized_template_code,
+            now=now,
+        )
+        if not _aliyun_sms_credentials_configured(app):
+            _mark_template_sync_failed(
+                template,
+                now=now,
+                sync_status=NOTIFICATION_TEMPLATE_SYNC_STATUS_MISSING_CREDENTIALS,
+                error_code="missing_credentials",
+                error_message=(
+                    "Aliyun SMS access key is not configured for template sync."
+                ),
+            )
+            db.session.commit()
+            return _serialize_notification_template(
+                template,
+                notification_type=normalized_type,
+            )
+
+        response = get_sms_template_ali(app, template_code=normalized_template_code)
+        body = getattr(response, "body", None)
+        if body is None:
+            _mark_template_sync_failed(
+                template,
+                now=now,
+                sync_status=NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER,
+                error_code="provider_failed",
+                error_message="Aliyun SMS template query returned no response.",
+            )
+            db.session.commit()
+            return _serialize_notification_template(
+                template,
+                notification_type=normalized_type,
+            )
+
+        provider_response = _provider_template_response_payload(
+            response,
+            requested_template_code=normalized_template_code,
+        )
+        response_code = _template_body_value(body, "code")
+        if response_code and response_code != "OK":
+            _mark_template_sync_failed(
+                template,
+                now=now,
+                sync_status=NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER,
+                error_code=response_code,
+                error_message=_template_body_value(body, "message")
+                or "Aliyun SMS template query failed.",
+                provider_response=provider_response,
+            )
+            db.session.commit()
+            return _serialize_notification_template(
+                template,
+                notification_type=normalized_type,
+            )
+
+        template_content = _template_body_value(body, "template_content")
+        template.template_name = _template_body_value(body, "template_name")
+        template.template_content = template_content
+        template.template_status = _template_body_value(body, "template_status")
+        template.template_type = _template_body_value(body, "template_type")
+        template.variable_attribute_json = _json_safe(
+            getattr(body, "variable_attribute", {}) or {}
+        )
+        template.provider_response_json = provider_response
+        template.placeholders_json = _extract_template_placeholders(template_content)
+        template.sync_status = NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
+        template.error_code = ""
+        template.error_message = ""
+        template.last_synced_at = now
+        template.updated_at = now
+        db.session.add(template)
+        db.session.commit()
+        return _serialize_notification_template(
+            template,
+            notification_type=normalized_type,
+        )
+
+
+def _ensure_credit_notification_template_compatible(
+    app: Flask,
+    *,
+    notification_type: str,
+    template_code: str,
+) -> dict[str, Any]:
+    with app.app_context():
+        template = _load_notification_template(template_code)
+        if (
+            template is not None
+            and template.sync_status == NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
+        ):
+            return _serialize_notification_template(
+                template,
+                notification_type=notification_type,
+            )
+    return sync_credit_notification_template(
+        app,
+        notification_type=notification_type,
+        template_code=template_code,
+    )
+
+
+def _validate_credit_notification_policy_templates(
+    app: Flask, policy: dict[str, Any]
+) -> None:
+    if not _coerce_bool(policy.get("enabled")):
+        return
+    for notification_type in (
+        CREDIT_NOTIFICATION_TYPE_EXPIRING,
+        CREDIT_NOTIFICATION_TYPE_GRANTED,
+        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+    ):
+        if not _notification_type_enabled(policy, notification_type):
+            continue
+        template_code = _template_code(policy, notification_type)
+        if not template_code:
+            continue
+        result = _ensure_credit_notification_template_compatible(
+            app,
+            notification_type=notification_type,
+            template_code=template_code,
+        )
+        if result.get("sync_status") != NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED:
+            error_code = str(result.get("error_code") or "sync_failed")
+            raise_param_error(f"types.{notification_type}.template_code:{error_code}")
+        unsupported = [
+            str(item or "").strip()
+            for item in result.get("unsupported_placeholders", [])
+            if str(item or "").strip()
+        ]
+        if unsupported:
+            raise_param_error(
+                "types."
+                f"{notification_type}.template_code unsupported placeholders: "
+                f"{','.join(sorted(unsupported))}"
+            )
 
 
 def _estimated_sms_cost(policy: dict[str, Any], count: int) -> str:

@@ -10,6 +10,7 @@ from flaskr.service.billing.credit_notifications import (
     requeue_credit_notification,
     resolve_creator_limit_state,
     save_credit_notification_policy,
+    sync_credit_notification_template,
 )
 from flaskr.service.billing.read_models import (
     build_billing_catalog,
@@ -32,4 +33,5 @@ __all__ = [
     "requeue_credit_notification",
     "resolve_creator_limit_state",
     "save_credit_notification_policy",
+    "sync_credit_notification_template",
 ]

@@ -52,6 +52,7 @@ from flaskr.service.billing.api import (
     load_credit_notification_policy,
     requeue_credit_notification,
     save_credit_notification_policy,
+    sync_credit_notification_template,
 )
 from flaskr.service.billing.primitives import (
     credit_decimal_to_number,
@@ -5782,6 +5783,19 @@ def update_operator_credit_notification_config(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     return save_credit_notification_policy(app, payload)
+
+
+def sync_operator_credit_notification_template(
+    app: Flask,
+    *,
+    notification_type: str,
+    template_code: str,
+) -> dict[str, Any]:
+    return sync_credit_notification_template(
+        app,
+        notification_type=notification_type,
+        template_code=template_code,
+    )
 
 
 def dry_run_operator_credit_notifications(

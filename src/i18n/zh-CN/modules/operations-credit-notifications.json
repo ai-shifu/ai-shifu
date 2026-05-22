@@ -4,7 +4,9 @@
     "applyConfig": "保存配置",
     "dryRun": "Dry-run",
     "refresh": "刷新",
-    "requeue": "重发"
+    "requeue": "重发",
+    "syncTemplate": "查询模板",
+    "syncingTemplate": "查询中"
   },
   "config": {
     "description": "通过表单维护通知开关、模板、阈值、频控和名单。供应商密钥仍来自环境变量或 Secret，不在这里配置。",
@@ -39,6 +41,21 @@
       "windows": "到期提醒窗口"
     },
     "invalidConfig": "配置保存失败，请检查表单内容。",
+    "placeholders": {
+      "available": "可用占位符",
+      "available_credits": "当前可用积分",
+      "avg_daily_consumption": "平均日消耗",
+      "credits": "积分数",
+      "estimated_remaining_days": "预计剩余可用天数",
+      "expires_at": "过期时间",
+      "lookback_days": "日消耗回看天数",
+      "source": "发放来源",
+      "threshold": "固定余额阈值",
+      "threshold_kind": "阈值类型",
+      "tolerance": "短信模板可只使用部分占位符；系统不会因模板少用变量而拦截保存或发送。",
+      "trigger_days": "触发可用天数",
+      "window": "提醒窗口"
+    },
     "saved": "配置已保存。",
     "sections": {
       "budget": "预算",
@@ -47,6 +64,18 @@
       "quietHours": "免打扰",
       "softlimit": "Softlimit",
       "types": "通知类型"
+    },
+    "templateSync": {
+      "compatible": "模板变量可用",
+      "content": "模板内容",
+      "error": "同步错误",
+      "incompatible": "模板含不支持变量",
+      "status": "审核状态",
+      "syncFailed": "模板查询失败，请稍后重试。",
+      "templateCodeRequired": "请先填写短信模板 Code。",
+      "unsupported": "不支持的模板变量",
+      "unused": "未使用的系统变量",
+      "variables": "模板实际变量"
     },
     "title": "运营策略配置"
   },
@@ -83,7 +112,8 @@
     "error": "错误",
     "notification": "通知",
     "source": "来源",
-    "template": "模板"
+    "template": "模板",
+    "templateParams": "参数快照"
   },
   "title": "积分通知",
   "type": {

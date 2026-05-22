@@ -30,6 +30,7 @@ import type {
   AdminOperationCreditNotificationItem,
   AdminOperationCreditNotificationListResponse,
   AdminOperationCreditNotificationRequeueResponse,
+  AdminOperationCreditNotificationTemplateSyncResponse,
   CreditNotificationEstimatedDaysThreshold,
   CreditNotificationFixedThreshold,
   CreditNotificationThreshold,
@@ -52,6 +53,35 @@ const NOTIFICATION_TYPES = [
   'credit_granted',
   'low_balance',
 ] as const;
+type KnownNotificationType = (typeof NOTIFICATION_TYPES)[number];
+type TemplatePlaceholderKey =
+  | 'available_credits'
+  | 'avg_daily_consumption'
+  | 'credits'
+  | 'estimated_remaining_days'
+  | 'expires_at'
+  | 'lookback_days'
+  | 'source'
+  | 'threshold'
+  | 'threshold_kind'
+  | 'trigger_days'
+  | 'window';
+const TEMPLATE_PLACEHOLDERS: Record<
+  KnownNotificationType,
+  TemplatePlaceholderKey[]
+> = {
+  credit_expiring: ['credits', 'expires_at', 'window'],
+  credit_granted: ['credits', 'source', 'expires_at'],
+  low_balance: [
+    'available_credits',
+    'threshold',
+    'threshold_kind',
+    'trigger_days',
+    'lookback_days',
+    'avg_daily_consumption',
+    'estimated_remaining_days',
+  ],
+};
 const DEFAULT_ESTIMATED_DAYS_THRESHOLD: CreditNotificationEstimatedDaysThreshold =
   {
     kind: 'estimated_days',
@@ -389,6 +419,29 @@ const formatValue = (value?: string | null) => {
   return normalized || EMPTY_LABEL;
 };
 
+const formatTemplateParams = (value: Record<string, unknown>): string => {
+  const entries = Object.entries(value || {})
+    .filter(([key]) => key.trim())
+    .sort(([left], [right]) => left.localeCompare(right));
+  if (!entries.length) {
+    return EMPTY_LABEL;
+  }
+  return JSON.stringify(Object.fromEntries(entries));
+};
+
+const formatPlaceholderToken = (placeholder: string): string =>
+  ['${', placeholder, '}'].join('');
+
+const formatPlaceholderList = (items?: string[]): string => {
+  const normalized = (items || [])
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+  return normalized.length
+    ? normalized.map(formatPlaceholderToken).join(', ')
+    : EMPTY_LABEL;
+};
+
 export default function AdminOperationCreditNotificationsPage() {
   const { t } = useTranslation();
   const { isReady } = useOperatorGuard();
@@ -406,6 +459,17 @@ export default function AdminOperationCreditNotificationsPage() {
   const [configError, setConfigError] = React.useState('');
   const [dryRunResult, setDryRunResult] =
     React.useState<AdminOperationCreditNotificationDryRunResponse | null>(null);
+  const [templateSyncResults, setTemplateSyncResults] = React.useState<
+    Partial<
+      Record<
+        KnownNotificationType,
+        AdminOperationCreditNotificationTemplateSyncResponse
+      >
+    >
+  >({});
+  const [templateSyncLoading, setTemplateSyncLoading] = React.useState<
+    Partial<Record<KnownNotificationType, boolean>>
+  >({});
   const requestIdRef = React.useRef(0);
   const lowBalanceThresholds = policy.types.low_balance.thresholds || [];
   const fixedLowBalanceThresholds =
@@ -532,6 +596,50 @@ export default function AdminOperationCreditNotificationsPage() {
       );
     }
   }, [policy, t]);
+
+  const syncTemplate = React.useCallback(
+    async (notificationType: KnownNotificationType) => {
+      const templateCode = policy.types[notificationType].template_code.trim();
+      if (!templateCode) {
+        setConfigError(
+          t(
+            'module.operationsCreditNotifications.config.templateSync.templateCodeRequired',
+          ),
+        );
+        return;
+      }
+      setTemplateSyncLoading(current => ({
+        ...current,
+        [notificationType]: true,
+      }));
+      try {
+        const response =
+          (await api.syncAdminOperationCreditNotificationTemplate({
+            notification_type: notificationType,
+            template_code: templateCode,
+          })) as AdminOperationCreditNotificationTemplateSyncResponse;
+        setTemplateSyncResults(current => ({
+          ...current,
+          [notificationType]: response,
+        }));
+        setConfigError('');
+      } catch (requestError) {
+        const resolvedError = requestError as ErrorWithCode;
+        setConfigError(
+          resolvedError.message ||
+            t(
+              'module.operationsCreditNotifications.config.templateSync.syncFailed',
+            ),
+        );
+      } finally {
+        setTemplateSyncLoading(current => ({
+          ...current,
+          [notificationType]: false,
+        }));
+      }
+    },
+    [policy.types, t],
+  );
 
   const dryRun = React.useCallback(async () => {
     try {
@@ -718,8 +826,16 @@ export default function AdminOperationCreditNotificationsPage() {
                           {formatValue(item.source_bid)}
                         </div>
                       </TableCell>
-                      <TableCell className='min-w-[160px]'>
-                        {formatValue(item.template_code)}
+                      <TableCell className='min-w-[260px]'>
+                        <div>{formatValue(item.template_code)}</div>
+                        <div className='mt-1 text-xs font-medium text-gray-500'>
+                          {t(
+                            'module.operationsCreditNotifications.table.templateParams',
+                          )}
+                        </div>
+                        <code className='mt-1 block max-w-[300px] break-all rounded bg-gray-50 px-2 py-1 text-xs text-gray-600'>
+                          {formatTemplateParams(item.template_params)}
+                        </code>
                       </TableCell>
                       <TableCell className='min-w-[220px]'>
                         <div>{formatValue(item.error_code)}</div>
@@ -796,13 +912,21 @@ export default function AdminOperationCreditNotificationsPage() {
               </div>
 
               <div className='space-y-3'>
-                <h3 className='text-sm font-semibold text-gray-900'>
-                  {t(
-                    'module.operationsCreditNotifications.config.sections.types',
-                  )}
-                </h3>
+                <div>
+                  <h3 className='text-sm font-semibold text-gray-900'>
+                    {t(
+                      'module.operationsCreditNotifications.config.sections.types',
+                    )}
+                  </h3>
+                  <p className='mt-1 text-xs text-gray-500'>
+                    {t(
+                      'module.operationsCreditNotifications.config.placeholders.tolerance',
+                    )}
+                  </p>
+                </div>
                 {NOTIFICATION_TYPES.map(type => {
                   const typePolicy = policy.types[type];
+                  const syncResult = templateSyncResults[type];
                   return (
                     <div
                       key={type}
@@ -834,17 +958,159 @@ export default function AdminOperationCreditNotificationsPage() {
                             'module.operationsCreditNotifications.config.fields.templateCode',
                           )}
                         </Label>
-                        <Input
-                          id={`credit-notification-${type}-template`}
-                          className='mt-1 h-9'
-                          value={typePolicy.template_code}
-                          onChange={event =>
-                            updatePolicy(draft => {
-                              draft.types[type].template_code =
-                                event.target.value;
-                            })
-                          }
-                        />
+                        <div className='mt-1 flex gap-2'>
+                          <Input
+                            id={`credit-notification-${type}-template`}
+                            className='h-9 min-w-0 flex-1'
+                            value={typePolicy.template_code}
+                            onChange={event => {
+                              const value = event.target.value;
+                              updatePolicy(draft => {
+                                draft.types[type].template_code = value;
+                              });
+                              setTemplateSyncResults(current => ({
+                                ...current,
+                                [type]: undefined,
+                              }));
+                            }}
+                          />
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='sm'
+                            disabled={
+                              Boolean(templateSyncLoading[type]) ||
+                              !typePolicy.template_code.trim()
+                            }
+                            onClick={() => syncTemplate(type)}
+                          >
+                            {templateSyncLoading[type]
+                              ? t(
+                                  'module.operationsCreditNotifications.actions.syncingTemplate',
+                                )
+                              : t(
+                                  'module.operationsCreditNotifications.actions.syncTemplate',
+                                )}
+                          </Button>
+                        </div>
+                        <div className='mt-2'>
+                          <div className='text-xs font-medium text-gray-600'>
+                            {t(
+                              'module.operationsCreditNotifications.config.placeholders.available',
+                            )}
+                          </div>
+                          <div className='mt-1 flex flex-wrap gap-1'>
+                            {TEMPLATE_PLACEHOLDERS[type].map(placeholder => (
+                              <span
+                                key={placeholder}
+                                className='inline-flex items-center gap-1 rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600'
+                              >
+                                <code className='font-mono text-gray-800'>
+                                  {formatPlaceholderToken(placeholder)}
+                                </code>
+                                <span>
+                                  {t(
+                                    `module.operationsCreditNotifications.config.placeholders.${placeholder}`,
+                                  )}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {syncResult ? (
+                          <div
+                            className={`mt-3 rounded border p-2 text-xs ${
+                              syncResult.compatible
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                                : 'border-amber-200 bg-amber-50 text-amber-900'
+                            }`}
+                          >
+                            <div className='flex items-center justify-between gap-2'>
+                              <span className='font-medium'>
+                                {syncResult.compatible
+                                  ? t(
+                                      'module.operationsCreditNotifications.config.templateSync.compatible',
+                                    )
+                                  : t(
+                                      'module.operationsCreditNotifications.config.templateSync.incompatible',
+                                    )}
+                              </span>
+                              <Badge variant='secondary'>
+                                {formatValue(syncResult.sync_status)}
+                              </Badge>
+                            </div>
+                            <div className='mt-2 space-y-1'>
+                              <div className='space-y-0.5'>
+                                <span className='font-medium'>
+                                  {t(
+                                    'module.operationsCreditNotifications.config.templateSync.content',
+                                  )}
+                                </span>
+                                <span className='block break-all'>
+                                  {formatValue(syncResult.template_content)}
+                                </span>
+                              </div>
+                              <div className='space-y-0.5'>
+                                <span className='font-medium'>
+                                  {t(
+                                    'module.operationsCreditNotifications.config.templateSync.status',
+                                  )}
+                                </span>
+                                <span className='block'>
+                                  {formatValue(syncResult.template_status)}
+                                </span>
+                              </div>
+                              <div className='space-y-0.5'>
+                                <span className='font-medium'>
+                                  {t(
+                                    'module.operationsCreditNotifications.config.templateSync.variables',
+                                  )}
+                                </span>
+                                <span className='block'>
+                                  {formatPlaceholderList(
+                                    syncResult.placeholders,
+                                  )}
+                                </span>
+                              </div>
+                              <div className='space-y-0.5'>
+                                <span className='font-medium'>
+                                  {t(
+                                    'module.operationsCreditNotifications.config.templateSync.unused',
+                                  )}
+                                </span>
+                                <span className='block'>
+                                  {formatPlaceholderList(
+                                    syncResult.unused_supported_placeholders,
+                                  )}
+                                </span>
+                              </div>
+                              <div className='space-y-0.5'>
+                                <span className='font-medium'>
+                                  {t(
+                                    'module.operationsCreditNotifications.config.templateSync.unsupported',
+                                  )}
+                                </span>
+                                <span className='block'>
+                                  {formatPlaceholderList(
+                                    syncResult.unsupported_placeholders,
+                                  )}
+                                </span>
+                              </div>
+                              {syncResult.error_message ? (
+                                <div className='space-y-0.5'>
+                                  <span className='font-medium'>
+                                    {t(
+                                      'module.operationsCreditNotifications.config.templateSync.error',
+                                    )}
+                                  </span>
+                                  <span className='block'>
+                                    {syncResult.error_message}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                       {type === 'credit_expiring' ? (
                         <>
