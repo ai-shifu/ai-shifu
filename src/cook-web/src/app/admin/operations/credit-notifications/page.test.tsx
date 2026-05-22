@@ -317,7 +317,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     });
   });
 
-  it('shows available template placeholders and tolerance copy', async () => {
+  it('shows dynamic template placeholders and tolerance copy', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
     await waitFor(() => {
@@ -326,21 +326,63 @@ describe('AdminOperationCreditNotificationsPage', () => {
     await openConfigTab();
 
     expect(
-      screen.getByText(
+      screen.getAllByText(
         'module.operationsCreditNotifications.config.placeholders.tolerance',
       ),
-    ).toBeInTheDocument();
+    ).toHaveLength(3);
     expect(
       screen.getAllByText(
         'module.operationsCreditNotifications.config.placeholders.available',
       ),
     ).toHaveLength(3);
-    expect(screen.getAllByText('${credits}')).toHaveLength(2);
-    expect(screen.getByText('${available_credits}')).toBeInTheDocument();
-    expect(screen.getByText('${avg_daily_consumption}')).toBeInTheDocument();
     expect(
       screen.getByText(
-        'module.operationsCreditNotifications.config.placeholders.avg_daily_consumption',
+        'module.operationsCreditNotifications.config.placeholders.groups.creditExpiring',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.placeholders.notes.windowSource',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceFixed',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('${credits}')).toHaveLength(2);
+    expect(screen.getByText('${available_credits}')).toBeInTheDocument();
+    expect(
+      screen.queryByText('${estimated_remaining_days}'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows estimated-days and fallback placeholders when the low-balance mode is enabled', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+    await openConfigTab();
+
+    fireEvent.click(
+      screen.getByLabelText(
+        'module.operationsCreditNotifications.config.fields.estimatedDaysEnabled',
+      ),
+    );
+
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceEstimated',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('${trigger_days}')).toBeInTheDocument();
+    expect(screen.getByText('${lookback_days}')).toBeInTheDocument();
+    expect(screen.getByText('${avg_daily_consumption}')).toBeInTheDocument();
+    expect(screen.getByText('${estimated_remaining_days}')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.placeholders.notes.fallbackLowBalance',
       ),
     ).toBeInTheDocument();
   });

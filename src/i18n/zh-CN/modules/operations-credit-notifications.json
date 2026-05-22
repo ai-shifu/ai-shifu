@@ -50,7 +50,22 @@
       "credits": "积分数",
       "estimated_remaining_days": "预计剩余可用天数",
       "expires_at": "过期时间",
+      "groups": {
+        "creditExpiring": "到期提醒变量",
+        "creditGranted": "发放提醒变量",
+        "lowBalanceEstimated": "按可用天数变量",
+        "lowBalanceFixed": "固定余额/兜底变量"
+      },
       "lookback_days": "日消耗回看天数",
+      "notes": {
+        "emptyVariables": "同一通知类型下，不同触发路径没有值的变量会以空字符串发送。",
+        "estimatedLowBalance": "按可用天数提醒会根据日均消耗估算剩余天数；固定余额阈值变量为空。",
+        "expiresAtOptional": "如果发放积分没有过期时间，过期时间变量会为空。",
+        "fallbackLowBalance": "当日消耗数据不足且配置兜底阈值时，会退回固定余额路径；固定余额变量有值，按天数估算变量为空。",
+        "fixedLowBalance": "固定余额阈值触发时只有余额、阈值和阈值类型有值。",
+        "unsupportedValidation": "模板使用系统不支持的变量时，查询模板或启用保存会拦截。",
+        "windowSource": "提醒窗口变量来自到期提醒窗口配置，例如 7d、3d、1d、0d。"
+      },
       "source": "发放来源",
       "threshold": "固定余额阈值",
       "threshold_kind": "阈值类型",

@@ -50,7 +50,22 @@
       "credits": "Montant de crédits",
       "estimated_remaining_days": "Jours restants estimés",
       "expires_at": "Date d’expiration",
+      "groups": {
+        "creditExpiring": "Variables de rappel d’expiration",
+        "creditGranted": "Variables de rappel d’attribution",
+        "lowBalanceEstimated": "Variables par jours restants",
+        "lowBalanceFixed": "Variables de solde fixe / secours"
+      },
       "lookback_days": "Jours d’historique consommation",
+      "notes": {
+        "emptyVariables": "Dans un même type de notification, les variables sans valeur pour le chemin déclencheur réel sont envoyées comme chaînes vides.",
+        "estimatedLowBalance": "Les alertes par jours restants estiment les jours utilisables à partir de la consommation moyenne quotidienne ; les variables de seuil fixe sont vides.",
+        "expiresAtOptional": "Si les crédits attribués n’ont pas de date d’expiration, la variable d’expiration est vide.",
+        "fallbackLowBalance": "Quand l’historique de consommation est insuffisant et qu’un seuil de secours est configuré, le chemin de solde fixe est utilisé ; les variables fixes sont renseignées et les variables estimées sont vides.",
+        "fixedLowBalance": "Les alertes de solde fixe renseignent uniquement le solde, le seuil et le type de seuil.",
+        "unsupportedValidation": "Les modèles qui utilisent des variables non prises en charge par le système sont bloqués lors de la synchronisation du modèle ou de l’enregistrement activé.",
+        "windowSource": "La variable de fenêtre de rappel vient de la configuration des fenêtres d’expiration, par exemple 7d, 3d, 1d ou 0d."
+      },
       "source": "Source d’attribution",
       "threshold": "Seuil fixe de solde",
       "threshold_kind": "Type de seuil",

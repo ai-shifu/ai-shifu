@@ -50,7 +50,22 @@
       "credits": "Credit amount",
       "estimated_remaining_days": "Estimated remaining days",
       "expires_at": "Expiration time",
+      "groups": {
+        "creditExpiring": "Expiry reminder variables",
+        "creditGranted": "Grant reminder variables",
+        "lowBalanceEstimated": "Remaining-days variables",
+        "lowBalanceFixed": "Fixed-balance / fallback variables"
+      },
       "lookback_days": "Consumption lookback days",
+      "notes": {
+        "emptyVariables": "Within one notification type, variables unused by the actual trigger path are sent as empty strings.",
+        "estimatedLowBalance": "Remaining-days alerts estimate usable days from average daily consumption; fixed threshold variables are empty.",
+        "expiresAtOptional": "If the granted credits have no expiration time, the expiration variable is empty.",
+        "fallbackLowBalance": "When consumption history is insufficient and a fallback threshold is configured, the fixed-balance path is used; fixed variables are populated and estimated variables are empty.",
+        "fixedLowBalance": "Fixed-balance alerts populate only balance, threshold, and threshold type variables.",
+        "unsupportedValidation": "Templates that use variables unsupported by the system are blocked during template sync or enabled-config save.",
+        "windowSource": "The reminder window variable comes from the expiry window config, such as 7d, 3d, 1d, or 0d."
+      },
       "source": "Grant source",
       "threshold": "Fixed balance threshold",
       "threshold_kind": "Threshold type",

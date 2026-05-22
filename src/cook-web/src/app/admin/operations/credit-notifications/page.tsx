@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { RefreshCw, RotateCcw, Search } from 'lucide-react';
+import { Info, RefreshCw, RotateCcw, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
@@ -95,22 +95,36 @@ type TemplatePlaceholderKey =
   | 'threshold_kind'
   | 'trigger_days'
   | 'window';
-const TEMPLATE_PLACEHOLDERS: Record<
-  KnownNotificationType,
-  TemplatePlaceholderKey[]
-> = {
-  credit_expiring: ['credits', 'expires_at', 'window'],
-  credit_granted: ['credits', 'source', 'expires_at'],
-  low_balance: [
-    'available_credits',
-    'threshold',
-    'threshold_kind',
-    'trigger_days',
-    'lookback_days',
-    'avg_daily_consumption',
-    'estimated_remaining_days',
-  ],
+type PlaceholderGuideGroup = {
+  id: string;
+  titleKey: string;
+  descriptionKey?: string;
+  placeholders: TemplatePlaceholderKey[];
 };
+
+const CREDIT_GRANTED_PLACEHOLDERS: TemplatePlaceholderKey[] = [
+  'credits',
+  'source',
+  'expires_at',
+];
+const CREDIT_EXPIRING_PLACEHOLDERS: TemplatePlaceholderKey[] = [
+  'credits',
+  'expires_at',
+  'window',
+];
+const LOW_BALANCE_FIXED_PLACEHOLDERS: TemplatePlaceholderKey[] = [
+  'available_credits',
+  'threshold',
+  'threshold_kind',
+];
+const LOW_BALANCE_ESTIMATED_PLACEHOLDERS: TemplatePlaceholderKey[] = [
+  'available_credits',
+  'threshold_kind',
+  'trigger_days',
+  'lookback_days',
+  'avg_daily_consumption',
+  'estimated_remaining_days',
+];
 const DEFAULT_ESTIMATED_DAYS_THRESHOLD: CreditNotificationEstimatedDaysThreshold =
   {
     kind: 'estimated_days',
@@ -492,6 +506,64 @@ const formatPlaceholderList = (items?: string[]): string => {
   return normalized.length
     ? normalized.map(formatPlaceholderToken).join(', ')
     : EMPTY_LABEL;
+};
+
+const buildPlaceholderGuideGroups = ({
+  type,
+  hasFixedLowBalancePath,
+  hasEstimatedLowBalance,
+}: {
+  type: KnownNotificationType;
+  hasFixedLowBalancePath: boolean;
+  hasEstimatedLowBalance: boolean;
+}): PlaceholderGuideGroup[] => {
+  if (type === 'credit_granted') {
+    return [
+      {
+        id: 'credit_granted',
+        titleKey:
+          'module.operationsCreditNotifications.config.placeholders.groups.creditGranted',
+        descriptionKey:
+          'module.operationsCreditNotifications.config.placeholders.notes.expiresAtOptional',
+        placeholders: CREDIT_GRANTED_PLACEHOLDERS,
+      },
+    ];
+  }
+  if (type === 'credit_expiring') {
+    return [
+      {
+        id: 'credit_expiring',
+        titleKey:
+          'module.operationsCreditNotifications.config.placeholders.groups.creditExpiring',
+        descriptionKey:
+          'module.operationsCreditNotifications.config.placeholders.notes.windowSource',
+        placeholders: CREDIT_EXPIRING_PLACEHOLDERS,
+      },
+    ];
+  }
+
+  const groups: PlaceholderGuideGroup[] = [];
+  if (hasFixedLowBalancePath) {
+    groups.push({
+      id: 'low_balance_fixed',
+      titleKey:
+        'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceFixed',
+      descriptionKey:
+        'module.operationsCreditNotifications.config.placeholders.notes.fixedLowBalance',
+      placeholders: LOW_BALANCE_FIXED_PLACEHOLDERS,
+    });
+  }
+  if (hasEstimatedLowBalance) {
+    groups.push({
+      id: 'low_balance_estimated',
+      titleKey:
+        'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceEstimated',
+      descriptionKey:
+        'module.operationsCreditNotifications.config.placeholders.notes.estimatedLowBalance',
+      placeholders: LOW_BALANCE_ESTIMATED_PLACEHOLDERS,
+    });
+  }
+  return groups;
 };
 
 const normalizeTab = (value?: string | null): PageTab =>
@@ -998,6 +1070,86 @@ export default function AdminOperationCreditNotificationsPage() {
     </div>
   );
 
+  const renderPlaceholderGuide = (type: KnownNotificationType) => {
+    const hasEstimatedLowBalance =
+      type === 'low_balance' && Boolean(estimatedDaysThreshold);
+    const hasEstimatedFallback =
+      type === 'low_balance' &&
+      Boolean(
+        String(estimatedDaysThreshold?.fallback_fixed_value || '').trim(),
+      );
+    const hasFixedLowBalancePath =
+      type === 'low_balance' &&
+      (fixedLowBalanceThresholds.length > 0 || hasEstimatedFallback);
+    const groups = buildPlaceholderGuideGroups({
+      type,
+      hasFixedLowBalancePath,
+      hasEstimatedLowBalance,
+    });
+    const noteKeys = [
+      'module.operationsCreditNotifications.config.placeholders.tolerance',
+      'module.operationsCreditNotifications.config.placeholders.notes.emptyVariables',
+      'module.operationsCreditNotifications.config.placeholders.notes.unsupportedValidation',
+      ...(hasEstimatedFallback
+        ? [
+            'module.operationsCreditNotifications.config.placeholders.notes.fallbackLowBalance',
+          ]
+        : []),
+    ];
+
+    return (
+      <div className='rounded-md border border-border bg-white px-3 py-2'>
+        <div className='flex items-center gap-2 text-xs font-medium text-muted-foreground'>
+          <Info className='h-3.5 w-3.5' />
+          <span>
+            {t(
+              'module.operationsCreditNotifications.config.placeholders.available',
+            )}
+          </span>
+        </div>
+        <div className='mt-2 space-y-2'>
+          {groups.map(group => (
+            <div
+              key={group.id}
+              className='rounded-md border border-border bg-muted/30 p-2'
+            >
+              <div className='text-xs font-medium text-foreground'>
+                {t(group.titleKey)}
+              </div>
+              {group.descriptionKey ? (
+                <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+                  {t(group.descriptionKey)}
+                </p>
+              ) : null}
+              <div className='mt-2 flex flex-wrap gap-1'>
+                {group.placeholders.map(placeholder => (
+                  <span
+                    key={`${group.id}-${placeholder}`}
+                    className='inline-flex items-center gap-1 rounded border border-border bg-white px-2 py-1 text-xs text-muted-foreground'
+                  >
+                    <code className='font-mono text-foreground'>
+                      {formatPlaceholderToken(placeholder)}
+                    </code>
+                    <span>
+                      {t(
+                        `module.operationsCreditNotifications.config.placeholders.${placeholder}`,
+                      )}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <ul className='mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-muted-foreground'>
+          {noteKeys.map(noteKey => (
+            <li key={noteKey}>{t(noteKey)}</li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
   const renderNotificationTypeConfig = (type: KnownNotificationType) => {
     const typePolicy = policy.types[type];
     const syncResult = templateSyncResults[type];
@@ -1070,30 +1222,7 @@ export default function AdminOperationCreditNotificationsPage() {
           </div>
         </div>
 
-        <div>
-          <div className='text-xs font-medium text-muted-foreground'>
-            {t(
-              'module.operationsCreditNotifications.config.placeholders.available',
-            )}
-          </div>
-          <div className='mt-1 flex flex-wrap gap-1'>
-            {TEMPLATE_PLACEHOLDERS[type].map(placeholder => (
-              <span
-                key={placeholder}
-                className='inline-flex items-center gap-1 rounded border border-border bg-white px-2 py-1 text-xs text-muted-foreground'
-              >
-                <code className='font-mono text-foreground'>
-                  {formatPlaceholderToken(placeholder)}
-                </code>
-                <span>
-                  {t(
-                    `module.operationsCreditNotifications.config.placeholders.${placeholder}`,
-                  )}
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
+        {renderPlaceholderGuide(type)}
 
         {syncResult ? renderTemplateSyncResult(syncResult) : null}
 
@@ -1688,9 +1817,6 @@ export default function AdminOperationCreditNotificationsPage() {
             <ConfigSection
               title={t(
                 'module.operationsCreditNotifications.config.sections.types',
-              )}
-              description={t(
-                'module.operationsCreditNotifications.config.placeholders.tolerance',
               )}
             >
               <div className='space-y-3'>
