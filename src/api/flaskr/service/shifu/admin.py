@@ -5058,6 +5058,7 @@ def get_operator_course_follow_ups(
     page_index: int,
     page_size: int,
     filters: Optional[dict] = None,
+    include_summary: bool = True,
 ) -> AdminOperationCourseFollowUpListDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -5124,28 +5125,31 @@ def get_operator_course_follow_ups(
             )
 
         filtered_follow_ups = filtered_query.subquery()
-        summary_row = db.session.query(
-            db.func.count(filtered_follow_ups.c.id).label("follow_up_count"),
-            db.func.count(
-                db.func.distinct(db.func.nullif(filtered_follow_ups.c.user_bid, ""))
-            ).label("user_count"),
-            db.func.count(
-                db.func.distinct(
-                    db.func.nullif(filtered_follow_ups.c.outline_item_bid, "")
-                )
-            ).label("lesson_count"),
-            db.func.max(filtered_follow_ups.c.created_at).label("latest_follow_up_at"),
-        ).one()
+        if include_summary:
+            summary_row = db.session.query(
+                db.func.count(filtered_follow_ups.c.id).label("follow_up_count"),
+                db.func.count(
+                    db.func.distinct(db.func.nullif(filtered_follow_ups.c.user_bid, ""))
+                ).label("user_count"),
+                db.func.count(
+                    db.func.distinct(
+                        db.func.nullif(filtered_follow_ups.c.outline_item_bid, "")
+                    )
+                ).label("lesson_count"),
+                db.func.max(filtered_follow_ups.c.created_at).label(
+                    "latest_follow_up_at"
+                ),
+            ).one()
+            total = int(getattr(summary_row, "follow_up_count", 0) or 0)
+        else:
+            summary_row = None
+            total = int(
+                db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar() or 0
+            )
 
-        total = int(getattr(summary_row, "follow_up_count", 0) or 0)
         if total == 0:
             return AdminOperationCourseFollowUpListDTO(
-                summary=AdminOperationCourseFollowUpSummaryDTO(
-                    follow_up_count=0,
-                    user_count=0,
-                    lesson_count=0,
-                    latest_follow_up_at="",
-                ),
+                summary=AdminOperationCourseFollowUpSummaryDTO(),
                 items=[],
                 page=safe_page_index,
                 page_size=safe_page_size,
@@ -5215,14 +5219,17 @@ def get_operator_course_follow_ups(
                     created_at=_format_operator_datetime(created_at),
                 )
             )
-        summary = AdminOperationCourseFollowUpSummaryDTO(
-            follow_up_count=total,
-            user_count=int(getattr(summary_row, "user_count", 0) or 0),
-            lesson_count=int(getattr(summary_row, "lesson_count", 0) or 0),
-            latest_follow_up_at=_format_operator_datetime(
-                getattr(summary_row, "latest_follow_up_at", None)
-            ),
-        )
+        if include_summary:
+            summary = AdminOperationCourseFollowUpSummaryDTO(
+                follow_up_count=total,
+                user_count=int(getattr(summary_row, "user_count", 0) or 0),
+                lesson_count=int(getattr(summary_row, "lesson_count", 0) or 0),
+                latest_follow_up_at=_format_operator_datetime(
+                    getattr(summary_row, "latest_follow_up_at", None)
+                ),
+            )
+        else:
+            summary = AdminOperationCourseFollowUpSummaryDTO(follow_up_count=total)
         return AdminOperationCourseFollowUpListDTO(
             summary=summary,
             items=items,

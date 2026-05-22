@@ -120,6 +120,27 @@ const createFollowUpFilters = (): FollowUpFilters => ({
   endTime: '',
 });
 
+const normalizeFollowUpFilters = (
+  filters: FollowUpFilters,
+): FollowUpFilters => ({
+  keyword: filters.keyword.trim(),
+  chapterKeyword: filters.chapterKeyword.trim(),
+  startTime: filters.startTime,
+  endTime: filters.endTime,
+});
+
+const areFollowUpFiltersEqual = (
+  first: FollowUpFilters,
+  second: FollowUpFilters,
+) =>
+  first.keyword === second.keyword &&
+  first.chapterKeyword === second.chapterKeyword &&
+  first.startTime === second.startTime &&
+  first.endTime === second.endTime;
+
+const isDefaultFollowUpFilters = (filters: FollowUpFilters) =>
+  areFollowUpFiltersEqual(filters, createFollowUpFilters());
+
 const formatCount = (value: number, locale: string): string =>
   formatAdminCount(value, locale);
 
@@ -325,6 +346,9 @@ export default function AdminOperationCourseFollowUpsPage() {
     useState<AdminOperationCourseFollowUpListResponse>(
       EMPTY_FOLLOW_UPS_RESPONSE,
     );
+  const [fullSummary, setFullSummary] = useState(
+    EMPTY_FOLLOW_UPS_RESPONSE.summary,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
   const [pageIndex, setPageIndex] = useState(1);
@@ -357,10 +381,13 @@ export default function AdminOperationCourseFollowUpsPage() {
       if (!shifuBid.trim()) {
         setError({ message: unknownErrorMessage });
         setFollowUps(EMPTY_FOLLOW_UPS_RESPONSE);
+        setFullSummary(EMPTY_FOLLOW_UPS_RESPONSE.summary);
         return;
       }
 
-      const resolvedFilters = nextFilters ?? filters;
+      const resolvedFilters = normalizeFollowUpFilters(nextFilters ?? filters);
+      const shouldRefreshFullSummary =
+        isDefaultFollowUpFilters(resolvedFilters);
       const requestId = listRequestIdRef.current + 1;
       listRequestIdRef.current = requestId;
       setLoading(true);
@@ -371,13 +398,19 @@ export default function AdminOperationCourseFollowUpsPage() {
           shifu_bid: shifuBid,
           page: targetPage,
           page_size: PAGE_SIZE,
-          keyword: resolvedFilters.keyword.trim(),
-          chapter_keyword: resolvedFilters.chapterKeyword.trim(),
+          include_summary: shouldRefreshFullSummary,
+          keyword: resolvedFilters.keyword,
+          chapter_keyword: resolvedFilters.chapterKeyword,
           start_time: resolvedFilters.startTime,
           end_time: resolvedFilters.endTime,
         })) as AdminOperationCourseFollowUpListResponse;
         if (requestId !== listRequestIdRef.current) {
           return;
+        }
+        if (shouldRefreshFullSummary) {
+          setFullSummary(
+            response?.summary || EMPTY_FOLLOW_UPS_RESPONSE.summary,
+          );
         }
         setFollowUps({
           summary: response?.summary || EMPTY_FOLLOW_UPS_RESPONSE.summary,
@@ -495,31 +528,30 @@ export default function AdminOperationCourseFollowUpsPage() {
       {
         key: 'followUpCount',
         label: tOperations('detail.followUps.summary.followUpCount'),
-        value: formatCount(followUps.summary.follow_up_count, i18n.language),
+        value: formatCount(fullSummary.follow_up_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'userCount',
         label: tOperations('detail.followUps.summary.userCount'),
-        value: formatCount(followUps.summary.user_count, i18n.language),
+        value: formatCount(fullSummary.user_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'lessonCount',
         label: tOperations('detail.followUps.summary.lessonCount'),
-        value: formatCount(followUps.summary.lesson_count, i18n.language),
+        value: formatCount(fullSummary.lesson_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'latestFollowUpAt',
         label: tOperations('detail.followUps.summary.latestFollowUpAt'),
         value:
-          formatAdminUtcDateTime(followUps.summary.latest_follow_up_at) ||
-          emptyValue,
+          formatAdminUtcDateTime(fullSummary.latest_follow_up_at) || emptyValue,
         tone: 'timestamp' as const,
       },
     ],
-    [emptyValue, followUps.summary, i18n.language, tOperations],
+    [emptyValue, fullSummary, i18n.language, tOperations],
   );
 
   const resolveUserSecondary = useCallback(
@@ -534,22 +566,30 @@ export default function AdminOperationCourseFollowUpsPage() {
   );
 
   const handleSearch = useCallback(() => {
-    const nextFilters = {
-      keyword: filtersDraft.keyword.trim(),
-      chapterKeyword: filtersDraft.chapterKeyword.trim(),
-      startTime: filtersDraft.startTime,
-      endTime: filtersDraft.endTime,
-    };
+    const nextFilters = normalizeFollowUpFilters(filtersDraft);
+    if (pageIndex === 1 && areFollowUpFiltersEqual(nextFilters, filters)) {
+      return;
+    }
     setFilters(nextFilters);
     setPageIndex(1);
-  }, [filtersDraft]);
+  }, [filters, filtersDraft, pageIndex]);
 
   const handleReset = useCallback(() => {
     const nextFilters = createFollowUpFilters();
+    if (
+      pageIndex === 1 &&
+      areFollowUpFiltersEqual(nextFilters, filters) &&
+      areFollowUpFiltersEqual(nextFilters, filtersDraft)
+    ) {
+      return;
+    }
     setFiltersDraft(nextFilters);
+    if (pageIndex === 1 && areFollowUpFiltersEqual(nextFilters, filters)) {
+      return;
+    }
     setFilters(nextFilters);
     setPageIndex(1);
-  }, []);
+  }, [filters, filtersDraft, pageIndex]);
 
   const handlePageChange = useCallback(
     (nextPage: number) => {

@@ -1963,6 +1963,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Inclusive filter end time
+            - name: include_summary
+              in: query
+              type: boolean
+              required: false
+              description: Whether to include expensive summary metrics
         responses:
             200:
                 description: Operator course follow-up list
@@ -1990,6 +1995,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 is_end=True,
             ),
         }
+        include_summary = _parse_boolean_query_param(
+            request.args.get("include_summary", None),
+            field_name="include_summary",
+            default=True,
+        )
         return make_common_response(
             get_operator_course_follow_ups(
                 app,
@@ -1997,6 +2007,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+                include_summary=include_summary,
             )
         )
 
