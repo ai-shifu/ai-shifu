@@ -5,6 +5,8 @@
     "dryRun": "Dry-run",
     "refresh": "刷新",
     "requeue": "重发",
+    "reset": "重置",
+    "search": "搜索",
     "syncTemplate": "查询模板",
     "syncingTemplate": "查询中"
   },
@@ -86,6 +88,7 @@
   },
   "empty": "暂无积分通知记录。",
   "filters": {
+    "all": "全部",
     "creatorBid": "Creator BID",
     "mobile": "手机号",
     "notificationType": "通知类型",
@@ -95,6 +98,9 @@
   "loadError": "积分通知数据读取失败，请刷新后重试。",
   "messages": {
     "requeueDone": "已提交重发任务。"
+  },
+  "records": {
+    "totalCount": "共 {count} 条通知记录"
   },
   "status": {
     "failed_provider": "供应商失败",
@@ -106,6 +112,7 @@
   },
   "subtitle": "查看积分到账、到期和低余额提醒的投递状态，并配置短信策略。",
   "table": {
+    "action": "操作",
     "createdAt": "创建时间",
     "creator": "创作者",
     "dedupeKey": "幂等键",
@@ -114,6 +121,10 @@
     "source": "来源",
     "template": "模板",
     "templateParams": "参数快照"
+  },
+  "tabs": {
+    "config": "策略配置",
+    "records": "通知记录"
   },
   "title": "积分通知",
   "type": {

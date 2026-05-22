@@ -5,6 +5,8 @@
     "dryRun": "Dry-run",
     "refresh": "Actualiser",
     "requeue": "Relancer",
+    "reset": "Réinitialiser",
+    "search": "Rechercher",
     "syncTemplate": "Interroger le modèle",
     "syncingTemplate": "Interrogation"
   },
@@ -86,6 +88,7 @@
   },
   "empty": "Aucun enregistrement de notification de crédits.",
   "filters": {
+    "all": "Tous",
     "creatorBid": "Creator BID",
     "mobile": "Mobile",
     "notificationType": "Type de notification",
@@ -95,6 +98,9 @@
   "loadError": "Impossible de charger les notifications de crédits. Actualisez puis réessayez.",
   "messages": {
     "requeueDone": "Tâche de relance envoyée."
+  },
+  "records": {
+    "totalCount": "{count} enregistrements de notification"
   },
   "status": {
     "failed_provider": "Fournisseur échoué",
@@ -106,6 +112,7 @@
   },
   "subtitle": "Consultez la livraison des notifications de crédits attribués, expirants ou bas, et configurez la politique SMS.",
   "table": {
+    "action": "Action",
     "createdAt": "Créé le",
     "creator": "Créateur",
     "dedupeKey": "Clé d’idempotence",
@@ -114,6 +121,10 @@
     "source": "Source",
     "template": "Modèle",
     "templateParams": "Paramètres"
+  },
+  "tabs": {
+    "config": "Configuration de la politique",
+    "records": "Notifications"
   },
   "title": "Notifications de crédits",
   "type": {

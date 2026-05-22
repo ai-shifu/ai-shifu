@@ -1,28 +1,46 @@
 'use client';
 
 import React from 'react';
-import { RefreshCw } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { RefreshCw, RotateCcw, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import {
+  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+  ADMIN_TABLE_RESIZE_HANDLE_CLASS,
+  getAdminStickyRightCellClass,
+  getAdminStickyRightHeaderClass,
+} from '@/app/admin/components/adminTableStyles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
 import { Switch } from '@/components/ui/Switch';
 import {
   Table,
   TableBody,
   TableCell,
-  TableEmpty,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { toast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
+import { cn } from '@/lib/utils';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
   AdminOperationCreditNotificationPolicy,
@@ -45,13 +63,24 @@ type NotificationFilters = {
 };
 
 type ErrorState = { message: string; code?: number };
+type PageTab = 'records' | 'config';
 
 const PAGE_SIZE = 20;
 const EMPTY_LABEL = '--';
+const ALL_OPTION_VALUE = '__all__';
+const DEFAULT_TAB: PageTab = 'records';
 const NOTIFICATION_TYPES = [
   'credit_expiring',
   'credit_granted',
   'low_balance',
+] as const;
+const NOTIFICATION_STATUSES = [
+  'pending',
+  'sent',
+  'skipped_no_mobile',
+  'skipped_opt_out',
+  'suppressed_duplicate',
+  'failed_provider',
 ] as const;
 type KnownNotificationType = (typeof NOTIFICATION_TYPES)[number];
 type TemplatePlaceholderKey =
@@ -90,6 +119,29 @@ const DEFAULT_ESTIMATED_DAYS_THRESHOLD: CreditNotificationEstimatedDaysThreshold
     min_consumed_days: 2,
     fallback_fixed_value: '0',
   };
+const COLUMN_MIN_WIDTH = 90;
+const COLUMN_MAX_WIDTH = 460;
+const COLUMN_WIDTH_STORAGE_KEY = 'adminCreditNotificationColumnWidths';
+const DEFAULT_COLUMN_WIDTHS = {
+  notification: 240,
+  creator: 180,
+  source: 220,
+  template: 300,
+  error: 220,
+  createdAt: 180,
+  action: 120,
+} as const;
+type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
+const TABLE_CELL_CLASS =
+  'border-r border-border px-3 py-2 align-middle last:border-r-0';
+const TABLE_TEXT_CELL_CLASS =
+  'overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis last:border-r-0';
+const SEARCH_LABEL_CLASS =
+  "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']";
+const CREDIT_NOTIFICATION_TABS_LIST_CLASSNAME =
+  'h-11 w-fit justify-start self-start rounded-[12px] bg-[var(--base-muted,#F5F5F5)] p-[3px] shadow-sm';
+const CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME =
+  'h-full rounded-[10px] border border-transparent px-5 py-2 text-sm font-medium text-[var(--base-foreground,#0A0A0A)] data-[state=active]:bg-white data-[state=active]:shadow-[0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]';
 
 const createDefaultFilters = (): NotificationFilters => ({
   creator_bid: '',
@@ -442,16 +494,83 @@ const formatPlaceholderList = (items?: string[]): string => {
     : EMPTY_LABEL;
 };
 
+const normalizeTab = (value?: string | null): PageTab =>
+  value === 'config' ? 'config' : DEFAULT_TAB;
+
+type SearchFieldProps = {
+  label: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+};
+
+const SearchField = ({ label, children, className }: SearchFieldProps) => (
+  <div className={cn('flex items-center', className)}>
+    <span className={cn(SEARCH_LABEL_CLASS, 'w-24')}>{label}</span>
+    <div className='min-w-0 flex-1'>{children}</div>
+  </div>
+);
+
+type FormFieldProps = {
+  label: React.ReactNode;
+  htmlFor?: string;
+  children: React.ReactNode;
+};
+
+const FormField = ({ label, htmlFor, children }: FormFieldProps) => (
+  <div>
+    <Label
+      htmlFor={htmlFor}
+      className='text-xs font-medium text-muted-foreground'
+    >
+      {label}
+    </Label>
+    <div className='mt-1'>{children}</div>
+  </div>
+);
+
+type ConfigSectionProps = {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  children: React.ReactNode;
+};
+
+const ConfigSection = ({
+  title,
+  description,
+  children,
+}: ConfigSectionProps) => (
+  <section className='rounded-xl border border-border bg-white p-4 shadow-sm'>
+    <div>
+      <h2 className='text-sm font-semibold text-foreground'>{title}</h2>
+      {description ? (
+        <p className='mt-1 text-xs text-muted-foreground'>{description}</p>
+      ) : null}
+    </div>
+    <div className='mt-4 space-y-4'>{children}</div>
+  </section>
+);
+
 export default function AdminOperationCreditNotificationsPage() {
   const { t } = useTranslation();
   const { isReady } = useOperatorGuard();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTabFromUrl = React.useMemo(
+    () => normalizeTab(searchParams.get('tab')),
+    [searchParams],
+  );
+  const [activeTab, setActiveTab] = React.useState<PageTab>(activeTabFromUrl);
   const [items, setItems] = React.useState<
     AdminOperationCreditNotificationItem[]
   >([]);
-  const [filters, setFilters] =
+  const [draftFilters, setDraftFilters] =
+    React.useState<NotificationFilters>(createDefaultFilters);
+  const [appliedFilters, setAppliedFilters] =
     React.useState<NotificationFilters>(createDefaultFilters);
   const [pageIndex, setPageIndex] = React.useState(1);
   const [pageCount, setPageCount] = React.useState(0);
+  const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<ErrorState | null>(null);
   const [policy, setPolicy] =
@@ -476,6 +595,34 @@ export default function AdminOperationCreditNotificationsPage() {
     lowBalanceThresholds.filter(isFixedThreshold);
   const estimatedDaysThreshold =
     lowBalanceThresholds.find(isEstimatedDaysThreshold) || null;
+  const { getColumnStyle, getResizeHandleProps } =
+    useAdminResizableColumns<ColumnKey>({
+      storageKey: COLUMN_WIDTH_STORAGE_KEY,
+      defaultWidths: DEFAULT_COLUMN_WIDTHS,
+      minWidth: COLUMN_MIN_WIDTH,
+      maxWidth: COLUMN_MAX_WIDTH,
+    });
+
+  React.useEffect(() => {
+    setActiveTab(activeTabFromUrl);
+  }, [activeTabFromUrl]);
+
+  const updateTab = React.useCallback(
+    (nextTab: PageTab) => {
+      setActiveTab(nextTab);
+      const nextParams = new URLSearchParams(searchParams.toString());
+      if (nextTab === DEFAULT_TAB) {
+        nextParams.delete('tab');
+      } else {
+        nextParams.set('tab', nextTab);
+      }
+      const nextQuery = nextParams.toString();
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+        scroll: false,
+      });
+    },
+    [pathname, router, searchParams],
+  );
 
   const resolveTypeLabel = React.useCallback(
     (value: string) =>
@@ -493,6 +640,27 @@ export default function AdminOperationCreditNotificationsPage() {
         value || EMPTY_LABEL,
       ),
     [t],
+  );
+
+  const renderTooltipText = React.useCallback(
+    (text?: string | null, className?: string) => (
+      <AdminTooltipText
+        text={text}
+        emptyValue={EMPTY_LABEL}
+        className={className}
+      />
+    ),
+    [],
+  );
+
+  const renderResizeHandle = React.useCallback(
+    (key: ColumnKey) => (
+      <span
+        className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
+        {...getResizeHandleProps(key)}
+      />
+    ),
+    [getResizeHandleProps],
   );
 
   const updatePolicy = React.useCallback(
@@ -534,6 +702,7 @@ export default function AdminOperationCreditNotificationsPage() {
         setItems(response.items || []);
         setPageIndex(response.page || targetPage);
         setPageCount(response.page_count || 0);
+        setTotal(response.total || 0);
       } catch (requestError) {
         if (requestId !== requestIdRef.current) {
           return;
@@ -547,6 +716,7 @@ export default function AdminOperationCreditNotificationsPage() {
         });
         setItems([]);
         setPageCount(0);
+        setTotal(0);
       } finally {
         if (requestId === requestIdRef.current) {
           setLoading(false);
@@ -560,24 +730,37 @@ export default function AdminOperationCreditNotificationsPage() {
     if (!isReady) {
       return;
     }
+    const initialFilters = createDefaultFilters();
     fetchConfig().catch(() => {
       setPolicy(createDefaultPolicy());
     });
-    void fetchRecords(1, filters);
-  }, [fetchConfig, fetchRecords, filters, isReady]);
+    void fetchRecords(1, initialFilters);
+  }, [fetchConfig, fetchRecords, isReady]);
 
-  const updateFilter = React.useCallback(
+  const updateDraftFilter = React.useCallback(
     (field: keyof NotificationFilters, value: string) => {
-      const nextFilters = {
-        ...filters,
+      setDraftFilters(current => ({
+        ...current,
         [field]: value,
-      };
-      setFilters(nextFilters);
-      setPageIndex(1);
-      void fetchRecords(1, nextFilters);
+      }));
     },
-    [fetchRecords, filters],
+    [],
   );
+
+  const searchRecords = React.useCallback(() => {
+    const nextFilters = { ...draftFilters };
+    setAppliedFilters(nextFilters);
+    setPageIndex(1);
+    void fetchRecords(1, nextFilters);
+  }, [draftFilters, fetchRecords]);
+
+  const resetRecords = React.useCallback(() => {
+    const nextFilters = createDefaultFilters();
+    setDraftFilters(nextFilters);
+    setAppliedFilters(nextFilters);
+    setPageIndex(1);
+    void fetchRecords(1, nextFilters);
+  }, [fetchRecords]);
 
   const saveConfig = React.useCallback(async () => {
     try {
@@ -644,8 +827,8 @@ export default function AdminOperationCreditNotificationsPage() {
   const dryRun = React.useCallback(async () => {
     try {
       const response = (await api.dryRunAdminOperationCreditNotifications({
-        notification_type: filters.notification_type.trim(),
-        creator_bid: filters.creator_bid.trim(),
+        notification_type: draftFilters.notification_type.trim(),
+        creator_bid: draftFilters.creator_bid.trim(),
       })) as AdminOperationCreditNotificationDryRunResponse;
       setDryRunResult(response);
     } catch (requestError) {
@@ -655,7 +838,7 @@ export default function AdminOperationCreditNotificationsPage() {
         code: resolvedError.code,
       });
     }
-  }, [filters.creator_bid, filters.notification_type, t]);
+  }, [draftFilters.creator_bid, draftFilters.notification_type, t]);
 
   const requeue = React.useCallback(
     async (notificationBid: string) => {
@@ -667,10 +850,453 @@ export default function AdminOperationCreditNotificationsPage() {
           title: t('module.operationsCreditNotifications.messages.requeueDone'),
         });
       }
-      void fetchRecords(pageIndex, filters);
+      void fetchRecords(pageIndex, appliedFilters);
     },
-    [fetchRecords, filters, pageIndex, t],
+    [appliedFilters, fetchRecords, pageIndex, t],
   );
+
+  const handlePageChange = React.useCallback(
+    (nextPage: number) => {
+      setPageIndex(nextPage);
+      void fetchRecords(nextPage, appliedFilters);
+    },
+    [appliedFilters, fetchRecords],
+  );
+
+  const renderTypeSelect = () => (
+    <Select
+      value={draftFilters.notification_type || ALL_OPTION_VALUE}
+      onValueChange={value =>
+        updateDraftFilter(
+          'notification_type',
+          value === ALL_OPTION_VALUE ? '' : value,
+        )
+      }
+    >
+      <SelectTrigger className='h-9'>
+        <SelectValue
+          placeholder={t(
+            'module.operationsCreditNotifications.filters.notificationType',
+          )}
+        />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL_OPTION_VALUE}>
+          {t('module.operationsCreditNotifications.filters.all')}
+        </SelectItem>
+        {NOTIFICATION_TYPES.map(type => (
+          <SelectItem
+            key={type}
+            value={type}
+          >
+            {resolveTypeLabel(type)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const renderStatusSelect = () => (
+    <Select
+      value={draftFilters.status || ALL_OPTION_VALUE}
+      onValueChange={value =>
+        updateDraftFilter('status', value === ALL_OPTION_VALUE ? '' : value)
+      }
+    >
+      <SelectTrigger className='h-9'>
+        <SelectValue
+          placeholder={t('module.operationsCreditNotifications.filters.status')}
+        />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL_OPTION_VALUE}>
+          {t('module.operationsCreditNotifications.filters.all')}
+        </SelectItem>
+        {NOTIFICATION_STATUSES.map(status => (
+          <SelectItem
+            key={status}
+            value={status}
+          >
+            {resolveStatusLabel(status)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const renderTemplateSyncResult = (
+    syncResult: AdminOperationCreditNotificationTemplateSyncResponse,
+  ) => (
+    <div
+      className={cn(
+        'rounded-md border px-3 py-2 text-xs',
+        syncResult.compatible
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+          : 'border-amber-200 bg-amber-50 text-amber-900',
+      )}
+    >
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <span className='font-medium'>
+          {syncResult.compatible
+            ? t(
+                'module.operationsCreditNotifications.config.templateSync.compatible',
+              )
+            : t(
+                'module.operationsCreditNotifications.config.templateSync.incompatible',
+              )}
+        </span>
+        <Badge variant='secondary'>{formatValue(syncResult.sync_status)}</Badge>
+      </div>
+      <div className='mt-2 grid gap-2 lg:grid-cols-2'>
+        {[
+          {
+            label:
+              'module.operationsCreditNotifications.config.templateSync.content',
+            value: formatValue(syncResult.template_content),
+          },
+          {
+            label:
+              'module.operationsCreditNotifications.config.templateSync.status',
+            value: formatValue(syncResult.template_status),
+          },
+          {
+            label:
+              'module.operationsCreditNotifications.config.templateSync.variables',
+            value: formatPlaceholderList(syncResult.placeholders),
+          },
+          {
+            label:
+              'module.operationsCreditNotifications.config.templateSync.unused',
+            value: formatPlaceholderList(
+              syncResult.unused_supported_placeholders,
+            ),
+          },
+          {
+            label:
+              'module.operationsCreditNotifications.config.templateSync.unsupported',
+            value: formatPlaceholderList(syncResult.unsupported_placeholders),
+          },
+          ...(syncResult.error_message
+            ? [
+                {
+                  label:
+                    'module.operationsCreditNotifications.config.templateSync.error',
+                  value: syncResult.error_message,
+                },
+              ]
+            : []),
+        ].map(item => (
+          <div
+            key={item.label}
+            className='min-w-0'
+          >
+            <div className='font-medium'>{t(item.label)}</div>
+            <div className='mt-0.5 break-all'>{item.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderNotificationTypeConfig = (type: KnownNotificationType) => {
+    const typePolicy = policy.types[type];
+    const syncResult = templateSyncResults[type];
+    return (
+      <div
+        key={type}
+        className='space-y-3 rounded-md border border-border bg-muted/20 p-3'
+      >
+        <div className='flex items-center justify-between gap-4'>
+          <Label
+            htmlFor={`credit-notification-${type}-enabled`}
+            className='text-sm font-medium text-foreground'
+          >
+            {resolveTypeLabel(type)}
+          </Label>
+          <Switch
+            id={`credit-notification-${type}-enabled`}
+            checked={typePolicy.enabled}
+            onCheckedChange={checked =>
+              updatePolicy(draft => {
+                draft.types[type].enabled = Boolean(checked);
+              })
+            }
+          />
+        </div>
+
+        <div className='grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]'>
+          <FormField
+            htmlFor={`credit-notification-${type}-template`}
+            label={t(
+              'module.operationsCreditNotifications.config.fields.templateCode',
+            )}
+          >
+            <Input
+              id={`credit-notification-${type}-template`}
+              className='h-9'
+              value={typePolicy.template_code}
+              onChange={event => {
+                const value = event.target.value;
+                updatePolicy(draft => {
+                  draft.types[type].template_code = value;
+                });
+                setTemplateSyncResults(current => ({
+                  ...current,
+                  [type]: undefined,
+                }));
+              }}
+            />
+          </FormField>
+          <div className='flex items-end'>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              className='h-9'
+              disabled={
+                Boolean(templateSyncLoading[type]) ||
+                !typePolicy.template_code.trim()
+              }
+              onClick={() => syncTemplate(type)}
+            >
+              {templateSyncLoading[type]
+                ? t(
+                    'module.operationsCreditNotifications.actions.syncingTemplate',
+                  )
+                : t(
+                    'module.operationsCreditNotifications.actions.syncTemplate',
+                  )}
+            </Button>
+          </div>
+        </div>
+
+        <div>
+          <div className='text-xs font-medium text-muted-foreground'>
+            {t(
+              'module.operationsCreditNotifications.config.placeholders.available',
+            )}
+          </div>
+          <div className='mt-1 flex flex-wrap gap-1'>
+            {TEMPLATE_PLACEHOLDERS[type].map(placeholder => (
+              <span
+                key={placeholder}
+                className='inline-flex items-center gap-1 rounded border border-border bg-white px-2 py-1 text-xs text-muted-foreground'
+              >
+                <code className='font-mono text-foreground'>
+                  {formatPlaceholderToken(placeholder)}
+                </code>
+                <span>
+                  {t(
+                    `module.operationsCreditNotifications.config.placeholders.${placeholder}`,
+                  )}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {syncResult ? renderTemplateSyncResult(syncResult) : null}
+
+        {type === 'credit_expiring' ? (
+          <div className='grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]'>
+            <FormField
+              htmlFor='credit-notification-expiring-windows'
+              label={t(
+                'module.operationsCreditNotifications.config.fields.windows',
+              )}
+            >
+              <Input
+                id='credit-notification-expiring-windows'
+                className='h-9'
+                value={formatListInput(
+                  policy.types.credit_expiring.windows || [],
+                )}
+                onChange={event =>
+                  updatePolicy(draft => {
+                    draft.types.credit_expiring.windows = parseListInput(
+                      event.target.value,
+                    );
+                  })
+                }
+              />
+            </FormField>
+            <div className='flex items-end'>
+              <div className='flex h-9 w-full items-center justify-between gap-4 rounded-md border border-border bg-white px-3'>
+                <Label
+                  htmlFor='credit-notification-merge-same-creator'
+                  className='text-xs font-medium text-muted-foreground'
+                >
+                  {t(
+                    'module.operationsCreditNotifications.config.fields.mergeSameCreator',
+                  )}
+                </Label>
+                <Switch
+                  id='credit-notification-merge-same-creator'
+                  checked={
+                    policy.types.credit_expiring.merge_same_creator || false
+                  }
+                  onCheckedChange={checked =>
+                    updatePolicy(draft => {
+                      draft.types.credit_expiring.merge_same_creator =
+                        Boolean(checked);
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {type === 'low_balance' ? (
+          <div className='space-y-3'>
+            <FormField
+              htmlFor='credit-notification-low-balance-thresholds'
+              label={t(
+                'module.operationsCreditNotifications.config.fields.thresholds',
+              )}
+            >
+              <Input
+                id='credit-notification-low-balance-thresholds'
+                className='h-9'
+                value={formatListInput(
+                  fixedLowBalanceThresholds.map(threshold => threshold.value),
+                )}
+                onChange={event =>
+                  updatePolicy(draft => {
+                    const estimated = (
+                      draft.types.low_balance.thresholds || []
+                    ).find(isEstimatedDaysThreshold);
+                    draft.types.low_balance.thresholds = [
+                      ...parseThresholdInput(event.target.value),
+                      ...(estimated ? [estimated] : []),
+                    ];
+                  })
+                }
+              />
+            </FormField>
+
+            <div className='rounded-md border border-border bg-white p-3'>
+              <div className='flex items-center justify-between gap-4'>
+                <Label
+                  htmlFor='credit-notification-estimated-days-enabled'
+                  className='text-xs font-medium text-muted-foreground'
+                >
+                  {t(
+                    'module.operationsCreditNotifications.config.fields.estimatedDaysEnabled',
+                  )}
+                </Label>
+                <Switch
+                  id='credit-notification-estimated-days-enabled'
+                  checked={Boolean(estimatedDaysThreshold)}
+                  onCheckedChange={checked =>
+                    updatePolicy(draft => {
+                      if (checked) {
+                        setEstimatedDaysThreshold(draft, {});
+                        return;
+                      }
+                      removeEstimatedDaysThreshold(draft);
+                    })
+                  }
+                />
+              </div>
+              {estimatedDaysThreshold ? (
+                <div className='mt-3 grid gap-3 lg:grid-cols-4'>
+                  <FormField
+                    htmlFor='credit-notification-estimated-days'
+                    label={t(
+                      'module.operationsCreditNotifications.config.fields.estimatedDays',
+                    )}
+                  >
+                    <Input
+                      id='credit-notification-estimated-days'
+                      type='number'
+                      min={1}
+                      className='h-9'
+                      value={estimatedDaysThreshold.days}
+                      onChange={event =>
+                        updatePolicy(draft => {
+                          setEstimatedDaysThreshold(draft, {
+                            days: readPositiveNumber(event.target.value, 1),
+                          });
+                        })
+                      }
+                    />
+                  </FormField>
+                  <FormField
+                    htmlFor='credit-notification-lookback-days'
+                    label={t(
+                      'module.operationsCreditNotifications.config.fields.lookbackDays',
+                    )}
+                  >
+                    <Input
+                      id='credit-notification-lookback-days'
+                      type='number'
+                      min={1}
+                      className='h-9'
+                      value={estimatedDaysThreshold.lookback_days}
+                      onChange={event =>
+                        updatePolicy(draft => {
+                          setEstimatedDaysThreshold(draft, {
+                            lookback_days: readPositiveNumber(
+                              event.target.value,
+                              1,
+                            ),
+                          });
+                        })
+                      }
+                    />
+                  </FormField>
+                  <FormField
+                    htmlFor='credit-notification-min-consumed-days'
+                    label={t(
+                      'module.operationsCreditNotifications.config.fields.minConsumedDays',
+                    )}
+                  >
+                    <Input
+                      id='credit-notification-min-consumed-days'
+                      type='number'
+                      min={1}
+                      className='h-9'
+                      value={estimatedDaysThreshold.min_consumed_days}
+                      onChange={event =>
+                        updatePolicy(draft => {
+                          setEstimatedDaysThreshold(draft, {
+                            min_consumed_days: readPositiveNumber(
+                              event.target.value,
+                              1,
+                            ),
+                          });
+                        })
+                      }
+                    />
+                  </FormField>
+                  <FormField
+                    htmlFor='credit-notification-fallback-fixed-value'
+                    label={t(
+                      'module.operationsCreditNotifications.config.fields.fallbackFixedValue',
+                    )}
+                  >
+                    <Input
+                      id='credit-notification-fallback-fixed-value'
+                      className='h-9'
+                      value={estimatedDaysThreshold.fallback_fixed_value || ''}
+                      onChange={event =>
+                        updatePolicy(draft => {
+                          setEstimatedDaysThreshold(draft, {
+                            fallback_fixed_value: event.target.value,
+                          });
+                        })
+                      }
+                    />
+                  </FormField>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   if (!isReady) {
     return <Loading />;
@@ -682,219 +1308,366 @@ export default function AdminOperationCreditNotificationsPage() {
         <h1 className='text-2xl font-semibold text-gray-900'>
           {t('module.operationsCreditNotifications.title')}
         </h1>
-        <p className='mt-1 text-sm text-gray-500'>
+        <p className='mt-1 text-sm text-muted-foreground'>
           {t('module.operationsCreditNotifications.subtitle')}
         </p>
       </div>
 
-      <div className='grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]'>
-        <section className='min-w-0 rounded-md border border-gray-200 bg-white p-4'>
-          <div className='mb-4 flex flex-wrap items-end gap-3'>
-            <Input
-              className='h-9 w-44'
-              value={filters.creator_bid}
-              placeholder={t(
-                'module.operationsCreditNotifications.filters.creatorBid',
-              )}
-              onChange={event =>
-                updateFilter('creator_bid', event.target.value)
-              }
-            />
-            <Input
-              className='h-9 w-36'
-              value={filters.mobile}
-              placeholder={t(
-                'module.operationsCreditNotifications.filters.mobile',
-              )}
-              onChange={event => updateFilter('mobile', event.target.value)}
-            />
-            <Input
-              className='h-9 w-44'
-              value={filters.notification_type}
-              placeholder={t(
-                'module.operationsCreditNotifications.filters.notificationType',
-              )}
-              onChange={event =>
-                updateFilter('notification_type', event.target.value)
-              }
-            />
-            <Input
-              className='h-9 w-40'
-              value={filters.status}
-              placeholder={t(
-                'module.operationsCreditNotifications.filters.status',
-              )}
-              onChange={event => updateFilter('status', event.target.value)}
-            />
-            <Input
-              className='h-9 w-44'
-              value={filters.source_bid}
-              placeholder={t(
-                'module.operationsCreditNotifications.filters.sourceBid',
-              )}
-              onChange={event => updateFilter('source_bid', event.target.value)}
-            />
-            <Button
-              type='button'
-              variant='outline'
-              size='sm'
-              onClick={() => fetchRecords(pageIndex, filters)}
-            >
-              <RefreshCw className='mr-2 h-4 w-4' />
-              {t('module.operationsCreditNotifications.actions.refresh')}
-            </Button>
-            <Button
-              type='button'
-              size='sm'
-              onClick={dryRun}
-            >
-              {t('module.operationsCreditNotifications.actions.dryRun')}
-            </Button>
-          </div>
+      <Tabs
+        value={activeTab}
+        className='flex min-h-0 flex-1 flex-col gap-5'
+        onValueChange={value => updateTab(value as PageTab)}
+      >
+        <TabsList
+          className={CREDIT_NOTIFICATION_TABS_LIST_CLASSNAME}
+          data-testid='admin-credit-notification-tabs'
+        >
+          <TabsTrigger
+            value='records'
+            className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
+          >
+            {t('module.operationsCreditNotifications.tabs.records')}
+          </TabsTrigger>
+          <TabsTrigger
+            value='config'
+            className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
+          >
+            {t('module.operationsCreditNotifications.tabs.config')}
+          </TabsTrigger>
+        </TabsList>
 
-          {error ? (
-            <ErrorDisplay
-              errorCode={error.code || 0}
-              errorMessage={error.message}
-            />
-          ) : null}
-
-          {loading ? (
-            <Loading />
-          ) : (
-            <Table containerClassName='max-h-[560px] rounded-md border border-gray-200'>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    {t(
-                      'module.operationsCreditNotifications.table.notification',
+        <TabsContent
+          value='records'
+          className='mt-0 min-h-0 flex-1'
+        >
+          <div className='flex min-h-0 flex-col gap-4'>
+            <div className='rounded-xl border border-border bg-white p-4 shadow-sm'>
+              <div className='grid gap-x-5 gap-y-4 xl:grid-cols-5'>
+                <SearchField
+                  label={t(
+                    'module.operationsCreditNotifications.filters.creatorBid',
+                  )}
+                >
+                  <Input
+                    className='h-9'
+                    value={draftFilters.creator_bid}
+                    placeholder={t(
+                      'module.operationsCreditNotifications.filters.creatorBid',
                     )}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.operationsCreditNotifications.table.creator')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.operationsCreditNotifications.table.source')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.operationsCreditNotifications.table.template')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.operationsCreditNotifications.table.error')}
-                  </TableHead>
-                  <TableHead>
-                    {t('module.operationsCreditNotifications.table.createdAt')}
-                  </TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.length === 0 ? (
-                  <TableEmpty colSpan={7}>
-                    {t('module.operationsCreditNotifications.empty')}
-                  </TableEmpty>
-                ) : (
-                  items.map(item => (
-                    <TableRow key={item.notification_bid}>
-                      <TableCell className='min-w-[220px]'>
-                        <div className='font-medium text-gray-900'>
-                          {resolveTypeLabel(item.notification_type)}
-                        </div>
-                        <Badge
-                          variant={
-                            item.status === 'failed_provider'
-                              ? 'destructive'
-                              : 'secondary'
-                          }
-                          className='mt-1'
-                        >
-                          {resolveStatusLabel(item.status)}
-                        </Badge>
-                        <div className='mt-1 text-xs text-gray-500'>
-                          {formatValue(item.notification_bid)}
-                        </div>
-                      </TableCell>
-                      <TableCell className='min-w-[180px]'>
-                        <div>{formatValue(item.creator_bid)}</div>
-                        <div className='text-xs text-gray-500'>
-                          {formatValue(item.mobile_snapshot)}
-                        </div>
-                      </TableCell>
-                      <TableCell className='min-w-[220px]'>
-                        <div>{formatValue(item.source_type)}</div>
-                        <div className='text-xs text-gray-500'>
-                          {formatValue(item.source_bid)}
-                        </div>
-                      </TableCell>
-                      <TableCell className='min-w-[260px]'>
-                        <div>{formatValue(item.template_code)}</div>
-                        <div className='mt-1 text-xs font-medium text-gray-500'>
-                          {t(
-                            'module.operationsCreditNotifications.table.templateParams',
-                          )}
-                        </div>
-                        <code className='mt-1 block max-w-[300px] break-all rounded bg-gray-50 px-2 py-1 text-xs text-gray-600'>
-                          {formatTemplateParams(item.template_params)}
-                        </code>
-                      </TableCell>
-                      <TableCell className='min-w-[220px]'>
-                        <div>{formatValue(item.error_code)}</div>
-                        <div className='text-xs text-gray-500'>
-                          {formatValue(item.error_message)}
-                        </div>
-                      </TableCell>
-                      <TableCell className='min-w-[180px]'>
-                        {formatValue(item.created_at)}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          type='button'
-                          variant='outline'
-                          size='sm'
-                          disabled={item.status !== 'failed_provider'}
-                          onClick={() => requeue(item.notification_bid)}
-                        >
-                          {t(
-                            'module.operationsCreditNotifications.actions.requeue',
-                          )}
-                        </Button>
-                      </TableCell>
+                    onChange={event =>
+                      updateDraftFilter('creator_bid', event.target.value)
+                    }
+                  />
+                </SearchField>
+                <SearchField
+                  label={t(
+                    'module.operationsCreditNotifications.filters.mobile',
+                  )}
+                >
+                  <Input
+                    className='h-9'
+                    value={draftFilters.mobile}
+                    placeholder={t(
+                      'module.operationsCreditNotifications.filters.mobile',
+                    )}
+                    onChange={event =>
+                      updateDraftFilter('mobile', event.target.value)
+                    }
+                  />
+                </SearchField>
+                <SearchField
+                  label={t(
+                    'module.operationsCreditNotifications.filters.notificationType',
+                  )}
+                >
+                  {renderTypeSelect()}
+                </SearchField>
+                <SearchField
+                  label={t(
+                    'module.operationsCreditNotifications.filters.status',
+                  )}
+                >
+                  {renderStatusSelect()}
+                </SearchField>
+                <SearchField
+                  label={t(
+                    'module.operationsCreditNotifications.filters.sourceBid',
+                  )}
+                >
+                  <Input
+                    className='h-9'
+                    value={draftFilters.source_bid}
+                    placeholder={t(
+                      'module.operationsCreditNotifications.filters.sourceBid',
+                    )}
+                    onChange={event =>
+                      updateDraftFilter('source_bid', event.target.value)
+                    }
+                  />
+                </SearchField>
+              </div>
+              <div className='mt-4 flex flex-wrap justify-end gap-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => fetchRecords(pageIndex, appliedFilters)}
+                >
+                  <RefreshCw className='mr-2 h-4 w-4' />
+                  {t('module.operationsCreditNotifications.actions.refresh')}
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={resetRecords}
+                >
+                  <RotateCcw className='mr-2 h-4 w-4' />
+                  {t('module.operationsCreditNotifications.actions.reset')}
+                </Button>
+                <Button
+                  type='button'
+                  size='sm'
+                  onClick={searchRecords}
+                >
+                  <Search className='mr-2 h-4 w-4' />
+                  {t('module.operationsCreditNotifications.actions.search')}
+                </Button>
+              </div>
+            </div>
+
+            {error ? (
+              <ErrorDisplay
+                errorCode={error.code || 0}
+                errorMessage={error.message}
+              />
+            ) : null}
+
+            <div className='text-sm text-muted-foreground'>
+              {t('module.operationsCreditNotifications.records.totalCount', {
+                count: total,
+              })}
+            </div>
+
+            <AdminTableShell
+              loading={loading}
+              isEmpty={items.length === 0}
+              emptyContent={t('module.operationsCreditNotifications.empty')}
+              emptyColSpan={7}
+              withTooltipProvider
+              tableWrapperClassName='max-h-[calc(100vh-20rem)] overflow-auto'
+              table={emptyRow => (
+                <Table containerClassName='overflow-visible max-h-none'>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead
+                        className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                        style={getColumnStyle('notification')}
+                      >
+                        {t(
+                          'module.operationsCreditNotifications.table.notification',
+                        )}
+                        {renderResizeHandle('notification')}
+                      </TableHead>
+                      <TableHead
+                        className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                        style={getColumnStyle('creator')}
+                      >
+                        {t(
+                          'module.operationsCreditNotifications.table.creator',
+                        )}
+                        {renderResizeHandle('creator')}
+                      </TableHead>
+                      <TableHead
+                        className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                        style={getColumnStyle('source')}
+                      >
+                        {t('module.operationsCreditNotifications.table.source')}
+                        {renderResizeHandle('source')}
+                      </TableHead>
+                      <TableHead
+                        className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                        style={getColumnStyle('template')}
+                      >
+                        {t(
+                          'module.operationsCreditNotifications.table.template',
+                        )}
+                        {renderResizeHandle('template')}
+                      </TableHead>
+                      <TableHead
+                        className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                        style={getColumnStyle('error')}
+                      >
+                        {t('module.operationsCreditNotifications.table.error')}
+                        {renderResizeHandle('error')}
+                      </TableHead>
+                      <TableHead
+                        className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                        style={getColumnStyle('createdAt')}
+                      >
+                        {t(
+                          'module.operationsCreditNotifications.table.createdAt',
+                        )}
+                        {renderResizeHandle('createdAt')}
+                      </TableHead>
+                      <TableHead
+                        className={getAdminStickyRightHeaderClass(
+                          'text-center',
+                        )}
+                        style={getColumnStyle('action')}
+                      >
+                        {t('module.operationsCreditNotifications.table.action')}
+                        {renderResizeHandle('action')}
+                      </TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
+                  </TableHeader>
+                  <TableBody>
+                    {emptyRow}
+                    {items.map(item => (
+                      <TableRow key={item.notification_bid}>
+                        <TableCell
+                          className={TABLE_CELL_CLASS}
+                          style={getColumnStyle('notification')}
+                        >
+                          <div className='space-y-1 text-center'>
+                            <div className='font-medium text-foreground'>
+                              {resolveTypeLabel(item.notification_type)}
+                            </div>
+                            <Badge
+                              variant={
+                                item.status === 'failed_provider'
+                                  ? 'destructive'
+                                  : 'secondary'
+                              }
+                            >
+                              {resolveStatusLabel(item.status)}
+                            </Badge>
+                            {renderTooltipText(
+                              item.notification_bid,
+                              'block text-xs text-muted-foreground',
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell
+                          className={TABLE_CELL_CLASS}
+                          style={getColumnStyle('creator')}
+                        >
+                          <div className='space-y-1 text-center'>
+                            {renderTooltipText(item.creator_bid, 'font-medium')}
+                            {renderTooltipText(
+                              item.mobile_snapshot,
+                              'block text-xs text-muted-foreground',
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell
+                          className={TABLE_CELL_CLASS}
+                          style={getColumnStyle('source')}
+                        >
+                          <div className='space-y-1 text-center'>
+                            {renderTooltipText(item.source_type)}
+                            {renderTooltipText(
+                              item.source_bid,
+                              'block text-xs text-muted-foreground',
+                            )}
+                            {renderTooltipText(
+                              item.dedupe_key,
+                              'block text-xs text-muted-foreground',
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell
+                          className={TABLE_CELL_CLASS}
+                          style={getColumnStyle('template')}
+                        >
+                          <div className='space-y-1 text-center'>
+                            {renderTooltipText(
+                              item.template_code,
+                              'font-medium',
+                            )}
+                            {renderTooltipText(
+                              formatTemplateParams(item.template_params),
+                              'block font-mono text-xs text-muted-foreground',
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell
+                          className={TABLE_CELL_CLASS}
+                          style={getColumnStyle('error')}
+                        >
+                          <div className='space-y-1 text-center'>
+                            {renderTooltipText(item.error_code)}
+                            {renderTooltipText(
+                              item.error_message,
+                              'block text-xs text-muted-foreground',
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell
+                          className={TABLE_TEXT_CELL_CLASS}
+                          style={getColumnStyle('createdAt')}
+                        >
+                          {renderTooltipText(item.created_at)}
+                        </TableCell>
+                        <TableCell
+                          className={getAdminStickyRightCellClass(
+                            'whitespace-nowrap px-3 py-2 text-center',
+                          )}
+                          style={getColumnStyle('action')}
+                        >
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='sm'
+                            disabled={item.status !== 'failed_provider'}
+                            className='text-primary hover:text-primary/80'
+                            onClick={() => requeue(item.notification_bid)}
+                          >
+                            {t(
+                              'module.operationsCreditNotifications.actions.requeue',
+                            )}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              footer={
+                pageCount > 1 ? (
+                  <AdminPagination
+                    className='mx-0 w-auto justify-end'
+                    pageIndex={pageIndex}
+                    pageCount={pageCount}
+                    onPageChange={handlePageChange}
+                    prevLabel={t('module.order.paginationPrev', 'Previous')}
+                    nextLabel={t('module.order.paginationNext', 'Next')}
+                    prevAriaLabel={t('module.order.paginationPrev', 'Previous')}
+                    nextAriaLabel={t('module.order.paginationNext', 'Next')}
+                    hideWhenSinglePage
+                  />
+                ) : null
+              }
+              footerClassName='mt-3'
+            />
+          </div>
+        </TabsContent>
 
-          <AdminPagination
-            className='mt-4 justify-end'
-            pageIndex={pageIndex}
-            pageCount={pageCount}
-            onPageChange={nextPage => {
-              setPageIndex(nextPage);
-              void fetchRecords(nextPage, filters);
-            }}
-            prevLabel={t('module.order.paginationPrev', 'Previous')}
-            nextLabel={t('module.order.paginationNext', 'Next')}
-            prevAriaLabel={t('module.order.paginationPrev', 'Previous')}
-            nextAriaLabel={t('module.order.paginationNext', 'Next')}
-            hideWhenSinglePage
-          />
-        </section>
-
-        <aside className='flex min-w-0 flex-col gap-4'>
-          <section className='rounded-md border border-gray-200 bg-white p-4'>
-            <h2 className='text-base font-semibold text-gray-900'>
-              {t('module.operationsCreditNotifications.config.title')}
-            </h2>
-            <p className='mt-1 text-sm text-gray-500'>
-              {t('module.operationsCreditNotifications.config.description')}
-            </p>
-            <div className='mt-4 space-y-4'>
-              <div className='flex items-center justify-between gap-4 rounded-md border border-gray-200 p-3'>
+        <TabsContent
+          value='config'
+          className='mt-0 min-h-0 flex-1'
+        >
+          <div className='space-y-4'>
+            <ConfigSection
+              title={t('module.operationsCreditNotifications.config.title')}
+              description={t(
+                'module.operationsCreditNotifications.config.description',
+              )}
+            >
+              <div className='flex items-center justify-between gap-4 rounded-md border border-border bg-muted/20 p-3'>
                 <Label
                   htmlFor='credit-notification-enabled'
-                  className='text-sm text-gray-700'
+                  className='text-sm font-medium text-foreground'
                 >
                   {t(
                     'module.operationsCreditNotifications.config.fields.enabled',
@@ -910,445 +1683,33 @@ export default function AdminOperationCreditNotificationsPage() {
                   }
                 />
               </div>
+            </ConfigSection>
 
+            <ConfigSection
+              title={t(
+                'module.operationsCreditNotifications.config.sections.types',
+              )}
+              description={t(
+                'module.operationsCreditNotifications.config.placeholders.tolerance',
+              )}
+            >
               <div className='space-y-3'>
-                <div>
-                  <h3 className='text-sm font-semibold text-gray-900'>
-                    {t(
-                      'module.operationsCreditNotifications.config.sections.types',
-                    )}
-                  </h3>
-                  <p className='mt-1 text-xs text-gray-500'>
-                    {t(
-                      'module.operationsCreditNotifications.config.placeholders.tolerance',
-                    )}
-                  </p>
-                </div>
-                {NOTIFICATION_TYPES.map(type => {
-                  const typePolicy = policy.types[type];
-                  const syncResult = templateSyncResults[type];
-                  return (
-                    <div
-                      key={type}
-                      className='space-y-3 rounded-md border border-gray-200 p-3'
-                    >
-                      <div className='flex items-center justify-between gap-4'>
-                        <Label
-                          htmlFor={`credit-notification-${type}-enabled`}
-                          className='text-sm text-gray-700'
-                        >
-                          {resolveTypeLabel(type)}
-                        </Label>
-                        <Switch
-                          id={`credit-notification-${type}-enabled`}
-                          checked={typePolicy.enabled}
-                          onCheckedChange={checked =>
-                            updatePolicy(draft => {
-                              draft.types[type].enabled = Boolean(checked);
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label
-                          htmlFor={`credit-notification-${type}-template`}
-                          className='text-xs text-gray-600'
-                        >
-                          {t(
-                            'module.operationsCreditNotifications.config.fields.templateCode',
-                          )}
-                        </Label>
-                        <div className='mt-1 flex gap-2'>
-                          <Input
-                            id={`credit-notification-${type}-template`}
-                            className='h-9 min-w-0 flex-1'
-                            value={typePolicy.template_code}
-                            onChange={event => {
-                              const value = event.target.value;
-                              updatePolicy(draft => {
-                                draft.types[type].template_code = value;
-                              });
-                              setTemplateSyncResults(current => ({
-                                ...current,
-                                [type]: undefined,
-                              }));
-                            }}
-                          />
-                          <Button
-                            type='button'
-                            variant='outline'
-                            size='sm'
-                            disabled={
-                              Boolean(templateSyncLoading[type]) ||
-                              !typePolicy.template_code.trim()
-                            }
-                            onClick={() => syncTemplate(type)}
-                          >
-                            {templateSyncLoading[type]
-                              ? t(
-                                  'module.operationsCreditNotifications.actions.syncingTemplate',
-                                )
-                              : t(
-                                  'module.operationsCreditNotifications.actions.syncTemplate',
-                                )}
-                          </Button>
-                        </div>
-                        <div className='mt-2'>
-                          <div className='text-xs font-medium text-gray-600'>
-                            {t(
-                              'module.operationsCreditNotifications.config.placeholders.available',
-                            )}
-                          </div>
-                          <div className='mt-1 flex flex-wrap gap-1'>
-                            {TEMPLATE_PLACEHOLDERS[type].map(placeholder => (
-                              <span
-                                key={placeholder}
-                                className='inline-flex items-center gap-1 rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600'
-                              >
-                                <code className='font-mono text-gray-800'>
-                                  {formatPlaceholderToken(placeholder)}
-                                </code>
-                                <span>
-                                  {t(
-                                    `module.operationsCreditNotifications.config.placeholders.${placeholder}`,
-                                  )}
-                                </span>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        {syncResult ? (
-                          <div
-                            className={`mt-3 rounded border p-2 text-xs ${
-                              syncResult.compatible
-                                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-                                : 'border-amber-200 bg-amber-50 text-amber-900'
-                            }`}
-                          >
-                            <div className='flex items-center justify-between gap-2'>
-                              <span className='font-medium'>
-                                {syncResult.compatible
-                                  ? t(
-                                      'module.operationsCreditNotifications.config.templateSync.compatible',
-                                    )
-                                  : t(
-                                      'module.operationsCreditNotifications.config.templateSync.incompatible',
-                                    )}
-                              </span>
-                              <Badge variant='secondary'>
-                                {formatValue(syncResult.sync_status)}
-                              </Badge>
-                            </div>
-                            <div className='mt-2 space-y-1'>
-                              <div className='space-y-0.5'>
-                                <span className='font-medium'>
-                                  {t(
-                                    'module.operationsCreditNotifications.config.templateSync.content',
-                                  )}
-                                </span>
-                                <span className='block break-all'>
-                                  {formatValue(syncResult.template_content)}
-                                </span>
-                              </div>
-                              <div className='space-y-0.5'>
-                                <span className='font-medium'>
-                                  {t(
-                                    'module.operationsCreditNotifications.config.templateSync.status',
-                                  )}
-                                </span>
-                                <span className='block'>
-                                  {formatValue(syncResult.template_status)}
-                                </span>
-                              </div>
-                              <div className='space-y-0.5'>
-                                <span className='font-medium'>
-                                  {t(
-                                    'module.operationsCreditNotifications.config.templateSync.variables',
-                                  )}
-                                </span>
-                                <span className='block'>
-                                  {formatPlaceholderList(
-                                    syncResult.placeholders,
-                                  )}
-                                </span>
-                              </div>
-                              <div className='space-y-0.5'>
-                                <span className='font-medium'>
-                                  {t(
-                                    'module.operationsCreditNotifications.config.templateSync.unused',
-                                  )}
-                                </span>
-                                <span className='block'>
-                                  {formatPlaceholderList(
-                                    syncResult.unused_supported_placeholders,
-                                  )}
-                                </span>
-                              </div>
-                              <div className='space-y-0.5'>
-                                <span className='font-medium'>
-                                  {t(
-                                    'module.operationsCreditNotifications.config.templateSync.unsupported',
-                                  )}
-                                </span>
-                                <span className='block'>
-                                  {formatPlaceholderList(
-                                    syncResult.unsupported_placeholders,
-                                  )}
-                                </span>
-                              </div>
-                              {syncResult.error_message ? (
-                                <div className='space-y-0.5'>
-                                  <span className='font-medium'>
-                                    {t(
-                                      'module.operationsCreditNotifications.config.templateSync.error',
-                                    )}
-                                  </span>
-                                  <span className='block'>
-                                    {syncResult.error_message}
-                                  </span>
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                      {type === 'credit_expiring' ? (
-                        <>
-                          <div>
-                            <Label
-                              htmlFor='credit-notification-expiring-windows'
-                              className='text-xs text-gray-600'
-                            >
-                              {t(
-                                'module.operationsCreditNotifications.config.fields.windows',
-                              )}
-                            </Label>
-                            <Input
-                              id='credit-notification-expiring-windows'
-                              className='mt-1 h-9'
-                              value={formatListInput(
-                                policy.types.credit_expiring.windows || [],
-                              )}
-                              onChange={event =>
-                                updatePolicy(draft => {
-                                  draft.types.credit_expiring.windows =
-                                    parseListInput(event.target.value);
-                                })
-                              }
-                            />
-                          </div>
-                          <div className='flex items-center justify-between gap-4'>
-                            <Label
-                              htmlFor='credit-notification-merge-same-creator'
-                              className='text-xs text-gray-600'
-                            >
-                              {t(
-                                'module.operationsCreditNotifications.config.fields.mergeSameCreator',
-                              )}
-                            </Label>
-                            <Switch
-                              id='credit-notification-merge-same-creator'
-                              checked={
-                                policy.types.credit_expiring
-                                  .merge_same_creator || false
-                              }
-                              onCheckedChange={checked =>
-                                updatePolicy(draft => {
-                                  draft.types.credit_expiring.merge_same_creator =
-                                    Boolean(checked);
-                                })
-                              }
-                            />
-                          </div>
-                        </>
-                      ) : null}
-                      {type === 'low_balance' ? (
-                        <>
-                          <div>
-                            <Label
-                              htmlFor='credit-notification-low-balance-thresholds'
-                              className='text-xs text-gray-600'
-                            >
-                              {t(
-                                'module.operationsCreditNotifications.config.fields.thresholds',
-                              )}
-                            </Label>
-                            <Input
-                              id='credit-notification-low-balance-thresholds'
-                              className='mt-1 h-9'
-                              value={formatListInput(
-                                fixedLowBalanceThresholds.map(
-                                  threshold => threshold.value,
-                                ),
-                              )}
-                              onChange={event =>
-                                updatePolicy(draft => {
-                                  const estimated = (
-                                    draft.types.low_balance.thresholds || []
-                                  ).find(isEstimatedDaysThreshold);
-                                  draft.types.low_balance.thresholds = [
-                                    ...parseThresholdInput(event.target.value),
-                                    ...(estimated ? [estimated] : []),
-                                  ];
-                                })
-                              }
-                            />
-                          </div>
-                          <div className='space-y-3 rounded border border-gray-100 p-2'>
-                            <div className='flex items-center justify-between gap-4'>
-                              <Label
-                                htmlFor='credit-notification-estimated-days-enabled'
-                                className='text-xs text-gray-600'
-                              >
-                                {t(
-                                  'module.operationsCreditNotifications.config.fields.estimatedDaysEnabled',
-                                )}
-                              </Label>
-                              <Switch
-                                id='credit-notification-estimated-days-enabled'
-                                checked={Boolean(estimatedDaysThreshold)}
-                                onCheckedChange={checked =>
-                                  updatePolicy(draft => {
-                                    if (checked) {
-                                      setEstimatedDaysThreshold(draft, {});
-                                      return;
-                                    }
-                                    removeEstimatedDaysThreshold(draft);
-                                  })
-                                }
-                              />
-                            </div>
-                            {estimatedDaysThreshold ? (
-                              <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'>
-                                <div>
-                                  <Label
-                                    htmlFor='credit-notification-estimated-days'
-                                    className='text-xs text-gray-600'
-                                  >
-                                    {t(
-                                      'module.operationsCreditNotifications.config.fields.estimatedDays',
-                                    )}
-                                  </Label>
-                                  <Input
-                                    id='credit-notification-estimated-days'
-                                    type='number'
-                                    min={1}
-                                    className='mt-1 h-9'
-                                    value={estimatedDaysThreshold.days}
-                                    onChange={event =>
-                                      updatePolicy(draft => {
-                                        setEstimatedDaysThreshold(draft, {
-                                          days: readPositiveNumber(
-                                            event.target.value,
-                                            DEFAULT_ESTIMATED_DAYS_THRESHOLD.days,
-                                          ),
-                                        });
-                                      })
-                                    }
-                                  />
-                                </div>
-                                <div>
-                                  <Label
-                                    htmlFor='credit-notification-lookback-days'
-                                    className='text-xs text-gray-600'
-                                  >
-                                    {t(
-                                      'module.operationsCreditNotifications.config.fields.lookbackDays',
-                                    )}
-                                  </Label>
-                                  <Input
-                                    id='credit-notification-lookback-days'
-                                    type='number'
-                                    min={1}
-                                    className='mt-1 h-9'
-                                    value={estimatedDaysThreshold.lookback_days}
-                                    onChange={event =>
-                                      updatePolicy(draft => {
-                                        setEstimatedDaysThreshold(draft, {
-                                          lookback_days: readPositiveNumber(
-                                            event.target.value,
-                                            DEFAULT_ESTIMATED_DAYS_THRESHOLD.lookback_days,
-                                          ),
-                                        });
-                                      })
-                                    }
-                                  />
-                                </div>
-                                <div>
-                                  <Label
-                                    htmlFor='credit-notification-min-consumed-days'
-                                    className='text-xs text-gray-600'
-                                  >
-                                    {t(
-                                      'module.operationsCreditNotifications.config.fields.minConsumedDays',
-                                    )}
-                                  </Label>
-                                  <Input
-                                    id='credit-notification-min-consumed-days'
-                                    type='number'
-                                    min={1}
-                                    className='mt-1 h-9'
-                                    value={
-                                      estimatedDaysThreshold.min_consumed_days
-                                    }
-                                    onChange={event =>
-                                      updatePolicy(draft => {
-                                        setEstimatedDaysThreshold(draft, {
-                                          min_consumed_days: readPositiveNumber(
-                                            event.target.value,
-                                            DEFAULT_ESTIMATED_DAYS_THRESHOLD.min_consumed_days,
-                                          ),
-                                        });
-                                      })
-                                    }
-                                  />
-                                </div>
-                                <div>
-                                  <Label
-                                    htmlFor='credit-notification-fallback-fixed-value'
-                                    className='text-xs text-gray-600'
-                                  >
-                                    {t(
-                                      'module.operationsCreditNotifications.config.fields.fallbackFixedValue',
-                                    )}
-                                  </Label>
-                                  <Input
-                                    id='credit-notification-fallback-fixed-value'
-                                    className='mt-1 h-9'
-                                    value={
-                                      estimatedDaysThreshold.fallback_fixed_value ||
-                                      ''
-                                    }
-                                    onChange={event =>
-                                      updatePolicy(draft => {
-                                        setEstimatedDaysThreshold(draft, {
-                                          fallback_fixed_value:
-                                            event.target.value,
-                                        });
-                                      })
-                                    }
-                                  />
-                                </div>
-                              </div>
-                            ) : null}
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  );
-                })}
+                {NOTIFICATION_TYPES.map(type =>
+                  renderNotificationTypeConfig(type),
+                )}
               </div>
+            </ConfigSection>
 
-              <div className='space-y-3 rounded-md border border-gray-200 p-3'>
-                <h3 className='text-sm font-semibold text-gray-900'>
-                  {t(
-                    'module.operationsCreditNotifications.config.sections.softlimit',
-                  )}
-                </h3>
-                <div className='flex items-center justify-between gap-4'>
+            <div className='grid gap-4 xl:grid-cols-2'>
+              <ConfigSection
+                title={t(
+                  'module.operationsCreditNotifications.config.sections.softlimit',
+                )}
+              >
+                <div className='flex items-center justify-between gap-4 rounded-md border border-border bg-muted/20 p-3'>
                   <Label
                     htmlFor='credit-notification-softlimit-enabled'
-                    className='text-xs text-gray-600'
+                    className='text-sm font-medium text-foreground'
                   >
                     {t(
                       'module.operationsCreditNotifications.config.fields.softlimitEnabled',
@@ -1364,18 +1725,15 @@ export default function AdminOperationCreditNotificationsPage() {
                     }
                   />
                 </div>
-                <div>
-                  <Label
-                    htmlFor='credit-notification-softlimit-threshold'
-                    className='text-xs text-gray-600'
-                  >
-                    {t(
-                      'module.operationsCreditNotifications.config.fields.softlimitThreshold',
-                    )}
-                  </Label>
+                <FormField
+                  htmlFor='credit-notification-softlimit-threshold'
+                  label={t(
+                    'module.operationsCreditNotifications.config.fields.softlimitThreshold',
+                  )}
+                >
                   <Input
                     id='credit-notification-softlimit-threshold'
-                    className='mt-1 h-9'
+                    className='h-9'
                     value={policy.softlimit.threshold.value}
                     onChange={event =>
                       updatePolicy(draft => {
@@ -1386,8 +1744,8 @@ export default function AdminOperationCreditNotificationsPage() {
                       })
                     }
                   />
-                </div>
-                <div className='grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3'>
+                </FormField>
+                <div className='grid gap-3 sm:grid-cols-3'>
                   {[
                     {
                       id: 'credit-notification-teacher-page-alert',
@@ -1425,11 +1783,11 @@ export default function AdminOperationCreditNotificationsPage() {
                   ].map(field => (
                     <div
                       key={field.id}
-                      className='flex items-center justify-between gap-3 rounded border border-gray-100 p-2'
+                      className='flex items-center justify-between gap-3 rounded-md border border-border bg-muted/20 p-2'
                     >
                       <Label
                         htmlFor={field.id}
-                        className='text-xs text-gray-600'
+                        className='text-xs font-medium text-muted-foreground'
                       >
                         {t(field.label)}
                       </Label>
@@ -1443,29 +1801,25 @@ export default function AdminOperationCreditNotificationsPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </ConfigSection>
 
-              <div className='space-y-3 rounded-md border border-gray-200 p-3'>
-                <h3 className='text-sm font-semibold text-gray-900'>
-                  {t(
-                    'module.operationsCreditNotifications.config.sections.frequency',
-                  )}
-                </h3>
-                <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'>
-                  <div>
-                    <Label
-                      htmlFor='credit-notification-per-mobile'
-                      className='text-xs text-gray-600'
-                    >
-                      {t(
-                        'module.operationsCreditNotifications.config.fields.perMobilePerDay',
-                      )}
-                    </Label>
+              <ConfigSection
+                title={t(
+                  'module.operationsCreditNotifications.config.sections.frequency',
+                )}
+              >
+                <div className='grid gap-3 sm:grid-cols-2'>
+                  <FormField
+                    htmlFor='credit-notification-per-mobile'
+                    label={t(
+                      'module.operationsCreditNotifications.config.fields.perMobilePerDay',
+                    )}
+                  >
                     <Input
                       id='credit-notification-per-mobile'
                       type='number'
                       min={0}
-                      className='mt-1 h-9'
+                      className='h-9'
                       value={policy.frequency.per_mobile_per_day}
                       onChange={event =>
                         updatePolicy(draft => {
@@ -1476,21 +1830,18 @@ export default function AdminOperationCreditNotificationsPage() {
                         })
                       }
                     />
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor='credit-notification-per-creator-type'
-                      className='text-xs text-gray-600'
-                    >
-                      {t(
-                        'module.operationsCreditNotifications.config.fields.perCreatorPerTypePerDay',
-                      )}
-                    </Label>
+                  </FormField>
+                  <FormField
+                    htmlFor='credit-notification-per-creator-type'
+                    label={t(
+                      'module.operationsCreditNotifications.config.fields.perCreatorPerTypePerDay',
+                    )}
+                  >
                     <Input
                       id='credit-notification-per-creator-type'
                       type='number'
                       min={0}
-                      className='mt-1 h-9'
+                      className='h-9'
                       value={policy.frequency.per_creator_per_type_per_day}
                       onChange={event =>
                         updatePolicy(draft => {
@@ -1499,20 +1850,21 @@ export default function AdminOperationCreditNotificationsPage() {
                         })
                       }
                     />
-                  </div>
+                  </FormField>
                 </div>
-              </div>
+              </ConfigSection>
+            </div>
 
-              <div className='space-y-3 rounded-md border border-gray-200 p-3'>
-                <h3 className='text-sm font-semibold text-gray-900'>
-                  {t(
-                    'module.operationsCreditNotifications.config.sections.quietHours',
-                  )}
-                </h3>
-                <div className='flex items-center justify-between gap-4'>
+            <div className='grid gap-4 xl:grid-cols-2'>
+              <ConfigSection
+                title={t(
+                  'module.operationsCreditNotifications.config.sections.quietHours',
+                )}
+              >
+                <div className='flex items-center justify-between gap-4 rounded-md border border-border bg-muted/20 p-3'>
                   <Label
                     htmlFor='credit-notification-quiet-hours-enabled'
-                    className='text-xs text-gray-600'
+                    className='text-sm font-medium text-foreground'
                   >
                     {t(
                       'module.operationsCreditNotifications.config.fields.quietHoursEnabled',
@@ -1528,19 +1880,16 @@ export default function AdminOperationCreditNotificationsPage() {
                     }
                   />
                 </div>
-                <div className='grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3'>
-                  <div>
-                    <Label
-                      htmlFor='credit-notification-quiet-start'
-                      className='text-xs text-gray-600'
-                    >
-                      {t(
-                        'module.operationsCreditNotifications.config.fields.quietStart',
-                      )}
-                    </Label>
+                <div className='grid gap-3 sm:grid-cols-3'>
+                  <FormField
+                    htmlFor='credit-notification-quiet-start'
+                    label={t(
+                      'module.operationsCreditNotifications.config.fields.quietStart',
+                    )}
+                  >
                     <Input
                       id='credit-notification-quiet-start'
-                      className='mt-1 h-9'
+                      className='h-9'
                       value={policy.quiet_hours.start}
                       onChange={event =>
                         updatePolicy(draft => {
@@ -1548,19 +1897,16 @@ export default function AdminOperationCreditNotificationsPage() {
                         })
                       }
                     />
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor='credit-notification-quiet-end'
-                      className='text-xs text-gray-600'
-                    >
-                      {t(
-                        'module.operationsCreditNotifications.config.fields.quietEnd',
-                      )}
-                    </Label>
+                  </FormField>
+                  <FormField
+                    htmlFor='credit-notification-quiet-end'
+                    label={t(
+                      'module.operationsCreditNotifications.config.fields.quietEnd',
+                    )}
+                  >
                     <Input
                       id='credit-notification-quiet-end'
-                      className='mt-1 h-9'
+                      className='h-9'
                       value={policy.quiet_hours.end}
                       onChange={event =>
                         updatePolicy(draft => {
@@ -1568,19 +1914,16 @@ export default function AdminOperationCreditNotificationsPage() {
                         })
                       }
                     />
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor='credit-notification-timezone'
-                      className='text-xs text-gray-600'
-                    >
-                      {t(
-                        'module.operationsCreditNotifications.config.fields.timezone',
-                      )}
-                    </Label>
+                  </FormField>
+                  <FormField
+                    htmlFor='credit-notification-timezone'
+                    label={t(
+                      'module.operationsCreditNotifications.config.fields.timezone',
+                    )}
+                  >
                     <Input
                       id='credit-notification-timezone'
-                      className='mt-1 h-9'
+                      className='h-9'
                       value={policy.quiet_hours.timezone}
                       onChange={event =>
                         updatePolicy(draft => {
@@ -1588,129 +1931,27 @@ export default function AdminOperationCreditNotificationsPage() {
                         })
                       }
                     />
-                  </div>
+                  </FormField>
                 </div>
-              </div>
+              </ConfigSection>
 
-              <div className='space-y-3 rounded-md border border-gray-200 p-3'>
-                <h3 className='text-sm font-semibold text-gray-900'>
-                  {t(
-                    'module.operationsCreditNotifications.config.sections.lists',
-                  )}
-                </h3>
-                <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'>
-                  <div>
-                    <Label
-                      htmlFor='credit-notification-blacklist-creators'
-                      className='text-xs text-gray-600'
-                    >
-                      {t(
-                        'module.operationsCreditNotifications.config.fields.blacklistCreatorBids',
-                      )}
-                    </Label>
-                    <Input
-                      id='credit-notification-blacklist-creators'
-                      className='mt-1 h-9'
-                      value={formatListInput(policy.blacklist.creator_bids)}
-                      onChange={event =>
-                        updatePolicy(draft => {
-                          draft.blacklist.creator_bids = parseListInput(
-                            event.target.value,
-                          );
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor='credit-notification-blacklist-mobiles'
-                      className='text-xs text-gray-600'
-                    >
-                      {t(
-                        'module.operationsCreditNotifications.config.fields.blacklistMobiles',
-                      )}
-                    </Label>
-                    <Input
-                      id='credit-notification-blacklist-mobiles'
-                      className='mt-1 h-9'
-                      value={formatListInput(policy.blacklist.mobiles)}
-                      onChange={event =>
-                        updatePolicy(draft => {
-                          draft.blacklist.mobiles = parseListInput(
-                            event.target.value,
-                          );
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor='credit-notification-opt-out-creators'
-                      className='text-xs text-gray-600'
-                    >
-                      {t(
-                        'module.operationsCreditNotifications.config.fields.optOutCreatorBids',
-                      )}
-                    </Label>
-                    <Input
-                      id='credit-notification-opt-out-creators'
-                      className='mt-1 h-9'
-                      value={formatListInput(policy.opt_out.creator_bids)}
-                      onChange={event =>
-                        updatePolicy(draft => {
-                          draft.opt_out.creator_bids = parseListInput(
-                            event.target.value,
-                          );
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor='credit-notification-opt-out-mobiles'
-                      className='text-xs text-gray-600'
-                    >
-                      {t(
-                        'module.operationsCreditNotifications.config.fields.optOutMobiles',
-                      )}
-                    </Label>
-                    <Input
-                      id='credit-notification-opt-out-mobiles'
-                      className='mt-1 h-9'
-                      value={formatListInput(policy.opt_out.mobiles)}
-                      onChange={event =>
-                        updatePolicy(draft => {
-                          draft.opt_out.mobiles = parseListInput(
-                            event.target.value,
-                          );
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className='space-y-3 rounded-md border border-gray-200 p-3'>
-                <h3 className='text-sm font-semibold text-gray-900'>
-                  {t(
-                    'module.operationsCreditNotifications.config.sections.budget',
-                  )}
-                </h3>
-                <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2'>
-                  <div>
-                    <Label
-                      htmlFor='credit-notification-daily-sms-limit'
-                      className='text-xs text-gray-600'
-                    >
-                      {t(
-                        'module.operationsCreditNotifications.config.fields.dailySmsLimit',
-                      )}
-                    </Label>
+              <ConfigSection
+                title={t(
+                  'module.operationsCreditNotifications.config.sections.budget',
+                )}
+              >
+                <div className='grid gap-3 sm:grid-cols-2'>
+                  <FormField
+                    htmlFor='credit-notification-daily-sms-limit'
+                    label={t(
+                      'module.operationsCreditNotifications.config.fields.dailySmsLimit',
+                    )}
+                  >
                     <Input
                       id='credit-notification-daily-sms-limit'
                       type='number'
                       min={0}
-                      className='mt-1 h-9'
+                      className='h-9'
                       value={policy.budget.daily_sms_limit}
                       onChange={event =>
                         updatePolicy(draft => {
@@ -1721,19 +1962,16 @@ export default function AdminOperationCreditNotificationsPage() {
                         })
                       }
                     />
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor='credit-notification-sms-unit-cost'
-                      className='text-xs text-gray-600'
-                    >
-                      {t(
-                        'module.operationsCreditNotifications.config.fields.smsUnitCost',
-                      )}
-                    </Label>
+                  </FormField>
+                  <FormField
+                    htmlFor='credit-notification-sms-unit-cost'
+                    label={t(
+                      'module.operationsCreditNotifications.config.fields.smsUnitCost',
+                    )}
+                  >
                     <Input
                       id='credit-notification-sms-unit-cost'
-                      className='mt-1 h-9'
+                      className='h-9'
                       value={policy.budget.sms_unit_cost}
                       onChange={event =>
                         updatePolicy(draft => {
@@ -1741,12 +1979,12 @@ export default function AdminOperationCreditNotificationsPage() {
                         })
                       }
                     />
-                  </div>
+                  </FormField>
                 </div>
-                <div className='flex items-center justify-between gap-4 rounded border border-gray-100 p-2'>
+                <div className='flex items-center justify-between gap-4 rounded-md border border-border bg-muted/20 p-3'>
                   <Label
                     htmlFor='credit-notification-dry-run-required'
-                    className='text-xs text-gray-600'
+                    className='text-xs font-medium text-muted-foreground'
                   >
                     {t(
                       'module.operationsCreditNotifications.config.fields.dryRunRequired',
@@ -1762,36 +2000,140 @@ export default function AdminOperationCreditNotificationsPage() {
                     }
                   />
                 </div>
-              </div>
+              </ConfigSection>
             </div>
-            {configError ? (
-              <p className='mt-2 text-sm text-red-600'>{configError}</p>
-            ) : null}
-            <Button
-              type='button'
-              className='mt-3'
-              onClick={saveConfig}
-            >
-              {t('module.operationsCreditNotifications.actions.applyConfig')}
-            </Button>
-          </section>
 
-          <section className='rounded-md border border-gray-200 bg-white p-4'>
-            <h2 className='text-base font-semibold text-gray-900'>
-              {t('module.operationsCreditNotifications.dryRun.title')}
-            </h2>
-            {dryRunResult ? (
-              <pre className='mt-3 max-h-[260px] overflow-auto rounded bg-gray-50 p-3 text-xs text-gray-700'>
-                {JSON.stringify(dryRunResult, null, 2)}
-              </pre>
-            ) : (
-              <p className='mt-2 text-sm text-gray-500'>
-                {t('module.operationsCreditNotifications.dryRun.empty')}
-              </p>
-            )}
-          </section>
-        </aside>
-      </div>
+            <ConfigSection
+              title={t(
+                'module.operationsCreditNotifications.config.sections.lists',
+              )}
+            >
+              <div className='grid gap-3 lg:grid-cols-4'>
+                <FormField
+                  htmlFor='credit-notification-blacklist-creators'
+                  label={t(
+                    'module.operationsCreditNotifications.config.fields.blacklistCreatorBids',
+                  )}
+                >
+                  <Input
+                    id='credit-notification-blacklist-creators'
+                    className='h-9'
+                    value={formatListInput(policy.blacklist.creator_bids)}
+                    onChange={event =>
+                      updatePolicy(draft => {
+                        draft.blacklist.creator_bids = parseListInput(
+                          event.target.value,
+                        );
+                      })
+                    }
+                  />
+                </FormField>
+                <FormField
+                  htmlFor='credit-notification-blacklist-mobiles'
+                  label={t(
+                    'module.operationsCreditNotifications.config.fields.blacklistMobiles',
+                  )}
+                >
+                  <Input
+                    id='credit-notification-blacklist-mobiles'
+                    className='h-9'
+                    value={formatListInput(policy.blacklist.mobiles)}
+                    onChange={event =>
+                      updatePolicy(draft => {
+                        draft.blacklist.mobiles = parseListInput(
+                          event.target.value,
+                        );
+                      })
+                    }
+                  />
+                </FormField>
+                <FormField
+                  htmlFor='credit-notification-opt-out-creators'
+                  label={t(
+                    'module.operationsCreditNotifications.config.fields.optOutCreatorBids',
+                  )}
+                >
+                  <Input
+                    id='credit-notification-opt-out-creators'
+                    className='h-9'
+                    value={formatListInput(policy.opt_out.creator_bids)}
+                    onChange={event =>
+                      updatePolicy(draft => {
+                        draft.opt_out.creator_bids = parseListInput(
+                          event.target.value,
+                        );
+                      })
+                    }
+                  />
+                </FormField>
+                <FormField
+                  htmlFor='credit-notification-opt-out-mobiles'
+                  label={t(
+                    'module.operationsCreditNotifications.config.fields.optOutMobiles',
+                  )}
+                >
+                  <Input
+                    id='credit-notification-opt-out-mobiles'
+                    className='h-9'
+                    value={formatListInput(policy.opt_out.mobiles)}
+                    onChange={event =>
+                      updatePolicy(draft => {
+                        draft.opt_out.mobiles = parseListInput(
+                          event.target.value,
+                        );
+                      })
+                    }
+                  />
+                </FormField>
+              </div>
+            </ConfigSection>
+
+            <ConfigSection
+              title={t('module.operationsCreditNotifications.dryRun.title')}
+            >
+              <div className='flex items-center justify-between gap-4 rounded-md border border-border bg-muted/20 p-3'>
+                <div className='text-xs text-muted-foreground'>
+                  {dryRunResult
+                    ? t(
+                        'module.operationsCreditNotifications.dryRun.candidateCount',
+                        { count: dryRunResult.candidate_count || 0 },
+                      )
+                    : t('module.operationsCreditNotifications.dryRun.empty')}
+                </div>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={dryRun}
+                >
+                  {t('module.operationsCreditNotifications.actions.dryRun')}
+                </Button>
+              </div>
+              {dryRunResult ? (
+                <pre className='max-h-[220px] overflow-auto rounded-md bg-muted p-3 text-xs text-muted-foreground'>
+                  {JSON.stringify(dryRunResult, null, 2)}
+                </pre>
+              ) : null}
+            </ConfigSection>
+
+            {configError ? (
+              <ErrorDisplay
+                errorCode={0}
+                errorMessage={configError}
+              />
+            ) : null}
+
+            <div className='flex justify-end'>
+              <Button
+                type='button'
+                onClick={saveConfig}
+              >
+                {t('module.operationsCreditNotifications.actions.applyConfig')}
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

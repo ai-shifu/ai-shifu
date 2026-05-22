@@ -3,6 +3,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 import AdminOperationCreditNotificationsPage from './page';
 
+const mockReplace = jest.fn();
+let mockSearchParams = new URLSearchParams();
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -15,6 +18,14 @@ jest.mock('@/api', () => ({
   },
 }));
 
+jest.mock('next/navigation', () => ({
+  usePathname: () => '/admin/operations/credit-notifications',
+  useRouter: () => ({
+    replace: mockReplace,
+  }),
+  useSearchParams: () => mockSearchParams,
+}));
+
 jest.mock('../useOperatorGuard', () => ({
   __esModule: true,
   default: () => ({
@@ -22,7 +33,8 @@ jest.mock('../useOperatorGuard', () => ({
   }),
 }));
 
-const mockT = (key: string, fallback?: string) => fallback || key;
+const mockT = (key: string, fallback?: string | Record<string, unknown>) =>
+  typeof fallback === 'string' ? fallback : key;
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -54,16 +66,43 @@ const mockSyncTemplate =
   api.syncAdminOperationCreditNotificationTemplate as jest.Mock;
 const mockUpdateConfig =
   api.updateAdminOperationCreditNotificationConfig as jest.Mock;
+const mockDryRun = api.dryRunAdminOperationCreditNotifications as jest.Mock;
+
+const openConfigTab = async () => {
+  const configTab = screen.getByRole('tab', {
+    name: 'module.operationsCreditNotifications.tabs.config',
+  });
+  fireEvent.pointerDown(configTab, { button: 0, ctrlKey: false });
+  fireEvent.mouseDown(configTab, { button: 0, ctrlKey: false });
+  fireEvent.click(configTab);
+  await waitFor(() => {
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.operationsCreditNotifications.tabs.config',
+      }),
+    ).toHaveAttribute('data-state', 'active');
+  });
+};
 
 describe('AdminOperationCreditNotificationsPage', () => {
   beforeEach(() => {
+    mockSearchParams = new URLSearchParams();
+    mockReplace.mockReset();
     mockGetConfig.mockReset();
     mockGetRecords.mockReset();
+    mockDryRun.mockReset();
     mockRequeue.mockReset();
     mockSyncTemplate.mockReset();
     mockUpdateConfig.mockReset();
     mockGetConfig.mockResolvedValue({ enabled: false });
     mockUpdateConfig.mockResolvedValue({ enabled: false });
+    mockDryRun.mockResolvedValue({
+      status: 'ok',
+      candidate_count: 1,
+      created_count: 0,
+      dry_run: true,
+      notifications: [{ notification_type: 'low_balance' }],
+    });
     mockGetRecords.mockResolvedValue({
       page: 1,
       page_size: 20,
@@ -127,6 +166,46 @@ describe('AdminOperationCreditNotificationsPage', () => {
     });
   });
 
+  it('shows notification records by default and switches to policy config tab', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('notification-1')).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.operationsCreditNotifications.tabs.records',
+      }),
+    ).toHaveAttribute('data-state', 'active');
+
+    await openConfigTab();
+
+    expect(
+      screen.getByText('module.operationsCreditNotifications.config.title'),
+    ).toBeInTheDocument();
+    expect(mockReplace).toHaveBeenCalledWith(
+      '/admin/operations/credit-notifications?tab=config',
+      { scroll: false },
+    );
+  });
+
+  it('opens policy config tab from the tab query parameter', async () => {
+    mockSearchParams = new URLSearchParams('tab=config');
+
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('tab', {
+          name: 'module.operationsCreditNotifications.tabs.config',
+        }),
+      ).toHaveAttribute('data-state', 'active');
+    });
+    expect(
+      screen.getByText('module.operationsCreditNotifications.config.title'),
+    ).toBeInTheDocument();
+  });
+
   it('lists failed provider records and requeues them', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
@@ -150,12 +229,61 @@ describe('AdminOperationCreditNotificationsPage', () => {
     });
   });
 
+  it('searches with draft filters only after clicking search and resets filters', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetRecords).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCreditNotifications.filters.creatorBid',
+      ),
+      { target: { value: 'creator-draft' } },
+    );
+    expect(mockGetRecords).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetRecords).toHaveBeenCalledTimes(2);
+    });
+    expect(mockGetRecords.mock.calls[1][0]).toEqual(
+      expect.objectContaining({
+        creator_bid: 'creator-draft',
+        page_index: 1,
+      }),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.reset',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetRecords).toHaveBeenCalledTimes(3);
+    });
+    expect(mockGetRecords.mock.calls[2][0]).toEqual(
+      expect.objectContaining({
+        creator_bid: '',
+        page_index: 1,
+      }),
+    );
+  });
+
   it('saves structured config changes without exposing a raw JSON editor', async () => {
     const { container } = render(<AdminOperationCreditNotificationsPage />);
 
     await waitFor(() => {
       expect(mockGetConfig).toHaveBeenCalled();
     });
+    await openConfigTab();
 
     expect(container.querySelector('textarea')).toBeNull();
 
@@ -195,6 +323,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     await waitFor(() => {
       expect(mockGetConfig).toHaveBeenCalled();
     });
+    await openConfigTab();
 
     expect(
       screen.getByText(
@@ -222,6 +351,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     await waitFor(() => {
       expect(mockGetConfig).toHaveBeenCalled();
     });
+    await openConfigTab();
 
     const templateInputs = screen.getAllByLabelText(
       'module.operationsCreditNotifications.config.fields.templateCode',
@@ -266,12 +396,38 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(savedPayload).not.toContain('unsupported_placeholders');
   });
 
+  it('keeps dry-run in the policy config tab', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+    await openConfigTab();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.dryRun',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockDryRun).toHaveBeenCalledWith({
+        notification_type: '',
+        creator_bid: '',
+      });
+    });
+    expect(
+      screen.getByText(/"notification_type": "low_balance"/),
+    ).toBeInTheDocument();
+  });
+
   it('saves estimated-days low balance thresholds from the structured form', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
     await waitFor(() => {
       expect(mockGetConfig).toHaveBeenCalled();
     });
+    await openConfigTab();
 
     fireEvent.click(
       screen.getByLabelText(

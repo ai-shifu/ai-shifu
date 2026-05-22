@@ -5,6 +5,8 @@
     "dryRun": "Dry-run",
     "refresh": "Refresh",
     "requeue": "Requeue",
+    "reset": "Reset",
+    "search": "Search",
     "syncTemplate": "Query template",
     "syncingTemplate": "Querying"
   },
@@ -86,6 +88,7 @@
   },
   "empty": "No credit notification records.",
   "filters": {
+    "all": "All",
     "creatorBid": "Creator BID",
     "mobile": "Mobile",
     "notificationType": "Notification type",
@@ -95,6 +98,9 @@
   "loadError": "Credit notification data could not be loaded. Refresh and try again.",
   "messages": {
     "requeueDone": "Requeue task submitted."
+  },
+  "records": {
+    "totalCount": "{count} notification records"
   },
   "status": {
     "failed_provider": "Provider failed",
@@ -106,6 +112,7 @@
   },
   "subtitle": "Inspect credit grant, expiry, and low-balance notification delivery, and configure SMS policy.",
   "table": {
+    "action": "Action",
     "createdAt": "Created at",
     "creator": "Creator",
     "dedupeKey": "Dedupe key",
@@ -114,6 +121,10 @@
     "source": "Source",
     "template": "Template",
     "templateParams": "Param snapshot"
+  },
+  "tabs": {
+    "config": "Policy config",
+    "records": "Notification records"
   },
   "title": "Credit Notifications",
   "type": {
