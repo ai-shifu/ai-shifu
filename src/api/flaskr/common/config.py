@@ -675,6 +675,14 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Cron expression for scanning billing low-balance alerts.",
         group="celery",
     ),
+    "BILLING_DAILY_LEDGER_SUMMARY_CRON": EnvVar(
+        name="BILLING_DAILY_LEDGER_SUMMARY_CRON",
+        default="30 1 * * *",
+        description=(
+            "Cron expression for finalizing the previous day's billing ledger summary."
+        ),
+        group="celery",
+    ),
     # Authentication Configuration
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",
