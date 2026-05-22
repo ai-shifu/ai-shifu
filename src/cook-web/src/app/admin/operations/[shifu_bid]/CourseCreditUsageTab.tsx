@@ -418,7 +418,7 @@ export default function CourseCreditUsageTab({
     detail: AdminOperationCourseCreditUsageDetailItem,
   ) => {
     const outputSummary = detail.output_summary?.trim() || '';
-    if (!outputSummary) {
+    if (!outputSummary || outputSummary === emptyValue) {
       return <span className='text-muted-foreground'>{emptyValue}</span>;
     }
     const isExpanded = expandedUsageBids.has(detail.usage_bid);
@@ -465,9 +465,14 @@ export default function CourseCreditUsageTab({
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     if (!minutes) {
-      return `${seconds}s`;
+      return tOperations('detail.creditUsage.details.durationSeconds', {
+        seconds,
+      });
     }
-    return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+    return tOperations('detail.creditUsage.details.durationMinutesSeconds', {
+      minutes,
+      seconds: String(seconds).padStart(2, '0'),
+    });
   };
 
   return (
@@ -584,16 +589,10 @@ export default function CourseCreditUsageTab({
                   pageIndex={currentPage}
                   pageCount={pageCount}
                   onPageChange={onPageChange}
-                  prevLabel={t('module.order.paginationPrev', 'Previous')}
-                  nextLabel={t('module.order.paginationNext', 'Next')}
-                  prevAriaLabel={t(
-                    'module.order.paginationPrevAriaLabel',
-                    'Go to previous page',
-                  )}
-                  nextAriaLabel={t(
-                    'module.order.paginationNextAriaLabel',
-                    'Go to next page',
-                  )}
+                  prevLabel={t('module.order.paginationPrev')}
+                  nextLabel={t('module.order.paginationNext')}
+                  prevAriaLabel={t('module.order.paginationPrevAriaLabel')}
+                  nextAriaLabel={t('module.order.paginationNextAriaLabel')}
                   className='mx-0 w-auto justify-end'
                 />
               ) : null
@@ -782,6 +781,10 @@ export default function CourseCreditUsageTab({
                               type='button'
                               className='tabular-nums text-primary hover:underline disabled:pointer-events-none disabled:text-foreground'
                               disabled={!row.usage_count}
+                              aria-label={tOperations(
+                                'detail.creditUsage.details.openUsageDetails',
+                                { count: row.usage_count || 0 },
+                              )}
                               onClick={() => handleOpenDetails(row)}
                             >
                               {row.usage_count}
@@ -841,16 +844,10 @@ export default function CourseCreditUsageTab({
                     pageIndex={detailData.page || 1}
                     pageCount={Math.max(detailData.page_count || 0, 1)}
                     onPageChange={setDetailPage}
-                    prevLabel={t('module.order.paginationPrev', 'Previous')}
-                    nextLabel={t('module.order.paginationNext', 'Next')}
-                    prevAriaLabel={t(
-                      'module.order.paginationPrevAriaLabel',
-                      'Go to previous page',
-                    )}
-                    nextAriaLabel={t(
-                      'module.order.paginationNextAriaLabel',
-                      'Go to next page',
-                    )}
+                    prevLabel={t('module.order.paginationPrev')}
+                    nextLabel={t('module.order.paginationNext')}
+                    prevAriaLabel={t('module.order.paginationPrevAriaLabel')}
+                    nextAriaLabel={t('module.order.paginationNextAriaLabel')}
                     className='mx-0 w-auto justify-end'
                   />
                 ) : null

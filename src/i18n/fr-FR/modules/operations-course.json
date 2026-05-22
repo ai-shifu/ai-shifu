@@ -84,8 +84,11 @@
       "description": "Consulter les enregistrements de consommation de crédits de ce cours.",
       "details": {
         "collapse": "Réduire",
+        "durationMinutesSeconds": "{minutes} min {seconds} s",
+        "durationSeconds": "{seconds} s",
         "empty": "Aucun détail de consommation",
-        "expand": "...",
+        "expand": "Développer",
+        "openUsageDetails": "Ouvrir les détails des {count} consommations",
         "table": {
           "createdAt": "Consommé le",
           "credits": "Crédits",

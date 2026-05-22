@@ -576,7 +576,13 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await openCreditUsageTab();
 
-    fireEvent.click(await screen.findByRole('button', { name: '2' }));
+    const usageRow = (await screen.findByText('Lesson 1')).closest('tr');
+    expect(usageRow).not.toBeNull();
+    fireEvent.click(
+      within(usageRow as HTMLElement).getByRole('button', {
+        name: 'module.operationsCourse.detail.creditUsage.details.openUsageDetails',
+      }),
+    );
 
     await waitFor(() => {
       expect(

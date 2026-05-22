@@ -2768,6 +2768,9 @@ class RunScriptContextV2:
             generated_block.position = run_script_info.block_position
             # For STUDENT records, also store translated interaction block
             # (in case this record is returned instead of TEACHER record)
+            llm_provider.set_usage_generated_block_bid(
+                generated_block.generated_block_bid
+            )
             interaction_result = mdflow_context.process(
                 block_index=run_script_info.block_position,
                 mode=ProcessMode.COMPLETE,
@@ -2779,9 +2782,6 @@ class RunScriptContextV2:
             )
             generated_block.status = 1
             db.session.flush()
-            llm_provider.set_usage_generated_block_bid(
-                generated_block.generated_block_bid
-            )
             trace_metadata = self._trace_args.get("metadata") or {}
             if not isinstance(trace_metadata, dict):
                 trace_metadata = {}

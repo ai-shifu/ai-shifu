@@ -84,8 +84,11 @@
       "description": "查看该课程的积分消耗记录。",
       "details": {
         "collapse": "收起",
+        "durationMinutesSeconds": "{minutes}分{seconds}秒",
+        "durationSeconds": "{seconds}秒",
         "empty": "暂无消耗明细",
-        "expand": "...",
+        "expand": "展开",
+        "openUsageDetails": "查看{count}次消耗明细",
         "table": {
           "createdAt": "消耗时间",
           "credits": "消耗积分",

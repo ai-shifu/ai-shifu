@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sys
 from types import SimpleNamespace
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
@@ -710,6 +710,16 @@ def test_coerce_operator_datetime_accepts_mysql_string_values(app):
         assert _coerce_operator_datetime("2026-05-20 16:40:51") == datetime(
             2026, 5, 20, 16, 40, 51
         )
+
+
+def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app):
+    with app.app_context():
+        assert _coerce_operator_datetime("2026-05-22T10:00:00+08:00") == datetime(
+            2026, 5, 22, 2, 0, 0
+        )
+        assert _coerce_operator_datetime(
+            datetime(2026, 5, 22, 10, 0, 0, tzinfo=timezone.utc)
+        ) == datetime(2026, 5, 22, 10, 0, 0)
 
 
 def test_admin_operation_course_detail_route_returns_latest_detail(
@@ -2213,7 +2223,7 @@ def test_admin_operation_course_credit_usages_route_rejects_invalid_view(
     assert payload["message"] == "Params Error view"
 
 
-def test_admin_operation_course_credit_usages_route_returns_empty_for_missing_course(
+def test_admin_operation_course_credit_usages_route_rejects_missing_course(
     test_client,
     monkeypatch,
 ):
@@ -2227,11 +2237,161 @@ def test_admin_operation_course_credit_usages_route_returns_empty_for_missing_co
     payload = response.get_json(force=True)
 
     assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.shifu.shifuNotFound"]
+
+
+def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summary(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="student-1", phone="13900001235")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            parent_bid="chapter-1",
+            title="Lesson 1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_credit_usage(
+            usage_bid="usage-detail-1",
+            user_bid="student-1",
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            progress_record_bid="progress-1",
+            generated_block_bid="block-detail-1",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="openai",
+            model="gpt-4.1",
+            consumed_credits=Decimal("5"),
+            created_at=datetime(2026, 4, 4, 10, 0, 0),
+            extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
+        )
+        _seed_generated_element(
+            element_bid="element-detail-1",
+            progress_record_bid="progress-1",
+            user_bid="student-1",
+            generated_block_bid="block-detail-1",
+            outline_item_bid="lesson-1",
+            shifu_bid="course-detail",
+            created_at=datetime(2026, 4, 4, 10, 0, 1),
+            content_text="Generated answer",
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages/details"
+        "?page=1&page_size=10&user_bid=student-1&outline_item_bid=lesson-1&mode=learn",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
     assert payload["code"] == 0
-    assert payload["data"]["view"] == "grouped"
-    assert payload["data"]["items"] == []
-    assert payload["data"]["total"] == 0
-    assert payload["data"]["page_count"] == 0
+    assert payload["data"]["page"] == 1
+    assert payload["data"]["page_size"] == 10
+    assert payload["data"]["total"] == 1
+    assert payload["data"]["page_count"] == 1
+    item = payload["data"]["items"][0]
+    assert item["usage_bid"] == "usage-detail-1"
+    assert item["consumed_credits"] == 5
+    assert item["input_tokens"] == 100
+    assert item["output_tokens"] == 200
+    assert item["output_summary"] == "Generated answer"
+
+
+def test_admin_operation_course_credit_usage_details_route_paginates_and_filters_mode(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="student-1", phone="13900001235")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        for index in range(3):
+            _seed_credit_usage(
+                usage_bid=f"usage-detail-{index}",
+                user_bid="student-1",
+                shifu_bid="course-detail",
+                outline_item_bid="lesson-1",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="openai",
+                model="gpt-4.1",
+                consumed_credits=Decimal("1"),
+                created_at=datetime(2026, 4, 4, 10, index, 0),
+                extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
+            )
+        _seed_credit_usage(
+            usage_bid="usage-detail-listen",
+            user_bid="student-1",
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider="volcengine",
+            model="cancan-2.0",
+            consumed_credits=Decimal("2"),
+            created_at=datetime(2026, 4, 4, 11, 0, 0),
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages/details"
+        "?page=2&page_size=2&user_bid=student-1&outline_item_bid=lesson-1&mode=learn",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["total"] == 3
+    assert payload["data"]["page_count"] == 2
+    assert [item["usage_bid"] for item in payload["data"]["items"]] == [
+        "usage-detail-0"
+    ]
+    assert payload["data"]["items"][0]["output_summary"] == ""
 
 
 def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_progress_separate(

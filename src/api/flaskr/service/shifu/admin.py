@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
@@ -348,6 +348,8 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
     if value is None:
         return None
     if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            return value.astimezone(timezone.utc).replace(tzinfo=None)
         return value
     if isinstance(value, str):
         normalized = value.strip()
@@ -363,7 +365,9 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
                 value,
             )
             return None
-        return parsed.replace(tzinfo=None) if parsed.tzinfo is not None else parsed
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed
     current_app.logger.warning(
         "Unexpected operator datetime value type '%s'",
         type(value).__name__,
@@ -600,7 +604,11 @@ def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str):
     )
 
 
-def _build_operator_course_credit_usage_base_query(shifu_bid: str):
+def _build_operator_course_credit_usage_base_query(
+    shifu_bid: str,
+    *,
+    outline_item_bids: Optional[Sequence[str]] = None,
+):
     ledger_totals = _build_operator_course_credit_usage_ledger_totals_subquery(
         shifu_bid
     )
@@ -611,7 +619,7 @@ def _build_operator_course_credit_usage_base_query(shifu_bid: str):
         ledger_totals,
         ledger_totals.c.usage_bid == BillUsageRecord.usage_bid,
     )
-    return query.filter(
+    query = query.filter(
         BillUsageRecord.shifu_bid == shifu_bid,
         BillUsageRecord.deleted == 0,
         BillUsageRecord.billable == 1,
@@ -620,6 +628,16 @@ def _build_operator_course_credit_usage_base_query(shifu_bid: str):
         BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD,
         ledger_totals.c.ledger_amount < 0,
     )
+    if outline_item_bids is not None:
+        normalized_outline_item_bids = [
+            str(outline_item_bid or "").strip()
+            for outline_item_bid in outline_item_bids
+            if str(outline_item_bid or "").strip()
+        ]
+        query = query.filter(
+            BillUsageRecord.outline_item_bid.in_(normalized_outline_item_bids)
+        )
+    return query
 
 
 def _resolve_course_credit_usage_output_summary(
@@ -728,8 +746,7 @@ def _load_course_credit_usage_output_summary_map(
     if not generated_block_bids:
         return {}
 
-    element_summary_map: dict[str, str] = {}
-    element_count_map: dict[str, int] = {}
+    element_parts_map: dict[str, list[str]] = {}
     element_rows = (
         LearnGeneratedElement.query.filter(
             LearnGeneratedElement.generated_block_bid.in_(generated_block_bids),
@@ -747,7 +764,7 @@ def _load_course_credit_usage_output_summary_map(
             LearnGeneratedElement.run_event_seq.asc(),
             LearnGeneratedElement.id.asc(),
         )
-        .all()
+        .yield_per(100)
     )
     for element in element_rows:
         generated_block_bid = str(
@@ -755,19 +772,18 @@ def _load_course_credit_usage_output_summary_map(
         ).strip()
         if not generated_block_bid:
             continue
-        if element_count_map.get(generated_block_bid, 0) >= 20:
+        parts = element_parts_map.setdefault(generated_block_bid, [])
+        if len(parts) >= 20:
             continue
         content = str(getattr(element, "content_text", "") or "").strip()
-        if not content:
-            continue
-        element_summary_map[generated_block_bid] = "\n".join(
-            part
-            for part in [element_summary_map.get(generated_block_bid, ""), content]
-            if part
-        )
-        element_count_map[generated_block_bid] = (
-            element_count_map.get(generated_block_bid, 0) + 1
-        )
+        if content:
+            parts.append(content)
+
+    element_summary_map = {
+        generated_block_bid: "\n".join(parts)
+        for generated_block_bid, parts in element_parts_map.items()
+        if parts
+    }
 
     missing_block_bids = [
         generated_block_bid
@@ -930,7 +946,10 @@ def _build_operator_course_credit_metrics(
     shifu_bid: str,
     leaf_outline_bids: Sequence[str],
 ) -> Dict[str, Any]:
-    base_query = _build_operator_course_credit_usage_base_query(shifu_bid)
+    base_query = _build_operator_course_credit_usage_base_query(
+        shifu_bid,
+        outline_item_bids=leaf_outline_bids,
+    )
     usage_rows = base_query.subquery("operator_course_credit_metric_usages")
     aggregate_row = db.session.query(
         db.func.coalesce(
@@ -5286,16 +5305,11 @@ def get_operator_course_credit_usages(
         )
         filters = filters or {}
 
-        detail_source = _load_operator_course_detail_source(normalized_shifu_bid)
-        outline_items = (
-            _load_latest_outline_items(
-                detail_source["outline_model"],
-                normalized_shifu_bid,
-            )
-            if detail_source is not None
-            else []
+        _detail_source, outline_items = _load_operator_course_outline_items(
+            normalized_shifu_bid
         )
         outline_context_map = _build_course_outline_context_map(outline_items)
+        visible_leaf_outline_bids = _resolve_visible_leaf_outline_bids(outline_items)
 
         mode_filter = _resolve_course_credit_usage_mode_filter(
             str(filters.get("mode", "") or "")
@@ -5307,7 +5321,10 @@ def get_operator_course_credit_usages(
         if str(filters.get("view", "") or "").strip() and not view:
             raise_param_error("view")
 
-        query = _build_operator_course_credit_usage_base_query(normalized_shifu_bid)
+        query = _build_operator_course_credit_usage_base_query(
+            normalized_shifu_bid,
+            outline_item_bids=visible_leaf_outline_bids,
+        )
         query = _apply_course_credit_usage_filters(query, filters)
 
         if view == COURSE_CREDIT_USAGE_VIEW_RAW:
@@ -5378,37 +5395,30 @@ def get_operator_course_credit_usages(
             ),
             else_=COURSE_CREDIT_USAGE_MODE_LEARN,
         ).label("usage_mode")
-        group_key_expr = (
-            usage_rows.c.user_bid
-            + literal(":")
-            + usage_rows.c.outline_item_bid
-            + literal(":")
-            + usage_mode_expr
+        group_key_expr = db.func.concat(
+            usage_rows.c.user_bid,
+            literal(":"),
+            usage_rows.c.outline_item_bid,
+            literal(":"),
+            usage_mode_expr,
         ).label("group_key")
 
         grouped_query = (
             db.session.query(
-                db.func.max(group_key_expr).label("group_key"),
-                db.func.max(usage_rows.c.usage_bid).label("usage_bid"),
-                db.func.max(usage_rows.c.progress_record_bid).label(
-                    "progress_record_bid"
-                ),
-                db.func.max(usage_rows.c.generated_block_bid).label(
-                    "generated_block_bid"
-                ),
+                group_key_expr,
                 usage_rows.c.user_bid.label("user_bid"),
                 usage_rows.c.outline_item_bid.label("outline_item_bid"),
                 usage_mode_expr,
-                db.func.max(usage_rows.c.provider).label("provider"),
-                db.func.max(usage_rows.c.model).label("model"),
                 db.func.count(db.func.distinct(usage_rows.c.usage_bid)).label(
                     "usage_count"
                 ),
                 db.func.count(
                     db.func.distinct(
-                        db.func.coalesce(usage_rows.c.provider, "")
-                        + literal("/")
-                        + db.func.coalesce(usage_rows.c.model, "")
+                        db.func.concat(
+                            db.func.coalesce(usage_rows.c.provider, ""),
+                            literal("/"),
+                            db.func.coalesce(usage_rows.c.model, ""),
+                        )
                     )
                 ).label("model_variant_count"),
                 db.func.coalesce(
@@ -5423,14 +5433,56 @@ def get_operator_course_credit_usages(
                 usage_mode_expr,
             )
         )
+        latest_usage_query = db.session.query(
+            group_key_expr,
+            usage_rows.c.usage_bid.label("usage_bid"),
+            usage_rows.c.progress_record_bid.label("progress_record_bid"),
+            usage_rows.c.generated_block_bid.label("generated_block_bid"),
+            usage_rows.c.provider.label("provider"),
+            usage_rows.c.model.label("model"),
+            db.func.row_number()
+            .over(
+                partition_by=[
+                    usage_rows.c.user_bid,
+                    usage_rows.c.outline_item_bid,
+                    usage_mode_expr,
+                ],
+                order_by=[usage_rows.c.created_at.desc(), usage_rows.c.id.desc()],
+            )
+            .label("row_number"),
+        ).select_from(usage_rows)
 
         grouped_subquery = grouped_query.subquery("operator_course_credit_usage_groups")
+        latest_usage_subquery = latest_usage_query.subquery(
+            "operator_course_credit_usage_latest_rows"
+        )
         total = (
             db.session.query(db.func.count()).select_from(grouped_subquery).scalar()
             or 0
         )
         grouped_rows = (
-            db.session.query(grouped_subquery)
+            db.session.query(
+                grouped_subquery.c.group_key,
+                latest_usage_subquery.c.usage_bid,
+                latest_usage_subquery.c.progress_record_bid,
+                latest_usage_subquery.c.generated_block_bid,
+                grouped_subquery.c.user_bid,
+                grouped_subquery.c.outline_item_bid,
+                grouped_subquery.c.usage_mode,
+                latest_usage_subquery.c.provider,
+                latest_usage_subquery.c.model,
+                grouped_subquery.c.usage_count,
+                grouped_subquery.c.model_variant_count,
+                grouped_subquery.c.consumed_credits,
+                grouped_subquery.c.created_at,
+            )
+            .join(
+                latest_usage_subquery,
+                and_(
+                    latest_usage_subquery.c.group_key == grouped_subquery.c.group_key,
+                    latest_usage_subquery.c.row_number == 1,
+                ),
+            )
             .order_by(
                 grouped_subquery.c.created_at.desc(), grouped_subquery.c.group_key.asc()
             )
@@ -5541,7 +5593,14 @@ def get_operator_course_credit_usage_details(
         if str(filters.get("mode", "") or "").strip() and not mode_filter:
             raise_param_error("mode")
 
-        query = _build_operator_course_credit_usage_base_query(normalized_shifu_bid)
+        _detail_source, outline_items = _load_operator_course_outline_items(
+            normalized_shifu_bid
+        )
+        visible_leaf_outline_bids = _resolve_visible_leaf_outline_bids(outline_items)
+        query = _build_operator_course_credit_usage_base_query(
+            normalized_shifu_bid,
+            outline_item_bids=visible_leaf_outline_bids,
+        )
         query = query.filter(
             BillUsageRecord.user_bid == user_bid,
             BillUsageRecord.outline_item_bid == outline_item_bid,

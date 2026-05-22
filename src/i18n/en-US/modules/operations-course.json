@@ -84,8 +84,11 @@
       "description": "Review credit consumption records for this course.",
       "details": {
         "collapse": "Collapse",
+        "durationMinutesSeconds": "{minutes}m {seconds}s",
+        "durationSeconds": "{seconds}s",
         "empty": "No usage details",
-        "expand": "...",
+        "expand": "Expand",
+        "openUsageDetails": "Open {count} credit usage details",
         "table": {
           "createdAt": "Consumed At",
           "credits": "Credits",
