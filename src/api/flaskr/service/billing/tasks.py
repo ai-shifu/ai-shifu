@@ -18,6 +18,7 @@ from .consts import (
 from .daily_aggregates import (
     aggregate_daily_ledger_summary,
     aggregate_daily_usage_metrics,
+    finalize_daily_ledger_summary,
     rebuild_daily_aggregates,
 )
 from .domains import verify_domain_binding
@@ -555,6 +556,28 @@ def aggregate_daily_ledger_summary_task(
     )
     payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.aggregate_daily_ledger_summary"
+    return payload
+
+
+@shared_task(name="billing.finalize_daily_ledger_summary")
+def finalize_daily_ledger_summary_task(
+    *,
+    stat_date: str = "",
+    creator_bid: str = "",
+) -> dict[str, Any]:
+    """Finalize one complete ledger-summary day, defaulting to yesterday."""
+
+    app = _create_task_app()
+    normalized_stat_date = _normalize_bid(stat_date)
+    if not normalized_stat_date:
+        normalized_stat_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    payload = finalize_daily_ledger_summary(
+        app,
+        stat_date=normalized_stat_date,
+        creator_bid=_normalize_bid(creator_bid),
+    )
+    payload = _serialize_task_payload(payload)
+    payload["task_name"] = "billing.finalize_daily_ledger_summary"
     return payload
 
 

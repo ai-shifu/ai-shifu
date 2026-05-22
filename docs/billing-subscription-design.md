@@ -735,7 +735,7 @@ v1 的改造要求：
 - 当前实现中，`src/api/flaskr/common/celery_app.py` 已提供共享 Celery app factory，`src/api/celery_app.py` 作为 worker / beat 入口统一复用 `app.py:create_app()`
 - 当前实现中，`src/api/flaskr/common/config.py` 已注册 `CELERY_BROKER_URL`、`CELERY_RESULT_BACKEND`、`CELERY_TASK_ALWAYS_EAGER`，并同步刷新 `docker/.env.example.full`
 - 当前实现中，`docker/docker-compose.yml`、`docker/docker-compose.latest.yml`、`docker/docker-compose.dev.yml` 已补 `ai-shifu-redis`、Celery worker、Celery beat 三类服务，并统一为 API / worker / beat 注入容器内 Redis/Celery 地址
-- 当前实现中，`src/api/flaskr/service/billing/tasks.py` 已注册 `billing.settle_usage`、`billing.replay_usage_settlement`、`billing.expire_wallet_buckets`、`billing.reconcile_provider_reference`、`billing.send_low_balance_alert`、`billing.run_renewal_event`、`billing.retry_failed_renewal` 以及 v1.1 的 `billing.aggregate_daily_usage_metrics`、`billing.aggregate_daily_ledger_summary`、`billing.rebuild_daily_aggregates`、`billing.verify_domain_binding`
+- 当前实现中，`src/api/flaskr/service/billing/tasks.py` 已注册 `billing.settle_usage`、`billing.replay_usage_settlement`、`billing.expire_wallet_buckets`、`billing.reconcile_provider_reference`、`billing.send_low_balance_alert`、`billing.run_renewal_event`、`billing.retry_failed_renewal` 以及 v1.1 的 `billing.aggregate_daily_usage_metrics`、`billing.aggregate_daily_ledger_summary`、`billing.finalize_daily_ledger_summary`、`billing.rebuild_daily_aggregates`、`billing.verify_domain_binding`
 - 当前实现中，`billing.expire_wallet_buckets` 会直接复用 `src/api/flaskr/service/billing/wallets.py:expire_credit_wallet_buckets`，扫描到期 bucket 并落 `credit_ledger_entries.entry_type=expire`
 - 当前实现中，`src/api/flaskr/service/billing/cli.py` 已提供 `flask console billing backfill-settlement`、`rebuild-wallets`、`rebuild-daily-aggregates`、`reconcile-order`、`run-renewal-event`、`retry-renewal` 六个离线运维入口，统一复用 service helper，不再单独实现一套 CLI 专属账务逻辑
 - 当前实现中，billing v1.1 的所有表结构已统一收敛到 `src/api/migrations/versions/b114d7f5e2c1_add_billing_core_phase.py`
@@ -746,7 +746,7 @@ v1 的改造要求：
 - 当前实现中，`billing.verify_domain_binding` task 已复用 `src/api/flaskr/service/billing/domains.py` 的既有 verify flow：可按 `domain_binding_bid` 或 `host` 加载 binding，并在未显式传 `verification_token` 时回退到绑定上已有 token 做后台刷新
 - 当前实现中，`src/api/flaskr/common/shifu_context.py` 已开始在缺少 `shifu_bid` 时回退按 `Host` / `X-Forwarded-Host` 解析 `bill_domain_bindings.host`，但只认可 `status=verified` 且 creator 仍具备 `custom_domain_enabled` 权益的域名
 - 当前实现中，`/api/runtime-config` 已开始返回 `entitlements`、`branding`、`domain` 三个 v1.1 扩展字段；当 creator 启用 branding 且 feature payload 提供 logo/home 配置时，会覆盖顶层 `logoWideUrl`、`logoSquareUrl`、`faviconUrl`、`homeUrl`
-- 当前实现中，`bill_daily_usage_metrics`、`bill_daily_ledger_summary` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/b114d7f5e2c1_add_billing_core_phase.py` 落地；其中 usage / ledger 两条日报表都已由 `src/api/flaskr/service/billing/daily_aggregates.py` 和 `src/api/flaskr/service/billing/tasks.py` 补齐 `stat_date + creator_bid` 维度的重算任务，增量窗口按 `day_start -> min(now, day_end)` 回填，`finalize=true` 时会重算整天窗口；同时 `rebuild_daily_aggregates` 已支持按 `creator_bid + date window` 全量重算 usage / ledger 报表，若再传 `shifu_bid`，则只重算 usage 报表并跳过 ledger summary，因为 `bill_daily_ledger_summary` 本身不含 `shifu_bid` 维度
+- 当前实现中，`bill_daily_usage_metrics`、`bill_daily_ledger_summary` 已由 `src/api/flaskr/service/billing/models.py` 和 `src/api/migrations/versions/b114d7f5e2c1_add_billing_core_phase.py` 落地；其中 usage / ledger 两条日报表都已由 `src/api/flaskr/service/billing/daily_aggregates.py` 和 `src/api/flaskr/service/billing/tasks.py` 补齐 `stat_date + creator_bid` 维度的重算任务，增量窗口按 `day_start -> min(now, day_end)` 回填，`finalize=true` 时会重算整天窗口；`billing.finalize_daily_ledger_summary` 已通过 Celery beat 默认每天 01:30 finalize 前一自然日 ledger summary；同时 `rebuild_daily_aggregates` 已支持按 `creator_bid + date window` 全量重算 usage / ledger 报表，若再传 `shifu_bid`，则只重算 usage 报表并跳过 ledger summary，因为 `bill_daily_ledger_summary` 本身不含 `shifu_bid` 维度
 - 当前实现中，`src/api/flaskr/service/billing/renewal.py` 已落地 renewal executor：`bill_renewal_events` 通过 `pending/failed -> processing` compare-and-set 抢占；未来排期会释放回 `pending`；`cancel_effective`、`downgrade_effective`、`expire` 会直接推进 `bill_subscriptions` 并把事件标记为 `succeeded`
 - 当前实现中，`renewal/retry/reconcile` 已复用同一条 renewal order 补偿链路：`subscription_renewal` 订单会写入 `bill_orders.metadata.provider_reference_type=subscription` 与 `renewal_cycle_*` 周期快照，`POST /billing/orders/{bill_order_bid}/sync`、`billing.retry_failed_renewal` 和 Stripe `customer.subscription.updated` webhook 都会围绕这笔 renewal order 做 paid/failed 状态推进与幂等 grant
 - 当前实现中，billing checkout / webhook / sync 编排已分别落在 `src/api/flaskr/service/billing/checkout.py`、`src/api/flaskr/service/billing/webhooks.py`、`src/api/flaskr/service/billing/provider_state.py`，并且只通过 shared `src/api/flaskr/service/order/payment_providers/` adapter 暴露的接口访问 Stripe / Pingxx；`src/api/flaskr/service/billing/funcs.py` 仅保留兼容导出层
@@ -895,7 +895,7 @@ v1 需要补充以下环境变量和配置项：
 | `BILLING_RECONCILE_CRON` | provider reconcile 调度表达式 |
 | `BILLING_BUCKET_EXPIRE_CRON` | 余额桶过期扫描调度表达式 |
 | `BILLING_LOW_BALANCE_CRON` | 低余额扫描调度表达式 |
-| `BILLING_DAILY_AGGREGATE_CRON` | 日汇总调度表达式，v1.1 才启用 |
+| `BILLING_DAILY_LEDGER_SUMMARY_CRON` | 前一自然日 ledger 日汇总 finalize 调度表达式 |
 
 同时在 `sys_configs` 预置以下 billing bootstrap 配置：
 
