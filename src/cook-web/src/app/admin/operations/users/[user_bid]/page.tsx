@@ -300,7 +300,7 @@ export default function AdminOperationUserDetailPage() {
         : detail.mobile || detail.email,
     [contactType, detail.email, detail.mobile],
   );
-  const userDisplayLabel = useMemo(() => {
+  const creditOwnerLabel = useMemo(() => {
     const displayName = detail.nickname || contactValue || userBid || '';
     const mobile = detail.mobile || '';
     if (displayName && mobile && displayName !== mobile) {
@@ -851,7 +851,7 @@ export default function AdminOperationUserDetailPage() {
                   items: credits.items,
                   pageIndex: credits.page || creditsPageIndex,
                   pageCount: credits.page_count || 0,
-                  userLabel: userDisplayLabel,
+                  userLabel: creditOwnerLabel,
                   onFiltersChange: setCreditFiltersDraft,
                   onTypeChange: handleCreditTypeChange,
                   onSearch: handleCreditSearch,

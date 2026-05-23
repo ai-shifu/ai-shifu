@@ -241,6 +241,27 @@ const resolveSectionChapterDisplay = (
   return normalizedLessonTitle || normalizedChapterTitle || emptyValue;
 };
 
+const splitUserLabel = (userLabel: string, emptyValue: string) => {
+  const normalizedLabel = userLabel.trim();
+  if (!normalizedLabel || normalizedLabel === emptyValue) {
+    return {
+      primary: emptyValue,
+      secondary: '',
+      tooltip: emptyValue,
+    };
+  }
+  const [primary = '', ...secondaryParts] = normalizedLabel
+    .split(' / ')
+    .map(value => value.trim())
+    .filter(Boolean);
+  const secondary = secondaryParts.join(' / ');
+  return {
+    primary: primary || normalizedLabel,
+    secondary,
+    tooltip: normalizedLabel,
+  };
+};
+
 const ExpandableUsageContent = ({
   content,
   emptyValue,
@@ -887,6 +908,27 @@ export default function UserCreditLedgerTab({
     </TableCell>
   );
 
+  const renderUserCell = () => {
+    const userParts = splitUserLabel(userLabel, emptyValue);
+    return (
+      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+        <div
+          className='min-w-0'
+          title={userParts.tooltip}
+        >
+          <div className='truncate text-sm font-medium text-foreground'>
+            {userParts.primary}
+          </div>
+          {userParts.secondary ? (
+            <div className='truncate text-xs text-muted-foreground'>
+              {userParts.secondary}
+            </div>
+          ) : null}
+        </div>
+      </TableCell>
+    );
+  };
+
   const renderCourseCell = (
     courseBid: string,
     courseName: string,
@@ -942,12 +984,7 @@ export default function UserCreditLedgerTab({
       return items.map(item => (
         <TableRow key={item.ledger_bid}>
           {renderCreatedAtCell(item.created_at)}
-          <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-            <AdminTooltipText
-              text={userLabel}
-              emptyValue={emptyValue}
-            />
-          </TableCell>
+          {renderUserCell()}
           <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
             <AdminTooltipText
               text={resolveUsageSceneLabel(

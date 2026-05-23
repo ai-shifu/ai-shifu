@@ -631,7 +631,8 @@ describe('AdminOperationUserDetailPage', () => {
           'module.operationsUser.detail.creditLedgerColumns.user',
         ),
       ).toBeInTheDocument();
-      expect(screen.getByText('Nick / 13812345678')).toBeInTheDocument();
+      expect(screen.getByText('13812345678')).toBeInTheDocument();
+      expect(screen.getAllByText('Nick').length).toBeGreaterThan(0);
       expect(
         screen.getByText(
           'module.operationsUser.detail.creditLedgerUsageSceneLabels.learning',
