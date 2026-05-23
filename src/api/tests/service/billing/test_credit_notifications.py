@@ -52,8 +52,12 @@ from flaskr.service.billing.tasks import (
     send_credit_notification_task,
 )
 from flaskr.service.common.models import AppException
-from flaskr.service.user.consts import USER_STATE_REGISTERED
-from flaskr.service.user.repository import create_user_entity, upsert_credential
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
+from flaskr.service.user.repository import (
+    create_user_entity,
+    mark_user_roles,
+    upsert_credential,
+)
 
 
 @pytest.fixture
@@ -91,6 +95,8 @@ def _seed_creator(
     *,
     creator_bid: str = "creator-1",
     mobile: str | None = "13800000000",
+    state: int = USER_STATE_REGISTERED,
+    is_creator: bool = True,
 ) -> None:
     identify = mobile or creator_bid
     with app.app_context():
@@ -98,8 +104,10 @@ def _seed_creator(
             user_bid=creator_bid,
             identify=identify,
             nickname="Creator",
-            state=USER_STATE_REGISTERED,
+            state=state,
         )
+        if is_creator:
+            mark_user_roles(creator_bid, is_creator=True)
         if mobile:
             upsert_credential(
                 app,
@@ -781,6 +789,80 @@ def test_credit_notification_list_handles_invalid_pagination(
 
     assert payload["page"] == 1
     assert payload["page_size"] == 20
+
+
+def test_credit_notifications_skip_non_creator_billing_facts(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    now = datetime(2026, 5, 21, 0, 0, 0)
+    _seed_creator(app, creator_bid="regular-user", is_creator=False)
+    _enable_policy(app)
+
+    with app.app_context():
+        _seed_credit_ledger(
+            ledger_bid="ledger-regular-user",
+            creator_bid="regular-user",
+        )
+        _seed_wallet(creator_bid="regular-user", available_credits="0")
+        _seed_bucket(
+            creator_bid="regular-user",
+            effective_to=now + timedelta(days=1, hours=2),
+        )
+        dao.db.session.commit()
+
+    granted = stage_credit_granted_notification(
+        app,
+        ledger_bid="ledger-regular-user",
+        enqueue=False,
+    )
+    expiring = scan_credit_expiring_notifications(app, now=now)
+    low_balance = scan_low_balance_notifications(app, now=now)
+
+    assert granted["status"] == "skipped_ineligible_creator"
+    assert expiring["candidate_count"] == 0
+    assert low_balance["candidate_count"] == 0
+    with app.app_context():
+        assert NotificationRecord.query.count() == 0
+
+
+def test_credit_notifications_skip_unregistered_creators(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    now = datetime(2026, 5, 21, 0, 0, 0)
+    _seed_creator(
+        app,
+        creator_bid="unregistered-creator",
+        state=USER_STATE_UNREGISTERED,
+    )
+    _enable_policy(app)
+
+    with app.app_context():
+        _seed_credit_ledger(
+            ledger_bid="ledger-unregistered-creator",
+            creator_bid="unregistered-creator",
+        )
+        _seed_wallet(creator_bid="unregistered-creator", available_credits="0")
+        _seed_bucket(
+            creator_bid="unregistered-creator",
+            effective_to=now + timedelta(days=1, hours=2),
+        )
+        dao.db.session.commit()
+
+    granted = stage_credit_granted_notification(
+        app,
+        ledger_bid="ledger-unregistered-creator",
+        enqueue=False,
+    )
+    expiring = scan_credit_expiring_notifications(app, now=now)
+    low_balance = scan_low_balance_notifications(app, now=now)
+
+    assert granted["status"] == "skipped_ineligible_creator"
+    assert expiring["candidate_count"] == 0
+    assert low_balance["candidate_count"] == 0
+    with app.app_context():
+        assert NotificationRecord.query.count() == 0
 
 
 def test_expiring_and_low_balance_scans_stage_deduped_notifications(

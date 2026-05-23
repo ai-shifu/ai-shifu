@@ -20,6 +20,8 @@ from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
 from flaskr.service.config.funcs import add_config
+from flaskr.service.user.consts import USER_STATE_UNREGISTERED
+from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.timezone import serialize_with_app_timezone
 from flaskr.util.uuid import generate_id
 
@@ -831,6 +833,35 @@ def _is_valid_sms_mobile(mobile: str) -> bool:
     return normalized.isdigit() and 5 <= len(normalized) <= 20
 
 
+def _is_notification_eligible_creator(creator_bid: str) -> bool:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return False
+    aggregate = load_user_aggregate(
+        normalized_creator_bid,
+        with_credentials=False,
+    )
+    if aggregate is None or aggregate.deleted:
+        return False
+    if not aggregate.is_creator:
+        return False
+    return int(aggregate.state or USER_STATE_UNREGISTERED) != USER_STATE_UNREGISTERED
+
+
+def _is_notification_eligible_creator_cached(
+    creator_bid: str,
+    cache: dict[str, bool],
+) -> bool:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return False
+    if normalized_creator_bid not in cache:
+        cache[normalized_creator_bid] = _is_notification_eligible_creator(
+            normalized_creator_bid
+        )
+    return cache[normalized_creator_bid]
+
+
 def _stage_notification_record(
     app: Flask,
     *,
@@ -864,6 +895,21 @@ def _stage_notification_record(
     if not _notification_type_enabled(resolved_policy, notification_type):
         return CreditNotificationStageResult(
             status="noop_disabled",
+            notification_type=notification_type,
+            creator_bid=normalized_creator_bid,
+            source_type=source_type,
+            source_bid=normalized_source_bid,
+            dedupe_key=normalized_dedupe_key,
+        )
+    if not _is_notification_eligible_creator(normalized_creator_bid):
+        record_credit_notification_event(
+            "stage",
+            notification_type=notification_type,
+            channel=CREDIT_NOTIFICATION_CHANNEL_SMS,
+            status="skipped_ineligible_creator",
+        )
+        return CreditNotificationStageResult(
+            status="skipped_ineligible_creator",
             notification_type=notification_type,
             creator_bid=normalized_creator_bid,
             source_type=source_type,
@@ -1089,6 +1135,7 @@ def scan_credit_expiring_notifications(
             windows = ["7d", "3d", "1d", "0d"]
 
         notifications: list[dict[str, Any]] = []
+        creator_eligibility_cache: dict[str, bool] = {}
         for raw_window in windows:
             window = str(raw_window or "").strip()
             days = _parse_window_days(window)
@@ -1117,6 +1164,11 @@ def scan_credit_expiring_notifications(
                 .all()
             )
             for bucket in buckets:
+                if not _is_notification_eligible_creator_cached(
+                    bucket.creator_bid,
+                    creator_eligibility_cache,
+                ):
+                    continue
                 dedupe_key = build_credit_expiring_dedupe_key(
                     bucket.wallet_bucket_bid,
                     window,
@@ -1342,7 +1394,13 @@ def scan_low_balance_notifications(
         wallets = query.order_by(CreditWallet.id.asc()).limit(1000).all()
         notifications: list[dict[str, Any]] = []
         daily_consumption_cache: dict[tuple[str, int], dict[str, Any]] = {}
+        creator_eligibility_cache: dict[str, bool] = {}
         for wallet in wallets:
+            if not _is_notification_eligible_creator_cached(
+                wallet.creator_bid,
+                creator_eligibility_cache,
+            ):
+                continue
             available = _to_decimal(wallet.available_credits)
             for threshold in thresholds:
                 kind = str(
