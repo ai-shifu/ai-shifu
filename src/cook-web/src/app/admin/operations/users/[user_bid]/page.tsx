@@ -301,12 +301,12 @@ export default function AdminOperationUserDetailPage() {
     [contactType, detail.email, detail.mobile],
   );
   const creditOwnerLabel = useMemo(() => {
-    const displayName = detail.nickname || contactValue || userBid || '';
     const mobile = detail.mobile || '';
-    if (displayName && mobile && displayName !== mobile) {
-      return `${displayName} / ${mobile}`;
+    const displayName = detail.nickname || contactValue || userBid || '';
+    if (mobile && displayName && displayName !== mobile) {
+      return `${mobile} / ${displayName}`;
     }
-    return displayName || mobile || EMPTY_VALUE;
+    return mobile || displayName || EMPTY_VALUE;
   }, [contactValue, detail.mobile, detail.nickname, userBid]);
   const creditSummary = useMemo<AdminOperationUserCreditSummary>(
     () => ({
