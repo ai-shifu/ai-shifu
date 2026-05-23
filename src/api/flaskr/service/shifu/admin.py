@@ -6830,11 +6830,11 @@ def get_operator_user_credit_usage_detail(
             usage_bid=normalized_usage_bid,
         )
         if not owner_ledger_rows:
-            raise_param_error("usage_bid")
+            raise_param_error("usage_bid is invalid")
 
         main_usage_row = _load_operator_user_credit_usage_main_row(normalized_usage_bid)
         if main_usage_row is None:
-            raise_param_error("usage_bid")
+            raise_param_error("usage_bid is invalid")
 
         total_consumed_credits = sum(
             (abs(Decimal(row.amount or 0)) for row in owner_ledger_rows),

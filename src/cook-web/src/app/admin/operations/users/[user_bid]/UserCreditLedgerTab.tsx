@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
@@ -274,6 +274,7 @@ const ExpandableUsageContent = ({
   collapseLabel: string;
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const contentId = useId();
   const normalizedContent = content.trim();
   if (!normalizedContent) {
     return <span className='text-muted-foreground'>{emptyValue}</span>;
@@ -281,6 +282,7 @@ const ExpandableUsageContent = ({
   return (
     <div className='min-w-0 text-left'>
       <span
+        id={contentId}
         className={cn(
           'align-middle text-foreground',
           expanded ? 'whitespace-pre-wrap break-words' : 'line-clamp-1',
@@ -291,6 +293,8 @@ const ExpandableUsageContent = ({
       </span>
       <button
         type='button'
+        aria-controls={contentId}
+        aria-expanded={expanded}
         className='ml-1 align-middle text-xs font-medium text-primary hover:underline'
         onClick={() => setExpanded(value => !value)}
       >
@@ -419,8 +423,13 @@ const CreditUsageDetailDialog = ({
                   </TableHeader>
                   <TableBody>
                     {emptyRow}
-                    {items.map((item, index) => (
-                      <TableRow key={`${item.usage_bid}-${index}`}>
+                    {items.map(item => (
+                      <TableRow
+                        key={
+                          item.usage_bid ||
+                          `${item.created_at}-${item.consumed_credits}-${item.usage_units}`
+                        }
+                      >
                         <TableCell className='border-r border-border py-2.5 text-center text-xs text-muted-foreground/70'>
                           {formatOperatorUtcDateTime(item.created_at) ||
                             emptyValue}
