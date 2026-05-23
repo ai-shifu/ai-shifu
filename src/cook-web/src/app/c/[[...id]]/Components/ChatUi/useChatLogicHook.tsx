@@ -1897,7 +1897,7 @@ function useChatLogicHook({
                     messageGeneratedBlockBid:
                       elementRecord.generated_block_bid || itemBid,
                     messageContent: elementRecord.content || '',
-                    insertionMode: 'sequence',
+                    insertionMode: 'anchor',
                   }),
                 );
                 return;
@@ -2494,6 +2494,17 @@ function useChatLogicHook({
     (records: StudyRecordItem[]) => {
       const result: ChatContentItem[] = [];
 
+      // Index every element bid present in this snapshot so we can detect
+      // orphan follow-ups whose anchor element is no longer surfaced
+      // (reset, deactivated, or living in a different progress record).
+      const presentElementBids = new Set<string>();
+      for (const record of records) {
+        const bid = resolveElementItemBid(record);
+        if (bid) {
+          presentElementBids.add(bid);
+        }
+      }
+
       records.forEach((item: StudyRecordItem) => {
         const itemBid = resolveElementItemBid(item);
         const elementType = resolveRecordElementType(item);
@@ -2507,6 +2518,12 @@ function useChatLogicHook({
           if (!parentElementBid) {
             return;
           }
+          // Without a host element record, upsertAskMessageByParent falls
+          // through to `parentContentIndex < 0` and pushes the ask to the
+          // top of the chat list. Skip the orphan instead.
+          if (!presentElementBids.has(parentElementBid)) {
+            return;
+          }
           const nextResult = upsertAskMessageByParent(result, {
             parentElementBid,
             messageType: elementType as
@@ -2516,7 +2533,7 @@ function useChatLogicHook({
             messageGeneratedBlockBid: item.generated_block_bid || itemBid,
             messageContent: item.content || '',
             isHistory: true,
-            insertionMode: 'sequence',
+            insertionMode: 'anchor',
           });
           result.splice(0, result.length, ...nextResult);
           return;
@@ -2899,7 +2916,21 @@ function useChatLogicHook({
       blockBid: string,
       options?: { skipConfirm?: boolean },
     ) => {
-      if (isStreamingRef.current) {
+      // Re-selecting an earlier interaction needs to bypass the streaming
+      // guard and pop the regenerate-confirm dialog. Compute the flag
+      // up front so the streaming / running-check branches below can
+      // short-circuit only for non-regenerate submissions.
+      let isReGenerate = false;
+      const currentListSnapshot = contentListRef.current;
+      if (currentListSnapshot.length > 0) {
+        const lastActionableElementBid =
+          resolveLastActionableElementBid(currentListSnapshot);
+        isReGenerate =
+          Boolean(lastActionableElementBid) &&
+          blockBid !== lastActionableElementBid;
+      }
+
+      if (!isReGenerate && isStreamingRef.current) {
         showOutputInProgressToast();
         return;
       }
@@ -3044,30 +3075,27 @@ function useChatLogicHook({
         return;
       }
 
+      if (isReGenerate && !options?.skipConfirm) {
+        setPendingRegenerate({ content, blockBid });
+        setShowRegenerateConfirm(true);
+        return;
+      }
+
       const runningRes = await checkIsRunning(shifuBid, outlineBid).catch(
         () => {
           return null;
         },
       );
-      if (runningRes?.is_running) {
+      if (!isReGenerate && runningRes?.is_running) {
         showOutputInProgressToast();
         return;
       }
 
-      let isReGenerate = false;
-      const currentList = contentListRef.current;
-      if (currentList.length > 0) {
-        const lastActionableElementBid =
-          resolveLastActionableElementBid(currentList);
-        isReGenerate =
-          Boolean(lastActionableElementBid) &&
-          blockBid !== lastActionableElementBid;
-      }
-
-      if (isReGenerate && !options?.skipConfirm) {
-        setPendingRegenerate({ content, blockBid });
-        setShowRegenerateConfirm(true);
-        return;
+      // Confirmed regenerate while a stream is still flowing: close the
+      // current SSE locally before issuing the reload request so its late
+      // chunks cannot bleed into the new run's list.
+      if (isReGenerate && isStreamingRef.current) {
+        stopActiveRunStream();
       }
 
       const { newList, needChangeItemIndex } = updateContentListWithUserOperate(
@@ -3120,6 +3148,7 @@ function useChatLogicHook({
       trackEvent,
       resolveSourceGeneratedBlockBid,
       resolveLastActionableElementBid,
+      stopActiveRunStream,
       updateContentListWithUserOperate,
       updateSelectedLesson,
       t,

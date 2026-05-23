@@ -44,11 +44,41 @@ def get_app_timezone(app: Flask, tz_name: str | None = None) -> ZoneInfo:
     return ZoneInfo("UTC")
 
 
+def _coerce_datetime(app: Flask, value: datetime | str | None) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        stripped_value = value.strip()
+        if not stripped_value:
+            return None
+        normalized_value = (
+            f"{stripped_value[:-1]}+00:00"
+            if stripped_value.endswith("Z")
+            else stripped_value
+        )
+        try:
+            return datetime.fromisoformat(normalized_value)
+        except ValueError:
+            app.logger.warning(
+                "Failed to parse datetime string '%s' for timezone conversion",
+                stripped_value,
+            )
+            return None
+    app.logger.warning(
+        "Unexpected datetime value type '%s' for timezone conversion",
+        type(value).__name__,
+    )
+    return None
+
+
 def serialize_with_app_timezone(
     app: Flask,
-    dt: datetime | None,
+    dt: datetime | str | None,
     tz_name: str | None = None,
 ) -> str | None:
+    dt = _coerce_datetime(app, dt)
     if dt is None:
         return None
     app_tz = get_app_timezone(app, tz_name)
@@ -60,10 +90,11 @@ def serialize_with_app_timezone(
 
 def format_with_app_timezone(
     app: Flask,
-    dt: datetime | None,
+    dt: datetime | str | None,
     fmt: str,
     tz_name: str | None = None,
 ) -> str | None:
+    dt = _coerce_datetime(app, dt)
     if dt is None:
         return None
     app_tz = get_app_timezone(app, tz_name)

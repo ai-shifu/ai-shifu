@@ -277,30 +277,45 @@ class ListenElementRunSidecarMixin:
         generated_block_bid = event.generated_block_bid or ""
         meta = self._load_block_meta(generated_block_bid)
 
-        # Under concurrency, the main stream may have just marked the anchor
-        # element as status=0 in the instant between the client picking an
-        # element and the ask request being served. Previously we dropped the
-        # ASK event here, which left the MDASK/MDANSWER blocks orphaned on
-        # reload. Fall back to a synthetic anchor derived from the ask's own
-        # generated_block_bid so the follow-up chain still persists with the
-        # correct element_type and can be recovered by the legacy builder.
+        # The frontend supplies anchor_bid as the element_bid of the main-flow
+        # element the user clicked "ask" on. That bid is allocated and yielded
+        # by the main run's SSE stream, but the row may not yet be visible to
+        # this session because of MVCC isolation — the main run commits at the
+        # end of its stream. Only synthesize when there is genuinely no anchor
+        # to attach to (frontend sent nothing); otherwise trust the bid so
+        # that on reload the follow-up renders against the right element.
         synthetic_anchor = False
-        anchor_row = _load_latest_active_element_row(anchor_bid) if anchor_bid else None
-        if anchor_row is None:
+        element_index = 0
+        if anchor_bid:
+            anchor_row = _load_latest_active_element_row(anchor_bid)
+            if anchor_row is not None:
+                element_index = int(anchor_row.element_index or 0)
+                if not meta.progress_record_bid:
+                    meta.progress_record_bid = anchor_row.progress_record_bid or ""
+                    self._block_meta_cache[generated_block_bid] = meta
+            else:
+                # Likely the main run has not committed yet. Keep the
+                # frontend-supplied anchor_bid as-is and let the ask's own
+                # commit (gated on the main block's commit signal in
+                # runscript_v2._await_anchor_block_or_rollback) ensure the
+                # anchor row is durable by the time this row is observable.
+                self.app.logger.info(
+                    "ASK anchor row not yet visible (likely uncommitted main run); "
+                    "trusting frontend anchor_bid: anchor_bid=%s generated_block_bid=%s",
+                    anchor_bid,
+                    generated_block_bid,
+                )
+        else:
+            # Frontend did not provide an anchor. Fall back to the ask's own
+            # block bid so the follow-up chain still persists with the
+            # correct element_type and can be recovered by the legacy builder.
             synthetic_anchor = True
             self.app.logger.warning(
-                "ASK anchor element unavailable, falling back to synthetic anchor: "
-                "anchor_bid=%s generated_block_bid=%s",
-                anchor_bid,
+                "ASK event without anchor_element_bid; falling back to synthetic anchor: "
+                "generated_block_bid=%s",
                 generated_block_bid,
             )
-            anchor_bid = anchor_bid or generated_block_bid
-            element_index = 0
-        else:
-            element_index = int(anchor_row.element_index or 0)
-            if not meta.progress_record_bid:
-                meta.progress_record_bid = anchor_row.progress_record_bid or ""
-                self._block_meta_cache[generated_block_bid] = meta
+            anchor_bid = generated_block_bid
 
         if not anchor_bid:
             # No real anchor and no block bid either. Nothing sensible we can do.

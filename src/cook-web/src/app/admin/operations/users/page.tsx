@@ -107,6 +107,7 @@ type UserQuickFilterKey =
 type ErrorState = { message: string; code?: number };
 
 const PAGE_SIZE = 20;
+const COURSE_DIALOG_DETAIL_CACHE_LIMIT = 50;
 const ALL_OPTION_VALUE = '__all__';
 const EMPTY_STATE_LABEL = '--';
 const USER_STATUS_UNREGISTERED = 'unregistered';
@@ -169,6 +170,41 @@ const createDefaultFilters = (): UserFilters => ({
   start_time: '',
   end_time: '',
 });
+
+const readCachedCourseDialogDetail = (
+  cache: Map<string, AdminOperationUserDetailResponse>,
+  userBid: string,
+) => {
+  const cachedDetail = cache.get(userBid);
+  if (!cachedDetail) {
+    return null;
+  }
+
+  // Refresh insertion order so the map behaves like a tiny LRU cache.
+  cache.delete(userBid);
+  cache.set(userBid, cachedDetail);
+  return cachedDetail;
+};
+
+const cacheCourseDialogDetail = (
+  cache: Map<string, AdminOperationUserDetailResponse>,
+  userBid: string,
+  detail: AdminOperationUserDetailResponse,
+) => {
+  if (cache.has(userBid)) {
+    cache.delete(userBid);
+  }
+  cache.set(userBid, detail);
+
+  if (cache.size <= COURSE_DIALOG_DETAIL_CACHE_LIMIT) {
+    return;
+  }
+
+  const oldestUserBid = cache.keys().next().value;
+  if (oldestUserBid) {
+    cache.delete(oldestUserBid);
+  }
+};
 
 const formatLocalDate = (date: Date): string => {
   const year = date.getFullYear();
@@ -403,6 +439,12 @@ export default function AdminOperationUsersPage() {
   const [quickFilter, setQuickFilter] = useState<UserQuickFilterKey>('');
   const requestIdRef = useRef(0);
   const courseDialogRequestIdRef = useRef(0);
+  const courseDialogDetailCacheRef = useRef(
+    new Map<string, AdminOperationUserDetailResponse>(),
+  );
+  const courseDialogDetailRequestCacheRef = useRef(
+    new Map<string, Promise<AdminOperationUserDetailResponse>>(),
+  );
   const { mutate } = useSWRConfig();
   const lastRequestedPageRef = useRef(1);
   const { getColumnStyle, getResizeHandleProps } =
@@ -567,10 +609,83 @@ export default function AdminOperationUsersPage() {
     [t],
   );
 
+  const buildCourseDialogStateFromDetail = useCallback(
+    (
+      user: AdminOperationUserItem,
+      type: 'learning' | 'created',
+      detail: AdminOperationUserDetailResponse,
+    ): CourseDialogState => ({
+      user,
+      type,
+      courses:
+        type === 'learning'
+          ? detail.learning_courses || []
+          : detail.created_courses || [],
+      loading: false,
+      error: '',
+    }),
+    [],
+  );
+
+  const getCourseDialogDetail = useCallback(
+    async (userBid: string) => {
+      const normalizedUserBid = userBid.trim();
+      if (!normalizedUserBid) {
+        throw new Error(t('common.core.networkError'));
+      }
+      const cachedDetail = readCachedCourseDialogDetail(
+        courseDialogDetailCacheRef.current,
+        normalizedUserBid,
+      );
+      if (cachedDetail) {
+        return cachedDetail;
+      }
+
+      const inFlightRequest =
+        courseDialogDetailRequestCacheRef.current.get(normalizedUserBid);
+      if (inFlightRequest) {
+        return inFlightRequest;
+      }
+      const request = (
+        api.getAdminOperationUserDetail({
+          user_bid: normalizedUserBid,
+        }) as Promise<AdminOperationUserDetailResponse>
+      )
+        .then(detail => {
+          cacheCourseDialogDetail(
+            courseDialogDetailCacheRef.current,
+            normalizedUserBid,
+            detail,
+          );
+          return detail;
+        })
+        .finally(() => {
+          courseDialogDetailRequestCacheRef.current.delete(normalizedUserBid);
+        });
+
+      courseDialogDetailRequestCacheRef.current.set(normalizedUserBid, request);
+      return request;
+    },
+    [t],
+  );
+
   const openCourseDialog = useCallback(
     async (user: AdminOperationUserItem, type: 'learning' | 'created') => {
       const requestId = courseDialogRequestIdRef.current + 1;
       courseDialogRequestIdRef.current = requestId;
+
+      const normalizedUserBid = user.user_bid.trim();
+      const cachedDetail = readCachedCourseDialogDetail(
+        courseDialogDetailCacheRef.current,
+        normalizedUserBid,
+      );
+      if (cachedDetail) {
+        setCourseDialog(
+          buildCourseDialogStateFromDetail(user, type, cachedDetail),
+        );
+        return;
+      }
+
       setCourseDialog({
         user,
         type,
@@ -580,22 +695,11 @@ export default function AdminOperationUsersPage() {
       });
 
       try {
-        const detail = (await api.getAdminOperationUserDetail({
-          user_bid: user.user_bid,
-        })) as AdminOperationUserDetailResponse;
+        const detail = await getCourseDialogDetail(user.user_bid);
         if (requestId !== courseDialogRequestIdRef.current) {
           return;
         }
-        setCourseDialog({
-          user,
-          type,
-          courses:
-            type === 'learning'
-              ? detail.learning_courses || []
-              : detail.created_courses || [],
-          loading: false,
-          error: '',
-        });
+        setCourseDialog(buildCourseDialogStateFromDetail(user, type, detail));
       } catch (requestError) {
         if (requestId !== courseDialogRequestIdRef.current) {
           return;
@@ -610,7 +714,7 @@ export default function AdminOperationUsersPage() {
         });
       }
     },
-    [t],
+    [buildCourseDialogStateFromDetail, getCourseDialogDetail, t],
   );
 
   React.useEffect(() => {

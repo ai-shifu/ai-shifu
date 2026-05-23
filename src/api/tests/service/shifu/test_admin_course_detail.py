@@ -2449,6 +2449,28 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     }
     assert filtered_payload["data"]["items"][0]["generated_block_bid"] == "ask-3"
 
+    lightweight_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
+        "&keyword=student2@example.com&chapter_keyword=Chapter 2"
+        "&start_time=2026-04-05&end_time=2026-04-05&include_summary=false",
+        headers={"Token": "test-token"},
+    )
+    lightweight_filtered_payload = lightweight_filtered_response.get_json(force=True)
+
+    assert lightweight_filtered_response.status_code == 200
+    assert lightweight_filtered_payload["code"] == 0
+    assert lightweight_filtered_payload["data"]["summary"] == {
+        "follow_up_count": 1,
+        "user_count": 0,
+        "lesson_count": 0,
+        "latest_follow_up_at": "",
+    }
+    assert lightweight_filtered_payload["data"]["total"] == 1
+    assert (
+        lightweight_filtered_payload["data"]["items"][0]["generated_block_bid"]
+        == "ask-3"
+    )
+
     lesson_filtered_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
         "&chapter_keyword=Lesson 2",
@@ -2743,6 +2765,29 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
         "latest_rated_at": "2026-04-05T11:02:00Z",
     }
     assert filtered_payload["data"]["items"][0]["lesson_feedback_bid"] == "feedback-2"
+
+    lightweight_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"
+        "&keyword=student2@example.com&chapter_keyword=Chapter 2"
+        "&score=3&mode=listen&start_time=2026-04-05&end_time=2026-04-05"
+        "&include_summary=false",
+        headers={"Token": "test-token"},
+    )
+    lightweight_filtered_payload = lightweight_filtered_response.get_json(force=True)
+
+    assert lightweight_filtered_response.status_code == 200
+    assert lightweight_filtered_payload["code"] == 0
+    assert lightweight_filtered_payload["data"]["summary"] == {
+        "average_score": "",
+        "rating_count": 0,
+        "user_count": 0,
+        "latest_rated_at": "",
+    }
+    assert lightweight_filtered_payload["data"]["total"] == 1
+    assert (
+        lightweight_filtered_payload["data"]["items"][0]["lesson_feedback_bid"]
+        == "feedback-2"
+    )
 
     commented_low_score_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/ratings?page=1&page_size=20"

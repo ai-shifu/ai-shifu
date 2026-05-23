@@ -276,9 +276,10 @@
       "perYear": "每年",
       "providerAlipay": "支付宝",
       "providerManual": "人工开通",
-      "providerPingxx": "Pingxx / 支付宝二维码",
+      "providerPingxx": "Pingxx",
       "providerStripe": "Stripe",
-      "providerWechatpay": "微信支付"
+      "providerWechatpay": "微信支付",
+      "providerWithChannel": "{provider} / {channel}"
     },
     "plans": {
       "creatorMonthly": {

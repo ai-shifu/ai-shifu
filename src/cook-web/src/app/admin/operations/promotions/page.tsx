@@ -71,7 +71,7 @@ import {
 } from '@/components/ui/Table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Textarea } from '@/components/ui/Textarea';
-import { useToast } from '@/hooks/useToast';
+import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 
 type PromotionTab = 'coupons' | 'campaigns';
@@ -408,15 +408,29 @@ const resolveCouponScopeLabel = (
   return EMPTY_VALUE;
 };
 
+const PROMOTION_STATUS_FALLBACK_KEYS: Record<string, string> = {
+  active: 'status.active',
+  ended: 'status.ended',
+  expired: 'status.expired',
+  inactive: 'status.inactive',
+  not_started: 'status.notStarted',
+  upcoming: 'status.notStarted',
+};
+
 const resolvePromotionStatusLabel = (
   tPromotion: (key: string) => string,
   statusKey?: string,
+  status?: string,
 ) => {
-  if (!statusKey) {
+  const fallbackKey = status ? PROMOTION_STATUS_FALLBACK_KEYS[status] : '';
+  const translationKey = statusKey
+    ? toPromotionRelativeKey(statusKey)
+    : fallbackKey;
+  if (!translationKey) {
     return EMPTY_VALUE;
   }
-  const translated = tPromotion(toPromotionRelativeKey(statusKey));
-  return translated && translated !== statusKey ? translated : EMPTY_VALUE;
+  const translated = tPromotion(translationKey);
+  return translated && translated !== translationKey ? translated : EMPTY_VALUE;
 };
 
 const resolvePromotionStatusBadgeClassName = (status?: string) => {
@@ -451,7 +465,7 @@ const renderPromotionStatusBadge = ({
       resolvePromotionStatusBadgeClassName(status),
     )}
   >
-    {resolvePromotionStatusLabel(tPromotion, statusKey)}
+    {resolvePromotionStatusLabel(tPromotion, statusKey, status)}
   </Badge>
 );
 
@@ -1055,7 +1069,6 @@ const PromotionCouponCodesDialog = ({
 }) => {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -1083,15 +1096,14 @@ const PromotionCouponCodesDialog = ({
         setCodes([]);
         setPageIndex(nextPage);
         setPageCount(0);
-        toast({
-          description:
-            (error as Error).message || tPromotion('messages.loadCodesFailed'),
-        });
+        showErrorToast(
+          (error as Error).message || tPromotion('messages.loadCodesFailed'),
+        );
       } finally {
         setLoading(false);
       }
     },
-    [couponBid, tPromotion, toast],
+    [couponBid, tPromotion],
   );
 
   useEffect(() => {
@@ -1228,7 +1240,6 @@ const PromotionCampaignRedemptionsDialog = ({
 }) => {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -1256,16 +1267,15 @@ const PromotionCampaignRedemptionsDialog = ({
         setRedemptions([]);
         setPageIndex(nextPage);
         setPageCount(0);
-        toast({
-          description:
-            (error as Error).message ||
+        showErrorToast(
+          (error as Error).message ||
             tPromotion('messages.loadRedemptionsFailed'),
-        });
+        );
       } finally {
         setLoading(false);
       }
     },
-    [promoBid, tPromotion, toast],
+    [promoBid, tPromotion],
   );
 
   useEffect(() => {
@@ -1379,7 +1389,6 @@ const PromotionCouponUsageDialog = ({
 }) => {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -1404,15 +1413,14 @@ const PromotionCouponUsageDialog = ({
         setUsages([]);
         setPageIndex(nextPage);
         setPageCount(0);
-        toast({
-          description:
-            (error as Error).message || tPromotion('messages.loadUsagesFailed'),
-        });
+        showErrorToast(
+          (error as Error).message || tPromotion('messages.loadUsagesFailed'),
+        );
       } finally {
         setLoading(false);
       }
     },
-    [couponBid, tPromotion, toast],
+    [couponBid, tPromotion],
   );
 
   useEffect(() => {
@@ -1536,7 +1544,6 @@ const PromotionCouponDialog = ({
 }) => {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
-  const { toast } = useToast();
   const [form, setForm] = useState<CouponFormState>(() =>
     createDefaultCouponForm(),
   );
@@ -1570,70 +1577,70 @@ const PromotionCouponDialog = ({
     const endAtDate = parseLocalDateTimeInput(form.end_at);
 
     if (!normalizedName) {
-      toast({ description: tPromotion('validation.couponNameRequired') });
+      showDefaultToast(tPromotion('validation.couponNameRequired'));
       return;
     }
     if (!form.usage_type) {
-      toast({ description: tPromotion('validation.usageTypeRequired') });
+      showDefaultToast(tPromotion('validation.usageTypeRequired'));
       return;
     }
     if (!form.discount_type) {
-      toast({ description: tPromotion('validation.discountTypeRequired') });
+      showDefaultToast(tPromotion('validation.discountTypeRequired'));
       return;
     }
     if (!normalizedValue) {
-      toast({
-        description: isPercentDiscount
+      showDefaultToast(
+        isPercentDiscount
           ? tPromotion('validation.valuePercentRequired')
           : tPromotion('validation.valueAmountRequired'),
-      });
+      );
       return;
     }
 
     const numericValue = Number(normalizedValue);
     if (!Number.isFinite(numericValue)) {
-      toast({
-        description: isPercentDiscount
+      showDefaultToast(
+        isPercentDiscount
           ? tPromotion('validation.valuePercentInvalid')
           : tPromotion('validation.valueAmountInvalid'),
-      });
+      );
       return;
     }
     if (isPercentDiscount) {
       if (numericValue <= 0 || numericValue > 100) {
-        toast({ description: tPromotion('validation.valuePercentInvalid') });
+        showDefaultToast(tPromotion('validation.valuePercentInvalid'));
         return;
       }
     } else if (numericValue <= 0) {
-      toast({ description: tPromotion('validation.valueAmountInvalid') });
+      showDefaultToast(tPromotion('validation.valueAmountInvalid'));
       return;
     }
 
     if (!isSingleUseCoupon && !normalizedCode) {
-      toast({ description: tPromotion('validation.codeRequired') });
+      showDefaultToast(tPromotion('validation.codeRequired'));
       return;
     }
     if (!normalizedQuantity) {
-      toast({ description: tPromotion('validation.quantityRequired') });
+      showDefaultToast(tPromotion('validation.quantityRequired'));
       return;
     }
     if (
       !isPositiveIntegerString(normalizedQuantity) ||
       Number(normalizedQuantity) <= 0
     ) {
-      toast({ description: tPromotion('validation.quantityInvalid') });
+      showDefaultToast(tPromotion('validation.quantityInvalid'));
       return;
     }
     if (form.scope_type === 'single_course' && !normalizedCourseId) {
-      toast({ description: tPromotion('validation.courseIdRequired') });
+      showDefaultToast(tPromotion('validation.courseIdRequired'));
       return;
     }
     if (!form.start_at) {
-      toast({ description: tPromotion('validation.startAtRequired') });
+      showDefaultToast(tPromotion('validation.startAtRequired'));
       return;
     }
     if (!form.end_at) {
-      toast({ description: tPromotion('validation.endAtRequired') });
+      showDefaultToast(tPromotion('validation.endAtRequired'));
       return;
     }
     if (
@@ -1641,7 +1648,7 @@ const PromotionCouponDialog = ({
       !endAtDate ||
       endAtDate.getTime() < startAtDate.getTime()
     ) {
-      toast({ description: tPromotion('validation.endAtInvalid') });
+      showDefaultToast(tPromotion('validation.endAtInvalid'));
       return;
     }
 
@@ -1650,9 +1657,7 @@ const PromotionCouponDialog = ({
       await onSubmit(form);
       onOpenChange(false);
     } catch (error) {
-      toast({
-        description: (error as Error).message || t('common.core.submitFailed'),
-      });
+      showErrorToast((error as Error).message || t('common.core.submitFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -1880,7 +1885,6 @@ const PromotionCampaignDialog = ({
 }) => {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
-  const { toast } = useToast();
   const [form, setForm] = useState<CampaignFormState>(() =>
     createDefaultCampaignForm(),
   );
@@ -1918,55 +1922,53 @@ const PromotionCampaignDialog = ({
     const endAtDate = parseLocalDateTimeInput(form.end_at);
 
     if (!normalizedName) {
-      toast({ description: tPromotion('validation.campaignNameRequired') });
+      showDefaultToast(tPromotion('validation.campaignNameRequired'));
       return;
     }
     if (!form.apply_type) {
-      toast({
-        description: tPromotion('validation.campaignApplyTypeRequired'),
-      });
+      showDefaultToast(tPromotion('validation.campaignApplyTypeRequired'));
       return;
     }
     if (!normalizedCourseId) {
-      toast({ description: tPromotion('validation.courseIdRequired') });
+      showDefaultToast(tPromotion('validation.courseIdRequired'));
       return;
     }
     if (!form.discount_type) {
-      toast({ description: tPromotion('validation.discountTypeRequired') });
+      showDefaultToast(tPromotion('validation.discountTypeRequired'));
       return;
     }
     if (!normalizedValue) {
-      toast({
-        description: isPercentDiscount
+      showDefaultToast(
+        isPercentDiscount
           ? tPromotion('validation.valuePercentRequired')
           : tPromotion('validation.valueAmountRequired'),
-      });
+      );
       return;
     }
     const numericValue = Number(normalizedValue);
     if (!Number.isFinite(numericValue)) {
-      toast({
-        description: isPercentDiscount
+      showDefaultToast(
+        isPercentDiscount
           ? tPromotion('validation.valuePercentInvalid')
           : tPromotion('validation.valueAmountInvalid'),
-      });
+      );
       return;
     }
     if (isPercentDiscount) {
       if (numericValue <= 0 || numericValue > 100) {
-        toast({ description: tPromotion('validation.valuePercentInvalid') });
+        showDefaultToast(tPromotion('validation.valuePercentInvalid'));
         return;
       }
     } else if (numericValue <= 0) {
-      toast({ description: tPromotion('validation.valueAmountInvalid') });
+      showDefaultToast(tPromotion('validation.valueAmountInvalid'));
       return;
     }
     if (!form.start_at) {
-      toast({ description: tPromotion('validation.startAtRequired') });
+      showDefaultToast(tPromotion('validation.startAtRequired'));
       return;
     }
     if (!form.end_at) {
-      toast({ description: tPromotion('validation.endAtRequired') });
+      showDefaultToast(tPromotion('validation.endAtRequired'));
       return;
     }
     if (
@@ -1974,7 +1976,7 @@ const PromotionCampaignDialog = ({
       !endAtDate ||
       endAtDate.getTime() < startAtDate.getTime()
     ) {
-      toast({ description: tPromotion('validation.endAtInvalid') });
+      showDefaultToast(tPromotion('validation.endAtInvalid'));
       return;
     }
 
@@ -1983,9 +1985,7 @@ const PromotionCampaignDialog = ({
       await onSubmit(form);
       onOpenChange(false);
     } catch (error) {
-      toast({
-        description: (error as Error).message || t('common.core.submitFailed'),
-      });
+      showErrorToast((error as Error).message || t('common.core.submitFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -2177,7 +2177,6 @@ export default function AdminOperationPromotionsPage() {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
   const { isReady } = useOperatorGuard();
-  const { toast } = useToast();
   const clearLabel = t('common.core.close');
   const [tab, setTab] = useState<PromotionTab>('coupons');
   const [couponLoading, setCouponLoading] = useState(true);
@@ -2397,7 +2396,7 @@ export default function AdminOperationPromotionsPage() {
       end_at: payload.end_at,
       enabled: payload.enabled === 'true',
     });
-    toast({ description: tPromotion('messages.createSuccess') });
+    showDefaultToast(tPromotion('messages.createSuccess'));
     await fetchCoupons(1, couponFilters);
   };
 
@@ -2419,7 +2418,7 @@ export default function AdminOperationPromotionsPage() {
       end_at: payload.end_at,
       enabled: payload.enabled === 'true',
     });
-    toast({ description: tPromotion('messages.updateSuccess') });
+    showDefaultToast(tPromotion('messages.updateSuccess'));
     await fetchCoupons(couponPage, couponFilters);
     setEditingCoupon(null);
   };
@@ -2450,7 +2449,7 @@ export default function AdminOperationPromotionsPage() {
       }
 
       if (!allCodes.length) {
-        toast({ description: tPromotion('messages.emptyCodes') });
+        showDefaultToast(tPromotion('messages.emptyCodes'));
         return;
       }
 
@@ -2462,12 +2461,11 @@ export default function AdminOperationPromotionsPage() {
         tPromotion('coupon.code'),
         allCodes,
       );
-      toast({ description: tPromotion('messages.exportSuccess') });
+      showDefaultToast(tPromotion('messages.exportSuccess'));
     } catch (error) {
-      toast({
-        description:
-          (error as Error).message || tPromotion('messages.exportFailed'),
-      });
+      showErrorToast(
+        (error as Error).message || tPromotion('messages.exportFailed'),
+      );
     }
   };
 
@@ -2484,7 +2482,7 @@ export default function AdminOperationPromotionsPage() {
       channel: payload.channel.trim(),
       enabled: payload.enabled === 'true',
     });
-    toast({ description: tPromotion('messages.createSuccess') });
+    showDefaultToast(tPromotion('messages.createSuccess'));
     await fetchCampaigns(1, campaignFilters);
   };
 
@@ -2505,7 +2503,7 @@ export default function AdminOperationPromotionsPage() {
       channel: payload.channel.trim(),
       enabled: payload.enabled === 'true',
     });
-    toast({ description: tPromotion('messages.updateSuccess') });
+    showDefaultToast(tPromotion('messages.updateSuccess'));
     await fetchCampaigns(campaignPage, campaignFilters);
     setEditingCampaign(null);
   };
@@ -2538,29 +2536,27 @@ export default function AdminOperationPromotionsPage() {
           coupon_bid: pendingStatusChange.item.coupon_bid,
           enabled: pendingStatusChange.enabling,
         });
-        toast({
-          description: pendingStatusChange.enabling
+        showDefaultToast(
+          pendingStatusChange.enabling
             ? tPromotion('messages.couponEnabledSuccess')
             : tPromotion('messages.couponDisabledSuccess'),
-        });
+        );
         await fetchCoupons(couponPage, couponFilters);
       } else {
         await api.updateAdminOperationPromotionCampaignStatus({
           promo_bid: pendingStatusChange.item.promo_bid,
           enabled: pendingStatusChange.enabling,
         });
-        toast({
-          description: pendingStatusChange.enabling
+        showDefaultToast(
+          pendingStatusChange.enabling
             ? tPromotion('messages.campaignEnabledSuccess')
             : tPromotion('messages.campaignDisabledSuccess'),
-        });
+        );
         await fetchCampaigns(campaignPage, campaignFilters);
       }
       setPendingStatusChange(null);
     } catch (error) {
-      toast({
-        description: (error as Error).message || t('common.core.submitFailed'),
-      });
+      showErrorToast((error as Error).message || t('common.core.submitFailed'));
     } finally {
       setStatusChangeSubmitting(false);
     }
@@ -2576,14 +2572,13 @@ export default function AdminOperationPromotionsPage() {
         };
         setEditingCoupon(detail.coupon || item);
       } catch (error) {
-        toast({
-          description:
-            (error as Error).message ||
+        showErrorToast(
+          (error as Error).message ||
             tPromotion('messages.loadCouponDetailFailed'),
-        });
+        );
       }
     },
-    [tPromotion, toast],
+    [tPromotion],
   );
 
   const handleOpenCampaignRedemptions = useCallback(
@@ -2609,14 +2604,13 @@ export default function AdminOperationPromotionsPage() {
           description: detail.description || '',
         });
       } catch (error) {
-        toast({
-          description:
-            (error as Error).message ||
+        showErrorToast(
+          (error as Error).message ||
             tPromotion('messages.loadCampaignDetailFailed'),
-        });
+        );
       }
     },
-    [tPromotion, toast],
+    [tPromotion],
   );
 
   if (!isReady) {

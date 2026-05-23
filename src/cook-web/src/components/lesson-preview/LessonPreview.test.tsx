@@ -130,7 +130,7 @@ describe('LessonPreview billing action', () => {
     expect(mockPush).toHaveBeenCalledWith('/admin/billing?tab=packages');
   });
 
-  test('reveals speaker helper row and later preview items after typewriter finishes', () => {
+  test('shows later preview items immediately when debug preview typewriter is disabled', () => {
     const items: ChatContentItem[] = [
       {
         element_bid: 'text-1',
@@ -172,12 +172,11 @@ describe('LessonPreview billing action', () => {
     );
 
     expect(screen.getByText('第一段内容')).toBeInTheDocument();
-    expect(screen.queryByText('第二段内容')).not.toBeInTheDocument();
-    expect(screen.queryByText('text-1')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'finish-text-1' }));
-
     expect(screen.getByText('第二段内容')).toBeInTheDocument();
     expect(screen.getByText('text-1')).toBeInTheDocument();
+    expect(screen.queryByText('typing')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'finish-text-1' }),
+    ).not.toBeInTheDocument();
   });
 });

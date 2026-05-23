@@ -286,7 +286,6 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.actions.copyCourse')
  * t('module.operationsCourse.actions.transferCreator')
  * t('module.operationsCourse.detail.title')
- * t('module.operationsCourse.detail.back')
  * t('module.operationsCourse.detail.basicInfo')
  * t('module.operationsCourse.filters.courseId')
  * t('module.operationsCourse.filters.courseName')

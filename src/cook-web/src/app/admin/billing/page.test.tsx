@@ -290,8 +290,7 @@ describe('AdminBillingPage', () => {
     expect(screen.getByTestId('admin-billing-page')).toHaveClass(
       'overscroll-none',
     );
-    expect(packagesPanel).toHaveClass('flex-1');
-    expect(packagesPanel).toHaveClass('overflow-y-auto');
+    expect(packagesPanel).toHaveClass('mt-0');
     expect(
       within(tabs).getByRole('tab', {
         name: 'module.billing.page.tabs.plans',
@@ -441,7 +440,7 @@ describe('AdminBillingPage', () => {
       await screen.findByText('module.billing.details.title'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('admin-billing-details-panel')).toHaveClass(
-      'overflow-y-auto',
+      'mt-0',
     );
     expect(mockGetBillingCatalog).toHaveBeenCalledWith({
       timezone: 'Asia/Shanghai',

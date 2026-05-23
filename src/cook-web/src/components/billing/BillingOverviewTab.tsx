@@ -29,6 +29,7 @@ import {
   formatBillingPrice,
   openBillingCheckoutUrl,
   registerBillingTranslationUsage,
+  resolveBillingPingxxChannelLabel,
   resolveBillingProductTitle,
   resolveBillingProviderLabel,
   withBillingTimezone,
@@ -116,6 +117,33 @@ function resolveFirstBillingProvider(
   return null;
 }
 
+function resolveCheckoutChannelLabel(
+  t: ReturnType<typeof useTranslation>['t'],
+  target: CheckoutTarget,
+  selectedPingxxChannel: BillingPingxxChannel,
+): string {
+  if (!target) {
+    return '';
+  }
+
+  if (target.provider === 'pingxx') {
+    return t('module.billing.catalog.labels.providerWithChannel', {
+      provider: resolveBillingProviderLabel(t, target.provider),
+      channel: resolveBillingPingxxChannelLabel(t, selectedPingxxChannel),
+    });
+  }
+
+  if (target.provider === 'alipay') {
+    return resolveBillingPingxxChannelLabel(t, 'alipay_qr');
+  }
+
+  if (target.provider === 'wechatpay') {
+    return resolveBillingPingxxChannelLabel(t, 'wx_pub_qr');
+  }
+
+  return resolveBillingProviderLabel(t, target.provider);
+}
+
 export function BillingOverviewTab({
   onOpenOrdersTab,
 }: BillingOverviewTabProps = {}) {
@@ -158,6 +186,7 @@ export function BillingOverviewTab({
     useState<PingxxCheckoutState | null>(null);
   const [selectedPingxxChannel, setSelectedPingxxChannel] =
     useState<BillingPingxxChannel>('wx_pub_qr');
+  const [checkoutAgreed, setCheckoutAgreed] = useState(false);
   const [subscriptionActionLoading, setSubscriptionActionLoading] = useState<
     'cancel' | 'resume' | ''
   >('');
@@ -174,6 +203,7 @@ export function BillingOverviewTab({
       ]);
       if (result.status !== 'pending') {
         setPingxxCheckout(null);
+        setCheckoutAgreed(false);
       }
     },
   });
@@ -256,6 +286,7 @@ export function BillingOverviewTab({
           variant: 'destructive',
         });
         setCheckoutTarget(null);
+        setCheckoutAgreed(false);
         return;
       }
 
@@ -267,6 +298,7 @@ export function BillingOverviewTab({
           );
         }
         setCheckoutTarget(null);
+        setCheckoutAgreed(false);
         openBillingCheckoutUrl(result.redirect_url);
         return;
       }
@@ -400,6 +432,7 @@ export function BillingOverviewTab({
             resolveDefaultBillingQrChannel(firstAvailableTopup.provider),
           );
         }
+        setCheckoutAgreed(false);
         setCheckoutTarget({
           kind: 'topup',
           product: firstAvailableTopup.product,
@@ -430,7 +463,7 @@ export function BillingOverviewTab({
     ? formatBillingCredits(checkoutTarget.product.credit_amount, i18n.language)
     : '';
   const dialogProviderLabel = checkoutTarget
-    ? resolveBillingProviderLabel(t, checkoutTarget.provider)
+    ? resolveCheckoutChannelLabel(t, checkoutTarget, selectedPingxxChannel)
     : '';
   const loadError = overviewError || catalogError;
   // Trial column hidden in the comparison table; keep trial data wiring so the
@@ -491,6 +524,7 @@ export function BillingOverviewTab({
           if (isQrBillingProvider(provider)) {
             setSelectedPingxxChannel(resolveDefaultBillingQrChannel(provider));
           }
+          setCheckoutAgreed(false);
           setCheckoutTarget({
             kind: 'plan',
             product: plan,
@@ -501,6 +535,7 @@ export function BillingOverviewTab({
           if (isQrBillingProvider(provider)) {
             setSelectedPingxxChannel(resolveDefaultBillingQrChannel(provider));
           }
+          setCheckoutAgreed(false);
           setCheckoutTarget({
             kind: 'topup',
             product,
@@ -529,10 +564,13 @@ export function BillingOverviewTab({
             : t('module.billing.checkout.productLabel')
         }
         providerLabel={dialogProviderLabel}
+        agreed={checkoutAgreed}
         onConfirm={() => void handleCheckout()}
+        onAgreedChange={setCheckoutAgreed}
         onOpenChange={open => {
           if (!open) {
             setCheckoutTarget(null);
+            setCheckoutAgreed(false);
           }
         }}
         onPingxxChannelChange={setSelectedPingxxChannel}
@@ -548,10 +586,13 @@ export function BillingOverviewTab({
         provider={pingxxCheckout?.provider || 'pingxx'}
         qrUrl={pingxxCheckout?.qrUrl || ''}
         selectedChannel={pingxxCheckout?.selectedChannel || 'wx_pub_qr'}
+        agreed={checkoutAgreed}
         onChannelChange={channel => void handlePingxxQrChannelChange(channel)}
+        onAgreedChange={setCheckoutAgreed}
         onOpenChange={open => {
           if (!open) {
             setPingxxCheckout(null);
+            setCheckoutAgreed(false);
           }
         }}
       />

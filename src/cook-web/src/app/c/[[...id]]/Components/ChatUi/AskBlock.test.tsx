@@ -9,6 +9,7 @@ import {
 import AskBlock from './AskBlock';
 import { AppContext } from '../AppContext';
 import { SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
+import { toast } from '@/hooks/useToast';
 import { useAskStateStore } from './useAskStateStore';
 
 jest.mock('react-i18next', () => ({
@@ -688,5 +689,98 @@ describe('AskBlock', () => {
         shouldUseTypewriter: false,
       }),
     );
+  });
+
+  describe('when the backend rejects the ask via SSE error', () => {
+    const renderAskBlock = () =>
+      render(
+        <AppContext.Provider
+          value={{
+            isLoggedIn: false,
+            mobileStyle: false,
+            userInfo: null,
+            theme: 'light',
+            frameLayout: 0,
+          }}
+        >
+          <AskBlock
+            isExpanded={true}
+            shifu_bid='shifu-1'
+            outline_bid='lesson-1'
+            element_bid='block-1'
+            askList={[]}
+          />
+        </AppContext.Provider>,
+      );
+
+    it('rolls back the local ask/answer placeholders, refills the input, and toasts the backend message', async () => {
+      renderAskBlock();
+
+      fireEvent.change(screen.getByLabelText('ask-input'), {
+        target: { value: 'follow up question' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+      await waitFor(() => expect(activeRun).toBeDefined());
+      await waitFor(() =>
+        expect(
+          useAskStateStore.getState().askListByAnchorElementBid['block-1']
+            ?.length,
+        ).toBe(2),
+      );
+
+      await act(async () => {
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.ERROR,
+          content: 'Content is still generating. Please wait before retrying.',
+        });
+      });
+
+      await waitFor(() =>
+        expect(
+          useAskStateStore.getState().askListByAnchorElementBid['block-1']
+            ?.length ?? 0,
+        ).toBe(0),
+      );
+
+      expect(toast).toHaveBeenCalledWith({
+        title: 'Content is still generating. Please wait before retrying.',
+      });
+      expect(activeRun?.source.close).toHaveBeenCalled();
+      expect(
+        (screen.getByLabelText('ask-input') as HTMLTextAreaElement).value,
+      ).toBe('follow up question');
+    });
+
+    it('falls back to the local i18n message when the error event carries no content', async () => {
+      renderAskBlock();
+
+      fireEvent.change(screen.getByLabelText('ask-input'), {
+        target: { value: 'another question' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+      await waitFor(() => expect(activeRun).toBeDefined());
+
+      await act(async () => {
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.ERROR,
+        });
+      });
+
+      await waitFor(() =>
+        expect(
+          useAskStateStore.getState().askListByAnchorElementBid['block-1']
+            ?.length ?? 0,
+        ).toBe(0),
+      );
+
+      expect(toast).toHaveBeenCalledWith({
+        title: 'module.chat.outputInProgress',
+      });
+      expect(
+        (screen.getByLabelText('ask-input') as HTMLTextAreaElement).value,
+      ).toBe('another question');
+    });
   });
 });

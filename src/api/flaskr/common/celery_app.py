@@ -15,6 +15,7 @@ _DEFAULT_BILLING_RENEWAL_CRON = "* * * * *"
 _DEFAULT_BILLING_BUCKET_EXPIRE_CRON = "* * * * *"
 _DEFAULT_BILLING_LOW_BALANCE_CRON = "0 * * * *"
 _DEFAULT_BILLING_CREDIT_EXPIRING_CRON = "0 * * * *"
+_DEFAULT_BILLING_DAILY_LEDGER_SUMMARY_CRON = "30 1 * * *"
 
 __CELERY_APP__: Celery | None = None
 
@@ -113,6 +114,14 @@ def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, Any]:
                 flask_app,
                 "BILLING_CREDIT_EXPIRING_CRON",
                 _DEFAULT_BILLING_CREDIT_EXPIRING_CRON,
+            ),
+        },
+        "billing.finalize_daily_ledger_summary.schedule": {
+            "task": "billing.finalize_daily_ledger_summary",
+            "schedule": _resolve_billing_crontab(
+                flask_app,
+                "BILLING_DAILY_LEDGER_SUMMARY_CRON",
+                _DEFAULT_BILLING_DAILY_LEDGER_SUMMARY_CRON,
             ),
         },
     }

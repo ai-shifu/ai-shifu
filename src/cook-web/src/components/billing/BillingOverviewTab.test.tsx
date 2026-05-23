@@ -36,6 +36,13 @@ jest.mock('react-i18next', () => ({
       ) {
         return `${key}:${options.count}`;
       }
+      if (
+        key === 'module.billing.catalog.labels.providerWithChannel' &&
+        typeof options?.provider === 'string' &&
+        typeof options?.channel === 'string'
+      ) {
+        return `${options.provider} / ${options.channel}`;
+      }
       return key;
     },
     i18n: {
@@ -462,6 +469,11 @@ describe('BillingOverviewTab', () => {
     expect(
       screen.getByTestId('billing-plan-card-bill-product-plan-yearly-premium'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-yearly-premium-price-summary',
+      ),
+    ).toHaveClass('columnPriceSummary');
 
     await act(async () => {
       await user.click(
@@ -944,6 +956,14 @@ describe('BillingOverviewTab', () => {
       );
     });
 
+    expect(
+      screen.getByText(
+        (_content, element) =>
+          element?.textContent ===
+          'module.billing.catalog.labels.providerPingxx / module.pay.wechatPay',
+      ),
+    ).toBeInTheDocument();
+
     await acceptBillingAgreement(user);
 
     await act(async () => {
@@ -965,6 +985,12 @@ describe('BillingOverviewTab', () => {
     });
 
     expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox')).toBeChecked();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.pay.clickRefresh',
+      }),
+    ).toBeEnabled();
 
     await act(async () => {
       await user.click(screen.getByTestId('billing-pingxx-channel-alipay_qr'));

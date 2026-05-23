@@ -21,7 +21,7 @@ from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
 from flaskr.service.config.funcs import add_config
 from flaskr.service.user.consts import USER_STATE_UNREGISTERED
-from flaskr.service.user.repository import load_user_aggregate
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.timezone import serialize_with_app_timezone
 from flaskr.util.uuid import generate_id
 
@@ -837,15 +837,19 @@ def _is_notification_eligible_creator(creator_bid: str) -> bool:
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return False
-    aggregate = load_user_aggregate(
-        normalized_creator_bid,
-        with_credentials=False,
+    creator = (
+        UserEntity.query.filter(
+            UserEntity.user_bid == normalized_creator_bid,
+            UserEntity.deleted == 0,
+        )
+        .order_by(UserEntity.id.desc())
+        .first()
     )
-    if aggregate is None or aggregate.deleted:
+    if creator is None:
         return False
-    if not aggregate.is_creator:
+    if not bool(creator.is_creator):
         return False
-    return int(aggregate.state or USER_STATE_UNREGISTERED) != USER_STATE_UNREGISTERED
+    return int(creator.state or USER_STATE_UNREGISTERED) != USER_STATE_UNREGISTERED
 
 
 def _is_notification_eligible_creator_cached(

@@ -40,6 +40,7 @@ from flaskr.service.billing.tasks import (
     aggregate_daily_usage_metrics_task,
     dispatch_due_renewal_events_task,
     expire_wallet_buckets_task,
+    finalize_daily_ledger_summary_task,
     reconcile_provider_reference_task,
     replay_usage_settlement_task,
     rebuild_daily_aggregates_task,
@@ -235,6 +236,95 @@ def test_aggregate_daily_ledger_summary_task_calls_helper(
     }
     assert payload["status"] == "finalized"
     assert payload["task_name"] == "billing.aggregate_daily_ledger_summary"
+
+
+def test_finalize_daily_ledger_summary_task_defaults_to_previous_day(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_app = object()
+    _install_fake_app_module(monkeypatch, fake_app)
+
+    captured: dict[str, object] = {}
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 5, 22, 2, 0, 0, tzinfo=tz)
+
+    def _fake_finalize_daily_ledger_summary(
+        app,
+        *,
+        stat_date: str = "",
+        creator_bid: str = "",
+    ):
+        captured["app"] = app
+        captured["stat_date"] = stat_date
+        captured["creator_bid"] = creator_bid
+        return {
+            "status": "finalized",
+            "stat_date": stat_date,
+            "creator_bid": creator_bid or None,
+            "finalize": True,
+        }
+
+    monkeypatch.setattr("flaskr.service.billing.tasks.datetime", FixedDateTime)
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.finalize_daily_ledger_summary",
+        _fake_finalize_daily_ledger_summary,
+    )
+
+    payload = finalize_daily_ledger_summary_task(creator_bid=" creator-task-3 ")
+
+    assert captured == {
+        "app": fake_app,
+        "stat_date": "2026-05-21",
+        "creator_bid": "creator-task-3",
+    }
+    assert payload["status"] == "finalized"
+    assert payload["task_name"] == "billing.finalize_daily_ledger_summary"
+
+
+def test_finalize_daily_ledger_summary_task_accepts_explicit_stat_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_app = object()
+    _install_fake_app_module(monkeypatch, fake_app)
+
+    captured: dict[str, object] = {}
+
+    def _fake_finalize_daily_ledger_summary(
+        app,
+        *,
+        stat_date: str = "",
+        creator_bid: str = "",
+    ):
+        captured["app"] = app
+        captured["stat_date"] = stat_date
+        captured["creator_bid"] = creator_bid
+        return {
+            "status": "finalized",
+            "stat_date": stat_date,
+            "creator_bid": creator_bid or None,
+            "finalize": True,
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.finalize_daily_ledger_summary",
+        _fake_finalize_daily_ledger_summary,
+    )
+
+    payload = finalize_daily_ledger_summary_task(
+        stat_date=" 2026-05-20 ",
+        creator_bid=" creator-task-4 ",
+    )
+
+    assert captured == {
+        "app": fake_app,
+        "stat_date": "2026-05-20",
+        "creator_bid": "creator-task-4",
+    }
+    assert payload["status"] == "finalized"
+    assert payload["task_name"] == "billing.finalize_daily_ledger_summary"
 
 
 def test_rebuild_daily_aggregates_task_calls_helper(

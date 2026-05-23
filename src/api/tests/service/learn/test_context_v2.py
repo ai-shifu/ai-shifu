@@ -127,6 +127,7 @@ from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_NOT_STARTED,
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
@@ -341,8 +342,8 @@ class CompletionTailInteractionTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(calls, ["feedback", "next"])
-        self.assertEqual(events, ["feedback-event", "next-event"])
+        self.assertEqual(calls, ["next", "feedback"])
+        self.assertEqual(events, ["next-event", "feedback-event"])
 
     def test_skips_next_when_no_next_outline(self):
         ctx = _make_context()
@@ -575,13 +576,13 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
                 )
             )
             dao.db.session.commit()
-            events = list(self.ctx._emit_feedback_before_exception_gate())
+            events = list(self.ctx._emit_feedback_after_exception_gate())
             self.assertEqual(len(events), 1)
             self.assertEqual(events[0].type, GeneratedType.INTERACTION)
 
     def test_skips_when_no_completed_progress(self):
         with self.app.app_context():
-            events = list(self.ctx._emit_feedback_before_exception_gate())
+            events = list(self.ctx._emit_feedback_after_exception_gate())
             self.assertEqual(events, [])
 
     def test_skips_completed_progress_without_generated_blocks(self):
@@ -596,8 +597,57 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
                 )
             )
             dao.db.session.commit()
-            events = list(self.ctx._emit_feedback_before_exception_gate())
+            events = list(self.ctx._emit_feedback_after_exception_gate())
             self.assertEqual(events, [])
+
+
+class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = Flask("exception-gate-interaction-persistence")
+        cls.app.config.update(
+            SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={
+                "ai_shifu_saas": "sqlite:///:memory:",
+                "ai_shifu_admin": "sqlite:///:memory:",
+            },
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        )
+        dao.db.init_app(cls.app)
+        with cls.app.app_context():
+            dao.db.create_all()
+
+    def setUp(self):
+        self.app = self.__class__.app
+        self.ctx = _make_context()
+        self.ctx.app = self.app
+        self.ctx._outline_item_info = types.SimpleNamespace(
+            bid="outline-locked",
+            shifu_bid="shifu-1",
+        )
+        self.ctx._user_info = types.SimpleNamespace(user_id="user-1")
+        self.ctx._current_attend = None
+        with self.app.app_context():
+            LearnGeneratedBlock.query.delete()
+            LearnProgressRecord.query.delete()
+            dao.db.session.commit()
+
+    def test_emits_gate_interaction_without_existing_progress(self):
+        with self.app.app_context():
+            events = list(
+                self.ctx._emit_current_progress_gate_interaction(
+                    "?[server.order.checkout//_sys_pay]"
+                )
+            )
+
+            progress = LearnProgressRecord.query.one()
+            block = LearnGeneratedBlock.query.one()
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(progress.status, LEARN_STATUS_NOT_STARTED)
+        self.assertEqual(block.progress_record_bid, progress.progress_record_bid)
+        self.assertEqual(block.outline_item_bid, "outline-locked")
+        self.assertEqual(block.block_content_conf, "?[server.order.checkout//_sys_pay]")
 
 
 class StreamTtsGateTests(unittest.TestCase):
@@ -1667,13 +1717,13 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
             raise PaidException()
 
         ctx.run_inner = _raise_paid
-        ctx._emit_feedback_before_exception_gate = lambda: iter(["feedback"])
+        ctx._emit_feedback_after_exception_gate = lambda: iter(["feedback"])
         ctx._emit_current_progress_gate_interaction = lambda content: iter([content])
 
         with patch("flaskr.service.learn.context_v2._", lambda key: key):
             outputs = list(ctx.run(app))
 
-        self.assertEqual(outputs, ["feedback", "?[server.order.checkout//_sys_pay]"])
+        self.assertEqual(outputs, ["?[server.order.checkout//_sys_pay]", "feedback"])
 
 
 if __name__ == "__main__":

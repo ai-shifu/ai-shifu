@@ -55,6 +55,30 @@ describe('ContactSideRail', () => {
     });
   });
 
+  test('renders a right-aligned square trigger with a hover label panel', () => {
+    render(<ContactSideRail label='Nous contacter' />);
+
+    const contactLink = screen.getByRole('link', {
+      name: 'Nous contacter',
+    });
+    const rail = screen.getByTestId('contact-side-rail');
+    const trigger = screen.getByTestId('contact-side-rail-trigger');
+    const labelPanel = screen.getByTestId('contact-side-rail-label');
+    const label = screen.getByText('Nous contacter');
+
+    expect(contactLink).toHaveAttribute('title', 'Nous contacter');
+    expect(contactLink).toHaveClass('h-10');
+    expect(contactLink).toHaveClass('w-10');
+    expect(contactLink).toHaveClass('bg-primary');
+    expect(rail).toHaveClass('right-0');
+    expect(trigger).toHaveClass('h-10');
+    expect(trigger).toHaveClass('w-10');
+    expect(labelPanel).toHaveClass('whitespace-nowrap');
+    expect(labelPanel).toHaveClass('group-hover:max-w-56');
+    expect(label).toHaveClass('whitespace-nowrap');
+    expect(label).not.toHaveClass('break-all');
+  });
+
   test('does not render when the contact url is empty', () => {
     mockEnvState.contactUsUrl = '';
 

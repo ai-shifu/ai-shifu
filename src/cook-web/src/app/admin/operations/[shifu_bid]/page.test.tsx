@@ -44,6 +44,22 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ href: string }>) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -411,11 +427,14 @@ describe('AdminOperationCourseDetailPage', () => {
     });
   });
 
-  test('renders course detail data and can go back', async () => {
+  test('renders course detail data with breadcrumb navigation', async () => {
     render(<AdminOperationCourseDetailPage />);
 
     expect(
-      await screen.findByText('module.operationsCourse.detail.title'),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsCourse.detail.title',
+      }),
     ).toBeInTheDocument();
     expect(mockGetAdminOperationCourseDetail).toHaveBeenCalledWith({
       shifu_bid: 'course-1',
@@ -467,13 +486,11 @@ describe('AdminOperationCourseDetailPage', () => {
         .length,
     ).toBeGreaterThan(0);
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCourse.detail.back',
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.title',
       }),
-    );
-
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations');
+    ).toHaveAttribute('href', '/admin/operations');
   });
 
   test('loads credit usage tab on demand and renders credit rows', async () => {
