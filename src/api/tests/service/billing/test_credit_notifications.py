@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import os
 import secrets
+import time as time_module
 from types import SimpleNamespace
 
 from flask import Flask
@@ -20,6 +21,7 @@ from flaskr.service.billing.consts import (
     CREDIT_NOTIFICATION_STATUS_PENDING,
     CREDIT_NOTIFICATION_STATUS_SENT,
     CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE,
+    CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
     CREDIT_NOTIFICATION_TYPE_EXPIRING,
     CREDIT_NOTIFICATION_TYPE_GRANTED,
     CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
@@ -817,6 +819,35 @@ def test_credit_notification_quiet_hours_uses_policy_timezone() -> None:
     )
 
 
+def test_credit_notification_quiet_hours_converts_naive_process_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if not hasattr(time_module, "tzset"):
+        pytest.skip("tzset is unavailable on this platform")
+
+    previous_tz = os.environ.get("TZ")
+    monkeypatch.setenv("TZ", "UTC")
+    time_module.tzset()
+    try:
+        policy = {
+            "quiet_hours": {
+                "enabled": True,
+                "start": "22:00",
+                "end": "09:00",
+                "timezone": "Asia/Shanghai",
+            }
+        }
+
+        assert not _is_quiet_hours(policy, now=datetime(2026, 5, 23, 8, 0, 0))
+        assert _is_quiet_hours(policy, now=datetime(2026, 5, 23, 15, 30, 0))
+    finally:
+        if previous_tz is None:
+            monkeypatch.delenv("TZ", raising=False)
+        else:
+            monkeypatch.setenv("TZ", previous_tz)
+        time_module.tzset()
+
+
 def test_credit_notification_list_handles_invalid_pagination(
     credit_notifications_app: Flask,
 ) -> None:
@@ -1130,6 +1161,115 @@ def test_low_balance_estimated_days_skips_when_valid_daily_consumption_is_missin
     assert dry_run_payload["notifications"][0]["threshold"] == ""
     with app.app_context():
         assert NotificationRecord.query.count() == 0
+
+
+def test_low_balance_scan_skips_zero_balance_without_estimated_remaining_days(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    now = datetime(2026, 5, 21, 8, 0, 0)
+    _seed_creator(app)
+    _enable_policy(
+        app,
+        low_balance_thresholds=[{"kind": "fixed", "value": "0"}],
+    )
+    enqueue_calls: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
+        lambda app, *, notification_bid: enqueue_calls.append(notification_bid),
+    )
+
+    with app.app_context():
+        _seed_wallet(available_credits="0")
+        dao.db.session.commit()
+
+    payload = scan_low_balance_notifications(app, now=now)
+    dry_run_payload = scan_low_balance_notifications(app, now=now, dry_run=True)
+
+    assert payload["candidate_count"] == 0
+    assert payload["created_count"] == 0
+    assert payload["enqueued_count"] == 0
+    assert payload["notifications"] == []
+    assert enqueue_calls == []
+    assert dry_run_payload["candidate_count"] == 0
+    assert dry_run_payload["notifications"][0]["reason"] == (
+        "zero_balance_missing_estimated_remaining_days"
+    )
+    with app.app_context():
+        assert NotificationRecord.query.count() == 0
+
+
+def test_low_balance_delivery_skips_zero_balance_without_estimated_remaining_days(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app)
+    _enable_policy(app)
+    send_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.send_sms_ali",
+        lambda app, mobile, *, template_code, template_params, sign_name=None: (
+            send_calls.append(
+                {
+                    "mobile": mobile,
+                    "template_code": template_code,
+                    "template_params": dict(template_params),
+                }
+            )
+            or SimpleNamespace(body=SimpleNamespace(code="OK"))
+        ),
+    )
+
+    with app.app_context():
+        notification = NotificationRecord(
+            notification_bid="notification-zero-missing-days",
+            notification_type=CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+            channel="sms",
+            creator_bid="creator-1",
+            target_user_bid="creator-1",
+            mobile_snapshot="13800000000",
+            source_type="wallet",
+            source_bid="creator-1",
+            dedupe_key="low_balance:creator-1:0.00:2026-05-21",
+            status=CREDIT_NOTIFICATION_STATUS_PENDING,
+            template_code="TPL-LOW",
+            template_params_json={
+                "available_credits": "0.00",
+                "threshold": "0.00",
+                "threshold_kind": "fixed",
+                "trigger_days": "",
+                "lookback_days": "",
+                "avg_daily_consumption": "",
+                "estimated_remaining_days": "",
+            },
+            policy_snapshot_json={},
+            provider_response_json={},
+            metadata_json={},
+            deleted=0,
+            created_at=datetime(2026, 5, 21, 8, 0, 0),
+            updated_at=datetime(2026, 5, 21, 8, 0, 0),
+        )
+        dao.db.session.add(notification)
+        dao.db.session.commit()
+
+    delivered = deliver_credit_notification(
+        app,
+        notification_bid="notification-zero-missing-days",
+    )
+
+    assert delivered["status"] == CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT
+    assert delivered["reason"] == "zero_balance_missing_estimated_remaining_days"
+    assert send_calls == []
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_bid="notification-zero-missing-days"
+        ).one()
+        assert notification.status == CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT
+        assert notification.error_code == (
+            "zero_balance_missing_estimated_remaining_days"
+        )
 
 
 def test_failed_provider_notification_can_be_requeued(
