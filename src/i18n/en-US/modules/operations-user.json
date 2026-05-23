@@ -40,7 +40,6 @@
       "usageScene": "Scene",
       "user": "User"
     },
-    "creditLedgerCourseOpenAriaLabel": "Open course detail",
     "creditLedgerFilters": {
       "course": "Course",
       "coursePlaceholder": "Enter ID/name",

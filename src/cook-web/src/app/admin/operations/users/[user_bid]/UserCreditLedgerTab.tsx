@@ -148,7 +148,6 @@ type OperatorUsersTranslator = (
  * t('module.operationsUser.detail.creditLedgerUsageSceneLabels.debug')
  * t('module.operationsUser.detail.creditLedgerUsageSceneLabels.preview')
  * t('module.operationsUser.detail.creditLedgerUsageSceneLabels.learning')
- * t('module.operationsUser.detail.creditLedgerCourseOpenAriaLabel')
  * t('module.operationsUser.detail.emptyCredits')
  * t('module.operationsUser.detail.loadingCredits')
  */
@@ -905,16 +904,12 @@ export default function UserCreditLedgerTab({
             type='button'
             variant='ghost'
             className='h-auto max-w-full px-1 py-0 text-primary hover:text-primary'
-            title={displayText}
-            aria-label={tOperationsUsers(
-              'detail.creditLedgerCourseOpenAriaLabel',
-              { defaultValue: displayText },
-            )}
             onClick={() => onCourseOpen(normalizedCourseBid)}
           >
-            <span className='block max-w-full overflow-hidden text-ellipsis whitespace-nowrap'>
-              {displayText}
-            </span>
+            <AdminTooltipText
+              text={displayText}
+              emptyValue={emptyValue}
+            />
           </Button>
         ) : (
           <AdminTooltipText

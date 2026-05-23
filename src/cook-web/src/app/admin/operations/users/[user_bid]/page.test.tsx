@@ -645,7 +645,7 @@ describe('AdminOperationUserDetailPage', () => {
       expect(screen.getByText('Lesson B / Chapter A')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByTitle('Usage Course'));
+    fireEvent.click(screen.getByRole('button', { name: 'Usage Course' }));
 
     expect(mockPush).toHaveBeenCalledWith(
       '/admin/operations/course-usage-1?tab=creditUsage',
