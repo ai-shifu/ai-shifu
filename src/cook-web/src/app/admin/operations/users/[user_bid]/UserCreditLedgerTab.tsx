@@ -96,7 +96,6 @@ type OperatorUsersTranslator = (
  * t('module.operationsUser.detail.creditLedgerColumns.grantedCredits')
  * t('module.operationsUser.detail.creditUsageDetail.actions.open')
  * t('module.operationsUser.detail.creditUsageDetail.actions.openAriaLabel')
- * t('module.operationsUser.detail.creditUsageDetail.columns.content')
  * t('module.operationsUser.detail.creditUsageDetail.columns.consumedCredits')
  * t('module.operationsUser.detail.creditUsageDetail.columns.createdAt')
  * t('module.operationsUser.detail.creditUsageDetail.columns.inputTokens')
