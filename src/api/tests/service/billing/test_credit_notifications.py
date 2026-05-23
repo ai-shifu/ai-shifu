@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+import os
+import secrets
 from types import SimpleNamespace
 
 from flask import Flask
@@ -25,8 +27,10 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_USAGE,
 )
 from flaskr.service.billing.credit_notifications import (
+    _is_quiet_hours,
     assert_creator_debug_allowed,
     deliver_credit_notification,
+    list_credit_notifications,
     requeue_credit_notification,
     resolve_creator_limit_state,
     save_credit_notification_policy,
@@ -68,7 +72,9 @@ def credit_notifications_app(tmp_path):
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SQLALCHEMY_ENGINE_OPTIONS={"connect_args": {"check_same_thread": False}},
         REDIS_KEY_PREFIX="credit-notification-test:",
-        SECRET_KEY="credit-notification-secret",
+        SECRET_KEY=os.environ.get(
+            "CREDIT_NOTIFICATION_TEST_SECRET_KEY", secrets.token_urlsafe(24)
+        ),
         TZ="UTC",
     )
     dao.db.init_app(app)
@@ -444,8 +450,12 @@ def test_sync_credit_notification_template_persists_aliyun_template(
 ) -> None:
     app = credit_notifications_app
     app.config.update(
-        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID="test-key",
-        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET="test-secret",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID=os.environ.get(
+            "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", f"test-key-{secrets.token_hex(4)}"
+        ),
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET=os.environ.get(
+            "ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", secrets.token_urlsafe(24)
+        ),
     )
 
     monkeypatch.setattr(
@@ -500,6 +510,40 @@ def test_sync_credit_notification_template_reports_missing_credentials(
 
     assert payload["sync_status"] == "missing_credentials"
     assert payload["error_code"] == "missing_credentials"
+    assert payload["compatible"] is False
+
+
+def test_sync_credit_notification_template_records_provider_exception(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    app.config.update(
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID=os.environ.get(
+            "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", f"test-key-{secrets.token_hex(4)}"
+        ),
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET=os.environ.get(
+            "ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", secrets.token_urlsafe(24)
+        ),
+    )
+
+    def raise_provider_error(app: Flask, *, template_code: str) -> None:
+        raise RuntimeError("provider down")
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.get_sms_template_ali",
+        raise_provider_error,
+    )
+
+    payload = sync_credit_notification_template(
+        app,
+        notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+        template_code="TPL-RAISE",
+    )
+
+    assert payload["sync_status"] == "failed_provider"
+    assert payload["error_code"] == "provider_exception"
+    assert payload["error_message"] == "provider_exception"
     assert payload["compatible"] is False
 
 
@@ -600,6 +644,24 @@ def test_disabled_notification_type_does_not_require_template_validation(
         },
         {
             "kind": "estimated_days",
+            "days": 366,
+            "lookback_days": 7,
+            "min_consumed_days": 2,
+        },
+        {
+            "kind": "estimated_days",
+            "days": 7,
+            "lookback_days": 366,
+            "min_consumed_days": 2,
+        },
+        {
+            "kind": "estimated_days",
+            "days": 7,
+            "lookback_days": 7,
+            "min_consumed_days": 8,
+        },
+        {
+            "kind": "estimated_days",
             "days": 7,
             "lookback_days": 7,
             "min_consumed_days": 2,
@@ -688,6 +750,37 @@ def test_credit_notification_skips_invalid_mobile(
             notification_bid=staged["notification_bid"]
         ).one()
         assert notification.error_code == "invalid_mobile"
+
+
+def test_credit_notification_quiet_hours_uses_policy_timezone() -> None:
+    policy = {
+        "quiet_hours": {
+            "enabled": True,
+            "start": "22:00",
+            "end": "09:00",
+            "timezone": "Asia/Shanghai",
+        }
+    }
+
+    assert _is_quiet_hours(
+        policy,
+        now=datetime.fromisoformat("2026-05-21T15:30:00+00:00"),
+    )
+    assert not _is_quiet_hours(
+        policy,
+        now=datetime.fromisoformat("2026-05-21T03:00:00+00:00"),
+    )
+
+
+def test_credit_notification_list_handles_invalid_pagination(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+
+    payload = list_credit_notifications(app, page_index="bad", page_size="bad")
+
+    assert payload["page"] == 1
+    assert payload["page_size"] == 20
 
 
 def test_expiring_and_low_balance_scans_stage_deduped_notifications(
@@ -971,6 +1064,86 @@ def test_failed_provider_notification_can_be_requeued(
         assert notification.status == CREDIT_NOTIFICATION_STATUS_PENDING
 
 
+def test_requeue_keeps_failed_status_when_enqueue_fails(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app)
+    _enable_policy(app)
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.send_sms_ali",
+        lambda app, mobile, *, template_code, template_params, sign_name=None: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
+        lambda app, *, notification_bid: {
+            "status": "enqueue_failed",
+            "notification_bid": notification_bid,
+            "enqueued": False,
+        },
+    )
+
+    with app.app_context():
+        _seed_credit_ledger(ledger_bid="ledger-requeue-failure")
+
+    staged = stage_credit_granted_notification(
+        app,
+        ledger_bid="ledger-requeue-failure",
+        enqueue=False,
+    )
+    deliver_credit_notification(app, notification_bid=str(staged["notification_bid"]))
+    requeued = requeue_credit_notification(
+        app,
+        notification_bid=str(staged["notification_bid"]),
+    )
+
+    assert requeued["enqueued"] is False
+    assert requeued["notification_status"] == CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_bid=staged["notification_bid"]
+        ).one()
+        assert notification.status == CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER
+
+
+def test_provider_exception_marks_notification_failed(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app)
+    _enable_policy(app)
+
+    def raise_provider_error(*args, **kwargs) -> None:
+        raise RuntimeError("provider raised")
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.send_sms_ali",
+        raise_provider_error,
+    )
+    with app.app_context():
+        _seed_credit_ledger(ledger_bid="ledger-provider-exception")
+
+    staged = stage_credit_granted_notification(
+        app,
+        ledger_bid="ledger-provider-exception",
+        enqueue=False,
+    )
+    delivered = deliver_credit_notification(
+        app,
+        notification_bid=str(staged["notification_bid"]),
+    )
+
+    assert delivered["status"] == CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER
+    assert delivered["error_code"] == "provider_exception"
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_bid=staged["notification_bid"]
+        ).one()
+        assert notification.error_code == "provider_exception"
+
+
 def test_send_credit_notification_task_raises_retryable_on_provider_failure(
     credit_notifications_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -985,11 +1158,35 @@ def test_send_credit_notification_task_raises_retryable_on_provider_failure(
         lambda app, *, notification_bid: {
             "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
             "notification_bid": notification_bid,
+            "error_code": "provider_failed",
         },
     )
 
     with pytest.raises(CreditNotificationRetryableError):
         send_credit_notification_task(notification_bid="notification-retry-1")
+
+
+def test_send_credit_notification_task_does_not_retry_config_failure(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks._create_task_app",
+        lambda: app,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks._deliver_credit_notification",
+        lambda app, *, notification_bid: {
+            "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+            "notification_bid": notification_bid,
+            "error_code": "missing_template_code",
+        },
+    )
+
+    payload = send_credit_notification_task(notification_bid="notification-config-1")
+
+    assert payload["status"] == CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER
 
 
 def test_softlimit_disables_debug_when_policy_threshold_is_reached(

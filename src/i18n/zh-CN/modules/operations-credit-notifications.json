@@ -43,6 +43,8 @@
       "windows": "到期提醒窗口"
     },
     "invalidConfig": "配置保存失败，请检查表单内容。",
+    "loadFailed": "通知策略读取失败，请刷新后重试。",
+    "loadRequired": "通知策略尚未成功读取，不能保存配置。",
     "placeholders": {
       "available": "可用占位符",
       "available_credits": "当前可用积分",
@@ -112,7 +114,8 @@
   },
   "loadError": "积分通知数据读取失败，请刷新后重试。",
   "messages": {
-    "requeueDone": "已提交重发任务。"
+    "requeueDone": "已提交重发任务。",
+    "requeueFailed": "重发任务提交失败。"
   },
   "records": {
     "totalCount": "共 {count} 条通知记录"

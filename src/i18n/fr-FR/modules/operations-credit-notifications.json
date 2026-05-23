@@ -43,6 +43,8 @@
       "windows": "Fenêtres de rappel d’expiration"
     },
     "invalidConfig": "Impossible d’enregistrer la configuration. Vérifiez les valeurs du formulaire.",
+    "loadFailed": "Impossible de charger la stratégie de notification. Actualisez puis réessayez.",
+    "loadRequired": "La stratégie de notification n’a pas été chargée correctement. La configuration ne peut pas être enregistrée.",
     "placeholders": {
       "available": "Variables disponibles",
       "available_credits": "Crédits disponibles",
@@ -112,7 +114,8 @@
   },
   "loadError": "Impossible de charger les notifications de crédits. Actualisez puis réessayez.",
   "messages": {
-    "requeueDone": "Tâche de relance envoyée."
+    "requeueDone": "Tâche de relance envoyée.",
+    "requeueFailed": "Échec de la tâche de relance."
   },
   "records": {
     "totalCount": "{count} enregistrements de notification"

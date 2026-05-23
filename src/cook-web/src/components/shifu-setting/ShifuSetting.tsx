@@ -149,7 +149,7 @@ export default function ShifuSettingDialog({
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
   const { data: billingOverview } = useBillingOverview();
   const debugAllowed =
-    !billingEnabled || billingOverview?.debug_allowed !== false;
+    !billingEnabled || billingOverview?.debug_allowed === true;
   const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
   const resolvedDefaultModel =
     models.find(option => option.value === defaultLlmModel)?.label ||

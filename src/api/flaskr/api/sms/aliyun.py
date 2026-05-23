@@ -7,6 +7,13 @@ from alibabacloud_tea_util import models as util_models
 from alibabacloud_tea_util.client import Client as UtilClient
 from flask import Flask
 
+try:  # pragma: no cover - import availability depends on installed SDK package
+    from Tea.exceptions import TeaException
+except ImportError:  # pragma: no cover
+
+    class TeaException(Exception):
+        """Fallback SDK exception type when Alibaba Tea is not installed."""
+
 
 def _body_value(
     response: dysmsapi_20170525_models.SendSmsResponse | None,
@@ -74,7 +81,7 @@ def send_sms_ali(
             )
             return None
         return res
-    except Exception as error:
+    except TeaException as error:
         error_message = getattr(error, "message", str(error))
         error_data = getattr(error, "data", {}) or {}
         app.logger.error(error_message)
@@ -111,7 +118,7 @@ def get_sms_template_ali(
     runtime = util_models.RuntimeOptions()
     try:
         return client.get_sms_template_with_options(request, runtime)
-    except Exception as error:
+    except TeaException as error:
         error_message = getattr(error, "message", str(error))
         error_data = getattr(error, "data", {}) or {}
         app.logger.error(error_message)

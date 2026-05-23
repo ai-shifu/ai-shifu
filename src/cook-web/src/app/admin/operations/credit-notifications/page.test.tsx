@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
+import { toast } from '@/hooks/useToast';
 import AdminOperationCreditNotificationsPage from './page';
 
 const mockReplace = jest.fn();
@@ -67,6 +68,7 @@ const mockSyncTemplate =
 const mockUpdateConfig =
   api.updateAdminOperationCreditNotificationConfig as jest.Mock;
 const mockDryRun = api.dryRunAdminOperationCreditNotifications as jest.Mock;
+const mockToast = toast as jest.Mock;
 
 const openConfigTab = async () => {
   const configTab = screen.getByRole('tab', {
@@ -94,6 +96,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     mockRequeue.mockReset();
     mockSyncTemplate.mockReset();
     mockUpdateConfig.mockReset();
+    mockToast.mockReset();
     mockGetConfig.mockResolvedValue({ enabled: false });
     mockUpdateConfig.mockResolvedValue({ enabled: false });
     mockDryRun.mockResolvedValue({
@@ -227,6 +230,50 @@ describe('AdminOperationCreditNotificationsPage', () => {
         notification_bid: 'notification-1',
       });
     });
+    expect(mockToast).toHaveBeenCalledWith({
+      title: 'module.operationsCreditNotifications.messages.requeueDone',
+    });
+  });
+
+  it('surfaces requeue failures without refreshing records as success', async () => {
+    mockRequeue.mockResolvedValueOnce({
+      status: 'enqueue_failed',
+      notification_bid: 'notification-1',
+      enqueued: false,
+      message: 'queue unavailable',
+    });
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('notification-1')).toBeInTheDocument();
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.requeue',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'module.operationsCreditNotifications.messages.requeueFailed',
+        description: 'queue unavailable',
+      });
+    });
+    expect(mockGetRecords).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks config save when policy loading fails', async () => {
+    mockGetConfig.mockRejectedValueOnce(new Error('config unavailable'));
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+
+    expect(screen.getByText('config unavailable')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    ).toBeDisabled();
   });
 
   it('searches with draft filters only after clicking search and resets filters', async () => {

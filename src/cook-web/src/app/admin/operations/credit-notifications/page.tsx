@@ -235,7 +235,7 @@ const readRecord = (
 
 const readStringArray = (value: unknown, fallback: string[]): string[] =>
   Array.isArray(value)
-    ? value.map(item => String(item || '').trim()).filter(Boolean)
+    ? value.map(item => String(item ?? '').trim()).filter(Boolean)
     : fallback;
 
 const readBoolean = (value: unknown, fallback: boolean): boolean => {
@@ -648,6 +648,7 @@ export default function AdminOperationCreditNotificationsPage() {
   const [policy, setPolicy] =
     React.useState<AdminOperationCreditNotificationPolicy>(createDefaultPolicy);
   const [configError, setConfigError] = React.useState('');
+  const [configLoaded, setConfigLoaded] = React.useState(false);
   const [dryRunResult, setDryRunResult] =
     React.useState<AdminOperationCreditNotificationDryRunResponse | null>(null);
   const [templateSyncResults, setTemplateSyncResults] = React.useState<
@@ -749,6 +750,7 @@ export default function AdminOperationCreditNotificationsPage() {
   const fetchConfig = React.useCallback(async () => {
     const response = await api.getAdminOperationCreditNotificationConfig({});
     setPolicy(normalizePolicy(response));
+    setConfigLoaded(true);
     setConfigError('');
   }, []);
 
@@ -803,11 +805,16 @@ export default function AdminOperationCreditNotificationsPage() {
       return;
     }
     const initialFilters = createDefaultFilters();
-    fetchConfig().catch(() => {
-      setPolicy(createDefaultPolicy());
+    fetchConfig().catch(requestError => {
+      const resolvedError = requestError as ErrorWithCode;
+      setConfigLoaded(false);
+      setConfigError(
+        resolvedError.message ||
+          t('module.operationsCreditNotifications.config.loadFailed'),
+      );
     });
     void fetchRecords(1, initialFilters);
-  }, [fetchConfig, fetchRecords, isReady]);
+  }, [fetchConfig, fetchRecords, isReady, t]);
 
   const updateDraftFilter = React.useCallback(
     (field: keyof NotificationFilters, value: string) => {
@@ -835,10 +842,17 @@ export default function AdminOperationCreditNotificationsPage() {
   }, [fetchRecords]);
 
   const saveConfig = React.useCallback(async () => {
+    if (!configLoaded) {
+      setConfigError(
+        t('module.operationsCreditNotifications.config.loadRequired'),
+      );
+      return;
+    }
     try {
       const response =
         await api.updateAdminOperationCreditNotificationConfig(policy);
       setPolicy(normalizePolicy(response));
+      setConfigLoaded(true);
       setConfigError('');
       toast({
         title: t('module.operationsCreditNotifications.config.saved'),
@@ -850,7 +864,7 @@ export default function AdminOperationCreditNotificationsPage() {
           t('module.operationsCreditNotifications.config.invalidConfig'),
       );
     }
-  }, [policy, t]);
+  }, [configLoaded, policy, t]);
 
   const syncTemplate = React.useCallback(
     async (notificationType: KnownNotificationType) => {
@@ -914,15 +928,35 @@ export default function AdminOperationCreditNotificationsPage() {
 
   const requeue = React.useCallback(
     async (notificationBid: string) => {
-      const response = (await api.requeueAdminOperationCreditNotification({
-        notification_bid: notificationBid,
-      })) as AdminOperationCreditNotificationRequeueResponse;
-      if (response.enqueued) {
+      try {
+        const response = (await api.requeueAdminOperationCreditNotification({
+          notification_bid: notificationBid,
+        })) as AdminOperationCreditNotificationRequeueResponse;
+        if (!response.enqueued) {
+          toast({
+            title: t(
+              'module.operationsCreditNotifications.messages.requeueFailed',
+            ),
+            description:
+              response.message ||
+              response.status ||
+              t('common.core.unknownError'),
+          });
+          return;
+        }
         toast({
           title: t('module.operationsCreditNotifications.messages.requeueDone'),
         });
+        await fetchRecords(pageIndex, appliedFilters);
+      } catch (requestError) {
+        const resolvedError = requestError as ErrorWithCode;
+        toast({
+          title: t(
+            'module.operationsCreditNotifications.messages.requeueFailed',
+          ),
+          description: resolvedError.message || t('common.core.unknownError'),
+        });
       }
-      void fetchRecords(pageIndex, appliedFilters);
     },
     [appliedFilters, fetchRecords, pageIndex, t],
   );
@@ -1411,8 +1445,9 @@ export default function AdminOperationCreditNotificationsPage() {
                       value={estimatedDaysThreshold.fallback_fixed_value || ''}
                       onChange={event =>
                         updatePolicy(draft => {
+                          const normalized = event.target.value.trim();
                           setEstimatedDaysThreshold(draft, {
-                            fallback_fixed_value: event.target.value,
+                            fallback_fixed_value: normalized || undefined,
                           });
                         })
                       }
@@ -1769,10 +1804,10 @@ export default function AdminOperationCreditNotificationsPage() {
                     pageIndex={pageIndex}
                     pageCount={pageCount}
                     onPageChange={handlePageChange}
-                    prevLabel={t('module.order.paginationPrev', 'Previous')}
-                    nextLabel={t('module.order.paginationNext', 'Next')}
-                    prevAriaLabel={t('module.order.paginationPrev', 'Previous')}
-                    nextAriaLabel={t('module.order.paginationNext', 'Next')}
+                    prevLabel={t('module.order.paginationPrev')}
+                    nextLabel={t('module.order.paginationNext')}
+                    prevAriaLabel={t('module.order.paginationPrev')}
+                    nextAriaLabel={t('module.order.paginationNext')}
                     hideWhenSinglePage
                   />
                 ) : null
@@ -2253,6 +2288,7 @@ export default function AdminOperationCreditNotificationsPage() {
               <Button
                 type='button'
                 onClick={saveConfig}
+                disabled={!configLoaded}
               >
                 {t('module.operationsCreditNotifications.actions.applyConfig')}
               </Button>

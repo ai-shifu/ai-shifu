@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import PreviewSettingsModal from './Preview';
@@ -73,5 +73,47 @@ describe('PreviewSettingsModal', () => {
 
     expect(mockSaveMdflow).not.toHaveBeenCalled();
     expect(api.previewShifu).not.toHaveBeenCalled();
+  });
+
+  it('disables preview while billing overview is loading', () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: undefined,
+    });
+
+    render(<PreviewSettingsModal />);
+
+    expect(
+      screen.getByRole('button', {
+        name: /module.preview.previewAll/,
+      }),
+    ).toBeDisabled();
+  });
+
+  it('starts preview when debug is allowed', async () => {
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        debug_allowed: true,
+      },
+    });
+    (api.previewShifu as jest.Mock).mockResolvedValue(
+      'https://example.com/preview',
+    );
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(<PreviewSettingsModal />);
+
+    const previewButton = screen.getByRole('button', {
+      name: /module.preview.previewAll/,
+    });
+    expect(previewButton).toBeEnabled();
+
+    fireEvent.click(previewButton);
+
+    await waitFor(() => {
+      expect(mockSaveMdflow).toHaveBeenCalled();
+      expect(api.previewShifu).toHaveBeenCalled();
+    });
+
+    openSpy.mockRestore();
   });
 });

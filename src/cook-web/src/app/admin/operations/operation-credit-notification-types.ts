@@ -80,7 +80,7 @@ export type AdminOperationCreditNotificationTemplateSyncResponse = {
   template_content: string;
   template_status: string;
   template_type: string;
-  variable_attribute: Record<string, unknown>;
+  variable_attribute: string | Record<string, unknown>;
   provider_response: Record<string, unknown>;
   placeholders: string[];
   supported_placeholders: string[];

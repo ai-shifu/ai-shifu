@@ -9,6 +9,7 @@ from decimal import Decimal, InvalidOperation
 import json
 import re
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask
 from sqlalchemy.exc import IntegrityError
@@ -62,6 +63,8 @@ LIMIT_STATE_HARDLIMIT = "hardlimit"
 _ZERO = Decimal("0")
 LOW_BALANCE_THRESHOLD_KIND_FIXED = "fixed"
 LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS = "estimated_days"
+LOW_BALANCE_ESTIMATED_DAYS_MAX_DAYS = 365
+LOW_BALANCE_ESTIMATED_DAYS_MAX_LOOKBACK_DAYS = 365
 NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN = "aliyun"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED = "synced"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER = "failed_provider"
@@ -226,20 +229,29 @@ def _normalize_low_balance_thresholds(
             )
             continue
         if kind == LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS:
+            days = _normalize_positive_int(
+                item.get("days"),
+                f"{field_name}.days",
+            )
+            lookback_days = _normalize_positive_int(
+                item.get("lookback_days"),
+                f"{field_name}.lookback_days",
+            )
+            min_consumed_days = _normalize_positive_int(
+                item.get("min_consumed_days"),
+                f"{field_name}.min_consumed_days",
+            )
+            if days > LOW_BALANCE_ESTIMATED_DAYS_MAX_DAYS:
+                raise_param_error(f"{field_name}.days")
+            if lookback_days > LOW_BALANCE_ESTIMATED_DAYS_MAX_LOOKBACK_DAYS:
+                raise_param_error(f"{field_name}.lookback_days")
+            if min_consumed_days > lookback_days:
+                raise_param_error(f"{field_name}.min_consumed_days")
             threshold: dict[str, Any] = {
                 "kind": LOW_BALANCE_THRESHOLD_KIND_ESTIMATED_DAYS,
-                "days": _normalize_positive_int(
-                    item.get("days"),
-                    f"{field_name}.days",
-                ),
-                "lookback_days": _normalize_positive_int(
-                    item.get("lookback_days"),
-                    f"{field_name}.lookback_days",
-                ),
-                "min_consumed_days": _normalize_positive_int(
-                    item.get("min_consumed_days"),
-                    f"{field_name}.min_consumed_days",
-                ),
+                "days": days,
+                "lookback_days": lookback_days,
+                "min_consumed_days": min_consumed_days,
             }
             if "fallback_fixed_value" in item:
                 raw_value = item.get("fallback_fixed_value")
@@ -609,9 +621,7 @@ def sync_credit_notification_template(
                 now=now,
                 sync_status=NOTIFICATION_TEMPLATE_SYNC_STATUS_MISSING_CREDENTIALS,
                 error_code="missing_credentials",
-                error_message=(
-                    "Aliyun SMS access key is not configured for template sync."
-                ),
+                error_message="missing_credentials",
             )
             db.session.commit()
             return _serialize_notification_template(
@@ -619,15 +629,30 @@ def sync_credit_notification_template(
                 notification_type=normalized_type,
             )
 
-        response = get_sms_template_ali(app, template_code=normalized_template_code)
-        body = getattr(response, "body", None)
+        try:
+            response = get_sms_template_ali(app, template_code=normalized_template_code)
+            body = getattr(response, "body", None)
+        except (AttributeError, TypeError, ValueError, RuntimeError) as exc:
+            _mark_template_sync_failed(
+                template,
+                now=now,
+                sync_status=NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER,
+                error_code="provider_exception",
+                error_message="provider_exception",
+                provider_response={"message": str(exc)},
+            )
+            db.session.commit()
+            return _serialize_notification_template(
+                template,
+                notification_type=normalized_type,
+            )
         if body is None:
             _mark_template_sync_failed(
                 template,
                 now=now,
                 sync_status=NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER,
                 error_code="provider_failed",
-                error_message="Aliyun SMS template query returned no response.",
+                error_message="provider_failed",
             )
             db.session.commit()
             return _serialize_notification_template(
@@ -646,8 +671,7 @@ def sync_credit_notification_template(
                 now=now,
                 sync_status=NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER,
                 error_code=response_code,
-                error_message=_template_body_value(body, "message")
-                or "Aliyun SMS template query failed.",
+                error_message=response_code,
                 provider_response=provider_response,
             )
             db.session.commit()
@@ -895,11 +919,11 @@ def _stage_notification_record(
         requested_at=now,
         metadata_json=dict(metadata or {}),
     )
-    db.session.add(notification)
     try:
-        db.session.flush()
+        with db.session.begin_nested():
+            db.session.add(notification)
+            db.session.flush()
     except IntegrityError:
-        db.session.rollback()
         existing = (
             NotificationRecord.query.filter(
                 NotificationRecord.deleted == 0,
@@ -1611,6 +1635,18 @@ def _is_quiet_hours(policy: dict[str, Any], now: datetime | None = None) -> bool
     if not isinstance(quiet, dict) or not _coerce_bool(quiet.get("enabled")):
         return False
     current = now or datetime.now()
+    timezone_name = str(quiet.get("timezone") or "").strip()
+    if timezone_name:
+        try:
+            timezone = ZoneInfo(timezone_name)
+            if now is None:
+                current = datetime.now(timezone)
+            elif current.tzinfo is None:
+                current = current.replace(tzinfo=timezone)
+            else:
+                current = current.astimezone(timezone)
+        except ZoneInfoNotFoundError:
+            current = now or datetime.now()
     try:
         start_hour, start_minute = [
             int(part) for part in str(quiet.get("start")).split(":")[:2]
@@ -1865,12 +1901,31 @@ def deliver_credit_notification(
                 "notification_status": notification.status,
             }
 
-        response = send_sms_ali(
-            app,
-            mobile,
-            template_code=template_code,
-            template_params=dict(notification.template_params_json or {}),
-        )
+        try:
+            response = send_sms_ali(
+                app,
+                mobile,
+                template_code=template_code,
+                template_params=dict(notification.template_params_json or {}),
+            )
+        except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+            _finalize_notification(
+                notification,
+                status=CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+                now=now,
+                mobile=mobile,
+                error_code="provider_exception",
+                error_message=str(exc),
+                provider_response={"message": str(exc)},
+            )
+            db.session.commit()
+            return {
+                "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+                "notification_bid": notification.notification_bid,
+                "notification_status": notification.status,
+                "mobile": mobile,
+                "error_code": "provider_exception",
+            }
         if response is not None:
             _finalize_notification(
                 notification,
@@ -1972,27 +2027,57 @@ def requeue_credit_notification(app: Flask, *, notification_bid: str) -> dict[st
                 "notification_status": notification.status,
                 "enqueued": False,
             }
-        notification.status = CREDIT_NOTIFICATION_STATUS_PENDING
-        notification.error_code = ""
-        notification.error_message = ""
-        notification.provider_response_json = {}
-        notification.attempted_at = None
-        notification.sent_at = None
-        notification.updated_at = datetime.now()
-        db.session.add(notification)
-        db.session.commit()
-        record_credit_notification_event(
-            "requeue",
-            notification_type=notification.notification_type,
-            channel=notification.channel,
-            status=CREDIT_NOTIFICATION_STATUS_PENDING,
-        )
     enqueue_result = enqueue_credit_notification(
         app,
         notification_bid=normalized_notification_bid,
     )
-    enqueue_result["notification_status"] = CREDIT_NOTIFICATION_STATUS_PENDING
+    if not enqueue_result.get("enqueued"):
+        enqueue_result["notification_status"] = (
+            CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER
+        )
+        return enqueue_result
+    with app.app_context():
+        notification = (
+            NotificationRecord.query.filter(
+                NotificationRecord.deleted == 0,
+                NotificationRecord.notification_bid == normalized_notification_bid,
+            )
+            .order_by(NotificationRecord.id.desc())
+            .first()
+        )
+        if (
+            notification is not None
+            and notification.status == CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER
+        ):
+            notification.status = CREDIT_NOTIFICATION_STATUS_PENDING
+            notification.error_code = ""
+            notification.error_message = ""
+            notification.provider_response_json = {}
+            notification.attempted_at = None
+            notification.sent_at = None
+            notification.updated_at = datetime.now()
+            db.session.add(notification)
+            db.session.commit()
+            record_credit_notification_event(
+                "requeue",
+                notification_type=notification.notification_type,
+                channel=notification.channel,
+                status=CREDIT_NOTIFICATION_STATUS_PENDING,
+            )
+            enqueue_result["notification_status"] = CREDIT_NOTIFICATION_STATUS_PENDING
+        elif notification is not None:
+            enqueue_result["notification_status"] = notification.status
+        else:
+            enqueue_result["notification_status"] = "not_found"
     return enqueue_result
+
+
+def _parse_positive_int(value: Any, default: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(1, parsed)
 
 
 def list_credit_notifications(
@@ -2002,8 +2087,8 @@ def list_credit_notifications(
     page_size: int = 20,
     filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    safe_page_index = max(1, int(page_index or 1))
-    safe_page_size = min(100, max(1, int(page_size or 20)))
+    safe_page_index = _parse_positive_int(page_index, 1)
+    safe_page_size = min(100, _parse_positive_int(page_size, 20))
     normalized_filters = filters or {}
     with app.app_context():
         query = NotificationRecord.query.filter(NotificationRecord.deleted == 0)

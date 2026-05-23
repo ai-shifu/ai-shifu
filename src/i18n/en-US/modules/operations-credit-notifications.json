@@ -43,6 +43,8 @@
       "windows": "Expiry reminder windows"
     },
     "invalidConfig": "Config could not be saved. Check the form values.",
+    "loadFailed": "Notification policy could not be loaded. Refresh and try again.",
+    "loadRequired": "Notification policy has not loaded successfully, so config cannot be saved.",
     "placeholders": {
       "available": "Available placeholders",
       "available_credits": "Available credits",
@@ -112,7 +114,8 @@
   },
   "loadError": "Credit notification data could not be loaded. Refresh and try again.",
   "messages": {
-    "requeueDone": "Requeue task submitted."
+    "requeueDone": "Requeue task submitted.",
+    "requeueFailed": "Requeue task failed."
   },
   "records": {
     "totalCount": "{count} notification records"

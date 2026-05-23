@@ -16,7 +16,7 @@ const PreviewSettingsModal = () => {
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
   const { data: billingOverview } = useBillingOverview();
   const debugAllowed =
-    !billingEnabled || billingOverview?.debug_allowed !== false;
+    !billingEnabled || billingOverview?.debug_allowed === true;
 
   const handleStartPreview = async () => {
     if (loading || !debugAllowed) {

@@ -764,7 +764,6 @@ class NotificationRecord(BillingTableMixin, db.Model):
         String(36),
         nullable=False,
         default="",
-        index=True,
         comment="Notification business identifier",
     )
     notification_type = Column(
@@ -820,7 +819,6 @@ class NotificationRecord(BillingTableMixin, db.Model):
         String(255),
         nullable=False,
         default="",
-        index=True,
         comment="Notification idempotency key",
     )
     status = Column(

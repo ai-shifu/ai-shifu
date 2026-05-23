@@ -595,6 +595,7 @@ def build_billing_overview(
             app, subscription, timezone_name=timezone_name
         )
         limit_state = resolve_creator_limit_state(app, normalized_creator_bid)
+        softlimit_threshold = limit_state.get("softlimit_threshold")
         return BillingOverviewDTO(
             creator_bid=normalized_creator_bid,
             wallet=wallet_payload,
@@ -603,7 +604,9 @@ def build_billing_overview(
             trial_offer=trial_offer,
             credit_status=str(limit_state.get("state") or "normal"),
             debug_allowed=bool(limit_state.get("debug_allowed", True)),
-            softlimit_threshold=str(limit_state.get("softlimit_threshold") or ""),
+            softlimit_threshold=(
+                str(softlimit_threshold) if softlimit_threshold is not None else None
+            ),
         )
 
 

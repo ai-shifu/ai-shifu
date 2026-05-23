@@ -402,14 +402,11 @@ def send_credit_notification_task(
     )
     payload = _serialize_task_payload(payload)
     payload["task_name"] = _CREDIT_NOTIFICATION_TASK_NAME
-    if payload.get("status") == "failed_provider":
-        raise CreditNotificationRetryableError(
-            json.dumps(
-                payload,
-                sort_keys=True,
-                default=str,
-            )
-        )
+    if payload.get("status") == "failed_provider" and payload.get("error_code") in {
+        "provider_failed",
+        "provider_exception",
+    }:
+        raise CreditNotificationRetryableError("retrying credit notification")
     return payload
 
 

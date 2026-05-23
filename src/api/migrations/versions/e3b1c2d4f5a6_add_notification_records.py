@@ -239,12 +239,6 @@ def upgrade():
         unique=False,
     )
     op.create_index(
-        op.f("ix_notification_records_notification_bid"),
-        "notification_records",
-        ["notification_bid"],
-        unique=False,
-    )
-    op.create_index(
         op.f("ix_notification_records_notification_type"),
         "notification_records",
         ["notification_type"],
@@ -284,12 +278,6 @@ def upgrade():
         op.f("ix_notification_records_source_bid"),
         "notification_records",
         ["source_bid"],
-        unique=False,
-    )
-    op.create_index(
-        op.f("ix_notification_records_dedupe_key"),
-        "notification_records",
-        ["dedupe_key"],
         unique=False,
     )
     op.create_index(
