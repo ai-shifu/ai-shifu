@@ -155,9 +155,9 @@
       "empty": "Aucun détail de consommation",
       "error": "Échec du chargement des détails",
       "expand": "Développer",
+      "learner": "Apprenant",
       "loading": "Chargement",
-      "title": "Détails de consommation des crédits",
-      "learner": "Apprenant"
+      "title": "Détails de consommation des crédits"
     },
     "creditsOverview": "Vue d’ensemble des crédits",
     "creditsOverviewLabels": {

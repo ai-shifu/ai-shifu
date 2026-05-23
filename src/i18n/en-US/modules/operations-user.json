@@ -155,9 +155,9 @@
       "empty": "No usage details",
       "error": "Failed to load usage details",
       "expand": "Expand",
+      "learner": "Learner",
       "loading": "Loading",
-      "title": "Credit Usage Details",
-      "learner": "Learner"
+      "title": "Credit Usage Details"
     },
     "creditsOverview": "Credits Overview",
     "creditsOverviewLabels": {
