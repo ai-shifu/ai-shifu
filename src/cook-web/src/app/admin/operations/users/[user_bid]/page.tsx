@@ -300,17 +300,14 @@ export default function AdminOperationUserDetailPage() {
         : detail.mobile || detail.email,
     [contactType, detail.email, detail.mobile],
   );
-  const userDisplayLabel = useMemo(
-    () => {
-      const displayName = detail.nickname || contactValue || userBid || '';
-      const mobile = detail.mobile || '';
-      if (displayName && mobile && displayName !== mobile) {
-        return `${displayName} / ${mobile}`;
-      }
-      return displayName || mobile || EMPTY_VALUE;
-    },
-    [contactValue, detail.mobile, detail.nickname, userBid],
-  );
+  const userDisplayLabel = useMemo(() => {
+    const displayName = detail.nickname || contactValue || userBid || '';
+    const mobile = detail.mobile || '';
+    if (displayName && mobile && displayName !== mobile) {
+      return `${displayName} / ${mobile}`;
+    }
+    return displayName || mobile || EMPTY_VALUE;
+  }, [contactValue, detail.mobile, detail.nickname, userBid]);
   const creditSummary = useMemo<AdminOperationUserCreditSummary>(
     () => ({
       available_credits:

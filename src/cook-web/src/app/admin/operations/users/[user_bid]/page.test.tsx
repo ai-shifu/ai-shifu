@@ -584,9 +584,7 @@ describe('AdminOperationUserDetailPage', () => {
       });
     });
     expect(
-      screen.getByText(
-        'module.operationsUser.detail.creditLedgerColumns.user',
-      ),
+      screen.getByText('module.operationsUser.detail.creditLedgerColumns.user'),
     ).toBeInTheDocument();
   });
 
@@ -629,7 +627,9 @@ describe('AdminOperationUserDetailPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('module.operationsUser.detail.creditLedgerColumns.user'),
+        screen.getByText(
+          'module.operationsUser.detail.creditLedgerColumns.user',
+        ),
       ).toBeInTheDocument();
       expect(screen.getByText('Nick / 13812345678')).toBeInTheDocument();
       expect(
@@ -700,7 +700,9 @@ describe('AdminOperationUserDetailPage', () => {
         usage_bid: 'usage-1',
       });
     });
-    expect(await screen.findByText('Generated answer content')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Generated answer content'),
+    ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole('button', { name: 'component.header.close' }),

@@ -1840,7 +1840,9 @@ def _load_operator_user_credit_usage_context_map(
     latest_usage_subquery = _build_latest_bill_usage_record_subquery()
     usage_rows = (
         db.session.query(BillUsageRecord)
-        .join(latest_usage_subquery, latest_usage_subquery.c.max_id == BillUsageRecord.id)
+        .join(
+            latest_usage_subquery, latest_usage_subquery.c.max_id == BillUsageRecord.id
+        )
         .filter(latest_usage_subquery.c.usage_bid.in_(usage_bids))
         .all()
     )
@@ -1880,9 +1882,7 @@ def _load_operator_user_credit_usage_context_map(
     for usage_row in usage_rows:
         usage_bid = str(getattr(usage_row, "usage_bid", "") or "").strip()
         shifu_bid = str(getattr(usage_row, "shifu_bid", "") or "").strip()
-        outline_item_bid = str(
-            getattr(usage_row, "outline_item_bid", "") or ""
-        ).strip()
+        outline_item_bid = str(getattr(usage_row, "outline_item_bid", "") or "").strip()
         if not usage_bid:
             continue
         course = course_map.get(shifu_bid)
@@ -1927,7 +1927,9 @@ def _resolve_operator_user_credit_usage_context(
 
         source = selected_sources.get(shifu_bid)
         if source:
-            outline_model = DraftOutlineItem if source == "draft" else PublishedOutlineItem
+            outline_model = (
+                DraftOutlineItem if source == "draft" else PublishedOutlineItem
+            )
             outline_context = _build_course_outline_context_map(
                 _load_latest_outline_items(outline_model, shifu_bid)
             ).get(outline_item_bid, {})
@@ -6462,14 +6464,11 @@ def _load_bill_usage_record_map(
 
 def _build_latest_bill_usage_record_subquery(*, user_bid: str = ""):
     normalized_user_bid = str(user_bid or "").strip()
-    query = (
-        db.session.query(
-            BillUsageRecord.usage_bid.label("usage_bid"),
-            db.func.max(BillUsageRecord.id).label("max_id"),
-        )
-        .filter(
-            BillUsageRecord.deleted == 0,
-        )
+    query = db.session.query(
+        BillUsageRecord.usage_bid.label("usage_bid"),
+        db.func.max(BillUsageRecord.id).label("max_id"),
+    ).filter(
+        BillUsageRecord.deleted == 0,
     )
     if normalized_user_bid:
         query = query.filter(BillUsageRecord.user_bid == normalized_user_bid)

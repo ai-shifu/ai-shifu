@@ -1078,7 +1078,10 @@ export default function UserCreditLedgerTab({
             data-testid='admin-operation-user-credit-ledger-scroll'
           >
             <Table
-              className={cn('table-fixed', isConsumeView ? 'min-w-[1120px]' : '')}
+              className={cn(
+                'table-fixed',
+                isConsumeView ? 'min-w-[1120px]' : '',
+              )}
             >
               <colgroup>
                 {isConsumeView ? (
