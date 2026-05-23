@@ -18,6 +18,7 @@
   "createFailed": "Échec de la création",
   "createSuccess": "Création réussie",
   "createSuccessDescription": "Un nouveau cours a été créé",
+  "creditNotificationManagement": "Notifications de crédits",
   "default": "Par défaut",
   "errorSaveFailed": "Échec de l’enregistrement : réponse serveur invalide",
   "expand": "Développer",

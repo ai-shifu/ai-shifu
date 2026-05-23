@@ -45,8 +45,14 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.api import (
     build_billing_catalog,
+    dry_run_credit_notifications,
     grant_manual_credits_to_user,
     grant_manual_plan_to_user,
+    list_credit_notifications,
+    load_credit_notification_policy,
+    requeue_credit_notification,
+    save_credit_notification_policy,
+    sync_credit_notification_template,
 )
 from flaskr.service.billing.primitives import (
     credit_decimal_to_number,
@@ -6070,6 +6076,68 @@ def grant_operator_user_credits(
             ledger_bid=str(grant_result.ledger_bid or "").strip(),
             summary=summary,
         )
+
+
+def list_operator_credit_notifications(
+    app: Flask,
+    *,
+    page_index: int = 1,
+    page_size: int = 20,
+    filters: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return list_credit_notifications(
+        app,
+        page_index=page_index,
+        page_size=page_size,
+        filters=filters,
+    )
+
+
+def get_operator_credit_notification_config(app: Flask) -> dict[str, Any]:
+    with app.app_context():
+        return load_credit_notification_policy()
+
+
+def update_operator_credit_notification_config(
+    app: Flask,
+    *,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    return save_credit_notification_policy(app, payload)
+
+
+def sync_operator_credit_notification_template(
+    app: Flask,
+    *,
+    notification_type: str,
+    template_code: str,
+) -> dict[str, Any]:
+    return sync_credit_notification_template(
+        app,
+        notification_type=notification_type,
+        template_code=template_code,
+    )
+
+
+def dry_run_operator_credit_notifications(
+    app: Flask,
+    *,
+    notification_type: str = "",
+    creator_bid: str = "",
+) -> dict[str, Any]:
+    return dry_run_credit_notifications(
+        app,
+        notification_type=notification_type,
+        creator_bid=creator_bid,
+    )
+
+
+def requeue_operator_credit_notification(
+    app: Flask,
+    *,
+    notification_bid: str,
+) -> dict[str, Any]:
+    return requeue_credit_notification(app, notification_bid=notification_bid)
 
 
 def _load_bill_usage_record_map(

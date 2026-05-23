@@ -864,32 +864,33 @@ def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
     assert payload["task_name"] == "billing.reconcile_provider_reference"
 
 
-def test_send_low_balance_alert_task_filters_to_low_balance_alerts(
+def test_send_low_balance_alert_task_preserves_legacy_name_and_delegates_scan(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = Flask(__name__)
     _install_fake_app_module(monkeypatch, fake_app)
+    captured: dict[str, object] = {}
+
     monkeypatch.setattr(
-        "flaskr.service.billing.tasks.build_billing_overview",
-        lambda app, creator_bid, timezone_name=None: {
-            "creator_bid": creator_bid,
-            "wallet": {"available_credits": "0E-10"},
-            "billing_alerts": [
-                {"code": "low_balance", "severity": "warning"},
-                {"code": "subscription_past_due", "severity": "error"},
-            ],
-        },
+        "flaskr.service.billing.tasks._scan_low_balance_notifications",
+        lambda app, *, creator_bid="": (
+            captured.update({"app": app, "creator_bid": creator_bid})
+            or {
+                "status": "created",
+                "candidate_count": 1,
+                "created_count": 1,
+                "enqueued_count": 1,
+                "notifications": [{"notification_bid": "notification-1"}],
+            }
+        ),
     )
 
     payload = send_low_balance_alert_task(creator_bid="creator-task-alert")
 
-    assert payload["status"] == "alerts_found"
-    assert payload["creator_count"] == 1
-    assert payload["alert_count"] == 1
-    assert payload["creators"][0]["creator_bid"] == "creator-task-alert"
-    assert payload["creators"][0]["alerts"] == [
-        {"code": "low_balance", "severity": "warning"}
-    ]
+    assert captured == {"app": fake_app, "creator_bid": "creator-task-alert"}
+    assert payload["status"] == "created"
+    assert payload["created_count"] == 1
+    assert payload["enqueued_count"] == 1
     assert payload["task_name"] == "billing.send_low_balance_alert"
 
 

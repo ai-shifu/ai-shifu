@@ -15,6 +15,12 @@ from .consts import (
     BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
 )
+from .credit_notifications import (
+    TASK_NAME as _CREDIT_NOTIFICATION_TASK_NAME,
+    deliver_credit_notification as _deliver_credit_notification,
+    scan_credit_expiring_notifications as _scan_credit_expiring_notifications,
+    scan_low_balance_notifications as _scan_low_balance_notifications,
+)
 from .daily_aggregates import (
     aggregate_daily_ledger_summary,
     aggregate_daily_usage_metrics,
@@ -32,7 +38,6 @@ from .notifications import (
 from .primitives import coerce_bool as _coerce_bool
 from .primitives import coerce_datetime as _coerce_datetime
 from .primitives import normalize_bid as _normalize_bid
-from .read_models import build_billing_overview
 from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import replay_bill_usage_settlement, settle_bill_usage
 from .wallets import expire_credit_wallet_buckets
@@ -54,6 +59,10 @@ class SubscriptionPurchaseSmsRetryableError(RuntimeError):
 
 class BillingPaidFeishuRetryableError(RuntimeError):
     """Raised when the billing paid Feishu worker should use Celery autoretry."""
+
+
+class CreditNotificationRetryableError(RuntimeError):
+    """Raised when the credit notification worker should use Celery autoretry."""
 
 
 def _create_task_app():
@@ -330,59 +339,76 @@ def send_low_balance_alert_task(
     creator_bid: str = "",
     timezone_name: str = "",
 ) -> dict[str, Any]:
-    """Build low-balance alert candidates for one creator or a batch."""
+    """Scan low-balance notifications while preserving the legacy task name."""
 
     app = _create_task_app()
     normalized_creator_bid = _normalize_bid(creator_bid)
-    with app.app_context():
-        creator_bids = (
-            [normalized_creator_bid]
-            if normalized_creator_bid
-            else _collect_low_balance_creator_bids()
-        )
-
-    creators: list[LowBalanceAlertCandidate] = []
-    for item_creator_bid in creator_bids:
-        overview = build_billing_overview(
-            app,
-            item_creator_bid,
-            timezone_name=_normalize_bid(timezone_name) or None,
-        )
-        if isinstance(overview, dict):
-            low_balance_alerts = [
-                alert
-                for alert in overview.get("billing_alerts", [])
-                if alert.get("code") == "low_balance"
-            ]
-            wallet_available_credits = overview.get("wallet", {}).get(
-                "available_credits"
-            )
-            alerts = low_balance_alerts
-        else:
-            low_balance_alerts = [
-                alert
-                for alert in overview.billing_alerts
-                if alert.code == "low_balance"
-            ]
-            wallet_available_credits = overview.wallet.available_credits
-            alerts = low_balance_alerts
-        if not low_balance_alerts:
-            continue
-        creators.append(
-            LowBalanceAlertCandidate(
-                creator_bid=item_creator_bid,
-                wallet_available_credits=wallet_available_credits,
-                alerts=list(alerts),
-            )
-        )
-
-    result = LowBalanceAlertTaskResult(
-        status="alerts_found" if creators else "noop",
-        creator_count=len(creator_bids),
-        alert_count=len(creators),
-        creators=creators,
+    payload = _scan_low_balance_notifications(
+        app,
+        creator_bid=normalized_creator_bid,
     )
-    return result.to_task_payload()
+    payload["task_name"] = "billing.send_low_balance_alert"
+    payload["timezone_name"] = _normalize_bid(timezone_name) or None
+    return payload
+
+
+@shared_task(name="billing.scan_credit_expiring_notifications")
+def scan_credit_expiring_notifications_task(
+    *,
+    creator_bid: str = "",
+) -> dict[str, Any]:
+    """Scan expiring credit buckets and enqueue due notifications."""
+
+    app = _create_task_app()
+    payload = _scan_credit_expiring_notifications(
+        app,
+        creator_bid=_normalize_bid(creator_bid),
+    )
+    payload["task_name"] = "billing.scan_credit_expiring_notifications"
+    return payload
+
+
+@shared_task(name="billing.scan_low_balance_notifications")
+def scan_low_balance_notifications_task(
+    *,
+    creator_bid: str = "",
+) -> dict[str, Any]:
+    """Scan low-balance wallets and enqueue due notifications."""
+
+    app = _create_task_app()
+    payload = _scan_low_balance_notifications(
+        app,
+        creator_bid=_normalize_bid(creator_bid),
+    )
+    payload["task_name"] = "billing.scan_low_balance_notifications"
+    return payload
+
+
+@shared_task(
+    name="billing.send_credit_notification",
+    autoretry_for=(CreditNotificationRetryableError,),
+    retry_kwargs={"max_retries": 3},
+    retry_backoff=True,
+)
+def send_credit_notification_task(
+    *,
+    notification_bid: str = "",
+) -> dict[str, Any]:
+    """Deliver one pending credit notification."""
+
+    app = _create_task_app()
+    payload = _deliver_credit_notification(
+        app,
+        notification_bid=_normalize_bid(notification_bid),
+    )
+    payload = _serialize_task_payload(payload)
+    payload["task_name"] = _CREDIT_NOTIFICATION_TASK_NAME
+    if payload.get("status") == "failed_provider" and payload.get("error_code") in {
+        "provider_failed",
+        "provider_exception",
+    }:
+        raise CreditNotificationRetryableError("retrying credit notification")
+    return payload
 
 
 @shared_task(

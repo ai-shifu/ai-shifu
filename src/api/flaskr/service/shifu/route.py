@@ -58,6 +58,7 @@ from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import (
+    assert_creator_debug_allowed,
     build_operator_credit_orders_overview,
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
@@ -131,7 +132,13 @@ from flaskr.service.shifu.admin import (
     list_operator_courses,
     list_operator_users,
     copy_operator_course,
+    dry_run_operator_credit_notifications,
+    get_operator_credit_notification_config,
     transfer_operator_course_creator,
+    list_operator_credit_notifications,
+    requeue_operator_credit_notification,
+    sync_operator_credit_notification_template,
+    update_operator_credit_notification_config,
 )
 from flaskr.service.order.api import (
     get_operator_order_detail,
@@ -382,6 +389,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         creator_bid = str(getattr(request_user, "user_id", "") or "").strip()
         if not creator_bid or not getattr(request_user, "is_creator", False):
             return None
+        assert_creator_debug_allowed(app, creator_bid)
         return admit_creator_usage(
             app,
             creator_bid=creator_bid,
@@ -890,6 +898,123 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         _require_operator()
         return make_common_response(get_operator_order_overview(app))
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications",
+        methods=["GET"],
+    )
+    def admin_operation_credit_notifications():
+        """List operator credit notification records."""
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+        filters = {
+            "creator_bid": request.args.get("creator_bid", ""),
+            "target_user_bid": request.args.get("target_user_bid", ""),
+            "mobile": request.args.get("mobile", ""),
+            "notification_type": request.args.get("notification_type", ""),
+            "channel": request.args.get("channel", ""),
+            "status": request.args.get("status", ""),
+            "source_type": request.args.get("source_type", ""),
+            "source_bid": request.args.get("source_bid", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            list_operator_credit_notifications(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/config",
+        methods=["GET"],
+    )
+    def admin_operation_credit_notification_config():
+        """Get operator credit notification config."""
+        _require_operator()
+        return make_common_response(get_operator_credit_notification_config(app))
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/config",
+        methods=["POST"],
+    )
+    def admin_operation_update_credit_notification_config():
+        """Update operator credit notification config."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_config")
+        return make_common_response(
+            update_operator_credit_notification_config(app, payload=payload)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/templates/sync",
+        methods=["POST"],
+    )
+    def admin_operation_credit_notification_template_sync():
+        """Sync one SMS template for operator credit notification config."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_template_sync")
+        return make_common_response(
+            sync_operator_credit_notification_template(
+                app,
+                notification_type=str(payload.get("notification_type") or ""),
+                template_code=str(payload.get("template_code") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/dry-run",
+        methods=["POST"],
+    )
+    def admin_operation_credit_notification_dry_run():
+        """Dry-run operator credit notification scans."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_dry_run")
+        return make_common_response(
+            dry_run_operator_credit_notifications(
+                app,
+                notification_type=str(payload.get("notification_type") or ""),
+                creator_bid=str(payload.get("creator_bid") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/credit-notifications/<notification_bid>/requeue",
+        methods=["POST"],
+    )
+    def admin_operation_credit_notification_requeue(notification_bid: str):
+        """Requeue one failed provider credit notification."""
+        _require_operator()
+        return make_common_response(
+            requeue_operator_credit_notification(
+                app,
+                notification_bid=notification_bid,
+            )
+        )
 
     @app.route(
         path_prefix + "/admin/operations/orders/<order_bid>/detail",
@@ -2771,6 +2896,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         user_id = request.user.user_id
         variables = request.get_json().get("variables")
         base_url = _get_request_base_url()
+        _admit_creator_debug_usage()
         return make_common_response(
             preview_shifu_draft(app, user_id, shifu_bid, variables, base_url)
         )
