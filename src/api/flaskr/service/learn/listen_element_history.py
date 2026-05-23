@@ -413,6 +413,7 @@ def get_final_elements_for_generated_block(
     *,
     generated_block_bid: str,
     user_bid: str = "",
+    progress_record_bid: str = "",
     shifu_bid: str = "",
     include_non_navigable: bool = False,
 ) -> list[ElementDTO]:
@@ -425,7 +426,9 @@ def get_final_elements_for_generated_block(
         LearnGeneratedElement.deleted == 0,
         LearnGeneratedElement.status == 1,
     ]
-    if user_bid:
+    if progress_record_bid:
+        filters.append(LearnGeneratedElement.progress_record_bid == progress_record_bid)
+    elif user_bid:
         filters.append(LearnGeneratedElement.user_bid == user_bid)
     if shifu_bid:
         filters.append(LearnGeneratedElement.shifu_bid == shifu_bid)

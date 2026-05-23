@@ -1000,6 +1000,25 @@ def _build_tts_done_message(
     )
 
 
+def _log_generated_block_tts_noop(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    generated_block_bid: str,
+    user_bid: str,
+    listen: bool,
+) -> None:
+    app.logger.info(
+        "No speakable text for generated block TTS; skipping synthesis",
+        extra={
+            "shifu_bid": shifu_bid,
+            "generated_block_bid": generated_block_bid,
+            "user_bid": user_bid,
+            "listen": listen,
+        },
+    )
+
+
 def _subtitle_cues_from_audio_record(
     audio_record: LearnGeneratedAudio | None,
 ) -> list[dict]:
@@ -1226,6 +1245,7 @@ def stream_generated_block_audio(
             final_elements = get_final_elements_for_generated_block(
                 generated_block_bid=generated_block_bid,
                 user_bid=user_bid,
+                progress_record_bid=generated_block.progress_record_bid or "",
                 shifu_bid=shifu_bid,
             )
             speakable_elements = get_speakable_text_elements(final_elements)
@@ -1233,10 +1253,18 @@ def stream_generated_block_audio(
                 str(element.content_text or "") for element in speakable_elements
             ]
             if not speakable_segments:
-                raise_error_with_args(
-                    "server.common.paramsError",
-                    param_message="No speakable text elements available for TTS synthesis",
+                _log_generated_block_tts_noop(
+                    app,
+                    shifu_bid=shifu_bid,
+                    generated_block_bid=generated_block_bid,
+                    user_bid=user_bid,
+                    listen=True,
                 )
+                yield _build_tts_done_message(
+                    outline_bid=generated_block.outline_item_bid or "",
+                    generated_block_bid=generated_block_bid,
+                )
+                return
 
             expected_segment_count = len(speakable_segments)
             existing_by_position: dict[int, LearnGeneratedAudio] = {}
@@ -1342,10 +1370,18 @@ def stream_generated_block_audio(
 
         cleaned_text = preprocess_for_tts(raw_text)
         if not cleaned_text or len(cleaned_text.strip()) < 2:
-            raise_error_with_args(
-                "server.common.paramsError",
-                param_message="No speakable text available for TTS synthesis",
+            _log_generated_block_tts_noop(
+                app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                listen=False,
             )
+            yield _build_tts_done_message(
+                outline_bid=generated_block.outline_item_bid or "",
+                generated_block_bid=generated_block_bid,
+            )
+            return
 
         def _generate_single_audio():
             yield from _yield_run_tts_audio_events(
