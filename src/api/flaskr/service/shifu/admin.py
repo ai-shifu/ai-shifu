@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import re
 from dataclasses import dataclass
@@ -117,6 +118,8 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditLedgerItemDTO,
     AdminOperationUserCreditLedgerPageDTO,
     AdminOperationUserCreditSummaryDTO,
+    AdminOperationUserCreditUsageDetailDTO,
+    AdminOperationUserCreditUsageDetailItemDTO,
     AdminOperationUserCourseSummaryDTO,
     AdminOperationUserSummaryDTO,
 )
@@ -610,6 +613,21 @@ def _load_billing_order_map(source_bids: Sequence[str]) -> Dict[str, BillingOrde
         if normalized_source_bid and normalized_source_bid not in order_map:
             order_map[normalized_source_bid] = row
     return order_map
+
+
+def _collect_operator_user_credit_order_source_bids(
+    ledger_rows: Sequence[CreditLedgerEntry],
+) -> List[str]:
+    return [
+        str(row.source_bid or "").strip()
+        for row in ledger_rows
+        if int(row.source_type or 0)
+        in {
+            CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            CREDIT_SOURCE_TYPE_TOPUP,
+        }
+        and str(row.source_bid or "").strip()
+    ]
 
 
 def _resolve_operator_credit_usage_scene(metadata: Dict[str, Any]) -> int:
@@ -1791,14 +1809,348 @@ def _build_operator_user_credit_summary(
     )
 
 
+def _resolve_operator_user_credit_usage_scene(row: BillUsageRecord) -> str:
+    usage_scene = int(getattr(row, "usage_scene", 0) or 0)
+    if usage_scene == BILL_USAGE_SCENE_DEBUG:
+        return "debug"
+    if usage_scene == BILL_USAGE_SCENE_PREVIEW:
+        return "preview"
+    if usage_scene == BILL_USAGE_SCENE_PROD:
+        return "learning"
+    return ""
+
+
+def _load_operator_user_credit_usage_context_map(
+    ledger_rows: Sequence[CreditLedgerEntry],
+    *,
+    user_bid: str,
+) -> Dict[str, Dict[str, str]]:
+    usage_bids = sorted(
+        {
+            str(row.source_bid or "").strip()
+            for row in ledger_rows
+            if row.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME
+            and row.source_type == CREDIT_SOURCE_TYPE_USAGE
+            and str(row.source_bid or "").strip()
+        }
+    )
+    if not usage_bids:
+        return {}
+
+    latest_usage_subquery = _build_latest_bill_usage_record_subquery()
+    usage_rows = (
+        db.session.query(BillUsageRecord)
+        .join(latest_usage_subquery, latest_usage_subquery.c.max_id == BillUsageRecord.id)
+        .filter(latest_usage_subquery.c.usage_bid.in_(usage_bids))
+        .all()
+    )
+    if not usage_rows:
+        return {}
+
+    shifu_bids = sorted(
+        {
+            str(getattr(row, "shifu_bid", "") or "").strip()
+            for row in usage_rows
+            if str(getattr(row, "shifu_bid", "") or "").strip()
+        }
+    )
+    drafts = _load_latest_courses_by_shifu_bids(DraftShifu, shifu_bids)
+    published = _load_latest_courses_by_shifu_bids(PublishedShifu, shifu_bids)
+    merged_courses, _published_bids, selected_sources = _merge_courses(
+        drafts,
+        published,
+    )
+    course_map = {
+        str(getattr(course, "shifu_bid", "") or "").strip(): course
+        for course in merged_courses
+        if str(getattr(course, "shifu_bid", "") or "").strip()
+    }
+
+    outline_context_by_course: Dict[str, Dict[str, Dict[str, str]]] = {}
+    for shifu_bid in shifu_bids:
+        source = selected_sources.get(shifu_bid)
+        if not source:
+            continue
+        outline_model = DraftOutlineItem if source == "draft" else PublishedOutlineItem
+        outline_context_by_course[shifu_bid] = _build_course_outline_context_map(
+            _load_latest_outline_items(outline_model, shifu_bid)
+        )
+
+    context_map: Dict[str, Dict[str, str]] = {}
+    for usage_row in usage_rows:
+        usage_bid = str(getattr(usage_row, "usage_bid", "") or "").strip()
+        shifu_bid = str(getattr(usage_row, "shifu_bid", "") or "").strip()
+        outline_item_bid = str(
+            getattr(usage_row, "outline_item_bid", "") or ""
+        ).strip()
+        if not usage_bid:
+            continue
+        course = course_map.get(shifu_bid)
+        outline_context = outline_context_by_course.get(shifu_bid, {}).get(
+            outline_item_bid,
+            {},
+        )
+        context_map[usage_bid] = {
+            "usage_bid": usage_bid,
+            "course_bid": shifu_bid,
+            "course_name": str(getattr(course, "title", "") or "").strip()
+            if course
+            else "",
+            "chapter_title": str(outline_context.get("chapter_title", "") or ""),
+            "lesson_title": str(outline_context.get("lesson_title", "") or ""),
+            "usage_scene": _resolve_operator_user_credit_usage_scene(usage_row),
+            "usage_mode": _resolve_course_credit_usage_mode(usage_row),
+        }
+
+    return context_map
+
+
+def _resolve_operator_user_credit_usage_context(
+    usage_row: BillUsageRecord,
+) -> Dict[str, str]:
+    usage_bid = str(getattr(usage_row, "usage_bid", "") or "").strip()
+    shifu_bid = str(getattr(usage_row, "shifu_bid", "") or "").strip()
+    outline_item_bid = str(getattr(usage_row, "outline_item_bid", "") or "").strip()
+    course_name = ""
+    chapter_title = ""
+    lesson_title = ""
+
+    if shifu_bid:
+        drafts = _load_latest_courses_by_shifu_bids(DraftShifu, [shifu_bid])
+        published = _load_latest_courses_by_shifu_bids(PublishedShifu, [shifu_bid])
+        merged_courses, _published_bids, selected_sources = _merge_courses(
+            drafts,
+            published,
+        )
+        if merged_courses:
+            course_name = str(getattr(merged_courses[0], "title", "") or "").strip()
+
+        source = selected_sources.get(shifu_bid)
+        if source:
+            outline_model = DraftOutlineItem if source == "draft" else PublishedOutlineItem
+            outline_context = _build_course_outline_context_map(
+                _load_latest_outline_items(outline_model, shifu_bid)
+            ).get(outline_item_bid, {})
+            chapter_title = str(outline_context.get("chapter_title", "") or "")
+            lesson_title = str(outline_context.get("lesson_title", "") or "")
+
+    return {
+        "usage_bid": usage_bid,
+        "course_bid": shifu_bid,
+        "course_name": course_name,
+        "chapter_title": chapter_title,
+        "lesson_title": lesson_title,
+        "usage_scene": _resolve_operator_user_credit_usage_scene(usage_row),
+        "usage_mode": _resolve_course_credit_usage_mode(usage_row),
+    }
+
+
+def _load_operator_user_credit_usage_owner_ledger_rows(
+    *,
+    user_bid: str,
+    usage_bid: str,
+) -> list[CreditLedgerEntry]:
+    return (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == user_bid,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
+            CreditLedgerEntry.source_bid == usage_bid,
+        )
+        .order_by(CreditLedgerEntry.id.asc())
+        .all()
+    )
+
+
+def _load_operator_user_credit_usage_main_row(
+    usage_bid: str,
+) -> BillUsageRecord | None:
+    normalized_usage_bid = str(usage_bid or "").strip()
+    if not normalized_usage_bid:
+        return None
+    return (
+        BillUsageRecord.query.filter(
+            BillUsageRecord.deleted == 0,
+            BillUsageRecord.usage_bid == normalized_usage_bid,
+        )
+        .order_by(
+            BillUsageRecord.record_level.asc(),
+            BillUsageRecord.id.desc(),
+        )
+        .first()
+    )
+
+
+def _load_operator_user_credit_usage_segment_rows(
+    usage_bid: str,
+) -> list[BillUsageRecord]:
+    normalized_usage_bid = str(usage_bid or "").strip()
+    if not normalized_usage_bid:
+        return []
+    return (
+        BillUsageRecord.query.filter(
+            BillUsageRecord.deleted == 0,
+            BillUsageRecord.parent_usage_bid == normalized_usage_bid,
+            BillUsageRecord.record_level == 1,
+        )
+        .order_by(
+            BillUsageRecord.segment_index.asc(),
+            BillUsageRecord.created_at.asc(),
+            BillUsageRecord.id.asc(),
+        )
+        .all()
+    )
+
+
+def _load_generated_block_content_map(
+    generated_block_bids: Sequence[str],
+) -> Dict[str, str]:
+    normalized_bids = sorted(
+        {
+            str(generated_block_bid or "").strip()
+            for generated_block_bid in generated_block_bids
+            if str(generated_block_bid or "").strip()
+        }
+    )
+    if not normalized_bids:
+        return {}
+    rows = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.generated_block_bid.in_(normalized_bids),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+        )
+        .order_by(LearnGeneratedBlock.id.desc())
+        .all()
+    )
+    content_map: Dict[str, str] = {}
+    for row in rows:
+        generated_block_bid = str(row.generated_block_bid or "").strip()
+        if generated_block_bid and generated_block_bid not in content_map:
+            content_map[generated_block_bid] = str(row.generated_content or "").strip()
+    return content_map
+
+
+def _load_listen_segment_content_map(
+    *,
+    progress_record_bid: str,
+    generated_block_bid: str,
+) -> Dict[int, str]:
+    normalized_progress_record_bid = str(progress_record_bid or "").strip()
+    normalized_generated_block_bid = str(generated_block_bid or "").strip()
+    if not normalized_progress_record_bid and not normalized_generated_block_bid:
+        return {}
+
+    query = LearnGeneratedElement.query.filter(
+        LearnGeneratedElement.deleted == 0,
+        LearnGeneratedElement.status == 1,
+        LearnGeneratedElement.event_type == "element",
+        LearnGeneratedElement.is_speakable == 1,
+    )
+    if normalized_generated_block_bid:
+        query = query.filter(
+            LearnGeneratedElement.generated_block_bid == normalized_generated_block_bid
+        )
+    if normalized_progress_record_bid:
+        query = query.filter(
+            LearnGeneratedElement.progress_record_bid == normalized_progress_record_bid
+        )
+    rows = query.order_by(
+        LearnGeneratedElement.sequence_number.asc(),
+        LearnGeneratedElement.run_event_seq.asc(),
+        LearnGeneratedElement.id.asc(),
+    ).all()
+
+    content_map: Dict[int, str] = {}
+    fallback_index = 0
+    for row in rows:
+        content = str(row.content_text or "").strip()
+        if not content:
+            continue
+        segment_indices: list[int] = []
+        raw_audio_segments = str(row.audio_segments or "").strip()
+        if raw_audio_segments:
+            try:
+                audio_segments = json.loads(raw_audio_segments)
+            except Exception:
+                audio_segments = []
+            if isinstance(audio_segments, list):
+                for item in audio_segments:
+                    if not isinstance(item, dict):
+                        continue
+                    try:
+                        segment_indices.append(int(item.get("segment_index", 0) or 0))
+                    except Exception:
+                        continue
+        if not segment_indices:
+            segment_indices = [fallback_index]
+            fallback_index += 1
+        for segment_index in segment_indices:
+            content_map.setdefault(segment_index, content)
+    return content_map
+
+
+def _allocate_usage_detail_credits(
+    *,
+    rows: Sequence[BillUsageRecord],
+    total_consumed_credits: Decimal,
+) -> Dict[str, Decimal]:
+    if not rows or total_consumed_credits <= 0:
+        return {}
+    total_units = sum(max(int(getattr(row, "total", 0) or 0), 0) for row in rows)
+    if len(rows) == 1 or total_units <= 0:
+        return {str(getattr(rows[0], "usage_bid", "") or ""): total_consumed_credits}
+
+    allocated: Dict[str, Decimal] = {}
+    remaining = total_consumed_credits
+    last_usage_bid = str(getattr(rows[-1], "usage_bid", "") or "")
+    for row in rows[:-1]:
+        usage_bid = str(getattr(row, "usage_bid", "") or "")
+        ratio = Decimal(max(int(getattr(row, "total", 0) or 0), 0)) / Decimal(
+            total_units
+        )
+        amount = _quantize_credit_amount(total_consumed_credits * ratio)
+        allocated[usage_bid] = amount
+        remaining -= amount
+    allocated[last_usage_bid] = _quantize_credit_amount(remaining)
+    return allocated
+
+
+def _resolve_usage_detail_item_content(
+    row: BillUsageRecord,
+    *,
+    block_content_map: Dict[str, str],
+    listen_content_map: Dict[int, str],
+    fallback_content: str,
+) -> str:
+    metadata = _normalize_metadata_json(getattr(row, "extra", None))
+    for key in ("segment_text", "text", "content", "output_text"):
+        value = str(metadata.get(key, "") or "").strip()
+        if value:
+            return value
+    generated_block_bid = str(getattr(row, "generated_block_bid", "") or "").strip()
+    segment_index = int(getattr(row, "segment_index", 0) or 0)
+    return (
+        listen_content_map.get(segment_index, "")
+        or block_content_map.get(generated_block_bid, "")
+        or fallback_content
+    )
+
+
 def _build_operator_user_credit_ledger_item(
     row: CreditLedgerEntry,
     *,
     order_map: Optional[Dict[str, BillingOrder]] = None,
+    usage_context_map: Optional[Dict[str, Dict[str, str]]] = None,
 ) -> AdminOperationUserCreditLedgerItemDTO:
     merged_metadata = _build_operator_user_credit_merged_metadata(
         row,
         order_map=order_map,
+    )
+    usage_context = (usage_context_map or {}).get(
+        str(row.source_bid or "").strip(),
+        {},
     )
     return AdminOperationUserCreditLedgerItemDTO(
         ledger_bid=str(row.ledger_bid or "").strip(),
@@ -1822,6 +2174,13 @@ def _build_operator_user_credit_ledger_item(
             row,
             metadata=merged_metadata,
         ),
+        usage_bid=str(usage_context.get("usage_bid", "") or ""),
+        course_bid=str(usage_context.get("course_bid", "") or ""),
+        course_name=str(usage_context.get("course_name", "") or ""),
+        chapter_title=str(usage_context.get("chapter_title", "") or ""),
+        lesson_title=str(usage_context.get("lesson_title", "") or ""),
+        usage_scene=str(usage_context.get("usage_scene", "") or ""),
+        usage_mode=str(usage_context.get("usage_mode", "") or ""),
     )
 
 
@@ -6101,20 +6460,20 @@ def _load_bill_usage_record_map(
     return usage_map
 
 
-def _build_latest_bill_usage_record_subquery(*, user_bid: str):
+def _build_latest_bill_usage_record_subquery(*, user_bid: str = ""):
     normalized_user_bid = str(user_bid or "").strip()
-    return (
+    query = (
         db.session.query(
             BillUsageRecord.usage_bid.label("usage_bid"),
             db.func.max(BillUsageRecord.id).label("max_id"),
         )
         .filter(
             BillUsageRecord.deleted == 0,
-            BillUsageRecord.user_bid == normalized_user_bid,
         )
-        .group_by(BillUsageRecord.usage_bid)
-        .subquery()
     )
+    if normalized_user_bid:
+        query = query.filter(BillUsageRecord.user_bid == normalized_user_bid)
+    return query.group_by(BillUsageRecord.usage_bid).subquery()
 
 
 def _build_latest_billing_order_subquery(*, creator_bid: str):
@@ -6392,9 +6751,7 @@ def get_operator_user_credits(
                 else:
                     query = query.filter(checkout_type_expr != "trial_bootstrap")
         elif has_consume_sub_filter:
-            latest_usage_subquery = _build_latest_bill_usage_record_subquery(
-                user_bid=normalized_user_bid
-            )
+            latest_usage_subquery = _build_latest_bill_usage_record_subquery()
             usage_row = aliased(BillUsageRecord)
             query = query.join(
                 latest_usage_subquery,
@@ -6431,10 +6788,18 @@ def get_operator_user_credits(
         page_offset = (safe_page_index - 1) * safe_page_size
         paged_rows = order_by_query.offset(page_offset).limit(safe_page_size).all()
         order_map = _load_billing_order_map(
-            [str(row.source_bid or "").strip() for row in paged_rows]
+            _collect_operator_user_credit_order_source_bids(paged_rows)
+        )
+        usage_context_map = _load_operator_user_credit_usage_context_map(
+            paged_rows,
+            user_bid=normalized_user_bid,
         )
         items = [
-            _build_operator_user_credit_ledger_item(row, order_map=order_map)
+            _build_operator_user_credit_ledger_item(
+                row,
+                order_map=order_map,
+                usage_context_map=usage_context_map,
+            )
             for row in paged_rows
         ]
         return AdminOperationUserCreditLedgerPageDTO(
@@ -6444,6 +6809,106 @@ def get_operator_user_credits(
             page_size=safe_page_size,
             total=total,
             page_count=((total + safe_page_size - 1) // safe_page_size) if total else 0,
+        )
+
+
+def get_operator_user_credit_usage_detail(
+    app: Flask,
+    *,
+    user_bid: str,
+    usage_bid: str,
+) -> AdminOperationUserCreditUsageDetailDTO:
+    with app.app_context():
+        normalized_user_bid = str(user_bid or "").strip()
+        normalized_usage_bid = str(usage_bid or "").strip()
+        if not normalized_user_bid:
+            raise_param_error("user_bid is required")
+        if not normalized_usage_bid:
+            raise_param_error("usage_bid is required")
+
+        _load_operator_user_or_raise(normalized_user_bid)
+        owner_ledger_rows = _load_operator_user_credit_usage_owner_ledger_rows(
+            user_bid=normalized_user_bid,
+            usage_bid=normalized_usage_bid,
+        )
+        if not owner_ledger_rows:
+            raise_param_error("usage_bid")
+
+        main_usage_row = _load_operator_user_credit_usage_main_row(normalized_usage_bid)
+        if main_usage_row is None:
+            raise_param_error("usage_bid")
+
+        total_consumed_credits = sum(
+            (abs(Decimal(row.amount or 0)) for row in owner_ledger_rows),
+            Decimal("0"),
+        )
+        context = _resolve_operator_user_credit_usage_context(main_usage_row)
+
+        segment_rows = _load_operator_user_credit_usage_segment_rows(
+            normalized_usage_bid
+        )
+        detail_rows = segment_rows or [main_usage_row]
+        generated_block_bids = [
+            str(getattr(row, "generated_block_bid", "") or "").strip()
+            for row in detail_rows + [main_usage_row]
+        ]
+        block_content_map = _load_generated_block_content_map(generated_block_bids)
+        fallback_content = block_content_map.get(
+            str(getattr(main_usage_row, "generated_block_bid", "") or "").strip(),
+            "",
+        )
+        listen_content_map = (
+            _load_listen_segment_content_map(
+                progress_record_bid=str(
+                    getattr(main_usage_row, "progress_record_bid", "") or ""
+                ),
+                generated_block_bid=str(
+                    getattr(main_usage_row, "generated_block_bid", "") or ""
+                ),
+            )
+            if int(getattr(main_usage_row, "usage_type", 0) or 0) == BILL_USAGE_TYPE_TTS
+            else {}
+        )
+        allocated_credit_map = _allocate_usage_detail_credits(
+            rows=detail_rows,
+            total_consumed_credits=total_consumed_credits,
+        )
+        items = [
+            AdminOperationUserCreditUsageDetailItemDTO(
+                usage_bid=str(getattr(row, "usage_bid", "") or "").strip(),
+                created_at=_format_operator_datetime(getattr(row, "created_at", None)),
+                content=_resolve_usage_detail_item_content(
+                    row,
+                    block_content_map=block_content_map,
+                    listen_content_map=listen_content_map,
+                    fallback_content=fallback_content,
+                ),
+                consumed_credits=_format_decimal(
+                    allocated_credit_map.get(
+                        str(getattr(row, "usage_bid", "") or "").strip(),
+                        Decimal("0"),
+                    )
+                ),
+                usage_units=int(getattr(row, "total", 0) or 0),
+                input_tokens=int(getattr(row, "input", 0) or 0),
+                output_tokens=int(getattr(row, "output", 0) or 0),
+                word_count=int(getattr(row, "word_count", 0) or 0),
+                duration_ms=int(getattr(row, "duration_ms", 0) or 0),
+                segment_count=int(getattr(row, "segment_count", 0) or 0),
+            )
+            for row in detail_rows
+        ]
+
+        return AdminOperationUserCreditUsageDetailDTO(
+            usage_bid=normalized_usage_bid,
+            course_bid=str(context.get("course_bid", "") or ""),
+            course_name=str(context.get("course_name", "") or ""),
+            chapter_title=str(context.get("chapter_title", "") or ""),
+            lesson_title=str(context.get("lesson_title", "") or ""),
+            usage_scene=str(context.get("usage_scene", "") or ""),
+            usage_mode=str(context.get("usage_mode", "") or ""),
+            total_consumed_credits=_format_decimal(total_consumed_credits),
+            items=items,
         )
 
 

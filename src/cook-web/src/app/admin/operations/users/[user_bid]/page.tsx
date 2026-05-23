@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
@@ -24,6 +24,7 @@ import type {
   AdminOperationUserCourseItem,
   AdminOperationUserCreditFilters,
   AdminOperationUserCreditSummary,
+  AdminOperationUserCreditUsageDetailResponse,
   AdminOperationUserCreditsResponse,
   AdminOperationUserDetailResponse,
 } from '../../operation-user-types';
@@ -226,6 +227,7 @@ export default function AdminOperationUserDetailPage() {
   const { t, i18n } = useTranslation();
   const { t: tOperationsUsers } = useTranslation('module.operationsUser');
   const { t: tOperationsCourse } = useTranslation('module.operationsCourse');
+  const router = useRouter();
   const params = useParams<{ user_bid: string }>();
   const { isReady } = useOperatorGuard();
   const loginMethodsEnabled = useEnvStore(
@@ -297,6 +299,17 @@ export default function AdminOperationUserDetailPage() {
         ? detail.email || detail.mobile
         : detail.mobile || detail.email,
     [contactType, detail.email, detail.mobile],
+  );
+  const userDisplayLabel = useMemo(
+    () => {
+      const displayName = detail.nickname || contactValue || userBid || '';
+      const mobile = detail.mobile || '';
+      if (displayName && mobile && displayName !== mobile) {
+        return `${displayName} / ${mobile}`;
+      }
+      return displayName || mobile || EMPTY_VALUE;
+    },
+    [contactValue, detail.mobile, detail.nickname, userBid],
   );
   const creditSummary = useMemo<AdminOperationUserCreditSummary>(
     () => ({
@@ -510,12 +523,40 @@ export default function AdminOperationUserDetailPage() {
     setCreditsPageIndex(1);
   };
 
+  const handleCreditTypeChange = useCallback(
+    (nextFilters: AdminOperationUserCreditFilters) => {
+      const sanitizedFilters = sanitizeCreditFiltersByType({
+        ...nextFilters,
+        courseQuery: nextFilters.courseQuery.trim(),
+      });
+      setCreditFiltersDraft(sanitizedFilters);
+      setCreditFilters(sanitizedFilters);
+      setCreditsPageIndex(1);
+    },
+    [],
+  );
+
   const handleCreditReset = () => {
     const nextFilters = createUserCreditFilters();
     setCreditFiltersDraft(nextFilters);
     setCreditFilters(nextFilters);
     setCreditsPageIndex(1);
   };
+
+  const handleCreditCourseOpen = useCallback(
+    (courseBid: string) => {
+      const normalizedCourseBid = courseBid.trim();
+      if (!normalizedCourseBid) {
+        return;
+      }
+      router.push(
+        `/admin/operations/${encodeURIComponent(
+          normalizedCourseBid,
+        )}?tab=creditUsage`,
+      );
+    },
+    [router],
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined' || detailLoading) {
@@ -762,10 +803,10 @@ export default function AdminOperationUserDetailPage() {
   return (
     <TooltipProvider delayDuration={150}>
       <div
-        className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'
+        className='h-full min-h-0 bg-stone-50 p-0 overscroll-none'
         data-testid='admin-operation-user-detail-page'
       >
-        <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
+        <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col'>
           <div className='mb-5 shrink-0 space-y-3 px-1 pt-6'>
             <AdminOperationsBreadcrumb
               items={[
@@ -781,8 +822,8 @@ export default function AdminOperationUserDetailPage() {
             </h1>
           </div>
 
-          <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>
-            <div className='space-y-5 px-1 pb-6'>
+          <div className='flex min-h-0 flex-1 flex-col pr-1'>
+            <div className='flex min-h-0 flex-1 flex-col gap-5 px-1 pb-6'>
               <UserDetailSummarySection
                 emptyValue={EMPTY_VALUE}
                 basicInfoTitle={tOperationsUsers('detail.basicInfo')}
@@ -807,16 +848,25 @@ export default function AdminOperationUserDetailPage() {
                 onTabChange={setDetailTab}
                 creditLedgerProps={{
                   filtersDraft: creditFiltersDraft,
+                  activeCreditType: creditFilters.creditType,
                   loading: creditsLoading,
                   error: creditsError,
                   items: credits.items,
                   pageIndex: credits.page || creditsPageIndex,
                   pageCount: credits.page_count || 0,
+                  userLabel: userDisplayLabel,
                   onFiltersChange: setCreditFiltersDraft,
+                  onTypeChange: handleCreditTypeChange,
                   onSearch: handleCreditSearch,
                   onReset: handleCreditReset,
                   onPageChange: page => setCreditsPageIndex(page),
                   onRetry: () => setCreditsRetryNonce(value => value + 1),
+                  onCourseOpen: handleCreditCourseOpen,
+                  onUsageDetailLoad: usageBid =>
+                    api.getAdminOperationUserCreditUsageDetail({
+                      user_bid: userBid,
+                      usage_bid: usageBid,
+                    }) as Promise<AdminOperationUserCreditUsageDetailResponse>,
                 }}
                 learningCoursesProps={{
                   title: tOperationsUsers('detail.learningCourses'),

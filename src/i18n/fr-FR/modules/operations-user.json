@@ -31,7 +31,14 @@
       "entryType": "Type",
       "expiresAt": "Expire le",
       "note": "Note",
-      "sourceType": "Source"
+      "sourceType": "Source",
+      "user": "Utilisateur",
+      "usageScene": "Scène",
+      "usageMode": "Mode",
+      "course": "Cours",
+      "sectionChapter": "Section/chapitre",
+      "consumedCredits": "Crédits consommés",
+      "grantedCredits": "Crédits obtenus"
     },
     "creditLedgerFilters": {
       "course": "Cours",
@@ -138,7 +145,39 @@
       "credits": "Détail des crédits",
       "learningCourses": "Cours suivis"
     },
-    "title": "Détail utilisateur"
+    "title": "Détail utilisateur",
+    "creditLedgerUsageSceneLabels": {
+      "debug": "Débogage",
+      "preview": "Aperçu",
+      "learning": "Apprentissage"
+    },
+    "creditLedgerCourseOpenAriaLabel": "Ouvrir le détail du cours",
+    "creditUsageDetail": {
+      "actions": {
+        "open": "Détails",
+        "openAriaLabel": "Voir les détails de consommation de crédits"
+      },
+      "columns": {
+        "createdAt": "Consommé le",
+        "consumedCredits": "Crédits",
+        "inputTokens": "Tokens d'entrée",
+        "outputSummary": "Résumé de sortie",
+        "outputTokens": "Tokens de sortie",
+        "ttsContent": "Contenu synthétisé",
+        "ttsDuration": "Durée audio",
+        "ttsSegmentCount": "Segments",
+        "ttsWordCount": "Mots synthétisés"
+      },
+      "empty": "Aucun détail de consommation",
+      "error": "Échec du chargement des détails",
+      "loading": "Chargement",
+      "title": "Détails de consommation des crédits",
+      "description": "Affiche le contenu de sortie et les crédits consommés pour ce règlement lorsque disponibles.",
+      "collapse": "Réduire",
+      "durationMinutesSeconds": "{{minutes}} min {{seconds}} s",
+      "durationSeconds": "{{seconds}} s",
+      "expand": "Développer"
+    }
   },
   "emptyList": "Aucun utilisateur",
   "filters": {

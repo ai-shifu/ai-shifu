@@ -51,6 +51,19 @@ const MainInterface = ({
     document.title = t('common.core.adminTitle');
   }, [t, i18n.language]);
 
+  useEffect(() => {
+    const html = document.documentElement;
+    const root = document.getElementById('root');
+    html.classList.add('admin-mode');
+    document.body.classList.add('admin-mode');
+    root?.classList.add('admin-mode');
+    return () => {
+      html.classList.remove('admin-mode');
+      document.body.classList.remove('admin-mode');
+      root?.classList.remove('admin-mode');
+    };
+  }, []);
+
   const desktopFooterRef = useRef<any>(null);
   const {
     open: desktopMenuOpen,
@@ -115,7 +128,7 @@ const MainInterface = ({
           className='flex-1 overflow-y-auto overflow-x-hidden bg-background'
           data-testid='admin-layout-content'
         >
-          <div className='mx-auto flex h-full max-w-6xl flex-col px-5 py-5'>
+          <div className='mx-auto box-border flex h-full min-h-0 max-w-6xl flex-col px-5 py-5'>
             {children}
           </div>
         </div>

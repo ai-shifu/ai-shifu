@@ -551,9 +551,14 @@ describe('AdminLayout', () => {
       </AdminLayout>,
     );
 
+    expect(document.documentElement).toHaveClass('admin-mode');
+    expect(document.body).toHaveClass('admin-mode');
     expect(screen.getByTestId('admin-layout-content')).toHaveClass(
       'overflow-y-auto',
     );
+    expect(
+      screen.getByTestId('admin-layout-content').firstElementChild,
+    ).toHaveClass('box-border');
     expect(screen.getByTestId('admin-sidebar-nav')).toHaveClass('flex-1');
     expect(
       screen.getByTestId('admin-billing-sidebar-card'),

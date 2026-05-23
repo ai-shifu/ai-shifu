@@ -144,6 +144,8 @@ const api = {
     'GET /shifu/admin/operations/users/{user_bid}/detail',
   getAdminOperationUserCredits:
     'GET /shifu/admin/operations/users/{user_bid}/credits',
+  getAdminOperationUserCreditUsageDetail:
+    'GET /shifu/admin/operations/users/{user_bid}/credits/usages/{usage_bid}/detail',
   getAdminOperationUserGrantBootstrap:
     'GET /shifu/admin/operations/users/{user_bid}/credit-grant/bootstrap',
   grantAdminOperationUserCredits:

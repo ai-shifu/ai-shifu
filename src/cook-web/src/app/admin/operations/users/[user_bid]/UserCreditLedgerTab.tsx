@@ -1,14 +1,23 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
 import { ClearableTextInput } from '@/app/admin/operations/orders/orderUiShared';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { Label } from '@/components/ui/Label';
 import {
   Select,
@@ -31,6 +40,7 @@ import { cn } from '@/lib/utils';
 import type {
   AdminOperationUserCreditFilters,
   AdminOperationUserCreditGrantSourceFilter,
+  AdminOperationUserCreditUsageDetailResponse,
   AdminOperationUserCreditsResponse,
   AdminOperationUserCreditTypeFilter,
   AdminOperationUserCreditUsageModeFilter,
@@ -77,6 +87,34 @@ type OperatorUsersTranslator = (
  * t('module.operationsUser.detail.creditLedgerColumns.balanceAfter')
  * t('module.operationsUser.detail.creditLedgerColumns.expiresAt')
  * t('module.operationsUser.detail.creditLedgerColumns.note')
+ * t('module.operationsUser.detail.creditLedgerColumns.user')
+ * t('module.operationsUser.detail.creditLedgerColumns.usageScene')
+ * t('module.operationsUser.detail.creditLedgerColumns.usageMode')
+ * t('module.operationsUser.detail.creditLedgerColumns.course')
+ * t('module.operationsUser.detail.creditLedgerColumns.sectionChapter')
+ * t('module.operationsUser.detail.creditLedgerColumns.consumedCredits')
+ * t('module.operationsUser.detail.creditLedgerColumns.grantedCredits')
+ * t('module.operationsUser.detail.creditUsageDetail.actions.open')
+ * t('module.operationsUser.detail.creditUsageDetail.actions.openAriaLabel')
+ * t('module.operationsUser.detail.creditUsageDetail.columns.content')
+ * t('module.operationsUser.detail.creditUsageDetail.columns.consumedCredits')
+ * t('module.operationsUser.detail.creditUsageDetail.columns.createdAt')
+ * t('module.operationsUser.detail.creditUsageDetail.columns.inputTokens')
+ * t('module.operationsUser.detail.creditUsageDetail.columns.outputSummary')
+ * t('module.operationsUser.detail.creditUsageDetail.columns.outputTokens')
+ * t('module.operationsUser.detail.creditUsageDetail.columns.ttsContent')
+ * t('module.operationsUser.detail.creditUsageDetail.columns.ttsDuration')
+ * t('module.operationsUser.detail.creditUsageDetail.columns.ttsSegmentCount')
+ * t('module.operationsUser.detail.creditUsageDetail.columns.ttsWordCount')
+ * t('module.operationsUser.detail.creditUsageDetail.empty')
+ * t('module.operationsUser.detail.creditUsageDetail.error')
+ * t('module.operationsUser.detail.creditUsageDetail.expand')
+ * t('module.operationsUser.detail.creditUsageDetail.collapse')
+ * t('module.operationsUser.detail.creditUsageDetail.durationMinutesSeconds')
+ * t('module.operationsUser.detail.creditUsageDetail.durationSeconds')
+ * t('module.operationsUser.detail.creditUsageDetail.loading')
+ * t('module.operationsUser.detail.creditUsageDetail.title')
+ * t('module.operationsUser.detail.creditUsageDetail.description')
  * t('module.operationsUser.detail.creditLedgerTypeLabels.adjustment')
  * t('module.operationsUser.detail.creditLedgerTypeLabels.consume')
  * t('module.operationsUser.detail.creditLedgerTypeLabels.debug_consume')
@@ -108,6 +146,10 @@ type OperatorUsersTranslator = (
  * t('module.operationsUser.detail.creditLedgerSourceLabels.topup')
  * t('module.operationsUser.detail.creditLedgerSourceLabels.trial_subscription')
  * t('module.operationsUser.detail.creditLedgerSourceLabels.usage')
+ * t('module.operationsUser.detail.creditLedgerUsageSceneLabels.debug')
+ * t('module.operationsUser.detail.creditLedgerUsageSceneLabels.preview')
+ * t('module.operationsUser.detail.creditLedgerUsageSceneLabels.learning')
+ * t('module.operationsUser.detail.creditLedgerCourseOpenAriaLabel')
  * t('module.operationsUser.detail.emptyCredits')
  * t('module.operationsUser.detail.loadingCredits')
  */
@@ -136,16 +178,293 @@ const resolveCreditLedgerNote = (note: string, emptyValue: string): string => {
   return emptyValue;
 };
 
+const formatCreditAmount = (
+  amount: string,
+  locale: string,
+  options?: { absolute?: boolean },
+): string => {
+  if (amount === '' || amount === null || amount === undefined) {
+    return '';
+  }
+  const value = Number(amount);
+  if (!Number.isFinite(value)) {
+    return '';
+  }
+  return formatAdminCredits(
+    options?.absolute ? Math.abs(value) : value,
+    locale,
+  );
+};
+
+const resolveUsageSceneLabel = (
+  tOperationsUsers: OperatorUsersTranslator,
+  usageScene: string,
+  emptyValue: string,
+): string => {
+  const normalizedUsageScene = usageScene.trim();
+  if (!normalizedUsageScene) {
+    return emptyValue;
+  }
+  return tOperationsUsers(
+    `detail.creditLedgerUsageSceneLabels.${normalizedUsageScene}`,
+    {
+      defaultValue: normalizedUsageScene,
+    },
+  );
+};
+
+const resolveUsageModeLabel = (
+  tOperationsUsers: OperatorUsersTranslator,
+  usageMode: string,
+  emptyValue: string,
+): string => {
+  const normalizedUsageMode = usageMode.trim();
+  if (!normalizedUsageMode) {
+    return emptyValue;
+  }
+  return tOperationsUsers(
+    `detail.creditLedgerFilters.usageModeOptions.${normalizedUsageMode}`,
+    {
+      defaultValue: normalizedUsageMode,
+    },
+  );
+};
+
+const resolveSectionChapterDisplay = (
+  chapterTitle: string,
+  lessonTitle: string,
+  emptyValue: string,
+): string => {
+  const normalizedChapterTitle = chapterTitle.trim();
+  const normalizedLessonTitle = lessonTitle.trim();
+  if (normalizedChapterTitle && normalizedLessonTitle) {
+    return `${normalizedLessonTitle} / ${normalizedChapterTitle}`;
+  }
+  return normalizedLessonTitle || normalizedChapterTitle || emptyValue;
+};
+
+const ExpandableUsageContent = ({
+  content,
+  emptyValue,
+  expandLabel,
+  collapseLabel,
+}: {
+  content: string;
+  emptyValue: string;
+  expandLabel: string;
+  collapseLabel: string;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const normalizedContent = content.trim();
+  if (!normalizedContent) {
+    return <span className='text-muted-foreground'>{emptyValue}</span>;
+  }
+  return (
+    <div className='min-w-0 text-left'>
+      <span
+        className={cn(
+          'align-middle text-foreground',
+          expanded ? 'whitespace-pre-wrap break-words' : 'line-clamp-1',
+        )}
+        title={normalizedContent}
+      >
+        {normalizedContent}
+      </span>
+      <button
+        type='button'
+        className='ml-1 align-middle text-xs font-medium text-primary hover:underline'
+        onClick={() => setExpanded(value => !value)}
+      >
+        {expanded ? collapseLabel : expandLabel}
+      </button>
+    </div>
+  );
+};
+
+const CreditUsageDetailDialog = ({
+  open,
+  detail,
+  loading,
+  error,
+  emptyValue,
+  onOpenChange,
+}: {
+  open: boolean;
+  detail: AdminOperationUserCreditUsageDetailResponse | null;
+  loading: boolean;
+  error: ErrorState | null;
+  emptyValue: string;
+  onOpenChange: (open: boolean) => void;
+}) => {
+  const { i18n } = useTranslation();
+  const { t: tOperationsUsers } = useTranslation('module.operationsUser');
+  const items = detail?.items || [];
+  const isListenDetail = detail?.usage_mode === 'listen';
+  const detailFirstMetricLabel = isListenDetail
+    ? tOperationsUsers('detail.creditUsageDetail.columns.ttsWordCount')
+    : tOperationsUsers('detail.creditUsageDetail.columns.inputTokens');
+  const detailSecondMetricLabel = isListenDetail
+    ? tOperationsUsers('detail.creditUsageDetail.columns.ttsDuration')
+    : tOperationsUsers('detail.creditUsageDetail.columns.outputTokens');
+  const detailSummaryLabel = isListenDetail
+    ? tOperationsUsers('detail.creditUsageDetail.columns.ttsContent')
+    : tOperationsUsers('detail.creditUsageDetail.columns.outputSummary');
+  const formatDuration = (durationMs: number) => {
+    const safeDuration = Math.max(Number(durationMs || 0), 0);
+    if (!safeDuration) {
+      return emptyValue;
+    }
+    const totalSeconds = Math.round(safeDuration / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (!minutes) {
+      return tOperationsUsers('detail.creditUsageDetail.durationSeconds', {
+        seconds,
+      });
+    }
+    return tOperationsUsers('detail.creditUsageDetail.durationMinutesSeconds', {
+      minutes,
+      seconds,
+    });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      <DialogContent className='max-h-[82vh] max-w-5xl overflow-hidden p-0'>
+        <DialogHeader className='border-b px-6 py-4'>
+          <DialogTitle>
+            {tOperationsUsers('detail.creditUsageDetail.title')}
+          </DialogTitle>
+          <DialogDescription className='sr-only'>
+            {tOperationsUsers('detail.creditUsageDetail.description')}
+          </DialogDescription>
+        </DialogHeader>
+        <div className='space-y-3 overflow-auto px-6 pb-5'>
+          {loading ? (
+            <AdminTableShell
+              loading
+              isEmpty={false}
+              loadingClassName='min-h-[220px]'
+              table={<div />}
+            />
+          ) : error ? (
+            <div className='flex min-h-[220px] items-center justify-center p-6 text-center'>
+              <div className='text-sm font-medium text-destructive'>
+                {error.message ||
+                  tOperationsUsers('detail.creditUsageDetail.error')}
+              </div>
+            </div>
+          ) : (
+            <AdminTableShell
+              loading={false}
+              isEmpty={items.length === 0}
+              emptyContent={tOperationsUsers('detail.creditUsageDetail.empty')}
+              emptyColSpan={isListenDetail ? 6 : 5}
+              withTooltipProvider={false}
+              tableWrapperClassName='max-h-[52vh] overflow-auto'
+              loadingClassName='min-h-[220px]'
+              table={emptyRow => (
+                <Table className='table-auto'>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className='h-10 w-[150px] whitespace-nowrap bg-muted/80 text-center text-xs'>
+                        {tOperationsUsers(
+                          'detail.creditUsageDetail.columns.createdAt',
+                        )}
+                      </TableHead>
+                      <TableHead className='h-10 w-[100px] whitespace-nowrap bg-muted/80 text-center text-xs'>
+                        {tOperationsUsers(
+                          'detail.creditUsageDetail.columns.consumedCredits',
+                        )}
+                      </TableHead>
+                      <TableHead className='h-10 w-[110px] whitespace-nowrap bg-muted/80 text-center text-xs'>
+                        {detailFirstMetricLabel}
+                      </TableHead>
+                      <TableHead className='h-10 w-[110px] whitespace-nowrap bg-muted/80 text-center text-xs'>
+                        {detailSecondMetricLabel}
+                      </TableHead>
+                      {isListenDetail ? (
+                        <TableHead className='h-10 w-[100px] whitespace-nowrap bg-muted/80 text-center text-xs'>
+                          {tOperationsUsers(
+                            'detail.creditUsageDetail.columns.ttsSegmentCount',
+                          )}
+                        </TableHead>
+                      ) : null}
+                      <TableHead className='h-10 min-w-[520px] whitespace-nowrap bg-muted/80 text-left text-xs'>
+                        {detailSummaryLabel}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {emptyRow}
+                    {items.map((item, index) => (
+                      <TableRow key={`${item.usage_bid}-${index}`}>
+                        <TableCell className='border-r border-border py-2.5 text-center text-xs text-muted-foreground/70'>
+                          {formatOperatorUtcDateTime(item.created_at) ||
+                            emptyValue}
+                        </TableCell>
+                        <TableCell className='border-r border-border py-2.5 text-center text-sm font-medium tabular-nums text-foreground'>
+                          {formatCreditAmount(
+                            item.consumed_credits,
+                            i18n.language,
+                            { absolute: true },
+                          ) || emptyValue}
+                        </TableCell>
+                        <TableCell className='border-r border-border py-2.5 text-center text-sm tabular-nums text-foreground'>
+                          {isListenDetail
+                            ? item.word_count || emptyValue
+                            : item.input_tokens}
+                        </TableCell>
+                        <TableCell className='border-r border-border py-2.5 text-center text-sm tabular-nums text-foreground'>
+                          {isListenDetail
+                            ? formatDuration(item.duration_ms)
+                            : item.output_tokens}
+                        </TableCell>
+                        {isListenDetail ? (
+                          <TableCell className='border-r border-border py-2.5 text-center text-sm tabular-nums text-foreground'>
+                            {item.segment_count || emptyValue}
+                          </TableCell>
+                        ) : null}
+                        <TableCell className='py-2.5 text-sm text-foreground'>
+                          <ExpandableUsageContent
+                            content={item.content}
+                            emptyValue={emptyValue}
+                            expandLabel={tOperationsUsers(
+                              'detail.creditUsageDetail.expand',
+                            )}
+                            collapseLabel={tOperationsUsers(
+                              'detail.creditUsageDetail.collapse',
+                            )}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const CreditLedgerFilters = ({
   filtersDraft,
   loading,
   onChange,
+  onTypeChange,
   onSearch,
   onReset,
 }: {
   filtersDraft: AdminOperationUserCreditFilters;
   loading: boolean;
   onChange: (filters: AdminOperationUserCreditFilters) => void;
+  onTypeChange: (filters: AdminOperationUserCreditFilters) => void;
   onSearch: () => void;
   onReset: () => void;
 }) => {
@@ -171,7 +490,7 @@ const CreditLedgerFilters = ({
           <Select
             value={filtersDraft.creditType}
             onValueChange={value =>
-              onChange(
+              onTypeChange(
                 sanitizeCreditFiltersByType({
                   ...filtersDraft,
                   creditType: value as AdminOperationUserCreditTypeFilter,
@@ -375,33 +694,357 @@ const CreditLedgerFilters = ({
 
 export default function UserCreditLedgerTab({
   filtersDraft,
+  activeCreditType,
   loading,
   error,
   items,
   pageIndex,
   pageCount,
+  userLabel,
   emptyValue,
   onFiltersChange,
+  onTypeChange,
   onSearch,
   onReset,
   onPageChange,
   onRetry,
+  onCourseOpen,
+  onUsageDetailLoad,
 }: {
   filtersDraft: AdminOperationUserCreditFilters;
+  activeCreditType: AdminOperationUserCreditFilters['creditType'];
   loading: boolean;
   error: ErrorState | null;
   items: AdminOperationUserCreditsResponse['items'];
   pageIndex: number;
   pageCount: number;
+  userLabel: string;
   emptyValue: string;
   onFiltersChange: (filters: AdminOperationUserCreditFilters) => void;
+  onTypeChange: (filters: AdminOperationUserCreditFilters) => void;
   onSearch: () => void;
   onReset: () => void;
   onPageChange: (page: number) => void;
   onRetry: () => void;
+  onCourseOpen: (courseBid: string) => void;
+  onUsageDetailLoad: (
+    usageBid: string,
+  ) => Promise<AdminOperationUserCreditUsageDetailResponse>;
 }) {
   const { t, i18n } = useTranslation();
   const { t: tOperationsUsers } = useTranslation('module.operationsUser');
+  const isConsumeView = activeCreditType === 'consume';
+  const isGrantView = activeCreditType === 'grant';
+  const isOtherView = activeCreditType === 'other';
+  const tableColumnCount = isConsumeView ? 9 : 7;
+  const [usageDetailOpen, setUsageDetailOpen] = useState(false);
+  const [usageDetailLoading, setUsageDetailLoading] = useState(false);
+  const [usageDetailError, setUsageDetailError] = useState<ErrorState | null>(
+    null,
+  );
+  const [usageDetail, setUsageDetail] =
+    useState<AdminOperationUserCreditUsageDetailResponse | null>(null);
+  const usageDetailCacheRef = useRef(
+    new Map<string, AdminOperationUserCreditUsageDetailResponse>(),
+  );
+  const usageDetailRequestSeqRef = useRef(0);
+
+  const handleUsageDetailOpen = async (usageBid: string) => {
+    const normalizedUsageBid = usageBid.trim();
+    if (!normalizedUsageBid) {
+      return;
+    }
+    setUsageDetailOpen(true);
+    setUsageDetailError(null);
+
+    const cachedDetail = usageDetailCacheRef.current.get(normalizedUsageBid);
+    if (cachedDetail) {
+      setUsageDetail(cachedDetail);
+      setUsageDetailLoading(false);
+      return;
+    }
+
+    const requestSeq = usageDetailRequestSeqRef.current + 1;
+    usageDetailRequestSeqRef.current = requestSeq;
+    setUsageDetail(null);
+    setUsageDetailLoading(true);
+    try {
+      const detail = await onUsageDetailLoad(normalizedUsageBid);
+      if (usageDetailRequestSeqRef.current !== requestSeq) {
+        return;
+      }
+      usageDetailCacheRef.current.set(normalizedUsageBid, detail);
+      setUsageDetail(detail);
+    } catch (requestError) {
+      if (usageDetailRequestSeqRef.current !== requestSeq) {
+        return;
+      }
+      const resolvedError = requestError as ErrorState;
+      setUsageDetailError({
+        message:
+          resolvedError.message ||
+          tOperationsUsers('detail.creditUsageDetail.error'),
+        code: resolvedError.code,
+      });
+    } finally {
+      if (usageDetailRequestSeqRef.current === requestSeq) {
+        setUsageDetailLoading(false);
+      }
+    }
+  };
+
+  const handleUsageDetailOpenChange = (open: boolean) => {
+    if (!open) {
+      usageDetailRequestSeqRef.current += 1;
+    }
+    setUsageDetailOpen(open);
+  };
+
+  const renderCreditAmountCell = (
+    amount: string,
+    options?: { absolute?: boolean },
+  ) => (
+    <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+      <AdminTooltipText
+        text={formatCreditAmount(amount, i18n.language, options)}
+        emptyValue={emptyValue}
+      />
+    </TableCell>
+  );
+
+  const renderBalanceCell = (balanceAfter: string) =>
+    renderCreditAmountCell(balanceAfter);
+
+  const renderUsageDetailCell = (
+    item: AdminOperationUserCreditsResponse['items'][number],
+  ) => (
+    <TableCell className='whitespace-nowrap text-center'>
+      {item.usage_bid ? (
+        <Button
+          type='button'
+          variant='ghost'
+          className='h-7 px-2 text-primary hover:text-primary'
+          aria-label={tOperationsUsers(
+            'detail.creditUsageDetail.actions.openAriaLabel',
+          )}
+          onClick={() => void handleUsageDetailOpen(item.usage_bid)}
+        >
+          {tOperationsUsers('detail.creditUsageDetail.actions.open')}
+        </Button>
+      ) : (
+        <span className='text-muted-foreground'>{emptyValue}</span>
+      )}
+    </TableCell>
+  );
+
+  const renderCreatedAtCell = (createdAt: string) => (
+    <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+      <AdminTooltipText
+        text={formatOperatorUtcDateTime(createdAt)}
+        emptyValue={emptyValue}
+      />
+    </TableCell>
+  );
+
+  const renderTypeCell = (
+    item: AdminOperationUserCreditsResponse['items'][number],
+  ) => (
+    <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+      <AdminTooltipText
+        text={resolveCreditLedgerLabel(
+          tOperationsUsers,
+          'creditLedgerTypeLabels',
+          item.display_entry_type,
+          item.entry_type,
+          emptyValue,
+        )}
+        emptyValue={emptyValue}
+      />
+    </TableCell>
+  );
+
+  const renderSourceCell = (
+    item: AdminOperationUserCreditsResponse['items'][number],
+  ) => (
+    <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+      <AdminTooltipText
+        text={resolveCreditLedgerLabel(
+          tOperationsUsers,
+          'creditLedgerSourceLabels',
+          item.display_source_type,
+          item.source_type,
+          emptyValue,
+        )}
+        emptyValue={emptyValue}
+      />
+    </TableCell>
+  );
+
+  const renderNoteCell = (note: string) => (
+    <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+      <AdminTooltipText
+        text={resolveCreditLedgerNote(note, emptyValue)}
+        emptyValue={emptyValue}
+      />
+    </TableCell>
+  );
+
+  const renderCourseCell = (
+    courseBid: string,
+    courseName: string,
+    fallbackText?: string,
+  ) => {
+    const normalizedCourseBid = String(courseBid || '').trim();
+    const displayText =
+      String(courseName || '').trim() ||
+      fallbackText?.trim() ||
+      normalizedCourseBid;
+    return (
+      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+        {normalizedCourseBid ? (
+          <Button
+            type='button'
+            variant='ghost'
+            className='h-auto max-w-full px-1 py-0 text-primary hover:text-primary'
+            title={displayText}
+            aria-label={tOperationsUsers(
+              'detail.creditLedgerCourseOpenAriaLabel',
+              { defaultValue: displayText },
+            )}
+            onClick={() => onCourseOpen(normalizedCourseBid)}
+          >
+            <span className='block max-w-full overflow-hidden text-ellipsis whitespace-nowrap'>
+              {displayText}
+            </span>
+          </Button>
+        ) : (
+          <AdminTooltipText
+            text={displayText || ''}
+            emptyValue={emptyValue}
+          />
+        )}
+      </TableCell>
+    );
+  };
+
+  const renderRows = () => {
+    if (loading) {
+      return (
+        <TableEmpty colSpan={tableColumnCount}>
+          {tOperationsUsers('detail.loadingCredits')}
+        </TableEmpty>
+      );
+    }
+
+    if (!items.length) {
+      return (
+        <TableEmpty colSpan={tableColumnCount}>
+          {tOperationsUsers('detail.emptyCredits')}
+        </TableEmpty>
+      );
+    }
+
+    if (isConsumeView) {
+      return items.map(item => (
+        <TableRow key={item.ledger_bid}>
+          {renderCreatedAtCell(item.created_at)}
+          <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+            <AdminTooltipText
+              text={userLabel}
+              emptyValue={emptyValue}
+            />
+          </TableCell>
+          <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+            <AdminTooltipText
+              text={resolveUsageSceneLabel(
+                tOperationsUsers,
+                item.usage_scene,
+                emptyValue,
+              )}
+              emptyValue={emptyValue}
+            />
+          </TableCell>
+          <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+            <AdminTooltipText
+              text={resolveUsageModeLabel(
+                tOperationsUsers,
+                item.usage_mode,
+                emptyValue,
+              )}
+              emptyValue={emptyValue}
+            />
+          </TableCell>
+          {renderCourseCell(item.course_bid, item.course_name)}
+          <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+            <AdminTooltipText
+              text={resolveSectionChapterDisplay(
+                item.chapter_title,
+                item.lesson_title,
+                emptyValue,
+              )}
+              emptyValue={emptyValue}
+            />
+          </TableCell>
+          {renderCreditAmountCell(item.amount, { absolute: true })}
+          {renderBalanceCell(item.balance_after)}
+          {renderUsageDetailCell(item)}
+        </TableRow>
+      ));
+    }
+
+    if (isGrantView) {
+      return items.map(item => (
+        <TableRow key={item.ledger_bid}>
+          {renderCreatedAtCell(item.created_at)}
+          {renderTypeCell(item)}
+          {renderSourceCell(item)}
+          {renderCreditAmountCell(item.amount, { absolute: true })}
+          {renderBalanceCell(item.balance_after)}
+          <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+            <AdminTooltipText
+              text={formatOperatorUtcDateTime(item.expires_at)}
+              emptyValue={emptyValue}
+            />
+          </TableCell>
+          {renderNoteCell(item.note)}
+        </TableRow>
+      ));
+    }
+
+    if (isOtherView) {
+      return items.map(item => (
+        <TableRow key={item.ledger_bid}>
+          {renderCreatedAtCell(item.created_at)}
+          {renderTypeCell(item)}
+          {renderSourceCell(item)}
+          {renderCreditAmountCell(item.amount)}
+          {renderBalanceCell(item.balance_after)}
+          <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
+            <AdminTooltipText
+              text={
+                formatOperatorUtcDateTime(item.expires_at) ||
+                formatOperatorUtcDateTime(item.consumable_from)
+              }
+              emptyValue={emptyValue}
+            />
+          </TableCell>
+          {renderNoteCell(item.note)}
+        </TableRow>
+      ));
+    }
+
+    return items.map(item => (
+      <TableRow key={item.ledger_bid}>
+        {renderCreatedAtCell(item.created_at)}
+        {renderTypeCell(item)}
+        {renderSourceCell(item)}
+        {renderCourseCell(item.course_bid, item.course_name)}
+        {renderCreditAmountCell(item.amount)}
+        {renderBalanceCell(item.balance_after)}
+        {renderNoteCell(item.note)}
+      </TableRow>
+    ));
+  };
 
   if (error) {
     return (
@@ -417,147 +1060,191 @@ export default function UserCreditLedgerTab({
 
   return (
     <Card
-      className='shadow-sm'
+      className='flex min-h-[360px] flex-1 flex-col shadow-sm'
       data-testid='admin-operation-user-credit-ledger-card'
     >
-      <CardContent className='space-y-4 pt-6'>
+      <CardContent className='flex min-h-0 flex-1 flex-col gap-4 pt-6'>
         <CreditLedgerFilters
           filtersDraft={filtersDraft}
           loading={loading}
           onChange={onFiltersChange}
+          onTypeChange={onTypeChange}
           onSearch={onSearch}
           onReset={onReset}
         />
         <TooltipProvider delayDuration={150}>
           <div
-            className='overflow-auto'
+            className='min-h-0 flex-1 overflow-auto'
             data-testid='admin-operation-user-credit-ledger-scroll'
           >
-            <Table className='table-fixed'>
+            <Table
+              className={cn('table-fixed', isConsumeView ? 'min-w-[1120px]' : '')}
+            >
               <colgroup>
-                <col className='w-[16%]' />
-                <col className='w-[13%]' />
-                <col className='w-[12%]' />
-                <col className='w-[10%]' />
-                <col className='w-[11%]' />
-                <col className='w-[14%]' />
-                <col className='w-[24%]' />
+                {isConsumeView ? (
+                  <>
+                    <col className='w-[145px]' />
+                    <col className='w-[160px]' />
+                    <col className='w-[90px]' />
+                    <col className='w-[90px]' />
+                    <col className='w-[210px]' />
+                    <col className='w-[155px]' />
+                    <col className='w-[105px]' />
+                    <col className='w-[115px]' />
+                    <col className='w-[50px]' />
+                  </>
+                ) : isGrantView || isOtherView ? (
+                  <>
+                    <col className='w-[16%]' />
+                    <col className='w-[13%]' />
+                    <col className='w-[12%]' />
+                    <col className='w-[11%]' />
+                    <col className='w-[12%]' />
+                    <col className='w-[14%]' />
+                    <col className='w-[22%]' />
+                  </>
+                ) : (
+                  <>
+                    <col className='w-[16%]' />
+                    <col className='w-[13%]' />
+                    <col className='w-[12%]' />
+                    <col className='w-[17%]' />
+                    <col className='w-[10%]' />
+                    <col className='w-[11%]' />
+                    <col className='w-[21%]' />
+                  </>
+                )}
               </colgroup>
               <TableHeader>
-                <TableRow>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.createdAt')}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.entryType')}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.sourceType')}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.amount')}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers(
-                      'detail.creditLedgerColumns.balanceAfter',
-                    )}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.expiresAt')}
-                  </TableHead>
-                  <TableHead className='text-center'>
-                    {tOperationsUsers('detail.creditLedgerColumns.note')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableEmpty colSpan={7}>
-                    {tOperationsUsers('detail.loadingCredits')}
-                  </TableEmpty>
-                ) : items.length ? (
-                  items.map(item => (
-                    <TableRow key={item.ledger_bid}>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={formatOperatorUtcDateTime(item.created_at)}
-                          emptyValue={emptyValue}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={resolveCreditLedgerLabel(
-                            tOperationsUsers,
-                            'creditLedgerTypeLabels',
-                            item.display_entry_type,
-                            item.entry_type,
-                            emptyValue,
-                          )}
-                          emptyValue={emptyValue}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={resolveCreditLedgerLabel(
-                            tOperationsUsers,
-                            'creditLedgerSourceLabels',
-                            item.display_source_type,
-                            item.source_type,
-                            emptyValue,
-                          )}
-                          emptyValue={emptyValue}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={
-                            item.amount === '' ||
-                            item.amount === null ||
-                            item.amount === undefined
-                              ? ''
-                              : formatAdminCredits(
-                                  Number(item.amount),
-                                  i18n.language,
-                                )
-                          }
-                          emptyValue={emptyValue}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={
-                            item.balance_after === '' ||
-                            item.balance_after === null ||
-                            item.balance_after === undefined
-                              ? ''
-                              : formatAdminCredits(
-                                  Number(item.balance_after),
-                                  i18n.language,
-                                )
-                          }
-                          emptyValue={emptyValue}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={formatOperatorUtcDateTime(item.expires_at)}
-                          emptyValue={emptyValue}
-                        />
-                      </TableCell>
-                      <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
-                        <AdminTooltipText
-                          text={resolveCreditLedgerNote(item.note, emptyValue)}
-                          emptyValue={emptyValue}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
+                {isConsumeView ? (
+                  <TableRow>
+                    <TableHead className='whitespace-nowrap text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.createdAt')}
+                    </TableHead>
+                    <TableHead className='whitespace-nowrap text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.user')}
+                    </TableHead>
+                    <TableHead className='whitespace-nowrap text-center'>
+                      {tOperationsUsers(
+                        'detail.creditLedgerColumns.usageScene',
+                      )}
+                    </TableHead>
+                    <TableHead className='whitespace-nowrap text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.usageMode')}
+                    </TableHead>
+                    <TableHead className='whitespace-nowrap text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.course')}
+                    </TableHead>
+                    <TableHead className='whitespace-nowrap text-center'>
+                      {tOperationsUsers(
+                        'detail.creditLedgerColumns.sectionChapter',
+                      )}
+                    </TableHead>
+                    <TableHead className='whitespace-nowrap text-center'>
+                      {tOperationsUsers(
+                        'detail.creditLedgerColumns.consumedCredits',
+                      )}
+                    </TableHead>
+                    <TableHead className='whitespace-nowrap text-center'>
+                      {tOperationsUsers(
+                        'detail.creditLedgerColumns.balanceAfter',
+                      )}
+                    </TableHead>
+                    <TableHead className='whitespace-nowrap text-center'>
+                      {tOperationsUsers(
+                        'detail.creditUsageDetail.actions.open',
+                      )}
+                    </TableHead>
+                  </TableRow>
+                ) : isGrantView ? (
+                  <TableRow>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.createdAt')}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.entryType')}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers(
+                        'detail.creditLedgerColumns.sourceType',
+                      )}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers(
+                        'detail.creditLedgerColumns.grantedCredits',
+                      )}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers(
+                        'detail.creditLedgerColumns.balanceAfter',
+                      )}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.expiresAt')}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.note')}
+                    </TableHead>
+                  </TableRow>
+                ) : isOtherView ? (
+                  <TableRow>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.createdAt')}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.entryType')}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers(
+                        'detail.creditLedgerColumns.sourceType',
+                      )}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.amount')}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers(
+                        'detail.creditLedgerColumns.balanceAfter',
+                      )}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.expiresAt')}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.note')}
+                    </TableHead>
+                  </TableRow>
                 ) : (
-                  <TableEmpty colSpan={7}>
-                    {tOperationsUsers('detail.emptyCredits')}
-                  </TableEmpty>
+                  <TableRow>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.createdAt')}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.entryType')}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers(
+                        'detail.creditLedgerColumns.sourceType',
+                      )}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.course')}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.amount')}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers(
+                        'detail.creditLedgerColumns.balanceAfter',
+                      )}
+                    </TableHead>
+                    <TableHead className='text-center'>
+                      {tOperationsUsers('detail.creditLedgerColumns.note')}
+                    </TableHead>
+                  </TableRow>
                 )}
-              </TableBody>
+              </TableHeader>
+              <TableBody>{renderRows()}</TableBody>
             </Table>
           </div>
         </TooltipProvider>
@@ -575,6 +1262,14 @@ export default function UserCreditLedgerTab({
           />
         ) : null}
       </CardContent>
+      <CreditUsageDetailDialog
+        open={usageDetailOpen}
+        detail={usageDetail}
+        loading={usageDetailLoading}
+        error={usageDetailError}
+        emptyValue={emptyValue}
+        onOpenChange={handleUsageDetailOpenChange}
+      />
     </Card>
   );
 }

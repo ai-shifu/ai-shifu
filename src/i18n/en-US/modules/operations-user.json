@@ -31,7 +31,14 @@
       "entryType": "Type",
       "expiresAt": "Expires At",
       "note": "Note",
-      "sourceType": "Source"
+      "sourceType": "Source",
+      "user": "User",
+      "usageScene": "Scene",
+      "usageMode": "Mode",
+      "course": "Course",
+      "sectionChapter": "Section/Chapter",
+      "consumedCredits": "Consumed Credits",
+      "grantedCredits": "Granted Credits"
     },
     "creditLedgerFilters": {
       "course": "Course",
@@ -138,7 +145,39 @@
       "credits": "Credits Detail",
       "learningCourses": "Learning Courses"
     },
-    "title": "User Detail"
+    "title": "User Detail",
+    "creditLedgerUsageSceneLabels": {
+      "debug": "Debug",
+      "preview": "Preview",
+      "learning": "Learning"
+    },
+    "creditLedgerCourseOpenAriaLabel": "Open course detail",
+    "creditUsageDetail": {
+      "actions": {
+        "open": "Details",
+        "openAriaLabel": "View credit usage details"
+      },
+      "columns": {
+        "createdAt": "Consumed At",
+        "consumedCredits": "Credits",
+        "inputTokens": "Input Tokens",
+        "outputSummary": "Output Summary",
+        "outputTokens": "Output Tokens",
+        "ttsContent": "Synthesized Content",
+        "ttsDuration": "Audio Duration",
+        "ttsSegmentCount": "Segments",
+        "ttsWordCount": "Synthesized Words"
+      },
+      "empty": "No usage details",
+      "error": "Failed to load usage details",
+      "loading": "Loading",
+      "title": "Credit Usage Details",
+      "description": "Shows output content and credits used for this settlement when available.",
+      "collapse": "Collapse",
+      "durationMinutesSeconds": "{{minutes}}m {{seconds}}s",
+      "durationSeconds": "{{seconds}}s",
+      "expand": "Expand"
+    }
   },
   "emptyList": "No users",
   "filters": {

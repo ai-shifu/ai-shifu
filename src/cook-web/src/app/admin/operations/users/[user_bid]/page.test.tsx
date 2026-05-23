@@ -69,6 +69,7 @@ jest.mock('@/api', () => ({
   default: {
     getAdminOperationUserDetail: jest.fn(),
     getAdminOperationUserCredits: jest.fn(),
+    getAdminOperationUserCreditUsageDetail: jest.fn(),
   },
 }));
 
@@ -249,6 +250,8 @@ const mockGetAdminOperationUserDetail =
   api.getAdminOperationUserDetail as jest.Mock;
 const mockGetAdminOperationUserCredits =
   api.getAdminOperationUserCredits as jest.Mock;
+const mockGetAdminOperationUserCreditUsageDetail =
+  api.getAdminOperationUserCreditUsageDetail as jest.Mock;
 
 const detailResponse = {
   user_bid: 'user-1',
@@ -313,6 +316,13 @@ const creditsResponse = {
       consumable_from: '2026-04-18T10:00:00Z',
       note: 'ops reward',
       note_code: '',
+      usage_bid: '',
+      course_bid: '',
+      course_name: '',
+      chapter_title: '',
+      lesson_title: '',
+      usage_scene: '',
+      usage_mode: '',
     },
   ],
   page: 1,
@@ -339,12 +349,37 @@ describe('AdminOperationUserDetailPage', () => {
     mockBrowserTimeZone.mockReturnValue('UTC');
     mockGetAdminOperationUserDetail.mockReset();
     mockGetAdminOperationUserCredits.mockReset();
+    mockGetAdminOperationUserCreditUsageDetail.mockReset();
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
     mockUserState.userInfo = { is_operator: true };
     window.history.pushState({}, '', '/admin/operations/users/user-1');
     mockGetAdminOperationUserDetail.mockResolvedValue(detailResponse);
     mockGetAdminOperationUserCredits.mockResolvedValue(creditsResponse);
+    mockGetAdminOperationUserCreditUsageDetail.mockResolvedValue({
+      usage_bid: 'usage-1',
+      course_bid: 'course-usage-1',
+      course_name: 'Usage Course',
+      chapter_title: 'Chapter A',
+      lesson_title: 'Lesson B',
+      usage_scene: 'learning',
+      usage_mode: 'ask',
+      total_consumed_credits: '6',
+      items: [
+        {
+          usage_bid: 'usage-1',
+          created_at: '2026-04-18T10:00:00Z',
+          content: 'Generated answer content',
+          consumed_credits: '6',
+          usage_units: 120,
+          input_tokens: 100,
+          output_tokens: 20,
+          word_count: 0,
+          duration_ms: 0,
+          segment_count: 0,
+        },
+      ],
+    });
   });
 
   test('loads and renders user detail with credits overview and ledger', async () => {
@@ -411,7 +446,8 @@ describe('AdminOperationUserDetailPage', () => {
       'admin-operation-user-detail-page',
     );
     expect(pageContainer).toHaveClass('h-full');
-    expect(pageContainer).toHaveClass('overflow-hidden');
+    expect(pageContainer).toHaveClass('overscroll-none');
+    expect(pageContainer).not.toHaveClass('overflow-hidden');
     expect(pageContainer).not.toHaveClass('overflow-auto');
     expect(
       screen.getByTestId('admin-operation-user-credit-ledger-scroll'),
@@ -516,6 +552,172 @@ describe('AdminOperationUserDetailPage', () => {
     });
   });
 
+  test('refreshes ledger table immediately when credit type changes', async () => {
+    render(<AdminOperationUserDetailPage />);
+
+    await screen.findByText(
+      'module.operationsUser.detail.creditLedgerTypeLabels.manual_grant',
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.typeOptions.consume',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsUser.detail.creditLedgerColumns.user',
+        ),
+      ).toBeInTheDocument();
+      expect(mockGetAdminOperationUserCredits).toHaveBeenLastCalledWith({
+        user_bid: 'user-1',
+        page_index: 1,
+        page_size: 10,
+        credit_type: 'consume',
+        grant_source: '',
+        course_query: '',
+        usage_mode: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+    expect(
+      screen.getByText(
+        'module.operationsUser.detail.creditLedgerColumns.user',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('renders consume context columns and opens course credit usage tab', async () => {
+    mockGetAdminOperationUserCredits.mockResolvedValue({
+      ...creditsResponse,
+      items: [
+        {
+          ...creditsResponse.items[0],
+          ledger_bid: 'ledger-consume-1',
+          entry_type: 'consume',
+          source_type: 'usage',
+          display_entry_type: 'learning_consume',
+          display_source_type: 'learning',
+          amount: '-6',
+          balance_after: '29.5',
+          usage_bid: 'usage-1',
+          course_bid: 'course-usage-1',
+          course_name: 'Usage Course',
+          chapter_title: 'Chapter A',
+          lesson_title: 'Lesson B',
+          usage_scene: 'learning',
+          usage_mode: 'ask',
+        },
+      ],
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    await screen.findByText('Usage Course');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.typeOptions.consume',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.order.filters.search' }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('module.operationsUser.detail.creditLedgerColumns.user'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Nick / 13812345678')).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          'module.operationsUser.detail.creditLedgerUsageSceneLabels.learning',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByText(
+          'module.operationsUser.detail.creditLedgerFilters.usageModeOptions.ask',
+        ).length,
+      ).toBeGreaterThan(0);
+      expect(screen.getByText('Lesson B / Chapter A')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTitle('Usage Course'));
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/admin/operations/course-usage-1?tab=creditUsage',
+    );
+  });
+
+  test('opens user credit usage content detail', async () => {
+    mockGetAdminOperationUserCredits.mockResolvedValue({
+      ...creditsResponse,
+      items: [
+        {
+          ...creditsResponse.items[0],
+          ledger_bid: 'ledger-consume-detail',
+          entry_type: 'consume',
+          source_type: 'usage',
+          display_entry_type: 'learning_consume',
+          display_source_type: 'learning',
+          amount: '-6',
+          balance_after: '29.5',
+          usage_bid: 'usage-1',
+          course_bid: 'course-usage-1',
+          course_name: 'Usage Course',
+          chapter_title: 'Chapter A',
+          lesson_title: 'Lesson B',
+          usage_scene: 'learning',
+          usage_mode: 'ask',
+        },
+      ],
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.typeOptions.consume',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Usage Course')).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditUsageDetail.actions.openAriaLabel',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserCreditUsageDetail).toHaveBeenCalledWith({
+        user_bid: 'user-1',
+        usage_bid: 'usage-1',
+      });
+    });
+    expect(await screen.findByText('Generated answer content')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'component.header.close' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditUsageDetail.actions.openAriaLabel',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserCreditUsageDetail).toHaveBeenCalledTimes(
+        1,
+      );
+    });
+  });
+
   test('renders detail timestamps with operator UTC formatting', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationUserDetail.mockResolvedValue({
@@ -594,7 +796,7 @@ describe('AdminOperationUserDetailPage', () => {
         'module.operationsUser.detail.creditLedgerNoteLabels.subscription_purchase',
       ),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('--')).toBeInTheDocument();
+    expect(screen.getAllByText('--').length).toBeGreaterThan(0);
   });
 
   test('renders user detail with breadcrumb navigation', async () => {

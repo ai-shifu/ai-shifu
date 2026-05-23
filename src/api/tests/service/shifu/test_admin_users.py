@@ -40,7 +40,11 @@ from flaskr.service.billing.models import (
     BillingSubscription,
     CreditLedgerEntry,
 )
-from flaskr.service.learn.models import LearnProgressRecord
+from flaskr.service.learn.models import (
+    LearnGeneratedBlock,
+    LearnGeneratedElement,
+    LearnProgressRecord,
+)
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
@@ -52,6 +56,7 @@ from flaskr.service.shifu.admin import (
     get_operator_user_grant_bootstrap,
     grant_operator_user_credits,
     grant_operator_user_package,
+    get_operator_user_credit_usage_detail,
     get_operator_user_overview,
     get_operator_user_credits,
     get_operator_user_detail,
@@ -105,6 +110,8 @@ def _isolate_tables(app):
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
         db.session.query(BillUsageRecord).delete()
+        db.session.query(LearnGeneratedElement).delete()
+        db.session.query(LearnGeneratedBlock).delete()
         db.session.query(BillingOrder).delete()
         db.session.query(BillingSubscription).delete()
         db.session.query(BillingProduct).delete()
@@ -125,6 +132,8 @@ def _isolate_tables(app):
     with app.app_context():
         db.session.query(CreditLedgerEntry).delete()
         db.session.query(BillUsageRecord).delete()
+        db.session.query(LearnGeneratedElement).delete()
+        db.session.query(LearnGeneratedBlock).delete()
         db.session.query(BillingOrder).delete()
         db.session.query(BillingSubscription).delete()
         db.session.query(BillingProduct).delete()
@@ -449,23 +458,40 @@ def _seed_bill_usage_record(
     usage_scene: int,
     created_at: datetime,
     extra: dict | None = None,
+    generated_block_bid: str = "",
+    parent_usage_bid: str = "",
+    record_level: int = 0,
+    total: int = 0,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
+    word_count: int = 0,
+    duration_ms: int = 0,
+    segment_index: int = 0,
+    segment_count: int = 0,
 ):
     usage = BillUsageRecord(
         usage_bid=usage_bid,
-        parent_usage_bid="",
+        parent_usage_bid=parent_usage_bid,
         user_bid=user_bid,
         shifu_bid=shifu_bid,
         outline_item_bid=outline_item_bid,
         progress_record_bid=progress_record_bid,
-        generated_block_bid="",
+        generated_block_bid=generated_block_bid,
         audio_bid="",
         request_id=f"request-{usage_bid}",
         trace_id=f"trace-{usage_bid}",
         usage_type=usage_type,
-        record_level=0,
+        record_level=record_level,
         usage_scene=usage_scene,
         provider="openai",
         model="gpt-4o-mini",
+        input=input_tokens,
+        output=output_tokens,
+        total=total,
+        word_count=word_count,
+        duration_ms=duration_ms,
+        segment_index=segment_index,
+        segment_count=segment_count,
         billable=1,
         status=0,
         extra=extra or {},
@@ -476,6 +502,69 @@ def _seed_bill_usage_record(
     db.session.commit()
     db.session.remove()
     return usage
+
+
+def _seed_generated_block(
+    *,
+    generated_block_bid: str,
+    progress_record_bid: str,
+    user_bid: str,
+    shifu_bid: str,
+    outline_item_bid: str,
+    generated_content: str,
+    created_at: datetime,
+):
+    block = LearnGeneratedBlock(
+        generated_block_bid=generated_block_bid,
+        progress_record_bid=progress_record_bid,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_item_bid=outline_item_bid,
+        generated_content=generated_content,
+        status=1,
+    )
+    block.created_at = created_at
+    block.updated_at = created_at
+    db.session.add(block)
+    db.session.commit()
+    db.session.remove()
+    return block
+
+
+def _seed_generated_element(
+    *,
+    element_bid: str,
+    generated_block_bid: str,
+    progress_record_bid: str,
+    user_bid: str,
+    shifu_bid: str,
+    outline_item_bid: str,
+    content_text: str,
+    audio_segments: str,
+    sequence_number: int,
+    created_at: datetime,
+):
+    element = LearnGeneratedElement(
+        element_bid=element_bid,
+        generated_block_bid=generated_block_bid,
+        progress_record_bid=progress_record_bid,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_item_bid=outline_item_bid,
+        event_type="element",
+        element_type="text",
+        is_speakable=1,
+        content_text=content_text,
+        audio_segments=audio_segments,
+        sequence_number=sequence_number,
+        status=1,
+    )
+    element.created_at = created_at
+    element.updated_at = created_at
+    db.session.add(element)
+    db.session.commit()
+    db.session.remove()
+    return element
 
 
 def _seed_learn_progress(
@@ -1492,6 +1581,183 @@ def test_get_operator_user_credits_maps_usage_rows_to_operator_display_codes(app
     assert result.items[0].note_code == "preview_consume"
 
 
+def test_get_operator_user_credits_enriches_consume_rows_with_course_context(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-context-user",
+            identify="credits-context@example.com",
+            nickname="Credits Context",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "credits-context@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="credits-context-user",
+            wallet_bid="wallet-credits-context-user",
+            available_credits="9.0000000000",
+        )
+        _seed_course(
+            model=PublishedShifu,
+            shifu_bid="course-context",
+            title="Context Course",
+            creator_user_bid="credits-context-user",
+            created_at=datetime(2026, 4, 10, 8, 0, 0),
+            updated_at=datetime(2026, 4, 10, 8, 0, 0),
+        )
+        _seed_published_outline_item(
+            shifu_bid="course-context",
+            outline_item_bid="chapter-context",
+            title="Context Chapter",
+            parent_bid="",
+            position="1",
+        )
+        _seed_published_outline_item(
+            shifu_bid="course-context",
+            outline_item_bid="lesson-context",
+            title="Context Lesson",
+            parent_bid="chapter-context",
+            position="1.1",
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-context",
+            user_bid="learner-context-user",
+            shifu_bid="course-context",
+            progress_record_bid="progress-context",
+            outline_item_bid="lesson-context",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-context-user",
+            wallet_bid="wallet-credits-context-user",
+            wallet_bucket_bid="bucket-credits-context",
+            ledger_bid="ledger-context-consume",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-context",
+            amount="-1.5000000000",
+            balance_after="9.0000000000",
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-context-user",
+            wallet_bid="wallet-credits-context-user",
+            wallet_bucket_bid="bucket-credits-context",
+            ledger_bid="ledger-context-grant",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            source_bid="manual-context",
+            amount="3.0000000000",
+            balance_after="12.0000000000",
+            created_at=datetime(2026, 4, 18, 10, 0, 0),
+        )
+
+        result = get_operator_user_credits(
+            app,
+            user_bid="credits-context-user",
+            page_index=1,
+            page_size=20,
+        )
+
+    rows_by_bid = {item.ledger_bid: item for item in result.items}
+    consume_item = rows_by_bid["ledger-context-consume"]
+    assert consume_item.usage_bid == "usage-context"
+    assert consume_item.course_bid == "course-context"
+    assert consume_item.course_name == "Context Course"
+    assert consume_item.chapter_title == "Context Chapter"
+    assert consume_item.lesson_title == "Context Lesson"
+    assert consume_item.usage_scene == "preview"
+    assert consume_item.usage_mode == "listen"
+
+    grant_item = rows_by_bid["ledger-context-grant"]
+    assert grant_item.usage_bid == ""
+    assert grant_item.course_bid == ""
+    assert grant_item.course_name == ""
+    assert grant_item.chapter_title == ""
+    assert grant_item.lesson_title == ""
+    assert grant_item.usage_scene == ""
+    assert grant_item.usage_mode == ""
+
+
+def test_get_operator_user_credits_loads_order_metadata_only_for_order_sources(
+    app,
+    monkeypatch,
+):
+    captured_source_bids: list[str] = []
+    original_load_billing_order_map = admin_module._load_billing_order_map
+
+    def capture_order_source_bids(source_bids):
+        captured_source_bids.extend(list(source_bids))
+        return original_load_billing_order_map(source_bids)
+
+    monkeypatch.setattr(
+        admin_module,
+        "_load_billing_order_map",
+        capture_order_source_bids,
+    )
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-order-source-user",
+            identify="credits-order-source@example.com",
+            nickname="Credits Order Source",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "credits-order-source@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="credits-order-source-user",
+            wallet_bid="wallet-credits-order-source-user",
+            available_credits="9.0000000000",
+        )
+        _seed_billing_order(
+            creator_bid="credits-order-source-user",
+            bill_order_bid="order-source-1",
+            metadata_json={"checkout_type": "subscription"},
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-order-source-user",
+            wallet_bid="wallet-credits-order-source-user",
+            wallet_bucket_bid="bucket-order-source",
+            ledger_bid="ledger-order-source-grant",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="order-source-1",
+            amount="3.0000000000",
+            balance_after="12.0000000000",
+            created_at=datetime(2026, 4, 18, 10, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="credits-order-source-user",
+            wallet_bid="wallet-credits-order-source-user",
+            wallet_bucket_bid="bucket-order-source",
+            ledger_bid="ledger-order-source-consume",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-source-1",
+            amount="-1.0000000000",
+            balance_after="11.0000000000",
+            created_at=datetime(2026, 4, 18, 11, 0, 0),
+        )
+
+        result = get_operator_user_credits(
+            app,
+            user_bid="credits-order-source-user",
+            page_index=1,
+            page_size=20,
+        )
+
+    assert result.total == 2
+    assert captured_source_bids == ["order-source-1"]
+
+
 def test_get_operator_user_credits_filters_consume_grant_and_other_rows(app):
     with app.app_context():
         _seed_user(
@@ -1761,6 +2027,297 @@ def test_get_operator_user_credits_keeps_consume_rows_without_usage_when_unfilte
     ]
     assert unfiltered_result.total == 1
     assert filtered_result.total == 0
+
+
+def test_get_operator_user_credit_usage_detail_returns_generated_content(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="usage-detail-owner",
+            identify="usage-detail-owner@example.com",
+            nickname="Usage Detail Owner",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "usage-detail-owner@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="usage-detail-owner",
+            wallet_bid="wallet-usage-detail-owner",
+            available_credits="9.0000000000",
+        )
+        _seed_course(
+            model=PublishedShifu,
+            shifu_bid="course-usage-detail",
+            title="Usage Detail Course",
+            creator_user_bid="usage-detail-owner",
+            created_at=datetime(2026, 4, 10, 8, 0, 0),
+            updated_at=datetime(2026, 4, 10, 8, 0, 0),
+        )
+        _seed_published_outline_item(
+            shifu_bid="course-usage-detail",
+            outline_item_bid="chapter-usage-detail",
+            title="Usage Detail Chapter",
+            parent_bid="",
+            position="1",
+        )
+        _seed_published_outline_item(
+            shifu_bid="course-usage-detail",
+            outline_item_bid="lesson-usage-detail",
+            title="Usage Detail Lesson",
+            parent_bid="chapter-usage-detail",
+            position="1.1",
+        )
+        _seed_generated_block(
+            generated_block_bid="block-usage-detail",
+            progress_record_bid="progress-usage-detail",
+            user_bid="learner-usage-detail",
+            shifu_bid="course-usage-detail",
+            outline_item_bid="lesson-usage-detail",
+            generated_content="This is the generated answer.",
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-detail-llm",
+            user_bid="learner-usage-detail",
+            shifu_bid="course-usage-detail",
+            progress_record_bid="progress-usage-detail",
+            outline_item_bid="lesson-usage-detail",
+            generated_block_bid="block-usage-detail",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            input_tokens=100,
+            output_tokens=20,
+            total=120,
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="usage-detail-owner",
+            wallet_bid="wallet-usage-detail-owner",
+            wallet_bucket_bid="bucket-usage-detail",
+            ledger_bid="ledger-usage-detail",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-detail-llm",
+            amount="-2.5000000000",
+            balance_after="7.5000000000",
+            created_at=datetime(2026, 4, 18, 9, 1, 0),
+        )
+
+        result = get_operator_user_credit_usage_detail(
+            app,
+            user_bid="usage-detail-owner",
+            usage_bid="usage-detail-llm",
+        )
+
+    assert result.usage_bid == "usage-detail-llm"
+    assert result.course_name == "Usage Detail Course"
+    assert result.lesson_title == "Usage Detail Lesson"
+    assert result.chapter_title == "Usage Detail Chapter"
+    assert result.total_consumed_credits == "2.50"
+    assert len(result.items) == 1
+    assert result.items[0].content == "This is the generated answer."
+    assert result.items[0].consumed_credits == "2.50"
+    assert result.items[0].input_tokens == 100
+    assert result.items[0].output_tokens == 20
+
+
+def test_get_operator_user_credit_usage_detail_uses_ledger_owner_not_usage_user(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="usage-detail-wallet-owner",
+            identify="usage-detail-wallet-owner@example.com",
+            nickname="Usage Detail Wallet Owner",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "usage-detail-wallet-owner@example.com")],
+        )
+        _seed_user(
+            app,
+            user_bid="usage-detail-other-owner",
+            identify="usage-detail-other-owner@example.com",
+            nickname="Usage Detail Other Owner",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "usage-detail-other-owner@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="usage-detail-wallet-owner",
+            wallet_bid="wallet-usage-detail-wallet-owner",
+            available_credits="9.0000000000",
+        )
+        _seed_generated_block(
+            generated_block_bid="block-usage-detail-owner",
+            progress_record_bid="progress-usage-detail-owner",
+            user_bid="actual-learner-user",
+            shifu_bid="course-usage-detail-owner",
+            outline_item_bid="lesson-usage-detail-owner",
+            generated_content="Owner detail content",
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-detail-owner-check",
+            user_bid="actual-learner-user",
+            shifu_bid="course-usage-detail-owner",
+            progress_record_bid="progress-usage-detail-owner",
+            outline_item_bid="lesson-usage-detail-owner",
+            generated_block_bid="block-usage-detail-owner",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            total=100,
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="usage-detail-wallet-owner",
+            wallet_bid="wallet-usage-detail-wallet-owner",
+            wallet_bucket_bid="bucket-usage-detail-owner",
+            ledger_bid="ledger-usage-detail-owner",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-detail-owner-check",
+            amount="-1.0000000000",
+            balance_after="8.0000000000",
+            created_at=datetime(2026, 4, 18, 9, 1, 0),
+        )
+
+        result = get_operator_user_credit_usage_detail(
+            app,
+            user_bid="usage-detail-wallet-owner",
+            usage_bid="usage-detail-owner-check",
+        )
+        with pytest.raises(AppException):
+            get_operator_user_credit_usage_detail(
+                app,
+                user_bid="usage-detail-other-owner",
+                usage_bid="usage-detail-owner-check",
+            )
+
+    assert result.items[0].content == "Owner detail content"
+
+
+def test_get_operator_user_credit_usage_detail_returns_tts_segment_rows(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="usage-detail-tts-owner",
+            identify="usage-detail-tts-owner@example.com",
+            nickname="Usage Detail TTS Owner",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "usage-detail-tts-owner@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="usage-detail-tts-owner",
+            wallet_bid="wallet-usage-detail-tts-owner",
+            available_credits="9.0000000000",
+        )
+        _seed_generated_element(
+            element_bid="element-tts-1",
+            generated_block_bid="block-usage-detail-tts",
+            progress_record_bid="progress-usage-detail-tts",
+            user_bid="learner-usage-detail-tts",
+            shifu_bid="course-usage-detail-tts",
+            outline_item_bid="lesson-usage-detail-tts",
+            content_text="First narration.",
+            audio_segments='[{"segment_index": 0}]',
+            sequence_number=1,
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+        _seed_generated_element(
+            element_bid="element-tts-2",
+            generated_block_bid="block-usage-detail-tts",
+            progress_record_bid="progress-usage-detail-tts",
+            user_bid="learner-usage-detail-tts",
+            shifu_bid="course-usage-detail-tts",
+            outline_item_bid="lesson-usage-detail-tts",
+            content_text="Second narration.",
+            audio_segments='[{"segment_index": 1}]',
+            sequence_number=2,
+            created_at=datetime(2026, 4, 18, 9, 0, 1),
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-detail-tts",
+            user_bid="learner-usage-detail-tts",
+            shifu_bid="course-usage-detail-tts",
+            progress_record_bid="progress-usage-detail-tts",
+            outline_item_bid="lesson-usage-detail-tts",
+            generated_block_bid="block-usage-detail-tts",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            total=100,
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-detail-tts-segment-1",
+            parent_usage_bid="usage-detail-tts",
+            record_level=1,
+            user_bid="learner-usage-detail-tts",
+            shifu_bid="course-usage-detail-tts",
+            progress_record_bid="progress-usage-detail-tts",
+            outline_item_bid="lesson-usage-detail-tts",
+            generated_block_bid="block-usage-detail-tts",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            total=25,
+            word_count=3,
+            duration_ms=1000,
+            segment_index=0,
+            segment_count=1,
+            created_at=datetime(2026, 4, 18, 9, 0, 1),
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-detail-tts-segment-2",
+            parent_usage_bid="usage-detail-tts",
+            record_level=1,
+            user_bid="learner-usage-detail-tts",
+            shifu_bid="course-usage-detail-tts",
+            progress_record_bid="progress-usage-detail-tts",
+            outline_item_bid="lesson-usage-detail-tts",
+            generated_block_bid="block-usage-detail-tts",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            total=75,
+            word_count=4,
+            duration_ms=2000,
+            segment_index=1,
+            segment_count=1,
+            created_at=datetime(2026, 4, 18, 9, 0, 2),
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="usage-detail-tts-owner",
+            wallet_bid="wallet-usage-detail-tts-owner",
+            wallet_bucket_bid="bucket-usage-detail-tts",
+            ledger_bid="ledger-usage-detail-tts",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-detail-tts",
+            amount="-4.0000000000",
+            balance_after="5.0000000000",
+            created_at=datetime(2026, 4, 18, 9, 1, 0),
+        )
+
+        result = get_operator_user_credit_usage_detail(
+            app,
+            user_bid="usage-detail-tts-owner",
+            usage_bid="usage-detail-tts",
+        )
+
+    assert [item.content for item in result.items] == [
+        "First narration.",
+        "Second narration.",
+    ]
+    assert [item.consumed_credits for item in result.items] == ["1", "3"]
+    assert [item.word_count for item in result.items] == [3, 4]
+    assert [item.duration_ms for item in result.items] == [1000, 2000]
+    assert [item.segment_count for item in result.items] == [1, 1]
 
 
 def test_get_operator_user_credits_excludes_topup_from_available_without_subscription(
@@ -2914,6 +3471,13 @@ def test_admin_operation_user_credits_route_returns_payload(
                 ),
                 "note": "",
                 "note_code": "subscription_purchase",
+                "usage_bid": "",
+                "course_bid": "",
+                "course_name": "",
+                "chapter_title": "",
+                "lesson_title": "",
+                "usage_scene": "",
+                "usage_mode": "",
             }
         ],
         "page": 1,

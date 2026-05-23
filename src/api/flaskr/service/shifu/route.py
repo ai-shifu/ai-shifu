@@ -121,6 +121,7 @@ from flaskr.service.shifu.admin import (
     get_operator_course_ratings,
     get_operator_user_detail,
     get_operator_user_credits,
+    get_operator_user_credit_usage_detail,
     get_operator_user_grant_bootstrap,
     get_operator_user_overview,
     grant_operator_user_credits,
@@ -1435,6 +1436,41 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/users/<user_bid>/credits/usages/<usage_bid>/detail",
+        methods=["GET"],
+    )
+    def admin_operation_user_credit_usage_detail(user_bid: str, usage_bid: str):
+        """
+        Get operator user credit usage content detail
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+            - name: usage_bid
+              in: path
+              type: string
+              required: true
+              description: Usage business identifier
+        responses:
+            200:
+                description: Operator user credit usage content detail
+        """
+        _require_operator()
+        return make_common_response(
+            get_operator_user_credit_usage_detail(
+                app,
+                user_bid=user_bid,
+                usage_bid=usage_bid,
             )
         )
 

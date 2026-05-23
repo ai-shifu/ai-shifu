@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
@@ -284,6 +284,7 @@ const createCourseCreditUsageFilters =
 export default function AdminOperationCourseDetailPage() {
   const router = useRouter();
   const params = useParams<{ shifu_bid?: string }>();
+  const searchParams = useSearchParams();
   const { t, i18n } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');
   const { isReady } = useOperatorGuard();
@@ -332,6 +333,7 @@ export default function AdminOperationCourseDetailPage() {
     useState<ErrorState | null>(null);
   const [courseCreditUsagePage, setCourseCreditUsagePage] = useState(1);
   const courseCreditUsagesRequestIdRef = useRef(0);
+  const detailTabsRef = useRef<HTMLDivElement | null>(null);
   const {
     setColumnWidths: setChapterColumnWidths,
     getColumnStyle: getChapterColumnStyle,
@@ -373,6 +375,20 @@ export default function AdminOperationCourseDetailPage() {
   );
   const emptyValue = '--';
   const unknownErrorMessage = t('common.core.unknownError');
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'chapters' || tab === 'users' || tab === 'creditUsage') {
+      setActiveTab(tab);
+      if (tab === 'creditUsage') {
+        window.requestAnimationFrame(() => {
+          detailTabsRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          });
+        });
+      }
+    }
+  }, [searchParams]);
   const contactMode = useMemo(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
@@ -1405,7 +1421,10 @@ export default function AdminOperationCourseDetailPage() {
               onValueChange={value => setActiveTab(value as CourseDetailTab)}
               className='space-y-4'
             >
-              <div className='overflow-x-auto'>
+              <div
+                ref={detailTabsRef}
+                className='overflow-x-auto'
+              >
                 <TabsList>
                   <TabsTrigger value='chapters'>
                     {tOperations('detail.chapters')}

@@ -18,8 +18,10 @@ const mockGetAdminOperationCourseChapterDetail = jest.fn();
 const mockCopyText = jest.fn();
 const mockToastShow = jest.fn();
 const mockToastFail = jest.fn();
+const mockScrollIntoView = jest.fn();
 const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
 let mockLanguage = 'en-US';
+let mockSearchParams = new URLSearchParams();
 const mockEnvState = {
   currencySymbol: '¥',
   loginMethodsEnabled: ['phone'],
@@ -42,6 +44,7 @@ jest.mock('next/navigation', () => ({
   useParams: () => ({
     shifu_bid: 'course-1',
   }),
+  useSearchParams: () => mockSearchParams,
 }));
 
 jest.mock('next/link', () => ({
@@ -261,6 +264,13 @@ const createDeferred = <T,>() => {
 };
 
 describe('AdminOperationCourseDetailPage', () => {
+  beforeAll(() => {
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: mockScrollIntoView,
+    });
+  });
+
   const openUsersTab = async () => {
     fireEvent.click(
       await screen.findByRole('tab', {
@@ -293,6 +303,8 @@ describe('AdminOperationCourseDetailPage', () => {
     mockCopyText.mockReset();
     mockToastShow.mockReset();
     mockToastFail.mockReset();
+    mockScrollIntoView.mockReset();
+    mockSearchParams = new URLSearchParams();
     mockLanguage = 'en-US';
     mockEnvState.currencySymbol = '¥';
     mockEnvState.loginMethodsEnabled = ['phone'];
@@ -534,6 +546,36 @@ describe('AdminOperationCourseDetailPage', () => {
       ),
     ).not.toBeInTheDocument();
     expect(screen.getByText('17')).toBeInTheDocument();
+  });
+
+  test('opens credit usage tab from tab query parameter', async () => {
+    mockSearchParams = new URLSearchParams('tab=creditUsage');
+
+    render(<AdminOperationCourseDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseCreditUsages).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        view: 'grouped',
+        keyword: '',
+        mode: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.creditUsage.filters.userKeyword',
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockScrollIntoView).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
   });
 
   test('formats course metrics and learning progress without grouping in Chinese locale', async () => {

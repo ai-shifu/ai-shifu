@@ -31,7 +31,14 @@
       "entryType": "类型",
       "expiresAt": "到期时间",
       "note": "备注",
-      "sourceType": "来源"
+      "sourceType": "来源",
+      "user": "用户",
+      "usageScene": "场景",
+      "usageMode": "方式",
+      "course": "课程",
+      "sectionChapter": "节/章",
+      "consumedCredits": "消耗积分",
+      "grantedCredits": "获得积分"
     },
     "creditLedgerFilters": {
       "course": "课程",
@@ -138,7 +145,39 @@
       "credits": "积分明细",
       "learningCourses": "学习课程"
     },
-    "title": "用户详情"
+    "title": "用户详情",
+    "creditLedgerUsageSceneLabels": {
+      "debug": "调试",
+      "preview": "预览",
+      "learning": "学习"
+    },
+    "creditLedgerCourseOpenAriaLabel": "打开课程详情",
+    "creditUsageDetail": {
+      "actions": {
+        "open": "明细",
+        "openAriaLabel": "查看积分消耗明细"
+      },
+      "columns": {
+        "createdAt": "消耗时间",
+        "consumedCredits": "消耗积分",
+        "inputTokens": "输入 Tokens",
+        "outputSummary": "输出摘要",
+        "outputTokens": "输出 Tokens",
+        "ttsContent": "合成内容",
+        "ttsDuration": "音频时长",
+        "ttsSegmentCount": "分段数",
+        "ttsWordCount": "合成字数"
+      },
+      "empty": "暂无消耗明细",
+      "error": "消耗明细加载失败",
+      "loading": "加载中",
+      "title": "积分消耗明细",
+      "description": "展示本次结算内可关联到的输出内容和积分消耗。",
+      "collapse": "收起",
+      "durationMinutesSeconds": "{{minutes}}分{{seconds}}秒",
+      "durationSeconds": "{{seconds}}秒",
+      "expand": "展开"
+    }
   },
   "emptyList": "暂无用户",
   "filters": {

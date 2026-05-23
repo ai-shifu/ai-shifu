@@ -586,6 +586,41 @@ class AdminOperationUserCreditLedgerItemDTO(BaseModel):
         description="Operator-facing note code",
         required=False,
     )
+    usage_bid: str = Field(
+        default="",
+        description="Related bill usage business identifier",
+        required=False,
+    )
+    course_bid: str = Field(
+        default="",
+        description="Related course business identifier for usage entries",
+        required=False,
+    )
+    course_name: str = Field(
+        default="",
+        description="Related course name for usage entries",
+        required=False,
+    )
+    chapter_title: str = Field(
+        default="",
+        description="Related chapter title for usage entries",
+        required=False,
+    )
+    lesson_title: str = Field(
+        default="",
+        description="Related lesson title for usage entries",
+        required=False,
+    )
+    usage_scene: str = Field(
+        default="",
+        description="Usage scene: debug/preview/learning",
+        required=False,
+    )
+    usage_mode: str = Field(
+        default="",
+        description="Usage mode: learn/listen/ask",
+        required=False,
+    )
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
@@ -607,6 +642,49 @@ class AdminOperationUserCreditLedgerPageDTO(BaseModel):
     page_size: int = Field(..., description="Page size", required=False)
     total: int = Field(..., description="Total count", required=False)
     page_count: int = Field(..., description="Page count", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditUsageDetailItemDTO(BaseModel):
+    """Operator-facing user credit usage content-level row."""
+
+    usage_bid: str = Field(..., description="Usage business identifier")
+    created_at: str = Field(..., description="Usage created at")
+    content: str = Field(default="", description="Generated output text")
+    consumed_credits: str = Field(default="", description="Consumed credits")
+    usage_units: int = Field(default=0, description="Metered usage units")
+    input_tokens: int = Field(default=0, description="LLM input tokens")
+    output_tokens: int = Field(default=0, description="LLM output tokens")
+    word_count: int = Field(default=0, description="TTS word count")
+    duration_ms: int = Field(default=0, description="TTS duration in milliseconds")
+    segment_count: int = Field(default=0, description="TTS segment count")
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserCreditUsageDetailDTO(BaseModel):
+    """Operator-facing user credit usage content-level detail."""
+
+    usage_bid: str = Field(..., description="Usage business identifier")
+    course_bid: str = Field(default="", description="Related course identifier")
+    course_name: str = Field(default="", description="Related course name")
+    chapter_title: str = Field(default="", description="Related chapter title")
+    lesson_title: str = Field(default="", description="Related lesson title")
+    usage_scene: str = Field(default="", description="Usage scene")
+    usage_mode: str = Field(default="", description="Usage mode")
+    total_consumed_credits: str = Field(
+        default="", description="Total consumed credits"
+    )
+    items: list[AdminOperationUserCreditUsageDetailItemDTO] = Field(
+        default_factory=list,
+        description="Content-level usage rows",
+        required=False,
+    )
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
