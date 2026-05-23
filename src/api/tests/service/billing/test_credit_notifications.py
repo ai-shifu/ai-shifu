@@ -702,40 +702,78 @@ def test_credit_notification_policy_rejects_invalid_low_balance_thresholds(
 
 def test_credit_notification_skips_creator_without_mobile(
     credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = credit_notifications_app
+    now = datetime(2026, 5, 21, 0, 0, 0)
     _seed_creator(app, creator_bid="creator-no-mobile", mobile=None)
     _enable_policy(app)
+    enqueue_calls: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
+        lambda app, *, notification_bid: enqueue_calls.append(notification_bid),
+    )
     with app.app_context():
         _seed_credit_ledger(
             ledger_bid="ledger-no-mobile",
             creator_bid="creator-no-mobile",
         )
+        _seed_wallet(creator_bid="creator-no-mobile", available_credits="0")
+        _seed_bucket(
+            creator_bid="creator-no-mobile",
+            effective_to=now + timedelta(days=1, hours=2),
+        )
+        dao.db.session.commit()
 
     staged = stage_credit_granted_notification(
         app,
         ledger_bid="ledger-no-mobile",
-        enqueue=False,
+        enqueue=True,
     )
-    delivered = deliver_credit_notification(
-        app,
-        notification_bid=str(staged["notification_bid"]),
-    )
+    expiring = scan_credit_expiring_notifications(app, now=now)
+    low_balance = scan_low_balance_notifications(app, now=now)
 
-    assert delivered["status"] == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+    assert staged["status"] == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+    assert staged["enqueued"] is False
+    assert expiring["created_count"] == 0
+    assert expiring["enqueued_count"] == 0
+    assert expiring["candidate_count"] == 0
+    assert expiring["notifications"][0]["status"] == (
+        CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+    )
+    assert low_balance["created_count"] == 0
+    assert low_balance["enqueued_count"] == 0
+    assert low_balance["candidate_count"] == 0
+    assert low_balance["notifications"][0]["status"] == (
+        CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+    )
+    assert enqueue_calls == []
     with app.app_context():
-        notification = NotificationRecord.query.filter_by(
-            notification_bid=staged["notification_bid"]
-        ).one()
-        assert notification.error_code == "missing_mobile"
+        notifications = NotificationRecord.query.order_by(
+            NotificationRecord.id.asc()
+        ).all()
+        assert [item.error_code for item in notifications] == [
+            "missing_mobile",
+            "missing_mobile",
+            "missing_mobile",
+        ]
+        assert {item.status for item in notifications} == {
+            CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+        }
 
 
 def test_credit_notification_skips_invalid_mobile(
     credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = credit_notifications_app
     _seed_creator(app, creator_bid="creator-invalid-mobile", mobile="not-a-phone")
     _enable_policy(app)
+    enqueue_calls: list[str] = []
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
+        lambda app, *, notification_bid: enqueue_calls.append(notification_bid),
+    )
     with app.app_context():
         _seed_credit_ledger(
             ledger_bid="ledger-invalid-mobile",
@@ -745,19 +783,18 @@ def test_credit_notification_skips_invalid_mobile(
     staged = stage_credit_granted_notification(
         app,
         ledger_bid="ledger-invalid-mobile",
-        enqueue=False,
-    )
-    delivered = deliver_credit_notification(
-        app,
-        notification_bid=str(staged["notification_bid"]),
+        enqueue=True,
     )
 
-    assert delivered["status"] == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+    assert staged["status"] == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+    assert staged["enqueued"] is False
+    assert enqueue_calls == []
     with app.app_context():
         notification = NotificationRecord.query.filter_by(
             notification_bid=staged["notification_bid"]
         ).one()
         assert notification.error_code == "invalid_mobile"
+        assert notification.mobile_snapshot == "not-a-phone"
 
 
 def test_credit_notification_quiet_hours_uses_policy_timezone() -> None:

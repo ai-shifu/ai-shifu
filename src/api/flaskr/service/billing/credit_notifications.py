@@ -947,26 +947,42 @@ def _stage_notification_record(
         )
 
     now = datetime.now()
+    mobile = load_creator_mobile_snapshot(normalized_creator_bid)
+    notification_status = CREDIT_NOTIFICATION_STATUS_PENDING
+    error_code = ""
+    error_message = ""
+    attempted_at = None
+    if not mobile:
+        notification_status = CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+        error_code = "missing_mobile"
+        error_message = "Creator mobile is empty."
+        attempted_at = now
+    elif not _is_valid_sms_mobile(mobile):
+        notification_status = CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+        error_code = "invalid_mobile"
+        error_message = "Creator mobile is invalid."
+        attempted_at = now
     notification = NotificationRecord(
         notification_bid=generate_id(app),
         notification_type=notification_type,
         channel=CREDIT_NOTIFICATION_CHANNEL_SMS,
         creator_bid=normalized_creator_bid,
         target_user_bid=normalized_creator_bid,
-        mobile_snapshot="",
+        mobile_snapshot=mobile,
         source_type=source_type,
         source_bid=normalized_source_bid,
         dedupe_key=normalized_dedupe_key,
-        status=CREDIT_NOTIFICATION_STATUS_PENDING,
+        status=notification_status,
         template_code=_template_code(resolved_policy, notification_type),
         template_params_json={
             key: str(value or "").strip() for key, value in template_params.items()
         },
         policy_snapshot_json=resolved_policy,
         provider_response_json={},
-        error_code="",
-        error_message="",
+        error_code=error_code,
+        error_message=error_message,
         requested_at=now,
+        attempted_at=attempted_at,
         metadata_json=dict(metadata or {}),
     )
     try:
@@ -1006,7 +1022,7 @@ def _stage_notification_record(
         status=notification.status,
     )
     return CreditNotificationStageResult(
-        status="pending",
+        status=notification.status,
         notification_bid=notification.notification_bid,
         notification_type=notification.notification_type,
         creator_bid=notification.creator_bid,
@@ -1060,12 +1076,15 @@ def stage_credit_granted_notification(
         if commit:
             db.session.commit()
         payload = result.to_payload()
-    if enqueue and payload.get("status") == "pending":
-        enqueue_result = enqueue_credit_notification(
-            app,
-            notification_bid=str(payload.get("notification_bid") or ""),
-        )
-        payload["enqueued"] = bool(enqueue_result.get("enqueued"))
+    if enqueue:
+        if payload.get("status") == CREDIT_NOTIFICATION_STATUS_PENDING:
+            enqueue_result = enqueue_credit_notification(
+                app,
+                notification_bid=str(payload.get("notification_bid") or ""),
+            )
+            payload["enqueued"] = bool(enqueue_result.get("enqueued"))
+        else:
+            payload["enqueued"] = False
     return payload
 
 
@@ -1221,11 +1240,23 @@ def scan_credit_expiring_notifications(
             )
             item["enqueued"] = bool(enqueue_result.get("enqueued"))
             enqueued_count += int(bool(enqueue_result.get("enqueued")))
+    candidate_count = sum(
+        1
+        for item in notifications
+        if item.get("status")
+        in {
+            "candidate",
+            CREDIT_NOTIFICATION_STATUS_PENDING,
+            "suppressed_duplicate",
+        }
+    )
     return {
-        "status": "created" if notifications else "noop",
-        "candidate_count": len(notifications),
+        "status": "created" if candidate_count else "noop",
+        "candidate_count": candidate_count,
         "created_count": sum(
-            1 for item in notifications if item.get("status") == "pending"
+            1
+            for item in notifications
+            if item.get("status") == CREDIT_NOTIFICATION_STATUS_PENDING
         ),
         "enqueued_count": enqueued_count,
         "estimated_sms_cost": _estimated_sms_cost(policy, len(notifications))
