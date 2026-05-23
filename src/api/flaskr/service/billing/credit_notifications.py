@@ -1385,6 +1385,18 @@ def _low_balance_template_params(
     }
 
 
+def _should_skip_low_balance_zero_without_remaining_days(
+    notification_type: str,
+    template_params: dict[str, Any] | None,
+) -> bool:
+    if notification_type != CREDIT_NOTIFICATION_TYPE_LOW_BALANCE:
+        return False
+    params = template_params or {}
+    available = _decimal_from_policy(params.get("available_credits"), _ZERO)
+    estimated_remaining_days = str(params.get("estimated_remaining_days") or "").strip()
+    return available <= _ZERO and not estimated_remaining_days
+
+
 def _low_balance_dry_run_payload(
     *,
     status: str,
@@ -1661,6 +1673,26 @@ def scan_low_balance_notifications(
                 else:
                     continue
 
+                if _should_skip_low_balance_zero_without_remaining_days(
+                    CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+                    template_params,
+                ):
+                    mobile = load_creator_mobile_snapshot(wallet.creator_bid)
+                    if mobile and _is_valid_sms_mobile(mobile):
+                        if dry_run:
+                            notifications.append(
+                                _low_balance_dry_run_payload(
+                                    status="skipped",
+                                    creator_bid=wallet.creator_bid,
+                                    source_bid=wallet.creator_bid,
+                                    dedupe_key=dedupe_key,
+                                    template_params=template_params,
+                                    reason=(
+                                        "zero_balance_missing_estimated_remaining_days"
+                                    ),
+                                )
+                            )
+                        continue
                 if dry_run:
                     notifications.append(
                         _low_balance_dry_run_payload(
@@ -1742,8 +1774,11 @@ def _is_quiet_hours(policy: dict[str, Any], now: datetime | None = None) -> bool
             timezone = ZoneInfo(timezone_name)
             if now is None:
                 current = datetime.now(timezone)
-            elif current.tzinfo is None:
-                current = current.replace(tzinfo=timezone)
+            elif current.tzinfo is None or current.utcoffset() is None:
+                # Naive datetimes come from datetime.now() in the process-local
+                # timezone. Convert from that local timezone instead of
+                # relabeling them as the policy timezone.
+                current = current.astimezone(timezone)
             else:
                 current = current.astimezone(timezone)
         except ZoneInfoNotFoundError:
@@ -1973,6 +2008,30 @@ def deliver_credit_notification(
                 mobile=mobile,
                 error_code=reason,
                 error_message=f"Notification blocked by policy: {reason}.",
+            )
+            db.session.commit()
+            return {
+                "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                "notification_bid": notification.notification_bid,
+                "notification_status": notification.status,
+                "reason": reason,
+            }
+
+        if _should_skip_low_balance_zero_without_remaining_days(
+            notification.notification_type,
+            notification.template_params_json,
+        ):
+            reason = "zero_balance_missing_estimated_remaining_days"
+            _finalize_notification(
+                notification,
+                status=CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                now=now,
+                mobile=mobile,
+                error_code=reason,
+                error_message=(
+                    "Low balance notification has zero available credits and "
+                    "empty estimated remaining days."
+                ),
             )
             db.session.commit()
             return {
