@@ -54,14 +54,17 @@ def get_celery_app(flask_app: Flask | None = None) -> Celery:
 
 
 def _build_celery_config(flask_app: Flask) -> dict[str, Any]:
+    default_broker_url = "memory://" if flask_app.testing else _DEFAULT_BROKER_URL
+    default_result_backend = "cache+memory://" if flask_app.testing else None
     broker_url = (
         flask_app.config.get("CELERY_BROKER_URL")
         or os.getenv("CELERY_BROKER_URL")
-        or _DEFAULT_BROKER_URL
+        or default_broker_url
     )
     result_backend = (
         flask_app.config.get("CELERY_RESULT_BACKEND")
         or os.getenv("CELERY_RESULT_BACKEND")
+        or default_result_backend
         or broker_url
     )
     task_always_eager = _to_bool(

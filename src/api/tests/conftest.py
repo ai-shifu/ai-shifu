@@ -101,6 +101,8 @@ def app():
     os.environ["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     os.environ["DEFAULT_LLM_MODEL"] = "gpt-test"
     os.environ["OPENAI_API_KEY"] = "test-key"
+    os.environ["CELERY_BROKER_URL"] = "memory://"
+    os.environ["CELERY_RESULT_BACKEND"] = "cache+memory://"
 
     from app import create_app
     from flask_migrate import upgrade

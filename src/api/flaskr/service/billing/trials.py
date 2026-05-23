@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 import uuid
 from typing import Any
 
-from flask import Flask
+from flask import Flask, has_app_context
 from sqlalchemy.exc import IntegrityError
 
 from flaskr.dao import db
@@ -54,6 +55,10 @@ _ACTIVE_SUBSCRIPTION_STATUSES = (
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
 )
 _TRIAL_WELCOME_ACK_KEY = "welcome_trial_dialog_acknowledged_at"
+
+
+def _maybe_app_context(app: Flask):
+    return nullcontext() if has_app_context() else app.app_context()
 
 
 @dataclass(slots=True, frozen=True)
@@ -467,7 +472,7 @@ def _enqueue_trial_credit_notification(app: Flask, creator_bid: str) -> None:
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return
-    with app.app_context():
+    with _maybe_app_context(app):
         order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
@@ -533,7 +538,7 @@ def _backfill_missing_creator_trial_credits(
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_limit = int(limit) if limit is not None and int(limit) > 0 else None
 
-    with app.app_context():
+    with _maybe_app_context(app):
         if not _is_billing_enabled():
             return {
                 "status": "noop",
@@ -800,7 +805,7 @@ def _acknowledge_trial_welcome_dialog(
     if not normalized_creator_bid:
         return BillingTrialWelcomeAckDTO(acknowledged=False, acknowledged_at=None)
 
-    with app.app_context():
+    with _maybe_app_context(app):
         trial_subscription = _load_trial_subscription(normalized_creator_bid)
         trial_order = _load_trial_order(normalized_creator_bid)
         legacy_entry = _load_legacy_trial_entry(normalized_creator_bid)
@@ -855,7 +860,7 @@ def _bootstrap_new_creator_trial_credits(app: Flask, creator_bid: str) -> None:
     if not normalized_creator_bid:
         return
 
-    with app.app_context():
+    with _maybe_app_context(app):
         status, product_ref = _resolve_trial_bootstrap_status(normalized_creator_bid)
         if status != "grantable" or product_ref is None:
             return

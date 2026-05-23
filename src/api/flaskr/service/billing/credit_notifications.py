@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -11,7 +12,7 @@ import re
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Flask
+from flask import Flask, has_app_context
 from sqlalchemy.exc import IntegrityError
 
 from flaskr.api.sms.aliyun import get_sms_template_ali, send_sms_ali
@@ -85,6 +86,10 @@ CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS: dict[str, tuple[str, ...]] = {
         "estimated_remaining_days",
     ),
 }
+
+
+def _maybe_app_context(app: Flask):
+    return nullcontext() if has_app_context() else app.app_context()
 
 
 @dataclass(slots=True, frozen=True)
@@ -367,7 +372,10 @@ def _validate_policy_for_save(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_credit_notification_policy() -> dict[str, Any]:
-    raw_config = get_config(BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG, "")
+    try:
+        raw_config = get_config(BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG, "")
+    except KeyError:
+        raw_config = ""
     parsed: dict[str, Any] = {}
     if raw_config:
         try:
@@ -610,7 +618,7 @@ def sync_credit_notification_template(
     if not normalized_template_code:
         raise_param_error("template_code")
 
-    with app.app_context():
+    with _maybe_app_context(app):
         now = datetime.now()
         template = _get_or_create_notification_template(
             app,
@@ -711,7 +719,7 @@ def _ensure_credit_notification_template_compatible(
     notification_type: str,
     template_code: str,
 ) -> dict[str, Any]:
-    with app.app_context():
+    with _maybe_app_context(app):
         template = _load_notification_template(template_code)
         if (
             template is not None
@@ -1042,7 +1050,7 @@ def stage_credit_granted_notification(
     normalized_ledger_bid = _normalize_bid(ledger_bid)
     if not normalized_ledger_bid:
         return CreditNotificationStageResult(status="invalid_ledger_bid").to_payload()
-    with app.app_context():
+    with _maybe_app_context(app):
         ledger = (
             CreditLedgerEntry.query.filter(
                 CreditLedgerEntry.deleted == 0,
@@ -1100,7 +1108,7 @@ def stage_credit_granted_notification_for_order(
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_creator_bid or not normalized_bill_order_bid:
         return CreditNotificationStageResult(status="invalid_order").to_payload()
-    with app.app_context():
+    with _maybe_app_context(app):
         ledger = (
             CreditLedgerEntry.query.filter(
                 CreditLedgerEntry.deleted == 0,
