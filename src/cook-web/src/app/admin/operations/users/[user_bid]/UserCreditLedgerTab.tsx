@@ -1071,24 +1071,19 @@ export default function UserCreditLedgerTab({
             className='min-h-0 flex-1 overflow-auto'
             data-testid='admin-operation-user-credit-ledger-scroll'
           >
-            <Table
-              className={cn(
-                'table-fixed',
-                isConsumeView ? 'min-w-[1120px]' : '',
-              )}
-            >
+            <Table className='table-fixed'>
               <colgroup>
                 {isConsumeView ? (
                   <>
-                    <col className='w-[145px]' />
-                    <col className='w-[160px]' />
-                    <col className='w-[90px]' />
-                    <col className='w-[90px]' />
-                    <col className='w-[210px]' />
-                    <col className='w-[155px]' />
-                    <col className='w-[105px]' />
-                    <col className='w-[115px]' />
-                    <col className='w-[50px]' />
+                    <col className='w-[10%]' />
+                    <col className='w-[16%]' />
+                    <col className='w-[7%]' />
+                    <col className='w-[7%]' />
+                    <col className='w-[18%]' />
+                    <col className='w-[13%]' />
+                    <col className='w-[9%]' />
+                    <col className='w-[11%]' />
+                    <col className='w-[9%]' />
                   </>
                 ) : isGrantView || isOtherView ? (
                   <>
