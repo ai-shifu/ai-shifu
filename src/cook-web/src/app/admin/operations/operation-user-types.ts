@@ -159,6 +159,9 @@ export type AdminOperationUserCreditUsageDetailResponse = {
   course_name: string;
   chapter_title: string;
   lesson_title: string;
+  learner_user_bid: string;
+  learner_mobile: string;
+  learner_nickname: string;
   usage_scene: string;
   usage_mode: string;
   total_consumed_credits: string;

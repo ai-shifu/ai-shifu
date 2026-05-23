@@ -156,7 +156,8 @@
       "error": "消耗明细加载失败",
       "expand": "展开",
       "loading": "加载中",
-      "title": "积分消耗明细"
+      "title": "积分消耗明细",
+      "learner": "学习人"
     },
     "creditsOverview": "积分概览",
     "creditsOverviewLabels": {

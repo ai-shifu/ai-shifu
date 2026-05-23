@@ -675,6 +675,11 @@ class AdminOperationUserCreditUsageDetailDTO(BaseModel):
     course_name: str = Field(default="", description="Related course name")
     chapter_title: str = Field(default="", description="Related chapter title")
     lesson_title: str = Field(default="", description="Related lesson title")
+    learner_user_bid: str = Field(
+        default="", description="Actual learner user identifier"
+    )
+    learner_mobile: str = Field(default="", description="Actual learner mobile")
+    learner_nickname: str = Field(default="", description="Actual learner nickname")
     usage_scene: str = Field(default="", description="Usage scene")
     usage_mode: str = Field(default="", description="Usage mode")
     total_consumed_credits: str = Field(

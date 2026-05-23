@@ -156,7 +156,8 @@
       "error": "Échec du chargement des détails",
       "expand": "Développer",
       "loading": "Chargement",
-      "title": "Détails de consommation des crédits"
+      "title": "Détails de consommation des crédits",
+      "learner": "Apprenant"
     },
     "creditsOverview": "Vue d’ensemble des crédits",
     "creditsOverviewLabels": {

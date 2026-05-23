@@ -2042,6 +2042,16 @@ def test_get_operator_user_credit_usage_detail_returns_generated_content(app):
             updated_at=datetime(2026, 4, 9, 10, 0, 0),
             providers=[("email", "usage-detail-owner@example.com")],
         )
+        _seed_user(
+            app,
+            user_bid="learner-usage-detail",
+            identify="13800000001",
+            nickname="Usage Detail Learner",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("phone", "13800000001")],
+        )
         _seed_credit_wallet(
             creator_bid="usage-detail-owner",
             wallet_bid="wallet-usage-detail-owner",
@@ -2115,6 +2125,9 @@ def test_get_operator_user_credit_usage_detail_returns_generated_content(app):
     assert result.course_name == "Usage Detail Course"
     assert result.lesson_title == "Usage Detail Lesson"
     assert result.chapter_title == "Usage Detail Chapter"
+    assert result.learner_user_bid == "learner-usage-detail"
+    assert result.learner_mobile == "13800000001"
+    assert result.learner_nickname == "Usage Detail Learner"
     assert result.total_consumed_credits == "2.50"
     assert len(result.items) == 1
     assert result.items[0].content == "This is the generated answer."
@@ -2135,6 +2148,16 @@ def test_get_operator_user_credit_usage_detail_uses_ledger_owner_not_usage_user(
             created_at=datetime(2026, 4, 9, 9, 0, 0),
             updated_at=datetime(2026, 4, 9, 10, 0, 0),
             providers=[("email", "usage-detail-wallet-owner@example.com")],
+        )
+        _seed_user(
+            app,
+            user_bid="actual-learner-user",
+            identify="13800000002",
+            nickname="Actual Learner",
+            state=USER_STATE_REGISTERED,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("phone", "13800000002")],
         )
         _seed_user(
             app,
@@ -2198,6 +2221,9 @@ def test_get_operator_user_credit_usage_detail_uses_ledger_owner_not_usage_user(
                 usage_bid="usage-detail-owner-check",
             )
 
+    assert result.learner_user_bid == "actual-learner-user"
+    assert result.learner_mobile == "13800000002"
+    assert result.learner_nickname == "Actual Learner"
     assert result.items[0].content == "Owner detail content"
 
 

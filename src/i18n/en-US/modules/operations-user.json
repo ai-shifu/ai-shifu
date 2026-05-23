@@ -156,7 +156,8 @@
       "error": "Failed to load usage details",
       "expand": "Expand",
       "loading": "Loading",
-      "title": "Credit Usage Details"
+      "title": "Credit Usage Details",
+      "learner": "Learner"
     },
     "creditsOverview": "Credits Overview",
     "creditsOverviewLabels": {
