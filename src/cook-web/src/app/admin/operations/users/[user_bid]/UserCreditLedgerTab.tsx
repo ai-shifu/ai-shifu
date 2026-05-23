@@ -434,7 +434,7 @@ const CreditUsageDetailDialog = ({
                         </TableCell>
                         <TableCell className='border-r border-border py-2.5 text-center text-sm tabular-nums text-foreground'>
                           {isListenDetail
-                            ? item.word_count || emptyValue
+                            ? (item.word_count ?? emptyValue)
                             : item.input_tokens}
                         </TableCell>
                         <TableCell className='border-r border-border py-2.5 text-center text-sm tabular-nums text-foreground'>
@@ -444,7 +444,7 @@ const CreditUsageDetailDialog = ({
                         </TableCell>
                         {isListenDetail ? (
                           <TableCell className='border-r border-border py-2.5 text-center text-sm tabular-nums text-foreground'>
-                            {item.segment_count || emptyValue}
+                            {item.segment_count ?? emptyValue}
                           </TableCell>
                         ) : null}
                         <TableCell className='py-2.5 text-sm text-foreground'>
@@ -776,6 +776,8 @@ export default function UserCreditLedgerTab({
     setUsageDetailOpen(true);
     setUsageDetailError(null);
 
+    const requestSeq = usageDetailRequestSeqRef.current + 1;
+    usageDetailRequestSeqRef.current = requestSeq;
     const cachedDetail = usageDetailCacheRef.current.get(normalizedUsageBid);
     if (cachedDetail) {
       setUsageDetail(cachedDetail);
@@ -783,8 +785,6 @@ export default function UserCreditLedgerTab({
       return;
     }
 
-    const requestSeq = usageDetailRequestSeqRef.current + 1;
-    usageDetailRequestSeqRef.current = requestSeq;
     setUsageDetail(null);
     setUsageDetailLoading(true);
     try {

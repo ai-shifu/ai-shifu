@@ -150,8 +150,8 @@
         "ttsWordCount": "Synthesized Words"
       },
       "description": "Shows output content and credits used for this settlement when available.",
-      "durationMinutesSeconds": "{{minutes}}m {{seconds}}s",
-      "durationSeconds": "{{seconds}}s",
+      "durationMinutesSeconds": "{minutes}m {seconds}s",
+      "durationSeconds": "{seconds}s",
       "empty": "No usage details",
       "error": "Failed to load usage details",
       "expand": "Expand",

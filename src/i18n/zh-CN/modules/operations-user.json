@@ -150,8 +150,8 @@
         "ttsWordCount": "合成字数"
       },
       "description": "展示本次结算内可关联到的输出内容和积分消耗。",
-      "durationMinutesSeconds": "{{minutes}}分{{seconds}}秒",
-      "durationSeconds": "{{seconds}}秒",
+      "durationMinutesSeconds": "{minutes}分{seconds}秒",
+      "durationSeconds": "{seconds}秒",
       "empty": "暂无消耗明细",
       "error": "消耗明细加载失败",
       "expand": "展开",

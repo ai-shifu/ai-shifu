@@ -150,8 +150,8 @@
         "ttsWordCount": "Mots synthétisés"
       },
       "description": "Affiche le contenu de sortie et les crédits consommés pour ce règlement lorsque disponibles.",
-      "durationMinutesSeconds": "{{minutes}} min {{seconds}} s",
-      "durationSeconds": "{{seconds}} s",
+      "durationMinutesSeconds": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
       "empty": "Aucun détail de consommation",
       "error": "Échec du chargement des détails",
       "expand": "Développer",

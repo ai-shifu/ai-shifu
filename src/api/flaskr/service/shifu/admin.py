@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
+from json import JSONDecodeError
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
 from flask import Flask, current_app
@@ -617,11 +618,11 @@ def _load_billing_order_map(source_bids: Sequence[str]) -> Dict[str, BillingOrde
 
 def _collect_operator_user_credit_order_source_bids(
     ledger_rows: Sequence[CreditLedgerEntry],
-) -> List[str]:
+) -> list[str]:
     return [
         str(row.source_bid or "").strip()
         for row in ledger_rows
-        if int(row.source_type or 0)
+        if row.source_type
         in {
             CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             CREDIT_SOURCE_TYPE_TOPUP,
@@ -1822,8 +1823,6 @@ def _resolve_operator_user_credit_usage_scene(row: BillUsageRecord) -> str:
 
 def _load_operator_user_credit_usage_context_map(
     ledger_rows: Sequence[CreditLedgerEntry],
-    *,
-    user_bid: str,
 ) -> Dict[str, Dict[str, str]]:
     usage_bids = sorted(
         {
@@ -2075,7 +2074,7 @@ def _load_listen_segment_content_map(
         if raw_audio_segments:
             try:
                 audio_segments = json.loads(raw_audio_segments)
-            except Exception:
+            except JSONDecodeError:
                 audio_segments = []
             if isinstance(audio_segments, list):
                 for item in audio_segments:
@@ -6469,6 +6468,7 @@ def _build_latest_bill_usage_record_subquery(*, user_bid: str = ""):
         db.func.max(BillUsageRecord.id).label("max_id"),
     ).filter(
         BillUsageRecord.deleted == 0,
+        BillUsageRecord.record_level == 0,
     )
     if normalized_user_bid:
         query = query.filter(BillUsageRecord.user_bid == normalized_user_bid)
@@ -6791,7 +6791,6 @@ def get_operator_user_credits(
         )
         usage_context_map = _load_operator_user_credit_usage_context_map(
             paged_rows,
-            user_bid=normalized_user_bid,
         )
         items = [
             _build_operator_user_credit_ledger_item(

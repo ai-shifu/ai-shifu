@@ -74,7 +74,6 @@ export default function AdminTooltipText({
   const content = (
     <span
       ref={triggerRef}
-      title={value}
       className={cn(
         'inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
         className,
