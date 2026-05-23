@@ -362,9 +362,6 @@ describe('AdminOperationUserDetailPage', () => {
       course_name: 'Usage Course',
       chapter_title: 'Chapter A',
       lesson_title: 'Lesson B',
-      learner_user_bid: 'learner-1',
-      learner_mobile: '13800000003',
-      learner_nickname: 'Detail Learner',
       usage_scene: 'learning',
       usage_mode: 'ask',
       total_consumed_credits: '6',
@@ -704,8 +701,6 @@ describe('AdminOperationUserDetailPage', () => {
         usage_bid: 'usage-1',
       });
     });
-    expect(await screen.findByText('13800000003')).toBeInTheDocument();
-    expect(await screen.findByText('Detail Learner')).toBeInTheDocument();
     expect(
       await screen.findByText('Generated answer content'),
     ).toBeInTheDocument();

@@ -111,7 +111,6 @@ type OperatorUsersTranslator = (
  * t('module.operationsUser.detail.creditUsageDetail.collapse')
  * t('module.operationsUser.detail.creditUsageDetail.durationMinutesSeconds')
  * t('module.operationsUser.detail.creditUsageDetail.durationSeconds')
- * t('module.operationsUser.detail.creditUsageDetail.learner')
  * t('module.operationsUser.detail.creditUsageDetail.loading')
  * t('module.operationsUser.detail.creditUsageDetail.title')
  * t('module.operationsUser.detail.creditUsageDetail.description')
@@ -324,9 +323,6 @@ const CreditUsageDetailDialog = ({
   const { t: tOperationsUsers } = useTranslation('module.operationsUser');
   const items = detail?.items || [];
   const isListenDetail = detail?.usage_mode === 'listen';
-  const learnerPrimary =
-    detail?.learner_mobile || detail?.learner_user_bid || emptyValue;
-  const learnerSecondary = detail?.learner_nickname || '';
   const detailFirstMetricLabel = isListenDetail
     ? tOperationsUsers('detail.creditUsageDetail.columns.ttsWordCount')
     : tOperationsUsers('detail.creditUsageDetail.columns.inputTokens');
@@ -370,23 +366,6 @@ const CreditUsageDetailDialog = ({
           </DialogDescription>
         </DialogHeader>
         <div className='space-y-3 overflow-auto px-6 pb-5'>
-          {!loading && !error && detail ? (
-            <div className='flex items-center gap-3 rounded-md border bg-muted/20 px-3 py-2'>
-              <div className='text-xs font-medium text-muted-foreground'>
-                {tOperationsUsers('detail.creditUsageDetail.learner')}
-              </div>
-              <div className='min-w-0'>
-                <div className='truncate text-sm font-medium text-foreground'>
-                  {learnerPrimary}
-                </div>
-                {learnerSecondary ? (
-                  <div className='truncate text-xs text-muted-foreground'>
-                    {learnerSecondary}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
           {loading ? (
             <AdminTableShell
               loading

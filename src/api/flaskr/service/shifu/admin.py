@@ -6841,9 +6841,6 @@ def get_operator_user_credit_usage_detail(
             Decimal("0"),
         )
         context = _resolve_operator_user_credit_usage_context(main_usage_row)
-        learner_user_bid = str(getattr(main_usage_row, "user_bid", "") or "").strip()
-        learner_info = _load_user_map([learner_user_bid]).get(learner_user_bid, {})
-
         segment_rows = _load_operator_user_credit_usage_segment_rows(
             normalized_usage_bid
         )
@@ -6905,9 +6902,6 @@ def get_operator_user_credit_usage_detail(
             course_name=str(context.get("course_name", "") or ""),
             chapter_title=str(context.get("chapter_title", "") or ""),
             lesson_title=str(context.get("lesson_title", "") or ""),
-            learner_user_bid=learner_user_bid,
-            learner_mobile=str(learner_info.get("mobile", "") or ""),
-            learner_nickname=str(learner_info.get("nickname", "") or ""),
             usage_scene=str(context.get("usage_scene", "") or ""),
             usage_mode=str(context.get("usage_mode", "") or ""),
             total_consumed_credits=_format_decimal(total_consumed_credits),
