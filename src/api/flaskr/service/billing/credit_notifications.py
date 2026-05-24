@@ -788,6 +788,15 @@ def build_credit_expiring_dedupe_key(wallet_bucket_bid: str, window: str) -> str
     return f"{CREDIT_NOTIFICATION_TYPE_EXPIRING}:{_normalize_bid(wallet_bucket_bid)}:{_normalize_bid(window)}"
 
 
+def build_credit_expiring_creator_dedupe_key(
+    creator_bid: str, window: str, day: date
+) -> str:
+    return (
+        f"{CREDIT_NOTIFICATION_TYPE_EXPIRING}:"
+        f"{_normalize_bid(creator_bid)}:{_normalize_bid(window)}:{day.isoformat()}"
+    )
+
+
 def build_low_balance_dedupe_key(creator_bid: str, threshold: str, day: date) -> str:
     return (
         f"{CREDIT_NOTIFICATION_TYPE_LOW_BALANCE}:"
@@ -855,6 +864,43 @@ def _amount_text(value: Any) -> str:
         return str(_quantize_credit_amount(value))
     except Exception:
         return str(value or "").strip()
+
+
+def _template_placeholders(template_code: str) -> tuple[str, ...]:
+    normalized_template_code = str(template_code or "").strip()
+    if not normalized_template_code:
+        return ()
+    template = (
+        NotificationTemplate.query.filter(
+            NotificationTemplate.deleted == 0,
+            NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
+            NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
+            NotificationTemplate.template_code == normalized_template_code,
+        )
+        .order_by(NotificationTemplate.id.desc())
+        .first()
+    )
+    if template is None:
+        return ()
+    placeholders = template.placeholders_json
+    if not isinstance(placeholders, list):
+        return ()
+    return tuple(
+        str(item or "").strip() for item in placeholders if str(item or "").strip()
+    )
+
+
+def _missing_template_params(
+    *,
+    template_code: str,
+    template_params: dict[str, Any] | None,
+) -> list[str]:
+    params = template_params or {}
+    missing: list[str] = []
+    for placeholder in _template_placeholders(template_code):
+        if not str(params.get(placeholder) or "").strip():
+            missing.append(placeholder)
+    return missing
 
 
 def _is_valid_sms_mobile(mobile: str) -> bool:
@@ -1164,6 +1210,53 @@ def _parse_window_days(window: Any) -> int | None:
     return days if days >= 0 else None
 
 
+def _suppressed_duplicate_result(
+    existing: NotificationRecord,
+) -> CreditNotificationStageResult:
+    record_credit_notification_event(
+        "stage",
+        notification_type=existing.notification_type,
+        channel=existing.channel,
+        status="suppressed_duplicate",
+    )
+    return CreditNotificationStageResult(
+        status="suppressed_duplicate",
+        notification_bid=existing.notification_bid,
+        notification_type=existing.notification_type,
+        creator_bid=existing.creator_bid,
+        source_type=existing.source_type,
+        source_bid=existing.source_bid,
+        dedupe_key=existing.dedupe_key,
+    )
+
+
+def _find_credit_expiring_creator_window_record(
+    *,
+    creator_bid: str,
+    window: str,
+    now: datetime,
+) -> NotificationRecord | None:
+    day_start, day_end = _today_bounds(now)
+    records = (
+        NotificationRecord.query.filter(
+            NotificationRecord.deleted == 0,
+            NotificationRecord.notification_type == CREDIT_NOTIFICATION_TYPE_EXPIRING,
+            NotificationRecord.creator_bid == _normalize_bid(creator_bid),
+            NotificationRecord.requested_at >= day_start,
+            NotificationRecord.requested_at < day_end,
+        )
+        .order_by(NotificationRecord.id.desc())
+        .all()
+    )
+    for record in records:
+        metadata = (
+            record.metadata_json if isinstance(record.metadata_json, dict) else {}
+        )
+        if str(metadata.get("window") or "").strip() == window:
+            return record
+    return None
+
+
 def scan_credit_expiring_notifications(
     app: Flask,
     *,
@@ -1184,9 +1277,11 @@ def scan_credit_expiring_notifications(
                 "dry_run": dry_run,
                 "notifications": [],
             }
-        windows = _type_policy(policy, CREDIT_NOTIFICATION_TYPE_EXPIRING).get("windows")
+        type_policy = _type_policy(policy, CREDIT_NOTIFICATION_TYPE_EXPIRING)
+        windows = type_policy.get("windows")
         if not isinstance(windows, list):
             windows = ["7d", "3d", "1d", "0d"]
+        merge_same_creator = _coerce_bool(type_policy.get("merge_same_creator", True))
 
         notifications: list[dict[str, Any]] = []
         creator_eligibility_cache: dict[str, bool] = {}
@@ -1217,6 +1312,96 @@ def scan_credit_expiring_notifications(
                 .limit(500)
                 .all()
             )
+            if merge_same_creator:
+                grouped: dict[str, dict[str, Any]] = {}
+                for bucket in buckets:
+                    if not _is_notification_eligible_creator_cached(
+                        bucket.creator_bid,
+                        creator_eligibility_cache,
+                    ):
+                        continue
+                    group = grouped.setdefault(
+                        bucket.creator_bid,
+                        {
+                            "creator_bid": bucket.creator_bid,
+                            "source_bid": bucket.wallet_bucket_bid,
+                            "wallet_bid": bucket.wallet_bid,
+                            "bucket_bids": [],
+                            "wallet_bids": set(),
+                            "available_credits": _ZERO,
+                            "effective_to": bucket.effective_to,
+                        },
+                    )
+                    group["bucket_bids"].append(bucket.wallet_bucket_bid)
+                    group["wallet_bids"].add(bucket.wallet_bid)
+                    group["available_credits"] = _to_decimal(
+                        group["available_credits"]
+                    ) + _to_decimal(bucket.available_credits)
+                    if bucket.effective_to is not None and (
+                        group.get("effective_to") is None
+                        or bucket.effective_to < group["effective_to"]
+                    ):
+                        group["effective_to"] = bucket.effective_to
+                        group["source_bid"] = bucket.wallet_bucket_bid
+                        group["wallet_bid"] = bucket.wallet_bid
+
+                for group in grouped.values():
+                    dedupe_key = build_credit_expiring_creator_dedupe_key(
+                        str(group.get("creator_bid") or ""),
+                        window,
+                        scan_now.date(),
+                    )
+                    existing = _find_credit_expiring_creator_window_record(
+                        creator_bid=str(group.get("creator_bid") or ""),
+                        window=window,
+                        now=scan_now,
+                    )
+                    if existing is not None:
+                        notifications.append(
+                            _suppressed_duplicate_result(existing).to_payload()
+                        )
+                        continue
+                    if dry_run:
+                        notifications.append(
+                            {
+                                "status": "candidate",
+                                "notification_type": (
+                                    CREDIT_NOTIFICATION_TYPE_EXPIRING
+                                ),
+                                "creator_bid": group["creator_bid"],
+                                "source_bid": group["source_bid"],
+                                "dedupe_key": dedupe_key,
+                            }
+                        )
+                        continue
+                    result = _stage_notification_record(
+                        app,
+                        notification_type=CREDIT_NOTIFICATION_TYPE_EXPIRING,
+                        creator_bid=group["creator_bid"],
+                        source_type=SOURCE_TYPE_WALLET_BUCKET,
+                        source_bid=group["source_bid"],
+                        dedupe_key=dedupe_key,
+                        template_params={
+                            "credits": _amount_text(group["available_credits"]),
+                            "expires_at": _serialize_dt(
+                                app,
+                                group.get("effective_to"),
+                            ),
+                            "window": window,
+                        },
+                        metadata={
+                            "wallet_bid": group["wallet_bid"],
+                            "wallet_bids": sorted(group["wallet_bids"]),
+                            "wallet_bucket_bid": group["source_bid"],
+                            "wallet_bucket_bids": group["bucket_bids"],
+                            "merged_bucket_count": len(group["bucket_bids"]),
+                            "window": window,
+                        },
+                        policy=policy,
+                    )
+                    notifications.append(result.to_payload())
+                continue
+
             for bucket in buckets:
                 if not _is_notification_eligible_creator_cached(
                     bucket.creator_bid,
@@ -1696,6 +1881,28 @@ def scan_low_balance_notifications(
                 else:
                     continue
 
+                missing_template_params = _missing_template_params(
+                    template_code=_template_code(
+                        policy,
+                        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+                    ),
+                    template_params=template_params,
+                )
+                if missing_template_params:
+                    if dry_run:
+                        notifications.append(
+                            _low_balance_dry_run_payload(
+                                status="skipped",
+                                creator_bid=wallet.creator_bid,
+                                source_bid=wallet.creator_bid,
+                                dedupe_key=dedupe_key,
+                                template_params=template_params,
+                                reason="missing_template_params",
+                            )
+                            | {"missing_template_params": missing_template_params}
+                        )
+                    continue
+
                 if _should_skip_low_balance_zero_without_remaining_days(
                     CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
                     template_params,
@@ -2091,6 +2298,33 @@ def deliver_credit_notification(
         if template_params != dict(notification.template_params_json or {}):
             notification.template_params_json = template_params
             db.session.add(notification)
+
+        if notification.notification_type == CREDIT_NOTIFICATION_TYPE_LOW_BALANCE:
+            missing_template_params = _missing_template_params(
+                template_code=template_code,
+                template_params=template_params,
+            )
+            if missing_template_params:
+                reason = "missing_template_params"
+                _finalize_notification(
+                    notification,
+                    status=CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                    now=now,
+                    mobile=mobile,
+                    error_code=reason,
+                    error_message=(
+                        "Notification template requires empty params: "
+                        f"{','.join(missing_template_params)}."
+                    ),
+                )
+                db.session.commit()
+                return {
+                    "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+                    "notification_bid": notification.notification_bid,
+                    "notification_status": notification.status,
+                    "reason": reason,
+                    "missing_template_params": missing_template_params,
+                }
 
         try:
             response = send_sms_ali(
