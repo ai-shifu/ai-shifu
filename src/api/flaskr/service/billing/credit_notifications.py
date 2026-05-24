@@ -23,7 +23,7 @@ from flaskr.service.config import get_config
 from flaskr.service.config.funcs import add_config
 from flaskr.service.user.consts import USER_STATE_UNREGISTERED
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.util.timezone import serialize_with_app_timezone
+from flaskr.util.timezone import format_with_app_timezone
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -821,10 +821,33 @@ def _provider_response_payload(response: Any) -> dict[str, Any]:
     }
 
 
-def _serialize_dt(app: Flask, value: datetime | None) -> str:
+def _format_sms_datetime(app: Flask, value: Any) -> str:
     if value is None:
         return ""
-    return str(serialize_with_app_timezone(app, value) or "")
+    if isinstance(value, datetime):
+        resolved = value
+    else:
+        raw_value = str(value or "").strip()
+        if not raw_value:
+            return ""
+        try:
+            resolved = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+        except ValueError:
+            return raw_value
+    return str(format_with_app_timezone(app, resolved, "%Y-%m-%d %H:%M:%S") or "")
+
+
+def _serialize_dt(app: Flask, value: datetime | None) -> str:
+    return _format_sms_datetime(app, value)
+
+
+def _normalize_sms_template_params(
+    app: Flask, params: dict[str, Any]
+) -> dict[str, str]:
+    normalized = {str(key): str(value or "").strip() for key, value in params.items()}
+    if "expires_at" in normalized:
+        normalized["expires_at"] = _format_sms_datetime(app, normalized["expires_at"])
+    return normalized
 
 
 def _amount_text(value: Any) -> str:
@@ -2061,12 +2084,20 @@ def deliver_credit_notification(
                 "notification_status": notification.status,
             }
 
+        template_params = _normalize_sms_template_params(
+            app,
+            dict(notification.template_params_json or {}),
+        )
+        if template_params != dict(notification.template_params_json or {}):
+            notification.template_params_json = template_params
+            db.session.add(notification)
+
         try:
             response = send_sms_ali(
                 app,
                 mobile,
                 template_code=template_code,
-                template_params=dict(notification.template_params_json or {}),
+                template_params=template_params,
             )
         except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
             _finalize_notification(
