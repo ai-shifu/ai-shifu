@@ -377,7 +377,7 @@ def test_credit_granted_notification_stages_once_and_delivers_sms(
             "template_code": "TPL-GRANT",
             "template_params": {
                 "credits": "12.50",
-                "expires_at": "2026-06-30T00:00:00+00:00",
+                "expires_at": "2026-06-30 00:00:00",
                 "source": "operator",
             },
         }
@@ -388,6 +388,71 @@ def test_credit_granted_notification_stages_once_and_delivers_sms(
         ).one()
         assert notification.status == CREDIT_NOTIFICATION_STATUS_SENT
         assert notification.mobile_snapshot == "13800000000"
+
+
+def test_credit_notification_delivery_normalizes_legacy_iso_expires_at(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app)
+    _enable_policy(app)
+    captured: list[dict[str, object]] = []
+
+    with app.app_context():
+        _seed_credit_ledger()
+
+    staged = stage_credit_granted_notification(
+        app,
+        ledger_bid="ledger-1",
+        enqueue=False,
+    )
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_bid=staged["notification_bid"]
+        ).one()
+        notification.template_params_json = {
+            "credits": "12.50",
+            "expires_at": "2026-06-30T00:00:00+00:00",
+            "source": "operator",
+        }
+        dao.db.session.commit()
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.send_sms_ali",
+        lambda app, mobile, *, template_code, template_params, sign_name=None: (
+            captured.append(dict(template_params))
+            or SimpleNamespace(
+                body=SimpleNamespace(
+                    code="OK",
+                    message="accepted",
+                    request_id="req-legacy",
+                    biz_id="biz-legacy",
+                )
+            )
+        ),
+    )
+
+    delivered = deliver_credit_notification(
+        app,
+        notification_bid=str(staged["notification_bid"]),
+    )
+
+    assert delivered["status"] == CREDIT_NOTIFICATION_STATUS_SENT
+    assert captured == [
+        {
+            "credits": "12.50",
+            "expires_at": "2026-06-30 00:00:00",
+            "source": "operator",
+        }
+    ]
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_bid=staged["notification_bid"]
+        ).one()
+        assert notification.template_params_json["expires_at"] == (
+            "2026-06-30 00:00:00"
+        )
 
 
 def test_credit_notification_policy_rejects_invalid_windows(
@@ -973,6 +1038,14 @@ def test_expiring_and_low_balance_scans_stage_deduped_notifications(
 
     with app.app_context():
         assert NotificationRecord.query.count() == 2
+        expiring_notification = NotificationRecord.query.filter_by(
+            notification_type=CREDIT_NOTIFICATION_TYPE_EXPIRING
+        ).one()
+        assert expiring_notification.template_params_json == {
+            "credits": "5.00",
+            "expires_at": "2026-05-22 02:00:00",
+            "window": "1d",
+        }
 
 
 def test_low_balance_estimated_days_scan_uses_daily_ledger_summary(
