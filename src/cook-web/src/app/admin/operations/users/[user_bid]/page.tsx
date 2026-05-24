@@ -766,7 +766,7 @@ export default function AdminOperationUserDetailPage() {
         data-testid='admin-operation-user-detail-page'
       >
         <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-          <div className='mb-5 shrink-0 space-y-3 px-1 pt-6'>
+          <div className='mb-5 shrink-0 px-1'>
             <AdminOperationsBreadcrumb
               items={[
                 {

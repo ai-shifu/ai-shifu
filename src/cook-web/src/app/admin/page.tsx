@@ -40,6 +40,7 @@ import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
+import AdminBreadcrumb from './components/AdminBreadcrumb';
 
 interface ShifuCardProps {
   id: string;
@@ -571,6 +572,12 @@ const ScriptManagementPage = () => {
       <div className='h-full p-0'>
         <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
           <div className='mb-3'>
+            <AdminBreadcrumb
+              items={[
+                { label: t('common.core.home'), href: '/admin' },
+                { label: t('common.core.shifu') },
+              ]}
+            />
             <h1 className='text-2xl font-semibold text-gray-900'>
               {t('common.core.shifu')}
             </h1>

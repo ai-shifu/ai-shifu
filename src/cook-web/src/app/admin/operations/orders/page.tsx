@@ -4,6 +4,7 @@ import React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import Loading from '@/components/loading';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import useOperatorGuard from '../useOperatorGuard';
 import {
@@ -63,6 +64,7 @@ export default function AdminOperationOrdersPage() {
   return (
     <div className='flex h-full flex-col gap-5 p-0'>
       <div>
+        <AdminBreadcrumb items={[{ label: t('title') }]} />
         <h1 className='text-2xl font-semibold text-gray-900'>{t('title')}</h1>
       </div>
 

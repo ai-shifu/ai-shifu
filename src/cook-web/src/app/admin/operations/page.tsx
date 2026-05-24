@@ -14,6 +14,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Copy, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
@@ -1502,6 +1503,7 @@ const OperationsPage = () => {
           className='mb-5'
           data-testid='admin-operations-header'
         >
+          <AdminBreadcrumb items={[{ label: tOperations('title') }]} />
           <h1 className='text-2xl font-semibold text-gray-900'>
             {tOperations('title')}
           </h1>

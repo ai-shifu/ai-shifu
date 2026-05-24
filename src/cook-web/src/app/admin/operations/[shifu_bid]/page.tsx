@@ -1373,7 +1373,7 @@ export default function AdminOperationCourseDetailPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-        <div className='mb-5 shrink-0 space-y-3 pt-6'>
+        <div className='mb-5 shrink-0'>
           <AdminOperationsBreadcrumb
             items={[
               {

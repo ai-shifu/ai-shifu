@@ -58,6 +58,7 @@ import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import { ClearableTextInput } from '@/app/admin/operations/orders/orderUiShared';
 
 type OrderListResponse = {
@@ -893,14 +894,17 @@ const OrdersPage = () => {
   return (
     <div className='h-full p-0'>
       <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden'>
-        <div className='mb-5 flex shrink-0 flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between'>
-          <h1 className='text-2xl font-semibold text-gray-900'>
-            {t('module.order.title')}
-          </h1>
-          <div className='flex items-center gap-3'>
-            <Button onClick={() => setImportOpen(true)}>
-              {t('module.order.importActivation.action')}
-            </Button>
+        <div className='mb-5 shrink-0'>
+          <AdminBreadcrumb items={[{ label: t('module.order.title') }]} />
+          <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
+            <h1 className='text-2xl font-semibold text-gray-900'>
+              {t('module.order.title')}
+            </h1>
+            <div className='flex items-center gap-3'>
+              <Button onClick={() => setImportOpen(true)}>
+                {t('module.order.importActivation.action')}
+              </Button>
+            </div>
           </div>
         </div>
 

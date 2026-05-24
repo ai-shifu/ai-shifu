@@ -51,6 +51,7 @@ import {
   DashboardCourseTableRow,
   formatOrderAmount,
 } from './dashboardCourseTableRow';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 
 const PAGE_SIZE = 20;
 
@@ -345,44 +346,51 @@ export default function AdminDashboardEntryPage() {
   return (
     <div className='h-full p-0'>
       <div className='h-full overflow-hidden flex flex-col'>
-        <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-5'>
-          <h1 className='text-2xl font-semibold text-gray-900'>
-            {t('module.dashboard.title')}
-          </h1>
-          <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-end'>
-            <Input
-              value={keyword}
-              onChange={event => setKeyword(event.target.value)}
-              placeholder={t('module.dashboard.entry.table.searchPlaceholder')}
-              className='h-9 w-[280px] max-w-[80vw]'
-            />
-            <div className='w-[260px] max-w-[80vw]'>
-              <DateRangeFilter
-                startValue={startDate}
-                endValue={endDate}
-                onChange={range => {
-                  setStartDate(range.start);
-                  setEndDate(range.end);
-                }}
-                placeholder={t('module.dashboard.filters.dateRangePlaceholder')}
-                resetLabel={t('module.dashboard.filters.reset')}
+        <div className='mb-5'>
+          <AdminBreadcrumb items={[{ label: t('module.dashboard.title') }]} />
+          <div className='flex flex-col gap-3 md:flex-row md:items-start md:justify-between'>
+            <h1 className='text-2xl font-semibold text-gray-900'>
+              {t('module.dashboard.title')}
+            </h1>
+            <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-end'>
+              <Input
+                value={keyword}
+                onChange={event => setKeyword(event.target.value)}
+                placeholder={t(
+                  'module.dashboard.entry.table.searchPlaceholder',
+                )}
+                className='h-9 w-[280px] max-w-[80vw]'
               />
+              <div className='w-[260px] max-w-[80vw]'>
+                <DateRangeFilter
+                  startValue={startDate}
+                  endValue={endDate}
+                  onChange={range => {
+                    setStartDate(range.start);
+                    setEndDate(range.end);
+                  }}
+                  placeholder={t(
+                    'module.dashboard.filters.dateRangePlaceholder',
+                  )}
+                  resetLabel={t('module.dashboard.filters.reset')}
+                />
+              </div>
+              <Button
+                size='sm'
+                type='button'
+                onClick={handleSearch}
+              >
+                {t('module.dashboard.entry.table.search')}
+              </Button>
+              <Button
+                size='sm'
+                variant='outline'
+                type='button'
+                onClick={handleReset}
+              >
+                {t('module.dashboard.entry.table.reset')}
+              </Button>
             </div>
-            <Button
-              size='sm'
-              type='button'
-              onClick={handleSearch}
-            >
-              {t('module.dashboard.entry.table.search')}
-            </Button>
-            <Button
-              size='sm'
-              variant='outline'
-              type='button'
-              onClick={handleReset}
-            >
-              {t('module.dashboard.entry.table.reset')}
-            </Button>
           </div>
         </div>
 

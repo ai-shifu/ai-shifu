@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Info, RefreshCw, RotateCcw, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
@@ -1468,7 +1469,13 @@ export default function AdminOperationCreditNotificationsPage() {
 
   return (
     <div className='flex h-full min-h-0 flex-col gap-5 p-0'>
-      <div>
+      <div className='shrink-0'>
+        <AdminBreadcrumb
+          items={[
+            { label: t('common.core.home'), href: '/admin' },
+            { label: t('module.operationsCreditNotifications.title') },
+          ]}
+        />
         <h1 className='text-2xl font-semibold text-gray-900'>
           {t('module.operationsCreditNotifications.title')}
         </h1>

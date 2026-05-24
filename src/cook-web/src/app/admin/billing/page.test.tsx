@@ -285,6 +285,7 @@ describe('AdminBillingPage', () => {
     renderPage();
     const tabs = screen.getByTestId('admin-billing-tabs');
     const packagesPanel = screen.getByTestId('admin-billing-packages-panel');
+    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
 
     expect(screen.getByTestId('admin-billing-page')).toBeInTheDocument();
     expect(screen.getByTestId('admin-billing-page')).toHaveClass(
@@ -304,6 +305,10 @@ describe('AdminBillingPage', () => {
     expect(
       screen.getByText('module.billing.package.title'),
     ).toBeInTheDocument();
+    expect(
+      within(breadcrumb).getByRole('link', { name: 'common.core.home' }),
+    ).toHaveAttribute('href', '/admin');
+    expect(breadcrumb).toHaveTextContent('module.billing.sidebar.summaryTitle');
 
     await waitFor(() => {
       expect(mockGetBillingCatalog).toHaveBeenCalledTimes(1);
@@ -425,6 +430,7 @@ describe('AdminBillingPage', () => {
 
     renderPage();
     const tabs = screen.getByTestId('admin-billing-tabs');
+    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
 
     expect(
       within(tabs).getByRole('tab', {
@@ -439,6 +445,7 @@ describe('AdminBillingPage', () => {
     expect(
       await screen.findByText('module.billing.details.title'),
     ).toBeInTheDocument();
+    expect(breadcrumb).toHaveTextContent('module.billing.page.tabs.ledger');
     expect(screen.getByTestId('admin-billing-details-panel')).toHaveClass(
       'mt-0',
     );
@@ -450,6 +457,7 @@ describe('AdminBillingPage', () => {
   test('respects the server-provided initial details tab before search params hydrate', async () => {
     renderPage({ initialTab: 'details' });
     const tabs = screen.getByTestId('admin-billing-tabs');
+    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
 
     expect(
       within(tabs).getByRole('tab', {
@@ -464,5 +472,6 @@ describe('AdminBillingPage', () => {
     expect(
       await screen.findByText('module.billing.details.title'),
     ).toBeInTheDocument();
+    expect(breadcrumb).toHaveTextContent('module.billing.page.tabs.ledger');
   });
 });

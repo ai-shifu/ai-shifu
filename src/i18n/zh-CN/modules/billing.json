@@ -647,7 +647,8 @@
     "tabs": {
       "ledger": "积分详情",
       "plans": "积分购买"
-    }
+    },
+    "title": "会员与积分"
   },
   "renewal": {
     "eventType": {

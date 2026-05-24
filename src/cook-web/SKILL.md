@@ -68,6 +68,7 @@
 - `skills/hook-contract-refactor-safety/SKILL.md`
 - `skills/chat-system-interaction-button-overrides/SKILL.md`
 - `skills/shared-loading-dots/SKILL.md`
+- `skills/admin-breadcrumbs/SKILL.md`
 
 ## Usage Rules
 
