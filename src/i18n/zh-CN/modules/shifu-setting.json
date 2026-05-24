@@ -20,6 +20,7 @@
     "coze": "使用 Coze Bot 对话接口处理追问。",
     "coze_workflow": "使用 Coze 工作流运行接口处理追问。",
     "dify": "使用 Dify 对话应用处理追问。",
+    "get_biji_knowledge": "使用 Get 笔记知识库语义检索接口处理追问。",
     "llm": "仅使用内置追问 LLM。",
     "volc_knowledge": "使用火山引擎知识库检索接口处理追问。"
   },
@@ -54,6 +55,24 @@
         "label": "服务地址"
       }
     },
+    "get_biji_knowledge": {
+      "api_key": {
+        "hint": "Get 笔记开放平台 API Key。",
+        "label": "API Key"
+      },
+      "client_id": {
+        "hint": "Get 笔记开放平台 Client ID。",
+        "label": "Client ID"
+      },
+      "top_k": {
+        "hint": "语义检索返回条数，范围 1-10。",
+        "label": "返回条数"
+      },
+      "topic_id": {
+        "hint": "Get 笔记知识库 Topic ID。",
+        "label": "知识库 Topic ID"
+      }
+    },
     "volc_knowledge": {
       "account_id": {
         "hint": "用于 V-Account-Id 请求头的火山引擎账号 ID。",
@@ -81,6 +100,7 @@
     "coze": "Coze",
     "coze_workflow": "Coze 工作流",
     "dify": "Dify",
+    "get_biji_knowledge": "Get 笔记知识库",
     "llm": "LLM",
     "volc_knowledge": "火山引擎知识库"
   },

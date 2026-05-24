@@ -11,6 +11,7 @@ from .base import (
 from .coze_adapter import CozeAskProviderAdapter
 from .coze_workflow_adapter import CozeWorkflowAskProviderAdapter
 from .dify_adapter import DifyAskProviderAdapter
+from .get_biji_knowledge_adapter import GetBijiKnowledgeAskProviderAdapter
 from .llm_adapter import LlmAskProviderAdapter
 from .volc_knowledge_adapter import VolcKnowledgeAskProviderAdapter
 from .registry import get_ask_provider_adapter, stream_ask_provider_response
@@ -25,6 +26,7 @@ __all__ = [
     "CozeAskProviderAdapter",
     "CozeWorkflowAskProviderAdapter",
     "DifyAskProviderAdapter",
+    "GetBijiKnowledgeAskProviderAdapter",
     "LlmAskProviderAdapter",
     "VolcKnowledgeAskProviderAdapter",
     "get_ask_provider_adapter",
