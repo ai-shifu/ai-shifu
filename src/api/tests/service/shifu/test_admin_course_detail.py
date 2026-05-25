@@ -2167,6 +2167,74 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert raw_payload["data"]["items"][0]["usage_mode"] == "listen"
 
 
+def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(
+            app,
+            user_bid="student-1",
+            phone="13900001235",
+            email="student1@example.com",
+        )
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            parent_bid="chapter-1",
+            title="Lesson 1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_credit_usage(
+            usage_bid="usage-blank-model",
+            user_bid="student-1",
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="",
+            model="",
+            consumed_credits=Decimal("5"),
+            created_at=datetime(2026, 4, 4, 10, 0, 0),
+            extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["total"] == 1
+    assert payload["data"]["items"][0]["model_variant_count"] == 0
+
+
 def test_admin_operation_course_credit_usages_route_rejects_invalid_mode(
     app,
     test_client,

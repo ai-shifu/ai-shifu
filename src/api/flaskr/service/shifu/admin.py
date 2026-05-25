@@ -5414,10 +5414,13 @@ def get_operator_course_credit_usages(
                 ),
                 db.func.count(
                     db.func.distinct(
-                        db.func.concat(
-                            db.func.coalesce(usage_rows.c.provider, ""),
-                            literal("/"),
-                            db.func.coalesce(usage_rows.c.model, ""),
+                        db.func.nullif(
+                            db.func.concat(
+                                db.func.coalesce(usage_rows.c.provider, ""),
+                                literal("/"),
+                                db.func.coalesce(usage_rows.c.model, ""),
+                            ),
+                            "/",
                         )
                     )
                 ).label("model_variant_count"),
