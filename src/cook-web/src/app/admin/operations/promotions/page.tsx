@@ -6,6 +6,7 @@ import { CalendarIcon, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
@@ -2619,31 +2620,25 @@ export default function AdminOperationPromotionsPage() {
   }
 
   return (
-    <div className='space-y-6 pb-6'>
-      <div>
-        <AdminBreadcrumb
-          items={[
-            { label: t('common.core.home'), href: '/admin' },
-            { label: tPromotion('title') },
-          ]}
-        />
-        <h1 className='text-2xl font-semibold text-foreground'>
-          {tPromotion('title')}
-        </h1>
-      </div>
-
+    <div className='pb-6'>
+      <AdminBreadcrumb items={[{ label: tPromotion('title') }]} />
       <Tabs
         value={tab}
         onValueChange={value => setTab(value as PromotionTab)}
       >
-        <TabsList className='h-9'>
-          <TabsTrigger value='coupons'>
-            {tPromotion('tabs.coupons')}
-          </TabsTrigger>
-          <TabsTrigger value='campaigns'>
-            {tPromotion('tabs.campaigns')}
-          </TabsTrigger>
-        </TabsList>
+        <AdminTitle
+          title={tPromotion('title')}
+          tabs={
+            <TabsList className='h-9'>
+              <TabsTrigger value='coupons'>
+                {tPromotion('tabs.coupons')}
+              </TabsTrigger>
+              <TabsTrigger value='campaigns'>
+                {tPromotion('tabs.campaigns')}
+              </TabsTrigger>
+            </TabsList>
+          }
+        />
 
         <TabsContent
           value='coupons'

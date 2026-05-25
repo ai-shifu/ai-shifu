@@ -52,6 +52,7 @@ import {
   formatOrderAmount,
 } from './dashboardCourseTableRow';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 
 const PAGE_SIZE = 20;
 
@@ -346,12 +347,10 @@ export default function AdminDashboardEntryPage() {
   return (
     <div className='h-full p-0'>
       <div className='h-full overflow-hidden flex flex-col'>
-        <div className='mb-5'>
-          <AdminBreadcrumb items={[{ label: t('module.dashboard.title') }]} />
-          <div className='flex flex-col gap-3 md:flex-row md:items-start md:justify-between'>
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {t('module.dashboard.title')}
-            </h1>
+        <AdminBreadcrumb items={[{ label: t('module.dashboard.title') }]} />
+        <AdminTitle
+          title={t('module.dashboard.title')}
+          actions={
             <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-end'>
               <Input
                 value={keyword}
@@ -391,8 +390,8 @@ export default function AdminDashboardEntryPage() {
                 {t('module.dashboard.entry.table.reset')}
               </Button>
             </div>
-          </div>
-        </div>
+          }
+        />
 
         <div className='shrink-0 mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4'>
           <Card>

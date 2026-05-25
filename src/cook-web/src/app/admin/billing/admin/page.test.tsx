@@ -333,7 +333,7 @@ describe('AdminBillingConsolePage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
-        level: 2,
+        level: 1,
         name: 'module.billing.admin.title',
       }),
     ).toBeInTheDocument();

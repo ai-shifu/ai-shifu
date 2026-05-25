@@ -41,6 +41,7 @@ import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
 import AdminBreadcrumb from './components/AdminBreadcrumb';
+import AdminTitle from './components/AdminTitle';
 
 interface ShifuCardProps {
   id: string;
@@ -571,65 +572,61 @@ const ScriptManagementPage = () => {
       </AlertDialog>
       <div className='h-full p-0'>
         <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-          <div className='mb-3'>
-            <AdminBreadcrumb
-              items={[
-                { label: t('common.core.home'), href: '/admin' },
-                { label: t('common.core.shifu') },
-              ]}
-            />
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {t('common.core.shifu')}
-            </h1>
-          </div>
-          <div className='flex items-center gap-3 mb-5'>
-            <Button
-              size='sm'
-              onClick={handleCreateShifuModal}
-            >
-              <PlusIcon className='w-5 h-5 mr-1' />
-              {t('common.core.createBlankShifu')}
-            </Button>
-            {courseCreatorUrl && (
-              <span className='text-xs text-muted-foreground'>
-                {t('common.core.aiCourseCreatorPrefix')}
-                <a
-                  href={courseCreatorUrl}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='text-muted-foreground underline hover:text-foreground'
+          <AdminBreadcrumb items={[{ label: t('common.core.shifu') }]} />
+          <AdminTitle
+            title={t('common.core.shifu')}
+            actions={
+              <div className='flex flex-wrap items-center gap-3 lg:justify-end'>
+                <Button
+                  size='sm'
+                  onClick={handleCreateShifuModal}
                 >
-                  {t('common.core.aiCourseCreatorLink')}
-                </a>
-                {t('common.core.aiCourseCreatorSuffix')}
-              </span>
-            )}
-            <Tabs
-              className='ml-auto'
-              value={activeTab}
-              onValueChange={value => setActiveTab(value as 'all' | 'archived')}
-            >
-              <TabsList className='h-9 rounded-md bg-muted/40'>
-                <TabsTrigger
-                  value='all'
-                  className='rounded-md'
+                  <PlusIcon className='w-5 h-5 mr-1' />
+                  {t('common.core.createBlankShifu')}
+                </Button>
+                {courseCreatorUrl ? (
+                  <span className='text-xs text-muted-foreground'>
+                    {t('common.core.aiCourseCreatorPrefix')}
+                    <a
+                      href={courseCreatorUrl}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='text-muted-foreground underline hover:text-foreground'
+                    >
+                      {t('common.core.aiCourseCreatorLink')}
+                    </a>
+                    {t('common.core.aiCourseCreatorSuffix')}
+                  </span>
+                ) : null}
+                <Tabs
+                  value={activeTab}
+                  onValueChange={value =>
+                    setActiveTab(value as 'all' | 'archived')
+                  }
                 >
-                  {t('common.core.all')}
-                </TabsTrigger>
-                <TabsTrigger
-                  value='archived'
-                  className='rounded-md'
-                >
-                  {t('common.core.archived')}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <CreateShifuDialog
-              open={showCreateShifuModal}
-              onOpenChange={setShowCreateShifuModal}
-              onSubmit={onCreateShifu}
-            />
-          </div>
+                  <TabsList className='h-9 rounded-md bg-muted/40'>
+                    <TabsTrigger
+                      value='all'
+                      className='rounded-md'
+                    >
+                      {t('common.core.all')}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value='archived'
+                      className='rounded-md'
+                    >
+                      {t('common.core.archived')}
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            }
+          />
+          <CreateShifuDialog
+            open={showCreateShifuModal}
+            onOpenChange={setShowCreateShifuModal}
+            onSubmit={onCreateShifu}
+          />
           <div className='flex-1 overflow-auto'>
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
               {shifus.map(shifu => (

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
@@ -779,24 +780,20 @@ export default function AdminOperationCourseRatingsPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-        <div className='mb-5 shrink-0'>
-          <AdminOperationsBreadcrumb
-            items={[
-              {
-                label: tOperations('title'),
-                href: '/admin/operations',
-              },
-              {
-                label: tOperations('detail.title'),
-                href: detailPageUrl || undefined,
-              },
-              { label: tOperations('detail.ratings.title') },
-            ]}
-          />
-          <h1 className='text-2xl font-semibold text-gray-900'>
-            {tOperations('detail.ratings.title')}
-          </h1>
-        </div>
+        <AdminOperationsBreadcrumb
+          items={[
+            {
+              label: tOperations('title'),
+              href: '/admin/operations',
+            },
+            {
+              label: tOperations('detail.title'),
+              href: detailPageUrl || undefined,
+            },
+            { label: tOperations('detail.ratings.title') },
+          ]}
+        />
+        <AdminTitle title={tOperations('detail.ratings.title')} />
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>
           <div className='space-y-5 pb-6'>

@@ -15,6 +15,7 @@ import { ChevronDown, ChevronUp, Copy, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
@@ -1499,15 +1500,11 @@ const OperationsPage = () => {
       data-testid='admin-operations-page'
     >
       <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-        <div
-          className='mb-5'
+        <AdminBreadcrumb items={[{ label: tOperations('title') }]} />
+        <AdminTitle
           data-testid='admin-operations-header'
-        >
-          <AdminBreadcrumb items={[{ label: tOperations('title') }]} />
-          <h1 className='text-2xl font-semibold text-gray-900'>
-            {tOperations('title')}
-          </h1>
-        </div>
+          title={tOperations('title')}
+        />
 
         <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm'>
           <div className='mb-3'>

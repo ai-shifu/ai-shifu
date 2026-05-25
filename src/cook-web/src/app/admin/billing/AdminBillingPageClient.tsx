@@ -9,6 +9,11 @@ import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDet
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
 import { BillingRecentActivitySection } from '@/components/billing/BillingRecentActivitySection';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle, {
+  ADMIN_TITLE_HEADLINE_TABS_LIST_CLASSNAME,
+  ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME,
+  ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE,
+} from '@/app/admin/components/AdminTitle';
 import { resolveBillingTab, type BillingTab } from './billingTabs';
 
 type AdminBillingPageClientProps = {
@@ -111,27 +116,33 @@ export function AdminBillingPageClient({
           items={[{ label: breadcrumbTitle }]}
         />
         <Tabs
-          className='flex min-h-0 flex-1 flex-col gap-6'
+          className='flex min-h-0 flex-1 flex-col'
           value={activeTab}
           onValueChange={v => updateTab(v as BillingTab)}
         >
-          <TabsList
-            data-testid='admin-billing-tabs'
-            className='h-9 shrink-0 self-center rounded-md bg-muted/40'
-          >
-            <TabsTrigger
-              value='packages'
-              className='rounded-md'
-            >
-              {t('module.billing.page.tabs.plans')}
-            </TabsTrigger>
-            <TabsTrigger
-              value='details'
-              className='rounded-md'
-            >
-              {t('module.billing.page.tabs.ledger')}
-            </TabsTrigger>
-          </TabsList>
+          <AdminTitle
+            tabs={
+              <TabsList
+                data-testid='admin-billing-tabs'
+                className={ADMIN_TITLE_HEADLINE_TABS_LIST_CLASSNAME}
+              >
+                <TabsTrigger
+                  value='packages'
+                  className={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME}
+                  style={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE}
+                >
+                  {t('module.billing.page.tabs.plans')}
+                </TabsTrigger>
+                <TabsTrigger
+                  value='details'
+                  className={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME}
+                  style={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE}
+                >
+                  {t('module.billing.page.tabs.ledger')}
+                </TabsTrigger>
+              </TabsList>
+            }
+          />
 
           <TabsContent
             className='mt-0 min-h-0'

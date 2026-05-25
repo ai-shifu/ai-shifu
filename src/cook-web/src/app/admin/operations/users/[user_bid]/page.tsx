@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
@@ -766,7 +767,7 @@ export default function AdminOperationUserDetailPage() {
         data-testid='admin-operation-user-detail-page'
       >
         <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-          <div className='mb-5 shrink-0 px-1'>
+          <div className='px-1'>
             <AdminOperationsBreadcrumb
               items={[
                 {
@@ -776,9 +777,7 @@ export default function AdminOperationUserDetailPage() {
                 { label: tOperationsUsers('detail.title') },
               ]}
             />
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {tOperationsUsers('detail.title')}
-            </h1>
+            <AdminTitle title={tOperationsUsers('detail.title')} />
           </div>
 
           <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>

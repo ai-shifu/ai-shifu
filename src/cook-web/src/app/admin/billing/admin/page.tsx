@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { useEnvStore } from '@/c-store';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { AdminBillingConsoleTab } from '@/types/billing';
@@ -16,7 +18,6 @@ import { AdminBillingExceptionsPanel } from '@/components/billing/AdminBillingEx
 import { AdminBillingOrdersTable } from '@/components/billing/AdminBillingOrdersTable';
 import { AdminBillingReportsPanel } from '@/components/billing/AdminBillingReportsPanel';
 import { AdminBillingSubscriptionsTable } from '@/components/billing/AdminBillingSubscriptionsTable';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 
 export default function AdminBillingConsolePage() {
   const { t } = useTranslation();
@@ -59,18 +60,16 @@ export default function AdminBillingConsolePage() {
             { label: t('module.billing.admin.title') },
           ]}
         />
-        <div className='flex flex-col gap-6'>
-          <div className='flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_60%,#f8fafc_100%)] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)]'>
-            <div className='flex flex-wrap items-center justify-between gap-3'>
-              <div className='space-y-2'>
-                <p className='text-sm text-slate-500'>
-                  {t('module.billing.admin.subtitle')}
-                </p>
-                <h2 className='text-3xl font-semibold tracking-tight text-slate-900'>
-                  {t('module.billing.admin.title')}
-                </h2>
-              </div>
-              <div className='flex flex-wrap items-center gap-2'>
+        <Tabs
+          value={activeTab}
+          className='flex flex-col'
+          onValueChange={value => setActiveTab(value as AdminBillingConsoleTab)}
+        >
+          <AdminTitle
+            title={t('module.billing.admin.title')}
+            description={t('module.billing.admin.subtitle')}
+            actions={
+              <div className='flex flex-wrap items-center gap-2 lg:justify-end'>
                 <Button
                   className='rounded-full'
                   onClick={() => handleOpenAdjustDialog()}
@@ -87,84 +86,78 @@ export default function AdminBillingConsolePage() {
                   </Link>
                 </Button>
               </div>
-            </div>
-          </div>
-
-          <BillingCapabilitySummary audience='admin' />
-
-          <Tabs
-            value={activeTab}
-            className='flex flex-col gap-4'
-            onValueChange={value =>
-              setActiveTab(value as AdminBillingConsoleTab)
             }
+            tabs={
+              <TabsList className='h-11 rounded-full bg-white/80 p-1 shadow-sm'>
+                <TabsTrigger value='subscriptions'>
+                  {t('module.billing.admin.tabs.subscriptions')}
+                </TabsTrigger>
+                <TabsTrigger value='orders'>
+                  {t('module.billing.admin.tabs.orders')}
+                </TabsTrigger>
+                <TabsTrigger value='exceptions'>
+                  {t('module.billing.admin.tabs.exceptions')}
+                </TabsTrigger>
+                <TabsTrigger value='entitlements'>
+                  {t('module.billing.admin.tabs.entitlements')}
+                </TabsTrigger>
+                <TabsTrigger value='domains'>
+                  {t('module.billing.admin.tabs.domains')}
+                </TabsTrigger>
+                <TabsTrigger value='reports'>
+                  {t('module.billing.admin.tabs.reports')}
+                </TabsTrigger>
+              </TabsList>
+            }
+          />
+
+          <div className='mb-6'>
+            <BillingCapabilitySummary audience='admin' />
+          </div>
+          <TabsContent
+            value='subscriptions'
+            className='space-y-4'
           >
-            <TabsList className='h-11 rounded-full bg-white/80 p-1 shadow-sm'>
-              <TabsTrigger value='subscriptions'>
-                {t('module.billing.admin.tabs.subscriptions')}
-              </TabsTrigger>
-              <TabsTrigger value='orders'>
-                {t('module.billing.admin.tabs.orders')}
-              </TabsTrigger>
-              <TabsTrigger value='exceptions'>
-                {t('module.billing.admin.tabs.exceptions')}
-              </TabsTrigger>
-              <TabsTrigger value='entitlements'>
-                {t('module.billing.admin.tabs.entitlements')}
-              </TabsTrigger>
-              <TabsTrigger value='domains'>
-                {t('module.billing.admin.tabs.domains')}
-              </TabsTrigger>
-              <TabsTrigger value='reports'>
-                {t('module.billing.admin.tabs.reports')}
-              </TabsTrigger>
-            </TabsList>
+            <AdminBillingSubscriptionsTable />
+          </TabsContent>
 
-            <TabsContent
-              value='subscriptions'
-              className='space-y-4'
-            >
-              <AdminBillingSubscriptionsTable />
-            </TabsContent>
+          <TabsContent
+            value='orders'
+            className='space-y-4'
+          >
+            <AdminBillingOrdersTable />
+          </TabsContent>
 
-            <TabsContent
-              value='orders'
-              className='space-y-4'
-            >
-              <AdminBillingOrdersTable />
-            </TabsContent>
+          <TabsContent
+            value='exceptions'
+            className='space-y-4'
+          >
+            <AdminBillingExceptionsPanel
+              onAdjustCreatorBid={handleOpenAdjustDialog}
+            />
+          </TabsContent>
 
-            <TabsContent
-              value='exceptions'
-              className='space-y-4'
-            >
-              <AdminBillingExceptionsPanel
-                onAdjustCreatorBid={handleOpenAdjustDialog}
-              />
-            </TabsContent>
+          <TabsContent
+            value='entitlements'
+            className='space-y-4'
+          >
+            <AdminBillingEntitlementsTable />
+          </TabsContent>
 
-            <TabsContent
-              value='entitlements'
-              className='space-y-4'
-            >
-              <AdminBillingEntitlementsTable />
-            </TabsContent>
+          <TabsContent
+            value='domains'
+            className='space-y-4'
+          >
+            <AdminBillingDomainsTable />
+          </TabsContent>
 
-            <TabsContent
-              value='domains'
-              className='space-y-4'
-            >
-              <AdminBillingDomainsTable />
-            </TabsContent>
-
-            <TabsContent
-              value='reports'
-              className='space-y-4'
-            >
-              <AdminBillingReportsPanel />
-            </TabsContent>
-          </Tabs>
-        </div>
+          <TabsContent
+            value='reports'
+            className='space-y-4'
+          >
+            <AdminBillingReportsPanel />
+          </TabsContent>
+        </Tabs>
       </div>
 
       <AdminBillingAdjustDialog
