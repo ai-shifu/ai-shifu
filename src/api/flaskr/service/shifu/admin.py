@@ -53,6 +53,7 @@ from flaskr.service.billing.api import (
 from flaskr.service.billing.primitives import (
     credit_decimal_to_number,
     quantize_credit_amount as _quantize_credit_amount,
+    safe_int as _safe_int,
 )
 from flaskr.service.billing.queries import load_primary_active_subscription
 from flaskr.service.metering.consts import (
@@ -668,7 +669,7 @@ def _collect_operator_user_credit_order_source_bids(
     return [
         str(row.source_bid or "").strip()
         for row in ledger_rows
-        if row.source_type
+        if _operator_credit_int(row.source_type)
         in {
             CREDIT_SOURCE_TYPE_SUBSCRIPTION,
             CREDIT_SOURCE_TYPE_TOPUP,
@@ -685,6 +686,11 @@ def _resolve_operator_credit_usage_scene(metadata: Dict[str, Any]) -> int:
         return 0
 
 
+def _operator_credit_int(value: Any, default: int = 0) -> int:
+    candidate = _safe_int(value)
+    return candidate if candidate is not None else default
+
+
 def _resolve_operator_credit_display_entry_type(
     row: CreditLedgerEntry,
     *,
@@ -692,26 +698,28 @@ def _resolve_operator_credit_display_entry_type(
 ) -> str:
     usage_scene = _resolve_operator_credit_usage_scene(metadata)
     amount = Decimal(row.amount or 0)
+    entry_type = _operator_credit_int(row.entry_type)
+    source_type = _operator_credit_int(row.source_type)
 
-    if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_GRANT:
-        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
+    if entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT:
+        if source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
             checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
             if checkout_type == "trial_bootstrap":
                 return "trial_subscription_grant"
             return "subscription_grant"
-        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_TOPUP:
+        if source_type == CREDIT_SOURCE_TYPE_TOPUP:
             return "topup_grant"
-        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_GIFT:
+        if source_type == CREDIT_SOURCE_TYPE_GIFT:
             return "gift_grant"
-        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_MANUAL:
+        if source_type == CREDIT_SOURCE_TYPE_MANUAL:
             grant_type = str(metadata.get("grant_type") or "").strip().lower()
             if grant_type == "manual_grant":
                 return "manual_grant"
             return "manual_credit" if amount >= 0 else "manual_debit"
         return "grant"
 
-    if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_CONSUME:
-        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_USAGE:
+    if entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME:
+        if source_type == CREDIT_SOURCE_TYPE_USAGE:
             if usage_scene == BILL_USAGE_SCENE_PREVIEW:
                 return "preview_consume"
             if usage_scene == BILL_USAGE_SCENE_DEBUG:
@@ -720,23 +728,23 @@ def _resolve_operator_credit_display_entry_type(
                 return "learning_consume"
         return "consume"
 
-    if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT:
+    if entry_type == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT:
         if amount > 0:
             return "manual_credit"
         if amount < 0:
             return "manual_debit"
         return "adjustment"
 
-    if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE:
-        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
+    if entry_type == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE:
+        if source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
             return "subscription_expire"
-        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_TOPUP:
+        if source_type == CREDIT_SOURCE_TYPE_TOPUP:
             return "topup_expire"
-        if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_GIFT:
+        if source_type == CREDIT_SOURCE_TYPE_GIFT:
             return "gift_expire"
         return "expire"
 
-    if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_REFUND:
+    if entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND:
         return "refund_return"
 
     return CREDIT_LEDGER_ENTRY_TYPE_LABELS.get(row.entry_type, "grant")
@@ -747,7 +755,8 @@ def _resolve_operator_credit_display_source_type(
     *,
     metadata: Dict[str, Any],
 ) -> str:
-    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_USAGE:
+    source_type = _operator_credit_int(row.source_type)
+    if source_type == CREDIT_SOURCE_TYPE_USAGE:
         usage_scene = _resolve_operator_credit_usage_scene(metadata)
         if usage_scene == BILL_USAGE_SCENE_PREVIEW:
             return "preview"
@@ -757,18 +766,18 @@ def _resolve_operator_credit_display_source_type(
             return "learning"
         return "usage"
 
-    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
+    if source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
         checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
         if checkout_type == "trial_bootstrap":
             return "trial_subscription"
         return "subscription"
-    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_TOPUP:
+    if source_type == CREDIT_SOURCE_TYPE_TOPUP:
         return "topup"
-    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_GIFT:
+    if source_type == CREDIT_SOURCE_TYPE_GIFT:
         return "gift"
-    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_REFUND:
+    if source_type == CREDIT_SOURCE_TYPE_REFUND:
         return "refund"
-    if int(row.source_type or 0) == CREDIT_SOURCE_TYPE_MANUAL:
+    if source_type == CREDIT_SOURCE_TYPE_MANUAL:
         grant_source = str(metadata.get("grant_source") or "").strip().lower()
         if grant_source in OPERATOR_USER_CREDIT_GRANT_SOURCES:
             return grant_source
@@ -862,7 +871,7 @@ def _build_operator_user_credit_merged_metadata(
 
 def _is_operator_user_credit_grant_row(row: CreditLedgerEntry) -> bool:
     amount = Decimal(row.amount or 0)
-    entry_type = int(row.entry_type or 0)
+    entry_type = _operator_credit_int(row.entry_type)
     if entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT:
         return True
     return entry_type == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT and amount > 0
@@ -870,14 +879,14 @@ def _is_operator_user_credit_grant_row(row: CreditLedgerEntry) -> bool:
 
 def _is_operator_user_credit_consume_row(row: CreditLedgerEntry) -> bool:
     return (
-        int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_CONSUME
-        and int(row.source_type or 0) == CREDIT_SOURCE_TYPE_USAGE
+        _operator_credit_int(row.entry_type) == CREDIT_LEDGER_ENTRY_TYPE_CONSUME
+        and _operator_credit_int(row.source_type) == CREDIT_SOURCE_TYPE_USAGE
     )
 
 
 def _is_operator_user_credit_other_row(row: CreditLedgerEntry) -> bool:
     amount = Decimal(row.amount or 0)
-    entry_type = int(row.entry_type or 0)
+    entry_type = _operator_credit_int(row.entry_type)
     if entry_type in {
         CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
         CREDIT_LEDGER_ENTRY_TYPE_REFUND,
@@ -891,7 +900,7 @@ def _resolve_operator_user_credit_grant_filter_key(
     *,
     metadata: Dict[str, Any],
 ) -> str:
-    source_type = int(row.source_type or 0)
+    source_type = _operator_credit_int(row.source_type)
     if source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION:
         checkout_type = str(metadata.get("checkout_type") or "").strip().lower()
         if checkout_type == "trial_bootstrap":
@@ -1150,7 +1159,7 @@ def _load_operator_user_credit_summary_map(
             summary["credits_expire_at"] = active_subscription_end_map[creator_bid]
             continue
         if (
-            int(bucket.source_type or 0) != CREDIT_SOURCE_TYPE_MANUAL
+            _operator_credit_int(bucket.source_type) != CREDIT_SOURCE_TYPE_MANUAL
             or not effective_to
         ):
             continue
@@ -1882,7 +1891,9 @@ def _load_operator_user_credit_usage_context_map(
     if not usage_bids:
         return {}
 
-    latest_usage_subquery = _build_latest_bill_usage_record_subquery()
+    latest_usage_subquery = _build_latest_bill_usage_record_subquery(
+        usage_bids=usage_bids
+    )
     usage_rows = (
         db.session.query(BillUsageRecord)
         .join(
@@ -2121,15 +2132,20 @@ def _load_listen_segment_content_map(
             try:
                 audio_segments = json.loads(raw_audio_segments)
             except JSONDecodeError:
+                current_app.logger.info(
+                    "Invalid listen audio_segments JSON for generated element %s",
+                    getattr(row, "element_bid", ""),
+                    exc_info=True,
+                )
                 audio_segments = []
             if isinstance(audio_segments, list):
                 for item in audio_segments:
                     if not isinstance(item, dict):
                         continue
-                    try:
-                        segment_indices.append(int(item.get("segment_index", 0) or 0))
-                    except Exception:
+                    segment_index = _safe_int(item.get("segment_index", 0))
+                    if segment_index is None:
                         continue
+                    segment_indices.append(segment_index)
         if not segment_indices:
             segment_indices = [fallback_index]
             fallback_index += 1
@@ -6522,8 +6538,17 @@ def _load_bill_usage_record_map(
     return usage_map
 
 
-def _build_latest_bill_usage_record_subquery(*, user_bid: str = ""):
+def _build_latest_bill_usage_record_subquery(
+    *,
+    user_bid: str = "",
+    usage_bids: Sequence[str] | None = None,
+):
     normalized_user_bid = str(user_bid or "").strip()
+    normalized_usage_bids = [
+        str(usage_bid or "").strip()
+        for usage_bid in usage_bids or []
+        if str(usage_bid or "").strip()
+    ]
     query = db.session.query(
         BillUsageRecord.usage_bid.label("usage_bid"),
         db.func.max(BillUsageRecord.id).label("max_id"),
@@ -6533,6 +6558,8 @@ def _build_latest_bill_usage_record_subquery(*, user_bid: str = ""):
     )
     if normalized_user_bid:
         query = query.filter(BillUsageRecord.user_bid == normalized_user_bid)
+    if normalized_usage_bids:
+        query = query.filter(BillUsageRecord.usage_bid.in_(normalized_usage_bids))
     return query.group_by(BillUsageRecord.usage_bid).subquery()
 
 
@@ -6775,6 +6802,16 @@ def get_operator_user_credits(
             or has_consume_scene_filter
             or has_consume_usage_filter
         )
+        consume_source_bids: list[str] = []
+        if has_consume_sub_filter:
+            consume_source_bids = [
+                row[0]
+                for row in query.with_entities(CreditLedgerEntry.source_bid)
+                .filter(CreditLedgerEntry.source_bid != "")
+                .distinct()
+                .all()
+                if str(row[0] or "").strip()
+            ]
 
         if has_grant_source_filter:
             if grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP:
@@ -6819,7 +6856,9 @@ def get_operator_user_credits(
                 else:
                     query = query.filter(checkout_type_expr != "trial_bootstrap")
         elif has_consume_sub_filter:
-            latest_usage_subquery = _build_latest_bill_usage_record_subquery()
+            latest_usage_subquery = _build_latest_bill_usage_record_subquery(
+                usage_bids=consume_source_bids
+            )
             usage_row = aliased(BillUsageRecord)
             query = query.join(
                 latest_usage_subquery,
@@ -6906,11 +6945,11 @@ def get_operator_user_credit_usage_detail(
             usage_bid=normalized_usage_bid,
         )
         if not owner_ledger_rows:
-            raise_param_error("usage_bid is invalid")
+            raise_param_error("usage_bid")
 
         main_usage_row = _load_operator_user_credit_usage_main_row(normalized_usage_bid)
         if main_usage_row is None:
-            raise_param_error("usage_bid is invalid")
+            raise_param_error("usage_bid")
 
         total_consumed_credits = sum(
             (abs(Decimal(row.amount or 0)) for row in owner_ledger_rows),
@@ -6921,6 +6960,10 @@ def get_operator_user_credit_usage_detail(
             normalized_usage_bid
         )
         detail_rows = segment_rows or [main_usage_row]
+        total_segment_count = max(
+            int(getattr(main_usage_row, "segment_count", 0) or 0),
+            len(segment_rows),
+        )
         generated_block_bids = [
             str(getattr(row, "generated_block_bid", "") or "").strip()
             for row in detail_rows + [main_usage_row]
@@ -6967,7 +7010,11 @@ def get_operator_user_credit_usage_detail(
                 output_tokens=int(getattr(row, "output", 0) or 0),
                 word_count=int(getattr(row, "word_count", 0) or 0),
                 duration_ms=int(getattr(row, "duration_ms", 0) or 0),
-                segment_count=int(getattr(row, "segment_count", 0) or 0),
+                segment_count=(
+                    total_segment_count
+                    if int(getattr(row, "usage_type", 0) or 0) == BILL_USAGE_TYPE_TTS
+                    else int(getattr(row, "segment_count", 0) or 0)
+                ),
             )
             for row in detail_rows
         ]

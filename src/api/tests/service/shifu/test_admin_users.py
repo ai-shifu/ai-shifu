@@ -1493,6 +1493,51 @@ def test_get_operator_user_credits_returns_summary_and_paginated_ledger(app):
     assert result.items[0].note_code == ""
 
 
+def test_get_operator_user_credits_handles_invalid_source_type(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-invalid-source-user",
+            identify="credits-invalid-source@example.com",
+            nickname="Invalid Source",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "credits-invalid-source@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="credits-invalid-source-user",
+            wallet_bid="wallet-credits-invalid-source-user",
+            available_credits="1.0000000000",
+        )
+        entry = _seed_credit_ledger_entry(
+            creator_bid="credits-invalid-source-user",
+            wallet_bid="wallet-credits-invalid-source-user",
+            wallet_bucket_bid="bucket-invalid-source",
+            ledger_bid="ledger-invalid-source",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+            source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            source_bid="adjustment-invalid-source",
+            amount="1.0000000000",
+            balance_after="1.0000000000",
+            created_at=datetime(2026, 4, 18, 8, 0, 0),
+        )
+        entry.source_type = ""
+        db.session.add(entry)
+        db.session.commit()
+
+        result = get_operator_user_credits(
+            app,
+            user_bid="credits-invalid-source-user",
+            page_index=1,
+            page_size=20,
+        )
+
+    assert result.total == 1
+    assert result.items[0].display_source_type == "manual"
+
+
 def test_get_operator_user_credits_uses_empty_expiry_for_long_term_balances(app):
     with app.app_context():
         _seed_user(
@@ -2171,6 +2216,7 @@ def test_get_operator_user_credit_usage_detail_uses_ledger_owner_not_usage_user(
             usage_type=BILL_USAGE_TYPE_LLM,
             usage_scene=BILL_USAGE_SCENE_PROD,
             total=100,
+            segment_count=2,
             created_at=datetime(2026, 4, 18, 9, 0, 0),
         )
         _seed_credit_ledger_entry(
@@ -2270,7 +2316,7 @@ def test_get_operator_user_credit_usage_detail_returns_tts_segment_rows(app):
             word_count=3,
             duration_ms=1000,
             segment_index=0,
-            segment_count=1,
+            segment_count=0,
             created_at=datetime(2026, 4, 18, 9, 0, 1),
         )
         _seed_bill_usage_record(
@@ -2288,7 +2334,7 @@ def test_get_operator_user_credit_usage_detail_returns_tts_segment_rows(app):
             word_count=4,
             duration_ms=2000,
             segment_index=1,
-            segment_count=1,
+            segment_count=0,
             created_at=datetime(2026, 4, 18, 9, 0, 2),
         )
         _seed_credit_ledger_entry(
@@ -2317,7 +2363,7 @@ def test_get_operator_user_credit_usage_detail_returns_tts_segment_rows(app):
     assert [item.consumed_credits for item in result.items] == ["1", "3"]
     assert [item.word_count for item in result.items] == [3, 4]
     assert [item.duration_ms for item in result.items] == [1000, 2000]
-    assert [item.segment_count for item in result.items] == [1, 1]
+    assert [item.segment_count for item in result.items] == [2, 2]
 
 
 def test_get_operator_user_credits_excludes_topup_from_available_without_subscription(

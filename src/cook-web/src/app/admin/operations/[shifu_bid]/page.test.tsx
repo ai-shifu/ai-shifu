@@ -19,6 +19,7 @@ const mockCopyText = jest.fn();
 const mockToastShow = jest.fn();
 const mockToastFail = jest.fn();
 const mockScrollIntoView = jest.fn();
+const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
 let mockLanguage = 'en-US';
 let mockSearchParams = new URLSearchParams();
@@ -268,6 +269,13 @@ describe('AdminOperationCourseDetailPage', () => {
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value: mockScrollIntoView,
+    });
+  });
+
+  afterAll(() => {
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: originalScrollIntoView,
     });
   });
 
@@ -1024,6 +1032,45 @@ describe('AdminOperationCourseDetailPage', () => {
         user_role: 'operator',
         learning_status: 'all',
         payment_status: 'all',
+      });
+    });
+  });
+
+  test('does not apply credit usage draft filters when scene changes', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Course One');
+    await openCreditUsageTab();
+    mockGetAdminOperationCourseCreditUsages.mockClear();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.detail.creditUsage.filters.userKeywordPlaceholderPhone',
+      ),
+      {
+        target: {
+          value: 'draft keyword',
+        },
+      },
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.creditUsage.scenes.preview',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseCreditUsages).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        view: 'grouped',
+        keyword: '',
+        usage_scene: 'preview',
+        mode: '',
+        start_time: '',
+        end_time: '',
       });
     });
   });

@@ -843,7 +843,9 @@ export default function UserCreditLedgerTab({
       return;
     }
 
-    setUsageDetail(null);
+    setUsageDetail(currentDetail =>
+      currentDetail === null ? currentDetail : null,
+    );
     setUsageDetailLoading(true);
     try {
       const detail = await onUsageDetailLoad(normalizedUsageBid);

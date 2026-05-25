@@ -868,15 +868,16 @@ export default function AdminOperationCourseDetailPage() {
 
   const handleCourseCreditUsageSceneChange = useCallback(
     (value: AdminOperationCourseCreditUsageSceneFilter) => {
-      const nextFilters = {
+      const nextDraftFilters = {
         ...courseCreditUsageFiltersDraft,
         usageScene: value,
       };
-      setCourseCreditUsageFiltersDraft(nextFilters);
-      setCourseCreditUsageFilters({
-        ...nextFilters,
-        keyword: nextFilters.keyword.trim(),
-      });
+      setCourseCreditUsageFiltersDraft(nextDraftFilters);
+      setCourseCreditUsageFilters(prevFilters => ({
+        ...prevFilters,
+        usageScene: value,
+        keyword: prevFilters.keyword.trim(),
+      }));
       setCourseCreditUsagePage(1);
     },
     [courseCreditUsageFiltersDraft],
