@@ -56,7 +56,7 @@ export default function AdminTitle({
       className={cn('shrink-0', className)}
       {...props}
     >
-      <div className={cn('py-6 pl-0 pr-6', contentClassName)}>
+      <div className={cn('py-6 pl-0 pr-0', contentClassName)}>
         {hasHeaderContent ? (
           <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
             <div className='min-w-0 space-y-1'>

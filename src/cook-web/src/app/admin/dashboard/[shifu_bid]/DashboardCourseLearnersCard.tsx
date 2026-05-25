@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminFilter from '@/app/admin/components/AdminFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
@@ -186,6 +187,67 @@ export default function DashboardCourseLearnersCard({
     return t('module.dashboard.detail.learners.status.notStarted');
   };
 
+  const learnerFilterItems = [
+    {
+      key: 'keyword',
+      label: t('module.dashboard.detail.learners.filters.userKeyword'),
+      component: (
+        <ClearableTextInput
+          value={keyword}
+          placeholder={searchPlaceholder}
+          clearLabel={clearLabel}
+          onChange={onKeywordChange}
+          onSubmit={onSearch}
+        />
+      ),
+    },
+    {
+      key: 'learningStatus',
+      label: t('module.dashboard.detail.learners.filters.learningStatus'),
+      component: (
+        <Select
+          value={learningStatus}
+          onValueChange={value =>
+            onLearningStatusChange(value as LearnerFilterStatus)
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {statusOptions.map(option => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'lastLearningTime',
+      label: t('module.dashboard.detail.learners.filters.lastLearningTime'),
+      component: (
+        <AdminDateRangeFilter
+          startValue={lastLearningStart}
+          endValue={lastLearningEnd}
+          triggerAriaLabel={t(
+            'module.dashboard.detail.learners.filters.lastLearningTime',
+          )}
+          placeholder={t(
+            'module.dashboard.detail.learners.filters.lastLearningTimePlaceholder',
+          )}
+          resetLabel={t('module.dashboard.entry.table.reset')}
+          clearLabel={clearLabel}
+          onChange={onLastLearningTimeChange}
+        />
+      ),
+    },
+  ];
+
   return (
     <Card className='overflow-hidden border-border/80 shadow-sm ring-1 ring-border/40'>
       <CardContent className='space-y-4 px-5 py-5'>
@@ -195,97 +257,19 @@ export default function DashboardCourseLearnersCard({
           </h2>
         </div>
 
-        <form
-          className='rounded-xl border border-border bg-muted/20 p-3'
-          onSubmit={event => {
-            event.preventDefault();
-            onSearch();
-          }}
-        >
-          <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
-            <div className='flex flex-col gap-2'>
-              <label className='text-xs font-medium text-muted-foreground'>
-                {t('module.dashboard.detail.learners.filters.userKeyword')}
-              </label>
-              <ClearableTextInput
-                value={keyword}
-                placeholder={searchPlaceholder}
-                clearLabel={clearLabel}
-                onChange={onKeywordChange}
-                onSubmit={onSearch}
-              />
-            </div>
-            <div className='flex flex-col gap-2'>
-              <label className='text-xs font-medium text-muted-foreground'>
-                {t('module.dashboard.detail.learners.filters.learningStatus')}
-              </label>
-              <Select
-                value={learningStatus}
-                onValueChange={value =>
-                  onLearningStatusChange(value as LearnerFilterStatus)
-                }
-              >
-                <SelectTrigger className='h-9'>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map(option => (
-                    <SelectItem
-                      key={option.value}
-                      value={option.value}
-                    >
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className='flex flex-col gap-2'>
-              <label className='text-xs font-medium text-muted-foreground'>
-                {t('module.dashboard.detail.learners.filters.lastLearningTime')}
-              </label>
-              <AdminDateRangeFilter
-                startValue={lastLearningStart}
-                endValue={lastLearningEnd}
-                triggerAriaLabel={t(
-                  'module.dashboard.detail.learners.filters.lastLearningTime',
-                )}
-                placeholder={t(
-                  'module.dashboard.detail.learners.filters.lastLearningTimePlaceholder',
-                )}
-                resetLabel={t('module.dashboard.entry.table.reset')}
-                clearLabel={clearLabel}
-                onChange={onLastLearningTimeChange}
-              />
-            </div>
-          </div>
-
-          <div className='mt-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between'>
-            <div className='pl-1 text-sm text-muted-foreground md:pb-2'>
-              {t('module.dashboard.detail.learners.totalCount', {
-                count: learners.total,
-              })}
-            </div>
-            <div className='flex items-center justify-start gap-2 md:justify-end'>
-              <Button
-                type='button'
-                variant='outline'
-                className='h-9 px-4'
-                onClick={onReset}
-                disabled={loading}
-              >
-                {t('module.dashboard.entry.table.reset')}
-              </Button>
-              <Button
-                type='submit'
-                className='h-9 px-4'
-                disabled={loading}
-              >
-                {t('module.dashboard.entry.table.search')}
-              </Button>
-            </div>
-          </div>
-        </form>
+        <AdminFilter
+          items={learnerFilterItems}
+          expanded={false}
+          onExpandedChange={() => undefined}
+          onReset={onReset}
+          onSearch={onSearch}
+          resetLabel={t('module.dashboard.entry.table.reset')}
+          searchLabel={t('module.dashboard.entry.table.search')}
+          expandLabel={t('common.core.expand')}
+          collapseLabel={t('common.core.collapse')}
+          collapsedCount={3}
+          contentClassName='min-w-0 flex-1'
+        />
 
         <AdminTableShell
           loading={loading}
@@ -295,6 +279,9 @@ export default function DashboardCourseLearnersCard({
           withTooltipProvider={!error}
           tableWrapperClassName='overflow-auto'
           loadingClassName='min-h-[220px]'
+          footnote={t('module.dashboard.detail.learners.totalCount', {
+            count: learners.total,
+          })}
           footer={
             learners.page_count > 1 ? (
               <AdminPagination

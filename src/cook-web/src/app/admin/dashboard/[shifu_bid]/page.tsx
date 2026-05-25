@@ -492,7 +492,7 @@ export default function AdminDashboardCourseDetailPage() {
                 </div>
                 <dl className='grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.65fr_1.2fr_0.9fr_0.75fr_0.75fr] xl:gap-5'>
                   <div className='space-y-1'>
-                    <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
+                    <dt className='text-sm leading-5 text-muted-foreground'>
                       {t('module.dashboard.detail.courseIdLabel')}
                     </dt>
                     <dd className='text-sm font-medium text-foreground'>
@@ -502,7 +502,7 @@ export default function AdminDashboardCourseDetailPage() {
                     </dd>
                   </div>
                   <div className='space-y-1'>
-                    <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
+                    <dt className='text-sm leading-5 text-muted-foreground'>
                       {t('module.dashboard.detail.basicInfo.courseName')}
                     </dt>
                     <dd className='text-sm font-medium text-foreground'>
@@ -512,7 +512,7 @@ export default function AdminDashboardCourseDetailPage() {
                     </dd>
                   </div>
                   <div className='space-y-1 xl:pl-4'>
-                    <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
+                    <dt className='text-sm leading-5 text-muted-foreground'>
                       {t('module.dashboard.detail.basicInfo.status')}
                     </dt>
                     <dd className='text-sm font-medium text-foreground'>
@@ -520,7 +520,7 @@ export default function AdminDashboardCourseDetailPage() {
                     </dd>
                   </div>
                   <div className='space-y-1 xl:pl-4'>
-                    <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
+                    <dt className='text-sm leading-5 text-muted-foreground'>
                       {t('module.dashboard.detail.basicInfo.learnerCount')}
                     </dt>
                     <dd className='text-sm font-medium text-foreground'>
@@ -528,7 +528,7 @@ export default function AdminDashboardCourseDetailPage() {
                     </dd>
                   </div>
                   <div className='space-y-1 xl:pl-4'>
-                    <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
+                    <dt className='text-sm leading-5 text-muted-foreground'>
                       {t('module.dashboard.detail.basicInfo.chapterCount')}
                     </dt>
                     <dd className='text-sm font-medium text-foreground'>

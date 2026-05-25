@@ -28,6 +28,7 @@ type AdminFilterProps = {
   labelClassName?: string;
   collapsedLabelClassName?: string;
   expandedLabelClassName?: string;
+  showToggle?: boolean;
 };
 
 const ADMIN_FILTER_LABEL_CLASS =
@@ -42,7 +43,12 @@ const AdminFilterField = ({
   contentClassName?: string;
   labelClassName?: string;
 }) => (
-  <div className={cn('flex items-center gap-3', item.itemClassName)}>
+  <div
+    className={cn(
+      'flex min-w-0 items-center gap-3 md:[&>span]:text-right',
+      item.itemClassName,
+    )}
+  >
     <span
       className={cn(
         ADMIN_FILTER_LABEL_CLASS,
@@ -69,6 +75,7 @@ const AdminFilterActions = ({
   searchLabel,
   expandLabel,
   collapseLabel,
+  showToggle,
 }: Omit<
   AdminFilterProps,
   | 'items'
@@ -82,6 +89,7 @@ const AdminFilterActions = ({
   <div className='flex shrink-0 items-center justify-end'>
     <Button
       size='sm'
+      type='button'
       variant='outline'
       className='px-4'
       onClick={onReset}
@@ -90,24 +98,28 @@ const AdminFilterActions = ({
     </Button>
     <Button
       size='sm'
+      type='button'
       className='ml-2 px-4'
       onClick={onSearch}
     >
       {searchLabel}
     </Button>
-    <Button
-      size='sm'
-      variant='ghost'
-      className='ml-4 gap-1 px-2 text-[var(--base-foreground,#0A0A0A)] hover:text-[var(--base-foreground,#0A0A0A)]'
-      onClick={() => onExpandedChange(!expanded)}
-    >
-      {expanded ? collapseLabel : expandLabel}
-      {expanded ? (
-        <ChevronUp className='h-4 w-4' />
-      ) : (
-        <ChevronDown className='h-4 w-4' />
-      )}
-    </Button>
+    {showToggle ? (
+      <Button
+        size='sm'
+        type='button'
+        variant='ghost'
+        className='ml-4 gap-1 px-2 text-[var(--base-foreground,#0A0A0A)] hover:text-[var(--base-foreground,#0A0A0A)]'
+        onClick={() => onExpandedChange(!expanded)}
+      >
+        {expanded ? collapseLabel : expandLabel}
+        {expanded ? (
+          <ChevronUp className='h-4 w-4' />
+        ) : (
+          <ChevronDown className='h-4 w-4' />
+        )}
+      </Button>
+    ) : null}
   </div>
 );
 
@@ -127,7 +139,9 @@ export default function AdminFilter({
   labelClassName,
   collapsedLabelClassName,
   expandedLabelClassName,
+  showToggle,
 }: AdminFilterProps) {
+  const canToggle = showToggle ?? items.length > collapsedCount;
   const collapsedItems = items.slice(0, collapsedCount);
   const resolvedCollapsedLabelClassName =
     collapsedLabelClassName ?? labelClassName;
@@ -138,7 +152,7 @@ export default function AdminFilter({
     <div className={cn('w-full bg-white', className)}>
       {!expanded ? (
         <div className='flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between'>
-          <div className='grid flex-1 gap-x-7 gap-y-4 md:grid-cols-2 xl:grid-cols-[repeat(auto-fit,minmax(220px,245px))]'>
+          <div className='grid min-w-0 flex-1 grid-cols-1 gap-x-7 gap-y-4 xl:grid-cols-[repeat(3,minmax(0,245px))]'>
             {collapsedItems.map(item => (
               <AdminFilterField
                 key={item.key}
@@ -157,11 +171,12 @@ export default function AdminFilter({
             searchLabel={searchLabel}
             expandLabel={expandLabel}
             collapseLabel={collapseLabel}
+            showToggle={canToggle}
           />
         </div>
       ) : (
         <div className='space-y-4'>
-          <div className='grid gap-x-7 gap-y-4 md:grid-cols-2 xl:grid-cols-3'>
+          <div className='grid min-w-0 grid-cols-1 gap-x-7 gap-y-4 xl:grid-cols-3'>
             {items.map(item => (
               <AdminFilterField
                 key={item.key}
@@ -180,6 +195,7 @@ export default function AdminFilter({
             searchLabel={searchLabel}
             expandLabel={expandLabel}
             collapseLabel={collapseLabel}
+            showToggle={canToggle}
           />
         </div>
       )}

@@ -11,7 +11,6 @@ import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import {
   Popover,
@@ -24,19 +23,10 @@ import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
-  TableEmpty,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
 import type { DateRange } from 'react-day-picker';
 import type {
   DashboardEntryCourseItem,
@@ -52,7 +42,13 @@ import {
   formatOrderAmount,
 } from './dashboardCourseTableRow';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminCountCard from '@/app/admin/components/AdminCountCard';
+import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTitle from '@/app/admin/components/AdminTitle';
+import {
+  ADMIN_TABLE_HEADER_CELL_CLASS,
+  getAdminStickyRightHeaderClass,
+} from '@/app/admin/components/adminTableStyles';
 
 const PAGE_SIZE = 20;
 
@@ -187,9 +183,6 @@ const EMPTY_SUMMARY: DashboardEntrySummary = {
   order_count: 0,
   order_amount: '0.00',
 };
-
-const DASHBOARD_TABLE_HEAD_CLASS =
-  'sticky top-0 z-30 bg-muted border-r border-border last:border-r-0';
 
 export default function AdminDashboardEntryPage() {
   const { t } = useTranslation();
@@ -394,51 +387,26 @@ export default function AdminDashboardEntryPage() {
         />
 
         <div className='shrink-0 mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4'>
-          <Card>
-            <CardContent className='p-4'>
-              <div className='text-sm text-muted-foreground'>
-                {t('module.dashboard.entry.kpi.courses')}
-              </div>
-              <div className='mt-2 text-2xl font-semibold text-foreground'>
-                {loading ? '-' : summary.course_count}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className='p-4'>
-              <div className='text-sm text-muted-foreground'>
-                {t('module.dashboard.entry.kpi.learners')}
-              </div>
-              <div className='mt-2 text-2xl font-semibold text-foreground'>
-                {loading ? '-' : summary.learner_count}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className='p-4'>
-              <div className='text-sm text-muted-foreground'>
-                {t('module.dashboard.entry.kpi.orders')}
-              </div>
-              <div className='mt-2 text-2xl font-semibold text-foreground'>
-                {loading ? '-' : summary.order_count}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className='p-4'>
-              <div className='text-sm text-muted-foreground'>
-                {t('module.dashboard.entry.kpi.orderAmount')}
-              </div>
-              <div className='mt-2 text-2xl font-semibold text-foreground'>
-                {loading
-                  ? '-'
-                  : formatOrderAmount(summary.order_amount, currencySymbol)}
-              </div>
-            </CardContent>
-          </Card>
+          <AdminCountCard
+            title={t('module.dashboard.entry.kpi.courses')}
+            value={loading ? '-' : summary.course_count}
+          />
+          <AdminCountCard
+            title={t('module.dashboard.entry.kpi.learners')}
+            value={loading ? '-' : summary.learner_count}
+          />
+          <AdminCountCard
+            title={t('module.dashboard.entry.kpi.orders')}
+            value={loading ? '-' : summary.order_count}
+          />
+          <AdminCountCard
+            title={t('module.dashboard.entry.kpi.orderAmount')}
+            value={
+              loading
+                ? '-'
+                : formatOrderAmount(summary.order_amount, currencySymbol)
+            }
+          />
         </div>
 
         {error ? (
@@ -447,178 +415,113 @@ export default function AdminDashboardEntryPage() {
           </div>
         ) : null}
 
-        <div className='flex-1 min-h-0 flex flex-col'>
-          <div className='flex min-h-0 flex-1 flex-col rounded-xl border border-border bg-white shadow-sm'>
-            <div className='shrink-0 border-b border-border p-4'>
-              <div className='flex items-baseline gap-2'>
-                <h2 className='text-base font-semibold text-foreground'>
-                  {t('module.dashboard.entry.table.title')}
-                </h2>
-                <span className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.entry.table.totalCount', {
-                    count: total,
-                  })}
-                </span>
-              </div>
-            </div>
-
-            <div
-              data-testid='dashboard-course-list-scroll-region'
-              className='min-h-0 flex-1 overflow-hidden'
-            >
-              {loading ? (
-                <div className='flex h-full min-h-40 items-center justify-center'>
-                  <Loading />
-                </div>
-              ) : (
-                <Table
-                  containerClassName='h-full'
-                  className='min-w-[820px]'
-                >
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead
-                        className={cn(
-                          DASHBOARD_TABLE_HEAD_CLASS,
-                          'min-w-[280px]',
-                        )}
-                      >
-                        {t('module.dashboard.entry.table.course')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          DASHBOARD_TABLE_HEAD_CLASS,
-                          'min-w-[120px]',
-                        )}
-                      >
-                        {t('module.dashboard.entry.table.learners')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          DASHBOARD_TABLE_HEAD_CLASS,
-                          'min-w-[120px]',
-                        )}
-                      >
-                        {t('module.dashboard.entry.table.orders')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          DASHBOARD_TABLE_HEAD_CLASS,
-                          'min-w-[140px]',
-                        )}
-                      >
-                        {t('module.dashboard.entry.table.orderAmount')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          DASHBOARD_TABLE_HEAD_CLASS,
-                          'min-w-[180px]',
-                        )}
-                      >
-                        {t('module.dashboard.entry.table.lastActive')}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.length === 0 ? (
-                      <TableEmpty colSpan={5}>
-                        {t('module.dashboard.entry.table.empty')}
-                      </TableEmpty>
-                    ) : null}
-
-                    {items.map(item => (
-                      <DashboardCourseTableRow
-                        key={item.shifu_bid}
-                        item={item}
-                        currencySymbol={currencySymbol}
-                        orderButtonLabel={`${t('module.dashboard.entry.table.orders')}-${item.shifu_bid}`}
-                        onCourseDetailClick={handleCourseDetailClick}
-                        onOrderClick={handleOrderClick}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
-          </div>
-
-          <div
-            data-testid='dashboard-course-list-footer'
-            className='mt-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'
-          >
-            <p className='min-w-0 flex-1 text-sm text-muted-foreground'>
-              {t('module.dashboard.entry.table.scopeNote')}
-            </p>
-
-            <Pagination className='mx-0 w-full justify-start sm:w-auto sm:shrink-0 sm:justify-end'>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href='#'
-                    onClick={event => {
-                      event.preventDefault();
-                      handlePageChange(pageIndex - 1);
-                    }}
-                    aria-disabled={pageIndex <= 1}
-                    className={
-                      pageIndex <= 1 ? 'pointer-events-none opacity-50' : ''
-                    }
-                  >
-                    {t('module.dashboard.pagination.prev')}
-                  </PaginationPrevious>
-                </PaginationItem>
-
-                {(() => {
-                  const startPage =
-                    pageCount <= 5
-                      ? 1
-                      : Math.max(1, Math.min(pageIndex - 2, pageCount - 4));
-                  const endPage =
-                    pageCount <= 5
-                      ? pageCount
-                      : Math.min(pageCount, startPage + 4);
-
-                  const pages: number[] = [];
-                  for (let page = startPage; page <= endPage; page += 1) {
-                    pages.push(page);
-                  }
-
-                  return pages.map(page => (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        href='#'
-                        onClick={event => {
-                          event.preventDefault();
-                          handlePageChange(page);
-                        }}
-                        isActive={page === pageIndex}
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ));
-                })()}
-
-                <PaginationItem>
-                  <PaginationNext
-                    href='#'
-                    onClick={event => {
-                      event.preventDefault();
-                      handlePageChange(pageIndex + 1);
-                    }}
-                    aria-disabled={pageIndex >= pageCount}
-                    className={
-                      pageIndex >= pageCount
-                        ? 'pointer-events-none opacity-50'
-                        : ''
-                    }
-                  >
-                    {t('module.dashboard.pagination.next')}
-                  </PaginationNext>
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
+        <div className='flex min-h-0 flex-1 flex-col'>
+          <AdminTableShell
+            loading={loading}
+            isEmpty={items.length === 0}
+            emptyContent={t('module.dashboard.entry.table.empty')}
+            emptyColSpan={6}
+            containerClassName='min-h-0 flex-1'
+            tableWrapperClassName='flex min-h-0 flex-1 flex-col overflow-hidden'
+            tableWrapperTestId='dashboard-course-list-scroll-region'
+            loadingClassName='h-auto min-h-40 flex-1'
+            footerTestId='dashboard-course-list-footer'
+            showFooterWhenLoading
+            footnote={
+              <span>
+                {t('module.dashboard.entry.table.footnote', {
+                  count: total,
+                })}
+              </span>
+            }
+            footnoteClassName='min-w-0 flex-1'
+            footerClassName='shrink-0 flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between'
+            pagination={{
+              pageIndex,
+              pageCount,
+              onPageChange: handlePageChange,
+              prevLabel: t('module.dashboard.pagination.prev'),
+              nextLabel: t('module.dashboard.pagination.next'),
+              prevAriaLabel: t('module.dashboard.pagination.prev'),
+              nextAriaLabel: t('module.dashboard.pagination.next'),
+            }}
+            table={emptyRow => (
+              <Table
+                containerClassName='min-h-0 flex-1'
+                className='min-w-[980px]'
+              >
+                <TableHeader>
+                  <TableRow>
+                    <TableHead
+                      className={cn(
+                        ADMIN_TABLE_HEADER_CELL_CLASS,
+                        'min-w-[280px]',
+                      )}
+                    >
+                      {t('module.dashboard.entry.table.course')}
+                    </TableHead>
+                    <TableHead
+                      className={cn(
+                        ADMIN_TABLE_HEADER_CELL_CLASS,
+                        'min-w-[120px]',
+                      )}
+                    >
+                      {t('module.dashboard.entry.table.learners')}
+                    </TableHead>
+                    <TableHead
+                      className={cn(
+                        ADMIN_TABLE_HEADER_CELL_CLASS,
+                        'min-w-[120px]',
+                      )}
+                    >
+                      {t('module.dashboard.entry.table.orders')}
+                    </TableHead>
+                    <TableHead
+                      className={cn(
+                        ADMIN_TABLE_HEADER_CELL_CLASS,
+                        'min-w-[140px]',
+                      )}
+                    >
+                      {t('module.dashboard.entry.table.orderAmount')}
+                    </TableHead>
+                    <TableHead
+                      className={cn(
+                        ADMIN_TABLE_HEADER_CELL_CLASS,
+                        'min-w-[180px]',
+                      )}
+                    >
+                      {t('module.dashboard.entry.table.lastActive')}
+                    </TableHead>
+                    <TableHead
+                      className={getAdminStickyRightHeaderClass(
+                        'min-w-[160px]',
+                      )}
+                    >
+                      {t('module.dashboard.entry.table.action')}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {emptyRow}
+                  {items.map(item => (
+                    <DashboardCourseTableRow
+                      key={item.shifu_bid}
+                      item={item}
+                      currencySymbol={currencySymbol}
+                      viewCourseLabel={t(
+                        'module.dashboard.entry.table.viewCourse',
+                      )}
+                      viewOrdersLabel={t(
+                        'module.dashboard.entry.table.viewOrders',
+                      )}
+                      onCourseDetailClick={handleCourseDetailClick}
+                      onOrderClick={handleOrderClick}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          />
         </div>
       </div>
     </div>

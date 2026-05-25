@@ -14,6 +14,11 @@
 - 单元格默认不展示右侧 border；页面内遗留的 `border-r`、`text-center` 应由共享表格样式覆盖，避免逐页重复清理。
 - 首列左侧间距优先用 `16px`，避免表格左边缘过挤；整行 hover 背景必须覆盖 sticky 操作列，不要让固定列保持白底。
 - 单元格出现省略号时优先复用 `AdminTooltipText` 暴露完整文本；多行信息单元格需要分别给各行补 tooltip，避免只处理外层单元格导致具体文本仍不可见。
+- 后台数据页的课程列表也应复用 `AdminTableShell`，标题区域用 `header` 配置，统计范围说明用 `footnote` 配置，分页用 `pagination` 配置；需要 loading 时仍展示分页和说明时传入 `showFooterWhenLoading`。
+- 后台数据页课程列表如果产品要求精简表格顶部区域，可以不传 `header`；课程总数和统计范围说明合并到同一条 `footnote` 中，优先使用“课程数：{count}（统计范围说明...）”这类单行文案。
+- admin 表格所有操作列都应和订单表格一致固定在右侧：表头使用 `getAdminStickyRightHeaderClass`，单元格使用 `getAdminStickyRightCellClass`，不要只把操作列放在最后但随横向滚动移出视口。
+- 后台数据页课程列表需要操作列时，操作列放在最右侧并固定，提供“查看课程”和“查看订单”文本按钮并承载跳转；课程列和订单数列保持普通黑色文本，不要额外加蓝色、underline 或点击行为。
+- 后台数据页课程列表的课程列默认只展示课程名，不展示课程 ID；如需查看详情应通过右侧操作列进入课程详情。
 - 分页器优先通过 `AdminTableShell` 的 `pagination` 配置统一渲染在表格底部右侧；除非产品明确要求隐藏，否则单页也展示分页器，不要在页面里用 `pageCount > 1` 或 `hideWhenSinglePage` 隐藏。
 - 分页器末尾“下一页”需要和 table 右边缘视觉对齐时，优先在共享 `AdminPagination` 包装层处理最后一个分页按钮的右侧内边距，不要在单个页面里用 margin 偏移。
 - 分页器页码按钮统一使用 `36px` 宽高、`8px 16px` padding 和 `8px` gap；优先改共享 `PaginationLink` 的 icon 尺寸，不要在单个 admin 页面覆盖页码按钮。

@@ -5,10 +5,7 @@ import Loading from '@/components/loading';
 import { TableEmpty } from '@/components/ui/Table';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import {
-  AdminPagination,
-  type AdminPaginationProps,
-} from './AdminPagination';
+import { AdminPagination, type AdminPaginationProps } from './AdminPagination';
 import {
   ADMIN_TABLE_DESCENDANT_CLASS,
   ADMIN_TABLE_SHELL_CLASS,
@@ -22,19 +19,26 @@ type AdminTableShellProps = {
   emptyContent?: ReactNode;
   emptyColSpan?: number;
   table: ReactNode | AdminTableRenderer;
+  header?: ReactNode;
   footnote?: ReactNode;
   footer?: ReactNode;
   pagination?: AdminPaginationProps;
   withTooltipProvider?: boolean;
   containerClassName?: string;
   tableWrapperClassName?: string;
+  tableWrapperTestId?: string;
+  headerClassName?: string;
   loadingClassName?: string;
   footnoteClassName?: string;
   footerClassName?: string;
+  footerTestId?: string;
+  showFooterWhenLoading?: boolean;
 };
 
 const ADMIN_TABLE_FOOTNOTE_CLASS =
   'text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]';
+const ADMIN_TABLE_HEADER_CLASS =
+  'shrink-0 border-b border-[var(--base-border,#E5E5E5)] p-[var(--spacing-4,16px)]';
 
 const renderTableContent = (
   table: ReactNode | AdminTableRenderer,
@@ -52,15 +56,20 @@ export default function AdminTableShell({
   emptyContent,
   emptyColSpan,
   table,
+  header,
   footnote,
   footer,
   pagination,
   withTooltipProvider = false,
   containerClassName,
   tableWrapperClassName,
+  tableWrapperTestId,
+  headerClassName,
   loadingClassName,
   footnoteClassName,
   footerClassName,
+  footerTestId,
+  showFooterWhenLoading = false,
 }: AdminTableShellProps) {
   const emptyRow =
     isEmpty && emptyContent && emptyColSpan ? (
@@ -73,16 +82,25 @@ export default function AdminTableShell({
   ) : (
     tableContent
   );
+  const shouldRenderFooter =
+    (showFooterWhenLoading || !loading) &&
+    Boolean(footnote || footer || pagination);
 
   return (
     <div className={cn('flex min-h-0 flex-col', containerClassName)}>
       <div
+        data-testid={tableWrapperTestId}
         className={cn(
           ADMIN_TABLE_SHELL_CLASS,
           ADMIN_TABLE_DESCENDANT_CLASS,
           tableWrapperClassName,
         )}
       >
+        {header ? (
+          <div className={cn(ADMIN_TABLE_HEADER_CLASS, headerClassName)}>
+            {header}
+          </div>
+        ) : null}
         {loading ? (
           <div
             className={cn(
@@ -96,8 +114,9 @@ export default function AdminTableShell({
           wrappedTableContent
         )}
       </div>
-      {loading || (!footnote && !footer && !pagination) ? null : (
+      {shouldRenderFooter ? (
         <div
+          data-testid={footerTestId}
           className={cn(
             'mt-4 flex items-center justify-between gap-4',
             footerClassName,
@@ -119,7 +138,7 @@ export default function AdminTableShell({
             footer
           )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
