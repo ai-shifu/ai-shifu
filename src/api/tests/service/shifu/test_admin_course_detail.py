@@ -1855,6 +1855,14 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
             created_at=created_at,
             updated_at=created_at,
         )
+        _seed_progress(
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-2",
+            user_bid="student-learning",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=created_at,
+            updated_at=created_at,
+        )
         _seed_credit_usage(
             usage_bid="usage-completed",
             user_bid="student-completed",
@@ -2358,6 +2366,16 @@ def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summ
             consumed_credits=Decimal("5"),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
+        )
+        _seed_generated_element(
+            element_bid="element-detail-collision",
+            progress_record_bid="progress-other",
+            user_bid="student-other",
+            generated_block_bid="block-detail-1",
+            outline_item_bid="lesson-other",
+            shifu_bid="other-course",
+            created_at=datetime(2026, 4, 4, 10, 0, 1),
+            content_text="Wrong course output",
         )
         _seed_generated_element(
             element_bid="element-detail-1",

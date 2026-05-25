@@ -746,10 +746,26 @@ def _load_course_credit_usage_output_summary_map(
     if not generated_block_bids:
         return {}
 
-    element_parts_map: dict[str, list[str]] = {}
+    def context_key(row: Any) -> tuple[str, str, str, str]:
+        return (
+            str(getattr(row, "generated_block_bid", "") or "").strip(),
+            str(getattr(row, "shifu_bid", "") or "").strip(),
+            str(getattr(row, "user_bid", "") or "").strip(),
+            str(getattr(row, "outline_item_bid", "") or "").strip(),
+        )
+
+    usage_context_keys = {context_key(usage_row) for usage_row in normalized_rows}
+    shifu_bids = sorted({key[1] for key in usage_context_keys if key[1]})
+    user_bids = sorted({key[2] for key in usage_context_keys if key[2]})
+    outline_item_bids = sorted({key[3] for key in usage_context_keys if key[3]})
+
+    element_parts_map: dict[tuple[str, str, str, str], list[str]] = {}
     element_rows = (
         LearnGeneratedElement.query.filter(
             LearnGeneratedElement.generated_block_bid.in_(generated_block_bids),
+            LearnGeneratedElement.shifu_bid.in_(shifu_bids),
+            LearnGeneratedElement.user_bid.in_(user_bids),
+            LearnGeneratedElement.outline_item_bid.in_(outline_item_bids),
             LearnGeneratedElement.event_type == "element",
             LearnGeneratedElement.role == "teacher",
             LearnGeneratedElement.is_final == 1,
@@ -772,7 +788,10 @@ def _load_course_credit_usage_output_summary_map(
         ).strip()
         if not generated_block_bid:
             continue
-        parts = element_parts_map.setdefault(generated_block_bid, [])
+        key = context_key(element)
+        if key not in usage_context_keys:
+            continue
+        parts = element_parts_map.setdefault(key, [])
         if len(parts) >= 20:
             continue
         content = str(getattr(element, "content_text", "") or "").strip()
@@ -780,21 +799,22 @@ def _load_course_credit_usage_output_summary_map(
             parts.append(content)
 
     element_summary_map = {
-        generated_block_bid: "\n".join(parts)
-        for generated_block_bid, parts in element_parts_map.items()
-        if parts
+        key: "\n".join(parts) for key, parts in element_parts_map.items() if parts
     }
 
-    missing_block_bids = [
-        generated_block_bid
-        for generated_block_bid in generated_block_bids
-        if not element_summary_map.get(generated_block_bid)
+    missing_context_keys = [
+        key for key in usage_context_keys if not element_summary_map.get(key)
     ]
-    block_summary_map: dict[str, str] = {}
+    missing_context_key_set = set(missing_context_keys)
+    missing_block_bids = sorted({key[0] for key in missing_context_keys if key[0]})
+    block_summary_map: dict[tuple[str, str, str, str], str] = {}
     if missing_block_bids:
         block_rows = (
             LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.generated_block_bid.in_(missing_block_bids),
+                LearnGeneratedBlock.shifu_bid.in_(shifu_bids),
+                LearnGeneratedBlock.user_bid.in_(user_bids),
+                LearnGeneratedBlock.outline_item_bid.in_(outline_item_bids),
                 LearnGeneratedBlock.deleted == 0,
                 LearnGeneratedBlock.status == 1,
                 LearnGeneratedBlock.type.in_(
@@ -815,16 +835,21 @@ def _load_course_credit_usage_output_summary_map(
             generated_block_bid = str(
                 getattr(block, "generated_block_bid", "") or ""
             ).strip()
-            if not generated_block_bid or generated_block_bid in block_summary_map:
+            key = context_key(block)
+            if (
+                not generated_block_bid
+                or key not in missing_context_key_set
+                or key in block_summary_map
+            ):
                 continue
             generated_content = str(
                 getattr(block, "generated_content", "") or ""
             ).strip()
             if generated_content:
-                block_summary_map[generated_block_bid] = generated_content
+                block_summary_map[key] = generated_content
                 continue
             if int(getattr(block, "type", 0) or 0) == BLOCK_TYPE_MDINTERACTION_VALUE:
-                block_summary_map[generated_block_bid] = str(
+                block_summary_map[key] = str(
                     getattr(block, "block_content_conf", "") or ""
                 ).strip()
 
@@ -834,9 +859,8 @@ def _load_course_credit_usage_output_summary_map(
         generated_block_bid = str(
             getattr(usage_row, "generated_block_bid", "") or ""
         ).strip()
-        summary = element_summary_map.get(generated_block_bid) or block_summary_map.get(
-            generated_block_bid, ""
-        )
+        key = context_key(usage_row)
+        summary = element_summary_map.get(key) or block_summary_map.get(key, "")
         if summary:
             summary_by_usage_bid[usage_bid] = summary
 
@@ -916,20 +940,44 @@ def _build_course_credit_usage_covered_completed_user_subquery(
     if not normalized_leaf_outline_bids:
         return None
 
-    completed_lesson_counts = (
+    latest_progress_rows = (
         db.session.query(
             LearnProgressRecord.user_bid.label("user_bid"),
-            db.func.count(db.func.distinct(LearnProgressRecord.outline_item_bid)).label(
-                "learned_lesson_count"
-            ),
+            LearnProgressRecord.outline_item_bid.label("outline_item_bid"),
+            LearnProgressRecord.status.label("status"),
+            db.func.row_number()
+            .over(
+                partition_by=[
+                    LearnProgressRecord.user_bid,
+                    LearnProgressRecord.outline_item_bid,
+                ],
+                order_by=[
+                    LearnProgressRecord.updated_at.desc(),
+                    LearnProgressRecord.id.desc(),
+                ],
+            )
+            .label("row_index"),
         )
         .filter(
             LearnProgressRecord.shifu_bid == shifu_bid,
             LearnProgressRecord.outline_item_bid.in_(normalized_leaf_outline_bids),
             LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
         )
-        .group_by(LearnProgressRecord.user_bid)
+        .subquery()
+    )
+
+    completed_lesson_counts = (
+        db.session.query(
+            latest_progress_rows.c.user_bid.label("user_bid"),
+            db.func.count(
+                db.func.distinct(latest_progress_rows.c.outline_item_bid)
+            ).label("learned_lesson_count"),
+        )
+        .filter(
+            latest_progress_rows.c.row_index == 1,
+            latest_progress_rows.c.status == LEARN_STATUS_COMPLETED,
+        )
+        .group_by(latest_progress_rows.c.user_bid)
         .subquery()
     )
     return (

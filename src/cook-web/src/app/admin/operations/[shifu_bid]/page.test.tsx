@@ -610,6 +610,56 @@ describe('AdminOperationCourseDetailPage', () => {
     });
   });
 
+  test('keeps zero values visible in listen usage details', async () => {
+    mockGetAdminOperationCourseCreditUsages.mockResolvedValueOnce({
+      view: 'grouped',
+      items: [
+        {
+          group_key: 'progress-1:listen',
+          usage_bid: 'usage-listen',
+          progress_record_bid: 'progress-1',
+          generated_block_bid: '',
+          user_bid: 'student-1',
+          mobile: '13900001234',
+          email: '',
+          nickname: 'Bob',
+          chapter_outline_item_bid: 'chapter-1',
+          chapter_title: 'Chapter 1',
+          lesson_outline_item_bid: 'lesson-1',
+          lesson_title: 'Lesson 1',
+          usage_mode: 'listen',
+          provider: 'volcengine',
+          model: 'cancan-2.0',
+          usage_count: 1,
+          model_variant_count: 1,
+          consumed_credits: 2,
+          created_at: '2026-04-08T12:30:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationCourseDetailPage />);
+
+    await openCreditUsageTab();
+
+    const usageRow = (await screen.findByText('Lesson 1')).closest('tr');
+    expect(usageRow).not.toBeNull();
+    fireEvent.click(
+      within(usageRow as HTMLElement).getByRole('button', {
+        name: 'module.operationsCourse.detail.creditUsage.details.openUsageDetails',
+      }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => {
+      expect(within(dialog).getAllByText('0').length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
   test('formats course metrics and learning progress without grouping in Chinese locale', async () => {
     mockLanguage = 'zh-CN';
     mockGetAdminOperationCourseUsers.mockResolvedValueOnce({

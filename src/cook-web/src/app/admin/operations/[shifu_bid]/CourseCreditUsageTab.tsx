@@ -905,7 +905,7 @@ export default function CourseCreditUsageTab({
                             </TableCell>
                             <TableCell className='border-r border-border py-2.5 text-center text-sm tabular-nums text-foreground'>
                               {isListenDetail
-                                ? detail.word_count || emptyValue
+                                ? (detail.word_count ?? emptyValue)
                                 : detail.input_tokens}
                             </TableCell>
                             <TableCell className='border-r border-border py-2.5 text-center text-sm tabular-nums text-foreground'>
@@ -915,7 +915,7 @@ export default function CourseCreditUsageTab({
                             </TableCell>
                             {isListenDetail ? (
                               <TableCell className='border-r border-border py-2.5 text-center text-sm tabular-nums text-foreground'>
-                                {detail.segment_count || emptyValue}
+                                {detail.segment_count ?? emptyValue}
                               </TableCell>
                             ) : null}
                             <TableCell className='py-2.5 text-sm text-foreground'>
