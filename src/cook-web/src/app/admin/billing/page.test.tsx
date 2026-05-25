@@ -303,12 +303,14 @@ describe('AdminBillingPage', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.billing.package.title'),
-    ).toBeInTheDocument();
+      screen.queryByRole('heading', {
+        name: 'module.billing.package.title',
+      }),
+    ).not.toBeInTheDocument();
     expect(
       within(breadcrumb).getByRole('link', { name: 'common.core.home' }),
     ).toHaveAttribute('href', '/admin');
-    expect(breadcrumb).toHaveTextContent('module.billing.sidebar.summaryTitle');
+    expect(breadcrumb).toHaveTextContent('module.billing.package.title');
 
     await waitFor(() => {
       expect(mockGetBillingCatalog).toHaveBeenCalledTimes(1);

@@ -103,7 +103,7 @@ export function AdminBillingPageClient({
   const breadcrumbTitle =
     activeTab === 'details'
       ? t('module.billing.page.tabs.ledger')
-      : t('module.billing.sidebar.summaryTitle');
+      : t('module.billing.package.title');
 
   return (
     <div

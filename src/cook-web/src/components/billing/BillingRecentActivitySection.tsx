@@ -3,9 +3,16 @@ import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
-import { Card, CardContent } from '@/components/ui/Card';
-import { AppPagination } from '@/components/pagination/AppPagination';
 import { Skeleton } from '@/components/ui/Skeleton';
+import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/Table';
 import { cn } from '@/lib/utils';
 import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
 import { BILLING_SECTION_TITLE_CLASS } from './billingSectionTitleClass';
@@ -42,25 +49,30 @@ function formatSignedCredits(value: number, locale: string): string {
 
 function UsageTableSkeleton() {
   return (
-    <div data-testid='billing-usage-table-skeleton'>
+    <>
       {Array.from({ length: RECENT_ITEMS_LIMIT }, (_, index) => (
-        <div
+        <TableRow
           key={`billing-usage-skeleton-row-${index}`}
+          className='hover:!bg-transparent data-[state=selected]:!bg-transparent'
+          data-admin-skeleton-row='true'
           data-testid='billing-usage-skeleton-row'
-          className='grid grid-cols-[1.6fr_0.9fr_0.7fr] border-b border-[var(--base-border,#E5E5E5)] last:border-b-0'
         >
-          <div className='px-[32px] py-4 pl-[32px] pr-[var(--spacing-2,8px)]'>
+          <TableCell
+            data-testid={
+              index === 0 ? 'billing-usage-table-skeleton' : undefined
+            }
+          >
             <Skeleton className='h-5 w-full rounded-md' />
-          </div>
-          <div className='px-[32px] py-4 pl-[var(--spacing-2,8px)] pr-[32px]'>
-            <Skeleton className='ml-auto h-5 w-32 rounded-md' />
-          </div>
-          <div className='px-[32px] py-4 pl-[8px] pr-[32px]'>
+          </TableCell>
+          <TableCell>
+            <Skeleton className='h-5 w-32 rounded-md' />
+          </TableCell>
+          <TableCell>
             <Skeleton className='ml-auto h-5 w-20 rounded-md' />
-          </div>
-        </div>
+          </TableCell>
+        </TableRow>
       ))}
-    </div>
+    </>
   );
 }
 
@@ -118,91 +130,98 @@ export function BillingRecentActivitySection({
         </h2>
       </div>
 
-      <Card
-        className={cn(
-          'overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] shadow-[var(--shadow-xs-offset-x,0)_var(--shadow-xs-offset-y,1px)_var(--shadow-xs-blur-radius,2px)_var(--shadow-xs-spread-radius,0)_var(--shadow-xs-color,rgba(0,0,0,0.05))]',
-          stretchToFill && 'flex min-h-0 flex-1 flex-col',
-        )}
-        data-testid='billing-usage-table-card'
-      >
-        <CardContent
-          className={cn('p-0', stretchToFill && 'flex min-h-0 flex-1 flex-col')}
-        >
-          {ledgerError ? (
-            <div className='rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
-              {t('module.billing.ledger.loadError')}
-            </div>
-          ) : null}
-
-          {!ledgerError ? (
+      {ledgerError ? (
+        <div className='rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
+          {t('module.billing.ledger.loadError')}
+        </div>
+      ) : (
+        <AdminTableShell
+          loading={false}
+          isEmpty={!ledgerLoading && ledgerItems.length === 0}
+          emptyContent={t('module.billing.ledger.empty')}
+          emptyColSpan={3}
+          containerClassName={cn(stretchToFill && 'min-h-0 flex-1')}
+          tableWrapperClassName={cn(
+            'overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] [&_tbody_tr[data-admin-skeleton-row]:hover]:!bg-transparent [&_tbody_tr[data-admin-skeleton-row]:hover_td]:!bg-transparent',
+            stretchToFill && 'flex min-h-0 flex-1 flex-col',
+          )}
+          footerClassName='px-0'
+          pagination={
+            pageCount > 1
+              ? {
+                  pageIndex: currentPage,
+                  pageCount,
+                  onPageChange: setPageIndex,
+                  prevLabel: t('module.order.paginationPrev'),
+                  nextLabel: t('module.order.paginationNext'),
+                  prevAriaLabel: t(
+                    'module.order.paginationPrevAriaLabel',
+                    'Go to previous page',
+                  ),
+                  nextAriaLabel: t(
+                    'module.order.paginationNextAriaLabel',
+                    'Go to next page',
+                  ),
+                  hideWhenSinglePage: true,
+                }
+              : undefined
+          }
+          table={emptyRow => (
             <div
               className={cn('overflow-auto', stretchToFill && 'min-h-0 flex-1')}
               data-testid='billing-usage-table-scroll'
             >
-              <div className='min-w-[720px]'>
-                <div className='grid grid-cols-[1.6fr_0.9fr_0.7fr] border-b border-[var(--base-border,#E5E5E5)] bg-[var(--base-muted,#F5F5F5)]'>
-                  <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center gap-[10px] px-[32px] pl-[32px] pr-[var(--spacing-2,8px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
-                    {t('module.billing.details.usageTable.columns.scene')}
-                  </div>
-                  <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[32px] pl-[var(--spacing-2,8px)] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
-                    {t('module.billing.ledger.table.createdAt')}
-                  </div>
-                  <div className='flex h-[var(--height-h-10,40px)] min-w-[85px] items-center justify-end px-[32px] pl-[8px] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
-                    {t('module.billing.ledger.table.amount')}
-                  </div>
-                </div>
-
-                {ledgerLoading ? <UsageTableSkeleton /> : null}
-
-                {!ledgerLoading && !ledgerItems.length ? (
-                  <div className='px-4 py-8 text-sm text-slate-500'>
-                    {t('module.billing.ledger.empty')}
-                  </div>
-                ) : null}
-
-                {!ledgerLoading &&
-                  ledgerItems.map(item => (
-                    <div
-                      key={item.ledger_bid}
-                      className='grid grid-cols-[1.6fr_0.9fr_0.7fr] border-b border-[var(--base-border,#E5E5E5)] last:border-b-0'
-                    >
-                      <div className='overflow-hidden px-[32px] py-4 pl-[32px] pr-[var(--spacing-2,8px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
-                        {resolveBillingLedgerReasonLabel(t, item)}
+              <Table
+                className='min-w-[720px] table-fixed'
+                containerClassName='overflow-visible'
+              >
+                <colgroup>
+                  <col className='w-[64%]' />
+                  <col className='w-[24%]' />
+                  <col className='w-[12%]' />
+                </colgroup>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      {t('module.billing.details.usageTable.columns.scene')}
+                    </TableHead>
+                    <TableHead>
+                      {t('module.billing.ledger.table.createdAt')}
+                    </TableHead>
+                    <TableHead>
+                      <div className='flex justify-end'>
+                        {t('module.billing.ledger.table.amount')}
                       </div>
-                      <div className='overflow-hidden px-[32px] py-4 pl-[var(--spacing-2,8px)] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
-                        {formatBillingDateTime(item.created_at, i18n.language)}
-                      </div>
-                      <div className='overflow-hidden px-[32px] py-4 pl-[8px] pr-[32px] text-right text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]'>
-                        {formatSignedCredits(item.amount, i18n.language)}
-                      </div>
-                    </div>
-                  ))}
-              </div>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ledgerLoading ? <UsageTableSkeleton /> : emptyRow}
+                  {!ledgerLoading &&
+                    ledgerItems.map(item => (
+                      <TableRow key={item.ledger_bid}>
+                        <TableCell>
+                          {resolveBillingLedgerReasonLabel(t, item)}
+                        </TableCell>
+                        <TableCell>
+                          {formatBillingDateTime(
+                            item.created_at,
+                            i18n.language,
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className='flex justify-end'>
+                            {formatSignedCredits(item.amount, i18n.language)}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
             </div>
-          ) : null}
-          {!ledgerError && pageCount > 1 ? (
-            <div className='px-6 py-4'>
-              <AppPagination
-                pageIndex={currentPage}
-                pageCount={pageCount}
-                onPageChange={setPageIndex}
-                prevLabel={t('module.order.paginationPrev')}
-                nextLabel={t('module.order.paginationNext')}
-                prevAriaLabel={t(
-                  'module.order.paginationPrevAriaLabel',
-                  'Go to previous page',
-                )}
-                nextAriaLabel={t(
-                  'module.order.paginationNextAriaLabel',
-                  'Go to next page',
-                )}
-                className='mx-0 w-full justify-end'
-                hideWhenSinglePage
-              />
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+          )}
+        />
+      )}
     </section>
   );
 }

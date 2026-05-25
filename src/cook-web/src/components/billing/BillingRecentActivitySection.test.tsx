@@ -132,7 +132,7 @@ describe('BillingRecentActivitySection', () => {
   });
 
   test('renders the credit usage details table from recent ledger entries', async () => {
-    renderSection();
+    const { container } = renderSection();
 
     await waitFor(() => {
       expect(mockGetBillingLedger).toHaveBeenCalledWith({
@@ -160,8 +160,13 @@ describe('BillingRecentActivitySection', () => {
         'module.billing.ledger.usageScene.debug - Debug Course 1 - 15811237246',
       ),
     ).toBeInTheDocument();
-    expect(await screen.findAllByText(/Apr 6, 2026/)).toHaveLength(2);
-    expect(await screen.findByText('-2.50')).toBeInTheDocument();
+    const dateCells = await screen.findAllByText(/Apr 6, 2026/);
+    expect(dateCells).toHaveLength(2);
+    expect(dateCells[0].tagName).toBe('TD');
+    const amountValue = await screen.findByText('-2.50');
+    expect(amountValue).toBeInTheDocument();
+    expect(amountValue).toHaveClass('justify-end');
+    expect(amountValue.closest('td')).toBeInTheDocument();
     expect(
       screen.queryByText('module.billing.orders.title'),
     ).not.toBeInTheDocument();
@@ -172,6 +177,16 @@ describe('BillingRecentActivitySection', () => {
     expect(screen.getByRole('link', { name: '1' })).toBeInTheDocument();
     const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
     expect(scrollContainer).toHaveClass('overflow-auto');
+    const columns = Array.from(container.querySelectorAll('col'));
+    expect(columns.map(column => column.className)).toEqual([
+      'w-[64%]',
+      'w-[24%]',
+      'w-[12%]',
+    ]);
+    const amountHeader = screen.getByRole('columnheader', {
+      name: 'module.billing.ledger.table.amount',
+    });
+    expect(amountHeader.firstElementChild).toHaveClass('justify-end');
     expect(
       within(scrollContainer).getByText(
         'module.billing.details.usageTable.columns.scene',
@@ -348,9 +363,12 @@ describe('BillingRecentActivitySection', () => {
 
     const skeleton = await screen.findByTestId('billing-usage-table-skeleton');
     expect(skeleton).toBeInTheDocument();
-    expect(screen.getAllByTestId('billing-usage-skeleton-row')).toHaveLength(
-      10,
-    );
+    const skeletonRows = screen.getAllByTestId('billing-usage-skeleton-row');
+    expect(skeletonRows).toHaveLength(10);
+    expect(skeletonRows[0]).toHaveClass('hover:!bg-transparent');
+    expect(
+      skeletonRows[0].querySelector('td:last-child > div'),
+    ).toHaveClass('ml-auto');
 
     await act(async () => {
       resolveSecondPage?.({
