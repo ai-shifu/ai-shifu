@@ -65,6 +65,11 @@
   "server.billing.adminPlanGrantAlreadyActive": 7108,
   "server.billing.adminPlanGrantProviderManagedConflict": 7109,
   "server.billing.adminPlanGrantRoleUnsupported": 7110,
+  "server.billing.subscriptionPreorderAlreadyExists": 7111,
+  "server.billing.subscriptionPreorderProviderUnsupported": 7112,
+  "server.billing.subscriptionPreorderTargetInvalid": 7113,
+  "server.billing.subscriptionPreorderUnavailable": 7114,
+  "server.billing.subscriptionPreorderOffsetInvalid": 7115,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,

@@ -46,6 +46,7 @@ _TEST_BILLING_PRODUCT_ROWS: tuple[dict[str, Any], ...] = (
             BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG: True,
             BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS: 15,
             BILLING_TRIAL_PRODUCT_METADATA_STARTS_ON_FIRST_GRANT: True,
+            "plan_tier": 0,
             "highlights": [
                 "module.billing.package.features.free.publish",
                 "module.billing.package.features.free.preview",
@@ -71,10 +72,11 @@ _TEST_BILLING_PRODUCT_ROWS: tuple[dict[str, Any], ...] = (
         "auto_renew_enabled": 1,
         "entitlement_payload": None,
         "metadata": {
+            "plan_tier": 10,
             "highlights": [
                 "module.billing.package.features.monthly.publish",
                 "module.billing.package.features.monthly.preview",
-            ]
+            ],
         },
         "status": BILLING_PRODUCT_STATUS_ACTIVE,
         "sort_order": 10,
@@ -97,6 +99,7 @@ _TEST_BILLING_PRODUCT_ROWS: tuple[dict[str, Any], ...] = (
         "entitlement_payload": None,
         "metadata": {
             "badge": "recommended",
+            "plan_tier": 20,
             "highlights": [
                 "module.billing.package.features.monthly.publish",
                 "module.billing.package.features.monthly.preview",
@@ -123,10 +126,11 @@ _TEST_BILLING_PRODUCT_ROWS: tuple[dict[str, Any], ...] = (
         "auto_renew_enabled": 1,
         "entitlement_payload": None,
         "metadata": {
+            "plan_tier": 30,
             "highlights": [
                 "module.billing.package.features.yearly.lite.ops",
                 "module.billing.package.features.yearly.lite.publish",
-            ]
+            ],
         },
         "status": BILLING_PRODUCT_STATUS_ACTIVE,
         "sort_order": 30,
@@ -148,13 +152,14 @@ _TEST_BILLING_PRODUCT_ROWS: tuple[dict[str, Any], ...] = (
         "auto_renew_enabled": 1,
         "entitlement_payload": None,
         "metadata": {
+            "plan_tier": 40,
             "highlights": [
                 "module.billing.package.features.yearly.pro.branding",
                 "module.billing.package.features.yearly.pro.domain",
                 "module.billing.package.features.yearly.pro.priority",
                 "module.billing.package.features.yearly.pro.analytics",
                 "module.billing.package.features.yearly.pro.support",
-            ]
+            ],
         },
         "status": BILLING_PRODUCT_STATUS_ACTIVE,
         "sort_order": 40,
@@ -179,6 +184,7 @@ _TEST_BILLING_PRODUCT_ROWS: tuple[dict[str, Any], ...] = (
         "entitlement_payload": None,
         "metadata": {
             "badge": "best_value",
+            "plan_tier": 50,
             "highlights": [
                 "module.billing.package.features.yearly.premium.branding",
                 "module.billing.package.features.yearly.premium.domain",

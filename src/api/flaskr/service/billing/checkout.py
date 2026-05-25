@@ -80,17 +80,30 @@ from .provider_state import (
     resolve_stripe_subscription_order_status as _resolve_stripe_subscription_order_status,
 )
 from .queries import (
+    calculate_self_managed_billing_cycle_end as _calculate_self_managed_billing_cycle_end,
     load_primary_active_subscription as _load_primary_active_subscription,
 )
 from .queries import normalize_payment_provider_hint as _normalize_payment_provider_hint
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import to_decimal as _to_decimal
+from .preorders import (
+    CHECKOUT_ACTION_PREORDER,
+    CHECKOUT_ACTION_UPGRADE_IMMEDIATE,
+    PREORDER_CHECKOUT_TYPE,
+    build_preorder_order_metadata as _build_preorder_order_metadata,
+    clear_subscription_preorder_metadata as _clear_subscription_preorder_metadata,
+    load_active_preorder_order as _load_active_preorder_order,
+    mark_preorder_absorbed_by_upgrade as _mark_preorder_absorbed_by_upgrade,
+    normalize_checkout_action as _normalize_checkout_action,
+    resolve_plan_tier as _resolve_plan_tier,
+)
 from .subscriptions import (
     load_billing_product_by_bid as _load_billing_product_by_bid,
     load_effective_topup_subscription as _load_effective_topup_subscription,
     load_subscription_by_bid as _load_subscription_by_bid,
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
+    void_reserved_preorder_grant as _void_reserved_preorder_grant,
 )
 from .wallets import grant_refund_return_credits
 
@@ -189,6 +202,7 @@ def create_billing_subscription_checkout(
 
     normalized_creator_bid = _normalize_bid(creator_bid)
     product_bid = _normalize_bid(payload.get("product_bid"))
+    checkout_action = _normalize_checkout_action(payload.get("action"))
     payment_provider, channel = _resolve_billing_payment_channel(
         payload,
         default_pingxx_channel="alipay_qr",
@@ -196,10 +210,6 @@ def create_billing_subscription_checkout(
 
     with app.app_context():
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
-        _validate_plan_checkout_upgrade_only(
-            creator_bid=normalized_creator_bid,
-            target_product=product,
-        )
         if payment_provider == "stripe":
             channel = "checkout_session"
 
@@ -207,6 +217,8 @@ def create_billing_subscription_checkout(
             normalized_creator_bid,
             as_of=datetime.now(),
         )
+        prepaid_offset_amount = 0
+        absorbed_preorder_order = None
         if current_subscription is None:
             subscription = BillingSubscription(
                 subscription_bid=generate_id(app),
@@ -221,22 +233,65 @@ def create_billing_subscription_checkout(
                 metadata_json={"checkout_started": True},
             )
             order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_START
+            order_metadata = {"checkout_type": "subscription"}
         else:
             subscription = current_subscription
-            subscription.metadata_json = _normalize_json_object(
-                {
-                    **(
-                        subscription.metadata_json
-                        if isinstance(subscription.metadata_json, dict)
-                        else {}
+            current_product = _load_billing_product_by_bid(subscription.product_bid)
+            active_preorder_order = _load_active_preorder_order(
+                subscription.subscription_bid
+            )
+            if checkout_action == CHECKOUT_ACTION_PREORDER:
+                order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+                order_metadata = _prepare_subscription_preorder_checkout_metadata(
+                    subscription=subscription,
+                    current_product=current_product,
+                    target_product=product,
+                    active_preorder_order=active_preorder_order,
+                    payment_provider=payment_provider,
+                )
+            elif checkout_action == CHECKOUT_ACTION_UPGRADE_IMMEDIATE:
+                prepaid_offset_amount = _validate_immediate_upgrade_checkout(
+                    current_product=current_product,
+                    target_product=product,
+                    active_preorder_order=active_preorder_order,
+                )
+                absorbed_preorder_order = active_preorder_order
+                subscription.metadata_json = _normalize_json_object(
+                    {
+                        **(
+                            subscription.metadata_json
+                            if isinstance(subscription.metadata_json, dict)
+                            else {}
+                        ),
+                        "checkout_started": True,
+                    }
+                ).to_metadata_json()
+                order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+                order_metadata = {
+                    "checkout_type": "subscription",
+                    "effective_mode": "immediate",
+                    "current_product_bid": (
+                        current_product.product_bid
+                        if current_product is not None
+                        else None
                     ),
-                    "checkout_started": True,
+                    "target_product_bid": product.product_bid,
+                    "prepaid_offset_amount": prepaid_offset_amount,
+                    "preorder_order_bid": (
+                        absorbed_preorder_order.bill_order_bid
+                        if absorbed_preorder_order is not None
+                        else None
+                    ),
                 }
-            ).to_metadata_json()
+            else:
+                raise_error("server.order.orderStatusError")
             subscription.updated_at = datetime.now()
-            order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
         db.session.add(subscription)
         db.session.flush()
+
+        payable_amount = int(product.price_amount or 0) - prepaid_offset_amount
+        if payable_amount <= 0:
+            raise_error("server.billing.subscriptionPreorderOffsetInvalid")
 
         order = BillingOrder(
             bill_order_bid=generate_id(app),
@@ -245,16 +300,31 @@ def create_billing_subscription_checkout(
             product_bid=product.product_bid,
             subscription_bid=subscription.subscription_bid,
             currency=product.currency,
-            payable_amount=int(product.price_amount or 0),
+            payable_amount=payable_amount,
             paid_amount=0,
             payment_provider=payment_provider,
             channel=channel,
             provider_reference_id="",
             status=BILLING_ORDER_STATUS_PENDING,
-            metadata_json={"checkout_type": "subscription"},
+            metadata_json=order_metadata,
         )
         db.session.add(order)
         db.session.flush()
+
+        if absorbed_preorder_order is not None:
+            _mark_preorder_absorbed_by_upgrade(
+                absorbed_preorder_order,
+                upgrade_order_bid=order.bill_order_bid,
+            )
+            _void_reserved_preorder_grant(
+                app,
+                absorbed_preorder_order,
+                absorbed_by_bill_order_bid=order.bill_order_bid,
+            )
+            _clear_subscription_preorder_metadata(subscription)
+            subscription.next_product_bid = ""
+            db.session.add(absorbed_preorder_order)
+            db.session.add(subscription)
 
         checkout_result = _create_provider_checkout(
             app,
@@ -688,6 +758,75 @@ def _validate_plan_checkout_upgrade_only(
         raise_error("server.billing.subscriptionUpgradeOnly")
 
 
+def _validate_immediate_upgrade_checkout(
+    *,
+    current_product: BillingProduct | None,
+    target_product: BillingProduct,
+    active_preorder_order: BillingOrder | None,
+) -> int:
+    current_tier = _resolve_plan_tier(current_product)
+    target_tier = _resolve_plan_tier(target_product)
+    if current_tier is None or target_tier is None:
+        raise_error("server.order.orderStatusError")
+    if target_tier <= current_tier:
+        raise_error("server.billing.subscriptionUpgradeOnly")
+    if active_preorder_order is None:
+        return 0
+    if int(active_preorder_order.status or 0) != BILLING_ORDER_STATUS_PAID:
+        return 0
+    return int(active_preorder_order.paid_amount or 0)
+
+
+def _prepare_subscription_preorder_checkout_metadata(
+    *,
+    subscription: BillingSubscription,
+    current_product: BillingProduct | None,
+    target_product: BillingProduct,
+    active_preorder_order: BillingOrder | None,
+    payment_provider: str,
+) -> dict[str, Any]:
+    if payment_provider == "stripe":
+        raise_error("server.billing.subscriptionPreorderProviderUnsupported")
+    if active_preorder_order is not None:
+        raise_error("server.billing.subscriptionPreorderAlreadyExists")
+    if current_product is None or _is_trial_product(current_product):
+        raise_error("server.billing.subscriptionPreorderUnavailable")
+
+    current_tier = _resolve_plan_tier(current_product)
+    target_tier = _resolve_plan_tier(target_product)
+    if current_tier is None or target_tier is None:
+        raise_error("server.order.orderStatusError")
+    if target_tier > current_tier:
+        raise_error("server.billing.subscriptionPreorderTargetInvalid")
+
+    cycle_start_at = subscription.current_period_end_at
+    if cycle_start_at is None:
+        raise_error("server.order.orderStatusError")
+    cycle_end_at = _calculate_self_managed_billing_cycle_end(
+        target_product,
+        cycle_start_at=cycle_start_at,
+    )
+    if cycle_end_at is None:
+        raise_error("server.order.orderStatusError")
+
+    return _build_preorder_order_metadata(
+        subscription=subscription,
+        current_product=current_product,
+        target_product=target_product,
+        effective_at=cycle_start_at,
+        cycle_end_at=cycle_end_at,
+    )
+
+
+def _is_trial_product(product: BillingProduct) -> bool:
+    metadata = product.metadata_json if isinstance(product.metadata_json, dict) else {}
+    return str(
+        product.product_code or ""
+    ).strip() == BILLING_TRIAL_PRODUCT_CODE or bool(
+        metadata.get(BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG)
+    )
+
+
 def _load_catalog_product(product_bid: str, expected_type: int) -> BillingProduct:
     if not product_bid:
         raise_param_error("product_bid")
@@ -702,10 +841,7 @@ def _load_catalog_product(product_bid: str, expected_type: int) -> BillingProduc
     )
     if product is None or product.product_type != expected_type:
         raise_error("server.order.orderNotFound")
-    metadata = product.metadata_json if isinstance(product.metadata_json, dict) else {}
-    if str(product.product_code or "").strip() == BILLING_TRIAL_PRODUCT_CODE or bool(
-        metadata.get(BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG)
-    ):
+    if _is_trial_product(product):
         raise_error("server.order.orderNotFound")
     return product
 
@@ -839,6 +975,28 @@ def _create_provider_checkout(
         "payment_mode": payment_mode,
         "status": "pending",
     }
+    order_metadata = (
+        order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    )
+    response.update(
+        {
+            "checkout_type": order_metadata.get("checkout_type") or None,
+            "effective_mode": order_metadata.get("effective_mode")
+            or (
+                "cycle_end"
+                if order_metadata.get("checkout_type") == PREORDER_CHECKOUT_TYPE
+                else "immediate"
+            ),
+            "current_product_bid": order_metadata.get("current_product_bid") or None,
+            "target_product_bid": order_metadata.get("target_product_bid")
+            or order.product_bid,
+            "preorder_order_bid": order_metadata.get("preorder_order_bid") or None,
+            "prepaid_offset_amount": int(
+                order_metadata.get("prepaid_offset_amount") or 0
+            ),
+            "payable_amount": int(order.payable_amount or 0),
+        }
+    )
     if payment_provider == "stripe":
         redirect_url = str(result.extra.get("url") or "")
         if redirect_url:

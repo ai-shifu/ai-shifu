@@ -383,6 +383,34 @@ def _execute_downgrade_effective(
             product_bid=subscription.product_bid,
         )
 
+    paid_renewal_order = None
+    boundary_at = event.scheduled_at or subscription.current_period_end_at
+    if boundary_at is not None:
+        paid_renewal_order = _load_subscription_renewal_order_by_cycle(
+            subscription.subscription_bid,
+            cycle_start_at=boundary_at,
+            statuses=(BILLING_ORDER_STATUS_PAID,),
+        )
+    if paid_renewal_order is not None:
+        _activate_subscription_for_paid_order(
+            app,
+            paid_renewal_order,
+            subscription=subscription,
+            force=True,
+        )
+        _complete_renewal_event(event, now=now)
+        db.session.commit()
+        return _result_from_event(
+            "applied",
+            event,
+            bill_order_bid=paid_renewal_order.bill_order_bid,
+            product_bid=subscription.product_bid,
+            subscription_status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(
+                int(subscription.status or 0),
+                "active",
+            ),
+        )
+
     subscription.product_bid = next_product_bid
     subscription.next_product_bid = ""
     subscription.updated_at = now

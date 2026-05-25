@@ -303,10 +303,12 @@ When payment succeeds:
 1. Load the active preorder order.
 2. Set upgrade order amount to target price minus preorder paid amount.
 3. Mark the preorder order metadata as `absorbed_by_upgrade`.
-4. Clear subscription preorder metadata and `next_product_bid`.
-5. Activate the target plan immediately.
-6. Merge current remaining subscription credits with new plan full credits.
-7. Start the new cycle from upgrade time using the target plan cycle.
+4. Void any reserved credit grant created by the preorder so it cannot be
+   released at the original cycle boundary.
+5. Clear subscription preorder metadata and `next_product_bid`.
+6. Activate the target plan immediately.
+7. Merge current remaining subscription credits with new plan full credits.
+8. Start the new cycle from upgrade time using the target plan cycle.
 
 This flow must be idempotent. Repeated sync/webhook processing must not absorb
 the same preorder more than once.

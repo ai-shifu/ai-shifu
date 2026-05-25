@@ -18,6 +18,7 @@ from .notifications import (
     stage_billing_paid_feishu_for_paid_order as _stage_billing_paid_feishu_for_paid_order,
     stage_subscription_purchase_sms_for_paid_order as _stage_subscription_purchase_sms_for_paid_order,
 )
+from .preorders import is_preorder_order as _is_preorder_order
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
 
 
@@ -42,7 +43,7 @@ def stage_billing_paid_order_side_effects(
 
     granted = _grant_paid_order_credits(app, order)
     credit_notification_bids: list[str] = []
-    if granted:
+    if granted and not _is_preorder_order(order):
         grant_notification = _stage_credit_granted_notification_for_order(
             app,
             creator_bid=order.creator_bid,
