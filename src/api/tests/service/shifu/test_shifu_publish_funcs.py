@@ -250,7 +250,7 @@ def test_generate_profile_collection_prompt_config_saves_referenced_variables(
     assert "sys_user_nickname" not in saved_config["variables"]
     assert captured["model_name"] == "ask-model"
     assert captured["user_id"] == "creator-1"
-    assert captured["temperature"] == 0.4
+    assert captured["temperature"] == module.PROFILE_COLLECTION_LLM_TEMPERATURE
     assert "Python Basics" in captured["prompt"]
     assert "sys_user_background" in captured["prompt"]
 
@@ -369,6 +369,68 @@ def test_get_profile_collection_prompt_config_requests_json_with_timeout(monkeyp
     assert result == '{"version":1,"variables":{}}'
     assert captured["json"] is True
     assert captured["timeout"] == module.PROFILE_COLLECTION_LLM_TIMEOUT_SECONDS
+
+
+def test_generate_profile_collection_prompt_config_fills_missing_referenced_variables(
+    monkeypatch,
+):
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    monkeypatch.setattr(
+        module,
+        "_get_profile_collection_prompt_config",
+        lambda *_args, **_kwargs: '{"version":1,"variables":{}}',
+    )
+
+    app = Flask("profile-collection-missing-variable")
+    shifu = types.SimpleNamespace(
+        shifu_bid="shifu-profile",
+        title="Python Basics",
+        description="Intro course",
+        keywords="python,beginner",
+        ask_llm="ask-model",
+        llm="course-model",
+        ask_llm_temperature=0.4,
+        llm_temperature=0.8,
+        created_user_bid="creator-1",
+        profile_collection_prompt_config="{}",
+    )
+
+    with app.app_context():
+        config = module._generate_profile_collection_prompt_config(
+            app,
+            shifu,
+            ["section-1"],
+            {
+                "section-1": {
+                    "chapter_id": "chapter-1",
+                    "chapter_name": "Start",
+                    "section_id": "section-1",
+                    "section_name": "Intro",
+                    "content": "Python variables.",
+                }
+            },
+            {
+                "section-1": types.SimpleNamespace(
+                    content=(
+                        "We adapt the lesson to {{sys_user_nickname}} "
+                        "and {{sys_user_background}}."
+                    )
+                )
+            },
+            "{course_title} {profile_variables} {course_summary}",
+        )
+
+    saved_config = json.loads(shifu.profile_collection_prompt_config)
+    assert set(config["variables"]) == {
+        "sys_user_nickname",
+        "sys_user_background",
+    }
+    assert set(saved_config["variables"]) == {
+        "sys_user_nickname",
+        "sys_user_background",
+    }
+    assert saved_config["variables"]["sys_user_nickname"]["question"]
 
 
 def test_generate_profile_collection_prompt_config_falls_back_on_failure(monkeypatch):

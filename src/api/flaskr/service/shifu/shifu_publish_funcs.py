@@ -50,6 +50,7 @@ from flaskr.common.shifu_context import (
 )
 from flaskr.service.common.profile_collection import (
     PROFILE_COLLECTION_KEYS,
+    default_profile_collection_prompt,
     extract_profile_collection_keys,
     normalize_profile_collection_prompt_config,
     serialize_profile_collection_prompt_config,
@@ -59,6 +60,7 @@ from flaskr.service.common.profile_collection import (
 PROFILE_COLLECTION_SECTION_SUMMARY_MAX_CHARS = 800
 PROFILE_COLLECTION_COURSE_SUMMARY_MAX_CHARS = 6000
 PROFILE_COLLECTION_LLM_TIMEOUT_SECONDS = 45
+PROFILE_COLLECTION_LLM_TEMPERATURE = 0.2
 
 
 def _build_frontend_url(base_url: str, path: str) -> str:
@@ -469,7 +471,6 @@ def _generate_profile_collection_prompt_config(
         )
 
         model_name = shifu.ask_llm or shifu.llm
-        temperature = shifu.ask_llm_temperature or shifu.llm_temperature or 0.3
         if not model_name:
             model_name = app.config.get("DEFAULT_LLM_MODEL", "")
 
@@ -478,7 +479,7 @@ def _generate_profile_collection_prompt_config(
             prompt=final_prompt,
             model_name=model_name,
             user_id=shifu.created_user_bid or None,
-            temperature=temperature,
+            temperature=PROFILE_COLLECTION_LLM_TEMPERATURE,
         )
         config = normalize_profile_collection_prompt_config(raw_config)
         variables = config.get("variables", {})
@@ -486,6 +487,9 @@ def _generate_profile_collection_prompt_config(
             config["variables"] = {
                 key: variables[key] for key in referenced_keys if key in variables
             }
+        else:
+            config["variables"] = {}
+        _fill_missing_profile_collection_prompts(config, referenced_keys)
         shifu.profile_collection_prompt_config = (
             serialize_profile_collection_prompt_config(config)
         )
@@ -661,6 +665,16 @@ def _get_profile_collection_prompt_config(
         json_output=True,
         timeout=PROFILE_COLLECTION_LLM_TIMEOUT_SECONDS,
     )
+
+
+def _fill_missing_profile_collection_prompts(
+    config: dict,
+    referenced_keys: list[str],
+) -> None:
+    variables = config.setdefault("variables", {})
+    for key in referenced_keys:
+        if key not in variables:
+            variables[key] = default_profile_collection_prompt(key)
 
 
 def _build_profile_collection_course_summary(summaries: list[dict]) -> str:
