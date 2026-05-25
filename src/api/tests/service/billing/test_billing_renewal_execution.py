@@ -52,7 +52,10 @@ from flaskr.service.billing.renewal import (
     run_billing_renewal_event,
 )
 from flaskr.service.billing.queries import calculate_self_managed_billing_cycle_end
-from flaskr.service.billing.subscriptions import sync_subscription_lifecycle_events
+from flaskr.service.billing.subscriptions import (
+    ensure_subscription_renewal_order,
+    sync_subscription_lifecycle_events,
+)
 from tests.common.fixtures.bill_products import build_bill_products
 
 
@@ -717,6 +720,75 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
         assert grant_entry.consumable_from == current_cycle_end
         assert grant_entry.expires_at == next_cycle_end
         assert expire_entry.amount == Decimal("-3.0000000000")
+
+
+def test_ensure_subscription_renewal_order_preserves_preorder_metadata(
+    billing_renewal_app: Flask,
+) -> None:
+    current_cycle_start = datetime.now() - timedelta(days=30)
+    current_cycle_end = datetime.now() + timedelta(days=1)
+    next_cycle_end = _self_managed_cycle_end(current_cycle_end)
+
+    with billing_renewal_app.app_context():
+        subscription = BillingSubscription(
+            subscription_bid="sub-preorder-preserve",
+            creator_bid="creator-renewal-1",
+            product_bid="bill-product-plan-monthly-pro",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="pingxx",
+            provider_subscription_id="",
+            provider_customer_id="customer-sub-preorder-preserve",
+            current_period_start_at=current_cycle_start,
+            current_period_end_at=current_cycle_end,
+            cancel_at_period_end=0,
+            next_product_bid="bill-product-plan-monthly",
+            metadata_json={"preorder_order_bid": "bill-preorder-preserve"},
+            created_at=current_cycle_start,
+            updated_at=current_cycle_start,
+        )
+        preorder_order = BillingOrder(
+            bill_order_bid="bill-preorder-preserve",
+            creator_bid=subscription.creator_bid,
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid="bill-product-plan-monthly",
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=990,
+            paid_amount=990,
+            payment_provider="alipay",
+            channel="alipay_qr",
+            provider_reference_id="alipay_preorder_preserve",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=current_cycle_start + timedelta(days=1),
+            metadata_json={
+                "checkout_type": "subscription_preorder",
+                "preorder_state": "pending_effective",
+                "provider_reference_type": "charge",
+                "renewal_cycle_start_at": current_cycle_end.isoformat(),
+                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+            },
+        )
+        dao.db.session.add(subscription)
+        dao.db.session.add(preorder_order)
+        dao.db.session.commit()
+
+        ensured_order = ensure_subscription_renewal_order(
+            billing_renewal_app,
+            subscription,
+            renewal_event_bid="renewal-preorder-preserve",
+            scheduled_at=current_cycle_end,
+        )
+        dao.db.session.commit()
+
+        assert ensured_order is not None
+        assert ensured_order.bill_order_bid == "bill-preorder-preserve"
+        assert ensured_order.payment_provider == "alipay"
+        assert ensured_order.payable_amount == 990
+        assert ensured_order.metadata_json["checkout_type"] == ("subscription_preorder")
+        assert ensured_order.metadata_json["preorder_state"] == "pending_effective"
+        assert ensured_order.metadata_json["renewal_event_bid"] == (
+            "renewal-preorder-preserve"
+        )
 
 
 def test_run_billing_renewal_event_releases_future_event_back_to_pending(

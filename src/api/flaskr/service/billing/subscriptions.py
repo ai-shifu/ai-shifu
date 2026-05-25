@@ -469,6 +469,16 @@ def ensure_subscription_renewal_order(
         cycle_start_at=cycle_start_at,
         cycle_end_at=cycle_end_at,
     )
+    if order is not None and _is_preorder_order(order):
+        metadata = (
+            dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+        )
+        metadata["renewal_event_bid"] = _normalize_bid(renewal_event_bid) or None
+        order.metadata_json = _normalize_json_object(metadata).to_metadata_json()
+        db.session.add(order)
+        db.session.flush()
+        return order
+
     metadata = (
         dict(order.metadata_json)
         if order and isinstance(order.metadata_json, dict)

@@ -338,12 +338,24 @@ def _execute_expire_subscription(
             paid_renewal_order,
             boundary_at=boundary_at,
         )
-        _activate_subscription_for_paid_order(
+        activated = _activate_subscription_for_paid_order(
             app,
             paid_renewal_order,
             subscription=subscription,
             force=True,
         )
+        if not activated:
+            _fail_renewal_event(
+                event,
+                now=now,
+                error="paid_renewal_activation_failed",
+            )
+            db.session.commit()
+            return _result_from_event(
+                "failed",
+                event,
+                bill_order_bid=paid_renewal_order.bill_order_bid,
+            )
         _complete_renewal_event(event, now=now)
         db.session.commit()
         return _result_from_event(
@@ -402,12 +414,24 @@ def _execute_downgrade_effective(
             paid_renewal_order,
             boundary_at=boundary_at,
         )
-        _activate_subscription_for_paid_order(
+        activated = _activate_subscription_for_paid_order(
             app,
             paid_renewal_order,
             subscription=subscription,
             force=True,
         )
+        if not activated:
+            _fail_renewal_event(
+                event,
+                now=now,
+                error="paid_renewal_activation_failed",
+            )
+            db.session.commit()
+            return _result_from_event(
+                "failed",
+                event,
+                bill_order_bid=paid_renewal_order.bill_order_bid,
+            )
         _complete_renewal_event(event, now=now)
         db.session.commit()
         return _result_from_event(
