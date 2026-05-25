@@ -5,6 +5,14 @@ import Loading from '@/components/loading';
 import { TableEmpty } from '@/components/ui/Table';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import {
+  AdminPagination,
+  type AdminPaginationProps,
+} from './AdminPagination';
+import {
+  ADMIN_TABLE_DESCENDANT_CLASS,
+  ADMIN_TABLE_SHELL_CLASS,
+} from './adminTableStyles';
 
 type AdminTableRenderer = (emptyRow: ReactNode | null) => ReactNode;
 
@@ -14,13 +22,19 @@ type AdminTableShellProps = {
   emptyContent?: ReactNode;
   emptyColSpan?: number;
   table: ReactNode | AdminTableRenderer;
+  footnote?: ReactNode;
   footer?: ReactNode;
+  pagination?: AdminPaginationProps;
   withTooltipProvider?: boolean;
   containerClassName?: string;
   tableWrapperClassName?: string;
   loadingClassName?: string;
+  footnoteClassName?: string;
   footerClassName?: string;
 };
+
+const ADMIN_TABLE_FOOTNOTE_CLASS =
+  'text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]';
 
 const renderTableContent = (
   table: ReactNode | AdminTableRenderer,
@@ -38,11 +52,14 @@ export default function AdminTableShell({
   emptyContent,
   emptyColSpan,
   table,
+  footnote,
   footer,
+  pagination,
   withTooltipProvider = false,
   containerClassName,
   tableWrapperClassName,
   loadingClassName,
+  footnoteClassName,
   footerClassName,
 }: AdminTableShellProps) {
   const emptyRow =
@@ -61,7 +78,8 @@ export default function AdminTableShell({
     <div className={cn('flex min-h-0 flex-col', containerClassName)}>
       <div
         className={cn(
-          'rounded-xl border border-border bg-white shadow-sm',
+          ADMIN_TABLE_SHELL_CLASS,
+          ADMIN_TABLE_DESCENDANT_CLASS,
           tableWrapperClassName,
         )}
       >
@@ -78,9 +96,28 @@ export default function AdminTableShell({
           wrappedTableContent
         )}
       </div>
-      {loading || !footer ? null : (
-        <div className={cn('mt-4 flex justify-end', footerClassName)}>
-          {footer}
+      {loading || (!footnote && !footer && !pagination) ? null : (
+        <div
+          className={cn(
+            'mt-4 flex items-center justify-between gap-4',
+            footerClassName,
+          )}
+        >
+          {footnote ? (
+            <div className={cn(ADMIN_TABLE_FOOTNOTE_CLASS, footnoteClassName)}>
+              {footnote}
+            </div>
+          ) : (
+            <div />
+          )}
+          {pagination ? (
+            <AdminPagination
+              {...pagination}
+              className={cn('mx-0 w-auto justify-end', pagination.className)}
+            />
+          ) : (
+            footer
+          )}
         </div>
       )}
     </div>

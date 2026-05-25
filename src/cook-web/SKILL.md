@@ -51,6 +51,16 @@
 - 作者侧预览/调试模式如果要补阅读模式风格的打字机节奏，优先在 `src/components/lesson-preview/` 下独立维护一套 preview gate 和缓存完成态，不要直接复用 learner 页 `readModeTypewriterGate`，避免作者侧交互节奏与学习页状态机互相耦合。
 - 作者侧预览里的喇叭辅助行要视作正文 text element 的后置 helper：只有父级是 `text` element 且该正文块打字机完成后才显示；父级是 `html`、`interaction` 等非 text element 时不要渲染这行辅助能力。
 
+- 后台管理页筛选区布局优先复用 `src/app/admin/components/AdminFilter.tsx`；筛选项 label 使用 `--base-foreground` 与 text-sm/medium token，需要纵向对齐时传入固定 label 宽度；查询和重置按钮左右内边距保持 `16px`，展开按钮使用 `--base-foreground` 并保持与查询按钮 `24px`、与 chevron `4px` 的间距。
+- 后台管理页表格视觉优先复用 `src/app/admin/components/AdminTableShell.tsx` 和 `src/app/admin/components/adminTableStyles.ts`；外框边框用 `--base-border`，表头背景用 `--base-muted`，表头文字用 `--base-foreground` 与 text-sm/medium/20px token，tbody 单元格保持原生 table-cell 布局并使用 `53px` 高度、`8px` padding 和 text-sm/normal/20px token，表格单元格默认不展示右侧 border 且内容左对齐，首列左侧优先用 `16px` padding，整行 hover 背景要覆盖 sticky 操作列，溢出文本优先复用 `AdminTooltipText` 查看完整内容，默认不添加示意用拖拽列或 checkbox 选择列。
+- 后台管理页表格左下注脚（如总数、选中行数）优先通过 `AdminTableShell` 的 `footnote` 配置渲染，保持在 table 外侧 `16px`，文字使用 `--base-muted-foreground` 与 text-sm/normal/20px token。
+- 后台管理页表格分页器优先通过 `AdminTableShell` 的 `pagination` 配置渲染；除非产品明确要求隐藏，否则即使只有一页也要展示分页器，不要在页面里用 `pageCount > 1` 或 `hideWhenSinglePage` 隐藏。
+- 后台管理页表格分页器的末尾“下一页”需要和 table 右边缘视觉对齐时，优先在共享 `AdminPagination` 包装层处理最后一个分页按钮的右侧内边距，不要在单个页面里用 margin 偏移。
+- 后台管理页分页器页码按钮统一使用 `36px` 宽高、`8px 16px` padding 和 `8px` gap；优先改共享 `PaginationLink` 的 icon 尺寸，不要在单个页面覆盖。
+- admin 表格内只承载文本跳转的操作按钮默认去掉额外 padding、圆角和 hover 背景，并跟随单元格内容左对齐；不要沿用 ghost 按钮默认 hover 底色造成操作列视觉块状高亮。
+- admin 表格单元格如果使用省略号截断，优先通过 `AdminTooltipText` 渲染完整内容，并确保 tooltip trigger 带 `block w-full min-w-0 truncate` 这类父宽度约束；当省略号由 `td` 或 table layout 外层裁剪产生、trigger 自身无法稳定判断 overflow 时，传入 `forceTooltip` 保证 hover 可查看完整内容。
+- admin 页面标题右侧如果是弱化的文本工具操作，优先用 `Button variant="ghost"` 搭配 `--base-foreground`，图标和文字共用当前色，14px/medium/20px token 对齐，图标尺寸优先 `16px`，图文间距优先 `6px`。
+
 ## Skills Index
 
 - `skills/chat-layout-width-detection/SKILL.md`
@@ -69,6 +79,8 @@
 - `skills/chat-system-interaction-button-overrides/SKILL.md`
 - `skills/shared-loading-dots/SKILL.md`
 - `skills/admin-breadcrumbs/SKILL.md`
+- `skills/admin-filter-layout/SKILL.md`
+- `skills/admin-table-visual-system/SKILL.md`
 
 ## Usage Rules
 
