@@ -3,6 +3,13 @@
   "__flat__": {
     "avatar": "Avatar",
     "birth": "Date de naissance",
+    "collectionBackgroundPlaceholder": "Indiquez votre role, votre objectif d'apprentissage ou votre experience.",
+    "collectionBackgroundQuestion": "Pour adapter les exemples de ce cours, quel est votre contexte professionnel ou d'apprentissage ?",
+    "collectionNicknamePlaceholder": "Saisissez le nom que je dois utiliser pour vous.",
+    "collectionNicknameQuestion": "Comment dois-je vous appeler pendant ce cours ?",
+    "collectionSkipLabel": "Ignorer pour l'instant",
+    "collectionStylePlaceholder": "Par exemple : concis, pas a pas, style entretien, ou plus d'exemples.",
+    "collectionStyleQuestion": "Quel style d'enseignement vous aiderait le mieux dans ce cours ?",
     "keyExist": "La clé existe déjà",
     "keyRequire": "La clé est requise",
     "keyRequired": "La clé est requise",

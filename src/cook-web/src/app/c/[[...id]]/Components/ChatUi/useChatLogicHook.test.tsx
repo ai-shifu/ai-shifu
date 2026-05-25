@@ -2868,6 +2868,57 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(result.current.reGenerateConfirm.open).toBe(false);
   });
 
+  it('submits profile collection skip buttons with the interaction variable name', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          block_type: 'interaction',
+          element_type: 'interaction',
+          content:
+            '?[%{{sys_user_background}} Skip | ...What learner background helps?]',
+          generated_block_bid: 'profile-collection-1',
+          element_bid: 'profile-collection-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const runCallCountBeforeSend = mockGetRunMessage.mock.calls.length;
+
+    act(() => {
+      result.current.onSend(
+        {
+          variableName: 'sys_user_background',
+          buttonText: 'Skip',
+        },
+        'profile-collection-1',
+      );
+    });
+
+    await waitFor(() =>
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(
+        runCallCountBeforeSend + 1,
+      ),
+    );
+
+    const lastCall =
+      mockGetRunMessage.mock.calls[mockGetRunMessage.mock.calls.length - 1];
+    expect(lastCall[3]).toMatchObject({
+      input: { sys_user_background: ['Skip'] },
+      input_type: SSE_INPUT_TYPE.NORMAL,
+    });
+    expect(result.current.reGenerateConfirm.open).toBe(false);
+  });
+
   it('drops orphan history follow-ups whose anchor element is absent from records', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',

@@ -658,6 +658,12 @@ class PublishedShifu(db.Model):
         default="{}",
         comment='Ask provider config JSON, e.g. {"provider":"llm","mode":"provider_then_llm","config":{}}',
     )
+    profile_collection_prompt_config = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment="Course-level profile collection prompt config JSON",
+    )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
 
     # TTS Configuration

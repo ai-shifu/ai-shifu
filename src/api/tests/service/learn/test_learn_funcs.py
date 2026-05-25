@@ -1,3 +1,4 @@
+import json
 import sys
 import types
 import unittest
@@ -45,11 +46,14 @@ from flaskr.service.learn.context_v2 import (
 )
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.common.profile_collection import profile_collection_block_bid
+from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
+from flaskr.service.shifu.models import PublishedShifu
 
 
 class LearnRecordLoadTests(unittest.TestCase):
@@ -73,11 +77,91 @@ class LearnRecordLoadTests(unittest.TestCase):
         self.ctx.push()
         LearnGeneratedBlock.query.delete()
         LearnProgressRecord.query.delete()
+        VariableValue.query.delete()
+        PublishedShifu.query.delete()
         dao.db.session.commit()
 
     def tearDown(self):
         dao.db.session.remove()
         self.ctx.pop()
+
+    def _build_profile_collection_context(
+        self,
+        progress: LearnProgressRecord,
+        *,
+        run_type: RunType,
+        input_value=None,
+    ) -> RunScriptContextV2:
+        ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+        ctx.app = self.app
+        ctx._trace_args = {}
+        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._trace_root_span = None
+        ctx._outline_item_info = types.SimpleNamespace(
+            bid=progress.outline_item_bid,
+            shifu_bid=progress.shifu_bid,
+            position=0,
+            title="Profile Collection",
+        )
+        ctx._shifu_info = types.SimpleNamespace(use_learner_language=False)
+        ctx._user_info = types.SimpleNamespace(user_id=progress.user_bid, mobile="")
+        ctx._preview_mode = False
+        ctx._struct = None
+        ctx._is_paid = True
+        ctx._run_type = run_type
+        ctx._can_continue = True
+        ctx._input_type = "normal"
+        ctx._input = input_value
+        ctx._last_position = -1
+        ctx._listen = False
+        ctx._stop_event = None
+        ctx._element_index_cursor = 0
+        ctx._langfuse_output_chunks = []
+        ctx._current_attend = progress
+        ctx._get_current_attend = types.MethodType(
+            lambda self, outline_bid: progress, ctx
+        )
+        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx.get_llm_settings = types.MethodType(
+            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+        )
+        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx._get_run_script_info = types.MethodType(
+            lambda self, attend, is_ask=False: RunScriptInfo(
+                attend=attend,
+                outline_bid=attend.outline_item_bid,
+                block_position=attend.block_position,
+                mdflow="doc",
+            ),
+            ctx,
+        )
+        return ctx
+
+    def _add_profile_collection_shifu(
+        self,
+        shifu_bid: str,
+        *,
+        skip_label: str = "Skip",
+    ) -> None:
+        dao.db.session.add(
+            PublishedShifu(
+                shifu_bid=shifu_bid,
+                title="Profile Collection Course",
+                profile_collection_prompt_config=json.dumps(
+                    {
+                        "version": 1,
+                        "variables": {
+                            "sys_user_background": {
+                                "question": "What learner background helps here?",
+                                "placeholder": "Your learning background",
+                                "skip_label": skip_label,
+                            }
+                        },
+                    }
+                ),
+            )
+        )
+        dao.db.session.flush()
 
     def test_learn_record_loads_generated_and_input_content_separately(self):
         """Ensure learn record loading uses generated content and real user input."""
@@ -817,6 +901,300 @@ class LearnRecordLoadTests(unittest.TestCase):
         self.assertEqual(progress.block_position, 0)
         self.assertEqual(ctx._run_type, RunType.OUTPUT)
         self.assertTrue(ctx._can_continue)
+
+    def test_run_inner_prompts_for_missing_profile_collection_variable(self):
+        progress = LearnProgressRecord(
+            progress_record_bid="progress-profile-collect",
+            shifu_bid="shifu-profile-collect",
+            outline_item_bid="outline-profile-collect",
+            user_bid="user-profile-collect",
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        dao.db.session.add(progress)
+        self._add_profile_collection_shifu(progress.shifu_bid)
+        dao.db.session.commit()
+
+        ctx = self._build_profile_collection_context(
+            progress,
+            run_type=RunType.OUTPUT,
+            input_value=None,
+        )
+
+        class DummyBlock:
+            def __init__(self, block_type, content, index):
+                self.block_type = block_type
+                self.content = content
+                self.index = index
+
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.blocks = [
+                    DummyBlock(
+                        MarkdownFlowBlockType.CONTENT,
+                        "Use {{sys_user_background}} in this lesson.",
+                        0,
+                    )
+                ]
+
+            def set_visual_mode(self, *_args, **_kwargs):
+                pass
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+            def get_all_blocks(self):
+                return self.blocks
+
+            def get_block(self, block_index):
+                return self.blocks[block_index]
+
+            def process(
+                self, block_index, mode, variables=None, context=None, user_input=None
+            ):
+                raise AssertionError("course block should not run before collection")
+
+        with (
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_profile_item_definition_list",
+                return_value=[],
+            ),
+        ):
+            events = list(ctx.run_inner(self.app))
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].type, GeneratedType.INTERACTION)
+        self.assertIn("sys_user_background", events[0].content)
+        self.assertIn("What learner background helps here?", events[0].content)
+        self.assertEqual(progress.block_position, 0)
+        self.assertFalse(ctx._can_continue)
+
+        generated_block = LearnGeneratedBlock.query.filter_by(
+            progress_record_bid=progress.progress_record_bid,
+            block_bid=profile_collection_block_bid("sys_user_background"),
+        ).first()
+        self.assertIsNotNone(generated_block)
+        self.assertEqual(generated_block.generated_content, "")
+        self.assertEqual(generated_block.position, 0)
+
+    def test_run_inner_saves_profile_collection_input_globally(self):
+        progress = LearnProgressRecord(
+            progress_record_bid="progress-profile-submit",
+            shifu_bid="shifu-profile-submit",
+            outline_item_bid="outline-profile-submit",
+            user_bid="user-profile-submit",
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        dao.db.session.add(progress)
+        self._add_profile_collection_shifu(progress.shifu_bid)
+        pending_interaction = LearnGeneratedBlock(
+            generated_block_bid="profile-pending-bg",
+            progress_record_bid=progress.progress_record_bid,
+            user_bid=progress.user_bid,
+            block_bid=profile_collection_block_bid("sys_user_background"),
+            outline_item_bid=progress.outline_item_bid,
+            shifu_bid=progress.shifu_bid,
+            type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            generated_content="",
+            block_content_conf="?[%{{sys_user_background}}Skip|...Background?]",
+            position=0,
+            status=1,
+        )
+        dao.db.session.add(pending_interaction)
+        dao.db.session.commit()
+
+        ctx = self._build_profile_collection_context(
+            progress,
+            run_type=RunType.INPUT,
+            input_value={"sys_user_background": ["Product manager"]},
+        )
+
+        class DummyBlock:
+            def __init__(self, block_type, content, index):
+                self.block_type = block_type
+                self.content = content
+                self.index = index
+
+        class FakeMarkdownFlow:
+            process_called = False
+
+            def __init__(self, *args, **kwargs):
+                self.blocks = [
+                    DummyBlock(
+                        MarkdownFlowBlockType.CONTENT,
+                        "Use {{sys_user_background}} in this lesson.",
+                        0,
+                    )
+                ]
+
+            def set_visual_mode(self, *_args, **_kwargs):
+                pass
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+            def get_all_blocks(self):
+                return self.blocks
+
+            def get_block(self, block_index):
+                return self.blocks[block_index]
+
+            def process(
+                self, block_index, mode, variables=None, context=None, user_input=None
+            ):
+                FakeMarkdownFlow.process_called = True
+                return types.SimpleNamespace(content="should-not-run")
+
+        with (
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_profile_item_definition_list",
+                return_value=[],
+            ),
+            unittest.mock.patch(
+                "flaskr.service.profile.funcs.get_profile_item_definition_list",
+                return_value=[],
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.check_text_content",
+                return_value=True,
+            ),
+        ):
+            events = list(ctx.run_inner(self.app))
+
+        self.assertFalse(FakeMarkdownFlow.process_called)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].type, GeneratedType.VARIABLE_UPDATE)
+        self.assertEqual(events[0].content.variable_name, "sys_user_background")
+        self.assertEqual(events[0].content.variable_value, "Product manager")
+        self.assertEqual(progress.block_position, 0)
+        self.assertEqual(ctx._run_type, RunType.OUTPUT)
+        self.assertTrue(ctx._can_continue)
+        self.assertEqual(pending_interaction.generated_content, "Product manager")
+
+        saved_value = VariableValue.query.filter_by(
+            user_bid=progress.user_bid,
+            key="sys_user_background",
+            deleted=0,
+        ).first()
+        self.assertIsNotNone(saved_value)
+        self.assertEqual(saved_value.shifu_bid, "")
+        self.assertEqual(saved_value.value, "Product manager")
+
+    def test_run_inner_saves_profile_collection_skip_as_empty_global_value(self):
+        progress = LearnProgressRecord(
+            progress_record_bid="progress-profile-skip",
+            shifu_bid="shifu-profile-skip",
+            outline_item_bid="outline-profile-skip",
+            user_bid="user-profile-skip",
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        dao.db.session.add(progress)
+        self._add_profile_collection_shifu(progress.shifu_bid, skip_label="Skip")
+        pending_interaction = LearnGeneratedBlock(
+            generated_block_bid="profile-pending-skip",
+            progress_record_bid=progress.progress_record_bid,
+            user_bid=progress.user_bid,
+            block_bid=profile_collection_block_bid("sys_user_background"),
+            outline_item_bid=progress.outline_item_bid,
+            shifu_bid=progress.shifu_bid,
+            type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            generated_content="",
+            block_content_conf="?[%{{sys_user_background}}Skip|...Background?]",
+            position=0,
+            status=1,
+        )
+        dao.db.session.add(pending_interaction)
+        dao.db.session.commit()
+
+        ctx = self._build_profile_collection_context(
+            progress,
+            run_type=RunType.INPUT,
+            input_value={"input": ["Skip"]},
+        )
+
+        class DummyBlock:
+            def __init__(self, block_type, content, index):
+                self.block_type = block_type
+                self.content = content
+                self.index = index
+
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.blocks = [
+                    DummyBlock(
+                        MarkdownFlowBlockType.CONTENT,
+                        "Use {{sys_user_background}} in this lesson.",
+                        0,
+                    )
+                ]
+
+            def set_visual_mode(self, *_args, **_kwargs):
+                pass
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+            def get_all_blocks(self):
+                return self.blocks
+
+            def get_block(self, block_index):
+                return self.blocks[block_index]
+
+            def process(
+                self, block_index, mode, variables=None, context=None, user_input=None
+            ):
+                raise AssertionError("course block should not run on skip submit")
+
+        with (
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_profile_item_definition_list",
+                return_value=[],
+            ),
+            unittest.mock.patch(
+                "flaskr.service.profile.funcs.get_profile_item_definition_list",
+                return_value=[],
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.check_text_content",
+                side_effect=AssertionError("skip should not run risk check"),
+            ),
+        ):
+            events = list(ctx.run_inner(self.app))
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].type, GeneratedType.VARIABLE_UPDATE)
+        self.assertEqual(events[0].content.variable_name, "sys_user_background")
+        self.assertEqual(events[0].content.variable_value, "")
+        self.assertEqual(pending_interaction.generated_content, "Skip")
+
+        saved_value = VariableValue.query.filter_by(
+            user_bid=progress.user_bid,
+            key="sys_user_background",
+            deleted=0,
+        ).first()
+        self.assertIsNotNone(saved_value)
+        self.assertEqual(saved_value.shifu_bid, "")
+        self.assertEqual(saved_value.value, "")
 
 
 if __name__ == "__main__":

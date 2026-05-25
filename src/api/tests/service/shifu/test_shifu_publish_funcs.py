@@ -1,3 +1,4 @@
+import json
 import sys
 import types
 
@@ -153,3 +154,150 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch):
     assert trace.last_span.kwargs["input"] == "Summarize this lesson"
     assert trace.last_span.end_kwargs["output"] == "summary result"
     assert trace.updated["output"] == "summary result"
+
+
+def test_generate_profile_collection_prompt_config_saves_referenced_variables(
+    monkeypatch,
+):
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    captured = {}
+
+    def fake_get_config(
+        app,
+        *,
+        prompt: str,
+        model_name: str,
+        user_id: str | None,
+        temperature,
+    ):
+        captured["prompt"] = prompt
+        captured["model_name"] = model_name
+        captured["user_id"] = user_id
+        captured["temperature"] = temperature
+        return json.dumps(
+            {
+                "version": 1,
+                "variables": {
+                    "sys_user_nickname": {
+                        "question": "Nickname?",
+                        "placeholder": "Name",
+                        "skip_label": "Skip",
+                    },
+                    "sys_user_background": {
+                        "question": "What background helps with Python?",
+                        "placeholder": "Your Python background",
+                        "skip_label": "Skip",
+                    },
+                },
+            }
+        )
+
+    monkeypatch.setattr(
+        module,
+        "_get_profile_collection_prompt_config",
+        fake_get_config,
+    )
+
+    app = Flask("profile-collection-publish")
+    app.config["DEFAULT_LLM_MODEL"] = "fallback-model"
+    shifu = types.SimpleNamespace(
+        shifu_bid="shifu-profile",
+        title="Python Basics",
+        description="Intro course",
+        keywords="python,beginner",
+        ask_llm="ask-model",
+        llm="course-model",
+        ask_llm_temperature=0.4,
+        llm_temperature=0.8,
+        created_user_bid="creator-1",
+        profile_collection_prompt_config="{}",
+    )
+    outline_ids = ["section-1"]
+    outline_item_map = {
+        "section-1": types.SimpleNamespace(
+            content="We adapt the lesson to {{sys_user_background}}."
+        )
+    }
+    outline_summary_map = {
+        "section-1": {
+            "chapter_id": "chapter-1",
+            "chapter_name": "Start",
+            "section_id": "section-1",
+            "section_name": "Intro",
+            "content": "Python variables and first steps.",
+        }
+    }
+
+    config = module._generate_profile_collection_prompt_config(
+        app,
+        shifu,
+        outline_ids,
+        outline_summary_map,
+        outline_item_map,
+        (
+            "title={course_title}\n"
+            "description={course_description}\n"
+            "keywords={course_keywords}\n"
+            "variables={profile_variables}\n"
+            "summary={course_summary}"
+        ),
+    )
+
+    saved_config = json.loads(shifu.profile_collection_prompt_config)
+    assert "sys_user_background" in config["variables"]
+    assert "sys_user_background" in saved_config["variables"]
+    assert "sys_user_nickname" not in saved_config["variables"]
+    assert captured["model_name"] == "ask-model"
+    assert captured["user_id"] == "creator-1"
+    assert captured["temperature"] == 0.4
+    assert "Python Basics" in captured["prompt"]
+    assert "sys_user_background" in captured["prompt"]
+
+
+def test_generate_profile_collection_prompt_config_falls_back_on_failure(monkeypatch):
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    monkeypatch.setattr(
+        module,
+        "_get_profile_collection_prompt_config",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("llm failed")),
+    )
+
+    app = Flask("profile-collection-publish-fallback")
+    shifu = types.SimpleNamespace(
+        shifu_bid="shifu-profile",
+        title="Python Basics",
+        description="Intro course",
+        keywords="python,beginner",
+        ask_llm="ask-model",
+        llm="course-model",
+        ask_llm_temperature=0.4,
+        llm_temperature=0.8,
+        created_user_bid="creator-1",
+        profile_collection_prompt_config='{"old": true}',
+    )
+
+    config = module._generate_profile_collection_prompt_config(
+        app,
+        shifu,
+        ["section-1"],
+        {
+            "section-1": {
+                "chapter_id": "chapter-1",
+                "chapter_name": "Start",
+                "section_id": "section-1",
+                "section_name": "Intro",
+                "content": "Python variables.",
+            }
+        },
+        {
+            "section-1": types.SimpleNamespace(
+                content="We adapt the lesson to {{sys_user_background}}."
+            )
+        },
+        "{course_title} {profile_variables} {course_summary}",
+    )
+
+    assert config == {}
+    assert shifu.profile_collection_prompt_config == "{}"

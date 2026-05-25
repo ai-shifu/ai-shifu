@@ -80,7 +80,23 @@ from flaskr.service.user.repository import UserAggregate
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.util import generate_id
 from flaskr.service.profile.funcs import get_user_profiles
-from flaskr.service.profile.constants import SYS_USER_LANGUAGE
+from flaskr.service.profile.constants import (
+    SYS_USER_BACKGROUND,
+    SYS_USER_LANGUAGE,
+    SYS_USER_NICKNAME,
+)
+from flaskr.service.common.profile_collection import (
+    PROFILE_COLLECTION_KEYS,
+    PROFILE_COLLECTION_KEY_SET,
+    build_profile_collection_interaction_md,
+    extract_profile_collection_keys,
+    get_profile_collection_prompt,
+    get_recorded_profile_collection_keys,
+    is_profile_collection_skip_value,
+    normalize_profile_collection_prompt_config,
+    profile_collection_block_bid,
+    profile_collection_key_from_block_bid,
+)
 from flaskr.service.learn.learn_dtos import (
     PlaygroundPreviewRequest,
     RunElementSSEMessageDTO,
@@ -91,7 +107,11 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.service.learn.handle_input_ask import handle_input_ask
-from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
+from flaskr.service.profile.funcs import (
+    check_text_content,
+    save_user_profiles,
+    ProfileToSave,
+)
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
     ProfileItemDefinition,
@@ -2217,6 +2237,236 @@ class RunScriptContextV2:
             return False
         return bool(str(input_value).strip())
 
+    def _get_profile_collection_prompt_config(self) -> dict[str, Any]:
+        cached_config = getattr(self, "_profile_collection_prompt_config_cache", None)
+        if isinstance(cached_config, dict):
+            return cached_config
+        if self._preview_mode:
+            self._profile_collection_prompt_config_cache = (
+                normalize_profile_collection_prompt_config({})
+            )
+            return self._profile_collection_prompt_config_cache
+        try:
+            shifu = (
+                PublishedShifu.query.filter(
+                    PublishedShifu.shifu_bid == self._outline_item_info.shifu_bid,
+                    PublishedShifu.deleted == 0,
+                )
+                .order_by(PublishedShifu.id.desc())
+                .first()
+            )
+        except Exception as exc:
+            self.app.logger.warning(
+                "Load profile collection prompt config failed: %s", exc
+            )
+            self._profile_collection_prompt_config_cache = (
+                normalize_profile_collection_prompt_config({})
+            )
+            return self._profile_collection_prompt_config_cache
+        self._profile_collection_prompt_config_cache = (
+            normalize_profile_collection_prompt_config(
+                getattr(shifu, "profile_collection_prompt_config", "{}")
+                if shifu
+                else "{}"
+            )
+        )
+        return self._profile_collection_prompt_config_cache
+
+    def _profile_collection_input_key(self) -> str:
+        if not isinstance(self._input, dict):
+            return ""
+        for key in self._input.keys():
+            variable_key = str(key or "").strip()
+            if variable_key in PROFILE_COLLECTION_KEY_SET:
+                return variable_key
+        return ""
+
+    def _find_pending_profile_collection_block(
+        self,
+        run_script_info: RunScriptInfo,
+        variable_key: str = "",
+    ) -> LearnGeneratedBlock | None:
+        if variable_key and variable_key not in PROFILE_COLLECTION_KEY_SET:
+            return None
+        block_bids = (
+            [profile_collection_block_bid(variable_key)]
+            if variable_key
+            else [profile_collection_block_bid(key) for key in PROFILE_COLLECTION_KEYS]
+        )
+        return (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid
+                == run_script_info.attend.progress_record_bid,
+                LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
+                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                LearnGeneratedBlock.status == 1,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.generated_content == "",
+                LearnGeneratedBlock.position == run_script_info.block_position,
+                LearnGeneratedBlock.block_bid.in_(block_bids),
+            )
+            .order_by(LearnGeneratedBlock.id.desc())
+            .first()
+        )
+
+    def _handle_profile_collection_input(
+        self,
+        app: Flask,
+        run_script_info: RunScriptInfo,
+        variable_definition_key_id_map: dict[str, str],
+        config: dict[str, Any],
+    ) -> RunMarkdownFlowDTO | None:
+        if self._run_type != RunType.INPUT or not self._has_effective_input():
+            return None
+
+        variable_key = self._profile_collection_input_key()
+        pending_block = self._find_pending_profile_collection_block(
+            run_script_info, variable_key
+        )
+        if not variable_key:
+            if not pending_block:
+                pending_block = self._find_pending_profile_collection_block(
+                    run_script_info
+                )
+            variable_key = profile_collection_key_from_block_bid(
+                pending_block.block_bid if pending_block else ""
+            )
+        if not pending_block or variable_key not in PROFILE_COLLECTION_KEY_SET:
+            return None
+
+        user_input_param = MdflowContextV2.normalize_user_input_map(
+            self._input, variable_key
+        )
+        if variable_key not in user_input_param:
+            if "input" in user_input_param and len(user_input_param) == 1:
+                user_input_param = {variable_key: user_input_param["input"]}
+            elif len(user_input_param) == 1:
+                _only_key, only_values = next(iter(user_input_param.items()))
+                user_input_param = {variable_key: only_values}
+
+        raw_value = MdflowContextV2.flatten_user_input_map(user_input_param).strip()
+        value_to_save = raw_value
+        display_value = raw_value
+        if is_profile_collection_skip_value(raw_value, config, variable_key):
+            prompt = get_profile_collection_prompt(config, variable_key)
+            value_to_save = ""
+            display_value = raw_value or prompt.get("skip_label", "")
+
+        if value_to_save and variable_key == SYS_USER_NICKNAME:
+            if not check_text_content(app, self._user_info.user_id, value_to_save):
+                raise_error("server.common.nicknameNotAllowed")
+        if value_to_save and variable_key == SYS_USER_BACKGROUND:
+            if not check_text_content(app, self._user_info.user_id, value_to_save):
+                raise_error("server.common.backgroundNotAllowed")
+
+        save_user_profiles(
+            app,
+            self._user_info.user_id,
+            self._outline_item_info.shifu_bid,
+            [
+                ProfileToSave(
+                    variable_key,
+                    value_to_save,
+                    variable_definition_key_id_map.get(variable_key, ""),
+                )
+            ],
+        )
+
+        pending_block.generated_content = display_value
+        pending_block.role = ROLE_STUDENT
+        pending_block.status = 1
+        db.session.flush()
+
+        self._can_continue = True
+        self._run_type = RunType.OUTPUT
+        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+        return RunMarkdownFlowDTO(
+            outline_bid=run_script_info.outline_bid,
+            generated_block_bid=pending_block.generated_block_bid,
+            type=GeneratedType.VARIABLE_UPDATE,
+            content=VariableUpdateDTO(
+                variable_name=variable_key,
+                variable_value=value_to_save,
+            ),
+        )
+
+    def _resolve_missing_profile_collection_key(
+        self,
+        block: Any,
+        user_profile: dict,
+    ) -> str:
+        if self._preview_mode or self._input_type == INPUT_TYPE_ASK:
+            return ""
+        block_content = getattr(block, "content", "") or ""
+        referenced_keys = extract_profile_collection_keys(block_content)
+        if not referenced_keys:
+            return ""
+
+        if getattr(block, "block_type", None) == BlockType.INTERACTION:
+            try:
+                parsed_interaction = InteractionParser().parse(block_content)
+            except Exception:
+                parsed_interaction = {}
+            authored_variable = str(parsed_interaction.get("variable") or "").strip()
+            if authored_variable in PROFILE_COLLECTION_KEY_SET:
+                return ""
+
+        recorded_keys = get_recorded_profile_collection_keys(self._user_info.user_id)
+        for variable_key in PROFILE_COLLECTION_KEYS:
+            if variable_key not in referenced_keys:
+                continue
+            if variable_key in recorded_keys:
+                continue
+            if str((user_profile or {}).get(variable_key) or "").strip():
+                continue
+            return variable_key
+        return ""
+
+    def _emit_profile_collection_interaction(
+        self,
+        app: Flask,
+        run_script_info: RunScriptInfo,
+        variable_key: str,
+        config: dict[str, Any],
+    ) -> RunMarkdownFlowDTO:
+        interaction_md = build_profile_collection_interaction_md(config, variable_key)
+        generated_block = self._find_pending_profile_collection_block(
+            run_script_info, variable_key
+        )
+        if not generated_block:
+            generated_block = init_generated_block(
+                app,
+                shifu_bid=run_script_info.attend.shifu_bid,
+                outline_item_bid=run_script_info.outline_bid,
+                progress_record_bid=run_script_info.attend.progress_record_bid,
+                user_bid=self._user_info.user_id,
+                block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                mdflow=interaction_md,
+                block_index=run_script_info.block_position,
+            )
+            generated_block.block_bid = profile_collection_block_bid(variable_key)
+        generated_block.role = ROLE_TEACHER
+        generated_block.block_content_conf = (
+            generated_block.block_content_conf or interaction_md
+        )
+        generated_block.generated_content = ""
+        generated_block.status = 1
+        if not getattr(generated_block, "id", None):
+            db.session.add(generated_block)
+        db.session.flush()
+
+        content = generated_block.block_content_conf or interaction_md
+        self.append_langfuse_output(content)
+        self._can_continue = False
+        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+        return RunMarkdownFlowDTO(
+            outline_bid=run_script_info.outline_bid,
+            generated_block_bid=generated_block.generated_block_bid,
+            type=GeneratedType.INTERACTION,
+            content=content,
+        )
+
     def set_input(self, input: str | dict, input_type: str):
         """
         Set user input.
@@ -2526,6 +2776,30 @@ class RunScriptContextV2:
         app.logger.info(f"block: {block}")
         app.logger.info(f"self._run_type: {self._run_type}")
         has_effective_input = self._has_effective_input()
+        profile_collection_config = self._get_profile_collection_prompt_config()
+        collection_update_event = self._handle_profile_collection_input(
+            app,
+            run_script_info,
+            variable_definition_key_id_map,
+            profile_collection_config,
+        )
+        if collection_update_event:
+            yield collection_update_event
+            db.session.flush()
+            return
+        if self._run_type == RunType.OUTPUT:
+            profile_collection_key = self._resolve_missing_profile_collection_key(
+                block, user_profile
+            )
+            if profile_collection_key:
+                yield self._emit_profile_collection_interaction(
+                    app,
+                    run_script_info,
+                    profile_collection_key,
+                    profile_collection_config,
+                )
+                db.session.flush()
+                return
         if self._run_type == RunType.INPUT:
             if block.block_type != BlockType.INTERACTION:
                 if has_effective_input:

@@ -48,6 +48,12 @@ from flaskr.common.shifu_context import (
     get_shifu_context_snapshot,
     apply_shifu_context_snapshot,
 )
+from flaskr.service.common.profile_collection import (
+    PROFILE_COLLECTION_KEYS,
+    extract_profile_collection_keys,
+    normalize_profile_collection_prompt_config,
+    serialize_profile_collection_prompt_config,
+)
 
 
 def _build_frontend_url(base_url: str, path: str) -> str:
@@ -252,6 +258,7 @@ def get_shifu_summary(app, shifu_id: str):
         # Get the prompt word template
         summary_prompt_template = load_prompt_template("summary")
         ask_prompt_template = load_prompt_template("ask")
+        profile_collection_prompt_template = load_prompt_template("profile_collection")
 
         # Get course data
         outline_tree, outline_ids, outline_item_map = _get_shifu_data(app, shifu_id)
@@ -269,6 +276,14 @@ def get_shifu_summary(app, shifu_id: str):
             outline_summary_map,
             outline_item_map,
             ask_prompt_template,
+        )
+        _generate_profile_collection_prompt_config(
+            app,
+            shifu,
+            outline_ids,
+            outline_summary_map,
+            outline_item_map,
+            profile_collection_prompt_template,
         )
         shifu.ask_enabled_status = ASK_MODE_ENABLE
         db.session.commit()
@@ -400,6 +415,85 @@ def _generate_summaries(
     return outline_summary_map
 
 
+def _collect_referenced_profile_collection_keys(
+    outline_item_map: dict[str, PublishedOutlineItem],
+) -> list[str]:
+    referenced_keys: set[str] = set()
+    for outline_item in outline_item_map.values():
+        referenced_keys.update(extract_profile_collection_keys(outline_item.content))
+    return [key for key in PROFILE_COLLECTION_KEYS if key in referenced_keys]
+
+
+def _format_profile_collection_variables(variable_keys: list[str]) -> str:
+    labels = {
+        "sys_user_nickname": "learner nickname",
+        "sys_user_background": "learner background",
+        "sys_user_style": "preferred teaching style",
+    }
+    return "\n".join(f"- {key}: {labels.get(key, key)}" for key in variable_keys)
+
+
+def _generate_profile_collection_prompt_config(
+    app,
+    shifu: PublishedShifu,
+    outline_ids: list[str],
+    outline_summary_map: dict[str, dict],
+    outline_item_map: dict[str, PublishedOutlineItem],
+    profile_collection_prompt_template: str,
+) -> dict:
+    referenced_keys = _collect_referenced_profile_collection_keys(outline_item_map)
+    if not referenced_keys:
+        shifu.profile_collection_prompt_config = "{}"
+        return {}
+
+    try:
+        summary_items = [
+            outline_summary_map[outline_id]
+            for outline_id in outline_ids
+            if outline_id in outline_summary_map
+        ]
+        course_summary = _build_summary_text(summary_items, is_learned=True)
+        final_prompt = profile_collection_prompt_template.format(
+            course_title=shifu.title or "",
+            course_description=shifu.description or "",
+            course_keywords=shifu.keywords or "",
+            profile_variables=_format_profile_collection_variables(referenced_keys),
+            course_summary=course_summary,
+        )
+
+        model_name = shifu.ask_llm or shifu.llm
+        temperature = shifu.ask_llm_temperature or shifu.llm_temperature or 0.3
+        if not model_name:
+            model_name = app.config.get("DEFAULT_LLM_MODEL", "")
+
+        raw_config = _get_profile_collection_prompt_config(
+            app,
+            prompt=final_prompt,
+            model_name=model_name,
+            user_id=shifu.created_user_bid or None,
+            temperature=temperature,
+        )
+        config = normalize_profile_collection_prompt_config(raw_config)
+        variables = config.get("variables", {})
+        if isinstance(variables, dict):
+            config["variables"] = {
+                key: variables[key] for key in referenced_keys if key in variables
+            }
+        shifu.profile_collection_prompt_config = (
+            serialize_profile_collection_prompt_config(config)
+        )
+        return config
+    except Exception as exc:
+        app.logger.error(
+            "Failed to generate profile collection prompt config for shifu %s: %s",
+            getattr(shifu, "shifu_bid", ""),
+            exc,
+            exc_info=True,
+        )
+        shifu.profile_collection_prompt_config = "{}"
+        return {}
+
+
 def _get_shifu_data(
     app, shifu_id: str
 ) -> tuple[
@@ -467,6 +561,58 @@ def _make_ask_prompt(
     return result
 
 
+def _invoke_publish_llm_text(
+    app,
+    prompt,
+    model_name,
+    user_id=None,
+    temperature=0.8,
+    trace_name="shifu_summary",
+):
+    trace_user_id = user_id or trace_name
+    trace, span = create_trace_with_root_span(
+        client=get_langfuse_client(),
+        trace_payload={
+            "user_id": trace_user_id,
+            "input": prompt,
+            "name": trace_name,
+        },
+        root_span_payload={
+            "name": trace_name,
+            "input": prompt,
+        },
+    )
+    output = ""
+    try:
+        response = invoke_llm(
+            app,
+            trace_user_id,
+            span,
+            model_name,
+            prompt,
+            temperature=temperature,
+            generation_name=trace_name,
+            usage_context=UsageContext(
+                user_bid=trace_user_id,
+                shifu_bid="",
+                usage_scene=BILL_USAGE_SCENE_DEBUG,
+                billable=0,
+            ),
+            usage_scene=BILL_USAGE_SCENE_DEBUG,
+            billable=0,
+        )
+        for chunk in response:
+            output += getattr(chunk, "result", "")
+        return output
+    finally:
+        finalize_langfuse_trace(
+            trace=trace,
+            root_span=span,
+            trace_payload={"output": output},
+            root_span_payload={"output": output},
+        )
+
+
 def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
     """
     Call the AI model to generate summary
@@ -479,48 +625,27 @@ def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
     Returns:
         Summary text
     """
-    # Create langfuse trace/span
-    trace, span = create_trace_with_root_span(
-        client=get_langfuse_client(),
-        trace_payload={
-            "user_id": user_id or "shifu-summary",
-            "input": prompt,
-            "name": "shifu_summary",
-        },
-        root_span_payload={
-            "name": "shifu_summary",
-            "input": prompt,
-        },
+    return _invoke_publish_llm_text(
+        app,
+        prompt,
+        model_name,
+        user_id=user_id or "shifu-summary",
+        temperature=temperature,
+        trace_name="shifu_summary",
     )
-    summary = ""
-    try:
-        response = invoke_llm(
-            app,
-            user_id or "shifu-summary",
-            span,
-            model_name,
-            prompt,
-            temperature=temperature,
-            generation_name="shifu_summary",
-            usage_context=UsageContext(
-                user_bid=user_id or "shifu-summary",
-                shifu_bid="",
-                usage_scene=BILL_USAGE_SCENE_DEBUG,
-                billable=0,
-            ),
-            usage_scene=BILL_USAGE_SCENE_DEBUG,
-            billable=0,
-        )
-        for chunk in response:
-            summary += getattr(chunk, "result", "")
-        return summary
-    finally:
-        finalize_langfuse_trace(
-            trace=trace,
-            root_span=span,
-            trace_payload={"output": summary},
-            root_span_payload={"output": summary},
-        )
+
+
+def _get_profile_collection_prompt_config(
+    app, prompt, model_name, user_id=None, temperature=0.3
+):
+    return _invoke_publish_llm_text(
+        app,
+        prompt,
+        model_name,
+        user_id=user_id or "shifu-profile-collection",
+        temperature=temperature,
+        trace_name="shifu_profile_collection",
+    )
 
 
 def _build_summary_text(summaries: list[dict], is_learned: bool) -> str:

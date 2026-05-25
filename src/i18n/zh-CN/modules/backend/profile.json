@@ -3,6 +3,13 @@
   "__flat__": {
     "avatar": "头像",
     "birth": "生日",
+    "collectionBackgroundPlaceholder": "可以说说你的职业、学习目标或相关经验。",
+    "collectionBackgroundQuestion": "为了让这门课的例子更贴近你，可以简单说下你的工作或学习背景吗？",
+    "collectionNicknamePlaceholder": "请输入希望我称呼你的名字。",
+    "collectionNicknameQuestion": "这门课里我应该怎么称呼你？",
+    "collectionSkipLabel": "暂不填写",
+    "collectionStylePlaceholder": "例如：简洁一点、一步步讲、面试问答式、多举例。",
+    "collectionStyleQuestion": "你希望我用什么授课风格来帮助你学习这门课？",
     "keyExist": "键已存在",
     "keyRequire": "键必填",
     "keyRequired": "键必填",

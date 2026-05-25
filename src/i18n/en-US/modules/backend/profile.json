@@ -3,6 +3,13 @@
   "__flat__": {
     "avatar": "Avatar",
     "birth": "Birth",
+    "collectionBackgroundPlaceholder": "Tell me your role, learning goal, or prior experience.",
+    "collectionBackgroundQuestion": "To make the examples in this course more useful, what is your work or learning background?",
+    "collectionNicknamePlaceholder": "Enter the name I should use for you.",
+    "collectionNicknameQuestion": "What should I call you during this course?",
+    "collectionSkipLabel": "Skip for now",
+    "collectionStylePlaceholder": "For example: concise, step-by-step, interview-style, or more examples.",
+    "collectionStyleQuestion": "What teaching style would help you learn this course better?",
     "keyExist": "Key already exists",
     "keyRequire": "Key is required",
     "keyRequired": "Key is required",
