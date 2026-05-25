@@ -18,7 +18,7 @@ from flaskr.service.common import raise_error
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
-from flaskr.service.tts import preprocess_for_tts
+from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
 from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.util.uuid import generate_id
@@ -104,6 +104,7 @@ def build_tts_preview_response(
     def event_stream():
         total_duration_ms = 0
         total_word_count = 0
+        total_output_chars = 0
         try:
             for index, segment_text in enumerate(segments):
                 result = synthesize_text(
@@ -115,7 +116,12 @@ def build_tts_preview_response(
                 )
                 total_duration_ms += int(result.duration_ms or 0)
                 word_count = int(getattr(result, "word_count", 0) or 0)
+                segment_output_chars = resolve_tts_billable_chars(
+                    segment_text,
+                    int(getattr(result, "usage_characters", 0) or 0),
+                )
                 total_word_count += word_count
+                total_output_chars += segment_output_chars
                 record_tts_usage(
                     app,
                     usage_context,
@@ -123,8 +129,8 @@ def build_tts_preview_response(
                     model=validated.model or "",
                     is_stream=True,
                     input=len(segment_text or ""),
-                    output=len(segment_text or ""),
-                    total=len(segment_text or ""),
+                    output=segment_output_chars,
+                    total=segment_output_chars,
                     word_count=word_count,
                     duration_ms=int(result.duration_ms or 0),
                     latency_ms=0,
@@ -156,8 +162,8 @@ def build_tts_preview_response(
                 model=validated.model or "",
                 is_stream=True,
                 input=len(text or ""),
-                output=len(cleaned_text or ""),
-                total=len(cleaned_text or ""),
+                output=total_output_chars or len(cleaned_text or ""),
+                total=total_output_chars or len(cleaned_text or ""),
                 word_count=total_word_count,
                 duration_ms=total_duration_ms,
                 latency_ms=0,

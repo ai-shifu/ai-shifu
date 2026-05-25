@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from flaskr.api.tts import VoiceSettings, AudioSettings
 
 from flaskr.service.metering import record_tts_usage
+from flaskr.service.tts import resolve_tts_billable_chars
 
 
 def build_tts_metadata(
@@ -55,6 +56,7 @@ def record_tts_segment_usage(
     is_stream: bool,
     parent_usage_bid: str,
     segment_index: int,
+    usage_characters: int = 0,
 ) -> None:
     """
     Record TTS usage for a single segment.
@@ -68,6 +70,7 @@ def record_tts_segment_usage(
         model: TTS model name
         segment_text: The text that was synthesized
         word_count: Number of words in the segment
+        usage_characters: Provider-reported billable characters, when available
         duration_ms: Audio duration in milliseconds
         latency_ms: Synthesis latency in milliseconds
         voice_settings: TTS voice configuration
@@ -77,6 +80,7 @@ def record_tts_segment_usage(
         segment_index: Index of this segment in the sequence
     """
     segment_length = len(segment_text or "")
+    output_chars = resolve_tts_billable_chars(segment_text, usage_characters)
     extra = build_tts_metadata(voice_settings, audio_settings)
 
     record_tts_usage(
@@ -86,8 +90,8 @@ def record_tts_segment_usage(
         model=model,
         is_stream=is_stream,
         input=segment_length,
-        output=segment_length,
-        total=segment_length,
+        output=output_chars,
+        total=output_chars,
         word_count=word_count,
         duration_ms=duration_ms,
         latency_ms=latency_ms,
@@ -113,6 +117,7 @@ def record_tts_aggregated_usage(
     voice_settings: "VoiceSettings",
     audio_settings: "AudioSettings",
     is_stream: bool = True,
+    total_usage_characters: int = 0,
 ) -> None:
     """
     Record aggregated TTS usage for all segments.
@@ -129,6 +134,7 @@ def record_tts_aggregated_usage(
         raw_text: Original input text (before preprocessing)
         cleaned_text: Cleaned text (after preprocessing)
         total_word_count: Total word count across all segments
+        total_usage_characters: Provider-reported billable characters across segments
         duration_ms: Total audio duration in milliseconds
         segment_count: Number of segments synthesized
         voice_settings: TTS voice configuration
@@ -136,6 +142,7 @@ def record_tts_aggregated_usage(
         is_stream: Whether this is a streaming request
     """
     extra = build_tts_metadata(voice_settings, audio_settings)
+    output_chars = resolve_tts_billable_chars(cleaned_text, total_usage_characters)
 
     record_tts_usage(
         app,
@@ -145,8 +152,8 @@ def record_tts_aggregated_usage(
         model=model,
         is_stream=is_stream,
         input=len(raw_text or ""),
-        output=len(cleaned_text or ""),
-        total=len(cleaned_text or ""),
+        output=output_chars,
+        total=output_chars,
         word_count=total_word_count,
         duration_ms=int(duration_ms or 0),
         latency_ms=0,
