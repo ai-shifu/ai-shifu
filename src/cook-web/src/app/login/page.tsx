@@ -38,7 +38,7 @@ export default function AuthPage() {
   const userInfo = useUserStore(state => state.userInfo);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const logout = useUserStore(state => state.logout);
-  const loginSessionResetRef = useRef(false);
+  const loginSessionResetCheckedRef = useRef(false);
   const [logoSrc, setLogoSrc] = useState<string | StaticImageData>(
     environment.logoWideUrl || logoHorizontal,
   );
@@ -54,17 +54,6 @@ export default function AuthPage() {
   useEffect(() => {
     setLogoSrc(logoWideUrl || environment.logoWideUrl || logoHorizontal);
   }, [logoWideUrl]);
-
-  useEffect(() => {
-    if (!isLoggedIn || loginSessionResetRef.current) {
-      return;
-    }
-
-    loginSessionResetRef.current = true;
-    void logout(false).catch(() => {
-      loginSessionResetRef.current = false;
-    });
-  }, [isLoggedIn, logout]);
 
   const normalizedMethods = useMemo(() => {
     const fallback = environment.loginMethodsEnabled;
@@ -124,6 +113,21 @@ export default function AuthPage() {
 
   const searchParams = useSearchParams();
   const isInitialized = useUserStore(state => state.isInitialized);
+
+  useEffect(() => {
+    if (!isInitialized || loginSessionResetCheckedRef.current) {
+      return;
+    }
+
+    loginSessionResetCheckedRef.current = true;
+    if (!isLoggedIn) {
+      return;
+    }
+
+    void logout(false).catch(() => {
+      loginSessionResetCheckedRef.current = false;
+    });
+  }, [isInitialized, isLoggedIn, logout]);
 
   const resolveRedirectPath = useCallback(() => {
     const fallback = '/admin';
