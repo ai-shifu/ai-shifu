@@ -14,6 +14,8 @@ Implementation and architecture decisions that shape repository behavior live he
   - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [AI Tool Compatibility Layer Design](../design-docs/ai-tool-compat.md)
   - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
+- [Billing Subscription Preorder](../design-docs/billing-subscription-preorder.md)
+  - Status: `proposed` | Owner: `backend` | Last reviewed: `2026-05-25` | Canonical: `true`
 - [Langfuse Trace Association](../design-docs/langfuse-trace-association.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Primary Surface Rules Completion](../design-docs/primary-surface-rules.md)
