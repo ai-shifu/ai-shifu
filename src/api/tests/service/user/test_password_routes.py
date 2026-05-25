@@ -133,9 +133,7 @@ def test_sms_login_route_logs_in_with_phone_code(test_client):
     assert body["data"]["userInfo"]["mobile"] == phone
 
 
-def test_sms_login_route_does_not_rebind_authenticated_account_phone(
-    test_client, app
-):
+def test_sms_login_route_does_not_rebind_authenticated_account_phone(test_client, app):
     import flaskr.service.user.phone_flow as phone_flow
     from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 
