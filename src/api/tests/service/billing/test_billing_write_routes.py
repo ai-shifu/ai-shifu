@@ -1279,6 +1279,97 @@ class TestBillingWriteRoutes:
                 upgrade_order.bill_order_bid
             )
 
+    def test_subscription_checkout_zero_amount_upgrade_applies_without_provider_charge(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+        current_period_end = now + timedelta(days=25)
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-preorder-zero-upgrade",
+                    creator_bid="creator-1",
+                    product_bid="bill-product-plan-monthly-pro",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="pingxx",
+                    provider_subscription_id="",
+                    provider_customer_id="",
+                    current_period_start_at=now - timedelta(days=5),
+                    current_period_end_at=current_period_end,
+                    cancel_at_period_end=0,
+                    next_product_bid="bill-product-plan-monthly",
+                    metadata_json={"preorder_order_bid": "bill-preorder-zero-paid"},
+                    created_at=now - timedelta(days=5),
+                    updated_at=now - timedelta(days=5),
+                )
+            )
+            dao.db.session.add(
+                BillingOrder(
+                    bill_order_bid="bill-preorder-zero-paid",
+                    creator_bid="creator-1",
+                    order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                    product_bid="bill-product-plan-monthly",
+                    subscription_bid="sub-preorder-zero-upgrade",
+                    currency="CNY",
+                    payable_amount=800000,
+                    paid_amount=800000,
+                    payment_provider="pingxx",
+                    channel="alipay_qr",
+                    provider_reference_id="ch_preorder_zero_paid",
+                    status=BILLING_ORDER_STATUS_PAID,
+                    paid_at=now - timedelta(minutes=5),
+                    metadata_json={
+                        "checkout_type": "subscription_preorder",
+                        "preorder_state": "pending_effective",
+                        "renewal_cycle_start_at": current_period_end.isoformat(),
+                    },
+                    created_at=now - timedelta(minutes=5),
+                    updated_at=now - timedelta(minutes=5),
+                )
+            )
+            dao.db.session.commit()
+
+        payload = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-yearly-lite",
+                "payment_provider": "pingxx",
+                "action": "upgrade_immediate",
+            },
+        ).get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["status"] == "paid"
+        assert payload["data"]["prepaid_offset_amount"] == 800000
+        assert payload["data"]["payable_amount"] == 0
+        assert payload["data"]["payment_payload"] is None
+        assert billing_write_client["pingxx_requests"] == []
+
+        with app.app_context():
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-preorder-zero-upgrade",
+            ).one()
+            upgrade_order = BillingOrder.query.filter_by(
+                bill_order_bid=payload["data"]["bill_order_bid"],
+            ).one()
+            preorder_order = BillingOrder.query.filter_by(
+                bill_order_bid="bill-preorder-zero-paid",
+            ).one()
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+
+            assert subscription.product_bid == "bill-product-plan-yearly-lite"
+            assert subscription.next_product_bid == ""
+            assert upgrade_order.status == BILLING_ORDER_STATUS_PAID
+            assert upgrade_order.provider_reference_id.startswith("zero_amount:")
+            assert upgrade_order.metadata_json["zero_amount_offset"] is True
+            assert preorder_order.metadata_json["preorder_state"] == (
+                "absorbed_by_upgrade"
+            )
+            assert wallet.available_credits == Decimal("5000.0000000000")
+
     def test_pingxx_subscription_checkout_and_sync_grant_initial_credits(
         self, billing_write_client
     ) -> None:

@@ -12,7 +12,6 @@
     "domainHostConflict": "Ce domaine personnalisé est déjà lié à un autre créateur.",
     "subscriptionInactive": "Un abonnement actif est requis. Les crédits de recharge ne peuvent être achetés ou utilisés que pendant la période d’abonnement.",
     "subscriptionPreorderAlreadyExists": "Une précommande de forfait est déjà en attente pour cet abonnement.",
-    "subscriptionPreorderOffsetInvalid": "Le montant de la précommande payée ne peut pas compenser entièrement cette mise à niveau. Contactez l’assistance pour ajuster la précommande avant la mise à niveau.",
     "subscriptionPreorderProviderUnsupported": "La précommande de forfait est actuellement prise en charge uniquement pour les canaux de paiement autogérés.",
     "subscriptionPreorderTargetInvalid": "La précommande de forfait prend uniquement en charge le renouvellement du même forfait ou le passage à un forfait inférieur en fin de cycle.",
     "subscriptionPreorderUnavailable": "La précommande de forfait n’est pas disponible pour l’abonnement actuel.",

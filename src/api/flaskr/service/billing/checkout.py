@@ -99,6 +99,7 @@ from .preorders import (
     resolve_plan_tier as _resolve_plan_tier,
 )
 from .subscriptions import (
+    grant_paid_order_credits as _grant_paid_order_credits,
     load_billing_product_by_bid as _load_billing_product_by_bid,
     load_effective_topup_subscription as _load_effective_topup_subscription,
     load_subscription_by_bid as _load_subscription_by_bid,
@@ -289,9 +290,10 @@ def create_billing_subscription_checkout(
         db.session.add(subscription)
         db.session.flush()
 
-        payable_amount = int(product.price_amount or 0) - prepaid_offset_amount
-        if payable_amount <= 0:
-            raise_error("server.billing.subscriptionPreorderOffsetInvalid")
+        payable_amount = max(
+            0,
+            int(product.price_amount or 0) - prepaid_offset_amount,
+        )
 
         order = BillingOrder(
             bill_order_bid=generate_id(app),
@@ -326,15 +328,18 @@ def create_billing_subscription_checkout(
             db.session.add(absorbed_preorder_order)
             db.session.add(subscription)
 
-        checkout_result = _create_provider_checkout(
-            app,
-            creator_bid=normalized_creator_bid,
-            order=order,
-            product=product,
-            payment_provider=payment_provider,
-            payment_mode="subscription",
-            channel=channel,
-        )
+        if payable_amount == 0:
+            checkout_result = _complete_zero_amount_subscription_checkout(app, order)
+        else:
+            checkout_result = _create_provider_checkout(
+                app,
+                creator_bid=normalized_creator_bid,
+                order=order,
+                product=product,
+                payment_provider=payment_provider,
+                payment_mode="subscription",
+                channel=channel,
+            )
         db.session.commit()
         return checkout_result
 
@@ -969,33 +974,11 @@ def _create_provider_checkout(
         body=subject,
     )
 
-    response: dict[str, Any] = {
-        "bill_order_bid": order.bill_order_bid,
-        "provider": payment_provider,
-        "payment_mode": payment_mode,
-        "status": "pending",
-    }
-    order_metadata = (
-        order.metadata_json if isinstance(order.metadata_json, dict) else {}
-    )
-    response.update(
-        {
-            "checkout_type": order_metadata.get("checkout_type") or None,
-            "effective_mode": order_metadata.get("effective_mode")
-            or (
-                "cycle_end"
-                if order_metadata.get("checkout_type") == PREORDER_CHECKOUT_TYPE
-                else "immediate"
-            ),
-            "current_product_bid": order_metadata.get("current_product_bid") or None,
-            "target_product_bid": order_metadata.get("target_product_bid")
-            or order.product_bid,
-            "preorder_order_bid": order_metadata.get("preorder_order_bid") or None,
-            "prepaid_offset_amount": int(
-                order_metadata.get("prepaid_offset_amount") or 0
-            ),
-            "payable_amount": int(order.payable_amount or 0),
-        }
+    response = _build_checkout_response_payload(
+        order,
+        payment_provider=payment_provider,
+        payment_mode=payment_mode,
+        status="pending",
     )
     if payment_provider == "stripe":
         redirect_url = str(result.extra.get("url") or "")
@@ -1015,6 +998,76 @@ def _create_provider_checkout(
             }
         ).to_metadata_json()
     return BillingCheckoutResultDTO(**response)
+
+
+def _complete_zero_amount_subscription_checkout(
+    app: Flask,
+    order: BillingOrder,
+) -> BillingCheckoutResultDTO:
+    now = datetime.now()
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
+    metadata.update(
+        _normalize_json_object(
+            {
+                "provider": order.payment_provider,
+                "payment_mode": "subscription",
+                "zero_amount_offset": True,
+                "checkout": {"status": "paid_without_provider_charge"},
+            }
+        )
+    )
+    order.status = BILLING_ORDER_STATUS_PAID
+    order.paid_at = order.paid_at or now
+    order.paid_amount = 0
+    order.provider_reference_id = (
+        order.provider_reference_id or f"zero_amount:{order.bill_order_bid}"
+    )
+    order.metadata_json = _normalize_json_object(metadata).to_metadata_json()
+    order.updated_at = now
+    db.session.add(order)
+    _grant_paid_order_credits(app, order)
+
+    return BillingCheckoutResultDTO(
+        **_build_checkout_response_payload(
+            order,
+            payment_provider=order.payment_provider,
+            payment_mode="subscription",
+            status="paid",
+        )
+    )
+
+
+def _build_checkout_response_payload(
+    order: BillingOrder,
+    *,
+    payment_provider: str,
+    payment_mode: str,
+    status: str,
+) -> dict[str, Any]:
+    order_metadata = (
+        order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    )
+    return {
+        "bill_order_bid": order.bill_order_bid,
+        "provider": payment_provider,
+        "payment_mode": payment_mode,
+        "status": status,
+        "checkout_type": order_metadata.get("checkout_type") or None,
+        "effective_mode": order_metadata.get("effective_mode")
+        or (
+            "cycle_end"
+            if order_metadata.get("checkout_type") == PREORDER_CHECKOUT_TYPE
+            else "immediate"
+        ),
+        "current_product_bid": order_metadata.get("current_product_bid") or None,
+        "target_product_bid": order_metadata.get("target_product_bid")
+        or order.product_bid,
+        "preorder_order_bid": order_metadata.get("preorder_order_bid") or None,
+        "prepaid_offset_amount": int(order_metadata.get("prepaid_offset_amount") or 0),
+        "payable_amount": int(order.payable_amount or 0),
+    }
 
 
 def _build_pingxx_provider_options(

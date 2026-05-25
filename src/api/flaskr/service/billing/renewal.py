@@ -32,9 +32,17 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_LABELS,
 )
 from .checkout import sync_billing_order
+from .preorders import (
+    is_preorder_order as _is_preorder_order,
+    load_active_preorder_order as _load_active_preorder_order,
+)
+from .queries import (
+    calculate_self_managed_billing_cycle_end as _calculate_self_managed_billing_cycle_end,
+)
 from .subscriptions import (
     activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
     ensure_subscription_renewal_order,
+    load_billing_product_by_bid as _load_billing_product_by_bid,
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
     load_subscription_by_bid as _load_subscription_by_bid,
     load_subscription_renewal_order_by_cycle as _load_subscription_renewal_order_by_cycle,
@@ -321,14 +329,15 @@ def _execute_expire_subscription(
             ),
         )
 
-    paid_renewal_order = None
-    if boundary_at is not None:
-        paid_renewal_order = _load_subscription_renewal_order_by_cycle(
-            subscription.subscription_bid,
-            cycle_start_at=boundary_at,
-            statuses=(BILLING_ORDER_STATUS_PAID,),
-        )
+    paid_renewal_order = _load_paid_renewal_order_for_cycle(
+        subscription_bid=subscription.subscription_bid,
+        boundary_at=boundary_at,
+    )
     if paid_renewal_order is not None:
+        _align_preorder_cycle_to_boundary(
+            paid_renewal_order,
+            boundary_at=boundary_at,
+        )
         _activate_subscription_for_paid_order(
             app,
             paid_renewal_order,
@@ -383,15 +392,16 @@ def _execute_downgrade_effective(
             product_bid=subscription.product_bid,
         )
 
-    paid_renewal_order = None
     boundary_at = event.scheduled_at or subscription.current_period_end_at
-    if boundary_at is not None:
-        paid_renewal_order = _load_subscription_renewal_order_by_cycle(
-            subscription.subscription_bid,
-            cycle_start_at=boundary_at,
-            statuses=(BILLING_ORDER_STATUS_PAID,),
-        )
+    paid_renewal_order = _load_paid_renewal_order_for_cycle(
+        subscription_bid=subscription.subscription_bid,
+        boundary_at=boundary_at,
+    )
     if paid_renewal_order is not None:
+        _align_preorder_cycle_to_boundary(
+            paid_renewal_order,
+            boundary_at=boundary_at,
+        )
         _activate_subscription_for_paid_order(
             app,
             paid_renewal_order,
@@ -419,6 +429,63 @@ def _execute_downgrade_effective(
     _complete_renewal_event(event, now=now)
     db.session.commit()
     return _result_from_event("applied", event, product_bid=subscription.product_bid)
+
+
+def _load_paid_renewal_order_for_cycle(
+    *,
+    subscription_bid: str,
+    boundary_at: datetime | None,
+) -> BillingOrder | None:
+    if boundary_at is not None:
+        exact_order = _load_subscription_renewal_order_by_cycle(
+            subscription_bid,
+            cycle_start_at=boundary_at,
+            statuses=(BILLING_ORDER_STATUS_PAID,),
+        )
+        if exact_order is not None:
+            return exact_order
+
+    preorder_order = _load_active_preorder_order(subscription_bid)
+    if (
+        preorder_order is not None
+        and int(preorder_order.status or 0) == BILLING_ORDER_STATUS_PAID
+    ):
+        return preorder_order
+    return None
+
+
+def _align_preorder_cycle_to_boundary(
+    order: BillingOrder,
+    *,
+    boundary_at: datetime | None,
+) -> None:
+    if boundary_at is None or not _is_preorder_order(order):
+        return
+
+    product = _load_billing_product_by_bid(order.product_bid)
+    if product is None:
+        return
+    cycle_end_at = _calculate_self_managed_billing_cycle_end(
+        product,
+        cycle_start_at=boundary_at,
+    )
+    if cycle_end_at is None:
+        return
+
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
+    metadata.update(
+        {
+            "renewal_cycle_start_at": boundary_at.isoformat(),
+            "renewal_cycle_end_at": cycle_end_at.isoformat(),
+            "preorder_effective_at": boundary_at.isoformat(),
+            "preorder_effective_at_source": "cycle_boundary",
+        }
+    )
+    order.metadata_json = metadata
+    order.updated_at = datetime.now()
+    db.session.add(order)
 
 
 def _execute_subscription_renewal(

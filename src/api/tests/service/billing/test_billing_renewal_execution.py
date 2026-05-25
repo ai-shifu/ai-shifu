@@ -547,8 +547,12 @@ def test_run_billing_renewal_event_applies_downgrade_and_reschedules_renewal(
 def test_run_billing_downgrade_event_applies_paid_preorder(
     billing_renewal_app: Flask,
 ) -> None:
-    current_cycle_start = datetime.now() - timedelta(days=30)
+    current_cycle_start = datetime.now() - timedelta(days=35)
+    preorder_snapshot_cycle_end = datetime.now() - timedelta(days=5)
     current_cycle_end = datetime.now() - timedelta(minutes=1)
+    preorder_snapshot_next_cycle_end = _self_managed_cycle_end(
+        preorder_snapshot_cycle_end
+    )
     next_cycle_end = _self_managed_cycle_end(current_cycle_end)
 
     with billing_renewal_app.app_context():
@@ -581,13 +585,14 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
             channel="alipay_qr",
             provider_reference_id="ch_preorder_downgrade_1",
             status=BILLING_ORDER_STATUS_PAID,
-            paid_at=current_cycle_end - timedelta(days=5),
+            paid_at=preorder_snapshot_cycle_end - timedelta(days=5),
             metadata_json={
                 "checkout_type": "subscription_preorder",
                 "preorder_state": "pending_effective",
                 "provider_reference_type": "charge",
-                "renewal_cycle_start_at": current_cycle_end.isoformat(),
-                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+                "preorder_effective_at": preorder_snapshot_cycle_end.isoformat(),
+                "renewal_cycle_start_at": preorder_snapshot_cycle_end.isoformat(),
+                "renewal_cycle_end_at": preorder_snapshot_next_cycle_end.isoformat(),
             },
         )
         event = _create_renewal_event(
@@ -641,8 +646,8 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
                 idempotency_key="grant:bill-preorder-downgrade-1",
                 amount=Decimal("5.0000000000"),
                 balance_after=Decimal("3.0000000000"),
-                expires_at=next_cycle_end,
-                consumable_from=current_cycle_end,
+                expires_at=preorder_snapshot_next_cycle_end,
+                consumable_from=preorder_snapshot_cycle_end,
                 metadata_json={
                     "bill_order_bid": "bill-preorder-downgrade-1",
                     "subscription_bid": "sub-preorder-downgrade",
@@ -650,10 +655,10 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
                     "payment_provider": "pingxx",
                     "grant_reason": "subscription_renewal",
                     "bucket_credit_state": "reserved",
-                    "reserved_until": current_cycle_end.isoformat(),
+                    "reserved_until": preorder_snapshot_cycle_end.isoformat(),
                 },
-                created_at=current_cycle_end - timedelta(days=5),
-                updated_at=current_cycle_end - timedelta(days=5),
+                created_at=preorder_snapshot_cycle_end - timedelta(days=5),
+                updated_at=preorder_snapshot_cycle_end - timedelta(days=5),
             )
         )
         dao.db.session.add(event)
@@ -696,12 +701,21 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
         assert subscription.current_period_start_at == current_cycle_end
         assert subscription.current_period_end_at == next_cycle_end
         assert order.metadata_json["preorder_state"] == "effective_applied"
+        assert order.metadata_json["renewal_cycle_start_at"] == (
+            current_cycle_end.isoformat()
+        )
+        assert order.metadata_json["renewal_cycle_end_at"] == (
+            next_cycle_end.isoformat()
+        )
+        assert order.metadata_json["preorder_effective_at_source"] == "cycle_boundary"
         assert bucket.source_bid == "bill-preorder-downgrade-1"
         assert bucket.available_credits == Decimal("5.0000000000")
         assert bucket.reserved_credits == Decimal("0")
         assert wallet.available_credits == Decimal("5.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
         assert grant_entry.metadata_json["bucket_credit_state"] == "available"
+        assert grant_entry.consumable_from == current_cycle_end
+        assert grant_entry.expires_at == next_cycle_end
         assert expire_entry.amount == Decimal("-3.0000000000")
 
 

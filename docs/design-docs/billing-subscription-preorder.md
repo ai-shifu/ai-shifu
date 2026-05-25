@@ -11,14 +11,17 @@ canonical: true
 ## Background
 
 AI-Shifu currently supports creator plan checkout, immediate plan activation,
-manual/native one-time payment activation, renewal compensation, and wallet
-bucket based credit accounting. The new package ordering requirement adds a
+manual/native one-time payment activation, renewal compensation, and
+wallet-bucket-based credit accounting. The new package ordering requirement adds a
 preorder lifecycle for non-auto-debit payment flows so creators can pay before
 the current cycle ends and keep service continuity without provider-managed
 recurring billing.
 
-This design is based on `AI-Shifu 套餐订购与预购方案 (1).pdf` and extends the
-existing billing model documented in `docs/billing-subscription-design.md`.
+This design is based on the external requirement artifact named
+`AI-Shifu 套餐订购与预购方案 (1).pdf`. The PDF is not committed to the
+repository, so the assumptions needed for implementation are captured directly
+in this document. This design extends the existing billing model documented in
+`docs/billing-subscription-design.md`.
 
 ## Goals
 
@@ -73,7 +76,7 @@ The creator-facing plan relation has four states:
 Only one pending preorder is allowed per subscription. The invariant is:
 
 ```text
-creator_bid + active subscription -> at most one preorder order in pending-effective state
+creator_bid + active subscription -> at most one preorder order in pending_effective state
 ```
 
 ## User Actions
@@ -94,14 +97,19 @@ creator_bid + active subscription -> at most one preorder order in pending-effec
 - If there is an active preorder, user pays:
 
 ```text
-payable_amount = target_plan.price_amount - preorder_order.paid_amount
+payable_amount = max(0, target_plan.price_amount - preorder_order.paid_amount)
 ```
 
 - The absorbed preorder is no longer eligible for next-cycle activation.
+- If the offset covers the full target price, the upgrade is completed as a
+  zero-amount internal checkout; no payment provider charge or refund is
+  created.
 - The new plan starts immediately.
 - The new cycle length is calculated from the target plan itself.
 - Available subscription credits become current remaining subscription credits
-  plus the new plan full credits.
+  plus the new plan full credits. This is not prorated monetary credit
+  carry-over: unused credits stay as credits, and the old cycle is realigned to
+  the new plan window rather than converted into a cash discount.
 
 ### Preorder Renewal
 
@@ -170,6 +178,12 @@ Proposed order metadata:
 }
 ```
 
+`preorder_effective_at` is an audit/display snapshot taken at checkout. The
+cycle-end executor must use the latest subscription/event boundary as the
+source of truth and realign `renewal_cycle_start_at`/`renewal_cycle_end_at`
+before applying the preorder, so admin period extensions do not activate the
+preorder too early.
+
 Recommended state values:
 
 | State | Meaning |
@@ -224,14 +238,21 @@ Request:
   "product_bid": "target-product-bid",
   "payment_provider": "alipay",
   "channel": "alipay_qr",
-  "action": "upgrade_immediate | preorder"
+  "action": "preorder"
 }
 ```
 
+Allowed `action` values:
+
+- `upgrade_immediate`
+- `preorder`
+
 Rules:
 
-- If no active subscription exists, ignore `action` and create
-  `subscription_start`.
+- If no active subscription exists, create `subscription_start` and return
+  `checkout_type=subscription` plus `effective_mode=immediate` so the frontend
+  can show that the request became an immediate new purchase rather than a
+  preorder.
 - `upgrade_immediate` requires target tier greater than current tier.
 - `preorder` requires no active preorder and target tier less than or equal to
   current tier.
@@ -248,7 +269,7 @@ copy without re-implementing business logic:
   "bill_order_bid": "order-bid",
   "order_type": "subscription_upgrade",
   "checkout_type": "subscription_preorder",
-  "effective_mode": "immediate | cycle_end",
+  "effective_mode": "cycle_end",
   "current_product_bid": "current-product-bid",
   "target_product_bid": "target-product-bid",
   "preorder_order_bid": "existing-preorder-order-bid",
@@ -295,13 +316,15 @@ At cycle end:
 6. Mark preorder metadata as `effective_applied`.
 7. Set the new cycle window from the target plan.
 8. Sync the next renewal or expire event.
+9. Realign active topup bucket expiration to the new cycle end.
 
 ### Immediate Upgrade With Existing Preorder
 
 When payment succeeds:
 
 1. Load the active preorder order.
-2. Set upgrade order amount to target price minus preorder paid amount.
+2. Set upgrade order amount to
+   `max(0, target price - preorder paid amount)`.
 3. Mark the preorder order metadata as `absorbed_by_upgrade`.
 4. Void any reserved credit grant created by the preorder so it cannot be
    released at the original cycle boundary.
