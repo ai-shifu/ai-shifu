@@ -172,4 +172,19 @@ describe('AuthPage', () => {
       expect(logoutMock).not.toHaveBeenCalled();
     });
   });
+
+  it('does not reset the session created by a successful login on the login page', async () => {
+    const { rerender } = render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(logoutMock).not.toHaveBeenCalled();
+    });
+
+    mockUserState.isLoggedIn = true;
+    rerender(<AuthPage />);
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(logoutMock).not.toHaveBeenCalled();
+  });
 });
