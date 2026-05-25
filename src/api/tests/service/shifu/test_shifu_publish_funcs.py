@@ -255,6 +255,122 @@ def test_generate_profile_collection_prompt_config_saves_referenced_variables(
     assert "sys_user_background" in captured["prompt"]
 
 
+def test_generate_profile_collection_prompt_config_limits_course_summary(
+    monkeypatch,
+):
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    captured = {}
+
+    def fake_get_config(
+        app,
+        *,
+        prompt: str,
+        model_name: str,
+        user_id: str | None,
+        temperature,
+    ):
+        captured["prompt"] = prompt
+        return json.dumps(
+            {
+                "version": 1,
+                "variables": {
+                    "sys_user_background": {
+                        "question": "Background?",
+                        "placeholder": "Your background",
+                        "skip_label": "Skip",
+                    },
+                },
+            }
+        )
+
+    monkeypatch.setattr(
+        module,
+        "_get_profile_collection_prompt_config",
+        fake_get_config,
+    )
+
+    app = Flask("profile-collection-summary-limit")
+    shifu = types.SimpleNamespace(
+        shifu_bid="shifu-profile",
+        title="Python Basics",
+        description="Intro course",
+        keywords="python",
+        ask_llm="ask-model",
+        llm="course-model",
+        ask_llm_temperature=0.4,
+        llm_temperature=0.8,
+        created_user_bid="creator-1",
+        profile_collection_prompt_config="{}",
+    )
+    long_summary = "A" * 3000 + "tail-marker"
+
+    module._generate_profile_collection_prompt_config(
+        app,
+        shifu,
+        ["section-1", "section-2"],
+        {
+            "section-1": {
+                "chapter_id": "chapter-1",
+                "chapter_name": "Start",
+                "section_id": "section-1",
+                "section_name": "Intro",
+                "content": long_summary,
+            },
+            "section-2": {
+                "chapter_id": "chapter-1",
+                "chapter_name": "Start",
+                "section_id": "section-2",
+                "section_name": "Practice",
+                "content": long_summary,
+            },
+        },
+        {
+            "section-1": types.SimpleNamespace(
+                content="We adapt to {{sys_user_background}}."
+            ),
+            "section-2": types.SimpleNamespace(content="More practice."),
+        },
+        "{course_title}\n{profile_variables}\n{course_summary}",
+    )
+
+    assert "...[truncated]" in captured["prompt"]
+    assert "tail-marker" not in captured["prompt"]
+    assert len(captured["prompt"]) < 3000
+
+
+def test_get_profile_collection_prompt_config_requests_json_with_timeout(monkeypatch):
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    fake_langfuse = _FakeLangfuseClient()
+    captured = {}
+
+    monkeypatch.setattr(
+        module,
+        "get_langfuse_client",
+        lambda: fake_langfuse,
+        raising=False,
+    )
+
+    def fake_invoke_llm(*_args, **kwargs):
+        captured.update(kwargs)
+        return iter([types.SimpleNamespace(result='{"version":1,"variables":{}}')])
+
+    monkeypatch.setattr(module, "invoke_llm", fake_invoke_llm)
+
+    result = module._get_profile_collection_prompt_config(
+        Flask("profile-collection-json"),
+        prompt="generate json",
+        model_name="model-1",
+        user_id="creator-1",
+        temperature=0.2,
+    )
+
+    assert result == '{"version":1,"variables":{}}'
+    assert captured["json"] is True
+    assert captured["timeout"] == module.PROFILE_COLLECTION_LLM_TIMEOUT_SECONDS
+
+
 def test_generate_profile_collection_prompt_config_falls_back_on_failure(monkeypatch):
     from flaskr.service.shifu import shifu_publish_funcs as module
 

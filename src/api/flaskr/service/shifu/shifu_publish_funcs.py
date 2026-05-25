@@ -56,6 +56,11 @@ from flaskr.service.common.profile_collection import (
 )
 
 
+PROFILE_COLLECTION_SECTION_SUMMARY_MAX_CHARS = 800
+PROFILE_COLLECTION_COURSE_SUMMARY_MAX_CHARS = 6000
+PROFILE_COLLECTION_LLM_TIMEOUT_SECONDS = 45
+
+
 def _build_frontend_url(base_url: str, path: str) -> str:
     """
     Build a frontend URL based on the provided base URL.
@@ -277,6 +282,9 @@ def get_shifu_summary(app, shifu_id: str):
             outline_item_map,
             ask_prompt_template,
         )
+        shifu.ask_enabled_status = ASK_MODE_ENABLE
+        db.session.commit()
+
         _generate_profile_collection_prompt_config(
             app,
             shifu,
@@ -285,7 +293,6 @@ def get_shifu_summary(app, shifu_id: str):
             outline_item_map,
             profile_collection_prompt_template,
         )
-        shifu.ask_enabled_status = ASK_MODE_ENABLE
         db.session.commit()
         return
 
@@ -452,7 +459,7 @@ def _generate_profile_collection_prompt_config(
             for outline_id in outline_ids
             if outline_id in outline_summary_map
         ]
-        course_summary = _build_summary_text(summary_items, is_learned=True)
+        course_summary = _build_profile_collection_course_summary(summary_items)
         final_prompt = profile_collection_prompt_template.format(
             course_title=shifu.title or "",
             course_description=shifu.description or "",
@@ -568,6 +575,8 @@ def _invoke_publish_llm_text(
     user_id=None,
     temperature=0.8,
     trace_name="shifu_summary",
+    json_output=False,
+    timeout=None,
 ):
     trace_user_id = user_id or trace_name
     trace, span = create_trace_with_root_span(
@@ -584,13 +593,16 @@ def _invoke_publish_llm_text(
     )
     output = ""
     try:
+        invoke_kwargs = {"temperature": temperature}
+        if timeout is not None:
+            invoke_kwargs["timeout"] = timeout
         response = invoke_llm(
             app,
             trace_user_id,
             span,
             model_name,
             prompt,
-            temperature=temperature,
+            json=json_output,
             generation_name=trace_name,
             usage_context=UsageContext(
                 user_bid=trace_user_id,
@@ -600,6 +612,7 @@ def _invoke_publish_llm_text(
             ),
             usage_scene=BILL_USAGE_SCENE_DEBUG,
             billable=0,
+            **invoke_kwargs,
         )
         for chunk in response:
             output += getattr(chunk, "result", "")
@@ -645,7 +658,43 @@ def _get_profile_collection_prompt_config(
         user_id=user_id or "shifu-profile-collection",
         temperature=temperature,
         trace_name="shifu_profile_collection",
+        json_output=True,
+        timeout=PROFILE_COLLECTION_LLM_TIMEOUT_SECONDS,
     )
+
+
+def _build_profile_collection_course_summary(summaries: list[dict]) -> str:
+    limited_summaries = []
+    total_chars = 0
+    for summary in summaries:
+        content = str(summary.get("content") or "").strip()
+        if not content:
+            continue
+        remaining = PROFILE_COLLECTION_COURSE_SUMMARY_MAX_CHARS - total_chars
+        if remaining <= 0:
+            break
+        max_content_chars = min(
+            PROFILE_COLLECTION_SECTION_SUMMARY_MAX_CHARS,
+            remaining,
+        )
+        content = _truncate_text(content, max_content_chars)
+        total_chars += len(content)
+        limited_summary = dict(summary)
+        limited_summary["content"] = content
+        limited_summaries.append(limited_summary)
+
+    return _build_summary_text(limited_summaries, is_learned=True)
+
+
+def _truncate_text(text: str, max_chars: int) -> str:
+    if max_chars <= 0:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    suffix = "...[truncated]"
+    if max_chars <= len(suffix):
+        return text[:max_chars]
+    return text[: max_chars - len(suffix)].rstrip() + suffix
 
 
 def _build_summary_text(summaries: list[dict], is_learned: bool) -> str:

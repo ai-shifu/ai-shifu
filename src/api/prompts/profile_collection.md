@@ -29,7 +29,17 @@
 {{
   "version": 1,
   "variables": {{
+    "sys_user_nickname": {{
+      "question": "string",
+      "placeholder": "string",
+      "skip_label": "string"
+    }},
     "sys_user_background": {{
+      "question": "string",
+      "placeholder": "string",
+      "skip_label": "string"
+    }},
+    "sys_user_style": {{
       "question": "string",
       "placeholder": "string",
       "skip_label": "string"
