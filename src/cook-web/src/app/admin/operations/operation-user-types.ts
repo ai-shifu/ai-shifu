@@ -100,10 +100,17 @@ export type AdminOperationUserCreditUsageModeFilter =
   | 'listen'
   | 'ask';
 
+export type AdminOperationUserCreditUsageSceneFilter =
+  | 'all'
+  | 'learning'
+  | 'preview'
+  | 'debug';
+
 export type AdminOperationUserCreditFilters = {
   creditType: AdminOperationUserCreditTypeFilter;
   grantSource: AdminOperationUserCreditGrantSourceFilter;
   courseQuery: string;
+  usageScene: AdminOperationUserCreditUsageSceneFilter;
   usageMode: AdminOperationUserCreditUsageModeFilter;
   startTime: string;
   endTime: string;

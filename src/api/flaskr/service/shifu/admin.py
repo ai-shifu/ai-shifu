@@ -273,6 +273,9 @@ COURSE_CREDIT_USAGE_MODE_LEARN = "learn"
 COURSE_CREDIT_USAGE_MODE_LISTEN = "listen"
 COURSE_CREDIT_USAGE_MODE_ASK = "ask"
 COURSE_CREDIT_USAGE_MODE_MIXED = "mixed"
+COURSE_CREDIT_USAGE_SCENE_LEARNING = "learning"
+COURSE_CREDIT_USAGE_SCENE_PREVIEW = "preview"
+COURSE_CREDIT_USAGE_SCENE_DEBUG = "debug"
 OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD = "reward"
 OPERATOR_USER_CREDIT_GRANT_SOURCE_COMPENSATION = "compensation"
 OPERATOR_USER_CREDIT_TYPE_ALL = "all"
@@ -409,6 +412,40 @@ def _resolve_course_credit_usage_mode_filter(value: str) -> str:
     return ""
 
 
+def _resolve_course_credit_usage_scene(row: BillUsageRecord) -> str:
+    usage_scene = int(getattr(row, "usage_scene", 0) or 0)
+    if usage_scene == BILL_USAGE_SCENE_DEBUG:
+        return COURSE_CREDIT_USAGE_SCENE_DEBUG
+    if usage_scene == BILL_USAGE_SCENE_PREVIEW:
+        return COURSE_CREDIT_USAGE_SCENE_PREVIEW
+    if usage_scene == BILL_USAGE_SCENE_PROD:
+        return COURSE_CREDIT_USAGE_SCENE_LEARNING
+    return ""
+
+
+def _resolve_course_credit_usage_scene_filter(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {
+        "",
+        "all",
+        COURSE_CREDIT_USAGE_SCENE_LEARNING,
+        COURSE_CREDIT_USAGE_SCENE_PREVIEW,
+        COURSE_CREDIT_USAGE_SCENE_DEBUG,
+    }:
+        return normalized
+    return ""
+
+
+def _build_course_credit_usage_scene_filter(value: str) -> Any | None:
+    if value == COURSE_CREDIT_USAGE_SCENE_LEARNING:
+        return BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD
+    if value == COURSE_CREDIT_USAGE_SCENE_PREVIEW:
+        return BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PREVIEW
+    if value == COURSE_CREDIT_USAGE_SCENE_DEBUG:
+        return BillUsageRecord.usage_scene == BILL_USAGE_SCENE_DEBUG
+    return None
+
+
 def _resolve_course_credit_usage_view(value: str) -> str:
     normalized = str(value or "").strip().lower()
     if normalized in {"", COURSE_CREDIT_USAGE_VIEW_GROUPED}:
@@ -428,18 +465,25 @@ def _build_course_credit_usage_model_display(provider: str, model: str) -> str:
 
 def _build_course_credit_usage_group_key(
     progress_record_bid: str,
+    usage_scene: str,
     usage_mode: str,
     usage_bid: str,
 ) -> str:
     normalized_progress_record_bid = str(progress_record_bid or "").strip()
+    normalized_usage_scene = str(usage_scene or "").strip()
     normalized_usage_mode = str(usage_mode or "").strip()
     normalized_usage_bid = str(usage_bid or "").strip()
     if normalized_progress_record_bid:
-        return (
-            f"{normalized_progress_record_bid}:{normalized_usage_mode}"
-            if normalized_usage_mode
-            else normalized_progress_record_bid
-        )
+        group_parts = [
+            value
+            for value in (
+                normalized_progress_record_bid,
+                normalized_usage_scene,
+                normalized_usage_mode,
+            )
+            if value
+        ]
+        return ":".join(group_parts)
     return normalized_usage_bid
 
 
@@ -475,6 +519,7 @@ def _build_operator_course_credit_usage_item(
     ).strip()
     resolved_model = str(model or getattr(usage_row, "model", "") or "").strip()
     resolved_usage_mode = usage_mode or _resolve_course_credit_usage_mode(usage_row)
+    resolved_usage_scene = _resolve_course_credit_usage_scene(usage_row)
     resolved_created_at = (
         created_at if created_at is not None else getattr(usage_row, "created_at", None)
     )
@@ -500,6 +545,7 @@ def _build_operator_course_credit_usage_item(
         chapter_title=str(context.get("chapter_title", "") or ""),
         lesson_outline_item_bid=str(context.get("lesson_outline_item_bid", "") or ""),
         lesson_title=str(context.get("lesson_title", "") or ""),
+        usage_scene=resolved_usage_scene,
         usage_mode=resolved_usage_mode,
         provider=resolved_provider,
         model=resolved_model,
@@ -5184,16 +5230,26 @@ def get_operator_course_credit_usages(
         mode_filter = _resolve_course_credit_usage_mode_filter(
             str(filters.get("mode", "") or "")
         )
+        scene_filter = _resolve_course_credit_usage_scene_filter(
+            str(filters.get("usage_scene", "") or "")
+        )
         view = _resolve_course_credit_usage_view(str(filters.get("view", "") or ""))
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
 
         if str(filters.get("mode", "") or "").strip() and not mode_filter:
             raise_param_error("mode")
+        if str(filters.get("usage_scene", "") or "").strip() and not scene_filter:
+            raise_param_error("usage_scene")
         if str(filters.get("view", "") or "").strip() and not view:
             raise_param_error("view")
 
-        # Limit ledger aggregation to this course's production usage rows first.
+        visible_usage_scenes = (
+            BILL_USAGE_SCENE_DEBUG,
+            BILL_USAGE_SCENE_PREVIEW,
+            BILL_USAGE_SCENE_PROD,
+        )
+
         course_credit_usage_bids = (
             db.session.query(BillUsageRecord.usage_bid.label("usage_bid"))
             .filter(
@@ -5202,7 +5258,7 @@ def get_operator_course_credit_usages(
                 BillUsageRecord.billable == 1,
                 BillUsageRecord.status == 0,
                 BillUsageRecord.record_level == 0,
-                BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD,
+                BillUsageRecord.usage_scene.in_(visible_usage_scenes),
             )
             .subquery()
         )
@@ -5239,7 +5295,7 @@ def get_operator_course_credit_usages(
             BillUsageRecord.billable == 1,
             BillUsageRecord.status == 0,
             BillUsageRecord.record_level == 0,
-            BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD,
+            BillUsageRecord.usage_scene.in_(visible_usage_scenes),
             credit_usage_ledger_totals.c.ledger_amount < 0,
         )
 
@@ -5249,6 +5305,9 @@ def get_operator_course_credit_usages(
         )
         if user_keyword_filter is not None:
             query = query.filter(user_keyword_filter)
+        scene_filter_expr = _build_course_credit_usage_scene_filter(scene_filter)
+        if scene_filter_expr is not None:
+            query = query.filter(scene_filter_expr)
         if start_time:
             query = query.filter(BillUsageRecord.created_at >= start_time)
         if end_time:
@@ -5330,6 +5389,7 @@ def get_operator_course_credit_usages(
             usage_mode = str(item.usage_mode or "").strip()
             group_key = _build_course_credit_usage_group_key(
                 progress_record_bid=progress_record_bid,
+                usage_scene=str(item.usage_scene or "").strip(),
                 usage_mode=usage_mode,
                 usage_bid=str(item.usage_bid or "").strip(),
             )
@@ -5386,6 +5446,7 @@ def get_operator_course_credit_usages(
                     chapter_title=base_item.chapter_title,
                     lesson_outline_item_bid=base_item.lesson_outline_item_bid,
                     lesson_title=base_item.lesson_title,
+                    usage_scene=base_item.usage_scene,
                     usage_mode=base_item.usage_mode,
                     provider=primary_provider,
                     model=primary_model,
@@ -6649,6 +6710,9 @@ def get_operator_user_credits(
         usage_mode = _resolve_course_credit_usage_mode_filter(
             str(filters.get("usage_mode", "") or "")
         )
+        usage_scene = _resolve_course_credit_usage_scene_filter(
+            str(filters.get("usage_scene", "") or "")
+        )
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
 
@@ -6656,6 +6720,8 @@ def get_operator_user_credits(
             raise_param_error("credit_type")
         if str(filters.get("grant_source", "") or "").strip() and not grant_source:
             raise_param_error("grant_source")
+        if str(filters.get("usage_scene", "") or "").strip() and not usage_scene:
+            raise_param_error("usage_scene")
         if str(filters.get("usage_mode", "") or "").strip() and not usage_mode:
             raise_param_error("usage_mode")
 
@@ -6702,9 +6768,12 @@ def get_operator_user_credits(
             credit_type == OPERATOR_USER_CREDIT_TYPE_GRANT
             and grant_source != OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL
         )
+        has_consume_scene_filter = usage_scene not in {"", "all"}
         has_consume_usage_filter = usage_mode not in {"", "all"}
         has_consume_sub_filter = credit_type == OPERATOR_USER_CREDIT_TYPE_CONSUME and (
-            bool(resolved_course_query) or has_consume_usage_filter
+            bool(resolved_course_query)
+            or has_consume_scene_filter
+            or has_consume_usage_filter
         )
 
         if has_grant_source_filter:
@@ -6763,6 +6832,13 @@ def get_operator_user_credits(
                 )
                 if course_query_filter is not None:
                     query = query.filter(course_query_filter)
+
+            if usage_scene == COURSE_CREDIT_USAGE_SCENE_LEARNING:
+                query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_PROD)
+            elif usage_scene == COURSE_CREDIT_USAGE_SCENE_PREVIEW:
+                query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_PREVIEW)
+            elif usage_scene == COURSE_CREDIT_USAGE_SCENE_DEBUG:
+                query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_DEBUG)
 
             generation_name_expr = db.func.lower(
                 usage_row.extra["generation_name"].as_string()

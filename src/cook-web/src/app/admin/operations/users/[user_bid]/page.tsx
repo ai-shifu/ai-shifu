@@ -128,6 +128,11 @@ const EMPTY_DETAIL: AdminOperationUserDetailResponse = {
  * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.manual')
  * t('module.operationsUser.detail.creditLedgerFilters.course')
  * t('module.operationsUser.detail.creditLedgerFilters.coursePlaceholder')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageScene')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageSceneOptions.all')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageSceneOptions.learning')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageSceneOptions.preview')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageSceneOptions.debug')
  * t('module.operationsUser.detail.creditLedgerFilters.usageMode')
  * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.all')
  * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.learn')
@@ -453,6 +458,11 @@ export default function AdminOperationUserDetailPage() {
           course_query:
             creditFilters.creditType === 'consume'
               ? creditFilters.courseQuery.trim()
+              : '',
+          usage_scene:
+            creditFilters.creditType === 'consume' &&
+            creditFilters.usageScene !== FILTER_ALL_OPTION
+              ? creditFilters.usageScene
               : '',
           usage_mode:
             creditFilters.creditType === 'consume' &&

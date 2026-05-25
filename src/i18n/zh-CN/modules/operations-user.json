@@ -60,12 +60,19 @@
         "grant": "发放",
         "other": "其他"
       },
-      "usageMode": "消耗场景",
+      "usageMode": "消耗方式",
       "usageModeOptions": {
         "all": "全部",
         "ask": "追问",
         "learn": "阅读",
         "listen": "听课"
+      },
+      "usageScene": "消耗场景",
+      "usageSceneOptions": {
+        "all": "全部",
+        "debug": "调试",
+        "learning": "学习",
+        "preview": "预览"
       }
     },
     "creditLedgerNoteLabels": {
@@ -155,7 +162,6 @@
       "empty": "暂无消耗明细",
       "error": "消耗明细加载失败",
       "expand": "展开",
-      "learner": "学习人",
       "loading": "加载中",
       "title": "积分消耗明细"
     },

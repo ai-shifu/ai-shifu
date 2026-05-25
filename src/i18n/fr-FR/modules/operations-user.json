@@ -60,12 +60,19 @@
         "grant": "Attribution",
         "other": "Autre"
       },
-      "usageMode": "Scénario d’utilisation",
+      "usageMode": "Mode d’utilisation",
       "usageModeOptions": {
         "all": "Tout",
         "ask": "Relance",
         "learn": "Lecture",
         "listen": "Écoute"
+      },
+      "usageScene": "Scène d’utilisation",
+      "usageSceneOptions": {
+        "all": "Tous",
+        "debug": "Débogage",
+        "learning": "Apprentissage",
+        "preview": "Aperçu"
       }
     },
     "creditLedgerNoteLabels": {
@@ -155,7 +162,6 @@
       "empty": "Aucun détail de consommation",
       "error": "Échec du chargement des détails",
       "expand": "Développer",
-      "learner": "Apprenant",
       "loading": "Chargement",
       "title": "Détails de consommation des crédits"
     },

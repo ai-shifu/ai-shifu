@@ -396,6 +396,7 @@ describe('AdminOperationUserDetailPage', () => {
         credit_type: '',
         grant_source: '',
         course_query: '',
+        usage_scene: '',
         usage_mode: '',
         start_time: '',
         end_time: '',
@@ -510,6 +511,7 @@ describe('AdminOperationUserDetailPage', () => {
         credit_type: '',
         grant_source: '',
         course_query: '',
+        usage_scene: '',
         usage_mode: '',
         start_time: '',
         end_time: '',
@@ -530,6 +532,11 @@ describe('AdminOperationUserDetailPage', () => {
     );
     fireEvent.click(
       screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.usageSceneOptions.preview',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
         name: 'module.operationsUser.detail.creditLedgerFilters.usageModeOptions.ask',
       }),
     );
@@ -545,6 +552,7 @@ describe('AdminOperationUserDetailPage', () => {
         credit_type: 'consume',
         grant_source: '',
         course_query: 'course-42',
+        usage_scene: 'preview',
         usage_mode: 'ask',
         start_time: '',
         end_time: '',
@@ -578,6 +586,7 @@ describe('AdminOperationUserDetailPage', () => {
         credit_type: 'consume',
         grant_source: '',
         course_query: '',
+        usage_scene: '',
         usage_mode: '',
         start_time: '',
         end_time: '',
@@ -758,7 +767,9 @@ describe('AdminOperationUserDetailPage', () => {
     expect(screen.getAllByText('2026-04-30 18:00:00').length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByText('2026-04-17 18:00:00')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-04-17 18:00:00').length).toBeGreaterThan(
+      0,
+    );
   });
 
   test('keeps note column empty for system ledger rows without manual note', async () => {

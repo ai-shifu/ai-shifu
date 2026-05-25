@@ -361,6 +361,7 @@ describe('AdminOperationCourseDetailPage', () => {
           chapter_title: 'Chapter 1',
           lesson_outline_item_bid: 'lesson-1',
           lesson_title: 'Lesson 1',
+          usage_scene: 'learning',
           usage_mode: 'learn',
           provider: 'qwen',
           model: 'qwen/deepseek-v4-a',
@@ -519,6 +520,7 @@ describe('AdminOperationCourseDetailPage', () => {
         page_size: 20,
         view: 'grouped',
         keyword: '',
+        usage_scene: '',
         mode: '',
         start_time: '',
         end_time: '',
@@ -532,7 +534,7 @@ describe('AdminOperationCourseDetailPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(
-        'module.operationsCourse.detail.creditUsage.modes.learn',
+        'module.operationsCourse.detail.creditUsage.scenes.learning',
       ).length,
     ).toBeGreaterThan(0);
     expect(
@@ -560,6 +562,7 @@ describe('AdminOperationCourseDetailPage', () => {
         page_size: 20,
         view: 'grouped',
         keyword: '',
+        usage_scene: '',
         mode: '',
         start_time: '',
         end_time: '',

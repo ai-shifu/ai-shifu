@@ -1384,6 +1384,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Course ID exact match or course name fuzzy match for consume rows
+            - name: usage_scene
+              in: query
+              type: string
+              required: false
+              description: Consume scene filter
             - name: usage_mode
               in: query
               type: string
@@ -1418,6 +1423,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "credit_type": request.args.get("credit_type", ""),
             "grant_source": request.args.get("grant_source", ""),
             "course_query": request.args.get("course_query", ""),
+            "usage_scene": request.args.get("usage_scene", ""),
             "usage_mode": request.args.get("usage_mode", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
@@ -1793,6 +1799,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Credit usage mode filter
+            - name: usage_scene
+              in: query
+              type: string
+              required: false
+              description: Credit usage scene filter
             - name: view
               in: query
               type: string
@@ -1826,6 +1837,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         filters = {
             "keyword": request.args.get("keyword", ""),
             "mode": request.args.get("mode", ""),
+            "usage_scene": request.args.get("usage_scene", ""),
             "view": request.args.get("view", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),

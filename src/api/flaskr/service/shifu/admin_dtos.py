@@ -1100,6 +1100,11 @@ class AdminOperationCourseCreditUsageItemDTO(BaseModel):
         required=False,
     )
     lesson_title: str = Field(default="", description="Lesson title", required=False)
+    usage_scene: str = Field(
+        default="",
+        description="Credit usage scene: learning/preview/debug",
+        required=False,
+    )
     usage_mode: str = Field(
         default="",
         description="Credit usage mode: learn/listen/ask",

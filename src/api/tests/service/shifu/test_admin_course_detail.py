@@ -1919,23 +1919,29 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["view"] == "grouped"
-    assert payload["data"]["total"] == 4
+    assert payload["data"]["total"] == 5
     assert [item["group_key"] for item in payload["data"]["items"]] == [
-        "progress-1:listen",
-        "progress-2:ask",
-        "progress-1:learn",
-        "progress-3:learn",
+        "progress-preview:preview:learn",
+        "progress-1:learning:listen",
+        "progress-2:learning:ask",
+        "progress-1:learning:learn",
+        "progress-3:learning:learn",
     ]
-    assert payload["data"]["items"][0]["usage_bid"] == "usage-listen-1"
-    assert payload["data"]["items"][0]["usage_mode"] == "listen"
-    assert payload["data"]["items"][0]["usage_count"] == 1
-    assert payload["data"]["items"][0]["model_variant_count"] == 1
-    assert payload["data"]["items"][0]["consumed_credits"] == 12
-    assert payload["data"]["items"][1]["usage_mode"] == "ask"
-    assert payload["data"]["items"][1]["email"] == "student2@example.com"
-    assert payload["data"]["items"][1]["chapter_title"] == "Chapter 2"
-    assert payload["data"]["items"][2]["usage_mode"] == "learn"
-    assert payload["data"]["items"][2]["consumed_credits"] == 5
+    assert payload["data"]["items"][0]["usage_bid"] == "usage-preview-1"
+    assert payload["data"]["items"][0]["usage_scene"] == "preview"
+    assert payload["data"]["items"][0]["usage_mode"] == "learn"
+    assert payload["data"]["items"][0]["consumed_credits"] == 1
+    assert payload["data"]["items"][1]["usage_bid"] == "usage-listen-1"
+    assert payload["data"]["items"][1]["usage_scene"] == "learning"
+    assert payload["data"]["items"][1]["usage_mode"] == "listen"
+    assert payload["data"]["items"][1]["usage_count"] == 1
+    assert payload["data"]["items"][1]["model_variant_count"] == 1
+    assert payload["data"]["items"][1]["consumed_credits"] == 12
+    assert payload["data"]["items"][2]["usage_mode"] == "ask"
+    assert payload["data"]["items"][2]["email"] == "student2@example.com"
+    assert payload["data"]["items"][2]["chapter_title"] == "Chapter 2"
+    assert payload["data"]["items"][3]["usage_mode"] == "learn"
+    assert payload["data"]["items"][3]["consumed_credits"] == 5
 
     filtered_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
@@ -1947,7 +1953,9 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert filtered_response.status_code == 200
     assert filtered_payload["code"] == 0
     assert filtered_payload["data"]["total"] == 1
-    assert filtered_payload["data"]["items"][0]["group_key"] == "progress-2:ask"
+    assert (
+        filtered_payload["data"]["items"][0]["group_key"] == "progress-2:learning:ask"
+    )
     assert filtered_payload["data"]["items"][0]["usage_bid"] == "usage-ask-1"
 
     phone_filtered_response = test_client.get(
@@ -1961,7 +1969,8 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert phone_filtered_payload["code"] == 0
     assert phone_filtered_payload["data"]["total"] == 1
     assert (
-        phone_filtered_payload["data"]["items"][0]["group_key"] == "progress-1:listen"
+        phone_filtered_payload["data"]["items"][0]["group_key"]
+        == "progress-1:learning:listen"
     )
     assert phone_filtered_payload["data"]["items"][0]["usage_count"] == 1
     assert phone_filtered_payload["data"]["items"][0]["consumed_credits"] == 12
@@ -1975,13 +1984,30 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
 
     assert learn_filtered_response.status_code == 200
     assert learn_filtered_payload["code"] == 0
-    assert learn_filtered_payload["data"]["total"] == 2
+    assert learn_filtered_payload["data"]["total"] == 3
     assert [item["group_key"] for item in learn_filtered_payload["data"]["items"]] == [
-        "progress-1:learn",
-        "progress-3:learn",
+        "progress-preview:preview:learn",
+        "progress-1:learning:learn",
+        "progress-3:learning:learn",
     ]
+    assert learn_filtered_payload["data"]["items"][0]["usage_scene"] == "preview"
     assert learn_filtered_payload["data"]["items"][0]["usage_mode"] == "learn"
-    assert learn_filtered_payload["data"]["items"][0]["consumed_credits"] == 5
+    assert learn_filtered_payload["data"]["items"][0]["consumed_credits"] == 1
+
+    preview_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
+        "&usage_scene=preview",
+        headers={"Token": "test-token"},
+    )
+    preview_filtered_payload = preview_filtered_response.get_json(force=True)
+
+    assert preview_filtered_response.status_code == 200
+    assert preview_filtered_payload["code"] == 0
+    assert preview_filtered_payload["data"]["total"] == 1
+    assert (
+        preview_filtered_payload["data"]["items"][0]["group_key"]
+        == "progress-preview:preview:learn"
+    )
 
     paged_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=2&page_size=2",
@@ -1991,10 +2017,10 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
 
     assert paged_response.status_code == 200
     assert paged_payload["code"] == 0
-    assert paged_payload["data"]["total"] == 4
+    assert paged_payload["data"]["total"] == 5
     assert [item["group_key"] for item in paged_payload["data"]["items"]] == [
-        "progress-1:learn",
-        "progress-3:learn",
+        "progress-2:learning:ask",
+        "progress-1:learning:learn",
     ]
 
     partial_phone_filtered_response = test_client.get(
@@ -2019,7 +2045,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
 
     assert nickname_filtered_response.status_code == 200
     assert nickname_filtered_payload["code"] == 0
-    assert nickname_filtered_payload["data"]["total"] == 4
+    assert nickname_filtered_payload["data"]["total"] == 5
 
     raw_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
@@ -2031,20 +2057,31 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert raw_response.status_code == 200
     assert raw_payload["code"] == 0
     assert raw_payload["data"]["view"] == "raw"
-    assert raw_payload["data"]["total"] == 4
+    assert raw_payload["data"]["total"] == 5
     assert [item["group_key"] for item in raw_payload["data"]["items"]] == [
+        "usage-preview-1",
         "usage-listen-1",
         "usage-ask-1",
         "usage-learn-1",
         "usage-learn-2",
     ]
-    assert raw_payload["data"]["items"][0]["usage_mode"] == "listen"
+    assert raw_payload["data"]["items"][0]["usage_scene"] == "preview"
+    assert raw_payload["data"]["items"][0]["usage_mode"] == "learn"
 
 
-def test_admin_operation_course_credit_usages_route_rejects_invalid_mode(
+@pytest.mark.parametrize(
+    ("query", "field"),
+    [
+        ("mode=invalid_mode", "mode"),
+        ("usage_scene=invalid_scene", "usage_scene"),
+    ],
+)
+def test_admin_operation_course_credit_usages_route_rejects_invalid_filters(
     app,
     test_client,
     monkeypatch,
+    query,
+    field,
 ):
     _mock_operator(monkeypatch)
 
@@ -2059,14 +2096,14 @@ def test_admin_operation_course_credit_usages_route_rejects_invalid_mode(
         db.session.commit()
 
     response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20&mode=invalid_mode",
+        f"/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20&{query}",
         headers={"Token": "test-token"},
     )
     payload = response.get_json(force=True)
 
     assert response.status_code == 200
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
-    assert payload["message"] == "Params Error mode"
+    assert payload["message"] == f"Params Error {field}"
 
 
 def test_admin_operation_course_credit_usages_route_rejects_invalid_view(

@@ -150,6 +150,18 @@ export type AdminOperationCourseCreditUsageMode =
 
 export type AdminOperationCourseCreditUsageView = 'grouped' | 'raw';
 
+export type AdminOperationCourseCreditUsageScene =
+  | 'learning'
+  | 'preview'
+  | 'debug'
+  | LooseString;
+
+export type AdminOperationCourseCreditUsageSceneFilter =
+  | 'all'
+  | 'learning'
+  | 'preview'
+  | 'debug';
+
 export type AdminOperationCourseCreditUsageModeFilter =
   | 'all'
   | 'learn'
@@ -158,6 +170,7 @@ export type AdminOperationCourseCreditUsageModeFilter =
 
 export type AdminOperationCourseCreditUsageFilters = {
   keyword: string;
+  usageScene: AdminOperationCourseCreditUsageSceneFilter;
   mode: AdminOperationCourseCreditUsageModeFilter;
   startTime: string;
   endTime: string;
@@ -176,6 +189,7 @@ export type AdminOperationCourseCreditUsageItem = {
   chapter_title: string;
   lesson_outline_item_bid: string;
   lesson_title: string;
+  usage_scene: AdminOperationCourseCreditUsageScene;
   usage_mode: AdminOperationCourseCreditUsageMode;
   provider: string;
   model: string;

@@ -24,6 +24,7 @@ import {
 import type {
   AdminOperationCourseCreditUsageFilters,
   AdminOperationCourseCreditUsageListResponse,
+  AdminOperationCourseCreditUsageSceneFilter,
   AdminOperationCourseChapterDetailResponse,
   AdminOperationCourseDetailChapter,
   AdminOperationCourseDetailResponse,
@@ -154,6 +155,7 @@ const formatLearningProgress = (
 const createCourseCreditUsageFilters =
   (): AdminOperationCourseCreditUsageFilters => ({
     keyword: '',
+    usageScene: FILTER_ALL_OPTION,
     mode: FILTER_ALL_OPTION,
     startTime: '',
     endTime: '',
@@ -250,11 +252,17 @@ const createCourseCreditUsageFilters =
  * t('module.operationsCourse.detail.creditUsage.filters.userKeyword')
  * t('module.operationsCourse.detail.creditUsage.filters.userKeywordPlaceholderPhone')
  * t('module.operationsCourse.detail.creditUsage.filters.userKeywordPlaceholderEmail')
+ * t('module.operationsCourse.detail.creditUsage.filters.scene')
+ * t('module.operationsCourse.detail.creditUsage.filters.sceneAll')
  * t('module.operationsCourse.detail.creditUsage.filters.mode')
  * t('module.operationsCourse.detail.creditUsage.filters.modeAll')
  * t('module.operationsCourse.detail.creditUsage.filters.time')
  * t('module.operationsCourse.detail.creditUsage.filters.timePlaceholder')
  * t('module.operationsCourse.detail.creditUsage.filters.reset')
+ * t('module.operationsCourse.detail.creditUsage.scenes.learning')
+ * t('module.operationsCourse.detail.creditUsage.scenes.preview')
+ * t('module.operationsCourse.detail.creditUsage.scenes.debug')
+ * t('module.operationsCourse.detail.creditUsage.scenes.unknown')
  * t('module.operationsCourse.detail.creditUsage.modes.learn')
  * t('module.operationsCourse.detail.creditUsage.modes.listen')
  * t('module.operationsCourse.detail.creditUsage.modes.ask')
@@ -263,6 +271,7 @@ const createCourseCreditUsageFilters =
  * t('module.operationsCourse.detail.creditUsage.modelSummary.multiple')
  * t('module.operationsCourse.detail.creditUsage.table.createdAt')
  * t('module.operationsCourse.detail.creditUsage.table.nickname')
+ * t('module.operationsCourse.detail.creditUsage.table.scene')
  * t('module.operationsCourse.detail.creditUsage.table.mode')
  * t('module.operationsCourse.detail.creditUsage.table.chapter')
  * t('module.operationsCourse.detail.creditUsage.table.lesson')
@@ -514,6 +523,10 @@ export default function AdminOperationCourseDetailPage() {
           page_size: COURSE_CREDIT_USAGE_PAGE_SIZE,
           view: 'grouped',
           keyword: resolvedFilters.keyword.trim(),
+          usage_scene:
+            resolvedFilters.usageScene === FILTER_ALL_OPTION
+              ? ''
+              : resolvedFilters.usageScene,
           mode:
             resolvedFilters.mode === FILTER_ALL_OPTION
               ? ''
@@ -851,6 +864,22 @@ export default function AdminOperationCourseDetailPage() {
       setCourseUserPage(nextPage);
     },
     [courseUserPageCount, currentCourseUserPage],
+  );
+
+  const handleCourseCreditUsageSceneChange = useCallback(
+    (value: AdminOperationCourseCreditUsageSceneFilter) => {
+      const nextFilters = {
+        ...courseCreditUsageFiltersDraft,
+        usageScene: value,
+      };
+      setCourseCreditUsageFiltersDraft(nextFilters);
+      setCourseCreditUsageFilters({
+        ...nextFilters,
+        keyword: nextFilters.keyword.trim(),
+      });
+      setCourseCreditUsagePage(1);
+    },
+    [courseCreditUsageFiltersDraft],
   );
 
   const handleCourseCreditUsageSearch = useCallback(() => {
@@ -1530,6 +1559,7 @@ export default function AdminOperationCourseDetailPage() {
                       keyword: value,
                     }))
                   }
+                  onSceneChange={handleCourseCreditUsageSceneChange}
                   onModeChange={value =>
                     setCourseCreditUsageFiltersDraft(prev => ({
                       ...prev,

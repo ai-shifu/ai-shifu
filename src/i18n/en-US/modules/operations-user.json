@@ -60,12 +60,19 @@
         "grant": "Grant",
         "other": "Other"
       },
-      "usageMode": "Usage Scenario",
+      "usageMode": "Usage mode",
       "usageModeOptions": {
         "all": "All",
         "ask": "Follow-up",
         "learn": "Read",
         "listen": "Listen"
+      },
+      "usageScene": "Usage scene",
+      "usageSceneOptions": {
+        "all": "All",
+        "debug": "Debug",
+        "learning": "Learning",
+        "preview": "Preview"
       }
     },
     "creditLedgerNoteLabels": {
@@ -155,7 +162,6 @@
       "empty": "No usage details",
       "error": "Failed to load usage details",
       "expand": "Expand",
-      "learner": "Learner",
       "loading": "Loading",
       "title": "Credit Usage Details"
     },

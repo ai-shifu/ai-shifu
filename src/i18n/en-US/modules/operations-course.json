@@ -86,6 +86,8 @@
         "mode": "Usage mode",
         "modeAll": "All",
         "reset": "Reset",
+        "scene": "Usage type",
+        "sceneAll": "All",
         "time": "Time",
         "timePlaceholder": "Select time range",
         "userKeyword": "User",
@@ -102,6 +104,12 @@
         "mixed": "Mixed",
         "unknown": "Unknown mode"
       },
+      "scenes": {
+        "debug": "Debug",
+        "learning": "Learning",
+        "preview": "Preview",
+        "unknown": "Unknown type"
+      },
       "table": {
         "chapter": "Chapter",
         "createdAt": "Consumed At",
@@ -111,6 +119,7 @@
         "mode": "Usage Mode",
         "model": "Model",
         "nickname": "Nickname",
+        "scene": "Usage Type",
         "usageCount": "Usage Count"
       },
       "title": "Credit Usage"

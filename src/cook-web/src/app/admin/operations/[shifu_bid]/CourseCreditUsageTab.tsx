@@ -40,6 +40,7 @@ import type {
   AdminOperationCourseCreditUsageItem,
   AdminOperationCourseCreditUsageListResponse,
   AdminOperationCourseCreditUsageModeFilter,
+  AdminOperationCourseCreditUsageSceneFilter,
 } from '../operation-course-types';
 
 type ErrorState = { message: string; code?: number };
@@ -48,6 +49,7 @@ type CreditUsageColumnKey =
   | 'createdAt'
   | 'account'
   | 'nickname'
+  | 'scene'
   | 'mode'
   | 'chapter'
   | 'lesson'
@@ -62,6 +64,7 @@ const CREDIT_USAGE_COLUMN_DEFAULT_WIDTHS = {
   createdAt: 170,
   account: 170,
   nickname: 140,
+  scene: 100,
   mode: 110,
   chapter: 160,
   lesson: 160,
@@ -101,6 +104,7 @@ export default function CourseCreditUsageTab({
   defaultUserName,
   emptyValue,
   onKeywordChange,
+  onSceneChange,
   onModeChange,
   onDateRangeChange,
   onSearch,
@@ -115,6 +119,7 @@ export default function CourseCreditUsageTab({
   defaultUserName: string;
   emptyValue: string;
   onKeywordChange: (value: string) => void;
+  onSceneChange: (value: AdminOperationCourseCreditUsageSceneFilter) => void;
   onModeChange: (value: AdminOperationCourseCreditUsageModeFilter) => void;
   onDateRangeChange: (value: { start: string; end: string }) => void;
   onSearch: () => void;
@@ -164,6 +169,25 @@ export default function CourseCreditUsageTab({
       return preferred || emptyValue;
     },
     [contactMode, emptyValue],
+  );
+
+  const resolveSceneLabel = useCallback(
+    (scene?: string) => {
+      if (scene === 'learning') {
+        return tOperations('detail.creditUsage.scenes.learning');
+      }
+      if (scene === 'preview') {
+        return tOperations('detail.creditUsage.scenes.preview');
+      }
+      if (scene === 'debug') {
+        return tOperations('detail.creditUsage.scenes.debug');
+      }
+      return formatUnknownEnumLabel(
+        tOperations('detail.creditUsage.scenes.unknown'),
+        scene,
+      );
+    },
+    [tOperations],
   );
 
   const resolveModeLabel = useCallback(
@@ -227,6 +251,7 @@ export default function CourseCreditUsageTab({
       createdAt: row => [row.created_at || emptyValue],
       account: row => [resolveAccount(row)],
       nickname: row => [row.nickname || defaultUserName],
+      scene: row => [resolveSceneLabel(row.usage_scene)],
       mode: row => [resolveModeLabel(row.usage_mode)],
       chapter: row => [row.chapter_title || emptyValue],
       lesson: row => [row.lesson_title || emptyValue],
@@ -237,6 +262,7 @@ export default function CourseCreditUsageTab({
       createdAt: 5,
       account: 6,
       nickname: 6,
+      scene: 5.5,
       mode: 5.5,
       chapter: 6,
       lesson: 6,
@@ -284,6 +310,7 @@ export default function CourseCreditUsageTab({
     emptyValue,
     isManualColumn,
     resolveAccount,
+    resolveSceneLabel,
     resolveModeLabel,
     resolveModelDisplay,
     rows,
@@ -318,6 +345,37 @@ export default function CourseCreditUsageTab({
                 clearLabel={t('module.chat.lessonFeedbackClearInput')}
                 onChange={onKeywordChange}
               />
+            </div>
+            <div className='flex flex-1 flex-col gap-2'>
+              <Label className='text-xs font-medium text-muted-foreground'>
+                {tOperations('detail.creditUsage.filters.scene')}
+              </Label>
+              <Select
+                value={filtersDraft.usageScene}
+                onValueChange={value =>
+                  onSceneChange(
+                    value as AdminOperationCourseCreditUsageSceneFilter,
+                  )
+                }
+              >
+                <SelectTrigger className='h-9'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FILTER_ALL_OPTION}>
+                    {tOperations('detail.creditUsage.filters.sceneAll')}
+                  </SelectItem>
+                  <SelectItem value='learning'>
+                    {tOperations('detail.creditUsage.scenes.learning')}
+                  </SelectItem>
+                  <SelectItem value='preview'>
+                    {tOperations('detail.creditUsage.scenes.preview')}
+                  </SelectItem>
+                  <SelectItem value='debug'>
+                    {tOperations('detail.creditUsage.scenes.debug')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className='flex flex-1 flex-col gap-2'>
               <Label className='text-xs font-medium text-muted-foreground'>
@@ -398,7 +456,7 @@ export default function CourseCreditUsageTab({
           loading={loading}
           isEmpty={!error && rows.length === 0}
           emptyContent={tOperations('detail.creditUsage.table.empty')}
-          emptyColSpan={8}
+          emptyColSpan={9}
           withTooltipProvider={!error}
           tableWrapperClassName='overflow-auto'
           loadingClassName='min-h-[240px]'
@@ -476,6 +534,16 @@ export default function CourseCreditUsageTab({
                           ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
                           'h-10 whitespace-nowrap bg-muted/80 text-xs',
                         )}
+                        style={getColumnStyle('scene')}
+                      >
+                        {tOperations('detail.creditUsage.table.scene')}
+                        {renderResizeHandle('scene')}
+                      </TableHead>
+                      <TableHead
+                        className={cn(
+                          ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+                          'h-10 whitespace-nowrap bg-muted/80 text-xs',
+                        )}
                         style={getColumnStyle('mode')}
                       >
                         {tOperations('detail.creditUsage.table.mode')}
@@ -535,6 +603,7 @@ export default function CourseCreditUsageTab({
                             text={formatAdminUtcDateTime(row.created_at)}
                             emptyValue={emptyValue}
                             className='mx-auto block max-w-full tabular-nums'
+                            alwaysShowTooltip
                           />
                         </TableCell>
                         <TableCell
@@ -556,6 +625,17 @@ export default function CourseCreditUsageTab({
                             emptyValue={emptyValue}
                             className='mx-auto block max-w-[140px]'
                           />
+                        </TableCell>
+                        <TableCell
+                          className='py-2.5 border-r border-border text-center last:border-r-0'
+                          style={getColumnStyle('scene')}
+                        >
+                          <Badge
+                            variant='outline'
+                            className='border-0 bg-transparent px-0 py-0 text-xs font-medium text-foreground shadow-none'
+                          >
+                            {resolveSceneLabel(row.usage_scene)}
+                          </Badge>
                         </TableCell>
                         <TableCell
                           className='py-2.5 border-r border-border text-center last:border-r-0'

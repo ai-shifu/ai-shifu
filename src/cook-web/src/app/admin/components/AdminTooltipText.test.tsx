@@ -109,6 +109,21 @@ describe('AdminTooltipText', () => {
     expect(screen.queryByTestId('tooltip-content')).not.toBeInTheDocument();
   });
 
+  test('can render tooltip content even when text does not overflow', () => {
+    render(
+      <AdminTooltipText
+        text='Short value'
+        emptyValue='--'
+        alwaysShowTooltip
+      />,
+    );
+
+    expect(screen.getAllByText('Short value')).toHaveLength(2);
+    expect(screen.getByTestId('tooltip-content')).toHaveTextContent(
+      'Short value',
+    );
+  });
+
   test('trims surrounding whitespace before rendering', () => {
     render(
       <AdminTooltipText

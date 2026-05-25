@@ -3435,6 +3435,41 @@ def test_admin_operation_user_credits_route_returns_payload(
             expires_at=active_end_at,
             consumable_from=datetime(2026, 4, 10, 12, 0, 0),
         )
+        _seed_course(
+            model=PublishedShifu,
+            shifu_bid="course-preview-route",
+            title="Preview Route Course",
+            creator_user_bid="user-credits-route",
+            created_at=datetime(2026, 4, 9, 8, 0, 0),
+            updated_at=datetime(2026, 4, 9, 9, 0, 0),
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-preview-route",
+            user_bid="user-credits-route",
+            shifu_bid="course-preview-route",
+            progress_record_bid="progress-preview-route",
+            outline_item_bid="lesson-preview-route",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
+            created_at=datetime(2026, 4, 10, 12, 30, 0),
+            extra={"generation_name": "learn_preview"},
+            input_tokens=100,
+            output_tokens=50,
+            total=150,
+        )
+        _seed_credit_ledger_entry(
+            creator_bid="user-credits-route",
+            wallet_bid="wallet-credits-route",
+            wallet_bucket_bid="bucket-credits-route",
+            ledger_bid="ledger-preview-route",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            source_type=CREDIT_SOURCE_TYPE_USAGE,
+            source_bid="usage-preview-route",
+            amount="-1.0000000000",
+            balance_after="6.0000000000",
+            created_at=datetime(2026, 4, 10, 12, 30, 0),
+            metadata_json={"usage_bid": "usage-preview-route"},
+        )
 
     response = test_client.get(
         "/api/shifu/admin/operations/users/user-credits-route/credits",
@@ -3454,6 +3489,29 @@ def test_admin_operation_user_credits_route_returns_payload(
             "has_active_subscription": True,
         },
         "items": [
+            {
+                "ledger_bid": "ledger-preview-route",
+                "created_at": _format_operator_datetime(
+                    datetime(2026, 4, 10, 12, 30, 0)
+                ),
+                "entry_type": "consume",
+                "source_type": "usage",
+                "display_entry_type": "consume",
+                "display_source_type": "usage",
+                "amount": "-1",
+                "balance_after": "6",
+                "expires_at": "",
+                "consumable_from": "",
+                "note": "",
+                "note_code": "",
+                "usage_bid": "usage-preview-route",
+                "course_bid": "course-preview-route",
+                "course_name": "Preview Route Course",
+                "chapter_title": "",
+                "lesson_title": "",
+                "usage_scene": "preview",
+                "usage_mode": "learn",
+            },
             {
                 "ledger_bid": "ledger-grant-route",
                 "created_at": _format_operator_datetime(
@@ -3478,13 +3536,30 @@ def test_admin_operation_user_credits_route_returns_payload(
                 "lesson_title": "",
                 "usage_scene": "",
                 "usage_mode": "",
-            }
+            },
         ],
         "page": 1,
         "page_size": 20,
-        "total": 1,
+        "total": 2,
         "page_count": 1,
     }
+
+    scene_response = test_client.get(
+        "/api/shifu/admin/operations/users/user-credits-route/credits",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "credit_type": "consume",
+            "usage_scene": "preview",
+        },
+        headers={"Token": "test-token"},
+    )
+    scene_payload = scene_response.get_json(force=True)
+
+    assert scene_response.status_code == 200
+    assert scene_payload["code"] == 0
+    assert scene_payload["data"]["total"] == 1
+    assert scene_payload["data"]["items"][0]["usage_scene"] == "preview"
 
 
 def test_admin_operation_user_credit_grant_route_returns_payload(

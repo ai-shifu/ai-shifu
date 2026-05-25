@@ -44,6 +44,7 @@ import type {
   AdminOperationUserCreditsResponse,
   AdminOperationUserCreditTypeFilter,
   AdminOperationUserCreditUsageModeFilter,
+  AdminOperationUserCreditUsageSceneFilter,
 } from '../../operation-user-types';
 import {
   FILTER_ALL_OPTION,
@@ -73,6 +74,11 @@ type OperatorUsersTranslator = (
  * t('module.operationsUser.detail.creditLedgerFilters.grantSourceOptions.manual')
  * t('module.operationsUser.detail.creditLedgerFilters.course')
  * t('module.operationsUser.detail.creditLedgerFilters.coursePlaceholder')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageScene')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageSceneOptions.all')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageSceneOptions.learning')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageSceneOptions.preview')
+ * t('module.operationsUser.detail.creditLedgerFilters.usageSceneOptions.debug')
  * t('module.operationsUser.detail.creditLedgerFilters.usageMode')
  * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.all')
  * t('module.operationsUser.detail.creditLedgerFilters.usageModeOptions.learn')
@@ -511,7 +517,7 @@ const CreditLedgerFilters = ({
       }}
     >
       <div className='flex flex-col gap-3 xl:flex-row xl:items-end'>
-        <div className='flex flex-col gap-2 xl:w-[240px] xl:flex-none'>
+        <div className='flex flex-col gap-2 xl:w-[160px] xl:flex-none'>
           <Label className='text-xs font-medium text-muted-foreground'>
             {tOperationsUsers('detail.creditLedgerFilters.type')}
           </Label>
@@ -623,7 +629,50 @@ const CreditLedgerFilters = ({
         ) : null}
 
         {showConsumeFilters ? (
-          <div className='flex flex-1 flex-col gap-2'>
+          <div className='flex flex-col gap-2 xl:w-[160px] xl:flex-none'>
+            <Label className='text-xs font-medium text-muted-foreground'>
+              {tOperationsUsers('detail.creditLedgerFilters.usageScene')}
+            </Label>
+            <Select
+              value={filtersDraft.usageScene}
+              onValueChange={value =>
+                onChange({
+                  ...filtersDraft,
+                  usageScene: value as AdminOperationUserCreditUsageSceneFilter,
+                })
+              }
+            >
+              <SelectTrigger className='h-9'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={FILTER_ALL_OPTION}>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.usageSceneOptions.all',
+                  )}
+                </SelectItem>
+                <SelectItem value='learning'>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.usageSceneOptions.learning',
+                  )}
+                </SelectItem>
+                <SelectItem value='preview'>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.usageSceneOptions.preview',
+                  )}
+                </SelectItem>
+                <SelectItem value='debug'>
+                  {tOperationsUsers(
+                    'detail.creditLedgerFilters.usageSceneOptions.debug',
+                  )}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+
+        {showConsumeFilters ? (
+          <div className='flex flex-col gap-2 xl:w-[160px] xl:flex-none'>
             <Label className='text-xs font-medium text-muted-foreground'>
               {tOperationsUsers('detail.creditLedgerFilters.usageMode')}
             </Label>
@@ -870,6 +919,7 @@ export default function UserCreditLedgerTab({
       <AdminTooltipText
         text={formatOperatorUtcDateTime(createdAt)}
         emptyValue={emptyValue}
+        alwaysShowTooltip
       />
     </TableCell>
   );

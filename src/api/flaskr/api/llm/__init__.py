@@ -100,6 +100,7 @@ class ProviderState:
 
 MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
 PROVIDER_STATES: Dict[str, ProviderState] = {}
+_USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
 
 
 def _log(level: str, message: str) -> None:
@@ -148,6 +149,22 @@ def _extract_input_cache(usage: Any) -> int:
     if details is not None:
         return int(getattr(details, "cached_tokens", 0) or 0)
     return 0
+
+
+def _attach_usage_output_text(
+    metadata: Dict[str, Any],
+    response_text: str,
+) -> Dict[str, Any]:
+    """Store a bounded response excerpt for operator usage detail summaries."""
+
+    normalized_response_text = str(response_text or "").strip()
+    if not normalized_response_text or "output_text" in metadata:
+        return metadata
+    next_metadata = dict(metadata)
+    next_metadata["output_text"] = normalized_response_text[
+        :_USAGE_OUTPUT_TEXT_MAX_LENGTH
+    ]
+    return next_metadata
 
 
 def _normalize_model_config(value: Any) -> list[str]:
@@ -750,6 +767,7 @@ def invoke_llm(
     usage_metadata.setdefault("generation_name", generation_name)
     if "temperature" in kwargs:
         usage_metadata.setdefault("temperature", kwargs.get("temperature"))
+    usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
     if usage is None:
         usage_metadata.setdefault("usage_source", "missing")
         record_llm_usage(
@@ -927,6 +945,7 @@ def chat_llm(
     usage_metadata.setdefault("generation_name", generation_name)
     if "temperature" in kwargs:
         usage_metadata.setdefault("temperature", kwargs.get("temperature"))
+    usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
     if usage is None:
         usage_metadata.setdefault("usage_source", "missing")
         record_llm_usage(

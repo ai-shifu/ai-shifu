@@ -86,6 +86,8 @@
         "mode": "消耗场景",
         "modeAll": "全部",
         "reset": "重置",
+        "scene": "消耗类型",
+        "sceneAll": "全部",
         "time": "时间",
         "timePlaceholder": "选择时间范围",
         "userKeyword": "用户",
@@ -102,6 +104,12 @@
         "mixed": "混合",
         "unknown": "未知场景"
       },
+      "scenes": {
+        "debug": "调试",
+        "learning": "学习",
+        "preview": "预览",
+        "unknown": "未知类型"
+      },
       "table": {
         "chapter": "章节",
         "createdAt": "消耗时间",
@@ -111,6 +119,7 @@
         "mode": "消耗场景",
         "model": "模型",
         "nickname": "昵称",
+        "scene": "消耗类型",
         "usageCount": "消耗次数"
       },
       "title": "积分消耗"
