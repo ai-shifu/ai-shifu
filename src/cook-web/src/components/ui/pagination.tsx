@@ -56,6 +56,8 @@ const PaginationLink = ({
         variant: isActive ? 'outline' : 'ghost',
         size,
       }),
+      size === 'icon' &&
+        'h-[var(--height-h-9,36px)] w-[var(--width-w-9,36px)] gap-[var(--spacing-2,8px)] px-[var(--spacing-4,16px)] py-[var(--spacing-2,8px)]',
       className,
     )}
     {...props}

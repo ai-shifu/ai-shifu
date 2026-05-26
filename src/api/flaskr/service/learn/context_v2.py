@@ -4,6 +4,7 @@ import json
 import queue
 import threading
 import contextlib
+from dataclasses import replace
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Generator, Iterable, Optional, Union
@@ -230,6 +231,12 @@ class RUNLLMProvider(LLMProvider):
         self.trace_args = trace_args
         self.usage_context = usage_context
         self.usage_scene = usage_scene
+
+    def set_usage_generated_block_bid(self, generated_block_bid: str) -> None:
+        self.usage_context = replace(
+            self.usage_context,
+            generated_block_bid=str(generated_block_bid or ""),
+        )
 
     def _log_preview_output(
         self,
@@ -2580,18 +2587,19 @@ class RunScriptContextV2:
             progress_record_bid=self._current_attend.progress_record_bid,
             usage_scene=usage_scene,
         )
+        llm_provider = RUNLLMProvider(
+            app,
+            llm_settings,
+            self._trace,
+            self._trace_root_span,
+            self._trace_args,
+            usage_context,
+            usage_scene,
+        )
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
             document_prompt=system_prompt,
-            llm_provider=RUNLLMProvider(
-                app,
-                llm_settings,
-                self._trace,
-                self._trace_root_span,
-                self._trace_args,
-                usage_context,
-                usage_scene,
-            ),
+            llm_provider=llm_provider,
             use_learner_language=self._shifu_info.use_learner_language,
             visual_mode=True,
         )
@@ -2797,6 +2805,9 @@ class RunScriptContextV2:
 
                 # Render interaction content with translation (INPUT mode, no cached block)
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
+                llm_provider.set_usage_generated_block_bid(
+                    generated_block.generated_block_bid
+                )
                 interaction_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
@@ -2854,6 +2865,9 @@ class RunScriptContextV2:
             generated_block.position = run_script_info.block_position
             # For STUDENT records, also store translated interaction block
             # (in case this record is returned instead of TEACHER record)
+            llm_provider.set_usage_generated_block_bid(
+                generated_block.generated_block_bid
+            )
             interaction_result = mdflow_context.process(
                 block_index=run_script_info.block_position,
                 mode=ProcessMode.COMPLETE,
@@ -2885,7 +2899,10 @@ class RunScriptContextV2:
                 llm_settings=llm_settings,
                 attend_id=self._current_attend.progress_record_bid,
                 fmt_prompt="",
-                usage_context=usage_context,
+                usage_context=replace(
+                    usage_context,
+                    generated_block_bid=generated_block.generated_block_bid,
+                ),
                 chapter_title=chapter_title,
                 scene=f"{trace_scene}_interaction",
             )
@@ -3067,6 +3084,9 @@ class RunScriptContextV2:
 
                 # Render interaction content with translation after validation error
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
+                llm_provider.set_usage_generated_block_bid(
+                    generated_block.generated_block_bid
+                )
                 interaction_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
@@ -3132,6 +3152,9 @@ class RunScriptContextV2:
                 # Call process() without user_input to trigger interaction rendering
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
                 app.logger.info(f"render_interaction: {run_script_info.block_position}")
+                llm_provider.set_usage_generated_block_bid(
+                    generated_block.generated_block_bid
+                )
 
                 interaction_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
@@ -3205,6 +3228,9 @@ class RunScriptContextV2:
                         return
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
                 _persist_generated_block_for_events(generated_block)
+                llm_provider.set_usage_generated_block_bid(
+                    generated_block.generated_block_bid
+                )
                 generated_content = ""
                 tts_processor = None
                 tts_enabled = bool(self._should_stream_tts())

@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
@@ -1120,11 +1122,8 @@ export default function AdminOperationUsersPage() {
     <div className='h-full p-0'>
       <TooltipProvider delayDuration={150}>
         <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-          <div className='mb-5'>
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {tOperationsUsers('title')}
-            </h1>
-          </div>
+          <AdminBreadcrumb items={[{ label: tOperationsUsers('title') }]} />
+          <AdminTitle title={tOperationsUsers('title')} />
 
           <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm'>
             <div className='mb-3'>

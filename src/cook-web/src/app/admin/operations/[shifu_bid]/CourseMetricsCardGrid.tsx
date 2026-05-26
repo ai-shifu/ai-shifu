@@ -1,5 +1,6 @@
 'use client';
 
+import AdminCountCard from '@/app/admin/components/AdminCountCard';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -56,40 +57,22 @@ export default function CourseMetricsCardGrid({
         >
           {cards.map(card => {
             const labelParts = splitTrailingParenthetical(card.label);
-            const cardContent = (
-              <>
-                <div className='min-h-12 text-sm font-medium leading-6 text-muted-foreground'>
-                  <AdminTooltipText
-                    text={card.label}
-                    emptyValue={emptyValue}
-                    displayText={
-                      labelParts ? (
-                        <>
-                          <span className='break-words'>
-                            {labelParts.mainText}
-                          </span>{' '}
-                          <span className='inline-block whitespace-nowrap'>
-                            {labelParts.suffixText}
-                          </span>
-                        </>
-                      ) : undefined
-                    }
-                    className='line-clamp-2 whitespace-normal break-words'
-                  />
-                </div>
-                <div className='mt-3 flex items-end gap-1.5'>
-                  <span
-                    className={cn(
-                      'text-2xl font-semibold transition-colors',
-                      card.onClick
-                        ? 'text-foreground group-hover:text-primary'
-                        : 'text-foreground',
-                    )}
-                  >
-                    {card.value}
-                  </span>
-                </div>
-              </>
+            const cardTitle = (
+              <AdminTooltipText
+                text={card.label}
+                emptyValue={emptyValue}
+                displayText={
+                  labelParts ? (
+                    <>
+                      <span className='break-words'>{labelParts.mainText}</span>{' '}
+                      <span className='inline-block whitespace-nowrap'>
+                        {labelParts.suffixText}
+                      </span>
+                    </>
+                  ) : undefined
+                }
+                className='line-clamp-2 whitespace-normal break-words'
+              />
             );
 
             if (card.onClick) {
@@ -98,21 +81,26 @@ export default function CourseMetricsCardGrid({
                   key={card.label}
                   type='button'
                   aria-label={card.actionLabel || card.label}
-                  className='group cursor-pointer rounded-lg border border-border/70 bg-muted/20 p-4 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
+                  className='group cursor-pointer text-left transition-colors'
                   onClick={card.onClick}
                 >
-                  {cardContent}
+                  <AdminCountCard
+                    title={cardTitle}
+                    value={card.value}
+                    className='h-full transition-colors group-hover:border-primary/30'
+                    valueClassName='transition-colors group-hover:text-primary'
+                  />
                 </button>
               );
             }
 
             return (
-              <div
+              <AdminCountCard
                 key={card.label}
-                className='rounded-lg border border-border/70 bg-muted/20 p-4 text-left'
-              >
-                {cardContent}
-              </div>
+                title={cardTitle}
+                value={card.value}
+                className='h-full text-left'
+              />
             );
           })}
         </div>

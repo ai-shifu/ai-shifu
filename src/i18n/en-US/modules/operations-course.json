@@ -82,6 +82,26 @@
     "creditUsage": {
       "count": "{count} records",
       "description": "Review credit consumption records for this course.",
+      "details": {
+        "collapse": "Collapse",
+        "durationMinutesSeconds": "{minutes}m {seconds}s",
+        "durationSeconds": "{seconds}s",
+        "empty": "No usage details",
+        "expand": "Expand",
+        "openUsageDetails": "Open {count} credit usage details",
+        "table": {
+          "createdAt": "Consumed At",
+          "credits": "Credits",
+          "inputTokens": "Input Tokens",
+          "outputSummary": "Output Summary",
+          "outputTokens": "Output Tokens",
+          "ttsContent": "Synthesized Content",
+          "ttsDuration": "Audio Duration",
+          "ttsSegmentCount": "Segments",
+          "ttsWordCount": "Synthesized Words"
+        },
+        "title": "Credit Usage Details"
+      },
       "filters": {
         "mode": "Usage mode",
         "modeAll": "All",
@@ -104,7 +124,7 @@
       },
       "table": {
         "chapter": "Chapter",
-        "createdAt": "Consumed At",
+        "createdAt": "Latest Consumed At",
         "credits": "Total Credits Consumed",
         "empty": "No credit usage records",
         "lesson": "Lesson",
@@ -198,6 +218,10 @@
     },
     "metrics": "Metrics",
     "metricsLabels": {
+      "completedUserAvgCredits": "Avg Credits Consumed per Completed User",
+      "creditConsumedTotal": "Total Credits Consumed",
+      "creditUsageCount": "Credit Usage Count",
+      "creditUserCount": "Credit Usage Users",
       "followUpCount": "Ask",
       "learnerCount": "Learners",
       "orderAmount": "Collected Revenue (Incl. Coupon Codes)",

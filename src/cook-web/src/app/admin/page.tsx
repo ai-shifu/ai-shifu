@@ -2,8 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { PlusIcon } from '@heroicons/react/24/outline';
-import { TrophyIcon, StarIcon } from '@heroicons/react/24/solid';
+import { StarIcon } from '@heroicons/react/24/solid';
 import { MoreHorizontal } from 'lucide-react';
 import api from '@/api';
 import { Shifu } from '@/types/shifu';
@@ -40,6 +39,8 @@ import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
+import AdminBreadcrumb from './components/AdminBreadcrumb';
+import AdminTitle from './components/AdminTitle';
 
 interface ShifuCardProps {
   id: string;
@@ -55,8 +56,21 @@ interface ShifuCardProps {
 }
 
 const CARD_CONTAINER_CLASS =
-  'w-full h-full min-h-[118px] rounded-xl border border-slate-200 bg-background transition-colors duration-200 ease-in-out hover:bg-primary/[0.04]';
-const CARD_CONTENT_CLASS = 'p-4 flex flex-col gap-2 h-full cursor-pointer';
+  'w-full h-full min-h-[118px] rounded-[var(--border-radius-rounded-xl,14px)] border border-[var(--base-border,#E5E5E5)] bg-[var(--base-card,#FFF)] transition-colors duration-200 ease-in-out hover:bg-primary/[0.04]';
+const CARD_CONTAINER_STYLE: React.CSSProperties = {
+  boxShadow:
+    'var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px) var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0) var(--shadow-sm-1-color, rgba(0, 0, 0, 0.10)), var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px) var(--shadow-sm-2-blur-radius, 2px) var(--shadow-sm-2-spread-radius, -1px) var(--shadow-sm-2-color, rgba(0, 0, 0, 0.10))',
+};
+const CARD_CONTENT_CLASS = 'p-4 flex flex-col h-full cursor-pointer';
+const COURSE_AVATAR_CLASS =
+  'mr-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px]';
+const COURSE_AVATAR_EMPTY_STYLE: React.CSSProperties = {
+  backgroundColor: '#CFCED4',
+};
+const COURSE_TABS_LIST_CLASS =
+  'h-auto rounded-[var(--border-radius-rounded-lg,10px)] bg-[var(--base-muted,#F5F5F5)] p-[3px]';
+const COURSE_TABS_TRIGGER_CLASS =
+  'min-w-[100px] gap-[var(--spacing-2,8px)] rounded-[var(--border-radius-rounded-md,8px)] border-[length:var(--border-width-border,1px)] border-transparent px-[var(--spacing-2,8px)] py-[var(--spacing-1,4px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]';
 
 const ShifuCard = ({
   id,
@@ -81,22 +95,35 @@ const ShifuCard = ({
         rel='noopener noreferrer'
         className='block w-full h-full'
       >
-        <Card className={CARD_CONTAINER_CLASS}>
+        <Card
+          className={CARD_CONTAINER_CLASS}
+          style={CARD_CONTAINER_STYLE}
+        >
           <CardContent className={CARD_CONTENT_CLASS}>
-            <div className='flex flex-row items-center justify-between'>
-              <div className='flex flex-row items-center mb-2 w-full'>
-                <div className='h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
+            <div className='mb-4 flex flex-row items-center justify-between'>
+              <div className='flex min-w-0 flex-row items-center w-full'>
+                <div
+                  className={COURSE_AVATAR_CLASS}
+                  style={!image ? COURSE_AVATAR_EMPTY_STYLE : undefined}
+                >
                   {image && (
                     <img
                       src={image}
                       alt='recipe'
-                      className='w-full h-full object-cover rounded-lg'
+                      className='h-full w-full rounded-[8px] object-cover'
                     />
                   )}
-                  {!image && <TrophyIcon className='w-6 h-6 text-primary' />}
+                  {!image && (
+                    <img
+                      src='/icons/logo.svg'
+                      alt=''
+                      aria-hidden='true'
+                      className='h-[19px] w-4 object-contain'
+                    />
+                  )}
                 </div>
 
-                <h3 className='font-medium text-gray-900 leading-5 whitespace-nowrap overflow-hidden text-ellipsis'>
+                <h3 className='overflow-hidden text-ellipsis whitespace-nowrap text-[16px] font-medium leading-5 text-black'>
                   {title}
                 </h3>
                 {archived && (
@@ -109,7 +136,7 @@ const ShifuCard = ({
                 {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
               </div>
             </div>
-            <p className='text-sm text-gray-500 line-clamp-3 break-words break-all min-h-[1.25rem]'>
+            <p className='min-h-[1.25rem] break-words break-all text-sm font-normal leading-5 text-[color:rgba(10,10,10,0.65)] line-clamp-3'>
               {description || ''}
             </p>
           </CardContent>
@@ -570,59 +597,56 @@ const ScriptManagementPage = () => {
       </AlertDialog>
       <div className='h-full p-0'>
         <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-          <div className='mb-3'>
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {t('common.core.shifu')}
-            </h1>
-          </div>
-          <div className='flex items-center gap-3 mb-5'>
-            <Button
-              size='sm'
-              onClick={handleCreateShifuModal}
-            >
-              <PlusIcon className='w-5 h-5 mr-1' />
-              {t('common.core.createBlankShifu')}
-            </Button>
-            {courseCreatorUrl && (
-              <span className='text-xs text-muted-foreground'>
-                {t('common.core.aiCourseCreatorPrefix')}
-                <a
-                  href={courseCreatorUrl}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='text-muted-foreground underline hover:text-foreground'
-                >
-                  {t('common.core.aiCourseCreatorLink')}
-                </a>
-                {t('common.core.aiCourseCreatorSuffix')}
-              </span>
-            )}
+          <AdminBreadcrumb items={[{ label: t('common.core.shifu') }]} />
+          <AdminTitle title={t('common.core.shifu')} />
+          <div className='mb-8 flex shrink-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
             <Tabs
-              className='ml-auto'
               value={activeTab}
               onValueChange={value => setActiveTab(value as 'all' | 'archived')}
             >
-              <TabsList className='h-9 rounded-md bg-muted/40'>
+              <TabsList className={COURSE_TABS_LIST_CLASS}>
                 <TabsTrigger
                   value='all'
-                  className='rounded-md'
+                  className={COURSE_TABS_TRIGGER_CLASS}
                 >
                   {t('common.core.all')}
                 </TabsTrigger>
                 <TabsTrigger
                   value='archived'
-                  className='rounded-md'
+                  className={COURSE_TABS_TRIGGER_CLASS}
                 >
                   {t('common.core.archived')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <CreateShifuDialog
-              open={showCreateShifuModal}
-              onOpenChange={setShowCreateShifuModal}
-              onSubmit={onCreateShifu}
-            />
+            <div className='flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end'>
+              {courseCreatorUrl ? (
+                <span className='text-xs text-muted-foreground'>
+                  {t('common.core.aiCourseCreatorPrefix')}
+                  <a
+                    href={courseCreatorUrl}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='text-muted-foreground underline hover:text-foreground'
+                  >
+                    {t('common.core.aiCourseCreatorLink')}
+                  </a>
+                  {t('common.core.aiCourseCreatorSuffix')}
+                </span>
+              ) : null}
+              <Button
+                size='sm'
+                onClick={handleCreateShifuModal}
+              >
+                {t('common.core.createBlankShifu')}
+              </Button>
+            </div>
           </div>
+          <CreateShifuDialog
+            open={showCreateShifuModal}
+            onOpenChange={setShowCreateShifuModal}
+            onSubmit={onCreateShifu}
+          />
           <div className='flex-1 overflow-auto'>
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
               {shifus.map(shifu => (

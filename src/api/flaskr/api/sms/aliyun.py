@@ -120,6 +120,45 @@ def get_sms_template_ali(
     return None
 
 
+def query_sms_template_list_ali(
+    app: Flask,
+    *,
+    page_index: int = 1,
+    page_size: int = 50,
+) -> dysmsapi_20170525_models.QuerySmsTemplateListResponse | None:
+    if not app.config.get(
+        "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", None
+    ) or not app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", None):
+        app.logger.warning(
+            "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID or "
+            "ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET not configured"
+        )
+        return None
+    config = open_api_models.Config(
+        access_key_id=app.config["ALIBABA_CLOUD_SMS_ACCESS_KEY_ID"],
+        access_key_secret=app.config["ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET"],
+    )
+    config.endpoint = "dysmsapi.aliyuncs.com"
+    client = Dysmsapi20170525Client(config)
+    request = dysmsapi_20170525_models.QuerySmsTemplateListRequest()
+    try:
+        normalized_page_index = int(page_index or 1)
+    except (TypeError, ValueError):
+        normalized_page_index = 1
+    try:
+        normalized_page_size = int(page_size or 50)
+    except (TypeError, ValueError):
+        normalized_page_size = 50
+    request.page_index = max(normalized_page_index, 1)
+    request.page_size = min(max(normalized_page_size, 1), 100)
+    runtime = util_models.RuntimeOptions()
+    try:
+        return client.query_sms_template_list_with_options(request, runtime)
+    except Exception as error:
+        _log_provider_error(app, error)
+    return None
+
+
 def send_sms_code_ali(
     app: Flask, mobile: str, check_code: str
 ) -> dysmsapi_20170525_models.SendSmsResponse | None:
