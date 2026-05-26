@@ -103,7 +103,7 @@ describe('AdminDashboardEntryPage', () => {
     expect(buildAdminDashboardCourseDetailUrl('   ')).toBeNull();
   });
 
-  test('renders order count button for each dashboard row', async () => {
+  test('renders order count as plain text for each dashboard row', async () => {
     render(<AdminDashboardEntryPage />);
 
     await waitFor(() => {
@@ -119,14 +119,16 @@ describe('AdminDashboardEntryPage', () => {
       );
     });
 
-    const orderButton = await screen.findByRole('button', {
+    await screen.findByText('Course 1');
+
+    const orderButton = screen.queryByRole('button', {
       name: 'module.dashboard.entry.table.orders-shifu-1',
     });
 
-    expect(orderButton).toBeEnabled();
+    expect(orderButton).not.toBeInTheDocument();
   });
 
-  test('keeps order click isolated while only the course cell opens detail', () => {
+  test('keeps course and order count plain while action links navigate', () => {
     const onCourseDetailClick = jest.fn();
     const onOrderClick = jest.fn();
 
@@ -136,7 +138,8 @@ describe('AdminDashboardEntryPage', () => {
           <DashboardCourseTableRow
             item={DASHBOARD_ENTRY_RESPONSE.items[0]}
             currencySymbol='¥'
-            orderButtonLabel='module.dashboard.entry.table.orders-shifu-1'
+            viewCourseLabel='module.dashboard.entry.table.viewCourse'
+            viewOrdersLabel='module.dashboard.entry.table.viewOrders'
             onCourseDetailClick={onCourseDetailClick}
             onOrderClick={onOrderClick}
           />
@@ -144,38 +147,49 @@ describe('AdminDashboardEntryPage', () => {
       </table>,
     );
 
-    const orderButton = screen.getByRole('button', {
+    const orderButton = screen.queryByRole('button', {
       name: 'module.dashboard.entry.table.orders-shifu-1',
     });
-    const courseButton = screen.getByRole('button', {
-      name: 'Course 1-shifu-1',
+    const courseButton = screen.queryByRole('button', {
+      name: /Course 1/,
+    });
+    const viewCourseButton = screen.getByRole('button', {
+      name: 'module.dashboard.entry.table.viewCourse',
+    });
+    const viewOrdersButton = screen.getByRole('button', {
+      name: 'module.dashboard.entry.table.viewOrders',
     });
     const courseName = screen.getByText('Course 1');
-    const courseId = screen.getByText('shifu-1');
-    const courseRow = orderButton.closest('tr');
+    const orderCount = screen.getByText('3');
+    const courseRow = courseName.closest('tr');
 
     expect(courseRow).not.toBeNull();
     expect(screen.getByText('2026-03-06 16:00:00')).toBeInTheDocument();
-    expect(courseButton).toHaveClass('group');
-    expect(courseName).toHaveClass('text-primary');
-    expect(courseName).toHaveClass('group-hover:underline');
-    expect(courseId).toHaveClass('text-muted-foreground');
-    expect(courseId).toHaveClass('group-hover:text-primary/80');
+    expect(orderButton).not.toBeInTheDocument();
+    expect(courseButton).not.toBeInTheDocument();
+    expect(courseName).toHaveClass('text-foreground');
+    expect(screen.queryByText('shifu-1')).not.toBeInTheDocument();
+    expect(orderCount).toHaveClass('text-foreground');
 
-    fireEvent.click(orderButton);
+    fireEvent.click(courseName);
+    fireEvent.click(orderCount);
 
-    expect(onOrderClick).toHaveBeenCalledTimes(1);
-    expect(onOrderClick).toHaveBeenCalledWith('shifu-1');
+    expect(onOrderClick).not.toHaveBeenCalled();
     expect(onCourseDetailClick).not.toHaveBeenCalled();
 
     fireEvent.click(courseRow as HTMLElement);
 
     expect(onCourseDetailClick).not.toHaveBeenCalled();
 
-    fireEvent.click(courseButton);
+    fireEvent.click(viewCourseButton);
 
     expect(onCourseDetailClick).toHaveBeenCalledTimes(1);
-    expect(onCourseDetailClick).toHaveBeenCalledWith('shifu-1');
+    expect(onCourseDetailClick).toHaveBeenLastCalledWith('shifu-1');
+
+    fireEvent.click(viewOrdersButton);
+
+    expect(onOrderClick).toHaveBeenCalledTimes(1);
+    expect(onOrderClick).toHaveBeenLastCalledWith('shifu-1');
   });
 
   test('keeps pagination and scope note outside the list scroll region', async () => {
@@ -201,13 +215,11 @@ describe('AdminDashboardEntryPage', () => {
     );
     const footer = screen.getByTestId('dashboard-course-list-footer');
     const pagination = screen.getByRole('navigation', { name: 'pagination' });
-    const scopeNote = screen.getByText(
-      'module.dashboard.entry.table.scopeNote',
-    );
+    const footnote = screen.getByText('module.dashboard.entry.table.footnote');
 
     expect(scrollRegion).not.toContainElement(pagination);
-    expect(scrollRegion).not.toContainElement(scopeNote);
+    expect(scrollRegion).not.toContainElement(footnote);
     expect(footer).toContainElement(pagination);
-    expect(footer).toContainElement(scopeNote);
+    expect(footer).toContainElement(footnote);
   });
 });

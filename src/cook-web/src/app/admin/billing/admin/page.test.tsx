@@ -331,7 +331,15 @@ describe('AdminBillingConsolePage', () => {
     expect(
       screen.getByTestId('admin-billing-console-page'),
     ).toBeInTheDocument();
-    expect(screen.getByText('module.billing.admin.title')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'module.billing.admin.title',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('navigation', { name: 'breadcrumb' }),
+    ).toHaveTextContent('module.billing.page.title');
     expect(
       screen.getByRole('link', {
         name: 'module.billing.admin.backToCreatorBilling',

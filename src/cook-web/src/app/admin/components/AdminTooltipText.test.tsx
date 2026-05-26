@@ -122,6 +122,20 @@ describe('AdminTooltipText', () => {
     expect(screen.queryByText('  Course One  ')).not.toBeInTheDocument();
   });
 
+  test('can force tooltip rendering when table clipping happens outside the trigger', () => {
+    render(
+      <AdminTooltipText
+        text='Short content'
+        emptyValue='--'
+        forceTooltip
+      />,
+    );
+
+    expect(screen.getByTestId('tooltip-content')).toHaveTextContent(
+      'Short content',
+    );
+  });
+
   test('updates overflow state when display text changes without changing value', async () => {
     const { rerender } = render(
       <AdminTooltipText

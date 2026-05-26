@@ -647,7 +647,8 @@
     "tabs": {
       "ledger": "Détail des crédits",
       "plans": "Acheter des crédits"
-    }
+    },
+    "title": "Abonnement et crédits"
   },
   "renewal": {
     "eventType": {

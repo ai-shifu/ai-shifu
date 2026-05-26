@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Info, RefreshCw, RotateCcw, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
@@ -1467,38 +1469,38 @@ export default function AdminOperationCreditNotificationsPage() {
   }
 
   return (
-    <div className='flex h-full min-h-0 flex-col gap-5 p-0'>
-      <div>
-        <h1 className='text-2xl font-semibold text-gray-900'>
-          {t('module.operationsCreditNotifications.title')}
-        </h1>
-        <p className='mt-1 text-sm text-muted-foreground'>
-          {t('module.operationsCreditNotifications.subtitle')}
-        </p>
-      </div>
-
+    <div className='flex h-full min-h-0 flex-col p-0'>
+      <AdminBreadcrumb
+        items={[{ label: t('module.operationsCreditNotifications.title') }]}
+      />
       <Tabs
         value={activeTab}
-        className='flex min-h-0 flex-1 flex-col gap-5'
+        className='flex min-h-0 flex-1 flex-col'
         onValueChange={value => updateTab(value as PageTab)}
       >
-        <TabsList
-          className={CREDIT_NOTIFICATION_TABS_LIST_CLASSNAME}
-          data-testid='admin-credit-notification-tabs'
-        >
-          <TabsTrigger
-            value='records'
-            className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
-          >
-            {t('module.operationsCreditNotifications.tabs.records')}
-          </TabsTrigger>
-          <TabsTrigger
-            value='config'
-            className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
-          >
-            {t('module.operationsCreditNotifications.tabs.config')}
-          </TabsTrigger>
-        </TabsList>
+        <AdminTitle
+          title={t('module.operationsCreditNotifications.title')}
+          description={t('module.operationsCreditNotifications.subtitle')}
+          tabs={
+            <TabsList
+              className={CREDIT_NOTIFICATION_TABS_LIST_CLASSNAME}
+              data-testid='admin-credit-notification-tabs'
+            >
+              <TabsTrigger
+                value='records'
+                className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
+              >
+                {t('module.operationsCreditNotifications.tabs.records')}
+              </TabsTrigger>
+              <TabsTrigger
+                value='config'
+                className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
+              >
+                {t('module.operationsCreditNotifications.tabs.config')}
+              </TabsTrigger>
+            </TabsList>
+          }
+        />
 
         <TabsContent
           value='records'

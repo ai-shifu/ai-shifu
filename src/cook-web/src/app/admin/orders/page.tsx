@@ -10,8 +10,8 @@ import React, {
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import {
   ADMIN_TABLE_HEADER_CELL_CLASS,
@@ -52,12 +52,14 @@ import OrderDetailSheet from '@/components/order/OrderDetailSheet';
 import ImportActivationDialog from '@/components/order/ImportActivationDialog';
 import { cn } from '@/lib/utils';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArchiveRestore, Check, ChevronDown } from 'lucide-react';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import { ClearableTextInput } from '@/app/admin/operations/orders/orderUiShared';
 
 type OrderListResponse = {
@@ -257,11 +259,13 @@ const OrdersPage = () => {
 
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const locale = i18n?.language || 'en-US';
-  const usesLatinLabels = !locale.startsWith('zh');
   const filterControlClassName = cn(
     'min-w-0 flex-1',
-    usesLatinLabels && 'xl:max-w-[220px]',
+    !locale.startsWith('zh') && 'xl:max-w-[220px]',
   );
+  const filterLabelClassName = locale.startsWith('zh')
+    ? 'w-16 text-right'
+    : 'w-24 text-right';
 
   const contactType = useMemo(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
@@ -503,8 +507,18 @@ const OrdersPage = () => {
       <AdminTooltipText
         text={text}
         emptyValue='-'
-        className={cn('truncate', className)}
+        forceTooltip
+        className={cn('block w-full min-w-0 truncate', className)}
       />
+    );
+  };
+
+  const renderPlainTableText = (text?: string, className?: string) => {
+    const value = text?.trim() || '-';
+    return (
+      <span className={cn('block w-full min-w-0 truncate', className)}>
+        {value}
+      </span>
     );
   };
 
@@ -875,9 +889,6 @@ const OrdersPage = () => {
       ),
     },
   ];
-  const primaryFilterItems = filterItems.slice(0, 3);
-  const expandedFilterItems = filterItems;
-
   if (error) {
     return (
       <div className='h-full p-0'>
@@ -893,134 +904,39 @@ const OrdersPage = () => {
   return (
     <div className='h-full p-0'>
       <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden'>
-        <div className='mb-5 flex shrink-0 flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between'>
-          <h1 className='text-2xl font-semibold text-gray-900'>
-            {t('module.order.title')}
-          </h1>
-          <div className='flex items-center gap-3'>
-            <Button onClick={() => setImportOpen(true)}>
-              {t('module.order.importActivation.action')}
-            </Button>
-          </div>
-        </div>
+        <AdminBreadcrumb items={[{ label: t('module.order.title') }]} />
+        <AdminTitle
+          title={t('module.order.title')}
+          actions={
+            <div className='flex items-center gap-3 lg:justify-end'>
+              <Button
+                variant='ghost'
+                className='h-9 gap-1.5 px-0 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] hover:bg-transparent hover:text-[var(--base-foreground,#0A0A0A)]'
+                onClick={() => setImportOpen(true)}
+              >
+                <ArchiveRestore className='h-4 w-4' />
+                {t('module.order.importActivation.action')}
+              </Button>
+            </div>
+          }
+        />
 
         <div className='min-h-0 flex-1 overflow-hidden pr-1'>
           <div className='flex h-full min-h-0 flex-col gap-5 pb-6'>
-            <div className='rounded-xl border border-border bg-white p-4 shadow-sm transition-all'>
-              <div className='space-y-4'>
-                <div
-                  className={cn(
-                    'grid gap-4',
-                    expanded
-                      ? 'grid-cols-1 xl:grid-cols-3'
-                      : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
-                  )}
-                >
-                  {(expanded
-                    ? expandedFilterItems.slice(0, 3)
-                    : primaryFilterItems
-                  ).map(item => (
-                    <div
-                      key={item.key}
-                      className='flex items-center'
-                    >
-                      <span
-                        className={cn(
-                          "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']",
-                          usesLatinLabels ? 'w-24' : 'w-20',
-                        )}
-                      >
-                        {item.label}
-                      </span>
-                      <div className={filterControlClassName}>
-                        {item.component}
-                      </div>
-                    </div>
-                  ))}
-
-                  {!expanded ? (
-                    <div className='flex items-center justify-end gap-2'>
-                      <Button
-                        size='sm'
-                        variant='outline'
-                        onClick={handleReset}
-                      >
-                        {t('module.order.filters.reset')}
-                      </Button>
-                      <Button
-                        size='sm'
-                        onClick={handleSearch}
-                      >
-                        {t('module.order.filters.search')}
-                      </Button>
-                      <Button
-                        size='sm'
-                        variant='ghost'
-                        className='px-2 text-primary'
-                        onClick={() => setExpanded(true)}
-                      >
-                        {t('common.core.expand')}
-                        <ChevronDown className='ml-1 h-4 w-4' />
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-
-                {expanded ? (
-                  <div className='space-y-4'>
-                    <div className='grid gap-4 xl:grid-cols-3'>
-                      {expandedFilterItems.slice(3).map(item => (
-                        <div
-                          key={item.key}
-                          className='flex items-center'
-                        >
-                          <span
-                            className={cn(
-                              "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']",
-                              usesLatinLabels ? 'w-24' : 'w-20',
-                            )}
-                          >
-                            {item.label}
-                          </span>
-                          <div className={filterControlClassName}>
-                            {item.component}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className='flex items-center justify-end gap-2'>
-                      <Button
-                        size='sm'
-                        variant='outline'
-                        onClick={handleReset}
-                      >
-                        {t('module.order.filters.reset')}
-                      </Button>
-                      <Button
-                        size='sm'
-                        onClick={handleSearch}
-                      >
-                        {t('module.order.filters.search')}
-                      </Button>
-                      <Button
-                        size='sm'
-                        variant='ghost'
-                        className='px-2 text-primary'
-                        onClick={() => setExpanded(false)}
-                      >
-                        {t('common.core.collapse')}
-                        <ChevronUp className='ml-1 h-4 w-4' />
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className='text-sm text-muted-foreground'>
-              {t('module.order.totalCount', { count: total })}
-            </div>
+            <AdminFilter
+              items={filterItems}
+              expanded={expanded}
+              onExpandedChange={setExpanded}
+              onReset={handleReset}
+              onSearch={handleSearch}
+              resetLabel={t('module.order.filters.reset')}
+              searchLabel={t('module.order.filters.search')}
+              expandLabel={t('common.core.expand')}
+              collapseLabel={t('common.core.collapse')}
+              collapsedCount={3}
+              contentClassName={filterControlClassName}
+              expandedLabelClassName={filterLabelClassName}
+            />
 
             <AdminTableShell
               loading={loading}
@@ -1029,7 +945,16 @@ const OrdersPage = () => {
               emptyColSpan={9}
               withTooltipProvider
               tableWrapperClassName='max-h-[calc(100vh-20rem)] overflow-auto'
-              footerClassName='mt-3'
+              footnote={t('module.order.totalCount', { count: total })}
+              pagination={{
+                pageIndex,
+                pageCount,
+                onPageChange: handlePageChange,
+                prevLabel: t('module.order.paginationPrev'),
+                nextLabel: t('module.order.paginationNext'),
+                prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+                nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+              }}
               table={emptyRow => (
                 <Table className='table-auto'>
                   <TableHeader>
@@ -1127,125 +1052,116 @@ const OrdersPage = () => {
                   </TableHeader>
                   <TableBody>
                     {emptyRow}
-                    {orders.map(order => (
-                      <TableRow key={order.order_bid}>
-                        <TableCell
-                          className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
-                          style={getColumnStyle('shifu')}
-                        >
-                          {renderTooltipText(
-                            order.shifu_name || order.shifu_bid,
-                            'text-foreground',
-                          )}
-                        </TableCell>
-                        <TableCell
-                          className='border-r border-border px-3 py-2 align-middle'
-                          style={getColumnStyle('user')}
-                        >
-                          <div className='space-y-1 text-center'>
-                            <div className='truncate text-sm font-medium text-foreground'>
-                              {(isEmailMode
-                                ? order.user_email
-                                : order.user_mobile) ||
-                                order.user_bid ||
-                                '-'}
-                            </div>
-                            <div className='truncate text-xs text-muted-foreground'>
-                              {order.user_nickname || defaultUserName}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell
-                          className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
-                          style={getColumnStyle('status')}
-                        >
-                          {renderTooltipText(resolveStatusLabel(order))}
-                        </TableCell>
-                        <TableCell
-                          className='border-r border-border px-3 py-2 align-middle'
-                          style={getColumnStyle('paidAmount')}
-                        >
-                          <div className='text-center'>
-                            {renderTooltipText(
-                              formatMoney(order.paid_price),
-                              'text-foreground',
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell
-                          className='border-r border-border px-3 py-2 align-middle'
-                          style={getColumnStyle('discountInfo')}
-                        >
-                          <div className='text-center'>
-                            {renderTooltipText(
-                              order.discount_amount &&
-                                order.discount_amount !== '0'
-                                ? formatMoney(order.discount_amount)
-                                : '-',
-                              'text-foreground',
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell
-                          className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
-                          style={getColumnStyle('payment')}
-                        >
-                          <div className='text-sm text-foreground'>
-                            {renderTooltipText(
-                              t(order.payment_channel_key),
-                              'text-sm',
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell
-                          className='overflow-hidden whitespace-nowrap px-3 py-2 text-center text-ellipsis'
-                          style={getColumnStyle('createdAt')}
-                        >
-                          {renderTooltipText(
-                            formatAdminUtcDateTime(order.created_at),
-                          )}
-                        </TableCell>
-                        <TableCell
-                          className='overflow-hidden whitespace-nowrap px-3 py-2 text-center text-ellipsis'
-                          style={getColumnStyle('orderId')}
-                        >
-                          {renderTooltipText(order.order_bid)}
-                        </TableCell>
-                        <TableCell
-                          className={getAdminStickyRightCellClass(
-                            'whitespace-nowrap px-3 py-2 text-center',
-                          )}
-                          style={getColumnStyle('action')}
-                        >
-                          <Button
-                            size='sm'
-                            variant='ghost'
-                            className='text-primary hover:text-primary/80'
-                            onClick={() => handleViewDetail(order)}
+                    {orders.map(order => {
+                      const userContact =
+                        (isEmailMode ? order.user_email : order.user_mobile) ||
+                        order.user_bid ||
+                        '-';
+                      const userName = order.user_nickname || defaultUserName;
+
+                      return (
+                        <TableRow key={order.order_bid}>
+                          <TableCell
+                            className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                            style={getColumnStyle('shifu')}
                           >
-                            {t('module.order.table.view')}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                            {renderTooltipText(
+                              order.shifu_name || order.shifu_bid,
+                              'text-foreground',
+                            )}
+                          </TableCell>
+                          <TableCell
+                            className='border-r border-border px-3 py-2 align-middle'
+                            style={getColumnStyle('user')}
+                          >
+                            <div className='space-y-1'>
+                              {renderTooltipText(
+                                userContact,
+                                'text-sm font-medium text-foreground',
+                              )}
+                              {renderTooltipText(
+                                userName,
+                                'block text-xs text-muted-foreground',
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell
+                            className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                            style={getColumnStyle('status')}
+                          >
+                            {renderPlainTableText(resolveStatusLabel(order))}
+                          </TableCell>
+                          <TableCell
+                            className='border-r border-border px-3 py-2 align-middle'
+                            style={getColumnStyle('paidAmount')}
+                          >
+                            <div className='text-center'>
+                              {renderPlainTableText(
+                                formatMoney(order.paid_price),
+                                'text-foreground',
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell
+                            className='border-r border-border px-3 py-2 align-middle'
+                            style={getColumnStyle('discountInfo')}
+                          >
+                            <div className='text-center'>
+                              {renderPlainTableText(
+                                order.discount_amount &&
+                                  order.discount_amount !== '0'
+                                  ? formatMoney(order.discount_amount)
+                                  : '-',
+                                'text-foreground',
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell
+                            className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                            style={getColumnStyle('payment')}
+                          >
+                            <div className='text-sm text-foreground'>
+                              {renderPlainTableText(
+                                t(order.payment_channel_key),
+                                'text-sm',
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell
+                            className='overflow-hidden whitespace-nowrap px-3 py-2 text-center text-ellipsis'
+                            style={getColumnStyle('createdAt')}
+                          >
+                            {renderPlainTableText(
+                              formatAdminUtcDateTime(order.created_at),
+                            )}
+                          </TableCell>
+                          <TableCell
+                            className='overflow-hidden whitespace-nowrap px-3 py-2 text-center text-ellipsis'
+                            style={getColumnStyle('orderId')}
+                          >
+                            {renderTooltipText(order.order_bid)}
+                          </TableCell>
+                          <TableCell
+                            className={getAdminStickyRightCellClass(
+                              'whitespace-nowrap px-3 py-2 text-center',
+                            )}
+                            style={getColumnStyle('action')}
+                          >
+                            <Button
+                              size='sm'
+                              variant='ghost'
+                              className='h-auto justify-start rounded-none p-0 text-primary hover:bg-transparent hover:text-primary'
+                              onClick={() => handleViewDetail(order)}
+                            >
+                              {t('module.order.table.view')}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
-              footer={
-                pageCount > 1 ? (
-                  <AdminPagination
-                    pageIndex={pageIndex}
-                    pageCount={pageCount}
-                    onPageChange={handlePageChange}
-                    prevLabel={t('module.order.paginationPrev')}
-                    nextLabel={t('module.order.paginationNext')}
-                    prevAriaLabel={t('module.order.paginationPrevAriaLabel')}
-                    nextAriaLabel={t('module.order.paginationNextAriaLabel')}
-                    className='mx-0 w-auto justify-end'
-                    hideWhenSinglePage
-                  />
-                ) : null
-              }
             />
           </div>
         </div>

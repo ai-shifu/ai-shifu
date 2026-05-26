@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
@@ -1373,20 +1374,16 @@ export default function AdminOperationCourseDetailPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-        <div className='mb-5 shrink-0 space-y-3 pt-6'>
-          <AdminOperationsBreadcrumb
-            items={[
-              {
-                label: tOperations('title'),
-                href: '/admin/operations',
-              },
-              { label: tOperations('detail.title') },
-            ]}
-          />
-          <h1 className='text-2xl font-semibold text-gray-900'>
-            {tOperations('detail.title')}
-          </h1>
-        </div>
+        <AdminOperationsBreadcrumb
+          items={[
+            {
+              label: tOperations('title'),
+              href: '/admin/operations',
+            },
+            { label: tOperations('detail.title') },
+          ]}
+        />
+        <AdminTitle title={tOperations('detail.title')} />
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>
           <div className='space-y-5 pb-6'>
