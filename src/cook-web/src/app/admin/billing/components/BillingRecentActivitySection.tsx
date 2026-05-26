@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/Table';
 import { cn } from '@/lib/utils';
 import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
-import { BILLING_SECTION_TITLE_CLASS } from './billingSectionTitleClass';
+import { BILLING_SECTION_TITLE_CLASS } from '@/components/billing/billingSectionTitleClass';
 import {
   buildBillingSwrKey,
   formatBillingCreditDetail,

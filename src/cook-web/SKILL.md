@@ -18,6 +18,7 @@
 - 积分套餐权益文案优先以 `BillingOverviewCards` 里的共享 feature key 列表作为单一来源；删除某项权益时，要同时清理 `billing.json`、预注册翻译使用代码、相关测试数据和 `i18n-keys.d.ts` 残留。
 - 账务/积分页面如果同一类时间展示同时出现在卡片、表格或 tooltip 中，优先抽到 `src/lib/billing.ts` 的共享格式化方法；涉及多语言文案时，同步更新所有支持的 locale、`i18n-keys.d.ts` 和对应组件测试，避免只改页面不改类型与回归用例。
 - 积分详情页的“积分消耗明细”表格优先复用 `src/app/admin/components/AdminTableShell.tsx` 和标准 `Table` 组件；分页走 `AdminTableShell.pagination`，不要在 billing 组件里另写卡片表格和独立分页外壳。
+- 仅服务后台路由且依赖 `src/app/admin/components/*` 的 billing 组件，应放在 `src/app/admin/billing/components/` 这类同路由作用域下；`src/components/*` 里的共享组件不要直接 import `src/app/*` 的 route-internal 实现，避免触发架构边界校验。
 - `AdminTableShell` 内的表头默认保持左对齐；如果某些 body 单元格需要右对齐，只在 body 内容层处理，不要把表头也右对齐。自定义骨架屏行放进 `AdminTableShell` 时要禁用 hover 背景，避免加载翻页时出现整行灰色条。
 - 钱包余额、可用积分、侧边会员卡余额这类“积分余额”展示统一只保留整数部分且不加千分位分隔；套餐赠送额度、购买额度、消耗量等非余额数字继续使用通用积分格式化方法，避免把两类数字口径混用。
 - 当产品要求把套餐赠送积分数、免费体验积分和积分充值包额度也统一成整数展示时，优先复用 `src/lib/billing.ts` 的共享积分数量格式化方法，确保套餐卡、免费卡、充值卡和对应测试口径一致。
