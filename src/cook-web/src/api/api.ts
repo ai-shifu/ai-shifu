@@ -152,12 +152,18 @@ const api = {
     'POST /shifu/admin/operations/users/{user_bid}/packages/grant',
   getAdminOperationCreditNotifications:
     'GET /shifu/admin/operations/credit-notifications',
+  getAdminOperationCreditNotificationsOverview:
+    'GET /shifu/admin/operations/credit-notifications/overview',
+  getAdminOperationCreditNotificationDetail:
+    'GET /shifu/admin/operations/credit-notifications/{notification_bid}',
   getAdminOperationCreditNotificationConfig:
     'GET /shifu/admin/operations/credit-notifications/config',
   updateAdminOperationCreditNotificationConfig:
     'POST /shifu/admin/operations/credit-notifications/config',
   syncAdminOperationCreditNotificationTemplate:
     'POST /shifu/admin/operations/credit-notifications/templates/sync',
+  getAdminOperationCreditNotificationTemplates:
+    'GET /shifu/admin/operations/credit-notifications/templates',
   dryRunAdminOperationCreditNotifications:
     'POST /shifu/admin/operations/credit-notifications/dry-run',
   requeueAdminOperationCreditNotification:

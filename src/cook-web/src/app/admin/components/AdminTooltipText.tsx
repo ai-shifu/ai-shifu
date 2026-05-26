@@ -75,7 +75,7 @@ export default function AdminTooltipText({
     <span
       ref={triggerRef}
       className={cn(
-        'inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
+        'block w-full max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
         className,
       )}
     >

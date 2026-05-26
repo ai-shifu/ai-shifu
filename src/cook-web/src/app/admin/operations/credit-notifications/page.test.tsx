@@ -5,13 +5,19 @@ import { toast } from '@/hooks/useToast';
 import AdminOperationCreditNotificationsPage from './page';
 
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 let mockSearchParams = new URLSearchParams();
+let mockLoginMethodsEnabled = ['phone'];
+let mockDefaultLoginMethod = 'phone';
 
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
     getAdminOperationCreditNotificationConfig: jest.fn(),
+    getAdminOperationCreditNotificationDetail: jest.fn(),
+    getAdminOperationCreditNotificationTemplates: jest.fn(),
     getAdminOperationCreditNotifications: jest.fn(),
+    getAdminOperationCreditNotificationsOverview: jest.fn(),
     dryRunAdminOperationCreditNotifications: jest.fn(),
     requeueAdminOperationCreditNotification: jest.fn(),
     syncAdminOperationCreditNotificationTemplate: jest.fn(),
@@ -22,6 +28,7 @@ jest.mock('@/api', () => ({
 jest.mock('next/navigation', () => ({
   usePathname: () => '/admin/operations/credit-notifications',
   useRouter: () => ({
+    push: mockPush,
     replace: mockReplace,
   }),
   useSearchParams: () => mockSearchParams,
@@ -32,6 +39,20 @@ jest.mock('../useOperatorGuard', () => ({
   default: () => ({
     isReady: true,
   }),
+}));
+
+jest.mock('@/c-store', () => ({
+  __esModule: true,
+  useEnvStore: (
+    selector: (state: {
+      loginMethodsEnabled: string[];
+      defaultLoginMethod: string;
+    }) => unknown,
+  ) =>
+    selector({
+      loginMethodsEnabled: mockLoginMethodsEnabled,
+      defaultLoginMethod: mockDefaultLoginMethod,
+    }),
 }));
 
 const mockT = (key: string, fallback?: string | Record<string, unknown>) =>
@@ -55,13 +76,43 @@ jest.mock('@/components/ErrorDisplay', () => ({
   ),
 }));
 
+jest.mock('@/components/ui/DropdownMenu', () => ({
+  __esModule: true,
+  DropdownMenu: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => (
+    <>{children}</>
+  ),
+  DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onClick,
+  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
+    <button
+      type='button'
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  ),
+}));
+
 jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
 }));
 
 const mockGetConfig =
   api.getAdminOperationCreditNotificationConfig as jest.Mock;
+const mockGetDetail =
+  api.getAdminOperationCreditNotificationDetail as jest.Mock;
+const mockGetTemplates =
+  api.getAdminOperationCreditNotificationTemplates as jest.Mock;
 const mockGetRecords = api.getAdminOperationCreditNotifications as jest.Mock;
+const mockGetOverview =
+  api.getAdminOperationCreditNotificationsOverview as jest.Mock;
 const mockRequeue = api.requeueAdminOperationCreditNotification as jest.Mock;
 const mockSyncTemplate =
   api.syncAdminOperationCreditNotificationTemplate as jest.Mock;
@@ -86,12 +137,27 @@ const openConfigTab = async () => {
   });
 };
 
+const openRecordMoreMenu = () => {
+  const moreButton = screen.getByRole('button', {
+    name: 'module.operationsCreditNotifications.actions.more',
+  });
+  fireEvent.pointerDown(moreButton, { button: 0, ctrlKey: false });
+  fireEvent.mouseDown(moreButton, { button: 0, ctrlKey: false });
+  fireEvent.click(moreButton);
+};
+
 describe('AdminOperationCreditNotificationsPage', () => {
   beforeEach(() => {
     mockSearchParams = new URLSearchParams();
+    mockLoginMethodsEnabled = ['phone'];
+    mockDefaultLoginMethod = 'phone';
     mockReplace.mockReset();
+    mockPush.mockReset();
     mockGetConfig.mockReset();
+    mockGetDetail.mockReset();
+    mockGetTemplates.mockReset();
     mockGetRecords.mockReset();
+    mockGetOverview.mockReset();
     mockDryRun.mockReset();
     mockRequeue.mockReset();
     mockSyncTemplate.mockReset();
@@ -99,6 +165,64 @@ describe('AdminOperationCreditNotificationsPage', () => {
     mockToast.mockReset();
     mockGetConfig.mockResolvedValue({ enabled: false });
     mockUpdateConfig.mockResolvedValue({ enabled: false });
+    mockGetDetail.mockResolvedValue({
+      notification_bid: 'notification-1',
+      notification_type: 'credit_granted',
+      channel: 'sms',
+      creator_bid: 'creator-1',
+      creator_nickname: 'Creator One',
+      target_user_bid: 'creator-1',
+      mobile_snapshot: '13800000000',
+      source_type: 'ledger',
+      source_bid: 'ledger-1',
+      dedupe_key: 'credit_granted:ledger-1',
+      status: 'failed_provider',
+      template_code: 'TPL-GRANT',
+      template_name: '',
+      template_params: {
+        credits: '12.50',
+        source: 'operator',
+      },
+      policy_snapshot: {},
+      provider_response: {},
+      error_code: 'provider_failed',
+      error_message: 'failed',
+      requested_at: '',
+      attempted_at: '',
+      sent_at: '',
+      created_at: '2026-05-21T00:00:00',
+      updated_at: '2026-05-21T00:00:00',
+      metadata: {},
+    });
+    mockGetOverview.mockResolvedValue({
+      total: 10,
+      pending: 2,
+      sent: 5,
+      failed: 1,
+      skipped: 2,
+    });
+    mockGetTemplates.mockResolvedValue({
+      items: [
+        {
+          channel: 'sms',
+          provider: 'aliyun',
+          template_code: 'TPL-GRANT',
+          template_name: 'Grant',
+          template_content: 'Credits ${credits}',
+          template_status: 'AUDIT_STATE_PASS',
+          template_type: '0',
+          sync_status: 'synced',
+          error_code: '',
+          error_message: '',
+          last_synced_at: '2026-05-22T00:00:00',
+          source: 'provider',
+        },
+      ],
+      source: 'provider',
+      provider_available: true,
+      error_code: '',
+      error_message: '',
+    });
     mockDryRun.mockResolvedValue({
       status: 'ok',
       candidate_count: 1,
@@ -117,6 +241,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
           notification_type: 'credit_granted',
           channel: 'sms',
           creator_bid: 'creator-1',
+          creator_nickname: 'Creator One',
           target_user_bid: 'creator-1',
           mobile_snapshot: '13800000000',
           source_type: 'ledger',
@@ -124,6 +249,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
           dedupe_key: 'credit_granted:ledger-1',
           status: 'failed_provider',
           template_code: 'TPL-GRANT',
+          template_name: '',
           template_params: {
             credits: '12.50',
             source: 'operator',
@@ -173,7 +299,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     render(<AdminOperationCreditNotificationsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('notification-1')).toBeInTheDocument();
+      expect(screen.getByText('Creator One')).toBeInTheDocument();
     });
     expect(
       screen.getByRole('tab', {
@@ -213,12 +339,11 @@ describe('AdminOperationCreditNotificationsPage', () => {
     render(<AdminOperationCreditNotificationsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('notification-1')).toBeInTheDocument();
+      expect(screen.getByText('Creator One')).toBeInTheDocument();
     });
-    expect(
-      screen.getByText('{"credits":"12.50","source":"operator"}'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('ledger')).toBeInTheDocument();
 
+    openRecordMoreMenu();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsCreditNotifications.actions.requeue',
@@ -245,8 +370,9 @@ describe('AdminOperationCreditNotificationsPage', () => {
     render(<AdminOperationCreditNotificationsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('notification-1')).toBeInTheDocument();
+      expect(screen.getByText('Creator One')).toBeInTheDocument();
     });
+    openRecordMoreMenu();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsCreditNotifications.actions.requeue',
@@ -260,6 +386,32 @@ describe('AdminOperationCreditNotificationsPage', () => {
       });
     });
     expect(mockGetRecords).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens record details from the more menu', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Creator One')).toBeInTheDocument();
+    });
+
+    openRecordMoreMenu();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.detail',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetDetail).toHaveBeenCalledWith({
+        notification_bid: 'notification-1',
+      });
+    });
+    expect(
+      screen.getByText('module.operationsCreditNotifications.detail.title'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('notification-1')).toBeInTheDocument();
+    expect(screen.getByText('credit_granted:ledger-1')).toBeInTheDocument();
   });
 
   it('blocks config save when policy loading fails', async () => {
@@ -283,11 +435,17 @@ describe('AdminOperationCreditNotificationsPage', () => {
       expect(mockGetRecords).toHaveBeenCalledTimes(1);
     });
 
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.expand',
+      }),
+    );
+
     fireEvent.change(
       screen.getByPlaceholderText(
-        'module.operationsCreditNotifications.filters.creatorBid',
+        'module.operationsCreditNotifications.filters.creatorPlaceholder',
       ),
-      { target: { value: 'creator-draft' } },
+      { target: { value: '13800138000' } },
     );
     expect(mockGetRecords).toHaveBeenCalledTimes(1);
 
@@ -302,7 +460,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     });
     expect(mockGetRecords.mock.calls[1][0]).toEqual(
       expect.objectContaining({
-        creator_bid: 'creator-draft',
+        creator_keyword: '13800138000',
         page_index: 1,
       }),
     );
@@ -318,8 +476,53 @@ describe('AdminOperationCreditNotificationsPage', () => {
     });
     expect(mockGetRecords.mock.calls[2][0]).toEqual(
       expect.objectContaining({
-        creator_bid: '',
+        creator_keyword: '',
         page_index: 1,
+      }),
+    );
+  });
+
+  it('applies overview card filters to the search results', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetRecords).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.overview.pending',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetRecords).toHaveBeenCalledTimes(2);
+    });
+    expect(mockGetRecords.mock.calls[1][0]).toEqual(
+      expect.objectContaining({
+        page_index: 1,
+        status: 'pending',
+      }),
+    );
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.overview.activeFilter',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.overview.pending common.core.close',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetRecords).toHaveBeenCalledTimes(3);
+    });
+    expect(mockGetRecords.mock.calls[2][0]).toEqual(
+      expect.objectContaining({
+        page_index: 1,
+        status: '',
       }),
     );
   });
@@ -334,12 +537,86 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     expect(container.querySelector('textarea')).toBeNull();
 
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.changeTemplate',
+      }),
+    );
     const templateInputs = screen.getAllByLabelText(
       'module.operationsCreditNotifications.config.fields.templateCode',
     ) as HTMLInputElement[];
     fireEvent.change(templateInputs[1], {
       target: { value: 'TPL-GRANT-UPDATED' },
     });
+    const windowsInput = screen.getByLabelText(
+      'module.operationsCreditNotifications.config.fields.windows',
+    );
+    fireEvent.change(windowsInput, {
+      target: { value: '７ｄ，' },
+    });
+    expect(windowsInput).toHaveValue('7d,');
+    fireEvent.change(windowsInput, {
+      target: { value: '７ｄ，３ｄ、１ｄ，０ｄ' },
+    });
+    expect(windowsInput).toHaveValue('7d,3d,1d,0d');
+    fireEvent.blur(windowsInput);
+    expect(windowsInput).toHaveValue('7d, 3d, 1d, 0d');
+    const thresholdInput = screen.getByLabelText(
+      'module.operationsCreditNotifications.config.fields.thresholds',
+    );
+    fireEvent.change(thresholdInput, {
+      target: { value: '１００，５０，１０，' },
+    });
+    expect(thresholdInput).toHaveValue('100,50,10,');
+    const perMobileInput = screen.getByLabelText(
+      'module.operationsCreditNotifications.config.fields.perMobilePerDay',
+    );
+    expect(perMobileInput).not.toHaveAttribute('type', 'number');
+    fireEvent.change(perMobileInput, {
+      target: { value: '-３.５' },
+    });
+    expect(perMobileInput).toHaveValue('3');
+    const dailyLimitInput = screen.getByLabelText(
+      'module.operationsCreditNotifications.config.fields.dailySmsLimit',
+    );
+    fireEvent.change(dailyLimitInput, {
+      target: { value: '０' },
+    });
+    expect(dailyLimitInput).toHaveValue('0');
+    const blockedCreatorsInput = screen.getByLabelText(
+      'module.operationsCreditNotifications.config.fields.blockedCreators',
+    );
+    fireEvent.change(blockedCreatorsInput, {
+      target: { value: 'creator-1，13800000000，owner@example.com' },
+    });
+    expect(blockedCreatorsInput).toHaveValue(
+      'creator-1,13800000000,owner@example.com',
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.config.listDialog.add',
+      }),
+    );
+    expect(blockedCreatorsInput).toHaveValue('');
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.fields.blockedCreatorList',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/13800000000/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.emptyOptedOutCreators',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(
+        'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsPhone',
+      ),
+    ).toBeInTheDocument();
+    expect(JSON.stringify(mockUpdateConfig.mock.calls)).not.toContain(
+      '100,50,10',
+    );
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -355,6 +632,26 @@ describe('AdminOperationCreditNotificationsPage', () => {
             credit_granted: expect.objectContaining({
               template_code: 'TPL-GRANT-UPDATED',
             }),
+            credit_expiring: expect.objectContaining({
+              windows: ['7d', '3d', '1d', '0d'],
+            }),
+            low_balance: expect.objectContaining({
+              thresholds: expect.arrayContaining([
+                expect.objectContaining({ value: '100' }),
+                expect.objectContaining({ value: '50' }),
+                expect.objectContaining({ value: '10' }),
+              ]),
+            }),
+          }),
+          frequency: expect.objectContaining({
+            per_mobile_per_day: 3,
+          }),
+          budget: expect.objectContaining({
+            daily_sms_limit: 0,
+          }),
+          blacklist: expect.objectContaining({
+            creator_bids: ['creator-1', 'owner@example.com'],
+            mobiles: ['13800000000'],
           }),
         }),
       );
@@ -362,6 +659,320 @@ describe('AdminOperationCreditNotificationsPage', () => {
         'placeholders',
       );
     });
+  });
+
+  it('uses email wording for the blocked creator field on email login sites', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+    await openConfigTab();
+
+    expect(
+      screen.getByPlaceholderText(
+        'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsEmail',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText(
+        'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsPhone',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows recommended templates without marking config dirty before saving', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+    await openConfigTab();
+
+    expect(screen.getByText('Grant')).toBeInTheDocument();
+
+    const recordsTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.records',
+    });
+    fireEvent.pointerDown(recordsTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(recordsTab, { button: 0, ctrlKey: false });
+    fireEvent.click(recordsTab);
+
+    expect(
+      screen.queryByText(
+        'module.operationsCreditNotifications.config.unsavedDialog.title',
+      ),
+    ).not.toBeInTheDocument();
+    expect(recordsTab).toHaveAttribute('data-state', 'active');
+  });
+
+  it('writes recommended templates when saving config', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+    await openConfigTab();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          types: expect.objectContaining({
+            credit_granted: expect.objectContaining({
+              template_code: 'TPL-GRANT',
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
+  it('extracts blocked creators from spreadsheet-style pasted contacts and rejects invalid rows', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+    await openConfigTab();
+
+    const blockedCreatorsInput = screen.getByLabelText(
+      'module.operationsCreditNotifications.config.fields.blockedCreators',
+    );
+    fireEvent.change(blockedCreatorsInput, {
+      target: {
+        value: '15811237246\t美少女大战哥斯拉\n15911234444\t测试昵称',
+      },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.config.listDialog.add',
+      }),
+    );
+
+    expect(screen.getByText(/15811237246/)).toBeInTheDocument();
+    expect(screen.getByText(/15911234444/)).toBeInTheDocument();
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title:
+          'module.operationsCreditNotifications.config.listDialog.addedBlockedCreators',
+      }),
+    );
+
+    fireEvent.change(blockedCreatorsInput, {
+      target: { value: '无法识别的创作者' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.config.listDialog.add',
+      }),
+    );
+
+    expect(mockToast).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title:
+          'module.operationsCreditNotifications.config.listDialog.invalidBlockedCreators',
+        variant: 'destructive',
+      }),
+    );
+  });
+
+  it('extracts blocked creators from spreadsheet-style pasted emails on email sites', async () => {
+    mockLoginMethodsEnabled = ['email'];
+    mockDefaultLoginMethod = 'email';
+
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+    await openConfigTab();
+
+    const blockedCreatorsInput = screen.getByLabelText(
+      'module.operationsCreditNotifications.config.fields.blockedCreators',
+    );
+    fireEvent.paste(blockedCreatorsInput, {
+      clipboardData: {
+        getData: () => 'owner@example.com\tOwner\nsecond@example.com\tSecond',
+      },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.config.listDialog.add',
+      }),
+    );
+
+    expect(screen.getByText(/owner@example.com/)).toBeInTheDocument();
+    expect(screen.getByText(/second@example.com/)).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blacklist: expect.objectContaining({
+            creator_bids: ['owner@example.com', 'second@example.com'],
+            mobiles: [],
+          }),
+        }),
+      );
+    });
+  });
+
+  it('opens blocked creators dialog and removes an item from the draft list', async () => {
+    mockGetConfig.mockResolvedValueOnce({
+      enabled: false,
+      blacklist: {
+        creator_bids: [],
+        mobiles: ['13800000000'],
+      },
+      resolved_lists: {
+        blacklist: {
+          items: [
+            {
+              identifier: '13800000000',
+              creator_bid: 'creator-1',
+              mobile: '13800000000',
+              email: '',
+              nickname: 'Creator One',
+            },
+          ],
+        },
+      },
+    });
+
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+    await openConfigTab();
+
+    expect(screen.getByText(/13800000000/)).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.listDialog.manage',
+      ),
+    );
+    expect(
+      screen.getAllByText(
+        'module.operationsCreditNotifications.config.fields.blockedCreatorList',
+      ).length,
+    ).toBeGreaterThan(1);
+    expect(screen.getByText('Creator One')).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCreditNotifications.config.listDialog.searchPlaceholderPhone',
+      ),
+      { target: { value: '13800000000' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module.operationsCreditNotifications.config.listDialog.delete/,
+      }),
+    );
+    expect(
+      screen.getByText(
+        'module.operationsCreditNotifications.config.listDialog.emptyResult',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.confirm',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.applyConfig',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blacklist: {
+            creator_bids: [],
+            mobiles: [],
+          },
+        }),
+      );
+    });
+  });
+
+  it('asks before leaving config tab with unsaved changes and restores discarded edits', async () => {
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(mockGetConfig).toHaveBeenCalled();
+    });
+    await openConfigTab();
+
+    const blockedCreatorsInput = screen.getByLabelText(
+      'module.operationsCreditNotifications.config.fields.blockedCreators',
+    );
+    fireEvent.change(blockedCreatorsInput, {
+      target: { value: 'creator-unsaved' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.config.listDialog.add',
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText(/creator-unsaved/)).toBeInTheDocument();
+    });
+
+    const recordsTab = screen.getByRole('tab', {
+      name: 'module.operationsCreditNotifications.tabs.records',
+    });
+    fireEvent.pointerDown(recordsTab, { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(recordsTab, { button: 0, ctrlKey: false });
+    fireEvent.click(recordsTab);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsCreditNotifications.config.unsavedDialog.title',
+        ),
+      ).toBeInTheDocument();
+    });
+    expect(mockReplace).toHaveBeenLastCalledWith(
+      '/admin/operations/credit-notifications?tab=config',
+      { scroll: false },
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.config.unsavedDialog.discard',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('tab', {
+          name: 'module.operationsCreditNotifications.tabs.records',
+        }),
+      ).toHaveAttribute('data-state', 'active');
+    });
+    await openConfigTab();
+    expect(
+      screen.getByLabelText(
+        'module.operationsCreditNotifications.config.fields.blockedCreators',
+      ),
+    ).toHaveValue('');
   });
 
   it('shows dynamic template placeholders and tolerance copy', async () => {
@@ -378,25 +989,25 @@ describe('AdminOperationCreditNotificationsPage', () => {
       ),
     ).toHaveLength(3);
     expect(
-      screen.getAllByText(
-        'module.operationsCreditNotifications.config.placeholders.available',
-      ),
-    ).toHaveLength(3);
-    expect(
       screen.getByText(
-        'module.operationsCreditNotifications.config.placeholders.groups.creditExpiring',
+        'module.operationsCreditNotifications.config.placeholders.guideTitle.credit_expiring',
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsCreditNotifications.config.placeholders.groups.creditExpiring',
+      ),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText(
         'module.operationsCreditNotifications.config.placeholders.notes.windowSource',
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText(
         'module.operationsCreditNotifications.config.placeholders.groups.lowBalanceFixed',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(screen.getAllByText('${credits}')).toHaveLength(2);
     expect(screen.getByText('${available_credits}')).toBeInTheDocument();
     expect(
@@ -451,7 +1062,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     fireEvent.click(
       screen.getAllByRole('button', {
-        name: 'module.operationsCreditNotifications.actions.syncTemplate',
+        name: 'module.operationsCreditNotifications.actions.applyTemplate',
       })[0],
     );
 

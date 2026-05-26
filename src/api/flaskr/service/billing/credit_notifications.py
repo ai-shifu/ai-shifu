@@ -14,14 +14,23 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask, has_app_context
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import false, func
 
-from flaskr.api.sms.aliyun import get_sms_template_ali, send_sms_ali
+from flaskr.api.sms.aliyun import (
+    get_sms_template_ali,
+    query_sms_template_list_ali,
+    send_sms_ali,
+)
 from flaskr.common.observability import record_credit_notification_event
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
 from flaskr.service.config.funcs import add_config
-from flaskr.service.user.consts import USER_STATE_UNREGISTERED
+from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_VERIFIED,
+    USER_STATE_UNREGISTERED,
+)
+from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.timezone import format_with_app_timezone
 from flaskr.util.uuid import generate_id
@@ -60,6 +69,7 @@ TASK_NAME = "billing.send_credit_notification"
 SOURCE_TYPE_LEDGER = "ledger"
 SOURCE_TYPE_WALLET = "wallet"
 SOURCE_TYPE_WALLET_BUCKET = "wallet_bucket"
+CREATOR_KEYWORD_MATCH_LIMIT = 500
 LIMIT_STATE_NORMAL = "normal"
 LIMIT_STATE_SOFTLIMIT = "softlimit"
 LIMIT_STATE_HARDLIMIT = "hardlimit"
@@ -114,6 +124,44 @@ class CreditNotificationStageResult:
             "dedupe_key": self.dedupe_key or None,
             "enqueued": self.enqueued,
         }
+
+
+def _load_matching_creator_bids_for_keyword(keyword: str) -> list[str]:
+    normalized = str(keyword or "").strip()
+    if not normalized:
+        return []
+
+    matched_bids: set[str] = set()
+    user_filter = (UserEntity.user_bid == normalized) | (
+        UserEntity.user_identify == normalized
+    )
+    if not _is_valid_sms_mobile(normalized) and len(normalized) >= 2:
+        user_filter = user_filter | (UserEntity.nickname.ilike(f"%{normalized}%"))
+    users = (
+        UserEntity.query.filter(UserEntity.deleted == 0, user_filter)
+        .limit(CREATOR_KEYWORD_MATCH_LIMIT)
+        .yield_per(200)
+    )
+    for user in users:
+        user_bid = str(user.user_bid or "").strip()
+        if user_bid:
+            matched_bids.add(user_bid)
+
+    credentials = (
+        AuthCredential.query.filter(
+            AuthCredential.deleted == 0,
+            AuthCredential.provider_name.in_(["phone", "email"]),
+            AuthCredential.identifier == normalized,
+        )
+        .limit(CREATOR_KEYWORD_MATCH_LIMIT)
+        .yield_per(200)
+    )
+    for credential in credentials:
+        user_bid = str(credential.user_bid or "").strip()
+        if user_bid:
+            matched_bids.add(user_bid)
+
+    return [user_bid for user_bid in matched_bids if user_bid]
 
 
 def _deep_merge(defaults: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -278,6 +326,20 @@ def _normalize_low_balance_thresholds(
     return thresholds
 
 
+def _normalize_policy_list_group(value: Any, field_name: str) -> dict[str, list[str]]:
+    current = _require_mapping(value, field_name)
+    return {
+        "creator_bids": _normalize_string_list(
+            current.get("creator_bids"),
+            f"{field_name}.creator_bids",
+        ),
+        "mobiles": _normalize_string_list(
+            current.get("mobiles"),
+            f"{field_name}.mobiles",
+        ),
+    }
+
+
 def _validate_policy_for_save(payload: dict[str, Any]) -> dict[str, Any]:
     policy = _deep_merge(DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG, payload)
     channel = str(policy.get("channel") or CREDIT_NOTIFICATION_CHANNEL_SMS).strip()
@@ -334,14 +396,9 @@ def _validate_policy_for_save(payload: dict[str, Any]) -> dict[str, Any]:
     )[0]
 
     for list_group in ("blacklist", "opt_out"):
-        current = _require_mapping(policy.get(list_group), list_group)
-        current["creator_bids"] = _normalize_string_list(
-            current.get("creator_bids"),
-            f"{list_group}.creator_bids",
-        )
-        current["mobiles"] = _normalize_string_list(
-            current.get("mobiles"),
-            f"{list_group}.mobiles",
+        policy[list_group] = _normalize_policy_list_group(
+            policy.get(list_group),
+            list_group,
         )
 
     frequency = _require_mapping(policy.get("frequency"), "frequency")
@@ -405,12 +462,126 @@ def load_credit_notification_policy() -> dict[str, Any]:
     return policy
 
 
+def _resolve_credit_notification_policy_list_items(
+    group: dict[str, Any],
+) -> list[dict[str, str]]:
+    creator_bids = _normalize_string_list(group.get("creator_bids"), "creator_bids")
+    mobiles = _normalize_string_list(group.get("mobiles"), "mobiles")
+    identifiers = creator_bids + mobiles
+    if not identifiers:
+        return []
+
+    user_bids = {item for item in creator_bids if item and "@" not in item}
+    email_identifiers = {item for item in creator_bids if "@" in item}
+    mobile_identifiers = set(mobiles)
+
+    credential_rows = []
+    credential_identifiers = email_identifiers | mobile_identifiers
+    if credential_identifiers:
+        credential_rows = (
+            AuthCredential.query.filter(
+                AuthCredential.deleted == 0,
+                AuthCredential.state == CREDENTIAL_STATE_VERIFIED,
+                AuthCredential.provider_name.in_(["phone", "email", "google"]),
+                AuthCredential.identifier.in_(list(credential_identifiers)),
+            )
+            .order_by(AuthCredential.id.desc())
+            .all()
+        )
+        for credential in credential_rows:
+            if credential.user_bid:
+                user_bids.add(str(credential.user_bid).strip())
+
+    users = []
+    if user_bids:
+        users = UserEntity.query.filter(
+            UserEntity.deleted == 0,
+            UserEntity.user_bid.in_(list(user_bids)),
+        ).all()
+    user_map = {str(user.user_bid or "").strip(): user for user in users}
+
+    contact_map: dict[str, dict[str, str]] = {
+        user_bid: {"mobile": "", "email": ""} for user_bid in user_map
+    }
+    for credential in credential_rows:
+        user_bid = str(credential.user_bid or "").strip()
+        if not user_bid:
+            continue
+        contact = contact_map.setdefault(user_bid, {"mobile": "", "email": ""})
+        identifier = str(credential.identifier or "").strip()
+        if credential.provider_name == "phone" and not contact["mobile"]:
+            contact["mobile"] = identifier
+        if credential.provider_name in {"email", "google"} and not contact["email"]:
+            contact["email"] = identifier
+
+    for user in users:
+        user_bid = str(user.user_bid or "").strip()
+        contact = contact_map.setdefault(user_bid, {"mobile": "", "email": ""})
+        identify = str(user.user_identify or "").strip()
+        if identify.isdigit() and not contact["mobile"]:
+            contact["mobile"] = identify
+        elif "@" in identify and not contact["email"]:
+            contact["email"] = identify
+
+    credential_by_identifier = {
+        str(credential.identifier or "").strip(): str(credential.user_bid or "").strip()
+        for credential in credential_rows
+        if credential.identifier and credential.user_bid
+    }
+
+    items: list[dict[str, str]] = []
+    for identifier in identifiers:
+        resolved_user_bid = credential_by_identifier.get(identifier, "")
+        if not resolved_user_bid and identifier in user_map:
+            resolved_user_bid = identifier
+        user = user_map.get(resolved_user_bid)
+        contact = contact_map.get(resolved_user_bid, {"mobile": "", "email": ""})
+        items.append(
+            {
+                "identifier": identifier,
+                "creator_bid": resolved_user_bid,
+                "mobile": contact.get("mobile", ""),
+                "email": contact.get("email", ""),
+                "nickname": (
+                    str(getattr(user, "nickname", "") or "").strip() if user else ""
+                ),
+            }
+        )
+    return items
+
+
+def load_credit_notification_policy_for_operator() -> dict[str, Any]:
+    policy = load_credit_notification_policy()
+    policy["resolved_lists"] = {
+        "blacklist": {
+            "items": _resolve_credit_notification_policy_list_items(
+                policy.get("blacklist") or {}
+            )
+        },
+        "opt_out": {
+            "items": _resolve_credit_notification_policy_list_items(
+                policy.get("opt_out") or {}
+            )
+        },
+    }
+    return policy
+
+
 def save_credit_notification_policy(
-    app: Flask, payload: dict[str, Any]
+    app: Flask,
+    payload: dict[str, Any],
+    *,
+    preserve_opt_out: bool = False,
 ) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise_param_error("policy")
     policy = _validate_policy_for_save(payload)
+    if preserve_opt_out:
+        existing_policy = load_credit_notification_policy()
+        policy["opt_out"] = _normalize_policy_list_group(
+            existing_policy.get("opt_out"),
+            "opt_out",
+        )
     _validate_credit_notification_policy_templates(app, policy)
     serialized = json.dumps(
         policy, ensure_ascii=False, separators=(",", ":"), sort_keys=True
@@ -496,6 +667,52 @@ def _provider_template_response_payload(
     }
 
 
+def _template_list_body_value(item: Any, field_name: str) -> str:
+    return str(getattr(item, field_name, "") or "").strip()
+
+
+def _serialize_template_option(
+    template: NotificationTemplate,
+    *,
+    source: str,
+) -> dict[str, Any]:
+    placeholders = [
+        str(item or "").strip()
+        for item in (template.placeholders_json or [])
+        if str(item or "").strip()
+    ]
+    compatible_notification_types = [
+        notification_type
+        for notification_type in (
+            CREDIT_NOTIFICATION_TYPE_EXPIRING,
+            CREDIT_NOTIFICATION_TYPE_GRANTED,
+            CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+        )
+        if set(placeholders).issubset(
+            _supported_template_placeholders(notification_type)
+        )
+    ]
+    return {
+        "notification_template_bid": template.notification_template_bid,
+        "channel": template.channel,
+        "provider": template.provider,
+        "template_code": template.template_code,
+        "template_name": template.template_name,
+        "template_content": template.template_content or "",
+        "template_status": template.template_status,
+        "template_type": template.template_type,
+        "sync_status": template.sync_status,
+        "error_code": template.error_code,
+        "error_message": template.error_message or "",
+        "placeholders": placeholders,
+        "compatible_notification_types": compatible_notification_types,
+        "last_synced_at": (
+            template.last_synced_at.isoformat() if template.last_synced_at else ""
+        ),
+        "source": source,
+    }
+
+
 def _load_notification_template(template_code: str) -> NotificationTemplate | None:
     return (
         NotificationTemplate.query.filter(
@@ -543,6 +760,27 @@ def _get_or_create_notification_template(
     return template
 
 
+def _local_notification_template_options() -> list[dict[str, Any]]:
+    templates = (
+        NotificationTemplate.query.filter(
+            NotificationTemplate.deleted == 0,
+            NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
+            NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
+            NotificationTemplate.template_code != "",
+        )
+        .order_by(
+            NotificationTemplate.updated_at.desc(), NotificationTemplate.id.desc()
+        )
+        .limit(100)
+        .all()
+    )
+    return [
+        _serialize_template_option(template, source="local")
+        for template in templates
+        if str(template.template_code or "").strip()
+    ]
+
+
 def _serialize_notification_template(
     template: NotificationTemplate,
     *,
@@ -578,9 +816,9 @@ def _serialize_notification_template(
         "sync_status": sync_status,
         "error_code": template.error_code,
         "error_message": template.error_message or "",
-        "last_synced_at": template.last_synced_at.isoformat()
-        if template.last_synced_at
-        else "",
+        "last_synced_at": (
+            template.last_synced_at.isoformat() if template.last_synced_at else ""
+        ),
         "compatible": sync_status == NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
         and not unsupported,
     }
@@ -713,6 +951,89 @@ def sync_credit_notification_template(
         )
 
 
+def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
+    with _maybe_app_context(app):
+        if not _aliyun_sms_credentials_configured(app):
+            return {
+                "items": _local_notification_template_options(),
+                "source": "local",
+                "provider_available": False,
+                "error_code": "missing_credentials",
+                "error_message": "missing_credentials",
+            }
+
+        now = datetime.now()
+        response = query_sms_template_list_ali(app, page_index=1, page_size=100)
+        body = getattr(response, "body", None)
+        response_code = _template_body_value(body, "code") if body is not None else ""
+        if body is None or (response_code and response_code != "OK"):
+            return {
+                "items": _local_notification_template_options(),
+                "source": "local",
+                "provider_available": False,
+                "error_code": response_code or "provider_failed",
+                "error_message": (
+                    _template_body_value(body, "message")
+                    if body is not None
+                    else "provider_failed"
+                ),
+            }
+
+        provider_items = getattr(body, "sms_template_list", None) or []
+        templates: list[NotificationTemplate] = []
+        for provider_item in provider_items:
+            template_code = _template_list_body_value(provider_item, "template_code")
+            if not template_code:
+                continue
+            template = _get_or_create_notification_template(
+                app,
+                template_code=template_code,
+                now=now,
+            )
+            template.template_name = _template_list_body_value(
+                provider_item, "template_name"
+            )
+            template.template_content = _template_list_body_value(
+                provider_item, "template_content"
+            )
+            template.template_status = _template_list_body_value(
+                provider_item, "audit_status"
+            )
+            template.template_type = _template_list_body_value(
+                provider_item, "template_type"
+            )
+            template.provider_response_json = {
+                "request_id": _template_body_value(body, "request_id"),
+                "template_code": template_code,
+                "audit_status": template.template_status,
+                "create_date": _template_list_body_value(provider_item, "create_date"),
+                "order_id": _template_list_body_value(provider_item, "order_id"),
+                "reason": _json_safe(getattr(provider_item, "reason", {}) or {}),
+            }
+            template.placeholders_json = _extract_template_placeholders(
+                template.template_content or ""
+            )
+            template.sync_status = NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
+            template.error_code = ""
+            template.error_message = ""
+            template.last_synced_at = now
+            template.updated_at = now
+            db.session.add(template)
+            templates.append(template)
+
+        db.session.commit()
+        return {
+            "items": [
+                _serialize_template_option(template, source="provider")
+                for template in templates
+            ],
+            "source": "provider",
+            "provider_available": True,
+            "error_code": "",
+            "error_message": "",
+        }
+
+
 def _ensure_credit_notification_template_compatible(
     app: Flask,
     *,
@@ -724,6 +1045,7 @@ def _ensure_credit_notification_template_compatible(
         if (
             template is not None
             and template.sync_status == NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
+            and not _aliyun_sms_credentials_configured(app)
         ):
             return _serialize_notification_template(
                 template,
@@ -1475,9 +1797,9 @@ def scan_credit_expiring_notifications(
             if item.get("status") == CREDIT_NOTIFICATION_STATUS_PENDING
         ),
         "enqueued_count": enqueued_count,
-        "estimated_sms_cost": _estimated_sms_cost(policy, len(notifications))
-        if dry_run
-        else "0",
+        "estimated_sms_cost": (
+            _estimated_sms_cost(policy, len(notifications)) if dry_run else "0"
+        ),
         "dry_run": dry_run,
         "notifications": notifications,
     }
@@ -1975,12 +2297,14 @@ def scan_low_balance_notifications(
         "candidate_count": candidate_count,
         "created_count": created_count,
         "enqueued_count": enqueued_count,
-        "estimated_sms_cost": _estimated_sms_cost(
-            policy,
-            sum(1 for item in notifications if item.get("status") == "candidate"),
-        )
-        if dry_run
-        else "0",
+        "estimated_sms_cost": (
+            _estimated_sms_cost(
+                policy,
+                sum(1 for item in notifications if item.get("status") == "candidate"),
+            )
+            if dry_run
+            else "0"
+        ),
         "dry_run": dry_run,
         "notifications": notifications,
     }
@@ -2030,6 +2354,20 @@ def _is_quiet_hours(policy: dict[str, Any], now: datetime | None = None) -> bool
     return current_value >= start_value or current_value < end_value
 
 
+def _resolve_policy_creator_bids(items: Any) -> set[str]:
+    creator_bids: set[str] = set()
+    if not isinstance(items, list):
+        return creator_bids
+    for item in items:
+        normalized = _normalize_bid(item)
+        if not normalized:
+            continue
+        creator_bids.add(normalized)
+        if "@" in normalized:
+            creator_bids.update(_load_matching_creator_bids_for_keyword(normalized))
+    return creator_bids
+
+
 def _is_blocked_by_policy(
     policy: dict[str, Any],
     *,
@@ -2039,11 +2377,7 @@ def _is_blocked_by_policy(
 ) -> tuple[bool, str]:
     opt_out = policy.get("opt_out")
     if isinstance(opt_out, dict):
-        creator_bids = {
-            _normalize_bid(item)
-            for item in opt_out.get("creator_bids", [])
-            if _normalize_bid(item)
-        }
+        creator_bids = _resolve_policy_creator_bids(opt_out.get("creator_bids"))
         mobiles = {
             _normalize_bid(item)
             for item in opt_out.get("mobiles", [])
@@ -2054,11 +2388,7 @@ def _is_blocked_by_policy(
 
     blacklist = policy.get("blacklist")
     if isinstance(blacklist, dict):
-        creator_bids = {
-            _normalize_bid(item)
-            for item in blacklist.get("creator_bids", [])
-            if _normalize_bid(item)
-        }
+        creator_bids = _resolve_policy_creator_bids(blacklist.get("creator_bids"))
         mobiles = {
             _normalize_bid(item)
             for item in blacklist.get("mobiles", [])
@@ -2505,6 +2835,31 @@ def _parse_positive_int(value: Any, default: int) -> int:
     return max(1, parsed)
 
 
+def get_operator_credit_notification_overview(app: Flask) -> dict[str, int]:
+    with app.app_context():
+        rows = (
+            db.session.query(
+                NotificationRecord.status, func.count(NotificationRecord.id)
+            )
+            .filter(NotificationRecord.deleted == 0)
+            .group_by(NotificationRecord.status)
+            .all()
+        )
+    status_counts = {str(status or ""): int(count or 0) for status, count in rows}
+    skipped_count = sum(
+        count
+        for status, count in status_counts.items()
+        if status.startswith("skipped") or status == "suppressed_duplicate"
+    )
+    return {
+        "total": sum(status_counts.values()),
+        "pending": status_counts.get(CREDIT_NOTIFICATION_STATUS_PENDING, 0),
+        "sent": status_counts.get(CREDIT_NOTIFICATION_STATUS_SENT, 0),
+        "failed": status_counts.get(CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER, 0),
+        "skipped": skipped_count,
+    }
+
+
 def list_credit_notifications(
     app: Flask,
     *,
@@ -2522,16 +2877,34 @@ def list_credit_notifications(
             "target_user_bid",
             "notification_type",
             "channel",
-            "status",
             "source_type",
             "source_bid",
         ):
             value = _normalize_bid(normalized_filters.get(field))
             if value:
                 query = query.filter(getattr(NotificationRecord, field) == value)
+        status = _normalize_bid(normalized_filters.get("status"))
+        if status == "skipped":
+            query = query.filter(
+                (NotificationRecord.status.like("skipped%"))
+                | (NotificationRecord.status == "suppressed_duplicate")
+            )
+        elif status:
+            query = query.filter(NotificationRecord.status == status)
         mobile = _normalize_bid(normalized_filters.get("mobile"))
         if mobile:
             query = query.filter(NotificationRecord.mobile_snapshot == mobile)
+        creator_keyword = str(normalized_filters.get("creator_keyword") or "").strip()
+        if creator_keyword:
+            matched_creator_bids = _load_matching_creator_bids_for_keyword(
+                creator_keyword
+            )
+            if matched_creator_bids:
+                query = query.filter(
+                    NotificationRecord.creator_bid.in_(matched_creator_bids)
+                )
+            else:
+                query = query.filter(false())
         start_time = normalized_filters.get("start_time")
         end_time = normalized_filters.get("end_time")
         if isinstance(start_time, datetime):
@@ -2547,7 +2920,47 @@ def list_credit_notifications(
             .limit(safe_page_size)
             .all()
         )
-        items = [_serialize_notification_record(row) for row in rows]
+        creator_bids = {
+            str(row.creator_bid or "").strip() for row in rows if row.creator_bid
+        }
+        creator_nickname_map = {}
+        if creator_bids:
+            creator_nickname_map = {
+                str(user.user_bid or "").strip(): str(user.nickname or "").strip()
+                for user in UserEntity.query.filter(
+                    UserEntity.deleted == 0,
+                    UserEntity.user_bid.in_(creator_bids),
+                ).all()
+            }
+        template_codes = {
+            str(row.template_code or "").strip() for row in rows if row.template_code
+        }
+        template_name_map = {}
+        if template_codes:
+            template_name_map = {
+                str(template.template_code or "").strip(): str(
+                    template.template_name or ""
+                ).strip()
+                for template in NotificationTemplate.query.filter(
+                    NotificationTemplate.deleted == 0,
+                    NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
+                    NotificationTemplate.provider
+                    == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
+                    NotificationTemplate.template_code.in_(template_codes),
+                ).all()
+            }
+        items = [
+            _serialize_notification_record_summary(
+                row,
+                creator_nickname=creator_nickname_map.get(
+                    str(row.creator_bid or "").strip(), ""
+                ),
+                template_name=template_name_map.get(
+                    str(row.template_code or "").strip(), ""
+                ),
+            )
+            for row in rows
+        ]
     return {
         "page": safe_page_index,
         "page_size": safe_page_size,
@@ -2557,16 +2970,93 @@ def list_credit_notifications(
     }
 
 
+def get_credit_notification_detail(
+    app: Flask,
+    *,
+    notification_bid: str,
+) -> dict[str, Any]:
+    normalized_notification_bid = _normalize_bid(notification_bid)
+    if not normalized_notification_bid:
+        raise_param_error("notification_bid")
+    with app.app_context():
+        row = (
+            NotificationRecord.query.filter(
+                NotificationRecord.deleted == 0,
+                NotificationRecord.notification_bid == normalized_notification_bid,
+            )
+            .order_by(NotificationRecord.id.desc())
+            .first()
+        )
+        if row is None:
+            raise_error("NOTIFICATION_RECORD_NOT_FOUND")
+        creator_nickname = ""
+        creator = UserEntity.query.filter(
+            UserEntity.deleted == 0,
+            UserEntity.user_bid == row.creator_bid,
+        ).first()
+        if creator is not None:
+            creator_nickname = str(creator.nickname or "").strip()
+        template_name = ""
+        template = NotificationTemplate.query.filter(
+            NotificationTemplate.deleted == 0,
+            NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
+            NotificationTemplate.provider == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
+            NotificationTemplate.template_code == row.template_code,
+        ).first()
+        if template is not None:
+            template_name = str(template.template_name or "").strip()
+        return _serialize_notification_record(
+            row,
+            creator_nickname=creator_nickname,
+            template_name=template_name,
+        )
+
+
 def math_ceil(total: int, page_size: int) -> int:
     return int((total + page_size - 1) // page_size) if total > 0 else 0
 
 
-def _serialize_notification_record(row: NotificationRecord) -> dict[str, Any]:
+def _serialize_notification_record_summary(
+    row: NotificationRecord,
+    *,
+    creator_nickname: str = "",
+    template_name: str = "",
+) -> dict[str, Any]:
     return {
         "notification_bid": row.notification_bid,
         "notification_type": row.notification_type,
         "channel": row.channel,
         "creator_bid": row.creator_bid,
+        "creator_nickname": creator_nickname,
+        "target_user_bid": row.target_user_bid,
+        "mobile_snapshot": row.mobile_snapshot,
+        "source_type": row.source_type,
+        "source_bid": row.source_bid,
+        "status": row.status,
+        "template_code": row.template_code,
+        "template_name": template_name,
+        "error_code": row.error_code,
+        "error_message": row.error_message,
+        "requested_at": row.requested_at.isoformat() if row.requested_at else "",
+        "attempted_at": row.attempted_at.isoformat() if row.attempted_at else "",
+        "sent_at": row.sent_at.isoformat() if row.sent_at else "",
+        "created_at": row.created_at.isoformat() if row.created_at else "",
+        "updated_at": row.updated_at.isoformat() if row.updated_at else "",
+    }
+
+
+def _serialize_notification_record(
+    row: NotificationRecord,
+    *,
+    creator_nickname: str = "",
+    template_name: str = "",
+) -> dict[str, Any]:
+    return {
+        "notification_bid": row.notification_bid,
+        "notification_type": row.notification_type,
+        "channel": row.channel,
+        "creator_bid": row.creator_bid,
+        "creator_nickname": creator_nickname,
         "target_user_bid": row.target_user_bid,
         "mobile_snapshot": row.mobile_snapshot,
         "source_type": row.source_type,
@@ -2574,6 +3064,7 @@ def _serialize_notification_record(row: NotificationRecord) -> dict[str, Any]:
         "dedupe_key": row.dedupe_key,
         "status": row.status,
         "template_code": row.template_code,
+        "template_name": template_name,
         "template_params": row.template_params_json or {},
         "policy_snapshot": row.policy_snapshot_json or {},
         "provider_response": row.provider_response_json or {},
