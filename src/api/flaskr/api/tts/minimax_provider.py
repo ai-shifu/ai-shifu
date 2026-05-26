@@ -144,6 +144,7 @@ class MinimaxHTTPStreamChunk:
     sample_rate: int = 24000
     format: str = "mp3"
     word_count: int = 0
+    usage_characters: int = 0
     subtitles: List[Dict[str, Any]] = field(default_factory=list)
     extra_info: Dict[str, Any] = field(default_factory=dict)
     trace_id: str = ""
@@ -341,11 +342,12 @@ class MinimaxTTSProvider(BaseTTSProvider):
         duration_ms = extra_info.get("audio_length", 0)
         sample_rate = extra_info.get("audio_sample_rate", 24000)
         audio_format = extra_info.get("audio_format", "mp3")
-        word_count = extra_info.get("usage_characters", 0)
+        word_count = int(extra_info.get("word_count") or 0)
+        usage_characters = int(extra_info.get("usage_characters") or 0)
 
         logger.info(
             f"Minimax TTS synthesis completed: duration={duration_ms}ms, "
-            f"size={len(audio_data)} bytes, usage_characters={word_count}, extra_info={extra_info}"
+            f"size={len(audio_data)} bytes, usage_characters={usage_characters}, extra_info={extra_info}"
         )
 
         return TTSResult(
@@ -354,6 +356,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
             sample_rate=sample_rate,
             format=audio_format,
             word_count=word_count,
+            usage_characters=usage_characters,
         )
 
     def stream_synthesize(
@@ -465,7 +468,8 @@ class MinimaxTTSProvider(BaseTTSProvider):
                 format=str(
                     extra_info.get("audio_format") or audio_settings.format or "mp3"
                 ),
-                word_count=int(extra_info.get("usage_characters") or 0),
+                word_count=int(extra_info.get("word_count") or 0),
+                usage_characters=int(extra_info.get("usage_characters") or 0),
                 subtitles=subtitles,
                 extra_info=extra_info,
                 trace_id=str(message.get("trace_id") or ""),

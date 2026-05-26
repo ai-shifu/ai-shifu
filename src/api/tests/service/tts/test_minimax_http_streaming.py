@@ -5,9 +5,10 @@ import pytest
 
 
 class _FakeResponse:
-    def __init__(self, lines, *, status_error=None):
-        self._lines = lines
+    def __init__(self, lines=None, *, status_error=None, json_payload=None):
+        self._lines = lines or []
         self._status_error = status_error
+        self._json_payload = json_payload or {}
         self.headers = {"content-type": "text/event-stream"}
 
     def raise_for_status(self):
@@ -17,6 +18,9 @@ class _FakeResponse:
     def iter_lines(self, decode_unicode=True):
         _ = decode_unicode
         yield from self._lines
+
+    def json(self):
+        return self._json_payload
 
 
 def _sse_line(payload):
@@ -80,6 +84,7 @@ def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
                         "extra_info": {
                             "audio_length": 500,
                             "audio_sample_rate": 32000,
+                            "word_count": 2,
                             "usage_characters": 6,
                             "audio_format": "mp3",
                         },
@@ -105,7 +110,8 @@ def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
     assert chunks[0].subtitles[0]["text"] == "First."
     assert chunks[-1].is_final is True
     assert chunks[-1].duration_ms == 500
-    assert chunks[-1].word_count == 6
+    assert chunks[-1].word_count == 2
+    assert chunks[-1].usage_characters == 6
     assert chunks[-1].subtitles[0]["text"] == "First."
     assert gate_calls[0]["rpm_limit"] == 60
     assert post_calls[0][0].endswith("GroupId=test-group")
@@ -115,6 +121,55 @@ def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
     assert post_calls[0][1]["json"]["stream_options"] == {
         "exclude_aggregated_audio": True
     }
+
+
+def test_minimax_synthesize_splits_word_count_and_usage_characters(monkeypatch):
+    from flaskr.api.tts.base import AudioSettings, VoiceSettings
+    from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
+
+    config = {
+        "MINIMAX_API_KEY": "test-key",
+        "MINIMAX_GROUP_ID": "test-group",
+        "MINIMAX_TTS_MODEL": "speech-2.8-turbo",
+    }
+    post_calls = []
+
+    monkeypatch.setattr(
+        "flaskr.api.tts.minimax_provider.get_config",
+        lambda key: config.get(key, ""),
+    )
+
+    def _fake_post(url, **kwargs):
+        post_calls.append((url, kwargs))
+        return _FakeResponse(
+            json_payload={
+                "data": {"audio": "6161", "status": 2},
+                "extra_info": {
+                    "audio_length": 9900,
+                    "audio_sample_rate": 32000,
+                    "word_count": 52,
+                    "usage_characters": 26,
+                    "audio_format": "mp3",
+                },
+                "trace_id": "trace-1",
+                "base_resp": {"status_code": 0, "status_msg": "success"},
+            }
+        )
+
+    monkeypatch.setattr("flaskr.api.tts.minimax_provider.requests.post", _fake_post)
+
+    result = MinimaxTTSProvider().synthesize(
+        text="今天是不是很开心呀(laughs)，当然了！",
+        voice_settings=VoiceSettings(voice_id="male-qn-qingse"),
+        audio_settings=AudioSettings(format="mp3", sample_rate=32000),
+        model="speech-2.8-turbo",
+    )
+
+    assert result.audio_data == b"aa"
+    assert result.duration_ms == 9900
+    assert result.word_count == 52
+    assert result.usage_characters == 26
+    assert post_calls[0][0].endswith("GroupId=test-group")
 
 
 def test_minimax_http_streaming_raises_on_business_error(monkeypatch):
@@ -157,6 +212,8 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     calls = []
+    segment_usage_calls = []
+    aggregate_usage_calls = []
 
     class _FakeMinimaxProvider:
         def stream_synthesize(self, **kwargs):
@@ -178,6 +235,7 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
                 duration_ms=1000,
                 format="mp3",
                 word_count=10,
+                usage_characters=26,
                 subtitles=[],
             )
 
@@ -221,11 +279,11 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage",
-        lambda **_kwargs: None,
+        lambda **kwargs: segment_usage_calls.append(kwargs),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_usage_recorder.record_tts_aggregated_usage",
-        lambda **_kwargs: None,
+        lambda **kwargs: aggregate_usage_calls.append(kwargs),
     )
 
     app = SimpleNamespace()
@@ -280,6 +338,10 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
         (0, 400),
         (500, 1000),
     ]
+    assert segment_usage_calls[0]["word_count"] == 10
+    assert segment_usage_calls[0]["usage_characters"] == 26
+    assert aggregate_usage_calls[0]["total_word_count"] == 10
+    assert aggregate_usage_calls[0]["total_usage_characters"] == 26
 
 
 def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(

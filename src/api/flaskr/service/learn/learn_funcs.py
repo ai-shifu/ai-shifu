@@ -42,16 +42,14 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
 )
-from flaskr.service.tts.pipeline import (
-    split_text_for_tts,
-)
+from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
+from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.api.tts import (
     get_default_audio_settings,
     get_default_voice_settings,
     synthesize_text,
     is_tts_configured,
 )
-from flaskr.service.tts import preprocess_for_tts
 from flaskr.service.tts.api import create_streaming_tts_processor
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
@@ -732,6 +730,7 @@ def _yield_tts_segments(
             int(result.duration_ms or 0),
             segment_text,
             int(result.word_count or 0),
+            int(getattr(result, "usage_characters", 0) or 0),
             latency_ms,
         )
 
@@ -848,6 +847,7 @@ def _record_stream_segment_usage(
     tts_model: str,
     segment_text: str,
     word_count: int,
+    usage_characters: int,
     duration_ms: int,
     latency_ms: int,
     parent_usage_bid: str,
@@ -855,6 +855,7 @@ def _record_stream_segment_usage(
     usage_metadata: dict,
 ):
     segment_length = len(segment_text or "")
+    output_chars = resolve_tts_billable_chars(segment_text, usage_characters)
     record_tts_usage(
         app,
         usage_context,
@@ -862,8 +863,8 @@ def _record_stream_segment_usage(
         model=tts_model or "",
         is_stream=True,
         input=segment_length,
-        output=segment_length,
-        total=segment_length,
+        output=output_chars,
+        total=output_chars,
         word_count=int(word_count or 0),
         duration_ms=int(duration_ms or 0),
         latency_ms=int(latency_ms or 0),
@@ -885,12 +886,14 @@ def _record_stream_summary_usage(
     raw_text: str,
     cleaned_text: str,
     total_word_count: int,
+    total_output_chars: int,
     duration_ms: int,
     segment_count: int,
     usage_metadata: dict,
 ):
     raw_length = len(raw_text or "")
     cleaned_length = len(cleaned_text or "")
+    output_chars = total_output_chars or cleaned_length
     record_tts_usage(
         app,
         usage_context,
@@ -899,8 +902,8 @@ def _record_stream_summary_usage(
         model=tts_model or "",
         is_stream=True,
         input=raw_length,
-        output=cleaned_length,
-        total=cleaned_length,
+        output=output_chars,
+        total=output_chars,
         word_count=total_word_count,
         duration_ms=int(duration_ms or 0),
         latency_ms=0,
@@ -1056,6 +1059,7 @@ def _yield_stream_tts_audio_segments(
         duration_ms,
         segment_text,
         word_count,
+        usage_characters,
         latency_ms,
     ) in _yield_tts_segments(
         text=text,
@@ -1076,6 +1080,13 @@ def _yield_stream_tts_audio_segments(
         stats["total_word_count"] = int(stats.get("total_word_count", 0)) + int(
             word_count or 0
         )
+        segment_output_chars = resolve_tts_billable_chars(
+            segment_text,
+            int(usage_characters or 0),
+        )
+        stats["total_output_chars"] = int(stats.get("total_output_chars", 0)) + int(
+            segment_output_chars or 0
+        )
         _record_stream_segment_usage(
             app,
             usage_context,
@@ -1083,6 +1094,7 @@ def _yield_stream_tts_audio_segments(
             tts_model=tts_model,
             segment_text=segment_text,
             word_count=int(word_count or 0),
+            usage_characters=int(usage_characters or 0),
             duration_ms=int(duration_ms or 0),
             latency_ms=int(latency_ms or 0),
             parent_usage_bid=parent_usage_bid,
@@ -1429,6 +1441,7 @@ def stream_preview_tts_audio(
             )
             segment_count = int(stats.get("segment_count", 0))
             total_word_count = int(stats.get("total_word_count", 0))
+            total_output_chars = int(stats.get("total_output_chars", 0))
 
             oss_url, duration_ms = _finalize_tts_stream_audio(
                 app,
@@ -1452,6 +1465,7 @@ def stream_preview_tts_audio(
                 raw_text=text or "",
                 cleaned_text=cleaned_text,
                 total_word_count=total_word_count,
+                total_output_chars=total_output_chars,
                 duration_ms=int(duration_ms or 0),
                 segment_count=segment_count,
                 usage_metadata=usage_metadata,

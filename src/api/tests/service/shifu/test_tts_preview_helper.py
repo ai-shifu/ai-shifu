@@ -75,6 +75,7 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
             duration_ms=123,
             audio_data=b"abc",
             word_count=5,
+            usage_characters=8,
         ),
         raising=False,
     )
@@ -124,8 +125,12 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
         assert context.billable == 1
         assert call["kwargs"]["record_level"] == 1
         assert call["kwargs"]["parent_usage_bid"] == "usage-parent-1"
+        assert call["kwargs"]["output"] == 8
+        assert call["kwargs"]["total"] == 8
 
     assert summary_call["kwargs"]["usage_bid"] == "usage-parent-1"
     assert summary_call["kwargs"]["record_level"] == 0
     assert summary_call["kwargs"]["segment_count"] == 2
     assert summary_call["kwargs"]["word_count"] == 10
+    assert summary_call["kwargs"]["output"] == 16
+    assert summary_call["kwargs"]["total"] == 16

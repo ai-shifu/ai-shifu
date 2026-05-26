@@ -28,7 +28,7 @@ from flaskr.api.tts import (
     get_default_audio_settings,
 )
 from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
-from flaskr.service.tts import preprocess_for_tts
+from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     export_audio_range_best_effort,
@@ -137,6 +137,7 @@ class TTSSegment:
     audio_data: Optional[bytes] = None
     duration_ms: int = 0
     word_count: int = 0
+    usage_characters: int = 0
     latency_ms: int = 0
     error: Optional[str] = None
     is_ready: bool = False
@@ -147,6 +148,7 @@ class _MinimaxFallbackAudio:
     audio_data: bytes
     duration_ms: int
     word_count: int
+    usage_characters: int
     audio_format: str
 
 
@@ -218,6 +220,7 @@ class StreamingTTSProcessor:
         self._audio_bid = str(uuid.uuid4()).replace("-", "")
         self._usage_parent_bid = generate_id(app)
         self._word_count_total = 0
+        self._output_char_total = 0
         self._usage_scene = usage_scene
         self.usage_context = UsageContext(
             user_bid=user_bid,
@@ -482,6 +485,9 @@ class StreamingTTSProcessor:
                 segment.audio_data = result.audio_data
                 segment.duration_ms = result.duration_ms
                 segment.word_count = int(result.word_count or 0)
+                segment.usage_characters = int(
+                    getattr(result, "usage_characters", 0) or 0
+                )
                 segment.latency_ms = int((time.monotonic() - segment_start) * 1000)
                 segment.is_ready = True
 
@@ -503,10 +509,15 @@ class StreamingTTSProcessor:
                     is_stream=True,
                     parent_usage_bid=self._usage_parent_bid,
                     segment_index=segment.index,
+                    usage_characters=segment.usage_characters,
                 )
 
                 with self._lock:
                     self._word_count_total += segment.word_count
+                    self._output_char_total += resolve_tts_billable_chars(
+                        segment.text or "",
+                        segment.usage_characters,
+                    )
 
                 logger.debug(
                     f"TTS segment {segment.index} synthesized: "
@@ -1191,6 +1202,7 @@ class StreamingTTSProcessor:
                 raw_text=raw_text or "",
                 cleaned_text=cleaned_text or "",
                 total_word_count=self._word_count_total,
+                total_usage_characters=self._output_char_total,
                 duration_ms=final_duration_ms or 0,
                 segment_count=len(audio_data_list),
                 voice_settings=self.voice_settings,
@@ -1273,6 +1285,7 @@ class StreamingTTSProcessor:
             audio_data=audio_data,
             duration_ms=int(result.duration_ms or decoded_duration_ms or 0),
             word_count=int(result.word_count or 0),
+            usage_characters=int(getattr(result, "usage_characters", 0) or 0),
             audio_format=audio_format,
         )
 
@@ -1303,6 +1316,7 @@ class StreamingTTSProcessor:
             live_request_emitted_ms = 0
             request_duration_ms = 0
             request_word_count = 0
+            request_usage_characters = 0
             request_format = self.audio_settings.format or "mp3"
             request_subtitles: list[dict[str, Any]] = []
             request_final_subtitle_cues: list[dict[str, Any]] = []
@@ -1322,6 +1336,10 @@ class StreamingTTSProcessor:
                 if chunk.is_final:
                     request_duration_ms = int(chunk.duration_ms or request_duration_ms)
                     request_word_count = int(chunk.word_count or request_word_count)
+                    request_usage_characters = int(
+                        getattr(chunk, "usage_characters", 0)
+                        or request_usage_characters
+                    )
                 if chunk.subtitles:
                     self._extend_unique_minimax_subtitles(
                         request_subtitles,
@@ -1475,11 +1493,19 @@ class StreamingTTSProcessor:
                     request_duration_ms = int(fallback_audio.duration_ms or 0)
                     if fallback_audio.word_count:
                         request_word_count = int(fallback_audio.word_count or 0)
+                    if fallback_audio.usage_characters:
+                        request_usage_characters = int(
+                            fallback_audio.usage_characters or 0
+                        )
 
             if request_duration_ms <= 0:
                 request_duration_ms = source_emitted_ms or live_request_emitted_ms
             if request_word_count:
                 self._word_count_total += request_word_count
+            self._output_char_total += resolve_tts_billable_chars(
+                request_text,
+                request_usage_characters,
+            )
             if not request_final_subtitle_cues:
                 request_subtitle_cues = self._minimax_subtitles_to_cues(
                     request_subtitles,
@@ -1578,6 +1604,7 @@ class StreamingTTSProcessor:
                 is_stream=True,
                 parent_usage_bid=self._usage_parent_bid,
                 segment_index=request_index,
+                usage_characters=request_usage_characters,
             )
 
         with self._lock:
@@ -1636,8 +1663,13 @@ class StreamingTTSProcessor:
                 format=result.format or self.audio_settings.format or "mp3",
             )
         request_word_count = int(result.word_count or 0)
+        request_usage_characters = int(getattr(result, "usage_characters", 0) or 0)
         if request_word_count:
             self._word_count_total += request_word_count
+        self._output_char_total += resolve_tts_billable_chars(
+            request_text,
+            request_usage_characters,
+        )
 
         provider_subtitle_cues = self._apply_subtitle_context(
             list(getattr(result, "subtitle_cues", []) or [])
@@ -1684,6 +1716,7 @@ class StreamingTTSProcessor:
             is_stream=True,
             parent_usage_bid=self._usage_parent_bid,
             segment_index=0,
+            usage_characters=request_usage_characters,
         )
 
         with self._lock:
