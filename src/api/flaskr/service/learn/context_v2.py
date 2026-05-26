@@ -612,9 +612,7 @@ class _PreviewContextStore:
             )
         return self._entries_to_messages(kept)
 
-    def replace_context(
-        self, document: str, context: list[dict[str, str]]
-    ) -> None:
+    def replace_context(self, document: str, context: list[dict[str, str]]) -> None:
         """Replace cached context from a raw role/content message list.
 
         Used when callers pass a full context payload without per-block

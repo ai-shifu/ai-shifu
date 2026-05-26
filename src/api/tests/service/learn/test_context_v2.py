@@ -1728,7 +1728,9 @@ class _InMemoryCache:
         return removed
 
 
-def _make_preview_store(doc: str = "doc") -> tuple[_PreviewContextStore, _InMemoryCache, str]:
+def _make_preview_store(
+    doc: str = "doc",
+) -> tuple[_PreviewContextStore, _InMemoryCache, str]:
     app = Flask("preview-context-store")
     store = _PreviewContextStore(app, "user-1", "shifu-1", "outline-1")
     cache = _InMemoryCache()
@@ -1787,7 +1789,9 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
         persisted = store.load()
         index_counts: dict[int, int] = {}
         for entry in persisted["entries"]:
-            index_counts[entry["block_index"]] = index_counts.get(entry["block_index"], 0) + 1
+            index_counts[entry["block_index"]] = (
+                index_counts.get(entry["block_index"], 0) + 1
+            )
         self.assertEqual(index_counts.get(2), 1)
         self.assertEqual(index_counts.get(0), 1)
         self.assertEqual(index_counts.get(1), 1)
@@ -1864,9 +1868,7 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
             ],
         )
         persisted = store.load()
-        self.assertTrue(
-            all(entry["block_index"] < 0 for entry in persisted["entries"])
-        )
+        self.assertTrue(all(entry["block_index"] < 0 for entry in persisted["entries"]))
         # A real block_index request should preserve all sentinel entries.
         messages = store.get_context(doc, 5)
         self.assertEqual(
