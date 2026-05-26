@@ -82,6 +82,26 @@
     "creditUsage": {
       "count": "{count} 条记录",
       "description": "查看该课程的积分消耗记录。",
+      "details": {
+        "collapse": "收起",
+        "durationMinutesSeconds": "{minutes}分{seconds}秒",
+        "durationSeconds": "{seconds}秒",
+        "empty": "暂无消耗明细",
+        "expand": "展开",
+        "openUsageDetails": "查看{count}次消耗明细",
+        "table": {
+          "createdAt": "消耗时间",
+          "credits": "消耗积分",
+          "inputTokens": "输入 Tokens",
+          "outputSummary": "输出摘要",
+          "outputTokens": "输出 Tokens",
+          "ttsContent": "合成内容",
+          "ttsDuration": "音频时长",
+          "ttsSegmentCount": "分段数",
+          "ttsWordCount": "合成字数"
+        },
+        "title": "积分消耗明细"
+      },
       "filters": {
         "mode": "消耗场景",
         "modeAll": "全部",
@@ -112,7 +132,7 @@
       },
       "table": {
         "chapter": "章节",
-        "createdAt": "消耗时间",
+        "createdAt": "最近消耗时间",
         "credits": "总消耗积分",
         "empty": "暂无积分消耗记录",
         "lesson": "小节",
@@ -207,6 +227,10 @@
     },
     "metrics": "数据概览",
     "metricsLabels": {
+      "completedUserAvgCredits": "完课用户平均积分消耗",
+      "creditConsumedTotal": "总消耗积分",
+      "creditUsageCount": "积分消耗次数",
+      "creditUserCount": "积分消耗用户数",
       "followUpCount": "追问数",
       "learnerCount": "学习人数",
       "orderAmount": "实收总额（含兑换码）",

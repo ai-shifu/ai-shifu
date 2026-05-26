@@ -68,6 +68,11 @@ export type AdminOperationCourseDetailMetrics = {
   order_amount: string;
   follow_up_count: number;
   rating_score: string;
+  credit_consumed_total: number;
+  credit_usage_count: number;
+  credit_user_count: number;
+  completed_credit_user_count: number;
+  completed_user_avg_credits: number | null;
 };
 
 export type AdminOperationCourseDetailChapter = {
@@ -202,6 +207,26 @@ export type AdminOperationCourseCreditUsageItem = {
 export type AdminOperationCourseCreditUsageListResponse = {
   view: AdminOperationCourseCreditUsageView;
   items: AdminOperationCourseCreditUsageItem[];
+  page: number;
+  page_count: number;
+  page_size: number;
+  total: number;
+};
+
+export type AdminOperationCourseCreditUsageDetailItem = {
+  usage_bid: string;
+  consumed_credits: number;
+  input_tokens: number;
+  output_tokens: number;
+  word_count: number;
+  duration_ms: number;
+  segment_count: number;
+  output_summary: string;
+  created_at: string;
+};
+
+export type AdminOperationCourseCreditUsageDetailListResponse = {
+  items: AdminOperationCourseCreditUsageDetailItem[];
   page: number;
   page_count: number;
   page_size: number;

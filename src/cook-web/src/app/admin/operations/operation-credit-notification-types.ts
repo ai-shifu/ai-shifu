@@ -9,6 +9,7 @@ export type CreditNotificationType =
 export type CreditNotificationStatus =
   | 'pending'
   | 'sent'
+  | 'skipped'
   | 'skipped_no_mobile'
   | 'skipped_opt_out'
   | 'suppressed_duplicate'
@@ -20,16 +21,18 @@ export type AdminOperationCreditNotificationItem = {
   notification_type: CreditNotificationType;
   channel: string;
   creator_bid: string;
+  creator_nickname: string;
   target_user_bid: string;
   mobile_snapshot: string;
   source_type: string;
   source_bid: string;
-  dedupe_key: string;
+  dedupe_key?: string;
   status: CreditNotificationStatus;
   template_code: string;
-  template_params: Record<string, unknown>;
-  policy_snapshot: Record<string, unknown>;
-  provider_response: Record<string, unknown>;
+  template_name: string;
+  template_params?: Record<string, unknown>;
+  policy_snapshot?: Record<string, unknown>;
+  provider_response?: Record<string, unknown>;
   error_code: string;
   error_message: string;
   requested_at: string;
@@ -37,7 +40,15 @@ export type AdminOperationCreditNotificationItem = {
   sent_at: string;
   created_at: string;
   updated_at: string;
-  metadata: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
+
+export type AdminOperationCreditNotificationOverview = {
+  total: number;
+  pending: number;
+  sent: number;
+  failed: number;
+  skipped: number;
 };
 
 export type AdminOperationCreditNotificationListResponse = {
@@ -52,6 +63,8 @@ export type AdminOperationCreditNotificationDryRunResponse = {
   status: string;
   candidate_count: number;
   created_count: number;
+  enqueued_count?: number;
+  estimated_sms_cost?: string;
   dry_run: boolean;
   notifications: Array<Record<string, unknown>>;
   sections?: Record<string, unknown>;
@@ -91,6 +104,32 @@ export type AdminOperationCreditNotificationTemplateSyncResponse = {
   error_message: string;
   last_synced_at: string;
   compatible: boolean;
+};
+
+export type AdminOperationCreditNotificationTemplateOption = {
+  notification_template_bid?: string;
+  channel: string;
+  provider: string;
+  template_code: string;
+  template_name: string;
+  template_content: string;
+  template_status: string;
+  template_type: string;
+  sync_status: string;
+  error_code: string;
+  error_message: string;
+  placeholders?: string[];
+  compatible_notification_types?: CreditNotificationType[];
+  last_synced_at: string;
+  source: 'provider' | 'local';
+};
+
+export type AdminOperationCreditNotificationTemplateListResponse = {
+  items: AdminOperationCreditNotificationTemplateOption[];
+  source: 'provider' | 'local';
+  provider_available: boolean;
+  error_code: string;
+  error_message: string;
 };
 
 export type CreditNotificationFixedThreshold = {
@@ -155,5 +194,22 @@ export type AdminOperationCreditNotificationPolicy = {
     daily_sms_limit: number;
     dry_run_required: boolean;
     sms_unit_cost: string;
+  };
+};
+
+export type AdminOperationCreditNotificationPolicyListItem = {
+  identifier: string;
+  creator_bid: string;
+  mobile: string;
+  email: string;
+  nickname: string;
+};
+
+export type AdminOperationCreditNotificationPolicyResolvedLists = {
+  blacklist?: {
+    items?: AdminOperationCreditNotificationPolicyListItem[];
+  };
+  opt_out?: {
+    items?: AdminOperationCreditNotificationPolicyListItem[];
   };
 };
