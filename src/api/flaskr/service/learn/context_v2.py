@@ -509,6 +509,10 @@ class MdflowContextV2:
 
 class _PreviewContextStore:
     _DEFAULT_TTL_SECONDS = 30 * 60
+    # Sentinel block_index for entries supplied via replace_context without
+    # block_index metadata. Negative values are kept by any real-block
+    # truncation (which discards entries with block_index >= request index).
+    _REPLACE_SENTINEL_BLOCK_INDEX = -1
 
     def __init__(
         self,
@@ -552,41 +556,132 @@ class _PreviewContextStore:
         except Exception:
             return
 
-    def get_context(self, document: str, block_index: int) -> list[dict[str, str]]:
+    @staticmethod
+    def _entries_to_messages(entries: list[dict]) -> list[dict[str, str]]:
+        messages: list[dict[str, str]] = []
+        for entry in entries:
+            user_text = entry.get("user")
+            if user_text:
+                messages.append({"role": "user", "content": user_text})
+            assistant_text = entry.get("assistant")
+            if assistant_text:
+                messages.append({"role": "assistant", "content": assistant_text})
+        return messages
+
+    def _load_entries(self, document: str) -> Optional[list[dict]]:
         payload = self.load()
         if not payload:
-            return []
-        if block_index == 0:
-            self.clear()
-            return []
+            return None
         doc_hash = payload.get("document_hash")
         if document and doc_hash and doc_hash != self._hash_document(document):
             self.clear()
-            return []
-        context = payload.get("context")
-        if not isinstance(context, list):
-            return []
-        return [item for item in context if isinstance(item, dict)]
+            return None
+        entries = payload.get("entries")
+        if not isinstance(entries, list):
+            self.clear()
+            return None
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(
+                entry.get("block_index"), int
+            ):
+                self.clear()
+                return None
+        return entries
 
-    def replace_context(self, document: str, context: list[dict[str, str]]) -> None:
-        payload = {
-            "context": context,
-            "document_hash": self._hash_document(document),
-        }
-        self.save(payload)
+    def get_context(self, document: str, block_index: int) -> list[dict[str, str]]:
+        if block_index == 0:
+            self.clear()
+            return []
+        entries = self._load_entries(document)
+        if not entries:
+            return []
+        kept = [entry for entry in entries if entry["block_index"] < block_index]
+        if len(kept) != len(entries):
+            self.save(
+                {
+                    "document_hash": self._hash_document(document),
+                    "entries": kept,
+                }
+            )
+        return self._entries_to_messages(kept)
 
-    def append_context(self, document: str, messages: list[dict[str, str]]) -> None:
-        if not messages:
-            return
-        payload = self.load()
-        context = payload.get("context")
-        if not isinstance(context, list):
-            context = []
-        context.extend(messages)
+    def replace_context(
+        self, document: str, context: list[dict[str, str]]
+    ) -> None:
+        """Replace cached context from a raw role/content message list.
+
+        Used when callers pass a full context payload without per-block
+        metadata. Entries get a sentinel block_index so subsequent
+        block-based truncation in get_context() preserves them.
+        """
+        entries: list[dict] = []
+        pending_user: Optional[str] = None
+        for item in context or []:
+            if not isinstance(item, dict):
+                continue
+            role = item.get("role")
+            content = item.get("content")
+            if not content:
+                continue
+            if role == "user":
+                if pending_user is not None:
+                    entries.append(
+                        {
+                            "block_index": self._REPLACE_SENTINEL_BLOCK_INDEX,
+                            "user": pending_user,
+                            "assistant": None,
+                        }
+                    )
+                pending_user = content
+            elif role == "assistant":
+                entries.append(
+                    {
+                        "block_index": self._REPLACE_SENTINEL_BLOCK_INDEX,
+                        "user": pending_user,
+                        "assistant": content,
+                    }
+                )
+                pending_user = None
+        if pending_user is not None:
+            entries.append(
+                {
+                    "block_index": self._REPLACE_SENTINEL_BLOCK_INDEX,
+                    "user": pending_user,
+                    "assistant": None,
+                }
+            )
         self.save(
             {
-                "context": context,
                 "document_hash": self._hash_document(document),
+                "entries": entries,
+            }
+        )
+
+    def append_context(
+        self,
+        document: str,
+        block_index: int,
+        user_message: Optional[str],
+        assistant_message: Optional[str],
+    ) -> None:
+        if not user_message and not assistant_message:
+            return
+        doc_hash = self._hash_document(document)
+        payload = self.load()
+        entries = payload.get("entries") if isinstance(payload, dict) else None
+        if not isinstance(entries, list) or payload.get("document_hash") != doc_hash:
+            entries = []
+        entries.append(
+            {
+                "block_index": block_index,
+                "user": user_message or None,
+                "assistant": assistant_message or None,
+            }
+        )
+        self.save(
+            {
+                "document_hash": doc_hash,
+                "entries": entries,
             }
         )
 
@@ -814,21 +909,23 @@ class RunScriptPreviewContextV2:
         content_chunks: list[str],
         current_block_content: str,
     ) -> None:
-        new_messages: list[dict[str, str]] = []
         user_input_text = MdflowContextV2.flatten_user_input_map(
             preview_request.user_input
         )
         content_text = "".join(content_chunks).strip()
         if content_text:
             user_message = user_input_text or current_block_content
-            if user_message:
-                new_messages.append({"role": "user", "content": user_message})
-            new_messages.append({"role": "assistant", "content": content_text})
-        elif user_input_text:
-            new_messages.append({"role": "user", "content": user_input_text})
-        if not new_messages:
+        else:
+            user_message = user_input_text
+        assistant_message = content_text or None
+        if not user_message and not assistant_message:
             return
-        context_store.append_context(document, new_messages)
+        context_store.append_context(
+            document,
+            preview_request.block_index,
+            user_message or None,
+            assistant_message,
+        )
 
     def _resolve_preview_variables(
         self,
