@@ -140,3 +140,47 @@ def test_public_urls_reject_host_url_with_path(monkeypatch: pytest.MonkeyPatch):
 
     with pytest.raises(RuntimeError, match="without path"):
         build_google_oauth_callback_url()
+
+
+def test_public_urls_include_non_standard_port_from_forwarded_port(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.delenv("HOST_URL", raising=False)
+    monkeypatch.setenv("PATH_PREFIX", "/api")
+    _reset_config_cache("HOST_URL", "PATH_PREFIX")
+
+    app = Flask(__name__)
+    with app.test_request_context(
+        "/api/orders",
+        headers={
+            "X-Forwarded-Proto": "http",
+            "X-Forwarded-Host": "app.example.com",
+            "X-Forwarded-Port": "8080",
+        },
+    ):
+        assert (
+            build_google_oauth_callback_url()
+            == "http://app.example.com:8080/login/google-callback"
+        )
+
+
+def test_public_urls_omit_standard_port_from_forwarded_port(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.delenv("HOST_URL", raising=False)
+    monkeypatch.setenv("PATH_PREFIX", "/api")
+    _reset_config_cache("HOST_URL", "PATH_PREFIX")
+
+    app = Flask(__name__)
+    with app.test_request_context(
+        "/api/orders",
+        headers={
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Host": "app.example.com",
+            "X-Forwarded-Port": "443",
+        },
+    ):
+        assert (
+            build_google_oauth_callback_url()
+            == "https://app.example.com/login/google-callback"
+        )

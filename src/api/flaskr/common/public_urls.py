@@ -68,8 +68,17 @@ def _request_origin() -> str:
 
     forwarded_proto = _first_header_value(request.headers.get("X-Forwarded-Proto"))
     forwarded_host = _first_header_value(request.headers.get("X-Forwarded-Host"))
+    forwarded_port = _first_header_value(request.headers.get("X-Forwarded-Port"))
     scheme = forwarded_proto or request.scheme
     host = forwarded_host or request.host
+
+    if forwarded_port and ":" not in host:
+        is_standard = (scheme == "http" and forwarded_port == "80") or (
+            scheme == "https" and forwarded_port == "443"
+        )
+        if not is_standard:
+            host = f"{host}:{forwarded_port}"
+
     return _normalize_origin(f"{scheme}://{host}")
 
 
