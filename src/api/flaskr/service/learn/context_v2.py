@@ -580,7 +580,7 @@ class _PreviewContextStore:
         if not payload:
             return None
         doc_hash = payload.get("document_hash")
-        if document and doc_hash and doc_hash != self._hash_document(document):
+        if document and doc_hash != self._hash_document(document):
             self.clear()
             return None
         entries = payload.get("entries")

@@ -1857,6 +1857,31 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
             ],
         )
 
+    def test_missing_document_hash_clears_entries(self):
+        store, cache, doc = _make_preview_store()
+        store.save(
+            {
+                "entries": [
+                    {"block_index": 1, "user": "stale", "assistant": "stale"}
+                ]
+            }
+        )
+        self.assertEqual(store.get_context(doc, 3), [])
+        self.assertEqual(cache.store, {})
+
+    def test_empty_document_hash_clears_entries(self):
+        store, cache, doc = _make_preview_store()
+        store.save(
+            {
+                "document_hash": "",
+                "entries": [
+                    {"block_index": 1, "user": "stale", "assistant": "stale"}
+                ],
+            }
+        )
+        self.assertEqual(store.get_context(doc, 3), [])
+        self.assertEqual(cache.store, {})
+
     def test_replace_context_pairs_messages_with_sentinel_index(self):
         store, _cache, doc = _make_preview_store()
         store.replace_context(
