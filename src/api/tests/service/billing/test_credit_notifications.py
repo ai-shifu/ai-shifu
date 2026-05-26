@@ -1219,6 +1219,54 @@ def test_credit_notification_list_matches_google_email_credential(
     assert payload["items"][0]["notification_bid"] == "notification-google-creator"
 
 
+def test_credit_notification_list_ignores_unverified_credentials(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app, creator_bid="unverified-creator", mobile=None)
+    with app.app_context():
+        upsert_credential(
+            app,
+            user_bid="unverified-creator",
+            provider_name="email",
+            subject_id="unverified-creator@example.com",
+            subject_format="email",
+            identifier="unverified-creator@example.com",
+            metadata={},
+            verified=False,
+        )
+        dao.db.session.add(
+            NotificationRecord(
+                notification_bid="notification-unverified-creator",
+                notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+                channel="sms",
+                creator_bid="unverified-creator",
+                target_user_bid="unverified-creator",
+                mobile_snapshot="",
+                source_type="ledger",
+                source_bid="ledger-unverified",
+                dedupe_key="credit_granted:ledger-unverified",
+                status=CREDIT_NOTIFICATION_STATUS_PENDING,
+                template_code="TPL-GRANT",
+                template_params_json={},
+                policy_snapshot_json={},
+                provider_response_json={},
+                metadata_json={},
+                deleted=0,
+                created_at=datetime(2026, 5, 21, 8, 0, 0),
+                updated_at=datetime(2026, 5, 21, 8, 0, 0),
+            )
+        )
+        dao.db.session.commit()
+
+    payload = list_credit_notifications(
+        app,
+        filters={"creator_keyword": "unverified-creator@example.com"},
+    )
+
+    assert payload["total"] == 0
+
+
 def test_credit_notification_list_omits_detail_payloads(
     credit_notifications_app: Flask,
 ) -> None:

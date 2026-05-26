@@ -150,6 +150,7 @@ def _load_matching_creator_bids_for_keyword(keyword: str) -> list[str]:
     credentials = (
         AuthCredential.query.filter(
             AuthCredential.deleted == 0,
+            AuthCredential.state == CREDENTIAL_STATE_VERIFIED,
             AuthCredential.provider_name.in_(["phone", "email", "google"]),
             AuthCredential.identifier == normalized,
         )
