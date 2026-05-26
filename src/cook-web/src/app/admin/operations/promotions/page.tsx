@@ -695,16 +695,16 @@ const FormField = ({
 
 const StickyActionTableEmptyRow = ({
   content,
-  colSpan,
+  contentColSpan,
   actionStyle,
 }: {
   content: React.ReactNode;
-  colSpan: number;
+  contentColSpan: number;
   actionStyle?: React.CSSProperties;
 }) => (
   <TableRow className='hover:bg-transparent'>
     <TableCell
-      colSpan={colSpan}
+      colSpan={contentColSpan}
       className='px-4 py-10 text-center text-sm text-muted-foreground'
     >
       {content}
@@ -2938,9 +2938,7 @@ export default function AdminOperationPromotionsPage() {
           ) : null}
           <AdminTableShell
             loading={couponLoading}
-            isEmpty={!coupons.length}
-            emptyContent={tPromotion('messages.emptyCoupons')}
-            emptyColSpan={14}
+            isEmpty={false}
             withTooltipProvider
             tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
             table={() => (
@@ -3051,7 +3049,9 @@ export default function AdminOperationPromotionsPage() {
                   {!coupons.length ? (
                     <StickyActionTableEmptyRow
                       content={tPromotion('messages.emptyCoupons')}
-                      colSpan={13}
+                      contentColSpan={
+                        Object.keys(COUPON_DEFAULT_COLUMN_WIDTHS).length - 1
+                      }
                       actionStyle={getCouponColumnStyle('action')}
                     />
                   ) : null}
@@ -3517,9 +3517,7 @@ export default function AdminOperationPromotionsPage() {
           ) : null}
           <AdminTableShell
             loading={campaignLoading}
-            isEmpty={!campaigns.length}
-            emptyContent={tPromotion('messages.emptyCampaigns')}
-            emptyColSpan={12}
+            isEmpty={false}
             withTooltipProvider
             tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
             table={() => (
@@ -3616,7 +3614,9 @@ export default function AdminOperationPromotionsPage() {
                   {!campaigns.length ? (
                     <StickyActionTableEmptyRow
                       content={tPromotion('messages.emptyCampaigns')}
-                      colSpan={11}
+                      contentColSpan={
+                        Object.keys(CAMPAIGN_DEFAULT_COLUMN_WIDTHS).length - 1
+                      }
                       actionStyle={getCampaignColumnStyle('action')}
                     />
                   ) : null}
