@@ -320,7 +320,7 @@
     "failed_provider": "Fournisseur échoué",
     "pending": "En attente",
     "sent": "Envoyé",
-    "skipped": "Toutes ignorées",
+    "skipped": "Ignorée",
     "skipped_no_mobile": "Sans mobile",
     "skipped_opt_out": "Désinscrit",
     "suppressed_duplicate": "Doublon"

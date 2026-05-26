@@ -320,7 +320,7 @@
     "failed_provider": "供应商失败",
     "pending": "待发送",
     "sent": "已发送",
-    "skipped": "全部跳过",
+    "skipped": "已跳过",
     "skipped_no_mobile": "无手机号",
     "skipped_opt_out": "已退订",
     "suppressed_duplicate": "重复抑制"

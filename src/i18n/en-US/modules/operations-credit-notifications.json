@@ -320,7 +320,7 @@
     "failed_provider": "Provider failed",
     "pending": "Pending",
     "sent": "Sent",
-    "skipped": "All skipped",
+    "skipped": "Skipped",
     "skipped_no_mobile": "No mobile",
     "skipped_opt_out": "Opted out",
     "suppressed_duplicate": "Duplicate"
