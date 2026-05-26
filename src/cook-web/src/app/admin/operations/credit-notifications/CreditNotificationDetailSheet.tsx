@@ -156,9 +156,9 @@ export function CreditNotificationDetailSheet({
   const fetchDetail = React.useCallback(async () => {
     if (!notificationBid) {
       requestIdRef.current += 1;
-      setItem(null);
-      setLoading(false);
-      setError(null);
+      setItem(current => (current === null ? current : null));
+      setLoading(current => (current ? false : current));
+      setError(current => (current === null ? current : null));
       return;
     }
     const requestId = requestIdRef.current + 1;
@@ -199,9 +199,9 @@ export function CreditNotificationDetailSheet({
   React.useEffect(() => {
     if (!open) {
       requestIdRef.current += 1;
-      setItem(null);
-      setError(null);
-      setLoading(false);
+      setItem(current => (current === null ? current : null));
+      setError(current => (current === null ? current : null));
+      setLoading(current => (current ? false : current));
     }
   }, [open]);
 

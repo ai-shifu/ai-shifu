@@ -14,6 +14,7 @@ type AdminTooltipTextProps = {
   displayText?: ReactNode;
   className?: string;
   emptyValue: string;
+  forceTooltip?: boolean;
 };
 
 export default function AdminTooltipText({
@@ -21,6 +22,7 @@ export default function AdminTooltipText({
   displayText,
   className,
   emptyValue,
+  forceTooltip = false,
 }: AdminTooltipTextProps) {
   const triggerRef = useRef<HTMLSpanElement | null>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -75,7 +77,7 @@ export default function AdminTooltipText({
     <span
       ref={triggerRef}
       className={cn(
-        'block w-full max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
+        'inline-block max-w-full overflow-hidden text-ellipsis whitespace-nowrap align-bottom',
         className,
       )}
     >
@@ -83,7 +85,10 @@ export default function AdminTooltipText({
     </span>
   );
 
-  if (!isOverflowing) {
+  const shouldShowTooltip =
+    isOverflowing || (forceTooltip && trimmedText.length > 0);
+
+  if (!shouldShowTooltip) {
     return content;
   }
 

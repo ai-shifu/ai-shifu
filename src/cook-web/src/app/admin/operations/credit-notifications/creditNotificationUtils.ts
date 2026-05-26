@@ -202,6 +202,9 @@ const readBoolean = (value: unknown, fallback: boolean): boolean => {
 
 export const normalizeIntegerInput = (value: unknown): string => {
   const normalized = String(value ?? '').normalize('NFKC');
+  if (/^\s*-/.test(normalized)) {
+    return '';
+  }
   const integerPart = normalized.split(/[.。]/)[0] || '';
   return integerPart.replace(/\D/g, '');
 };

@@ -1,21 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/Breadcrumb';
 import { Card, CardContent } from '@/components/ui/Card';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ErrorWithCode } from '@/lib/request';
@@ -480,109 +472,100 @@ export default function AdminDashboardCourseDetailPage() {
   return (
     <TooltipProvider delayDuration={150}>
       <div className='h-full overflow-auto pr-1'>
-        <div className='space-y-5 pb-6'>
-          <div className='space-y-3'>
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link href='/admin/dashboard'>
-                      {t('module.dashboard.title')}
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>
-                    {t('module.dashboard.detail.title')}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
+        <div className='pb-6'>
+          <AdminBreadcrumb
+            items={[
+              {
+                label: t('module.dashboard.title'),
+                href: '/admin/dashboard',
+              },
+              { label: t('module.dashboard.detail.title') },
+            ]}
+          />
+          <div className='space-y-5'>
+            <Card>
+              <CardContent className='p-5'>
+                <div className='mb-4'>
+                  <h2 className='text-base font-semibold text-foreground'>
+                    {t('module.dashboard.detail.basicInfo.title')}
+                  </h2>
+                </div>
+                <dl className='grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.65fr_1.2fr_0.9fr_0.75fr_0.75fr] xl:gap-5'>
+                  <div className='space-y-1'>
+                    <dt className='text-sm leading-5 text-muted-foreground'>
+                      {t('module.dashboard.detail.courseIdLabel')}
+                    </dt>
+                    <dd className='text-sm font-medium text-foreground'>
+                      <div className='whitespace-nowrap text-sm font-medium text-foreground'>
+                        {detail.basic_info.shifu_bid || shifuBid || emptyValue}
+                      </div>
+                    </dd>
+                  </div>
+                  <div className='space-y-1'>
+                    <dt className='text-sm leading-5 text-muted-foreground'>
+                      {t('module.dashboard.detail.basicInfo.courseName')}
+                    </dt>
+                    <dd className='text-sm font-medium text-foreground'>
+                      <div className='break-all text-sm font-medium text-foreground'>
+                        {detail.basic_info.course_name || emptyValue}
+                      </div>
+                    </dd>
+                  </div>
+                  <div className='space-y-1 xl:pl-4'>
+                    <dt className='text-sm leading-5 text-muted-foreground'>
+                      {t('module.dashboard.detail.basicInfo.status')}
+                    </dt>
+                    <dd className='text-sm font-medium text-foreground'>
+                      {courseStatusLabel}
+                    </dd>
+                  </div>
+                  <div className='space-y-1 xl:pl-4'>
+                    <dt className='text-sm leading-5 text-muted-foreground'>
+                      {t('module.dashboard.detail.basicInfo.learnerCount')}
+                    </dt>
+                    <dd className='text-sm font-medium text-foreground'>
+                      {formatCount(detail.basic_info.learner_count, emptyValue)}
+                    </dd>
+                  </div>
+                  <div className='space-y-1 xl:pl-4'>
+                    <dt className='text-sm leading-5 text-muted-foreground'>
+                      {t('module.dashboard.detail.basicInfo.chapterCount')}
+                    </dt>
+                    <dd className='text-sm font-medium text-foreground'>
+                      {formatCount(detail.basic_info.chapter_count, emptyValue)}
+                    </dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+
+            <CourseMetricsCardGrid
+              title={t('module.dashboard.detail.metrics.title')}
+              cards={coreDataItems}
+            />
+
+            <DashboardCourseLearnersCard
+              learners={learners}
+              loading={learnersLoading}
+              error={learnersError}
+              keyword={learnerKeywordInput}
+              learningStatus={learnerStatusInput}
+              lastLearningStart={learnerLastLearningStartInput}
+              lastLearningEnd={learnerLastLearningEndInput}
+              searchPlaceholder={learnerSearchPlaceholder}
+              emptyValue={emptyValue}
+              onKeywordChange={setLearnerKeywordInput}
+              onLearningStatusChange={value => setLearnerStatusInput(value)}
+              onLastLearningTimeChange={({ start, end }) => {
+                setLearnerLastLearningStartInput(start);
+                setLearnerLastLearningEndInput(end);
+              }}
+              onSearch={handleLearnerSearch}
+              onReset={handleLearnerReset}
+              onPageChange={handleLearnerPageChange}
+              onFollowUpClick={handleLearnerFollowUpClick}
+            />
           </div>
-
-          <Card>
-            <CardContent className='p-5'>
-              <div className='mb-4'>
-                <h2 className='text-base font-semibold text-foreground'>
-                  {t('module.dashboard.detail.basicInfo.title')}
-                </h2>
-              </div>
-              <dl className='grid gap-4 sm:grid-cols-2 xl:grid-cols-[1.65fr_1.2fr_0.9fr_0.75fr_0.75fr] xl:gap-5'>
-                <div className='space-y-1'>
-                  <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
-                    {t('module.dashboard.detail.courseIdLabel')}
-                  </dt>
-                  <dd className='text-sm font-medium text-foreground'>
-                    <div className='whitespace-nowrap text-sm font-medium text-foreground'>
-                      {detail.basic_info.shifu_bid || shifuBid || emptyValue}
-                    </div>
-                  </dd>
-                </div>
-                <div className='space-y-1'>
-                  <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
-                    {t('module.dashboard.detail.basicInfo.courseName')}
-                  </dt>
-                  <dd className='text-sm font-medium text-foreground'>
-                    <div className='break-all text-sm font-medium text-foreground'>
-                      {detail.basic_info.course_name || emptyValue}
-                    </div>
-                  </dd>
-                </div>
-                <div className='space-y-1 xl:pl-4'>
-                  <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
-                    {t('module.dashboard.detail.basicInfo.status')}
-                  </dt>
-                  <dd className='text-sm font-medium text-foreground'>
-                    {courseStatusLabel}
-                  </dd>
-                </div>
-                <div className='space-y-1 xl:pl-4'>
-                  <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
-                    {t('module.dashboard.detail.basicInfo.learnerCount')}
-                  </dt>
-                  <dd className='text-sm font-medium text-foreground'>
-                    {formatCount(detail.basic_info.learner_count, emptyValue)}
-                  </dd>
-                </div>
-                <div className='space-y-1 xl:pl-4'>
-                  <dt className='min-h-[3.5rem] text-sm leading-7 text-muted-foreground'>
-                    {t('module.dashboard.detail.basicInfo.chapterCount')}
-                  </dt>
-                  <dd className='text-sm font-medium text-foreground'>
-                    {formatCount(detail.basic_info.chapter_count, emptyValue)}
-                  </dd>
-                </div>
-              </dl>
-            </CardContent>
-          </Card>
-
-          <CourseMetricsCardGrid
-            title={t('module.dashboard.detail.metrics.title')}
-            cards={coreDataItems}
-          />
-
-          <DashboardCourseLearnersCard
-            learners={learners}
-            loading={learnersLoading}
-            error={learnersError}
-            keyword={learnerKeywordInput}
-            learningStatus={learnerStatusInput}
-            lastLearningStart={learnerLastLearningStartInput}
-            lastLearningEnd={learnerLastLearningEndInput}
-            searchPlaceholder={learnerSearchPlaceholder}
-            emptyValue={emptyValue}
-            onKeywordChange={setLearnerKeywordInput}
-            onLearningStatusChange={value => setLearnerStatusInput(value)}
-            onLastLearningTimeChange={({ start, end }) => {
-              setLearnerLastLearningStartInput(start);
-              setLearnerLastLearningEndInput(end);
-            }}
-            onSearch={handleLearnerSearch}
-            onReset={handleLearnerReset}
-            onPageChange={handleLearnerPageChange}
-            onFollowUpClick={handleLearnerFollowUpClick}
-          />
         </div>
       </div>
     </TooltipProvider>

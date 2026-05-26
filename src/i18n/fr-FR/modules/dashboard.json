@@ -166,8 +166,10 @@
       "orders": "Total des commandes"
     },
     "table": {
+      "action": "Actions",
       "course": "Cours",
       "empty": "Aucun cours",
+      "footnote": "Cours : {count} (Périmètre : seules les données des cours que vous avez créés et possédez sont incluses. Les cours collaboratifs sont exclus.)",
       "lastActive": "Dernière activité",
       "learners": "Apprenants",
       "orderAmount": "Montant de commande",
@@ -177,7 +179,9 @@
       "search": "Rechercher",
       "searchPlaceholder": "Recherche par nom ou ID de cours",
       "title": "Liste des cours",
-      "totalCount": "Total : {count}"
+      "totalCount": "Total : {count}",
+      "viewCourse": "Voir le cours",
+      "viewOrders": "Voir les commandes"
     }
   },
   "filters": {

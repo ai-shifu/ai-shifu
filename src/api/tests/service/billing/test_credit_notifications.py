@@ -744,8 +744,8 @@ def test_list_credit_notification_templates_syncs_provider_list(
 ) -> None:
     app = credit_notifications_app
     app.config.update(
-        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID="key",
-        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET="secret",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID=f"test-key-{secrets.token_hex(4)}",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET=secrets.token_urlsafe(24),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.credit_notifications.query_sms_template_list_ali",
@@ -852,8 +852,8 @@ def test_credit_notification_policy_revalidates_cached_template_with_provider(
 ) -> None:
     app = credit_notifications_app
     app.config.update(
-        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID="key",
-        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET="secret",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_ID=f"test-key-{secrets.token_hex(4)}",
+        ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET=secrets.token_urlsafe(24),
     )
     _seed_notification_template(
         app,

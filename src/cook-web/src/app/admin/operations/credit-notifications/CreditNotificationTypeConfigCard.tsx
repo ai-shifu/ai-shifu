@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -54,7 +54,10 @@ type CreditNotificationTypeConfigCardProps = {
   editingTemplateTypes: Partial<Record<KnownNotificationType, boolean>>;
   templateInputValues: Partial<Record<KnownNotificationType, string>>;
   updatePolicy: UpdatePolicy;
-  syncTemplate: (notificationType: KnownNotificationType) => Promise<boolean>;
+  syncTemplate: (
+    notificationType: KnownNotificationType,
+    templateCodeOverride?: string,
+  ) => Promise<boolean>;
   clearTemplateSyncResult: (notificationType: KnownNotificationType) => void;
   resolveTypeLabel: (value: string) => string;
   getListInputValue: (key: string, value: string[]) => string;
@@ -176,6 +179,7 @@ export function CreditNotificationTypeConfigCard({
   setTemplateInputValues,
 }: CreditNotificationTypeConfigCardProps) {
   const { t } = useTranslation();
+  const closePickerTimeoutRef = useRef<number | null>(null);
   const typePolicy = policy.types[type];
   const syncResult = templateSyncResults[type];
   const selectedTemplate = templateOptions.find(
@@ -197,6 +201,14 @@ export function CreditNotificationTypeConfigCard({
     (!typePolicy.template_code.trim() && !recommendedTemplate);
   const appliedTemplateCode =
     typePolicy.template_code.trim() || recommendedTemplate?.template_code || '';
+  useEffect(
+    () => () => {
+      if (closePickerTimeoutRef.current !== null) {
+        window.clearTimeout(closePickerTimeoutRef.current);
+      }
+    },
+    [],
+  );
   return (
     <div
       key={type}
@@ -260,11 +272,15 @@ export function CreditNotificationTypeConfigCard({
                   }))
                 }
                 onBlur={() => {
-                  window.setTimeout(() => {
+                  if (closePickerTimeoutRef.current !== null) {
+                    window.clearTimeout(closePickerTimeoutRef.current);
+                  }
+                  closePickerTimeoutRef.current = window.setTimeout(() => {
                     setOpenTemplatePicker(current => ({
                       ...current,
                       [type]: false,
                     }));
+                    closePickerTimeoutRef.current = null;
                   }, 120);
                 }}
                 onChange={event => {
@@ -273,9 +289,6 @@ export function CreditNotificationTypeConfigCard({
                     ...current,
                     [type]: value,
                   }));
-                  updatePolicy(draft => {
-                    draft.types[type].template_code = value;
-                  });
                   clearTemplateSyncResult(type);
                   setOpenTemplatePicker(current => ({
                     ...current,
@@ -362,7 +375,7 @@ export function CreditNotificationTypeConfigCard({
               className='h-9 text-muted-foreground hover:text-foreground'
               disabled={
                 Boolean(templateSyncLoading[type]) ||
-                (isEditingTemplate && !appliedTemplateCode.trim())
+                (isEditingTemplate && !templateInputValue.trim())
               }
               onClick={async () => {
                 if (!isEditingTemplate) {
@@ -383,7 +396,28 @@ export function CreditNotificationTypeConfigCard({
                   }));
                   return;
                 }
-                const applied = await syncTemplate(type);
+                const normalizedTemplateInput = templateInputValue.trim();
+                const matchedTemplate = templateOptions.find(
+                  option =>
+                    option.template_code === normalizedTemplateInput ||
+                    option.template_name === normalizedTemplateInput,
+                );
+                const templateCodeToApply =
+                  matchedTemplate?.template_code || normalizedTemplateInput;
+                if (templateCodeToApply) {
+                  updatePolicy(draft => {
+                    draft.types[type].template_code = templateCodeToApply;
+                  });
+                  if (matchedTemplate) {
+                    setTemplateInputValues(current => ({
+                      ...current,
+                      [type]:
+                        matchedTemplate.template_name ||
+                        matchedTemplate.template_code,
+                    }));
+                  }
+                }
+                const applied = await syncTemplate(type, templateCodeToApply);
                 if (applied) {
                   setEditingTemplateTypes(current => ({
                     ...current,

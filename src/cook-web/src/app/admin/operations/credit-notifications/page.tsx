@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
 import {
   AlertDialog,
@@ -511,8 +513,13 @@ export default function AdminOperationCreditNotificationsPage() {
   }, [activeTab, isConfigDirty]);
 
   const syncTemplate = React.useCallback(
-    async (notificationType: KnownNotificationType) => {
-      const templateCode = policy.types[notificationType].template_code.trim();
+    async (
+      notificationType: KnownNotificationType,
+      templateCodeOverride?: string,
+    ) => {
+      const templateCode = (
+        templateCodeOverride ?? policy.types[notificationType].template_code
+      ).trim();
       if (!templateCode) {
         setConfigError(
           t(
@@ -585,10 +592,15 @@ export default function AdminOperationCreditNotificationsPage() {
 
   const clearTemplateSyncResult = React.useCallback(
     (notificationType: KnownNotificationType) => {
-      setTemplateSyncResults(current => ({
-        ...current,
-        [notificationType]: undefined,
-      }));
+      setTemplateSyncResults(current => {
+        if (current[notificationType] === undefined) {
+          return current;
+        }
+        return {
+          ...current,
+          [notificationType]: undefined,
+        };
+      });
     },
     [],
   );
@@ -658,144 +670,142 @@ export default function AdminOperationCreditNotificationsPage() {
   }
 
   return (
-    <div className='h-full p-0'>
-      <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden'>
-        <div className='shrink-0 pb-5'>
-          <h1 className='text-2xl font-semibold text-gray-900'>
-            {t('module.operationsCreditNotifications.title')}
-          </h1>
-          <p className='mt-1 text-sm text-muted-foreground'>
-            {t('module.operationsCreditNotifications.subtitle')}
-          </p>
-        </div>
-
-        <Tabs
-          value={activeTab}
-          className='flex min-h-0 flex-1 flex-col gap-5 overflow-hidden'
-          onValueChange={value => updateTab(value as PageTab)}
-        >
-          <TabsList
-            className={CREDIT_NOTIFICATION_TABS_LIST_CLASSNAME}
-            data-testid='admin-credit-notification-tabs'
-          >
-            <TabsTrigger
-              value='records'
-              className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
+    <div className='flex h-full min-h-0 flex-col p-0'>
+      <AdminBreadcrumb
+        items={[{ label: t('module.operationsCreditNotifications.title') }]}
+      />
+      <Tabs
+        value={activeTab}
+        className='flex min-h-0 flex-1 flex-col overflow-hidden'
+        onValueChange={value => updateTab(value as PageTab)}
+      >
+        <AdminTitle
+          title={t('module.operationsCreditNotifications.title')}
+          description={t('module.operationsCreditNotifications.subtitle')}
+          tabs={
+            <TabsList
+              className={CREDIT_NOTIFICATION_TABS_LIST_CLASSNAME}
+              data-testid='admin-credit-notification-tabs'
             >
-              {t('module.operationsCreditNotifications.tabs.records')}
-            </TabsTrigger>
-            <TabsTrigger
-              value='config'
-              className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
-            >
-              {t('module.operationsCreditNotifications.tabs.config')}
-            </TabsTrigger>
-          </TabsList>
+              <TabsTrigger
+                value='records'
+                className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
+              >
+                {t('module.operationsCreditNotifications.tabs.records')}
+              </TabsTrigger>
+              <TabsTrigger
+                value='config'
+                className={CREDIT_NOTIFICATION_TABS_TRIGGER_CLASSNAME}
+              >
+                {t('module.operationsCreditNotifications.tabs.config')}
+              </TabsTrigger>
+            </TabsList>
+          }
+        />
 
-          <TabsContent
-            value='records'
-            className='mt-0 min-h-0 flex-1 overflow-auto pr-1'
-          >
-            <CreditNotificationRecordsTab
-              items={items}
-              loading={loading}
-              error={error}
-              total={total}
-              overview={overview}
-              activeOverviewCardKey={activeOverviewCardKey}
-              pageIndex={pageIndex}
-              pageCount={pageCount}
-              draftFilters={draftFilters}
-              updateDraftFilter={updateDraftFilter}
-              searchRecords={searchRecords}
-              resetRecords={resetRecords}
-              applyOverviewFilter={applyOverviewFilter}
-              clearOverviewFilter={clearOverviewFilter}
-              handlePageChange={handlePageChange}
-              requeue={requeue}
-              resolveTypeLabel={resolveTypeLabel}
-              resolveStatusLabel={resolveStatusLabel}
-            />
-          </TabsContent>
-
-          <TabsContent
-            value='config'
-            className='mt-0 min-h-0 flex-1 overflow-hidden'
-          >
-            <CreditNotificationConfigTab
-              policy={policy}
-              configLoaded={configLoaded}
-              configError={configError}
-              dryRunResult={dryRunResult}
-              templateSyncResults={templateSyncResults}
-              templateSyncLoading={templateSyncLoading}
-              templateOptions={templateOptions}
-              templateListSource={templateListSource}
-              templateListError={templateListError}
-              resolvedLists={resolvedLists}
-              updatePolicy={updatePolicy}
-              syncTemplate={syncTemplate}
-              dryRun={dryRun}
-              saveConfig={saveConfig}
-              clearTemplateSyncResult={clearTemplateSyncResult}
-              resolveTypeLabel={resolveTypeLabel}
-            />
-          </TabsContent>
-        </Tabs>
-        <AlertDialog
-          open={Boolean(pendingNavigation)}
-          onOpenChange={open => {
-            if (!open) {
-              setPendingNavigation(null);
-            }
-          }}
+        <TabsContent
+          value='records'
+          className='mt-0 min-h-0 flex-1 overflow-auto pr-1'
         >
-          <AlertDialogContent>
-            <AlertDialogCancel
-              aria-label={t(
-                'module.operationsCreditNotifications.config.unsavedDialog.cancel',
+          <CreditNotificationRecordsTab
+            items={items}
+            loading={loading}
+            error={error}
+            total={total}
+            overview={overview}
+            activeOverviewCardKey={activeOverviewCardKey}
+            pageIndex={pageIndex}
+            pageCount={pageCount}
+            draftFilters={draftFilters}
+            updateDraftFilter={updateDraftFilter}
+            searchRecords={searchRecords}
+            resetRecords={resetRecords}
+            applyOverviewFilter={applyOverviewFilter}
+            clearOverviewFilter={clearOverviewFilter}
+            handlePageChange={handlePageChange}
+            requeue={requeue}
+            resolveTypeLabel={resolveTypeLabel}
+            resolveStatusLabel={resolveStatusLabel}
+          />
+        </TabsContent>
+
+        <TabsContent
+          value='config'
+          className='mt-0 min-h-0 flex-1 overflow-hidden'
+        >
+          <CreditNotificationConfigTab
+            policy={policy}
+            configLoaded={configLoaded}
+            configError={configError}
+            dryRunResult={dryRunResult}
+            templateSyncResults={templateSyncResults}
+            templateSyncLoading={templateSyncLoading}
+            templateOptions={templateOptions}
+            templateListSource={templateListSource}
+            templateListError={templateListError}
+            resolvedLists={resolvedLists}
+            updatePolicy={updatePolicy}
+            syncTemplate={syncTemplate}
+            dryRun={dryRun}
+            saveConfig={saveConfig}
+            clearTemplateSyncResult={clearTemplateSyncResult}
+            resolveTypeLabel={resolveTypeLabel}
+          />
+        </TabsContent>
+      </Tabs>
+      <AlertDialog
+        open={Boolean(pendingNavigation)}
+        onOpenChange={open => {
+          if (!open) {
+            setPendingNavigation(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogCancel
+            aria-label={t(
+              'module.operationsCreditNotifications.config.unsavedDialog.cancel',
+            )}
+            className='absolute right-4 top-4 mt-0 h-8 w-8 rounded-full border-0 p-0 text-muted-foreground shadow-none hover:bg-muted hover:text-foreground'
+          >
+            <X className='h-4 w-4' />
+          </AlertDialogCancel>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t(
+                'module.operationsCreditNotifications.config.unsavedDialog.title',
               )}
-              className='absolute right-4 top-4 mt-0 h-8 w-8 rounded-full border-0 p-0 text-muted-foreground shadow-none hover:bg-muted hover:text-foreground'
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                'module.operationsCreditNotifications.config.unsavedDialog.description',
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className='gap-2 sm:justify-end sm:space-x-0'>
+            <AlertDialogAction
+              type='button'
+              className='border border-input bg-white text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground'
+              onClick={discardPendingChanges}
             >
-              <X className='h-4 w-4' />
-            </AlertDialogCancel>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t(
-                  'module.operationsCreditNotifications.config.unsavedDialog.title',
-                )}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {t(
-                  'module.operationsCreditNotifications.config.unsavedDialog.description',
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className='gap-2 sm:justify-end sm:space-x-0'>
-              <AlertDialogAction
-                type='button'
-                className='border border-input bg-white text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground'
-                onClick={discardPendingChanges}
-              >
-                {t(
-                  'module.operationsCreditNotifications.config.unsavedDialog.discard',
-                )}
-              </AlertDialogAction>
-              <AlertDialogAction
-                type='button'
-                onClick={event => {
-                  event.preventDefault();
-                  void saveAndProceed();
-                }}
-              >
-                {t(
-                  'module.operationsCreditNotifications.config.unsavedDialog.save',
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+              {t(
+                'module.operationsCreditNotifications.config.unsavedDialog.discard',
+              )}
+            </AlertDialogAction>
+            <AlertDialogAction
+              type='button'
+              onClick={event => {
+                event.preventDefault();
+                void saveAndProceed();
+              }}
+            >
+              {t(
+                'module.operationsCreditNotifications.config.unsavedDialog.save',
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

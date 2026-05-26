@@ -205,14 +205,14 @@
     }
   },
   "detail": {
-    "description": "Consulter le parcours d envoi, les dates et la réponse fournisseur de cet enregistrement.",
+    "description": "Consulter le parcours d’envoi, les dates et la réponse fournisseur de cet enregistrement.",
     "fallback": "Aucun enregistrement sélectionné",
     "fields": {
       "attemptedAt": "Dernière tentative",
       "createdAt": "Créé le",
       "dedupeKey": "Marqueur de déduplication",
       "errorCode": "Code erreur",
-      "errorMessage": "Raison d échec",
+      "errorMessage": "Raison d’échec",
       "metadata": "Métadonnées",
       "notificationBid": "ID notification",
       "policySnapshot": "Instantané stratégie",
@@ -232,17 +232,17 @@
       "avg_daily_consumption": "Consommation moyenne quotidienne",
       "credits": "Crédits",
       "estimated_remaining_days": "Jours restants estimés",
-      "expires_at": "Date d expiration",
-      "lookback_days": "Jours d historique consommation",
-      "source": "Source d attribution",
-      "threshold": "Seuil d alerte",
+      "expires_at": "Date d’expiration",
+      "lookback_days": "Jours d’historique consommation",
+      "source": "Source d’attribution",
+      "threshold": "Seuil d’alerte",
       "threshold_kind": "Type de seuil",
       "trigger_days": "Jours restants déclencheurs",
       "window": "Fenêtre de rappel"
     },
     "sections": {
       "business": "Données associées",
-      "delivery": "Parcours d envoi",
+      "delivery": "Parcours d’envoi",
       "diagnostics": "Diagnostic",
       "message": "Contenu SMS",
       "provider": "Fournisseur",
@@ -259,7 +259,7 @@
     "summary": {
       "creator": "Créateur",
       "notification": "Type de notification",
-      "status": "Statut d envoi"
+      "status": "Statut d’envoi"
     },
     "title": "Détails de notification"
   },
@@ -279,14 +279,14 @@
   "filters": {
     "all": "Tous",
     "createdTime": "Date de création",
-    "creator": "Createur",
-    "creatorBid": "ID createur",
+    "creator": "Créateur",
+    "creatorBid": "ID créateur",
     "creatorPlaceholder": "E-mail / pseudonyme",
     "mobile": "Mobile",
     "notificationType": "Type de notification",
     "sourceBid": "ID métier déclencheur",
     "sourceType": "Scénario déclencheur",
-    "status": "Statut d envoi",
+    "status": "Statut d’envoi",
     "time": "Période",
     "timeRangePlaceholder": "Date de début ~ Date de fin"
   },
@@ -297,14 +297,14 @@
   },
   "overview": {
     "activeFilter": "Filtre actif",
-    "failed": "Echecs d envoi",
-    "failedTooltip": "Tous les echecs fournisseur pouvant etre remis en file depuis la liste.",
+    "failed": "Échecs d’envoi",
+    "failedTooltip": "Tous les échecs fournisseur pouvant être remis en file depuis la liste.",
     "pending": "En attente",
-    "pendingTooltip": "Toutes les notifications creees mais pas encore terminees.",
+    "pendingTooltip": "Toutes les notifications créées mais pas encore terminées.",
     "sent": "Envoyée",
-    "sentTooltip": "Toutes les notifications marquees comme envoyees apres soumission au fournisseur.",
-    "skipped": "Ignorees",
-    "skippedTooltip": "Toutes les notifications non envoyees a cause du telephone manquant, du desabonnement ou de la suppression des doublons.",
+    "sentTooltip": "Toutes les notifications marquées comme envoyées après soumission au fournisseur.",
+    "skipped": "Ignorées",
+    "skippedTooltip": "Toutes les notifications non envoyées à cause du téléphone manquant, du désabonnement ou de la suppression des doublons.",
     "total": "Tous les enregistrements de notification",
     "totalTooltip": "Nombre total de tous les enregistrements de notification."
   },
@@ -312,9 +312,9 @@
     "totalCount": "{count} enregistrements de notification"
   },
   "sourceType": {
-    "ledger": "Rappel d attribution de crédits",
+    "ledger": "Rappel d’attribution de crédits",
     "wallet": "Rappel de solde de crédits",
-    "wallet_bucket": "Rappel d expiration des crédits"
+    "wallet_bucket": "Rappel d’expiration des crédits"
   },
   "status": {
     "failed_provider": "Fournisseur échoué",
@@ -332,10 +332,10 @@
     "creator": "Créateur",
     "dedupeKey": "Clé d’idempotence",
     "error": "Erreur",
-    "mobile": "Telephone",
+    "mobile": "Téléphone",
     "notification": "Type de notification",
     "source": "Scénario déclencheur",
-    "status": "Statut d envoi",
+    "status": "Statut d’envoi",
     "template": "Modèle",
     "templateParams": "Paramètres"
   },
@@ -344,8 +344,8 @@
     "records": "Notifications"
   },
   "templateName": {
-    "credit_expiring": "Modèle de rappel d expiration",
-    "credit_granted": "Modèle de rappel d attribution de crédits",
+    "credit_expiring": "Modèle de rappel d’expiration",
+    "credit_granted": "Modèle de rappel d’attribution de crédits",
     "low_balance": "Modèle de rappel de solde de crédits"
   },
   "title": "Notifications de crédits",

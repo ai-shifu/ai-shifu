@@ -36,6 +36,9 @@ export default function AuthPage() {
   const [authMode, setAuthMode] = useState<'login' | 'feedback'>('login');
   const [isI18nReady, setIsI18nReady] = useState(false);
   const userInfo = useUserStore(state => state.userInfo);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const logout = useUserStore(state => state.logout);
+  const loginSessionResetCheckedRef = useRef(false);
   const [logoSrc, setLogoSrc] = useState<string | StaticImageData>(
     environment.logoWideUrl || logoHorizontal,
   );
@@ -110,6 +113,21 @@ export default function AuthPage() {
 
   const searchParams = useSearchParams();
   const isInitialized = useUserStore(state => state.isInitialized);
+
+  useEffect(() => {
+    if (!isInitialized || loginSessionResetCheckedRef.current) {
+      return;
+    }
+
+    loginSessionResetCheckedRef.current = true;
+    if (!isLoggedIn) {
+      return;
+    }
+
+    void logout(false).catch(() => {
+      loginSessionResetCheckedRef.current = false;
+    });
+  }, [isInitialized, isLoggedIn, logout]);
 
   const resolveRedirectPath = useCallback(() => {
     const fallback = '/admin';

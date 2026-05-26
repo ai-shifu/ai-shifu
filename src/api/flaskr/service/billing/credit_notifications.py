@@ -523,11 +523,12 @@ def _resolve_credit_notification_policy_list_items(
         elif "@" in identify and not contact["email"]:
             contact["email"] = identify
 
-    credential_by_identifier = {
-        str(credential.identifier or "").strip(): str(credential.user_bid or "").strip()
-        for credential in credential_rows
-        if credential.identifier and credential.user_bid
-    }
+    credential_by_identifier: dict[str, str] = {}
+    for credential in credential_rows:
+        identifier = str(credential.identifier or "").strip()
+        user_bid = str(credential.user_bid or "").strip()
+        if identifier and user_bid and identifier not in credential_by_identifier:
+            credential_by_identifier[identifier] = user_bid
 
     items: list[dict[str, str]] = []
     for identifier in identifiers:
@@ -735,6 +736,15 @@ def _get_or_create_notification_template(
     template = _load_notification_template(template_code)
     if template is not None:
         return template
+    return _create_notification_template(app, template_code=template_code, now=now)
+
+
+def _create_notification_template(
+    app: Flask,
+    *,
+    template_code: str,
+    now: datetime,
+) -> NotificationTemplate:
     template = NotificationTemplate(
         notification_template_bid=generate_id(app),
         channel=CREDIT_NOTIFICATION_CHANNEL_SMS,
@@ -980,16 +990,38 @@ def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
             }
 
         provider_items = getattr(body, "sms_template_list", None) or []
+        template_codes = [
+            _template_list_body_value(provider_item, "template_code")
+            for provider_item in provider_items
+            if _template_list_body_value(provider_item, "template_code")
+        ]
+        existing_templates = (
+            {
+                str(template.template_code or "").strip(): template
+                for template in NotificationTemplate.query.filter(
+                    NotificationTemplate.deleted == 0,
+                    NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
+                    NotificationTemplate.provider
+                    == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
+                    NotificationTemplate.template_code.in_(template_codes),
+                ).all()
+            }
+            if template_codes
+            else {}
+        )
         templates: list[NotificationTemplate] = []
         for provider_item in provider_items:
             template_code = _template_list_body_value(provider_item, "template_code")
             if not template_code:
                 continue
-            template = _get_or_create_notification_template(
-                app,
-                template_code=template_code,
-                now=now,
-            )
+            template = existing_templates.get(template_code)
+            if template is None:
+                template = _create_notification_template(
+                    app,
+                    template_code=template_code,
+                    now=now,
+                )
+                existing_templates[template_code] = template
             template.template_name = _template_list_body_value(
                 provider_item, "template_name"
             )
@@ -1798,7 +1830,12 @@ def scan_credit_expiring_notifications(
         ),
         "enqueued_count": enqueued_count,
         "estimated_sms_cost": (
-            _estimated_sms_cost(policy, len(notifications)) if dry_run else "0"
+            _estimated_sms_cost(
+                policy,
+                sum(1 for item in notifications if item.get("status") == "candidate"),
+            )
+            if dry_run
+            else "0"
         ),
         "dry_run": dry_run,
         "notifications": notifications,

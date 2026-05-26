@@ -412,7 +412,9 @@ export function CreditNotificationConfigTab({
       return;
     }
     if (creatorBids.length === 0 && mobiles.length === 0) {
-      setBlockedCreatorInput('');
+      if (blockedCreatorInput) {
+        setBlockedCreatorInput('');
+      }
       return;
     }
     const existingCreatorBids = new Set(policy.blacklist.creator_bids);

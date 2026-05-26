@@ -141,8 +141,16 @@ def query_sms_template_list_ali(
     config.endpoint = "dysmsapi.aliyuncs.com"
     client = Dysmsapi20170525Client(config)
     request = dysmsapi_20170525_models.QuerySmsTemplateListRequest()
-    request.page_index = max(int(page_index or 1), 1)
-    request.page_size = min(max(int(page_size or 50), 1), 100)
+    try:
+        normalized_page_index = int(page_index or 1)
+    except (TypeError, ValueError):
+        normalized_page_index = 1
+    try:
+        normalized_page_size = int(page_size or 50)
+    except (TypeError, ValueError):
+        normalized_page_size = 50
+    request.page_index = max(normalized_page_index, 1)
+    request.page_size = min(max(normalized_page_size, 1), 100)
     runtime = util_models.RuntimeOptions()
     try:
         return client.query_sms_template_list_with_options(request, runtime)

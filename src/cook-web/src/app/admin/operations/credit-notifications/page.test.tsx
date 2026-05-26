@@ -78,15 +78,54 @@ jest.mock('@/components/ErrorDisplay', () => ({
 
 jest.mock('@/components/ui/DropdownMenu', () => ({
   __esModule: true,
-  DropdownMenu: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => (
-    <>{children}</>
-  ),
-  DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
+  DropdownMenu: ({ children }: React.PropsWithChildren) => {
+    const React = jest.requireActual('react') as typeof import('react');
+    const [open, setOpen] = React.useState(false);
+    return (
+      <div
+        data-open={open}
+        data-testid='dropdown-menu'
+      >
+        {React.Children.map(children, child => {
+          if (!React.isValidElement(child)) {
+            return child;
+          }
+          return React.cloneElement(child, {
+            __dropdownOpen: open,
+            __setDropdownOpen: setOpen,
+          } as Record<string, unknown>);
+        })}
+      </div>
+    );
+  },
+  DropdownMenuTrigger: ({
+    children,
+    __setDropdownOpen,
+  }: React.PropsWithChildren<{
+    asChild?: boolean;
+    __setDropdownOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+  }>) => {
+    const React = jest.requireActual('react') as typeof import('react');
+    if (React.isValidElement(children)) {
+      const child = children as React.ReactElement<{
+        onClick?: (event: React.MouseEvent) => void;
+      }>;
+      return React.cloneElement(children, {
+        onClick: (event: React.MouseEvent) => {
+          child.props.onClick?.(event);
+          __setDropdownOpen?.(current => !current);
+        },
+      } as Record<string, unknown>);
+    }
+    return <>{children}</>;
+  },
+  DropdownMenuContent: ({
+    children,
+    __dropdownOpen,
+  }: React.PropsWithChildren<{
+    align?: string;
+    __dropdownOpen?: boolean;
+  }>) => (__dropdownOpen ? <div>{children}</div> : null),
   DropdownMenuItem: ({
     children,
     onClick,
@@ -575,7 +614,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     fireEvent.change(perMobileInput, {
       target: { value: '-３.５' },
     });
-    expect(perMobileInput).toHaveValue('3');
+    expect(perMobileInput).toHaveValue('');
     const dailyLimitInput = screen.getByLabelText(
       'module.operationsCreditNotifications.config.fields.dailySmsLimit',
     );
@@ -630,7 +669,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
           channel: 'sms',
           types: expect.objectContaining({
             credit_granted: expect.objectContaining({
-              template_code: 'TPL-GRANT-UPDATED',
+              template_code: 'TPL-GRANT',
             }),
             credit_expiring: expect.objectContaining({
               windows: ['7d', '3d', '1d', '0d'],
@@ -644,7 +683,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
             }),
           }),
           frequency: expect.objectContaining({
-            per_mobile_per_day: 3,
+            per_mobile_per_day: 0,
           }),
           budget: expect.objectContaining({
             daily_sms_limit: 0,

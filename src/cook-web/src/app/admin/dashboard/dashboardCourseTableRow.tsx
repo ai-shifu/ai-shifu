@@ -4,10 +4,11 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import type { DashboardEntryCourseItem } from '@/types/dashboard';
 import { TableCell, TableRow } from '@/components/ui/Table';
+import { getAdminStickyRightCellClass } from '@/app/admin/components/adminTableStyles';
 import { buildAdminDashboardCourseDetailUrl } from './admin-dashboard-routes';
 
 const DASHBOARD_TABLE_CELL_CLASS =
-  'whitespace-nowrap overflow-hidden text-ellipsis border-r border-border last:border-r-0';
+  'overflow-hidden whitespace-nowrap text-ellipsis';
 
 export const formatLastActive = (
   value: string,
@@ -39,7 +40,8 @@ export const formatOrderAmount = (
 type DashboardCourseTableRowProps = {
   item: DashboardEntryCourseItem;
   currencySymbol: string;
-  orderButtonLabel: string;
+  viewCourseLabel: string;
+  viewOrdersLabel: string;
   onCourseDetailClick: (shifuBid: string) => void;
   onOrderClick: (shifuBid: string) => void;
 };
@@ -47,7 +49,8 @@ type DashboardCourseTableRowProps = {
 export function DashboardCourseTableRow({
   item,
   currencySymbol,
-  orderButtonLabel,
+  viewCourseLabel,
+  viewOrdersLabel,
   onCourseDetailClick,
   onOrderClick,
 }: DashboardCourseTableRowProps) {
@@ -58,32 +61,9 @@ export function DashboardCourseTableRow({
   return (
     <TableRow>
       <TableCell className={cn(DASHBOARD_TABLE_CELL_CLASS, 'min-w-[280px]')}>
-        {canOpenDetail ? (
-          <button
-            type='button'
-            onClick={() => onCourseDetailClick(item.shifu_bid)}
-            className={cn(
-              'group max-w-[320px] text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-            )}
-            aria-label={`${courseLabel}-${item.shifu_bid}`}
-          >
-            <div className='truncate text-sm text-primary group-hover:underline'>
-              {courseLabel}
-            </div>
-            <div className='mt-1 truncate text-xs text-muted-foreground transition group-hover:text-primary/80'>
-              {item.shifu_bid}
-            </div>
-          </button>
-        ) : (
-          <>
-            <div className='max-w-[320px] truncate text-sm text-foreground'>
-              {courseLabel}
-            </div>
-            <div className='mt-1 max-w-[320px] truncate text-xs text-muted-foreground'>
-              {item.shifu_bid}
-            </div>
-          </>
-        )}
+        <div className='max-w-[320px] truncate text-sm text-foreground'>
+          {courseLabel}
+        </div>
       </TableCell>
       <TableCell
         className={cn(
@@ -94,20 +74,7 @@ export function DashboardCourseTableRow({
         {item.learner_count}
       </TableCell>
       <TableCell className={cn(DASHBOARD_TABLE_CELL_CLASS, 'min-w-[120px]')}>
-        <button
-          type='button'
-          onClick={event => {
-            event.stopPropagation();
-            onOrderClick(item.shifu_bid);
-          }}
-          disabled={!item.shifu_bid.trim()}
-          aria-label={orderButtonLabel}
-          className={cn(
-            'text-sm font-medium text-primary transition hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline',
-          )}
-        >
-          {item.order_count}
-        </button>
+        <span className='text-sm text-foreground'>{item.order_count}</span>
       </TableCell>
       <TableCell
         className={cn(
@@ -124,6 +91,33 @@ export function DashboardCourseTableRow({
         )}
       >
         {formatLastActive(item.last_active_at, item.last_active_at_display)}
+      </TableCell>
+      <TableCell
+        className={getAdminStickyRightCellClass(
+          cn(
+            DASHBOARD_TABLE_CELL_CLASS,
+            'min-w-[160px] text-sm text-foreground',
+          ),
+        )}
+      >
+        <div className='flex items-center gap-3'>
+          <button
+            type='button'
+            onClick={() => onCourseDetailClick(item.shifu_bid)}
+            disabled={!canOpenDetail}
+            className='p-0 text-sm font-medium text-primary transition hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline'
+          >
+            {viewCourseLabel}
+          </button>
+          <button
+            type='button'
+            onClick={() => onOrderClick(item.shifu_bid)}
+            disabled={!item.shifu_bid.trim()}
+            className='p-0 text-sm font-medium text-primary transition hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline'
+          >
+            {viewOrdersLabel}
+          </button>
+        </div>
       </TableCell>
     </TableRow>
   );
