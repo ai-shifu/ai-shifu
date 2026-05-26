@@ -133,8 +133,8 @@ const isTemplateCompatibleWithType = (
   option: AdminOperationCreditNotificationTemplateOption,
   type: KnownNotificationType,
 ) => {
-  const compatibleTypes = option.compatible_notification_types || [];
-  return compatibleTypes.length === 0 || compatibleTypes.includes(type);
+  const compatibleTypes = option.compatible_notification_types;
+  return !compatibleTypes || compatibleTypes.includes(type);
 };
 
 const hasExplicitTemplateCompatibility = (
