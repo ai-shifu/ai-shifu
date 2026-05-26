@@ -995,20 +995,23 @@ def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
             for provider_item in provider_items
             if _template_list_body_value(provider_item, "template_code")
         ]
-        existing_templates = (
-            {
-                str(template.template_code or "").strip(): template
-                for template in NotificationTemplate.query.filter(
+        existing_templates: dict[str, NotificationTemplate] = {}
+        if template_codes:
+            existing_rows = (
+                NotificationTemplate.query.filter(
                     NotificationTemplate.deleted == 0,
                     NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
                     NotificationTemplate.provider
                     == NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN,
                     NotificationTemplate.template_code.in_(template_codes),
-                ).all()
-            }
-            if template_codes
-            else {}
-        )
+                )
+                .order_by(NotificationTemplate.id.desc())
+                .all()
+            )
+            for template in existing_rows:
+                template_code = str(template.template_code or "").strip()
+                if template_code and template_code not in existing_templates:
+                    existing_templates[template_code] = template
         templates: list[NotificationTemplate] = []
         for provider_item in provider_items:
             template_code = _template_list_body_value(provider_item, "template_code")
@@ -2975,9 +2978,9 @@ def list_credit_notifications(
         template_name_map = {}
         if template_codes:
             template_name_map = {
-                str(template.template_code or "").strip(): str(
-                    template.template_name or ""
-                ).strip()
+                str(template.template_code or "")
+                .strip(): str(template.template_name or "")
+                .strip()
                 for template in NotificationTemplate.query.filter(
                     NotificationTemplate.deleted == 0,
                     NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,
