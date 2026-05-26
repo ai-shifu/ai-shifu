@@ -320,9 +320,9 @@
     "failed_provider": "Fournisseur échoué",
     "pending": "En attente",
     "sent": "Envoyé",
-    "skipped": "Ignorée",
+    "skipped": "Toutes ignorées",
     "skipped_no_mobile": "Sans mobile",
-    "skipped_opt_out": "Ignoré",
+    "skipped_opt_out": "Désinscrit",
     "suppressed_duplicate": "Doublon"
   },
   "subtitle": "Consultez la livraison des notifications de crédits attribués, expirants ou bas, et configurez la politique SMS.",

@@ -693,6 +693,7 @@ def test_sync_credit_notification_template_persists_aliyun_template(
     assert payload["placeholders"] == ["available_credits", "bad_variable"]
     assert payload["unsupported_placeholders"] == ["bad_variable"]
     assert payload["compatible"] is False
+    assert payload["last_synced_at"].endswith("Z")
     with app.app_context():
         template = NotificationTemplate.query.filter_by(
             template_code="TPL-LOW-SYNC"
@@ -736,6 +737,7 @@ def test_list_credit_notification_templates_falls_back_to_local_cache(
     assert payload["error_code"] == "missing_credentials"
     assert [item["template_code"] for item in payload["items"]] == ["TPL-CACHED"]
     assert payload["items"][0]["source"] == "local"
+    assert payload["items"][0]["last_synced_at"] == "2026-05-22T00:00:00Z"
 
 
 def test_list_credit_notification_templates_syncs_provider_list(
@@ -776,6 +778,7 @@ def test_list_credit_notification_templates_syncs_provider_list(
     assert payload["provider_available"] is True
     assert payload["items"][0]["template_code"] == "TPL-PROVIDER"
     assert payload["items"][0]["source"] == "provider"
+    assert payload["items"][0]["last_synced_at"].endswith("Z")
     with app.app_context():
         template = NotificationTemplate.query.filter_by(
             template_code="TPL-PROVIDER"
@@ -1165,6 +1168,55 @@ def test_credit_notification_list_handles_invalid_pagination(
 
     assert payload["page"] == 1
     assert payload["page_size"] == 20
+
+
+def test_credit_notification_list_matches_google_email_credential(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app, creator_bid="google-creator", mobile=None)
+    with app.app_context():
+        upsert_credential(
+            app,
+            user_bid="google-creator",
+            provider_name="google",
+            subject_id="google-creator@example.com",
+            subject_format="email",
+            identifier="google-creator@example.com",
+            metadata={},
+            verified=True,
+        )
+        dao.db.session.add(
+            NotificationRecord(
+                notification_bid="notification-google-creator",
+                notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+                channel="sms",
+                creator_bid="google-creator",
+                target_user_bid="google-creator",
+                mobile_snapshot="",
+                source_type="ledger",
+                source_bid="ledger-google",
+                dedupe_key="credit_granted:ledger-google",
+                status=CREDIT_NOTIFICATION_STATUS_PENDING,
+                template_code="TPL-GRANT",
+                template_params_json={},
+                policy_snapshot_json={},
+                provider_response_json={},
+                metadata_json={},
+                deleted=0,
+                created_at=datetime(2026, 5, 21, 8, 0, 0),
+                updated_at=datetime(2026, 5, 21, 8, 0, 0),
+            )
+        )
+        dao.db.session.commit()
+
+    payload = list_credit_notifications(
+        app,
+        filters={"creator_keyword": "google-creator@example.com"},
+    )
+
+    assert payload["total"] == 1
+    assert payload["items"][0]["notification_bid"] == "notification-google-creator"
 
 
 def test_credit_notification_list_omits_detail_payloads(

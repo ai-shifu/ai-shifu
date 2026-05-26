@@ -150,7 +150,7 @@ def _load_matching_creator_bids_for_keyword(keyword: str) -> list[str]:
     credentials = (
         AuthCredential.query.filter(
             AuthCredential.deleted == 0,
-            AuthCredential.provider_name.in_(["phone", "email"]),
+            AuthCredential.provider_name.in_(["phone", "email", "google"]),
             AuthCredential.identifier == normalized,
         )
         .limit(CREATOR_KEYWORD_MATCH_LIMIT)
@@ -673,6 +673,7 @@ def _template_list_body_value(item: Any, field_name: str) -> str:
 
 
 def _serialize_template_option(
+    app: Flask,
     template: NotificationTemplate,
     *,
     source: str,
@@ -707,9 +708,7 @@ def _serialize_template_option(
         "error_message": template.error_message or "",
         "placeholders": placeholders,
         "compatible_notification_types": compatible_notification_types,
-        "last_synced_at": (
-            template.last_synced_at.isoformat() if template.last_synced_at else ""
-        ),
+        "last_synced_at": _format_operator_datetime(app, template.last_synced_at),
         "source": source,
     }
 
@@ -777,7 +776,7 @@ def _create_notification_template(
     return template
 
 
-def _local_notification_template_options() -> list[dict[str, Any]]:
+def _local_notification_template_options(app: Flask) -> list[dict[str, Any]]:
     templates = (
         NotificationTemplate.query.filter(
             NotificationTemplate.deleted == 0,
@@ -792,13 +791,14 @@ def _local_notification_template_options() -> list[dict[str, Any]]:
         .all()
     )
     return [
-        _serialize_template_option(template, source="local")
+        _serialize_template_option(app, template, source="local")
         for template in templates
         if str(template.template_code or "").strip()
     ]
 
 
 def _serialize_notification_template(
+    app: Flask,
     template: NotificationTemplate,
     *,
     notification_type: str,
@@ -833,9 +833,7 @@ def _serialize_notification_template(
         "sync_status": sync_status,
         "error_code": template.error_code,
         "error_message": template.error_message or "",
-        "last_synced_at": (
-            template.last_synced_at.isoformat() if template.last_synced_at else ""
-        ),
+        "last_synced_at": _format_operator_datetime(app, template.last_synced_at),
         "compatible": sync_status == NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED
         and not unsupported,
     }
@@ -890,6 +888,7 @@ def sync_credit_notification_template(
             )
             db.session.commit()
             return _serialize_notification_template(
+                app,
                 template,
                 notification_type=normalized_type,
             )
@@ -908,6 +907,7 @@ def sync_credit_notification_template(
             )
             db.session.commit()
             return _serialize_notification_template(
+                app,
                 template,
                 notification_type=normalized_type,
             )
@@ -921,6 +921,7 @@ def sync_credit_notification_template(
             )
             db.session.commit()
             return _serialize_notification_template(
+                app,
                 template,
                 notification_type=normalized_type,
             )
@@ -941,6 +942,7 @@ def sync_credit_notification_template(
             )
             db.session.commit()
             return _serialize_notification_template(
+                app,
                 template,
                 notification_type=normalized_type,
             )
@@ -963,6 +965,7 @@ def sync_credit_notification_template(
         db.session.add(template)
         db.session.commit()
         return _serialize_notification_template(
+            app,
             template,
             notification_type=normalized_type,
         )
@@ -972,7 +975,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
     with _maybe_app_context(app):
         if not _aliyun_sms_credentials_configured(app):
             return {
-                "items": _local_notification_template_options(),
+                "items": _local_notification_template_options(app),
                 "source": "local",
                 "provider_available": False,
                 "error_code": "missing_credentials",
@@ -985,7 +988,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
         response_code = _template_body_value(body, "code") if body is not None else ""
         if body is None or (response_code and response_code != "OK"):
             return {
-                "items": _local_notification_template_options(),
+                "items": _local_notification_template_options(app),
                 "source": "local",
                 "provider_available": False,
                 "error_code": response_code or "provider_failed",
@@ -1066,7 +1069,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
         db.session.commit()
         return {
             "items": [
-                _serialize_template_option(template, source="provider")
+                _serialize_template_option(app, template, source="provider")
                 for template in templates
             ],
             "source": "provider",
@@ -1090,6 +1093,7 @@ def _ensure_credit_notification_template_compatible(
             and not _aliyun_sms_credentials_configured(app)
         ):
             return _serialize_notification_template(
+                app,
                 template,
                 notification_type=notification_type,
             )

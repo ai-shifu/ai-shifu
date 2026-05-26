@@ -320,9 +320,9 @@
     "failed_provider": "供应商失败",
     "pending": "待发送",
     "sent": "已发送",
-    "skipped": "已跳过",
+    "skipped": "全部跳过",
     "skipped_no_mobile": "无手机号",
-    "skipped_opt_out": "已跳过",
+    "skipped_opt_out": "已退订",
     "suppressed_duplicate": "重复抑制"
   },
   "subtitle": "查看积分到账、到期和低余额提醒的投递状态，并配置短信策略。",
