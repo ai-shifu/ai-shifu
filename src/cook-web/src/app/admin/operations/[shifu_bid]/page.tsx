@@ -23,7 +23,9 @@ import {
   buildAdminOperationsCourseRatingsUrl,
 } from '../operation-course-routes';
 import type {
+  AdminOperationCourseCreditUsageDetailListResponse,
   AdminOperationCourseCreditUsageFilters,
+  AdminOperationCourseCreditUsageItem,
   AdminOperationCourseCreditUsageListResponse,
   AdminOperationCourseChapterDetailResponse,
   AdminOperationCourseDetailChapter,
@@ -107,6 +109,8 @@ const EMPTY_COURSE_CREDIT_USAGE_RESPONSE: AdminOperationCourseCreditUsageListRes
     total: 0,
   };
 
+const COURSE_CREDIT_USAGE_DETAIL_PAGE_SIZE = 10;
+
 const EMPTY_DETAIL: AdminOperationCourseDetailResponse = {
   basic_info: {
     shifu_bid: '',
@@ -126,6 +130,11 @@ const EMPTY_DETAIL: AdminOperationCourseDetailResponse = {
     order_amount: '0',
     follow_up_count: 0,
     rating_score: '',
+    credit_consumed_total: 0,
+    credit_usage_count: 0,
+    credit_user_count: 0,
+    completed_credit_user_count: 0,
+    completed_user_avg_credits: null,
   },
   chapters: [],
 };
@@ -178,6 +187,10 @@ const createCourseCreditUsageFilters =
  * t('module.operationsCourse.detail.metricsLabels.orderAmount')
  * t('module.operationsCourse.detail.metricsLabels.followUpCount')
  * t('module.operationsCourse.detail.metricsLabels.ratingScore')
+ * t('module.operationsCourse.detail.metricsLabels.creditConsumedTotal')
+ * t('module.operationsCourse.detail.metricsLabels.creditUsageCount')
+ * t('module.operationsCourse.detail.metricsLabels.creditUserCount')
+ * t('module.operationsCourse.detail.metricsLabels.completedUserAvgCredits')
  * t('module.operationsCourse.detail.orders.openMetric')
  * t('module.operationsCourse.detail.followUps.openMetric')
  * t('module.operationsCourse.detail.ratings.openMetric')
@@ -538,6 +551,23 @@ export default function AdminOperationCourseDetailPage() {
     [courseCreditUsageFilters, shifuBid, unknownErrorMessage],
   );
 
+  const fetchCourseCreditUsageDetails = useCallback(
+    async (row: AdminOperationCourseCreditUsageItem, page: number) => {
+      if (!shifuBid.trim()) {
+        throw new Error(unknownErrorMessage);
+      }
+      return (await api.getAdminOperationCourseCreditUsageDetails({
+        shifu_bid: shifuBid,
+        page,
+        page_size: COURSE_CREDIT_USAGE_DETAIL_PAGE_SIZE,
+        user_bid: row.user_bid,
+        outline_item_bid: row.lesson_outline_item_bid,
+        mode: row.usage_mode === 'mixed' ? '' : row.usage_mode,
+      })) as AdminOperationCourseCreditUsageDetailListResponse;
+    },
+    [shifuBid, unknownErrorMessage],
+  );
+
   useEffect(() => {
     if (!isReady) {
       return;
@@ -688,10 +718,6 @@ export default function AdminOperationCourseDetailPage() {
   const metricCards = useMemo(
     () => [
       {
-        label: tOperations('detail.metricsLabels.visitCount30d'),
-        value: formatCount(detail.metrics.visit_count_30d, i18n.language),
-      },
-      {
         label: tOperations('detail.metricsLabels.learnerCount'),
         value: formatCount(detail.metrics.learner_count, i18n.language),
       },
@@ -718,6 +744,38 @@ export default function AdminOperationCourseDetailPage() {
         value: detail.metrics.rating_score || emptyValue,
         onClick: ratingsPageUrl ? () => router.push(ratingsPageUrl) : undefined,
         actionLabel: tOperations('detail.ratings.openMetric'),
+      },
+      {
+        label: tOperations('detail.metricsLabels.creditConsumedTotal'),
+        value: formatCount(
+          detail.metrics.credit_consumed_total || 0,
+          i18n.language,
+        ),
+      },
+      {
+        label: tOperations('detail.metricsLabels.creditUsageCount'),
+        value: formatCount(
+          detail.metrics.credit_usage_count || 0,
+          i18n.language,
+        ),
+      },
+      {
+        label: tOperations('detail.metricsLabels.creditUserCount'),
+        value: formatCount(
+          detail.metrics.credit_user_count || 0,
+          i18n.language,
+        ),
+      },
+      {
+        label: tOperations('detail.metricsLabels.completedUserAvgCredits'),
+        value:
+          detail.metrics.completed_user_avg_credits === null ||
+          detail.metrics.completed_user_avg_credits === undefined
+            ? emptyValue
+            : formatCount(
+                detail.metrics.completed_user_avg_credits,
+                i18n.language,
+              ),
       },
     ],
     [
@@ -1524,6 +1582,7 @@ export default function AdminOperationCourseDetailPage() {
                   onSearch={handleCourseCreditUsageSearch}
                   onReset={handleCourseCreditUsageReset}
                   onPageChange={handleCourseCreditUsagePageChange}
+                  onFetchDetails={fetchCourseCreditUsageDetails}
                 />
               </TabsContent>
             </Tabs>

@@ -114,6 +114,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
 )
 from flaskr.service.shifu.admin import (
     OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
+    get_operator_course_credit_usage_details,
     get_operator_course_credit_usages,
     get_operator_course_overview,
     get_operator_course_follow_up_detail,
@@ -1968,6 +1969,42 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/credit-usages/details",
+        methods=["GET"],
+    )
+    def admin_operation_course_credit_usage_details(shifu_bid: str):
+        """
+        Get operator course credit usage detail list
+        ---
+        tags:
+            - Shifu
+        """
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page"),
+            field_name="page",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=10,
+        )
+        return make_common_response(
+            get_operator_course_credit_usage_details(
+                app,
+                shifu_bid=shifu_bid,
+                page_index=page_index,
+                page_size=page_size,
+                filters={
+                    "user_bid": request.args.get("user_bid", ""),
+                    "outline_item_bid": request.args.get("outline_item_bid", ""),
+                    "mode": request.args.get("mode", ""),
+                },
             )
         )
 

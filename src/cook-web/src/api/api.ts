@@ -179,6 +179,8 @@ const api = {
     'GET /shifu/admin/operations/courses/{shifu_bid}/users',
   getAdminOperationCourseCreditUsages:
     'GET /shifu/admin/operations/courses/{shifu_bid}/credit-usages',
+  getAdminOperationCourseCreditUsageDetails:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/credit-usages/details',
   getAdminOperationCourseRatings:
     'GET /shifu/admin/operations/courses/{shifu_bid}/ratings',
   getAdminOperationCourseFollowUps:
