@@ -3,6 +3,7 @@ import http, {
   StreamCallback,
   StreamRequestConfig,
 } from './request';
+import { buildTraceHeaders } from './request-trace';
 const apiPrefix = '/api';
 
 const objectToQueryString = (obj: any) => {
@@ -77,8 +78,10 @@ export const gen = (option: string) => {
     }
     if (method === 'PROXY') {
       // PROXY method - use direct fetch
+      const traceHeaders = buildTraceHeaders(config.headers);
       return fetch(tarUrl, {
         ...config,
+        headers: traceHeaders.headers,
         body,
         method: 'GET',
       }).then(res => res.json());

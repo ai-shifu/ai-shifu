@@ -4,7 +4,11 @@ import { getDynamicApiBaseUrl } from '@/config/environment';
 import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
 import { toast } from '@/hooks/useToast';
 import i18n from 'i18next';
-import { v4 as uuidv4 } from 'uuid';
+import {
+  buildTraceHeaders,
+  headersToRecord,
+  readTraceHeadersFromResponse,
+} from './request-trace';
 
 const AUTH_ERROR_CODES = new Set([1001, 1004, 1005]);
 let isHandlingAuthError = false;
@@ -34,12 +38,16 @@ type RequestDebugMeta = {
   method?: string;
   requestToken?: string;
   httpStatus?: number;
+  requestId?: string;
+  harnessRunId?: string;
 };
 
 // ===== Error Handling =====
 export class ErrorWithCode extends Error {
   code: number;
   status?: number;
+  requestId?: string;
+  harnessRunId?: string;
   constructor(message: string, code: number) {
     super(message);
     this.code = code;
@@ -89,6 +97,8 @@ const buildRequestDebugPayload = (
     errorMessage: typedError?.message || '',
     businessCode: typedError?.code ?? '',
     httpStatus: typedError?.status ?? meta.httpStatus ?? '',
+    requestId: typedError?.requestId || meta.requestId || '',
+    harnessRunId: typedError?.harnessRunId || meta.harnessRunId || '',
     requestToken: maskTokenForDebug(meta.requestToken),
     currentToken: maskTokenForDebug(currentToken),
     tokenChanged:
@@ -215,6 +225,8 @@ export const handleBusinessCode = async (
   if (typeof meta.httpStatus === 'number') {
     error.status = meta.httpStatus;
   }
+  error.requestId = meta.requestId;
+  error.harnessRunId = meta.harnessRunId;
 
   const isAuthError = AUTH_ERROR_CODES.has(response.code);
   const currentToken = useUserStore.getState().getToken?.();
@@ -232,6 +244,8 @@ export const handleBusinessCode = async (
         tokenChangedDuringRequest,
         url: meta.url || '',
         method: meta.method || '',
+        requestId: meta.requestId || '',
+        harnessRunId: meta.harnessRunId || '',
       });
     }
 
@@ -243,6 +257,8 @@ export const handleBusinessCode = async (
         responseCode: response.code,
         responseMessage: response.message || '',
         isAuthError,
+        requestId: meta.requestId || '',
+        harnessRunId: meta.harnessRunId || '',
         requestToken: maskTokenForDebug(requestToken),
         currentToken: maskTokenForDebug(currentToken),
         tokenChangedDuringRequest,
@@ -265,6 +281,8 @@ export const handleBusinessCode = async (
         requestToken: maskTokenForDebug(requestToken),
         currentToken: maskTokenForDebug(currentToken),
         url: meta.url || '',
+        requestId: meta.requestId || '',
+        harnessRunId: meta.harnessRunId || '',
       });
       return Promise.reject(error);
     }
@@ -293,6 +311,8 @@ export const handleBusinessCode = async (
         redirectUrl,
         responseCode: response.code,
         responseMessage: response.message || '',
+        requestId: meta.requestId || '',
+        harnessRunId: meta.harnessRunId || '',
       });
       window.location.href = redirectUrl;
     }
@@ -318,6 +338,7 @@ type SseFallbackXhr = Pick<XMLHttpRequest, 'addEventListener' | 'responseText'>;
 
 type AttachSseBusinessResponseFallbackOptions = {
   requestToken?: string;
+  meta?: RequestDebugMeta;
   onHandled?: (error: ErrorWithCode) => void;
 };
 
@@ -344,9 +365,11 @@ export const attachSseBusinessResponseFallback = (
 
     handled = true;
 
-    void handleBusinessCode(response, options.requestToken).catch(error => {
-      options.onHandled?.(error as ErrorWithCode);
-    });
+    void handleBusinessCode(response, options.requestToken, options.meta).catch(
+      error => {
+        options.onHandled?.(error as ErrorWithCode);
+      },
+    );
   });
 };
 
@@ -370,7 +393,13 @@ export class Request {
   private async prepareConfig(
     url: string,
     config: RequestInit,
-  ): Promise<{ url: string; config: RequestInit; tokenUsed: string }> {
+  ): Promise<{
+    url: string;
+    config: RequestInit;
+    tokenUsed: string;
+    requestId: string;
+    harnessRunId?: string;
+  }> {
     const mergedConfig = {
       ...this.defaultConfig,
       ...config,
@@ -399,39 +428,56 @@ export class Request {
       }
     }
 
-    // Add authentication headers
+    // Add authentication and trace headers
     const token = useUserStore.getState().getToken() || '';
-    if (token) {
-      mergedConfig.headers = {
-        Authorization: `Bearer ${token}`,
-        Token: token,
-        'X-Request-ID': uuidv4().replace(/-/g, ''),
-        ...mergedConfig.headers,
-      } as HeadersInit;
-    }
+    const authHeaders: Record<string, string> = token
+      ? {
+          Authorization: `Bearer ${token}`,
+          Token: token,
+        }
+      : {};
+    const traceHeaders = buildTraceHeaders({
+      ...authHeaders,
+      ...headersToRecord(mergedConfig.headers),
+    });
+    mergedConfig.headers = traceHeaders.headers;
 
-    return { url: fullUrl, config: mergedConfig, tokenUsed: token };
+    return {
+      url: fullUrl,
+      config: mergedConfig,
+      tokenUsed: token,
+      requestId: traceHeaders.requestId,
+      harnessRunId: traceHeaders.harnessRunId,
+    };
   }
 
   private async interceptFetch(url: string, config: RequestConfig) {
     let fullUrl = url;
     let requestMethod = String(config.method || 'GET');
     let tokenUsed = '';
+    let requestId = '';
+    let harnessRunId: string | undefined;
 
     try {
       const {
         url: resolvedFullUrl,
         config: mergedConfig,
         tokenUsed: resolvedTokenUsed,
+        requestId: resolvedRequestId,
+        harnessRunId: resolvedHarnessRunId,
       } = await this.prepareConfig(url, config);
       fullUrl = resolvedFullUrl;
       tokenUsed = resolvedTokenUsed;
+      requestId = resolvedRequestId;
+      harnessRunId = resolvedHarnessRunId;
       requestMethod = String(mergedConfig.method || config.method || 'GET');
 
       if (shouldLogRequestDebug(fullUrl)) {
         debugInfo('[request-debug] start', {
           url: fullUrl,
           method: requestMethod,
+          requestId,
+          harnessRunId: harnessRunId || '',
           requestToken: maskTokenForDebug(tokenUsed),
           path:
             typeof window !== 'undefined'
@@ -441,6 +487,9 @@ export class Request {
       }
 
       const response = await fetch(fullUrl, mergedConfig);
+      const responseTraceHeaders = readTraceHeadersFromResponse(response);
+      requestId = responseTraceHeaders.requestId || requestId;
+      harnessRunId = responseTraceHeaders.harnessRunId || harnessRunId;
 
       if (!response.ok) {
         const isDevelopment = process.env.NODE_ENV === 'development';
@@ -452,6 +501,8 @@ export class Request {
           response.status,
         ) as ErrorWithCode & { status?: number };
         httpError.status = response.status;
+        httpError.requestId = requestId;
+        httpError.harnessRunId = harnessRunId;
         throw httpError;
       }
 
@@ -464,6 +515,8 @@ export class Request {
             url: fullUrl,
             method: requestMethod,
             httpStatus: response.status,
+            requestId,
+            harnessRunId: harnessRunId || '',
             responseCode: res.code,
             responseMessage: res.message || '',
           });
@@ -479,6 +532,8 @@ export class Request {
           method: requestMethod,
           requestToken: tokenUsed,
           httpStatus: response.status,
+          requestId,
+          harnessRunId,
         });
       }
 
@@ -487,12 +542,18 @@ export class Request {
           url: fullUrl,
           method: requestMethod,
           httpStatus: response.status,
+          requestId,
+          harnessRunId: harnessRunId || '',
           responseCode: '',
         });
       }
 
       return res;
     } catch (error: any) {
+      if (error && typeof error === 'object') {
+        error.requestId = error.requestId || requestId;
+        error.harnessRunId = error.harnessRunId || harnessRunId;
+      }
       if (shouldLogRequestDebug(fullUrl)) {
         debugError(
           '[request-debug] fetch failure',
@@ -502,6 +563,8 @@ export class Request {
             requestToken: tokenUsed,
             httpStatus:
               typeof error?.status === 'number' ? error.status : undefined,
+            requestId,
+            harnessRunId,
           }),
         );
       }
@@ -597,6 +660,8 @@ export class Request {
       url: fullUrl,
       config: preparedConfig,
       tokenUsed,
+      requestId,
+      harnessRunId,
     } = await this.prepareConfig(url, config);
 
     try {
@@ -609,13 +674,21 @@ export class Request {
         body: JSON.stringify(body),
         signal: controller.signal,
       });
+      const responseTraceHeaders = readTraceHeadersFromResponse(response);
+      const activeRequestId = responseTraceHeaders.requestId || requestId;
+      const activeHarnessRunId =
+        responseTraceHeaders.harnessRunId || harnessRunId;
 
       if (!response.ok) {
         const isDevelopment = process.env.NODE_ENV === 'development';
         const errorMessage = isDevelopment
           ? `Request failed with status ${response.status}`
           : 'Network request failed';
-        throw new ErrorWithCode(errorMessage, response.status);
+        const error = new ErrorWithCode(errorMessage, response.status);
+        error.status = response.status;
+        error.requestId = activeRequestId;
+        error.harnessRunId = activeHarnessRunId;
+        throw error;
       }
 
       const reader = response.body?.getReader();
@@ -648,11 +721,22 @@ export class Request {
 
       const result = parseJson(text);
       if (typeof result === 'object' && result.code !== undefined) {
-        return handleBusinessCode(result, tokenUsed);
+        return handleBusinessCode(result, tokenUsed, {
+          url: fullUrl,
+          method: 'POST',
+          requestToken: tokenUsed,
+          httpStatus: response.status,
+          requestId: activeRequestId,
+          harnessRunId: activeHarnessRunId,
+        });
       }
 
       return result;
     } catch (error: any) {
+      if (error && typeof error === 'object') {
+        error.requestId = error.requestId || requestId;
+        error.harnessRunId = error.harnessRunId || harnessRunId;
+      }
       console.error('Stream request failed:', error);
       throw error;
     }
@@ -669,6 +753,8 @@ export class Request {
       url: fullUrl,
       config: preparedConfig,
       tokenUsed,
+      requestId,
+      harnessRunId,
     } = await this.prepareConfig(url, config);
 
     try {
@@ -681,13 +767,21 @@ export class Request {
         body: JSON.stringify(body),
         signal: controller.signal,
       });
+      const responseTraceHeaders = readTraceHeadersFromResponse(response);
+      const activeRequestId = responseTraceHeaders.requestId || requestId;
+      const activeHarnessRunId =
+        responseTraceHeaders.harnessRunId || harnessRunId;
 
       if (!response.ok) {
         const isDevelopment = process.env.NODE_ENV === 'development';
         const errorMessage = isDevelopment
           ? `Request failed with status ${response.status}`
           : 'Network request failed';
-        throw new ErrorWithCode(errorMessage, response.status);
+        const error = new ErrorWithCode(errorMessage, response.status);
+        error.status = response.status;
+        error.requestId = activeRequestId;
+        error.harnessRunId = activeHarnessRunId;
+        throw error;
       }
 
       const reader = response.body?.getReader();
@@ -759,12 +853,23 @@ export class Request {
       if (lastLine) {
         const parsed = parseJson(lastLine);
         if (typeof parsed === 'object' && parsed.code !== undefined) {
-          await handleBusinessCode(parsed, tokenUsed);
+          await handleBusinessCode(parsed, tokenUsed, {
+            url: fullUrl,
+            method: 'POST',
+            requestToken: tokenUsed,
+            httpStatus: response.status,
+            requestId: activeRequestId,
+            harnessRunId: activeHarnessRunId,
+          });
         }
       }
 
       return lines;
     } catch (error: any) {
+      if (error && typeof error === 'object') {
+        error.requestId = error.requestId || requestId;
+        error.harnessRunId = error.harnessRunId || harnessRunId;
+      }
       console.error('StreamLine request failed:', error);
       throw error;
     }
