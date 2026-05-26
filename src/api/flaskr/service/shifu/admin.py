@@ -46,10 +46,13 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.api import (
     build_billing_catalog,
     dry_run_credit_notifications,
+    get_credit_notification_detail,
+    get_operator_credit_notification_overview as build_credit_notification_overview,
     grant_manual_credits_to_user,
     grant_manual_plan_to_user,
+    list_credit_notification_templates,
     list_credit_notifications,
-    load_credit_notification_policy,
+    load_credit_notification_policy_for_operator,
     requeue_credit_notification,
     save_credit_notification_policy,
     sync_credit_notification_template,
@@ -6078,6 +6081,10 @@ def grant_operator_user_credits(
         )
 
 
+def get_operator_credit_notification_overview(app: Flask) -> dict[str, Any]:
+    return build_credit_notification_overview(app)
+
+
 def list_operator_credit_notifications(
     app: Flask,
     *,
@@ -6093,9 +6100,17 @@ def list_operator_credit_notifications(
     )
 
 
+def get_operator_credit_notification_detail(
+    app: Flask,
+    *,
+    notification_bid: str,
+) -> dict[str, Any]:
+    return get_credit_notification_detail(app, notification_bid=notification_bid)
+
+
 def get_operator_credit_notification_config(app: Flask) -> dict[str, Any]:
     with app.app_context():
-        return load_credit_notification_policy()
+        return load_credit_notification_policy_for_operator()
 
 
 def update_operator_credit_notification_config(
@@ -6103,7 +6118,9 @@ def update_operator_credit_notification_config(
     *,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    return save_credit_notification_policy(app, payload)
+    save_credit_notification_policy(app, payload, preserve_opt_out=True)
+    with app.app_context():
+        return load_credit_notification_policy_for_operator()
 
 
 def sync_operator_credit_notification_template(
@@ -6117,6 +6134,10 @@ def sync_operator_credit_notification_template(
         notification_type=notification_type,
         template_code=template_code,
     )
+
+
+def list_operator_credit_notification_templates(app: Flask) -> dict[str, Any]:
+    return list_credit_notification_templates(app)
 
 
 def dry_run_operator_credit_notifications(
