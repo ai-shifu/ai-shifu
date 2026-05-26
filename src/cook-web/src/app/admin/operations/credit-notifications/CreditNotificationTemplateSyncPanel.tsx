@@ -156,9 +156,9 @@ export function CreditNotificationPlaceholderGuide({
         </span>
       </summary>
       <p className='mt-1 text-[11px] text-muted-foreground group-open:hidden'>
-          {t(
-            'module.operationsCreditNotifications.config.placeholders.guideHint',
-          )}
+        {t(
+          'module.operationsCreditNotifications.config.placeholders.guideHint',
+        )}
       </p>
       <div className='mt-2 space-y-2'>
         {groups.map(group => (

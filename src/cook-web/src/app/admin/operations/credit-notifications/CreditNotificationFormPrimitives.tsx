@@ -31,7 +31,9 @@ export function CreditNotificationFormField({
           {label}
         </Label>
         {tooltip ? (
-          <CreditNotificationHelpTooltip>{tooltip}</CreditNotificationHelpTooltip>
+          <CreditNotificationHelpTooltip>
+            {tooltip}
+          </CreditNotificationHelpTooltip>
         ) : null}
       </div>
       <div className='mt-1'>{children}</div>
