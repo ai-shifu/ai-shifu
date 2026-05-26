@@ -15,9 +15,6 @@ NOTE:
 
 from alembic import op
 import sqlalchemy as sa
-from datetime import datetime
-from decimal import Decimal
-import base64
 
 # revision identifiers, used by Alembic.
 revision = "6f6b5b40a411"
@@ -30,19 +27,21 @@ def upgrade():
     bind = op.get_bind()
 
     # Delete existing data for the same shifu_bids
-    shifu_bids = ['9eca13c4c7824d4687600af7c4a3828a']
+    shifu_bids = ["9eca13c4c7824d4687600af7c4a3828a"]
     for table_name in [
         "shifu_draft_shifus",
         "shifu_draft_outline_items",
     ]:
         bind.execute(
-            sa.text(f"DELETE FROM {table_name} WHERE shifu_bid IN :bids")
-            .bindparams(sa.bindparam('bids', expanding=True)),
-            {'bids': shifu_bids}
+            sa.text(f"DELETE FROM {table_name} WHERE shifu_bid IN :bids").bindparams(
+                sa.bindparam("bids", expanding=True)
+            ),
+            {"bids": shifu_bids},
         )
 
     # --- shifu_draft_shifus: 4 rows ---
-    bind.execute(sa.text("""INSERT INTO shifu_draft_shifus (`id`, `shifu_bid`, `title`, `keywords`, `description`, `avatar_res_bid`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `price`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`, `tts_enabled`, `tts_provider`, `tts_model`, `tts_voice_id`, `tts_speed`, `tts_pitch`, `tts_emotion`, `use_learner_language`, `ask_provider_config`) VALUES (
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_shifus (`id`, `shifu_bid`, `title`, `keywords`, `description`, `avatar_res_bid`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `price`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`, `tts_enabled`, `tts_provider`, `tts_model`, `tts_voice_id`, `tts_speed`, `tts_pitch`, `tts_emotion`, `use_learner_language`, `ask_provider_config`) VALUES (
             1,
             '9eca13c4c7824d4687600af7c4a3828a',
             'AI 时代的项目管理：基于 PMBOK 第 8 版的精讲与实战',
@@ -71,8 +70,10 @@ def upgrade():
             '',
             0,
             '{}'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_shifus (`id`, `shifu_bid`, `title`, `keywords`, `description`, `avatar_res_bid`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `price`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`, `tts_enabled`, `tts_provider`, `tts_model`, `tts_voice_id`, `tts_speed`, `tts_pitch`, `tts_emotion`, `use_learner_language`, `ask_provider_config`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_shifus (`id`, `shifu_bid`, `title`, `keywords`, `description`, `avatar_res_bid`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `price`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`, `tts_enabled`, `tts_provider`, `tts_model`, `tts_voice_id`, `tts_speed`, `tts_pitch`, `tts_emotion`, `use_learner_language`, `ask_provider_config`) VALUES (
             2,
             '9eca13c4c7824d4687600af7c4a3828a',
             'AI 时代的项目管理：基于 PMBOK 第 8 版的精讲与实战',
@@ -112,7 +113,7 @@ def upgrade():
    - 「你是不是也遇到过...」
    - 「这很正常，很多项目经理都...」
    - 避免说教和指责
-3. **给予希望**：明确指出学完后可以解决  
+3. **给予希望**：明确指出学完后可以解决
    - 「学完这节，你就能...」
    - 「掌握这个方法，你可以...」
 
@@ -332,8 +333,10 @@ def upgrade():
             '',
             0,
             '{"config": {}, "mode": "provider_only", "provider": "llm"}'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_shifus (`id`, `shifu_bid`, `title`, `keywords`, `description`, `avatar_res_bid`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `price`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`, `tts_enabled`, `tts_provider`, `tts_model`, `tts_voice_id`, `tts_speed`, `tts_pitch`, `tts_emotion`, `use_learner_language`, `ask_provider_config`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_shifus (`id`, `shifu_bid`, `title`, `keywords`, `description`, `avatar_res_bid`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `price`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`, `tts_enabled`, `tts_provider`, `tts_model`, `tts_voice_id`, `tts_speed`, `tts_pitch`, `tts_emotion`, `use_learner_language`, `ask_provider_config`) VALUES (
             3,
             '9eca13c4c7824d4687600af7c4a3828a',
             'AI 时代的项目管理：基于 PMBOK 第 8 版的精讲与实战',
@@ -373,7 +376,7 @@ def upgrade():
    - 「你是不是也遇到过...」
    - 「这很正常，很多项目经理都...」
    - 避免说教和指责
-3. **给予希望**：明确指出学完后可以解决  
+3. **给予希望**：明确指出学完后可以解决
    - 「学完这节，你就能...」
    - 「掌握这个方法，你可以...」
 
@@ -593,8 +596,10 @@ def upgrade():
             '',
             0,
             '{"config": {}, "mode": "provider_only", "provider": "llm"}'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_shifus (`id`, `shifu_bid`, `title`, `keywords`, `description`, `avatar_res_bid`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `price`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`, `tts_enabled`, `tts_provider`, `tts_model`, `tts_voice_id`, `tts_speed`, `tts_pitch`, `tts_emotion`, `use_learner_language`, `ask_provider_config`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_shifus (`id`, `shifu_bid`, `title`, `keywords`, `description`, `avatar_res_bid`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `price`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`, `tts_enabled`, `tts_provider`, `tts_model`, `tts_voice_id`, `tts_speed`, `tts_pitch`, `tts_emotion`, `use_learner_language`, `ask_provider_config`) VALUES (
             4,
             '9eca13c4c7824d4687600af7c4a3828a',
             'AI 时代的项目管理：基于 PMBOK 第 8 版的精讲与实战',
@@ -634,7 +639,7 @@ def upgrade():
    - 「你是不是也遇到过...」
    - 「这很正常，很多项目经理都...」
    - 避免说教和指责
-3. **给予希望**：明确指出学完后可以解决  
+3. **给予希望**：明确指出学完后可以解决
    - 「学完这节，你就能...」
    - 「掌握这个方法，你可以...」
 
@@ -854,10 +859,12 @@ def upgrade():
             '',
             0,
             '{"config": {}, "mode": "provider_only", "provider": "llm"}'
-        )"""))
+        )""")
+    )
 
     # --- shifu_draft_outline_items: 226 rows ---
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             1,
             '394042ae3b4a4c04b9f9da3a27d8298f',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -880,8 +887,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-24 10:13:52',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             2,
             '78dece41e3cd4e839e899e9fb522fe32',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -904,8 +913,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-24 10:13:52',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             3,
             '78dece41e3cd4e839e899e9fb522fe32',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -1391,8 +1402,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-24 10:16:23',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             4,
             '78dece41e3cd4e839e899e9fb522fe32',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -1878,8 +1891,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-24 10:16:40',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             5,
             '394042ae3b4a4c04b9f9da3a27d8298f',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -1902,8 +1917,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-24 10:16:53',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             6,
             '394042ae3b4a4c04b9f9da3a27d8298f',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -1926,8 +1943,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-24 10:17:04',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             7,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -1950,8 +1969,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-24 10:17:37',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             8,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -1985,7 +2006,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -2515,8 +2536,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-24 10:17:50',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             9,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -2550,7 +2573,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -3080,8 +3103,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-24 10:18:04',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             10,
             '78dece41e3cd4e839e899e9fb522fe32',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -3567,8 +3592,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-24 10:53:57',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             11,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -3602,7 +3629,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -4134,8 +4161,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:13:16',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             12,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -4169,7 +4198,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -4701,8 +4730,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:13:23',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             13,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -4736,7 +4767,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -5269,8 +5300,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:14:10',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             14,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -5304,7 +5337,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -5748,7 +5781,7 @@ def upgrade():
 花 5 分钟，给下面的能力维度打分（1-5 分）：
 
 1. 技术能力整体水平：（分）
-   
+
 3. 行为能力整体水平：___分
 4. 环境能力整体水平：___分
 
@@ -5837,8 +5870,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:14:23',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             15,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -5872,7 +5907,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -6405,8 +6440,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:14:27',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             16,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -6440,7 +6477,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -6973,8 +7010,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:14:35',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             17,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -7008,7 +7047,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -7541,8 +7580,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:14:46',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             18,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -7576,7 +7617,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -8109,8 +8150,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:15:32',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             19,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -8144,7 +8187,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -8677,8 +8720,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:15:42',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             20,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -8712,7 +8757,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -9246,8 +9291,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:15:59',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             21,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -9281,7 +9328,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -9815,8 +9862,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:16:20',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             22,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -9850,7 +9899,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -10385,8 +10434,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:16:30',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             23,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -10420,7 +10471,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -10955,8 +11006,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:16:36',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             24,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -10990,7 +11043,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -11525,8 +11578,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:16:53',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             25,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -11560,7 +11615,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -12095,8 +12150,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:17:02',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             26,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -12130,7 +12187,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -12664,8 +12721,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:17:11',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             27,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -12699,7 +12758,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -13233,8 +13292,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:17:27',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             28,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -13268,7 +13329,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -13802,8 +13863,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:17:50',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             29,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -13837,7 +13900,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -14371,8 +14434,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:17:53',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             30,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -14406,7 +14471,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -14940,8 +15005,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:19:05',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             31,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -14975,7 +15042,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -15505,8 +15572,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:19:30',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             32,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -15540,7 +15609,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -16070,8 +16139,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:20:15',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             33,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -16105,7 +16176,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -16635,8 +16706,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:20:54',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             34,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -16670,7 +16743,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -17200,8 +17273,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:21:36',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             35,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -17235,7 +17310,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -17765,8 +17840,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:22:30',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             36,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -17800,7 +17877,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -18330,8 +18407,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:23:22',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             37,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -18365,7 +18444,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -18895,8 +18974,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:23:49',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             38,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -18930,7 +19011,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -19459,8 +19540,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:23:53',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             39,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -19494,7 +19577,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -20019,8 +20102,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:23:58',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             40,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -20054,7 +20139,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 
@@ -20579,8 +20664,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:24:13',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             41,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -20614,7 +20701,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -21139,8 +21226,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:27:08',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             42,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -21174,7 +21263,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -21699,8 +21788,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:27:22',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             43,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -21734,7 +21825,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -22259,8 +22350,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:27:25',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             44,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -22294,7 +22387,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -22819,8 +22912,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:43:19',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             45,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -22854,7 +22949,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -23375,8 +23470,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:46:20',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             46,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -23410,7 +23507,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -23927,8 +24024,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:46:28',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             47,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -23962,7 +24061,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -24475,8 +24574,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:46:42',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             48,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -24510,7 +24611,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -25020,8 +25121,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:46:52',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             49,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -25055,7 +25158,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -25563,8 +25666,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:46:58',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             50,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -25598,7 +25703,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -26102,8 +26207,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:47:07',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             51,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -26137,7 +26244,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -26632,8 +26739,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:47:20',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             52,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -26667,7 +26776,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -27155,8 +27264,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:47:36',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             53,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -27190,7 +27301,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -27676,8 +27787,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:47:42',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             54,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -27711,7 +27824,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -28196,8 +28309,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:47:51',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             55,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -28231,7 +28346,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -28716,8 +28831,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:47:55',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             56,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -28751,7 +28868,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -29165,8 +29282,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:49:30',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             57,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -29200,7 +29319,7 @@ def upgrade():
 
 ---
 
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -29606,8 +29725,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:49:42',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             58,
             'adb2176b64144ba9aeb9fc0bca06dcac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -29637,7 +29758,7 @@ def upgrade():
 - 三大能力维度 28 个要素
 - 能力自测与提升计划
 ---
-**能力之眼的三维度结构** 
+**能力之眼的三维度结构**
 
 # 要求
 - 纯文字渲染
@@ -30043,8 +30164,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:49:52',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             59,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -30067,8 +30190,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:53:22',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             60,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -30394,7 +30519,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -30582,8 +30707,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:53:35',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             61,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -30903,7 +31030,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -31091,8 +31218,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:53:54',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             62,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -31408,7 +31537,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -31596,8 +31725,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:54:01',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             63,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -31905,7 +32036,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -32093,8 +32224,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:54:10',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             64,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -32397,7 +32530,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -32585,8 +32718,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:54:19',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             65,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -32887,7 +33022,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -33075,8 +33210,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:54:25',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             66,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -33373,7 +33510,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -33561,8 +33698,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:54:34',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             67,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -33853,7 +33992,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -34041,8 +34180,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:54:43',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             68,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -34328,7 +34469,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -34516,8 +34657,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:54:53',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             69,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -34801,7 +34944,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -34989,8 +35132,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:55:04',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             70,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -35271,7 +35416,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -35459,8 +35604,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:55:10',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             71,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -35737,7 +35884,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -35925,8 +36072,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:55:19',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             72,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -36197,7 +36346,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -36385,8 +36534,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:55:29',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             73,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -36649,7 +36800,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -36837,8 +36988,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:55:47',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             74,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -37100,7 +37253,7 @@ def upgrade():
 
 # 内容
 
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -37288,8 +37441,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:55:52',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             75,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -37547,7 +37702,7 @@ def upgrade():
 - PPT渲染
 
 # 内容
- 
+
 结合{{sys_user_background}}行业的特点，我有 4 个建议
 
 - 建议 1：不要死记硬背 ITTO
@@ -37735,8 +37890,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:56:02',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             76,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -38176,8 +38333,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:56:12',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             77,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -38612,8 +38771,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:56:19',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             78,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -39042,8 +39203,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:56:28',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             79,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -39467,8 +39630,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:56:36',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             80,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -39887,8 +40052,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:56:46',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             81,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -40302,8 +40469,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:56:53',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             82,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -40716,8 +40885,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:56:56',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             83,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -41120,8 +41291,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:57:22',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             84,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -41524,8 +41697,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:57:29',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             85,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -41922,8 +42097,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 04:57:38',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             86,
             'd80a82e561514347a6745de8aa999f71',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -42320,8 +42497,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:09:26',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             87,
             'b85c811c567c46f6935ee8ab420a4983',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -42344,8 +42523,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:09:42',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             88,
             'b85c811c567c46f6935ee8ab420a4983',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -42771,8 +42952,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:10:10',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             89,
             'b85c811c567c46f6935ee8ab420a4983',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -43199,8 +43382,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:13:52',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             90,
             'b85c811c567c46f6935ee8ab420a4983',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -43627,8 +43812,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:15:14',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             91,
             'b85c811c567c46f6935ee8ab420a4983',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -44055,8 +44242,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:15:18',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             92,
             'b85c811c567c46f6935ee8ab420a4983',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -44483,8 +44672,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:16:11',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             93,
             'b85c811c567c46f6935ee8ab420a4983',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -44911,8 +45102,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:16:51',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             94,
             'b85c811c567c46f6935ee8ab420a4983',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -45339,8 +45532,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:17:16',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             95,
             'b85c811c567c46f6935ee8ab420a4983',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -45763,8 +45958,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:17:43',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             96,
             'b85c811c567c46f6935ee8ab420a4983',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -46187,8 +46384,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:17:51',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             97,
             'b85c811c567c46f6935ee8ab420a4983',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -46610,8 +46809,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:17:57',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             98,
             '8c13b7ef4d134d2e827bd19f8b7bff70',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -46634,8 +46835,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:31:07',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             99,
             'f83246deff784994b4cf69b48b5244e6',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -46658,8 +46861,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:31:17',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             100,
             '47480925b1f04d6f8458127110e398ff',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -46682,8 +46887,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:31:23',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             101,
             '6344e7cbe2b04417bc723e81427b3697',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -46706,8 +46913,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:31:36',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             102,
             '1e985875e9d641a2abeb5ae98a85b43b',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -46730,8 +46939,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:31:51',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             103,
             '12291802581d4ce7a74ac9e747279ce9',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -46754,8 +46965,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:32:04',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             104,
             'ac51ed79467c4080a8fd91def6d8ba3e',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -46778,8 +46991,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:34:28',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             105,
             'ac51ed79467c4080a8fd91def6d8ba3e',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -47176,8 +47391,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:34:52',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             106,
             'ac51ed79467c4080a8fd91def6d8ba3e',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -47574,8 +47791,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:34:52',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             107,
             'ac51ed79467c4080a8fd91def6d8ba3e',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -47972,8 +48191,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:38:00',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             108,
             'ac51ed79467c4080a8fd91def6d8ba3e',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -48370,8 +48591,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:38:07',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             109,
             'ac51ed79467c4080a8fd91def6d8ba3e',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -48768,8 +48991,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:38:10',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             110,
             'ac51ed79467c4080a8fd91def6d8ba3e',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -49166,8 +49391,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:38:49',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             111,
             'ac51ed79467c4080a8fd91def6d8ba3e',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -49564,8 +49791,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:39:22',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             112,
             'ac51ed79467c4080a8fd91def6d8ba3e',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -49962,8 +50191,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:57:30',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             113,
             'bd4c9a639b8e411986cae72010199352',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -49986,8 +50217,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:57:56',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             114,
             'bd4c9a639b8e411986cae72010199352',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -50393,8 +50626,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:58:06',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             115,
             'bd4c9a639b8e411986cae72010199352',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -50800,8 +51035,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 05:58:06',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             116,
             'bd4c9a639b8e411986cae72010199352',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -51207,8 +51444,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 07:07:18',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             117,
             'bd4c9a639b8e411986cae72010199352',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -51615,8 +51854,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 07:07:48',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             118,
             'bd4c9a639b8e411986cae72010199352',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -52023,8 +52264,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 07:40:35',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             119,
             'bd4c9a639b8e411986cae72010199352',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -52431,8 +52674,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 07:43:29',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             120,
             'bd4c9a639b8e411986cae72010199352',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -52839,8 +53084,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 07:44:01',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             121,
             'bd4c9a639b8e411986cae72010199352',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -53247,8 +53494,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 07:44:42',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             122,
             'bd4c9a639b8e411986cae72010199352',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -53654,8 +53903,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 07:44:50',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             123,
             'bd4c9a639b8e411986cae72010199352',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -54061,8 +54312,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 07:45:01',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             124,
             '74d9265497584e4ca75a4e3b704bb088',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -54085,8 +54338,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:06:51',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             125,
             '74d9265497584e4ca75a4e3b704bb088',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -54501,8 +54756,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:08:51',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             126,
             '74d9265497584e4ca75a4e3b704bb088',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -54918,8 +55175,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:09:25',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             127,
             '74d9265497584e4ca75a4e3b704bb088',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -55335,8 +55594,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:14:34',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             128,
             '74d9265497584e4ca75a4e3b704bb088',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -55752,8 +56013,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:15:05',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             129,
             '74d9265497584e4ca75a4e3b704bb088',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -56169,8 +56432,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:15:52',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             130,
             '74d9265497584e4ca75a4e3b704bb088',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -56585,8 +56850,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:16:08',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             131,
             '74d9265497584e4ca75a4e3b704bb088',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -57001,8 +57268,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:31:57',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             132,
             '7a334bca753e4e7da39e56658d66e045',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -57025,8 +57294,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:55:22',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             133,
             '7a334bca753e4e7da39e56658d66e045',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -57441,8 +57712,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:55:42',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             134,
             '7a334bca753e4e7da39e56658d66e045',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -57857,8 +58130,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:56:00',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             135,
             '7a334bca753e4e7da39e56658d66e045',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -58274,8 +58549,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:56:12',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             136,
             '7a334bca753e4e7da39e56658d66e045',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -58691,8 +58968,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:57:46',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             137,
             '7a334bca753e4e7da39e56658d66e045',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -59108,8 +59387,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:57:56',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             138,
             '7a334bca753e4e7da39e56658d66e045',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -59525,8 +59806,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:58:43',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             139,
             '7a334bca753e4e7da39e56658d66e045',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -59942,8 +60225,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:59:09',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             140,
             '7a334bca753e4e7da39e56658d66e045',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -60359,8 +60644,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:59:30',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             141,
             '7a334bca753e4e7da39e56658d66e045',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -60775,8 +61062,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:59:43',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             142,
             '7a334bca753e4e7da39e56658d66e045',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -61191,8 +61480,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 08:59:53',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             143,
             '837420b273b943308179a8c62ad32c77',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -61215,8 +61506,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:09:08',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             144,
             '837420b273b943308179a8c62ad32c77',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -61643,8 +61936,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:09:23',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             145,
             '837420b273b943308179a8c62ad32c77',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -62071,8 +62366,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:09:38',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             146,
             '837420b273b943308179a8c62ad32c77',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -62500,8 +62797,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:09:47',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             147,
             '837420b273b943308179a8c62ad32c77',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -62928,8 +63227,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:10:15',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             148,
             '837420b273b943308179a8c62ad32c77',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -63356,8 +63657,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:10:35',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             149,
             '837420b273b943308179a8c62ad32c77',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -63784,8 +64087,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:11:22',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             150,
             '837420b273b943308179a8c62ad32c77',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -64212,8 +64517,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:11:57',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             151,
             '837420b273b943308179a8c62ad32c77',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -64640,8 +64947,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:12:13',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             152,
             '837420b273b943308179a8c62ad32c77',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -65067,8 +65376,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:12:24',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             153,
             '40741656725b47169e97c99936e0acbc',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -65091,8 +65402,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:22:42',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             154,
             '40741656725b47169e97c99936e0acbc',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -65396,8 +65709,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:22:55',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             155,
             '40741656725b47169e97c99936e0acbc',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -65702,8 +66017,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:23:27',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             156,
             '40741656725b47169e97c99936e0acbc',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -66008,8 +66325,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:23:46',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             157,
             '40741656725b47169e97c99936e0acbc',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -66314,8 +66633,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:25:24',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             158,
             '40741656725b47169e97c99936e0acbc',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -66613,8 +66934,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:25:31',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             159,
             '40741656725b47169e97c99936e0acbc',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -66912,8 +67235,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:33:01',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             160,
             '099a76b94cdd4bc1810e68a36d6eaafb',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -66936,8 +67261,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:33:33',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             161,
             '099a76b94cdd4bc1810e68a36d6eaafb',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -67254,8 +67581,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:35:42',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             162,
             '099a76b94cdd4bc1810e68a36d6eaafb',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -67573,8 +67902,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:36:05',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             163,
             '099a76b94cdd4bc1810e68a36d6eaafb',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -67891,8 +68222,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:36:12',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             164,
             '099a76b94cdd4bc1810e68a36d6eaafb',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -68209,8 +68542,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:37:20',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             165,
             '59b085d0d2de49399f600cb9ddfac822',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -68233,8 +68568,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:50:58',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             166,
             '59b085d0d2de49399f600cb9ddfac822',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -68524,8 +68861,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:51:12',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             167,
             '59b085d0d2de49399f600cb9ddfac822',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -68816,8 +69155,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:51:25',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             168,
             '6a0fa604346b453e9fd1b4083503ce59',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -68840,8 +69181,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:55:41',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             169,
             '6a0fa604346b453e9fd1b4083503ce59',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -69161,8 +69504,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:55:54',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             170,
             '8bb10b5ac3c3488d9fc20e64242807ac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -69185,8 +69530,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:56:18',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             171,
             '8bb10b5ac3c3488d9fc20e64242807ac',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -69494,8 +69841,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:56:32',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             172,
             'c6a0ec102ea54b04b1df55c3b59580bd',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -69518,8 +69867,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:57:59',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             173,
             'c6a0ec102ea54b04b1df55c3b59580bd',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -69861,8 +70212,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:58:12',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             174,
             '2b473b642bac4c4fba2261fc8c648dc3',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -69885,8 +70238,10 @@ def upgrade():
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:58:33',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             175,
             '2b473b642bac4c4fba2261fc8c648dc3',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -70237,8 +70592,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:58:46',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             176,
             'ce194d10bc6e4537a702ea3b4b241a00',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -70261,8 +70618,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:59:01',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             177,
             'ce194d10bc6e4537a702ea3b4b241a00',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -70590,8 +70949,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:59:15',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             178,
             'c8ddb8a6126a4c85a2a87da823a47875',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -70614,8 +70975,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:59:32',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             179,
             'c8ddb8a6126a4c85a2a87da823a47875',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -71004,8 +71367,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 09:59:46',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             180,
             '998e6e5f86464703805e40c1147cfe15',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -71028,8 +71393,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:00:09',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             181,
             '998e6e5f86464703805e40c1147cfe15',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -71379,8 +71746,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:00:24',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             182,
             '1d6cde6841ad41ae9a35d2e6efd542e9',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -71403,8 +71772,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:00:48',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             183,
             '1d6cde6841ad41ae9a35d2e6efd542e9',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -71730,8 +72101,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:01:03',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             184,
             'd61893a1005344ac8fb832a361e3cd23',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -71754,8 +72127,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:01:17',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             185,
             'd61893a1005344ac8fb832a361e3cd23',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -72089,8 +72464,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:01:30',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             186,
             '3e5d8194ee594acea9ee031cb6c19cbb',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -72113,8 +72490,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:02:28',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             187,
             '3e5d8194ee594acea9ee031cb6c19cbb',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -72441,8 +72820,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:02:40',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             188,
             'd7ca292074ba4aef906f218c5d85bfd8',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -72465,8 +72846,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:02:53',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             189,
             'd7ca292074ba4aef906f218c5d85bfd8',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -72806,8 +73189,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:03:05',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             190,
             'bb37205481854f4c8a9b249d953ae7e0',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -72830,8 +73215,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:05:20',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             191,
             'bb37205481854f4c8a9b249d953ae7e0',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -73201,8 +73588,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:05:34',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             192,
             '0f19a91ae0b0471e990aa3d2313562a8',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -73225,8 +73614,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:05:48',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             193,
             '0f19a91ae0b0471e990aa3d2313562a8',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -73557,8 +73948,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:06:02',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             194,
             '0f19a91ae0b0471e990aa3d2313562a8',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -73888,8 +74281,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:06:06',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             195,
             'cac2eacdbc944fe28161b788192a2b14',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -73912,8 +74307,10 @@ A 坚持用方案 X，B 坚持用方案 Y。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:06:28',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             196,
             'cac2eacdbc944fe28161b788192a2b14',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -74270,8 +74667,10 @@ EV < AC = 超支；EV > AC = 节约
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:06:42',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             197,
             '06f6af7890bf490e98f072359fd23772',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -74294,8 +74693,10 @@ EV < AC = 超支；EV > AC = 节约
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:07:00',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             198,
             '06f6af7890bf490e98f072359fd23772',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -74644,8 +75045,10 @@ EV < AC = 超支；EV > AC = 节约
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:07:14',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             199,
             '24b2d754686d48f2912a55b66a2ed536',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -74668,8 +75071,10 @@ EV < AC = 超支；EV > AC = 节约
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:07:30',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             200,
             '24b2d754686d48f2912a55b66a2ed536',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -75032,8 +75437,10 @@ EV < AC = 超支；EV > AC = 节约
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:07:44',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             201,
             '42074a7eaff34286a0b1d1f96e981f8f',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -75056,8 +75463,10 @@ EV < AC = 超支；EV > AC = 节约
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:08:00',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             202,
             '42074a7eaff34286a0b1d1f96e981f8f',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -75405,8 +75814,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:08:13',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             203,
             '867bc16d397c4600a27913312126785d',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -75429,8 +75840,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:40:48',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             204,
             '867bc16d397c4600a27913312126785d',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -75840,8 +76253,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:41:02',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             205,
             'b4f03eee475f4036b95f8cc8b69cb1f6',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -75864,8 +76279,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:41:44',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             206,
             'b4f03eee475f4036b95f8cc8b69cb1f6',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -76238,8 +76655,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:41:58',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             207,
             '1e556b06f3c14b069ea383a1c9434c6d',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -76262,8 +76681,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:42:14',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             208,
             '1e556b06f3c14b069ea383a1c9434c6d',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -76623,8 +77044,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:42:28',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             209,
             'ae285c7c297f470db6e6fd21683c8e80',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -76647,8 +77070,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:42:50',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             210,
             'ae285c7c297f470db6e6fd21683c8e80',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -76902,8 +77327,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:43:02',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             211,
             '0a79b44bf2564d3d8ddaf10a5a37b442',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -76926,8 +77353,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:43:17',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             212,
             '0a79b44bf2564d3d8ddaf10a5a37b442',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -77164,8 +77593,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:43:30',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             213,
             '2e3f924ce2ed40229fe87e64381eb468',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -77188,8 +77619,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:43:46',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             214,
             '2e3f924ce2ed40229fe87e64381eb468',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -77534,8 +77967,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:43:59',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             215,
             'c504883e57e94cffac6fbb440f1ed9fb',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -77558,8 +77993,10 @@ CPI<1 或 SPI<1，说明有问题。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:44:18',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             216,
             'c504883e57e94cffac6fbb440f1ed9fb',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -77798,8 +78235,10 @@ AI 可能生成看似合理但不准确的内容。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:44:30',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             217,
             '0e514b113ccf467a811a0c1c41577a6f',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -77822,8 +78261,10 @@ AI 可能生成看似合理但不准确的内容。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:44:51',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             218,
             '0e514b113ccf467a811a0c1c41577a6f',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -78143,8 +78584,10 @@ AI 可能生成看似合理但不准确的内容。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:45:05',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             219,
             'cc28836de05745db920019c2b8d76c19',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -78167,8 +78610,10 @@ AI 可能生成看似合理但不准确的内容。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:45:22',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             220,
             'cc28836de05745db920019c2b8d76c19',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -78472,8 +78917,10 @@ AI 是工具，不是老师。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:45:35',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             221,
             'd9f2fe546647419f8e76f80b038d810d',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -78496,8 +78943,10 @@ AI 是工具，不是老师。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:45:54',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             222,
             'd9f2fe546647419f8e76f80b038d810d',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -78760,8 +79209,10 @@ AI 是工具，不是老师。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:46:06',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             223,
             '5d4cfd307015460888166ad556b97cbc',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -78784,8 +79235,10 @@ AI 是工具，不是老师。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:46:21',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             224,
             '5d4cfd307015460888166ad556b97cbc',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -79181,8 +79634,10 @@ AI 是工具，不是老师。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:46:34',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             225,
             '7dfa7bffef2b43abaf44038563ed451d',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -79205,8 +79660,10 @@ AI 是工具，不是老师。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:46:51',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
-    bind.execute(sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
+        )""")
+    )
+    bind.execute(
+        sa.text("""INSERT INTO shifu_draft_outline_items (`id`, `outline_item_bid`, `shifu_bid`, `title`, `type`, `hidden`, `parent_bid`, `position`, `prerequisite_item_bids`, `llm`, `llm_temperature`, `llm_system_prompt`, `ask_enabled_status`, `ask_llm`, `ask_llm_temperature`, `ask_llm_system_prompt`, `content`, `deleted`, `created_at`, `created_user_bid`, `updated_at`, `updated_user_bid`) VALUES (
             226,
             '7dfa7bffef2b43abaf44038563ed451d',
             '9eca13c4c7824d4687600af7c4a3828a',
@@ -79522,7 +79979,8 @@ IPMA 认证体系：D 级到 A 级。
             '382ce14af3f14834bf675dd24eec27f7',
             '2026-04-25 10:47:04',
             '382ce14af3f14834bf675dd24eec27f7'
-        )"""))
+        )""")
+    )
 
 
 def downgrade():

@@ -31,7 +31,6 @@ COURSE_TABLES = [
 ]
 
 
-
 def to_sql_literal(value):
     """Convert a value to a SQL literal string."""
     if value is None:
@@ -105,8 +104,7 @@ def generate_migration_file(app, migration_name):
                 tables_data[table_name] = {
                     "columns": columns,
                     "rows": [
-                        {col: row[i] for i, col in enumerate(columns)}
-                        for row in rows
+                        {col: row[i] for i, col in enumerate(columns)} for row in rows
                     ],
                 }
                 total_rows += len(rows)
@@ -138,9 +136,7 @@ def generate_migration_file(app, migration_name):
 
         # DELETE existing data for tables that have shifu_bid
         lines.append("    # Delete existing data for the same shifu_bids")
-        lines.append(
-            f'    shifu_bids = {repr(list(shifu_bids))}'
-        )
+        lines.append(f"    shifu_bids = {repr(list(shifu_bids))}")
         if tables_with_shifu_bid:
             lines.append("    for table_name in [")
             for table_name in tables_with_shifu_bid:
@@ -159,21 +155,13 @@ def generate_migration_file(app, migration_name):
 
         # DELETE for tables without shifu_bid (use scenario_id subquery)
         for table_name in tables_without_shifu_bid:
-            lines.append(
-                f"    # Delete {table_name} rows linked via scenario_id"
-            )
-            lines.append(
-                "    bind.execute("
-            )
-            lines.append(
-                "        sa.text("
-            )
+            lines.append(f"    # Delete {table_name} rows linked via scenario_id")
+            lines.append("    bind.execute(")
+            lines.append("        sa.text(")
             lines.append(
                 '            f"DELETE FROM {table_name} WHERE scenario_id IN :bids"'
             )
-            lines.append(
-                "        ).bindparams(sa.bindparam('bids', expanding=True)),"
-            )
+            lines.append("        ).bindparams(sa.bindparam('bids', expanding=True)),")
             lines.append("        {'bids': shifu_bids}")
             lines.append("    )")
             lines.append("")
@@ -193,7 +181,7 @@ def generate_migration_file(app, migration_name):
                 vals_str = ",\n            ".join(sql_vals)
                 lines.append(
                     f'    bind.execute(sa.text("""INSERT INTO {table_name} ({cols_sql}) VALUES (\n'
-                    f'            {vals_str}\n'
+                    f"            {vals_str}\n"
                     f'        )"""))'
                 )
 
@@ -245,22 +233,24 @@ def downgrade():
             f"\nMigration file generated: migrations/versions/{new_rev_id}_{migration_name}.py"
         )
         print(f"Total rows extracted: {total_rows}")
-        print(f"\nTo sync data on Mac: cd src/api && flask db upgrade")
+        print("\nTo sync data on Mac: cd src/api && flask db upgrade")
 
 
 def main():
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python scripts/generate_course_seed_migration.py <migration_name>")
-        print("Example: python scripts/generate_course_seed_migration.py seed_course_data")
+        print(
+            "Usage: python scripts/generate_course_seed_migration.py <migration_name>"
+        )
+        print(
+            "Example: python scripts/generate_course_seed_migration.py seed_course_data"
+        )
         sys.exit(1)
 
     migration_name = sys.argv[1]
     # Sanitize migration name
     migration_name = migration_name.replace("_", "").replace("-", "")
-    migration_name = "".join(
-        c for c in migration_name if c.isalnum() or c == "_"
-    )
+    migration_name = "".join(c for c in migration_name if c.isalnum() or c == "_")
 
     # Import Flask app
     sys.path.insert(0, str(Path(__file__).parent.parent))

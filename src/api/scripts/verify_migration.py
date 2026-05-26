@@ -4,8 +4,12 @@ import re
 import sys
 from pathlib import Path
 
-migration_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
-    "e:/Code/OpenSource/ai-shifu-TTS/src/api/migrations/versions/6f6b5b40a411_seedcoursedata.py"
+migration_path = (
+    Path(sys.argv[1])
+    if len(sys.argv) > 1
+    else Path(
+        "e:/Code/OpenSource/ai-shifu-TTS/src/api/migrations/versions/6f6b5b40a411_seedcoursedata.py"
+    )
 )
 
 content = migration_path.read_text(encoding="utf-8")
@@ -14,7 +18,7 @@ content = migration_path.read_text(encoding="utf-8")
 inserts = re.findall(
     r'bind\.execute\(sa\.text\("""INSERT INTO (\w+) \((.+?)\) VALUES \((.+?)\)"""\)\)',
     content,
-    re.DOTALL
+    re.DOTALL,
 )
 
 print(f"Total INSERT statements found: {len(inserts)}")
@@ -26,7 +30,9 @@ for table_name, cols_str, vals_str in inserts:
         tables[table_name] = {"count": 0, "columns": None, "errors": []}
     tables[table_name]["count"] += 1
     if tables[table_name]["columns"] is None:
-        tables[table_name]["columns"] = [c.strip().strip("`") for c in cols_str.split(",")]
+        tables[table_name]["columns"] = [
+            c.strip().strip("`") for c in cols_str.split(",")
+        ]
 
 # Check for common issues
 print("\n=== Table Summary ===")
@@ -78,7 +84,7 @@ else:
 outline_contents = re.findall(
     r"INSERT INTO shifu_draft_outline_items.*?'(.*?)'(?=\s*,\s*\d+\s*,\s*'[^']*'\s*,\s*\d+\s*,\s*\d+\s*,)",
     content,
-    re.DOTALL
+    re.DOTALL,
 )
 print(f"\nOutline item content entries found: {len(outline_contents)}")
 
@@ -101,12 +107,14 @@ for table_name, cols_str, vals_str in inserts:
         large_contents.append(len(vals_str))
 
 if large_contents:
-    print(f"Outline item value lengths: min={min(large_contents)}, max={max(large_contents)}, avg={sum(large_contents)//len(large_contents)}")
+    print(
+        f"Outline item value lengths: min={min(large_contents)}, max={max(large_contents)}, avg={sum(large_contents) // len(large_contents)}"
+    )
     if len(large_contents) != 226:
         print(f"WARNING: Expected 226 outline items, found {len(large_contents)}")
         issues += 1
     else:
-        print(f"Expected 226 outline items - OK")
+        print("Expected 226 outline items - OK")
 
 # 7. Verify the DELETE statement is present
 print("\n=== Idempotency Check ===")
@@ -117,13 +125,16 @@ else:
     issues += 1
 
 # 8. Check the shifu_bid
-if "9eca13c4c7824d4687600af7c40af7c4a3828a" in content or "9eca13c4c7824d4687600af7c4a3828a" in content:
+if (
+    "9eca13c4c7824d4687600af7c40af7c4a3828a" in content
+    or "9eca13c4c7824d4687600af7c4a3828a" in content
+):
     print("shifu_bid '9eca13c4c7824d4687600af7c4a3828a' found - OK")
 else:
     print("WARNING: shifu_bid not found!")
     issues += 1
 
-print(f"\n{'='*40}")
+print(f"\n{'=' * 40}")
 if issues == 0:
     print("All checks passed!")
 else:
