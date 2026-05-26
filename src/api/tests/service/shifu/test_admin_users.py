@@ -2074,6 +2074,51 @@ def test_get_operator_user_credits_keeps_consume_rows_without_usage_when_unfilte
     assert filtered_result.total == 0
 
 
+def test_get_operator_user_credits_empty_consume_filter_does_not_scan_usage_rows(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-empty-consume-user",
+            identify="credits-empty-consume@example.com",
+            nickname="Credits Empty Consume",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            updated_at=datetime(2026, 4, 9, 10, 0, 0),
+            providers=[("email", "credits-empty-consume@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="credits-empty-consume-user",
+            wallet_bid="wallet-credits-empty-consume-user",
+            available_credits="8.0000000000",
+        )
+        _seed_bill_usage_record(
+            usage_bid="usage-other-user",
+            user_bid="other-user",
+            shifu_bid="course-other-user",
+            progress_record_bid="progress-other-user",
+            outline_item_bid="lesson-other-user",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            created_at=datetime(2026, 4, 18, 9, 0, 0),
+            extra={"generation_name": "lesson_ask/filter"},
+        )
+
+        result = get_operator_user_credits(
+            app,
+            user_bid="credits-empty-consume-user",
+            page_index=1,
+            page_size=20,
+            filters={
+                "credit_type": "consume",
+                "usage_mode": "ask",
+            },
+        )
+
+    assert result.total == 0
+    assert result.items == []
+
+
 def test_get_operator_user_credit_usage_detail_returns_generated_content(app):
     with app.app_context():
         _seed_user(

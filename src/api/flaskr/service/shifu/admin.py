@@ -10,7 +10,7 @@ from json import JSONDecodeError
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
 from flask import Flask, current_app
-from sqlalchemy import and_, case, literal, not_, or_
+from sqlalchemy import and_, case, false, literal, not_, or_
 from sqlalchemy.orm import aliased, defer
 
 from flaskr.common.cache_provider import cache as redis
@@ -7320,6 +7320,8 @@ def _build_latest_bill_usage_record_subquery(
     )
     if normalized_user_bid:
         query = query.filter(BillUsageRecord.user_bid == normalized_user_bid)
+    if usage_bids is not None and not normalized_usage_bids:
+        query = query.filter(false())
     if normalized_usage_bids:
         query = query.filter(BillUsageRecord.usage_bid.in_(normalized_usage_bids))
     return query.group_by(BillUsageRecord.usage_bid).subquery()
