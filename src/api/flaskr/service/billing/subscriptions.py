@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import calendar
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -44,6 +43,7 @@ from .consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_BUCKET_STATUS_EXPIRED,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -68,6 +68,8 @@ from .queries import (
     extract_order_metadata_datetime as _extract_order_metadata_datetime,
     extract_resolved_order_cycle_end_at as _extract_resolved_order_cycle_end_at,
     extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
+    calculate_billing_cycle_end as _calc_provider_cycle_end,
+    calculate_self_managed_billing_cycle_end as _calc_self_managed_cycle_end,
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
     load_primary_active_subscription as _load_primary_active_subscription,
     load_subscription_by_bid as _load_subscription_by_bid,
@@ -103,6 +105,8 @@ _PENDING_RENEWAL_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
 )
+
+_SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
 
 
 @dataclass(slots=True, frozen=True)
@@ -442,7 +446,11 @@ def ensure_subscription_renewal_order(
     if product is None:
         return None
 
-    cycle_end_at = _calculate_billing_cycle_end(product, cycle_start_at=cycle_start_at)
+    cycle_end_at = _calculate_billing_cycle_end(
+        product,
+        cycle_start_at=cycle_start_at,
+        payment_provider=provider_name,
+    )
     if cycle_end_at is None:
         return None
 
@@ -548,6 +556,7 @@ def _ensure_pingxx_renewal_applied_cycle(
     shifted_cycle_end_at = _calculate_billing_cycle_end(
         product,
         cycle_start_at=shifted_cycle_start_at,
+        payment_provider=order.payment_provider,
     )
     if shifted_cycle_end_at is None:
         return
@@ -572,18 +581,18 @@ def _calculate_billing_cycle_end(
     product: BillingProduct,
     *,
     cycle_start_at: datetime,
+    payment_provider: str = "",
 ) -> datetime | None:
-    interval = int(product.billing_interval or 0)
-    interval_count = max(int(product.billing_interval_count or 0), 0)
-    if interval_count <= 0:
-        return None
-    if interval == BILLING_INTERVAL_DAY:
-        return cycle_start_at + timedelta(days=interval_count)
-    if interval == BILLING_INTERVAL_MONTH:
-        return _add_months(cycle_start_at, interval_count)
-    if interval == BILLING_INTERVAL_YEAR:
-        return _add_years(cycle_start_at, interval_count)
-    return None
+    provider = _normalize_bid(payment_provider)
+    if provider in _SELF_MANAGED_BILLING_PROVIDERS:
+        return _calc_self_managed_cycle_end(
+            product,
+            cycle_start_at=cycle_start_at,
+        )
+    return _calc_provider_cycle_end(
+        product,
+        cycle_start_at=cycle_start_at,
+    )
 
 
 def _should_defer_pingxx_renewal_activation(order: BillingOrder) -> bool:
@@ -779,6 +788,79 @@ def _load_grant_ledger_entry_for_order(order: BillingOrder) -> CreditLedgerEntry
     )
 
 
+def _repair_existing_paid_order_grant_bucket(
+    app: Flask,
+    *,
+    order: BillingOrder,
+    grant_entry: CreditLedgerEntry,
+) -> bool:
+    """Repair the mutable bucket snapshot for an already-granted paid order."""
+
+    if _normalize_bid(grant_entry.source_bid) != _normalize_bid(order.bill_order_bid):
+        return False
+
+    bucket = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.creator_bid == order.creator_bid,
+            CreditWalletBucket.wallet_bucket_bid == grant_entry.wallet_bucket_bid,
+        )
+        .order_by(CreditWalletBucket.id.desc())
+        .first()
+    )
+    if bucket is None:
+        return False
+
+    bucket_source_bid = _normalize_bid(bucket.source_bid)
+    if bucket_source_bid and bucket_source_bid != _normalize_bid(order.bill_order_bid):
+        return False
+
+    effective_to = grant_entry.expires_at
+    now = datetime.now()
+    if effective_to is not None and effective_to <= now:
+        return False
+
+    changed = False
+    effective_from = grant_entry.consumable_from
+    if effective_from is not None and bucket.effective_from != effective_from:
+        bucket.effective_from = effective_from
+        changed = True
+    if bucket.effective_to != effective_to:
+        bucket.effective_to = effective_to
+        changed = True
+    if bucket.source_bid != order.bill_order_bid:
+        bucket.source_bid = order.bill_order_bid
+        changed = True
+
+    previous_status = int(bucket.status or 0)
+    if previous_status == CREDIT_BUCKET_STATUS_EXPIRED and (
+        _to_decimal(bucket.available_credits) > 0
+        or _to_decimal(bucket.reserved_credits) > 0
+    ):
+        _prepare_bucket_for_runtime_reuse(bucket)
+        changed = True
+
+    sync_credit_bucket_status(bucket)
+    if int(bucket.status or 0) != previous_status:
+        changed = True
+
+    if not changed:
+        return False
+
+    bucket.updated_at = now
+    db.session.add(bucket)
+
+    wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+    refresh_credit_wallet_snapshot(wallet)
+    persist_credit_wallet_snapshot(
+        wallet,
+        available_credits=wallet.available_credits,
+        reserved_credits=wallet.reserved_credits,
+        updated_at=now,
+    )
+    return True
+
+
 def _should_reserve_subscription_renewal_grant(
     order: BillingOrder,
     *,
@@ -846,6 +928,14 @@ def _expire_credit_bucket_balance_for_transition(
     )
     db.session.add(ledger_entry)
     return available
+
+
+def _prepare_bucket_for_runtime_reuse(bucket: CreditWalletBucket) -> None:
+    """Allow an explicitly re-funded bucket to re-enter runtime status sync."""
+
+    current_status = int(bucket.status or 0)
+    if current_status == CREDIT_BUCKET_STATUS_EXPIRED:
+        bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED
 
 
 def _upsert_paid_order_credit_bucket(
@@ -927,6 +1017,7 @@ def _upsert_paid_order_credit_bucket(
             bucket.effective_to = effective_to
 
     bucket.updated_at = now
+    _prepare_bucket_for_runtime_reuse(bucket)
     sync_credit_bucket_status(bucket)
     db.session.add(bucket)
     return bucket, reserve_grant
@@ -1001,6 +1092,7 @@ def _activate_reserved_subscription_grant_for_order(
         **_build_bucket_metadata_from_order(order),
     }
     bucket.updated_at = now
+    _prepare_bucket_for_runtime_reuse(bucket)
     sync_credit_bucket_status(bucket)
     db.session.add(bucket)
 
@@ -1048,6 +1140,11 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         .first()
     )
     if existing_entry is not None:
+        _repair_existing_paid_order_grant_bucket(
+            app,
+            order=order,
+            grant_entry=existing_entry,
+        )
         _activate_subscription_for_paid_order(app, order)
         return False
 
@@ -1234,12 +1331,37 @@ def _resolve_credit_bucket_effective_to(
     if interval_count <= 0:
         return None
     if interval == BILLING_INTERVAL_DAY:
+        if _is_self_managed_billing_order(order):
+            return _calc_self_managed_cycle_end(
+                product,
+                cycle_start_at=effective_from,
+            )
         return effective_from + timedelta(days=interval_count)
     if interval == BILLING_INTERVAL_MONTH:
-        return _add_months(effective_from, interval_count)
+        if _is_self_managed_billing_order(order):
+            return _calc_self_managed_cycle_end(
+                product,
+                cycle_start_at=effective_from,
+            )
+        return _calc_provider_cycle_end(
+            product,
+            cycle_start_at=effective_from,
+        )
     if interval == BILLING_INTERVAL_YEAR:
-        return _add_years(effective_from, interval_count)
+        if _is_self_managed_billing_order(order):
+            return _calc_self_managed_cycle_end(
+                product,
+                cycle_start_at=effective_from,
+            )
+        return _calc_provider_cycle_end(
+            product,
+            cycle_start_at=effective_from,
+        )
     return None
+
+
+def _is_self_managed_billing_order(order: BillingOrder) -> bool:
+    return _normalize_bid(order.payment_provider) in _SELF_MANAGED_BILLING_PROVIDERS
 
 
 def _resolve_topup_bucket_effective_to(
@@ -1617,20 +1739,6 @@ def _resolve_credit_bucket_effective_from(
     ):
         return default_effective_from
     return subscription.current_period_end_at
-
-
-def _add_months(value: datetime, months: int) -> datetime:
-    month_index = value.month - 1 + months
-    year = value.year + month_index // 12
-    month = month_index % 12 + 1
-    day = min(value.day, calendar.monthrange(year, month)[1])
-    return value.replace(year=year, month=month, day=day)
-
-
-def _add_years(value: datetime, years: int) -> datetime:
-    year = value.year + years
-    day = min(value.day, calendar.monthrange(year, value.month)[1])
-    return value.replace(year=year, day=day)
 
 
 def _sync_subscription_lifecycle_events(

@@ -16,6 +16,7 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.user.models import UserVerifyCode
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 
 CodeKind = Literal["sms", "email"]
 
@@ -159,27 +160,59 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
         redis.delete(*cache_keys)
         return
 
-    cache_key = app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + identifier
-    cached = redis.get(cache_key)
+    raw_identifier = identifier
+    identifier = normalize_phone_identifier(raw_identifier)
+    if not identifier:
+        raise_error("server.common.unknownError")
+
+    lookup_identifiers = [identifier]
+    if raw_identifier and raw_identifier not in lookup_identifiers:
+        lookup_identifiers.append(raw_identifier)
+    cache_keys = [
+        app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + lookup_identifier
+        for lookup_identifier in lookup_identifiers
+    ]
+
+    cached = None
+    cached_identifier = identifier
+    for cache_key, lookup_identifier in zip(cache_keys, lookup_identifiers):
+        cached = redis.get(cache_key)
+        if cached is not None:
+            cached_identifier = lookup_identifier
+            break
+
     if cached is not None:
         if code != _decode_cache_value(cached):
             raise_error("server.user.smsCheckError")
-        _consume_latest_code_from_db(
-            app,
-            kind="sms",
-            identifier=identifier,
-            code=code,
-        )
-    else:
         status = _consume_latest_code_from_db(
             app,
             kind="sms",
-            identifier=identifier,
+            identifier=cached_identifier,
             code=code,
         )
+        if status != "ok" and cached_identifier != identifier:
+            _consume_latest_code_from_db(
+                app,
+                kind="sms",
+                identifier=identifier,
+                code=code,
+            )
+    else:
+        status = "expired"
+        for lookup_identifier in lookup_identifiers:
+            status = _consume_latest_code_from_db(
+                app,
+                kind="sms",
+                identifier=lookup_identifier,
+                code=code,
+            )
+            if status == "ok":
+                break
+            if status == "invalid":
+                break
         if status == "invalid":
             raise_error("server.user.smsCheckError")
         if status != "ok":
             raise_error("server.user.smsSendExpired")
 
-    redis.delete(cache_key)
+    redis.delete(*cache_keys)

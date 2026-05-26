@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from flask import Flask
 from sqlalchemy import case, or_
 
+from flaskr.dao import db
 from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -20,7 +22,9 @@ from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_FAILED,
     BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
+    BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
@@ -40,6 +44,7 @@ from .bucket_categories import (
     build_wallet_bucket_runtime_sort_key,
     load_billing_order_type_by_bid,
 )
+from .credit_notifications import resolve_creator_limit_state
 from .domains import build_creator_domain_bindings, manage_creator_domain_binding
 from .dtos import (
     AdminBillingDailyLedgerSummaryPageDTO,
@@ -59,6 +64,7 @@ from .dtos import (
     BillingOrdersPageDTO,
     BillingPlanDTO,
     OperatorCreditOrderDetailDTO,
+    OperatorCreditOrderOverviewDTO,
     OperatorCreditOrdersPageDTO,
     BillingSubscriptionsPageDTO,
     BillingTopupProductDTO,
@@ -123,7 +129,7 @@ from .wallets import adjust_credit_wallet_balance
 
 DEFAULT_PAGE_INDEX = 1
 DEFAULT_PAGE_SIZE = 20
-_OPERATOR_PRODUCT_FILTER_LANGUAGES = ("zh-CN", "en-US")
+_OPERATOR_PRODUCT_FILTER_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 
 
 def _is_public_trial_catalog_product(row: BillingProduct) -> bool:
@@ -190,6 +196,10 @@ def _load_matching_credit_order_product_bids(keyword: str) -> list[str]:
     if matched_product_bids:
         return matched_product_bids
 
+    numeric_match_bids = _load_numeric_credit_order_product_bids(normalized_keyword)
+    if numeric_match_bids:
+        return numeric_match_bids
+
     translated_name_candidates = (
         BillingProduct.query.filter(BillingProduct.display_name_i18n_key != "")
         .order_by(BillingProduct.id.desc())
@@ -205,6 +215,41 @@ def _load_matching_credit_order_product_bids(keyword: str) -> list[str]:
             if normalized_product_bid:
                 translated_match_bids.append(normalized_product_bid)
     return translated_match_bids
+
+
+def _load_numeric_credit_order_product_bids(keyword: str) -> list[str]:
+    normalized_keyword = str(keyword or "").strip().replace(",", "")
+    if not normalized_keyword:
+        return []
+
+    try:
+        numeric_value = Decimal(normalized_keyword)
+    except (InvalidOperation, ValueError):
+        return []
+    if not numeric_value.is_finite():
+        return []
+
+    filters = [BillingProduct.credit_amount == numeric_value]
+    price_amount_candidates: set[int] = set()
+    if numeric_value >= 0:
+        if numeric_value == numeric_value.to_integral_value():
+            price_amount_candidates.add(int(numeric_value))
+        price_amount_minor = numeric_value * Decimal("100")
+        if price_amount_minor == price_amount_minor.to_integral_value():
+            price_amount_candidates.add(int(price_amount_minor))
+    if price_amount_candidates:
+        filters.append(BillingProduct.price_amount.in_(sorted(price_amount_candidates)))
+
+    rows = (
+        BillingProduct.query.filter(or_(*filters))
+        .order_by(BillingProduct.id.desc())
+        .all()
+    )
+    return [
+        normalized_product_bid
+        for product in rows
+        if (normalized_product_bid := str(product.product_bid or "").strip())
+    ]
 
 
 def _load_usage_record_map(usage_bids: list[str]) -> dict[str, BillUsageRecord]:
@@ -549,12 +594,19 @@ def build_billing_overview(
         subscription_payload = _serialize_subscription(
             app, subscription, timezone_name=timezone_name
         )
+        limit_state = resolve_creator_limit_state(app, normalized_creator_bid)
+        softlimit_threshold = limit_state.get("softlimit_threshold")
         return BillingOverviewDTO(
             creator_bid=normalized_creator_bid,
             wallet=wallet_payload,
             subscription=subscription_payload,
             billing_alerts=_build_billing_alerts(wallet_payload, subscription),
             trial_offer=trial_offer,
+            credit_status=str(limit_state.get("state") or "normal"),
+            debug_allowed=bool(limit_state.get("debug_allowed", True)),
+            softlimit_threshold=(
+                str(softlimit_threshold) if softlimit_threshold is not None else None
+            ),
         )
 
 
@@ -1094,6 +1146,7 @@ def build_operator_credit_orders_page(
     bill_order_bid: str = "",
     credit_order_kind: str = "",
     status: str = "",
+    has_available_credits: bool = False,
     payment_provider: str = "",
     start_time: Any = "",
     end_time: Any = "",
@@ -1147,6 +1200,17 @@ def build_operator_credit_orders_page(
 
         if status_code is not None:
             query = query.filter(BillingOrder.status == status_code)
+
+        if has_available_credits:
+            query = query.filter(
+                db.session.query(CreditWalletBucket.id)
+                .filter(
+                    CreditWalletBucket.deleted == 0,
+                    CreditWalletBucket.source_bid == BillingOrder.bill_order_bid,
+                    CreditWalletBucket.available_credits > 0,
+                )
+                .exists()
+            )
 
         if normalized_payment_provider:
             query = query.filter(
@@ -1206,6 +1270,116 @@ def build_operator_credit_orders_page(
             page_count=payload.page_count,
             page_size=payload.page_size,
             total=payload.total,
+        )
+
+
+def build_operator_credit_orders_overview(
+    app: Flask,
+) -> OperatorCreditOrderOverviewDTO:
+    """Return aggregate metrics for operator creator credit orders."""
+
+    with app.app_context():
+        summary = (
+            BillingOrder.query.with_entities(
+                db.func.count(BillingOrder.id).label("total_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_PAID, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("paid_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_PENDING, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("pending_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_REFUNDED, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("refunded_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_TIMEOUT, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("closed_order_count"),
+                db.func.coalesce(
+                    db.func.sum(
+                        case(
+                            (BillingOrder.status == BILLING_ORDER_STATUS_CANCELED, 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("canceled_order_count"),
+            )
+            .filter(BillingOrder.deleted == 0)
+            .one()
+        )
+        available_credit_total = (
+            db.session.query(
+                db.func.coalesce(
+                    db.func.sum(CreditWallet.available_credits),
+                    0,
+                )
+            )
+            .filter(CreditWallet.deleted == 0)
+            .scalar()
+        )
+        paid_amount_rows = (
+            db.session.query(
+                BillingOrder.currency.label("currency"),
+                db.func.coalesce(
+                    db.func.sum(BillingOrder.paid_amount),
+                    0,
+                ).label("paid_amount_total"),
+            )
+            .filter(
+                BillingOrder.deleted == 0,
+                BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+            )
+            .group_by(BillingOrder.currency)
+            .all()
+        )
+        paid_amount_totals_by_currency = {
+            str(row.currency or "CNY"): int(row.paid_amount_total or 0)
+            for row in paid_amount_rows
+        }
+        if len(paid_amount_totals_by_currency) == 1:
+            currency, paid_amount_total = next(
+                iter(paid_amount_totals_by_currency.items())
+            )
+        elif len(paid_amount_totals_by_currency) == 0:
+            currency, paid_amount_total = "CNY", 0
+        else:
+            currency, paid_amount_total = "", 0
+
+        return OperatorCreditOrderOverviewDTO(
+            total_order_count=int(summary.total_order_count or 0),
+            paid_order_count=int(summary.paid_order_count or 0),
+            pending_order_count=int(summary.pending_order_count or 0),
+            refunded_order_count=int(summary.refunded_order_count or 0),
+            closed_order_count=int(summary.closed_order_count or 0),
+            canceled_order_count=int(summary.canceled_order_count or 0),
+            available_credit_total=credit_decimal_to_number(available_credit_total),
+            paid_amount_total=paid_amount_total,
+            currency=str(currency or ""),
+            paid_amount_totals_by_currency=paid_amount_totals_by_currency,
         )
 
 

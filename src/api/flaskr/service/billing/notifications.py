@@ -111,6 +111,11 @@ def _supports_subscription_purchase_sms(order: BillingOrder | None) -> bool:
     return int(order.order_type or 0) in _SUPPORTED_ORDER_TYPES
 
 
+def load_creator_mobile_snapshot(creator_bid: str) -> str:
+    aggregate = load_user_aggregate(_normalize_bid(creator_bid))
+    return _normalize_bid(getattr(aggregate, "mobile", ""))
+
+
 def _read_order_metadata(order: BillingOrder) -> dict[str, Any]:
     if isinstance(order.metadata_json, dict):
         return deepcopy(order.metadata_json)
@@ -363,6 +368,10 @@ def _resolve_notification_product_name(
             translated_name = str(translate(display_name_key) or "").strip()
             if translated_name == display_name_key:
                 translated_name = ""
+            translated_name = translated_name.replace(
+                "{credits}",
+                _format_credit_amount(product.credit_amount),
+            )
         return (
             translated_name
             or _normalize_bid(product.product_code)

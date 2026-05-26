@@ -1,0 +1,10 @@
+{
+  "__namespace__": "server.common",
+  "__flat__": {
+    "backgroundNotAllowed": "Arrière-plan non autorisé.",
+    "nicknameNotAllowed": "Pseudonyme non autorisé.",
+    "paramsError": "Erreur de paramètres {param_message}",
+    "systemError": "Erreur système",
+    "unknownError": "Erreur inconnue"
+  }
+}

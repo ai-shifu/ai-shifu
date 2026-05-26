@@ -1,13 +1,12 @@
-"""Billing domain constants and seed catalog definitions."""
+"""Billing domain constants."""
 
 from __future__ import annotations
 
 import json
-from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -295,281 +294,84 @@ BILL_CONFIG_KEY_CREDIT_PRECISION = "BILL_CREDIT_PRECISION"
 BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD = "BILL_LOW_BALANCE_THRESHOLD"
 BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG = "BILL_RENEWAL_TASK_CONFIG"
 BILL_CONFIG_KEY_RATE_VERSION = "BILL_RATE_VERSION"
+BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG = "BILL_CREDIT_NOTIFICATION_SMS_CONFIG"
 
+CREDIT_NOTIFICATION_TYPE_EXPIRING = "credit_expiring"
+CREDIT_NOTIFICATION_TYPE_GRANTED = "credit_granted"
+CREDIT_NOTIFICATION_TYPE_LOW_BALANCE = "low_balance"
+CREDIT_NOTIFICATION_CHANNEL_SMS = "sms"
 
-BILLING_BOOTSTRAP_PRODUCT_ROWS: tuple[dict[str, Any], ...] = (
-    {
-        "product_bid": BILLING_TRIAL_PRODUCT_BID,
-        "product_code": BILLING_TRIAL_PRODUCT_CODE,
-        "product_type": BILLING_PRODUCT_TYPE_PLAN,
-        "billing_mode": BILLING_MODE_MANUAL,
-        "billing_interval": BILLING_INTERVAL_NONE,
-        "billing_interval_count": 0,
-        "display_name_i18n_key": "module.billing.package.free.title",
-        "description_i18n_key": "module.billing.package.free.description",
-        "currency": "CNY",
-        "price_amount": 0,
-        "credit_amount": Decimal("100.0000000000"),
-        "allocation_interval": ALLOCATION_INTERVAL_MANUAL,
-        "auto_renew_enabled": 0,
-        "entitlement_payload": None,
-        "metadata": {
-            BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG: True,
-            BILLING_TRIAL_PRODUCT_METADATA_VALID_DAYS: 15,
-            BILLING_TRIAL_PRODUCT_METADATA_STARTS_ON_FIRST_GRANT: True,
-            "highlights": [
-                "module.billing.package.features.free.publish",
-                "module.billing.package.features.free.preview",
-            ],
-        },
-        "status": BILLING_PRODUCT_STATUS_ACTIVE,
-        "sort_order": 5,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "bill-product-plan-monthly",
-        "product_code": "creator-plan-monthly",
-        "product_type": BILLING_PRODUCT_TYPE_PLAN,
-        "billing_mode": BILLING_MODE_RECURRING,
-        "billing_interval": BILLING_INTERVAL_MONTH,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorMonthly.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorMonthly.description",
-        "currency": "CNY",
-        "price_amount": 990,
-        "credit_amount": Decimal("5.0000000000"),
-        "allocation_interval": ALLOCATION_INTERVAL_PER_CYCLE,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": {
-            "highlights": [
-                "module.billing.package.features.monthly.publish",
-                "module.billing.package.features.monthly.preview",
-            ]
-        },
-        "status": BILLING_PRODUCT_STATUS_ACTIVE,
-        "sort_order": 10,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "bill-product-plan-monthly-pro",
-        "product_code": "creator-plan-monthly-pro",
-        "product_type": BILLING_PRODUCT_TYPE_PLAN,
-        "billing_mode": BILLING_MODE_RECURRING,
-        "billing_interval": BILLING_INTERVAL_MONTH,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorMonthlyPro.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorMonthlyPro.description",
-        "currency": "CNY",
-        "price_amount": 19900,
-        "credit_amount": Decimal("100.0000000000"),
-        "allocation_interval": ALLOCATION_INTERVAL_PER_CYCLE,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": {
-            "badge": "recommended",
-            "highlights": [
-                "module.billing.package.features.monthly.publish",
-                "module.billing.package.features.monthly.preview",
-                "module.billing.package.features.monthly.support",
-            ],
-        },
-        "status": BILLING_PRODUCT_STATUS_ACTIVE,
-        "sort_order": 20,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "bill-product-plan-yearly-lite",
-        "product_code": "creator-plan-yearly-lite",
-        "product_type": BILLING_PRODUCT_TYPE_PLAN,
-        "billing_mode": BILLING_MODE_RECURRING,
-        "billing_interval": BILLING_INTERVAL_YEAR,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorYearlyLite.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorYearlyLite.description",
-        "currency": "CNY",
-        "price_amount": 800000,
-        "credit_amount": Decimal("5000.0000000000"),
-        "allocation_interval": ALLOCATION_INTERVAL_PER_CYCLE,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": {
-            "highlights": [
-                "module.billing.package.features.yearly.lite.ops",
-                "module.billing.package.features.yearly.lite.publish",
-            ]
-        },
-        "status": BILLING_PRODUCT_STATUS_ACTIVE,
-        "sort_order": 30,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "bill-product-plan-yearly",
-        "product_code": "creator-plan-yearly",
-        "product_type": BILLING_PRODUCT_TYPE_PLAN,
-        "billing_mode": BILLING_MODE_RECURRING,
-        "billing_interval": BILLING_INTERVAL_YEAR,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorYearly.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorYearly.description",
-        "currency": "CNY",
-        "price_amount": 1500000,
-        "credit_amount": Decimal("10000.0000000000"),
-        "allocation_interval": ALLOCATION_INTERVAL_PER_CYCLE,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": {
-            "highlights": [
-                "module.billing.package.features.yearly.pro.branding",
-                "module.billing.package.features.yearly.pro.domain",
-                "module.billing.package.features.yearly.pro.priority",
-                "module.billing.package.features.yearly.pro.analytics",
-                "module.billing.package.features.yearly.pro.support",
-            ]
-        },
-        "status": BILLING_PRODUCT_STATUS_ACTIVE,
-        "sort_order": 40,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "bill-product-plan-yearly-premium",
-        "product_code": "creator-plan-yearly-premium",
-        "product_type": BILLING_PRODUCT_TYPE_PLAN,
-        "billing_mode": BILLING_MODE_RECURRING,
-        "billing_interval": BILLING_INTERVAL_YEAR,
-        "billing_interval_count": 1,
-        "display_name_i18n_key": "module.billing.catalog.plans.creatorYearlyPremium.title",
-        "description_i18n_key": "module.billing.catalog.plans.creatorYearlyPremium.description",
-        "currency": "CNY",
-        "price_amount": 3000000,
-        "credit_amount": Decimal("22000.0000000000"),
-        "allocation_interval": ALLOCATION_INTERVAL_PER_CYCLE,
-        "auto_renew_enabled": 1,
-        "entitlement_payload": None,
-        "metadata": {
-            "badge": "best_value",
-            "highlights": [
-                "module.billing.package.features.yearly.premium.branding",
-                "module.billing.package.features.yearly.premium.domain",
-                "module.billing.package.features.yearly.premium.priority",
-                "module.billing.package.features.yearly.premium.analytics",
-                "module.billing.package.features.yearly.premium.support",
-            ],
-        },
-        "status": BILLING_PRODUCT_STATUS_ACTIVE,
-        "sort_order": 50,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "bill-product-topup-small",
-        "product_code": "creator-topup-small",
-        "product_type": BILLING_PRODUCT_TYPE_TOPUP,
-        "billing_mode": BILLING_MODE_ONE_TIME,
-        "billing_interval": BILLING_INTERVAL_NONE,
-        "billing_interval_count": 0,
-        "display_name_i18n_key": "module.billing.catalog.topups.creatorSmall.title",
-        "description_i18n_key": "module.billing.catalog.topups.creatorSmall.description",
-        "currency": "CNY",
-        "price_amount": 5000,
-        "credit_amount": Decimal("20.0000000000"),
-        "allocation_interval": ALLOCATION_INTERVAL_ONE_TIME,
-        "auto_renew_enabled": 0,
-        "entitlement_payload": None,
-        "metadata": None,
-        "status": BILLING_PRODUCT_STATUS_ACTIVE,
-        "sort_order": 60,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "bill-product-topup-medium",
-        "product_code": "creator-topup-medium",
-        "product_type": BILLING_PRODUCT_TYPE_TOPUP,
-        "billing_mode": BILLING_MODE_ONE_TIME,
-        "billing_interval": BILLING_INTERVAL_NONE,
-        "billing_interval_count": 0,
-        "display_name_i18n_key": "module.billing.catalog.topups.creatorMedium.title",
-        "description_i18n_key": "module.billing.catalog.topups.creatorMedium.description",
-        "currency": "CNY",
-        "price_amount": 9900,
-        "credit_amount": Decimal("50.0000000000"),
-        "allocation_interval": ALLOCATION_INTERVAL_ONE_TIME,
-        "auto_renew_enabled": 0,
-        "entitlement_payload": None,
-        "metadata": None,
-        "status": BILLING_PRODUCT_STATUS_ACTIVE,
-        "sort_order": 70,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "bill-product-topup-large",
-        "product_code": "creator-topup-large",
-        "product_type": BILLING_PRODUCT_TYPE_TOPUP,
-        "billing_mode": BILLING_MODE_ONE_TIME,
-        "billing_interval": BILLING_INTERVAL_NONE,
-        "billing_interval_count": 0,
-        "display_name_i18n_key": "module.billing.catalog.topups.creatorLarge.title",
-        "description_i18n_key": "module.billing.catalog.topups.creatorLarge.description",
-        "currency": "CNY",
-        "price_amount": 19900,
-        "credit_amount": Decimal("120.0000000000"),
-        "allocation_interval": ALLOCATION_INTERVAL_ONE_TIME,
-        "auto_renew_enabled": 0,
-        "entitlement_payload": None,
-        "metadata": None,
-        "status": BILLING_PRODUCT_STATUS_ACTIVE,
-        "sort_order": 80,
-        "deleted": 0,
-    },
-    {
-        "product_bid": "bill-product-topup-xlarge",
-        "product_code": "creator-topup-xlarge",
-        "product_type": BILLING_PRODUCT_TYPE_TOPUP,
-        "billing_mode": BILLING_MODE_ONE_TIME,
-        "billing_interval": BILLING_INTERVAL_NONE,
-        "billing_interval_count": 0,
-        "display_name_i18n_key": "module.billing.catalog.topups.creatorXLarge.title",
-        "description_i18n_key": "module.billing.catalog.topups.creatorXLarge.description",
-        "currency": "CNY",
-        "price_amount": 49900,
-        "credit_amount": Decimal("320.0000000000"),
-        "allocation_interval": ALLOCATION_INTERVAL_ONE_TIME,
-        "auto_renew_enabled": 0,
-        "entitlement_payload": None,
-        "metadata": {"badge": "best_value"},
-        "status": BILLING_PRODUCT_STATUS_ACTIVE,
-        "sort_order": 90,
-        "deleted": 0,
-    },
-)
+CREDIT_NOTIFICATION_STATUS_PENDING = "pending"
+CREDIT_NOTIFICATION_STATUS_SENT = "sent"
+CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE = "skipped_no_mobile"
+CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT = "skipped_opt_out"
+CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE = "suppressed_duplicate"
+CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER = "failed_provider"
 
-_BILLING_BOOTSTRAP_PRODUCT_ROWS_BY_BID = {
-    str(row["product_bid"]): row for row in BILLING_BOOTSTRAP_PRODUCT_ROWS
+CREDIT_NOTIFICATION_PROCESSABLE_STATUSES = {
+    CREDIT_NOTIFICATION_STATUS_PENDING,
+    CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
 }
 
-
-def list_billing_bootstrap_product_rows(
-    *,
-    product_bids: Iterable[str] | None = None,
-    overrides_by_bid: Mapping[str, Mapping[str, Any]] | None = None,
-) -> list[dict[str, Any]]:
-    selected_bids = (
-        tuple(str(product_bid) for product_bid in product_bids)
-        if product_bids is not None
-        else tuple(_BILLING_BOOTSTRAP_PRODUCT_ROWS_BY_BID.keys())
-    )
-
-    rows: list[dict[str, Any]] = []
-    for product_bid in selected_bids:
-        base_row = _BILLING_BOOTSTRAP_PRODUCT_ROWS_BY_BID.get(product_bid)
-        if base_row is None:
-            raise AssertionError(f"unknown billing product seed: {product_bid}")
-
-        payload = deepcopy(base_row)
-        if overrides_by_bid and product_bid in overrides_by_bid:
-            for key, value in overrides_by_bid[product_bid].items():
-                payload[key] = deepcopy(value)
-        rows.append(payload)
-    return rows
+DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG = {
+    "enabled": False,
+    "channel": CREDIT_NOTIFICATION_CHANNEL_SMS,
+    "types": {
+        CREDIT_NOTIFICATION_TYPE_EXPIRING: {
+            "enabled": False,
+            "template_code": "",
+            "windows": ["7d", "3d", "1d", "0d"],
+            "merge_same_creator": True,
+        },
+        CREDIT_NOTIFICATION_TYPE_GRANTED: {
+            "enabled": False,
+            "template_code": "",
+        },
+        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE: {
+            "enabled": False,
+            "template_code": "",
+            "thresholds": [
+                {
+                    "kind": "fixed",
+                    "value": "0",
+                }
+            ],
+        },
+    },
+    "softlimit": {
+        "enabled": False,
+        "threshold": {
+            "kind": "fixed",
+            "value": "0",
+        },
+        "teacher_page_alert": True,
+        "disable_debug": True,
+        "sms_enabled": False,
+    },
+    "frequency": {
+        "per_mobile_per_day": 3,
+        "per_creator_per_type_per_day": 1,
+    },
+    "quiet_hours": {
+        "enabled": False,
+        "start": "22:00",
+        "end": "09:00",
+        "timezone": "Asia/Shanghai",
+    },
+    "blacklist": {
+        "creator_bids": [],
+        "mobiles": [],
+    },
+    "opt_out": {
+        "creator_bids": [],
+        "mobiles": [],
+    },
+    "budget": {
+        "daily_sms_limit": 0,
+        "dry_run_required": True,
+        "sms_unit_cost": "0",
+    },
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -686,6 +488,19 @@ BILL_SYS_CONFIG_SEEDS = (
         "value": "bootstrap-v1",
         "is_encrypted": 0,
         "remark": "Billing rate version bootstrap marker",
+        "deleted": 0,
+        "updated_by": "system",
+    },
+    {
+        "config_bid": "bill-config-credit-notification-sms",
+        "key": BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
+        "value": json.dumps(
+            DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG,
+            separators=(",", ":"),
+            sort_keys=True,
+        ),
+        "is_encrypted": 0,
+        "remark": "Credit notification SMS policy config",
         "deleted": 0,
         "updated_by": "system",
     },

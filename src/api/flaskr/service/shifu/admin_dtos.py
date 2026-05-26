@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from flaskr.common.swagger import register_schema_to_swagger
+from flaskr.service.billing.dtos import BillingPlanDTO
 
 
 @register_schema_to_swagger
@@ -98,6 +100,69 @@ class AdminOperationCourseSummaryDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AdminOperationCourseOverviewDTO(BaseModel):
+    """Overview metrics shown above the operator course list."""
+
+    total_course_count: int = Field(
+        default=0,
+        description="Total visible course count",
+        required=False,
+    )
+    draft_course_count: int = Field(
+        default=0,
+        description="Visible draft-only course count",
+        required=False,
+    )
+    published_course_count: int = Field(
+        default=0,
+        description="Visible published course count",
+        required=False,
+    )
+    created_last_7d_course_count: int = Field(
+        default=0,
+        description="Visible courses created in the last 7 days",
+        required=False,
+    )
+    learning_active_30d_course_count: int = Field(
+        default=0,
+        description="Visible courses with learning records in the last 30 days",
+        required=False,
+    )
+    paid_order_30d_course_count: int = Field(
+        default=0,
+        description="Visible courses with successful orders in the last 30 days",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCourseListDTO(BaseModel):
+    """Operator-facing paginated course list payload."""
+
+    items: list[AdminOperationCourseSummaryDTO] = Field(
+        default_factory=list,
+        description="Paginated course rows",
+        required=False,
+    )
+    page: int = Field(..., description="Page index", required=False)
+    page_size: int = Field(..., description="Page size", required=False)
+    total: int = Field(..., description="Total row count", required=False)
+    page_count: int = Field(..., description="Page count", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "items": [item.__json__() for item in self.items],
+            "page": self.page,
+            "page_size": self.page_size,
+            "total": self.total,
+            "page_count": self.page_count,
+        }
+
+
+@register_schema_to_swagger
 class AdminOperationUserCourseSummaryDTO(BaseModel):
     """Course summary shown in operator user-related course lists."""
 
@@ -152,9 +217,19 @@ class AdminOperationUserSummaryDTO(BaseModel):
         description="Courses the user learned via successful orders",
         required=False,
     )
+    learning_course_count: int = Field(
+        default=0,
+        description="Count of courses the user learned",
+        required=False,
+    )
     created_courses: list[AdminOperationUserCourseSummaryDTO] = Field(
         default_factory=list,
         description="Courses created by the user",
+        required=False,
+    )
+    created_course_count: int = Field(
+        default=0,
+        description="Count of courses created by the user",
         required=False,
     )
     total_paid_amount: str = Field(
@@ -205,6 +280,93 @@ class AdminOperationUserSummaryDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AdminOperationUserOverviewDTO(BaseModel):
+    """Overview metrics shown in the operator user list."""
+
+    total_user_count: int = Field(default=0, description="Total users", required=False)
+    registered_user_count: int = Field(
+        default=0,
+        description="Users whose current status is registered, trial, or paid",
+        required=False,
+    )
+    creator_user_count: int = Field(
+        default=0, description="Users with creator identity", required=False
+    )
+    learner_user_count: int = Field(
+        default=0,
+        description="Users with learner identity or learning access",
+        required=False,
+    )
+    paid_user_count: int = Field(
+        default=0, description="Users whose status is paid", required=False
+    )
+    created_last_30d_user_count: int = Field(
+        default=0,
+        description="Users created in the last 30 calendar days",
+        required=False,
+    )
+    registered_last_30d_user_count: int = Field(
+        default=0,
+        description="Users who completed registration in the last 30 calendar days",
+        required=False,
+    )
+    learning_active_30d_user_count: int = Field(
+        default=0,
+        description="Distinct users with learning activity in the last 30 days",
+        required=False,
+    )
+    paid_last_30d_user_count: int = Field(
+        default=0,
+        description="Distinct users with successful payments in the last 30 days",
+        required=False,
+    )
+    guest_user_count: int = Field(
+        default=0, description="Users whose status is unregistered", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserListDTO(BaseModel):
+    """Paginated operator user list."""
+
+    page: int = Field(..., description="page", required=False)
+    page_size: int = Field(..., description="page_size", required=False)
+    total: int = Field(..., description="total", required=False)
+    page_count: int = Field(..., description="page_count", required=False)
+    data: list[AdminOperationUserSummaryDTO] = Field(
+        default_factory=list, description="data", required=False
+    )
+
+    def __init__(
+        self,
+        page: int,
+        page_size: int,
+        total: int,
+        data: list[AdminOperationUserSummaryDTO],
+    ) -> None:
+        safe_page_size = int(page_size or 0)
+        super().__init__(
+            page=page,
+            page_size=page_size,
+            total=total,
+            page_count=math.ceil(total / safe_page_size if safe_page_size > 0 else 0),
+            data=data,
+        )
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "page": self.page,
+            "page_size": self.page_size,
+            "total": self.total,
+            "page_count": self.page_count,
+            "items": [item.__json__() for item in self.data],
+        }
+
+
+@register_schema_to_swagger
 class AdminOperationUserCreditSummaryDTO(BaseModel):
     """Credits summary shown in the operator user detail."""
 
@@ -245,14 +407,19 @@ class AdminOperationUserCreditGrantRequestDTO(BaseModel):
     request_id: str = Field(
         ...,
         description="Client request identifier for idempotent credit grants",
-        required=False,
+        required=True,
     )
-    amount: str = Field(..., description="Granted credits amount", required=False)
+    amount: str = Field(..., description="Granted credits amount", required=True)
     grant_source: str = Field(
-        ..., description="Grant source: reward or compensation", required=False
+        ..., description="Grant source: reward or compensation", required=True
     )
     validity_preset: str = Field(
-        ..., description="Grant validity preset", required=False
+        ..., description="Grant validity preset", required=True
+    )
+    display_name: str = Field(
+        default="",
+        description="Optional user-visible grant display name",
+        required=False,
     )
     note: str = Field(default="", description="Optional operator note", required=False)
 
@@ -264,6 +431,7 @@ class AdminOperationUserCreditGrantRequestDTO(BaseModel):
 class AdminOperationUserCreditGrantResultDTO(BaseModel):
     """Operator credits grant response payload."""
 
+    status: str = Field(default="granted", description="Grant result status")
     user_bid: str = Field(..., description="Target user business identifier")
     amount: str = Field(..., description="Granted credits amount", required=False)
     grant_source: str = Field(
@@ -275,11 +443,106 @@ class AdminOperationUserCreditGrantResultDTO(BaseModel):
     expires_at: str = Field(
         default="", description="Resolved expiry timestamp", required=False
     )
+    display_name: str = Field(
+        default="",
+        description="User-visible grant display name",
+        required=False,
+    )
+    note: str = Field(
+        default="",
+        description="User-visible grant note",
+        required=False,
+    )
     wallet_bucket_bid: str = Field(
         ..., description="Created wallet bucket identifier", required=False
     )
     ledger_bid: str = Field(
         ..., description="Created ledger identifier", required=False
+    )
+    summary: AdminOperationUserCreditSummaryDTO = Field(
+        ..., description="Refreshed credits summary", required=False
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserGrantBootstrapDTO(BaseModel):
+    """Operator grant dialog bootstrap payload."""
+
+    plans: list[BillingPlanDTO] = Field(
+        default_factory=list,
+        description="Grantable billing plans",
+        required=False,
+    )
+    current_subscription_product_display_name_i18n_key: str = Field(
+        default="",
+        description="Current active subscription product display name i18n key",
+        required=False,
+    )
+    notification_status: str = Field(
+        default="template_pending",
+        description="Current admin package notification template status",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "plans": [item.__json__() for item in self.plans],
+            "current_subscription_product_display_name_i18n_key": (
+                self.current_subscription_product_display_name_i18n_key
+            ),
+            "notification_status": self.notification_status,
+        }
+
+
+@register_schema_to_swagger
+class AdminOperationUserPackageGrantRequestDTO(BaseModel):
+    """Operator package grant request payload."""
+
+    request_id: str = Field(
+        ...,
+        description="Client request identifier for idempotent package grants",
+        required=True,
+    )
+    product_bid: str = Field(
+        ...,
+        description="Granted billing plan product identifier",
+        required=True,
+    )
+    note: str = Field(default="", description="Optional operator note", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationUserPackageGrantResultDTO(BaseModel):
+    """Operator package grant response payload."""
+
+    user_bid: str = Field(..., description="Target user business identifier")
+    product_bid: str = Field(..., description="Granted billing plan identifier")
+    subscription_bid: str = Field(
+        ..., description="Active subscription identifier", required=False
+    )
+    bill_order_bid: str = Field(
+        ..., description="Created billing order identifier", required=False
+    )
+    current_period_start_at: str = Field(
+        default="",
+        description="Resolved subscription effective start timestamp",
+        required=False,
+    )
+    current_period_end_at: str = Field(
+        default="",
+        description="Resolved subscription effective end timestamp",
+        required=False,
+    )
+    notification_status: str = Field(
+        default="template_pending",
+        description="Admin package notification template status",
+        required=False,
     )
     summary: AdminOperationUserCreditSummaryDTO = Field(
         ..., description="Refreshed credits summary", required=False
@@ -713,6 +976,102 @@ class AdminOperationCourseRatingListDTO(BaseModel):
     def __json__(self) -> dict[str, Any]:
         return {
             "summary": self.summary.__json__(),
+            "items": [item.__json__() for item in self.items],
+            "page": self.page,
+            "page_size": self.page_size,
+            "total": self.total,
+            "page_count": self.page_count,
+        }
+
+
+@register_schema_to_swagger
+class AdminOperationCourseCreditUsageItemDTO(BaseModel):
+    """Operator-facing course credit usage row."""
+
+    model_config = ConfigDict(protected_namespaces=())
+
+    group_key: str = Field(
+        default="",
+        description="Grouped row business key or raw usage key",
+        required=False,
+    )
+    usage_bid: str = Field(..., description="Usage business identifier", required=False)
+    progress_record_bid: str = Field(
+        default="",
+        description="Progress record business identifier",
+        required=False,
+    )
+    generated_block_bid: str = Field(
+        default="",
+        description="Generated block business identifier",
+        required=False,
+    )
+    user_bid: str = Field(..., description="User business identifier", required=False)
+    mobile: str = Field(..., description="User mobile", required=False)
+    email: str = Field(..., description="User email", required=False)
+    nickname: str = Field(..., description="User nickname", required=False)
+    chapter_outline_item_bid: str = Field(
+        default="",
+        description="Chapter outline item business identifier",
+        required=False,
+    )
+    chapter_title: str = Field(default="", description="Chapter title", required=False)
+    lesson_outline_item_bid: str = Field(
+        default="",
+        description="Lesson outline item business identifier",
+        required=False,
+    )
+    lesson_title: str = Field(default="", description="Lesson title", required=False)
+    usage_mode: str = Field(
+        default="",
+        description="Credit usage mode: learn/listen/ask",
+        required=False,
+    )
+    provider: str = Field(default="", description="Provider name", required=False)
+    model: str = Field(default="", description="Provider model", required=False)
+    usage_count: int = Field(
+        default=1,
+        description="Grouped usage row count",
+        required=False,
+    )
+    model_variant_count: int = Field(
+        default=0,
+        description="Distinct provider/model count inside the row",
+        required=False,
+    )
+    consumed_credits: int | float = Field(
+        default=0,
+        description="Consumed credits",
+        required=False,
+    )
+    created_at: str = Field(default="", description="Created at", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
+class AdminOperationCourseCreditUsageListDTO(BaseModel):
+    """Operator-facing course credit usage list payload."""
+
+    view: str = Field(
+        default="grouped",
+        description="Response view mode: grouped/raw",
+        required=False,
+    )
+    items: list[AdminOperationCourseCreditUsageItemDTO] = Field(
+        default_factory=list,
+        description="Paginated credit usage rows",
+        required=False,
+    )
+    page: int = Field(..., description="Page index", required=False)
+    page_size: int = Field(..., description="Page size", required=False)
+    total: int = Field(..., description="Total row count", required=False)
+    page_count: int = Field(..., description="Page count", required=False)
+
+    def __json__(self) -> dict[str, Any]:
+        return {
+            "view": self.view,
             "items": [item.__json__() for item in self.items],
             "page": self.page,
             "page_size": self.page_size,

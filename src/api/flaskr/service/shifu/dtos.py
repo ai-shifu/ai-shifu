@@ -28,6 +28,17 @@ class ShifuDto(BaseModel):
     state: int = Field(..., description="shifu state", required=False)
     is_favorite: bool = Field(..., description="is favorite", required=False)
     archived: bool = Field(..., description="is archived", required=False)
+    can_manage_archive: bool = Field(
+        False, description="whether current user can archive/unarchive", required=False
+    )
+    can_manage_permissions: bool = Field(
+        False,
+        description="whether current user can manage shared permissions",
+        required=False,
+    )
+    created_user_bid: str = Field(
+        "", description="owner user business id", required=False
+    )
 
     def __init__(
         self,
@@ -38,6 +49,9 @@ class ShifuDto(BaseModel):
         shifu_state: int,
         is_favorite: bool,
         archived: bool,
+        can_manage_archive: bool = False,
+        can_manage_permissions: bool = False,
+        created_user_bid: str = "",
         **kwargs,
     ):
         super().__init__(
@@ -48,6 +62,9 @@ class ShifuDto(BaseModel):
             state=shifu_state,
             is_favorite=is_favorite,
             archived=archived,
+            can_manage_archive=can_manage_archive,
+            can_manage_permissions=can_manage_permissions,
+            created_user_bid=created_user_bid or "",
         )
 
     def __json__(self):
@@ -58,6 +75,9 @@ class ShifuDto(BaseModel):
             "avatar": self.avatar,
             "is_favorite": self.is_favorite,
             "archived": self.archived,
+            "can_manage_archive": self.can_manage_archive,
+            "can_manage_permissions": self.can_manage_permissions,
+            "created_user_bid": self.created_user_bid,
         }
 
 

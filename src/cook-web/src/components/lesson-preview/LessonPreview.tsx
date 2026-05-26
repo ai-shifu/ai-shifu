@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import ScrollText from './ScrollText.svg';
@@ -25,6 +26,17 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useAlert } from '@/components/ui/UseAlert';
+import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
+import { Button } from '@/components/ui/Button';
+import {
+  buildVisiblePreviewItems,
+  normalizePreviewTypewriterContent,
+  shouldEnablePreviewTypewriter,
+  syncPreviewTypewriterCache,
+  type PreviewTypewriterCache,
+} from './previewTypewriterGate';
+
+const CREDIT_INSUFFICIENT_BUSINESS_CODE = 7101;
 
 interface LessonPreviewProps {
   loading: boolean;
@@ -32,7 +44,7 @@ interface LessonPreviewProps {
   items: ChatContentItem[];
   variables?: PreviewVariablesMap;
   shifuBid: string;
-  onRefresh: (generatedBlockBid: string) => void;
+  onRefresh: (elementBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRequestAudioForBlock?: (params: {
     shifuBid: string;
@@ -57,6 +69,7 @@ interface LessonPreviewProps {
 }
 
 const noop = () => {};
+const ENABLE_PREVIEW_TYPEWRITER = false;
 
 const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
@@ -79,12 +92,15 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   showGenerateBtn = false,
 }) => {
   const { t } = useTranslation();
+  const router = useRouter();
   const confirmButtonText = t('module.renderUi.core.confirm');
   const copyButtonText = t('module.renderUi.core.copyCode');
   const copiedButtonText = t('module.renderUi.core.copied');
   const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
 
   const showEmpty = !loading && items.length === 0;
+  const [previewTypewriterCache, setPreviewTypewriterCache] =
+    React.useState<PreviewTypewriterCache>({});
 
   const resolvedVariables = React.useMemo(() => {
     if (variables && Object.keys(variables).length) {
@@ -113,16 +129,23 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     );
   }, [hiddenSet, resolvedVariables]);
 
-  const itemByGeneratedBid = React.useMemo(() => {
+  const itemByElementBid = React.useMemo(() => {
     const map = new Map<string, ChatContentItem>();
     items.forEach(item => {
-      const generatedBlockBid = item.generated_block_bid || item.element_bid;
-      if (generatedBlockBid) {
-        map.set(generatedBlockBid, item);
+      if (item.element_bid) {
+        map.set(item.element_bid, item);
       }
     });
     return map;
   }, [items]);
+
+  const visibleItems = React.useMemo(
+    () =>
+      ENABLE_PREVIEW_TYPEWRITER
+        ? buildVisiblePreviewItems(items, previewTypewriterCache)
+        : items,
+    [items, previewTypewriterCache],
+  );
 
   const { showAlert } = useAlert();
 
@@ -158,6 +181,55 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     },
     [onHideVariable, showAlert, t],
   );
+
+  const handleGoToBilling = React.useCallback(() => {
+    router.push(BILLING_PACKAGES_HREF);
+  }, [router]);
+
+  const handlePreviewTypeFinished = React.useCallback(
+    (blockBid: string, content: string) => {
+      if (!blockBid) {
+        return;
+      }
+
+      const resolvedItem = items.find(item => item.element_bid === blockBid);
+      const resolvedCacheKey = resolvedItem?.element_bid || '';
+      if (!resolvedCacheKey) {
+        return;
+      }
+
+      const normalizedContent = normalizePreviewTypewriterContent(content);
+      setPreviewTypewriterCache(prevCache => {
+        const existingEntry = prevCache[resolvedCacheKey];
+        if (
+          existingEntry?.content === normalizedContent &&
+          existingEntry.isFinished === true
+        ) {
+          return prevCache;
+        }
+
+        return {
+          ...prevCache,
+          [resolvedCacheKey]: {
+            content: normalizedContent,
+            isFinished: true,
+          },
+        };
+      });
+    },
+    [items],
+  );
+
+  React.useEffect(() => {
+    if (!ENABLE_PREVIEW_TYPEWRITER) {
+      return;
+    }
+    setPreviewTypewriterCache(prevCache =>
+      syncPreviewTypewriterCache(items, prevCache),
+    );
+  }, [items]);
+
+  // console.log('visibleItems', visibleItems, items);
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
@@ -213,19 +285,29 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           )}
 
           {!showEmpty &&
-            items.map((item, idx) => {
+            visibleItems.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
                 const parentBlockBid =
                   item.parent_block_bid || item.parent_element_bid || '';
                 const parentContentItem = parentBlockBid
-                  ? itemByGeneratedBid.get(parentBlockBid)
+                  ? itemByElementBid.get(parentBlockBid)
                   : undefined;
+                const isTextParent =
+                  parentContentItem?.type === ChatContentItemType.CONTENT &&
+                  parentContentItem?.element_type === 'text';
                 // Hide preview audio action when backend marks this element as non-speakable.
                 const shouldRenderAudioAction =
-                  parentContentItem?.is_speakable !== false;
+                  isTextParent && parentContentItem?.is_speakable !== false;
                 const parentPrimaryTrack = getAudioTrackByPosition(
                   parentContentItem?.audioTracks ?? [],
                 );
+                const hasPreviewAudioCapability = Boolean(
+                  onRequestAudioForBlock &&
+                  (parentContentItem?.element_bid || parentBlockBid),
+                );
+                if (!shouldRenderAudioAction || !hasPreviewAudioCapability) {
+                  return null;
+                }
                 return (
                   <div
                     key={`${idx}-like`}
@@ -267,6 +349,44 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                 );
               }
 
+              if (item.type === ChatContentItemType.ERROR) {
+                const isCreditInsufficient =
+                  item.business_code === CREDIT_INSUFFICIENT_BUSINESS_CODE;
+                return (
+                  <div
+                    key={`${idx}-error`}
+                    className='p-0 relative'
+                    style={{ maxWidth: '100%' }}
+                  >
+                    <ContentBlock
+                      item={item}
+                      mobileStyle={false}
+                      blockBid={
+                        item.element_bid || item.generated_block_bid || ''
+                      }
+                      confirmButtonText={confirmButtonText}
+                      copyButtonText={copyButtonText}
+                      copiedButtonText={copiedButtonText}
+                      onSend={onSend}
+                      onTypeFinished={
+                        ENABLE_PREVIEW_TYPEWRITER
+                          ? handlePreviewTypeFinished
+                          : undefined
+                      }
+                    />
+                    {isCreditInsufficient ? (
+                      <Button
+                        type='button'
+                        size='sm'
+                        onClick={handleGoToBilling}
+                      >
+                        {t('module.shifu.previewArea.goToBilling')}
+                      </Button>
+                    ) : null}
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={`${idx}-content`}
@@ -279,11 +399,25 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   <ContentBlock
                     item={item}
                     mobileStyle={false}
-                    blockBid={item.generated_block_bid || item.element_bid}
+                    blockBid={
+                      item.element_bid || item.generated_block_bid || ''
+                    }
+                    enableStreamingTypewriter={
+                      ENABLE_PREVIEW_TYPEWRITER &&
+                      shouldEnablePreviewTypewriter(
+                        item,
+                        previewTypewriterCache[item.element_bid || ''],
+                      )
+                    }
                     confirmButtonText={confirmButtonText}
                     copyButtonText={copyButtonText}
                     copiedButtonText={copiedButtonText}
                     onSend={onSend}
+                    onTypeFinished={
+                      ENABLE_PREVIEW_TYPEWRITER
+                        ? handlePreviewTypeFinished
+                        : undefined
+                    }
                   />
                 </div>
               );

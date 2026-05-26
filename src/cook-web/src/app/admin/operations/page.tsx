@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import React, {
   useCallback,
   useEffect,
@@ -8,8 +9,8 @@ import React, {
   useState,
   type CSSProperties,
 } from 'react';
-import { useRouter } from 'next/navigation';
-import { useTranslation } from 'react-i18next';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import { Trans, useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Copy, X } from 'lucide-react';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
@@ -17,6 +18,8 @@ import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminCount } from '@/app/admin/lib/numberFormat';
+import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -67,6 +70,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/DropdownMenu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { useToast } from '@/hooks/useToast';
@@ -79,6 +88,7 @@ import { buildAdminOperationsCourseDetailUrl } from './operation-course-routes';
 import type {
   AdminOperationCourseItem,
   AdminOperationCourseListResponse,
+  AdminOperationCourseOverview,
   AdminOperationCoursePromptResponse,
 } from './operation-course-types';
 import useOperatorGuard from './useOperatorGuard';
@@ -94,12 +104,25 @@ type CourseFilters = {
   updated_end_time: string;
 };
 
+type CourseQuickFilterKey =
+  | ''
+  | 'draft'
+  | 'published'
+  | 'created_last_7d'
+  | 'learning_active_30d'
+  | 'paid_order_30d';
+
 type ErrorState = { message: string; code?: number };
 
 const PAGE_SIZE = 20;
 const ALL_OPTION_VALUE = '__all__';
 const COURSE_STATUS_PUBLISHED = 'published';
 const COURSE_STATUS_UNPUBLISHED = 'unpublished';
+const COURSE_QUICK_FILTER_DRAFT = 'draft';
+const COURSE_QUICK_FILTER_PUBLISHED = 'published';
+const COURSE_QUICK_FILTER_CREATED_LAST_7D = 'created_last_7d';
+const COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D = 'learning_active_30d';
+const COURSE_QUICK_FILTER_PAID_ORDER_30D = 'paid_order_30d';
 const COLUMN_MIN_WIDTH = 80;
 const COLUMN_MAX_WIDTH = 360;
 const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationsColumnWidths';
@@ -122,6 +145,14 @@ const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
 const TRANSFER_PHONE_PATTERN = /^\d{11}$/;
 const EMPTY_STATE_LABEL = '--';
+const EMPTY_COURSE_OVERVIEW: AdminOperationCourseOverview = {
+  total_course_count: 0,
+  draft_course_count: 0,
+  published_course_count: 0,
+  created_last_7d_course_count: 0,
+  learning_active_30d_course_count: 0,
+  paid_order_30d_course_count: 0,
+};
 const TABLE_INLINE_ACTION_BUTTON_CLASS =
   'inline-flex h-8 items-center justify-center rounded-md px-2.5 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
 const COLLAPSED_TEXT_STYLE: CSSProperties = {
@@ -143,6 +174,38 @@ const createDefaultFilters = (): CourseFilters => ({
   updated_start_time: '',
   updated_end_time: '',
 });
+
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const buildCreatedLast7DaysFilters = (): Pick<
+  CourseFilters,
+  'start_time' | 'end_time'
+> => {
+  const endDate = new Date();
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 6);
+  return {
+    start_time: formatLocalDate(startDate),
+    end_time: formatLocalDate(endDate),
+  };
+};
+
+const buildCopyCourseName = (
+  courseName: string | undefined,
+  fallbackName: string,
+  suffix: string,
+): string => {
+  const normalizedCourseName = courseName?.trim() || fallbackName;
+  if (normalizedCourseName.length + suffix.length <= TITLE_MAX_LENGTH) {
+    return `${normalizedCourseName}${suffix}`;
+  }
+  return `${normalizedCourseName.slice(0, TITLE_MAX_LENGTH - suffix.length)}${suffix}`;
+};
 
 const normalizeTransferIdentifier = (
   contactType: TransferContactType,
@@ -174,6 +237,9 @@ const renderTooltipText = (text?: string, className?: string) => {
     />
   );
 };
+
+const formatCount = (value: number, locale: string): string =>
+  formatAdminCount(value, locale, EMPTY_STATE_LABEL);
 
 type ClearableTextInputProps = {
   value: string;
@@ -217,9 +283,9 @@ const ClearableTextInput = ({
  * Translation usage markers for scripts/check_translation_usage.py:
  * t('module.operationsCourse.title')
  * t('module.operationsCourse.emptyList')
+ * t('module.operationsCourse.actions.copyCourse')
  * t('module.operationsCourse.actions.transferCreator')
  * t('module.operationsCourse.detail.title')
- * t('module.operationsCourse.detail.back')
  * t('module.operationsCourse.detail.basicInfo')
  * t('module.operationsCourse.filters.courseId')
  * t('module.operationsCourse.filters.courseName')
@@ -232,6 +298,20 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.filters.endTime')
  * t('module.operationsCourse.statusLabels.published')
  * t('module.operationsCourse.statusLabels.unpublished')
+ * t('module.operationsCourse.overview.title')
+ * t('module.operationsCourse.overview.metrics.totalCourses')
+ * t('module.operationsCourse.overview.metrics.draftCourses')
+ * t('module.operationsCourse.overview.metrics.publishedCourses')
+ * t('module.operationsCourse.overview.metrics.createdLast7d')
+ * t('module.operationsCourse.overview.metrics.learningActive30d')
+ * t('module.operationsCourse.overview.metrics.ordered30d')
+ * t('module.operationsCourse.overview.tooltips.totalCourses')
+ * t('module.operationsCourse.overview.tooltips.draftCourses')
+ * t('module.operationsCourse.overview.tooltips.publishedCourses')
+ * t('module.operationsCourse.overview.tooltips.createdLast7d')
+ * t('module.operationsCourse.overview.tooltips.learningActive30d')
+ * t('module.operationsCourse.overview.tooltips.ordered30d')
+ * t('module.operationsCourse.overview.activeFilter')
  * t('module.operationsCourse.table.courseName')
  * t('module.operationsCourse.table.courseId')
  * t('module.operationsCourse.table.status')
@@ -263,13 +343,25 @@ const ClearableTextInput = ({
  * t('module.operationsCourse.transferCreatorDialog.confirm')
  * t('module.operationsCourse.transferCreatorDialog.submitSuccess')
  * t('module.operationsCourse.transferCreatorDialog.confirmTitle')
- * t('module.operationsCourse.transferCreatorDialog.confirmDescriptionPrefix')
- * t('module.operationsCourse.transferCreatorDialog.confirmDescriptionCourseSuffix')
- * t('module.operationsCourse.transferCreatorDialog.confirmDescriptionTargetPrefix')
+ * t('module.operationsCourse.transferCreatorDialog.confirmDescription')
+ * t('module.operationsCourse.copyCourseDialog.title')
+ * t('module.operationsCourse.copyCourseDialog.description')
+ * t('module.operationsCourse.copyCourseDialog.currentCreator')
+ * t('module.operationsCourse.copyCourseDialog.contactType')
+ * t('module.operationsCourse.copyCourseDialog.contactTypeEmail')
+ * t('module.operationsCourse.copyCourseDialog.contactTypePhone')
+ * t('module.operationsCourse.copyCourseDialog.newCourseName')
+ * t('module.operationsCourse.copyCourseDialog.identifier')
+ * t('module.operationsCourse.copyCourseDialog.contactPlaceholderEmail')
+ * t('module.operationsCourse.copyCourseDialog.contactPlaceholderPhone')
+ * t('module.operationsCourse.copyCourseDialog.identifierRequired')
+ * t('module.operationsCourse.copyCourseDialog.confirm')
+ * t('module.operationsCourse.copyCourseDialog.submitSuccess')
+ * t('module.operationsCourse.copyCourseDialog.confirmTitle')
+ * t('module.operationsCourse.copyCourseDialog.confirmDescription')
  */
 const OperationsPage = () => {
-  const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');
   const { toast } = useToast();
   const { isInitialized, isGuest, isReady } = useOperatorGuard();
@@ -346,7 +438,10 @@ const OperationsPage = () => {
   );
 
   const [courses, setCourses] = useState<AdminOperationCourseItem[]>([]);
+  const [courseOverview, setCourseOverview] =
+    useState<AdminOperationCourseOverview>(EMPTY_COURSE_OVERVIEW);
   const [filters, setFilters] = useState<CourseFilters>(createDefaultFilters);
+  const [quickFilter, setQuickFilter] = useState<CourseQuickFilterKey>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
   const [pageIndex, setPageIndex] = useState(1);
@@ -359,6 +454,16 @@ const OperationsPage = () => {
   const [promptDetailLoading, setPromptDetailLoading] = useState(false);
   const [promptDetailError, setPromptDetailError] = useState('');
   const [canTogglePromptDetail, setCanTogglePromptDetail] = useState(false);
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copyTargetCourse, setCopyTargetCourse] =
+    useState<AdminOperationCourseItem | null>(null);
+  const [copyContactType, setCopyContactType] = useState<TransferContactType>(
+    defaultTransferContactType,
+  );
+  const [copyIdentifier, setCopyIdentifier] = useState('');
+  const [copyLoading, setCopyLoading] = useState(false);
+  const [copyError, setCopyError] = useState('');
+  const [copyConfirmOpen, setCopyConfirmOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferTargetCourse, setTransferTargetCourse] =
     useState<AdminOperationCourseItem | null>(null);
@@ -370,10 +475,15 @@ const OperationsPage = () => {
   const [transferConfirmOpen, setTransferConfirmOpen] = useState(false);
   const requestedPageRef = useRef(1);
   const requestIdRef = useRef(0);
+  const copyRequestIdRef = useRef(0);
   const promptRequestIdRef = useRef(0);
   const promptDetailContentRef = useRef<HTMLDivElement | null>(null);
   const fetchCoursesRef = useRef<
-    | ((targetPage: number, nextFilters?: CourseFilters) => Promise<void>)
+    | ((
+        targetPage: number,
+        nextFilters?: CourseFilters,
+        nextQuickFilter?: CourseQuickFilterKey,
+      ) => Promise<void>)
     | undefined
   >(undefined);
   const {
@@ -455,9 +565,25 @@ const OperationsPage = () => {
     toast,
   ]);
 
+  const fetchCourseOverview = useCallback(async () => {
+    try {
+      const response = (await api.getAdminOperationCoursesOverview({})) as
+        | AdminOperationCourseOverview
+        | undefined;
+      setCourseOverview(response ?? EMPTY_COURSE_OVERVIEW);
+    } catch {
+      setCourseOverview(EMPTY_COURSE_OVERVIEW);
+    }
+  }, []);
+
   const fetchCourses = useCallback(
-    async (targetPage: number, nextFilters?: CourseFilters) => {
+    async (
+      targetPage: number,
+      nextFilters?: CourseFilters,
+      nextQuickFilter?: CourseQuickFilterKey,
+    ) => {
       const resolvedFilters = nextFilters ?? filters;
+      const resolvedQuickFilter = nextQuickFilter ?? quickFilter;
       requestedPageRef.current = targetPage;
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
@@ -471,6 +597,7 @@ const OperationsPage = () => {
           course_name: resolvedFilters.course_name.trim(),
           creator_keyword: resolvedFilters.creator_keyword.trim(),
           course_status: resolvedFilters.course_status,
+          quick_filter: resolvedQuickFilter,
           start_time: resolvedFilters.start_time,
           end_time: resolvedFilters.end_time,
           updated_start_time: resolvedFilters.updated_start_time,
@@ -500,7 +627,7 @@ const OperationsPage = () => {
         }
       }
     },
-    [filters, t],
+    [filters, quickFilter, t],
   );
 
   useEffect(() => {
@@ -511,36 +638,90 @@ const OperationsPage = () => {
     if (!isInitialized || isGuest || !isReady) {
       return;
     }
-    fetchCoursesRef.current?.(1, createDefaultFilters());
-  }, [isGuest, isInitialized, isReady]);
+    void (async () => {
+      await fetchCoursesRef.current?.(1, createDefaultFilters(), '');
+      void fetchCourseOverview();
+    })();
+  }, [fetchCourseOverview, isGuest, isInitialized, isReady]);
+
+  const clearQuickFilterIfConflicted = useCallback(
+    (key: keyof CourseFilters, value: string) => {
+      if (!quickFilter) {
+        return;
+      }
+      if (
+        quickFilter === COURSE_QUICK_FILTER_DRAFT ||
+        quickFilter === COURSE_QUICK_FILTER_PUBLISHED
+      ) {
+        const expectedStatus =
+          quickFilter === COURSE_QUICK_FILTER_DRAFT
+            ? COURSE_STATUS_UNPUBLISHED
+            : COURSE_STATUS_PUBLISHED;
+        if (key === 'course_status' && value !== expectedStatus) {
+          setQuickFilter('');
+        }
+        return;
+      }
+      if (quickFilter === COURSE_QUICK_FILTER_CREATED_LAST_7D) {
+        const expected = buildCreatedLast7DaysFilters();
+        if (
+          (key === 'start_time' && value !== expected.start_time) ||
+          (key === 'end_time' && value !== expected.end_time)
+        ) {
+          setQuickFilter('');
+        }
+      }
+    },
+    [quickFilter],
+  );
 
   const handleFilterChange = (key: keyof CourseFilters, value: string) => {
+    clearQuickFilterIfConflicted(key, value);
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
+  const applyQuickFilter = useCallback(
+    (targetQuickFilter: CourseQuickFilterKey) => {
+      if (targetQuickFilter && targetQuickFilter === quickFilter) {
+        const cleared = createDefaultFilters();
+        setFilters(cleared);
+        setQuickFilter('');
+        fetchCourses(1, cleared, '');
+        return;
+      }
+
+      const nextFilters = createDefaultFilters();
+      if (targetQuickFilter === COURSE_QUICK_FILTER_DRAFT) {
+        nextFilters.course_status = COURSE_STATUS_UNPUBLISHED;
+      } else if (targetQuickFilter === COURSE_QUICK_FILTER_PUBLISHED) {
+        nextFilters.course_status = COURSE_STATUS_PUBLISHED;
+      } else if (targetQuickFilter === COURSE_QUICK_FILTER_CREATED_LAST_7D) {
+        Object.assign(nextFilters, buildCreatedLast7DaysFilters());
+      }
+
+      setFilters(nextFilters);
+      setQuickFilter(targetQuickFilter);
+      fetchCourses(1, nextFilters, targetQuickFilter);
+    },
+    [fetchCourses, quickFilter],
+  );
+
   const handleSearch = () => {
-    fetchCourses(1, filters);
+    fetchCourses(1, filters, quickFilter);
   };
 
   const handleReset = () => {
     const cleared = createDefaultFilters();
     setFilters(cleared);
-    fetchCourses(1, cleared);
+    setQuickFilter('');
+    fetchCourses(1, cleared, '');
   };
 
   const handlePageChange = (nextPage: number) => {
     if (nextPage < 1 || nextPage > pageCount || nextPage === pageIndex) {
       return;
     }
-    fetchCourses(nextPage);
-  };
-
-  const handleDetailClick = (course: AdminOperationCourseItem) => {
-    const detailUrl = buildAdminOperationsCourseDetailUrl(course.shifu_bid);
-    if (!detailUrl) {
-      return;
-    }
-    router.push(detailUrl);
+    fetchCourses(nextPage, filters, quickFilter);
   };
 
   const handlePromptDetailOpenChange = useCallback((nextOpen: boolean) => {
@@ -611,6 +792,44 @@ const OperationsPage = () => {
     [defaultTransferContactType],
   );
 
+  const closeCopyDialog = useCallback(() => {
+    copyRequestIdRef.current += 1;
+    setCopyDialogOpen(false);
+    setCopyTargetCourse(null);
+    setCopyContactType(defaultTransferContactType);
+    setCopyIdentifier('');
+    setCopyError('');
+    setCopyConfirmOpen(false);
+    setCopyLoading(false);
+  }, [defaultTransferContactType]);
+
+  const handleCopyDialogOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen && copyLoading) {
+        return;
+      }
+      setCopyDialogOpen(nextOpen);
+      if (nextOpen) {
+        return;
+      }
+      closeCopyDialog();
+    },
+    [closeCopyDialog, copyLoading],
+  );
+
+  const handleCopyCourseClick = useCallback(
+    (course: AdminOperationCourseItem) => {
+      setCopyTargetCourse(course);
+      setCopyContactType(defaultTransferContactType);
+      setCopyIdentifier('');
+      setCopyError('');
+      setCopyConfirmOpen(false);
+      setCopyLoading(false);
+      setCopyDialogOpen(true);
+    },
+    [defaultTransferContactType],
+  );
+
   const handleTransferCreatorClick = useCallback(
     (course: AdminOperationCourseItem) => {
       setTransferTargetCourse(course);
@@ -641,17 +860,28 @@ const OperationsPage = () => {
         'creator_mobile' | 'creator_email' | 'updater_mobile' | 'updater_email'
       >,
       kind: 'creator' | 'updater',
+      preferredContactType?: TransferContactType,
     ) => {
+      const resolvedContactType =
+        preferredContactType || (isEmailMode ? 'email' : 'phone');
       if (kind === 'creator') {
-        return isEmailMode ? user.creator_email : user.creator_mobile;
+        return resolvedContactType === 'email'
+          ? user.creator_email
+          : user.creator_mobile;
       }
-      return isEmailMode ? user.updater_email : user.updater_mobile;
+      return resolvedContactType === 'email'
+        ? user.updater_email
+        : user.updater_mobile;
     },
     [isEmailMode],
   );
 
   const resolveActorDisplay = useCallback(
-    (course: AdminOperationCourseItem, kind: 'creator' | 'updater') => {
+    (
+      course: AdminOperationCourseItem,
+      kind: 'creator' | 'updater',
+      preferredContactType?: TransferContactType,
+    ) => {
       const userBid =
         kind === 'creator' ? course.creator_user_bid : course.updater_user_bid;
       if (userBid === 'system') {
@@ -665,24 +895,64 @@ const OperationsPage = () => {
         kind === 'creator' ? course.creator_nickname : course.updater_nickname;
 
       return {
-        primary: resolvePrimaryContact(course, kind) || '',
+        primary:
+          normalizeTransferIdentifier(
+            preferredContactType || (isEmailMode ? 'email' : 'phone'),
+            resolvePrimaryContact(course, kind, preferredContactType) || '',
+          ) || '',
         secondary: nickname || defaultUserName,
       };
     },
-    [defaultUserName, resolvePrimaryContact],
+    [defaultUserName, isEmailMode, resolvePrimaryContact],
   );
 
   const transferCreatorDisplay = useMemo(() => {
     if (!transferTargetCourse) {
       return { primary: '--', secondary: '' };
     }
-    return resolveActorDisplay(transferTargetCourse, 'creator');
-  }, [resolveActorDisplay, transferTargetCourse]);
+    return resolveActorDisplay(
+      transferTargetCourse,
+      'creator',
+      transferContactType,
+    );
+  }, [resolveActorDisplay, transferContactType, transferTargetCourse]);
   const transferCourseName = transferTargetCourse?.course_name?.trim() || '--';
+  const copyCreatorDisplay = useMemo(() => {
+    if (!copyTargetCourse) {
+      return { primary: '--', secondary: '' };
+    }
+    return resolveActorDisplay(copyTargetCourse, 'creator', copyContactType);
+  }, [copyContactType, copyTargetCourse, resolveActorDisplay]);
+  const copyCourseName = copyTargetCourse?.course_name?.trim() || '--';
+  const copyCourseNameFallback = useMemo(
+    () => tOperations('copyCourseDialog.courseNameFallback'),
+    [tOperations],
+  );
+  const copyCourseNameSuffix = useMemo(
+    () => tOperations('copyCourseDialog.courseNameSuffix'),
+    [tOperations],
+  );
+  const copyNewCourseName = useMemo(
+    () =>
+      buildCopyCourseName(
+        copyTargetCourse?.course_name,
+        copyCourseNameFallback,
+        copyCourseNameSuffix,
+      ),
+    [
+      copyCourseNameFallback,
+      copyCourseNameSuffix,
+      copyTargetCourse?.course_name,
+    ],
+  );
 
   const normalizedTransferIdentifier = useMemo(
     () => normalizeTransferIdentifier(transferContactType, transferIdentifier),
     [transferContactType, transferIdentifier],
+  );
+  const normalizedCopyIdentifier = useMemo(
+    () => normalizeTransferIdentifier(copyContactType, copyIdentifier),
+    [copyContactType, copyIdentifier],
   );
   const transferCurrentCreatorIdentifier = useMemo(() => {
     if (!transferTargetCourse) {
@@ -701,12 +971,24 @@ const OperationsPage = () => {
         : tOperations('transferCreatorDialog.contactPlaceholderPhone'),
     [tOperations, transferContactType],
   );
+  const copyIdentifierPlaceholder = useMemo(
+    () =>
+      copyContactType === 'email'
+        ? tOperations('copyCourseDialog.contactPlaceholderEmail')
+        : tOperations('copyCourseDialog.contactPlaceholderPhone'),
+    [copyContactType, tOperations],
+  );
   const transferHintText = useMemo(
     () => tOperations('transferCreatorDialog.description'),
     [tOperations],
   );
+  const copyHintText = useMemo(
+    () => tOperations('copyCourseDialog.description'),
+    [tOperations],
+  );
   const transferCurrentCreatorText = transferCurrentCreatorIdentifier || '--';
   const transferTargetCreatorText = normalizedTransferIdentifier || '--';
+  const copyTargetCreatorText = normalizedCopyIdentifier || '--';
 
   useEffect(() => {
     if (!transferDialogOpen) {
@@ -720,6 +1002,20 @@ const OperationsPage = () => {
     transferContactOptions,
     transferContactType,
     transferDialogOpen,
+  ]);
+
+  useEffect(() => {
+    if (!copyDialogOpen) {
+      return;
+    }
+    if (!transferContactOptions.includes(copyContactType)) {
+      setCopyContactType(defaultTransferContactType);
+    }
+  }, [
+    copyContactType,
+    copyDialogOpen,
+    defaultTransferContactType,
+    transferContactOptions,
   ]);
 
   const handleTransferSubmit = useCallback(() => {
@@ -755,6 +1051,25 @@ const OperationsPage = () => {
     transferTargetCourse,
   ]);
 
+  const handleCopySubmit = useCallback(() => {
+    if (!copyTargetCourse) {
+      return;
+    }
+
+    if (!isValidTransferIdentifier(copyContactType, normalizedCopyIdentifier)) {
+      setCopyError(tOperations('copyCourseDialog.identifierRequired'));
+      return;
+    }
+
+    setCopyError('');
+    setCopyConfirmOpen(true);
+  }, [
+    copyContactType,
+    copyTargetCourse,
+    normalizedCopyIdentifier,
+    tOperations,
+  ]);
+
   const handleTransferConfirm = useCallback(async () => {
     if (!transferTargetCourse) {
       return;
@@ -773,7 +1088,7 @@ const OperationsPage = () => {
         title: tOperations('transferCreatorDialog.submitSuccess'),
       });
       handleTransferDialogOpenChange(false);
-      await fetchCourses(requestedPageRef.current);
+      await fetchCourses(requestedPageRef.current, filters, quickFilter);
     } catch (error) {
       setTransferError(
         error instanceof Error ? error.message : t('common.core.unknownError'),
@@ -783,13 +1098,71 @@ const OperationsPage = () => {
     }
   }, [
     fetchCourses,
+    filters,
     handleTransferDialogOpenChange,
     normalizedTransferIdentifier,
+    quickFilter,
     t,
     tOperations,
     toast,
     transferContactType,
     transferTargetCourse,
+  ]);
+
+  const handleCopyConfirm = useCallback(async () => {
+    if (!copyTargetCourse) {
+      return;
+    }
+
+    const requestId = copyRequestIdRef.current + 1;
+    copyRequestIdRef.current = requestId;
+    setCopyConfirmOpen(false);
+    setCopyError('');
+    setCopyLoading(true);
+    try {
+      await api.copyAdminOperationCourse({
+        shifu_bid: copyTargetCourse.shifu_bid,
+        contact_type: copyContactType,
+        identifier: normalizedCopyIdentifier,
+        new_course_name: copyNewCourseName,
+      });
+      if (requestId !== copyRequestIdRef.current) {
+        return;
+      }
+      toast({
+        title: tOperations('copyCourseDialog.submitSuccess'),
+      });
+      closeCopyDialog();
+      await Promise.all([
+        fetchCourseOverview(),
+        fetchCourses(requestedPageRef.current, filters, quickFilter),
+      ]);
+    } catch (error) {
+      if (requestId !== copyRequestIdRef.current) {
+        return;
+      }
+      setCopyError(
+        error instanceof Error ? error.message : t('common.core.unknownError'),
+      );
+      setCopyLoading(false);
+    } finally {
+      if (requestId === copyRequestIdRef.current) {
+        setCopyLoading(false);
+      }
+    }
+  }, [
+    closeCopyDialog,
+    copyContactType,
+    copyNewCourseName,
+    copyTargetCourse,
+    fetchCourses,
+    fetchCourseOverview,
+    filters,
+    normalizedCopyIdentifier,
+    quickFilter,
+    t,
+    tOperations,
+    toast,
   ]);
 
   const estimateWidth = (text: string, multiplier = 7) => {
@@ -799,6 +1172,66 @@ const OperationsPage = () => {
     const approx = text.length * multiplier + 16;
     return approx;
   };
+
+  const overviewCards = useMemo(
+    () => [
+      {
+        key: 'total',
+        label: tOperations('overview.metrics.totalCourses'),
+        value: courseOverview.total_course_count,
+        tooltip: tOperations('overview.tooltips.totalCourses'),
+        quickFilterKey: '' as CourseQuickFilterKey,
+      },
+      {
+        key: 'draft',
+        label: tOperations('overview.metrics.draftCourses'),
+        value: courseOverview.draft_course_count,
+        tooltip: tOperations('overview.tooltips.draftCourses'),
+        quickFilterKey: COURSE_QUICK_FILTER_DRAFT as CourseQuickFilterKey,
+      },
+      {
+        key: 'published',
+        label: tOperations('overview.metrics.publishedCourses'),
+        value: courseOverview.published_course_count,
+        tooltip: tOperations('overview.tooltips.publishedCourses'),
+        quickFilterKey: COURSE_QUICK_FILTER_PUBLISHED as CourseQuickFilterKey,
+      },
+      {
+        key: 'created-last-7d',
+        label: tOperations('overview.metrics.createdLast7d'),
+        value: courseOverview.created_last_7d_course_count,
+        tooltip: tOperations('overview.tooltips.createdLast7d'),
+        quickFilterKey:
+          COURSE_QUICK_FILTER_CREATED_LAST_7D as CourseQuickFilterKey,
+      },
+      {
+        key: 'learning-30d',
+        label: tOperations('overview.metrics.learningActive30d'),
+        value: courseOverview.learning_active_30d_course_count,
+        tooltip: tOperations('overview.tooltips.learningActive30d'),
+        quickFilterKey:
+          COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D as CourseQuickFilterKey,
+      },
+      {
+        key: 'orders-30d',
+        label: tOperations('overview.metrics.ordered30d'),
+        value: courseOverview.paid_order_30d_course_count,
+        tooltip: tOperations('overview.tooltips.ordered30d'),
+        quickFilterKey:
+          COURSE_QUICK_FILTER_PAID_ORDER_30D as CourseQuickFilterKey,
+      },
+    ],
+    [courseOverview, tOperations],
+  );
+
+  const activeQuickFilterCard = useMemo(() => {
+    if (!quickFilter) {
+      return null;
+    }
+    return (
+      overviewCards.find(card => card.quickFilterKey === quickFilter) ?? null
+    );
+  }, [overviewCards, quickFilter]);
 
   const collapsedFilterItems = [
     {
@@ -1051,7 +1484,9 @@ const OperationsPage = () => {
         <ErrorDisplay
           errorCode={error.code || 0}
           errorMessage={error.message}
-          onRetry={() => fetchCourses(requestedPageRef.current)}
+          onRetry={() =>
+            fetchCourses(requestedPageRef.current, filters, quickFilter)
+          }
         />
       </div>
     );
@@ -1072,11 +1507,77 @@ const OperationsPage = () => {
           </h1>
         </div>
 
+        <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm'>
+          <div className='mb-3'>
+            <h2 className='text-base font-semibold text-foreground'>
+              {tOperations('overview.title')}
+            </h2>
+          </div>
+          <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3 min-[1680px]:grid-cols-6'>
+            {overviewCards.map(card => {
+              return (
+                <div
+                  key={card.key}
+                  className='rounded-lg border border-border/70 bg-muted/20 p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
+                >
+                  <div className='flex items-start justify-between gap-2'>
+                    <button
+                      type='button'
+                      aria-label={card.label}
+                      className='group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
+                      onClick={() => applyQuickFilter(card.quickFilterKey)}
+                    >
+                      <div className='text-sm text-muted-foreground'>
+                        {card.label}
+                      </div>
+                      <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
+                        {formatCount(card.value, i18n.language)}
+                      </div>
+                    </button>
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type='button'
+                            aria-label={card.tooltip}
+                            className='inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
+                          >
+                            <QuestionMarkCircleIcon className='h-4 w-4' />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className='max-w-56 text-left leading-5'>
+                          {card.tooltip}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div
           className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'
           data-testid='admin-operations-filters'
         >
           <div className='space-y-4'>
+            {activeQuickFilterCard ? (
+              <div className='flex flex-wrap items-center gap-2'>
+                <span className='text-sm text-muted-foreground'>
+                  {tOperations('overview.activeFilter')}
+                </span>
+                <button
+                  type='button'
+                  aria-label={`${activeQuickFilterCard.label} ${clearLabel}`}
+                  className='inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground transition-colors hover:bg-muted'
+                  onClick={() => applyQuickFilter('')}
+                >
+                  <span>{activeQuickFilterCard.label}</span>
+                  <X className='h-3.5 w-3.5' />
+                </button>
+              </div>
+            ) : null}
             <div
               className={cn(
                 'grid gap-4',
@@ -1278,6 +1779,9 @@ const OperationsPage = () => {
                 {courses.map(course => {
                   const creatorDisplay = resolveActorDisplay(course, 'creator');
                   const updaterDisplay = resolveActorDisplay(course, 'updater');
+                  const detailUrl = buildAdminOperationsCourseDetailUrl(
+                    course.shifu_bid,
+                  );
 
                   return (
                     <TableRow key={course.shifu_bid}>
@@ -1291,16 +1795,24 @@ const OperationsPage = () => {
                         className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-center text-ellipsis'
                         style={getColumnStyle('courseName')}
                       >
-                        <button
-                          type='button'
-                          className='mx-auto block max-w-full text-center text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
-                          onClick={() => handleDetailClick(course)}
-                        >
-                          {renderTooltipText(
+                        {detailUrl ? (
+                          <Link
+                            href={detailUrl}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                            className='mx-auto block max-w-full text-center text-primary transition-colors hover:text-primary/80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
+                          >
+                            {renderTooltipText(
+                              course.course_name,
+                              'truncate text-center',
+                            )}
+                          </Link>
+                        ) : (
+                          renderTooltipText(
                             course.course_name,
                             'truncate text-center',
-                          )}
-                        </button>
+                          )
+                        )}
                       </TableCell>
                       <TableCell
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
@@ -1418,6 +1930,11 @@ const OperationsPage = () => {
                               </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align='center'>
+                              <DropdownMenuItem
+                                onClick={() => handleCopyCourseClick(course)}
+                              >
+                                {tOperations('actions.copyCourse')}
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() =>
                                   handleTransferCreatorClick(course)
@@ -1545,6 +2062,194 @@ const OperationsPage = () => {
           </DialogContent>
         </Dialog>
         <Dialog
+          open={copyDialogOpen}
+          onOpenChange={handleCopyDialogOpenChange}
+        >
+          <DialogContent
+            className='overflow-hidden p-0 gap-0 sm:max-w-[440px]'
+            showClose={!copyLoading}
+            onEscapeKeyDown={event => {
+              if (copyLoading) {
+                event.preventDefault();
+              }
+            }}
+            onInteractOutside={event => {
+              if (copyLoading) {
+                event.preventDefault();
+              }
+            }}
+          >
+            <DialogHeader className='border-b border-border px-6 pb-4 pt-6'>
+              <DialogTitle>{tOperations('copyCourseDialog.title')}</DialogTitle>
+              <p className='mt-2 text-sm leading-6 text-muted-foreground'>
+                {copyHintText}
+              </p>
+            </DialogHeader>
+
+            <div className='space-y-5 px-6 py-5'>
+              <div className='rounded-xl border border-border bg-muted/[0.18] p-3.5'>
+                <div className='space-y-3'>
+                  <div className='space-y-1'>
+                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
+                      {tOperations('table.courseName')}
+                    </div>
+                    <div className='text-[15px] font-medium leading-5 text-foreground'>
+                      {copyCourseName}
+                    </div>
+                  </div>
+
+                  <div className='h-px bg-border/80' />
+
+                  <div className='space-y-1'>
+                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
+                      {tOperations('copyCourseDialog.newCourseName')}
+                    </div>
+                    <div className='text-[15px] font-medium leading-5 text-foreground'>
+                      {copyNewCourseName}
+                    </div>
+                  </div>
+
+                  <div className='h-px bg-border/80' />
+
+                  <div className='space-y-1'>
+                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
+                      {tOperations('copyCourseDialog.currentCreator')}
+                    </div>
+                    <div className='text-[15px] font-medium leading-5 text-foreground'>
+                      {copyCreatorDisplay.secondary ||
+                        copyCreatorDisplay.primary ||
+                        '--'}
+                    </div>
+                    {copyCreatorDisplay.primary &&
+                    copyCreatorDisplay.secondary ? (
+                      <div className='text-sm text-muted-foreground'>
+                        {copyCreatorDisplay.primary}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className='space-y-2.5'>
+                {transferContactOptions.length > 1 ? (
+                  <div className='space-y-2.5'>
+                    <Label className='text-sm font-medium text-foreground'>
+                      {tOperations('copyCourseDialog.contactType')}
+                    </Label>
+                    <Select
+                      value={copyContactType}
+                      onValueChange={value =>
+                        setCopyContactType(value as TransferContactType)
+                      }
+                    >
+                      <SelectTrigger className='h-11 rounded-lg'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem
+                          value='email'
+                          className={SINGLE_SELECT_ITEM_CLASS}
+                        >
+                          {tOperations('copyCourseDialog.contactTypeEmail')}
+                        </SelectItem>
+                        <SelectItem
+                          value='phone'
+                          className={SINGLE_SELECT_ITEM_CLASS}
+                        >
+                          {tOperations('copyCourseDialog.contactTypePhone')}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+                <Label
+                  htmlFor='copy-course-identifier'
+                  className='text-sm font-medium text-foreground'
+                >
+                  {tOperations('copyCourseDialog.identifier')}
+                </Label>
+                <Input
+                  id='copy-course-identifier'
+                  value={copyIdentifier}
+                  placeholder={copyIdentifierPlaceholder}
+                  className='h-11 rounded-lg'
+                  onChange={event => {
+                    setCopyIdentifier(event.target.value);
+                    if (copyError) {
+                      setCopyError('');
+                    }
+                  }}
+                  autoComplete='off'
+                />
+                {copyError ? (
+                  <p className='text-sm text-destructive'>{copyError}</p>
+                ) : null}
+              </div>
+            </div>
+
+            <DialogFooter className='gap-2 border-t border-border bg-background px-6 py-4'>
+              <Button
+                variant='outline'
+                onClick={() => handleCopyDialogOpenChange(false)}
+                disabled={copyLoading}
+                className='min-w-24'
+              >
+                {t('common.core.cancel')}
+              </Button>
+              <Button
+                onClick={handleCopySubmit}
+                disabled={copyLoading || !copyTargetCourse}
+                className='min-w-28'
+              >
+                {tOperations('copyCourseDialog.confirm')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog
+          open={copyConfirmOpen}
+          onOpenChange={setCopyConfirmOpen}
+        >
+          <AlertDialogContent className='sm:max-w-[420px]'>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {tOperations('copyCourseDialog.confirmTitle')}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                <span className='leading-8 text-muted-foreground'>
+                  <Trans
+                    ns='module.operationsCourse'
+                    i18nKey='copyCourseDialog.confirmDescription'
+                    values={{
+                      courseName: copyCourseName,
+                      targetCreator: copyTargetCreatorText,
+                      newCourseName: copyNewCourseName,
+                    }}
+                    components={{
+                      strong: (
+                        <span className='font-semibold text-foreground' />
+                      ),
+                    }}
+                  />
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={copyLoading}>
+                {t('common.core.cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleCopyConfirm}
+                disabled={copyLoading}
+              >
+                {tOperations('copyCourseDialog.confirm')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <Dialog
           open={transferDialogOpen}
           onOpenChange={handleTransferDialogOpenChange}
         >
@@ -1592,6 +2297,41 @@ const OperationsPage = () => {
               </div>
 
               <div className='space-y-2.5'>
+                {transferContactOptions.length > 1 ? (
+                  <div className='space-y-2.5'>
+                    <Label className='text-sm font-medium text-foreground'>
+                      {tOperations('transferCreatorDialog.contactType')}
+                    </Label>
+                    <Select
+                      value={transferContactType}
+                      onValueChange={value =>
+                        setTransferContactType(value as TransferContactType)
+                      }
+                    >
+                      <SelectTrigger className='h-11 rounded-lg'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem
+                          value='email'
+                          className={SINGLE_SELECT_ITEM_CLASS}
+                        >
+                          {tOperations(
+                            'transferCreatorDialog.contactTypeEmail',
+                          )}
+                        </SelectItem>
+                        <SelectItem
+                          value='phone'
+                          className={SINGLE_SELECT_ITEM_CLASS}
+                        >
+                          {tOperations(
+                            'transferCreatorDialog.contactTypePhone',
+                          )}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
                 <Label
                   htmlFor='transfer-identifier'
                   className='text-sm font-medium text-foreground'
@@ -1648,24 +2388,11 @@ const OperationsPage = () => {
               </AlertDialogTitle>
               <AlertDialogDescription>
                 <span className='leading-8 text-muted-foreground'>
-                  {tOperations(
-                    'transferCreatorDialog.confirmDescriptionPrefix',
-                  )}
-                  <span className='mx-1 text-foreground'>
-                    {transferCourseName}
-                  </span>
-                  {tOperations(
-                    'transferCreatorDialog.confirmDescriptionCourseSuffix',
-                  )}
-                  <span className='mx-1 text-foreground'>
-                    {transferCurrentCreatorText}
-                  </span>
-                  {tOperations(
-                    'transferCreatorDialog.confirmDescriptionTargetPrefix',
-                  )}
-                  <span className='ml-1 font-semibold text-foreground'>
-                    {transferTargetCreatorText}
-                  </span>
+                  {tOperations('transferCreatorDialog.confirmDescription', {
+                    courseName: transferCourseName,
+                    currentCreator: transferCurrentCreatorText,
+                    targetCreator: transferTargetCreatorText,
+                  })}
                 </span>
               </AlertDialogDescription>
             </AlertDialogHeader>

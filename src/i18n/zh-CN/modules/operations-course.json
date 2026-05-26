@@ -1,7 +1,27 @@
 {
   "__namespace__": "module.operationsCourse",
   "actions": {
+    "copyCourse": "复制课程",
     "transferCreator": "转移创作者"
+  },
+  "copyCourseDialog": {
+    "confirm": "确认复制",
+    "confirmDescription": "将复制课程 <strong>{courseName}</strong> 的最新草稿，并在 <strong>{targetCreator}</strong> 名下创建新草稿课程 <strong>{newCourseName}</strong>。",
+    "confirmTitle": "确认复制课程",
+    "contactPlaceholderEmail": "请输入目标创作者邮箱",
+    "contactPlaceholderPhone": "请输入目标创作者手机号",
+    "contactType": "联系方式类型",
+    "contactTypeEmail": "邮箱",
+    "contactTypePhone": "手机号",
+    "courseNameFallback": "课程",
+    "courseNameSuffix": "-副本",
+    "currentCreator": "当前创作者",
+    "description": "复制该课程的最新草稿，并在目标创作者名下新建一门草稿课程。",
+    "identifier": "目标创作者",
+    "identifierRequired": "请输入合法的目标创作者联系方式",
+    "newCourseName": "新课程名称",
+    "submitSuccess": "课程复制成功",
+    "title": "复制课程"
   },
   "coursePromptDialog": {
     "copy": "复制",
@@ -11,7 +31,6 @@
     "title": "课程提示词"
   },
   "detail": {
-    "back": "返回课程列表",
     "basicInfo": "基础信息",
     "boolean": {
       "no": "否",
@@ -60,6 +79,43 @@
       "has": "有",
       "unknown": "未知"
     },
+    "creditUsage": {
+      "count": "{count} 条记录",
+      "description": "查看该课程的积分消耗记录。",
+      "filters": {
+        "mode": "消耗场景",
+        "modeAll": "全部",
+        "reset": "重置",
+        "time": "时间",
+        "timePlaceholder": "选择时间范围",
+        "userKeyword": "用户",
+        "userKeywordPlaceholderEmail": "输入邮箱 / 昵称",
+        "userKeywordPlaceholderPhone": "输入手机号 / 昵称"
+      },
+      "modelSummary": {
+        "multiple": "{model} 等 {count} 个"
+      },
+      "modes": {
+        "ask": "追问",
+        "learn": "阅读",
+        "listen": "听课",
+        "mixed": "混合",
+        "unknown": "未知场景"
+      },
+      "table": {
+        "chapter": "章节",
+        "createdAt": "消耗时间",
+        "credits": "总消耗积分",
+        "empty": "暂无积分消耗记录",
+        "lesson": "小节",
+        "mode": "消耗场景",
+        "model": "模型",
+        "nickname": "昵称",
+        "usageCount": "消耗次数"
+      },
+      "title": "积分消耗"
+    },
+    "creditUsageTab": "积分消耗",
     "fields": {
       "courseId": "课程ID",
       "courseName": "课程名",
@@ -69,7 +125,6 @@
       "updatedAt": "更新时间"
     },
     "followUps": {
-      "back": "返回课程详情",
       "drawer": {
         "currentRecordHint": "按“被追问的原始输出 -> 本次追问 -> 本次系统回答”的顺序阅读",
         "fields": {
@@ -117,7 +172,6 @@
         "followUpCount": "追问总数",
         "latestFollowUpAt": "最近追问时间",
         "lessonCount": "涉及节数",
-        "scopeHint": "以下统计基于当前筛选结果",
         "userCount": "追问用户数"
       },
       "table": {
@@ -155,7 +209,6 @@
       "openMetric": "查看订单数据"
     },
     "ratings": {
-      "back": "返回课程详情",
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "章/节搜索",
@@ -191,7 +244,6 @@
         "averageScore": "平均评分",
         "latestRatedAt": "最近评分时间",
         "ratingCount": "评分次数",
-        "scopeHint": "以下统计基于当前筛选结果",
         "userCount": "评分用户数"
       },
       "table": {
@@ -270,6 +322,26 @@
     "startTime": "开始日期",
     "status": "状态"
   },
+  "overview": {
+    "activeFilter": "快捷筛选",
+    "metrics": {
+      "createdLast7d": "近7天新增课程",
+      "draftCourses": "草稿课程",
+      "learningActive30d": "近30天有学习课程",
+      "ordered30d": "近30天有订单课程",
+      "publishedCourses": "已发布课程",
+      "totalCourses": "课程总数"
+    },
+    "title": "数据概览",
+    "tooltips": {
+      "createdLast7d": "近7天新建课程数",
+      "draftCourses": "从未发布课程数",
+      "learningActive30d": "近30天有学习课程数",
+      "ordered30d": "近30天有成交课程数",
+      "publishedCourses": "至少发布过一次的课程数",
+      "totalCourses": "课程总数"
+    }
+  },
   "statusLabels": {
     "published": "已发布",
     "unknown": "未知",
@@ -292,9 +364,7 @@
   "title": "课程管理",
   "transferCreatorDialog": {
     "confirm": "确认转移",
-    "confirmDescriptionCourseSuffix": "课程的创作者从",
-    "confirmDescriptionPrefix": "将",
-    "confirmDescriptionTargetPrefix": "转移到",
+    "confirmDescription": "将课程《{courseName}》的创作者从 {currentCreator} 转移给 {targetCreator}。",
     "confirmTitle": "确认转移创作者",
     "contactPlaceholderEmail": "请输入目标创作者邮箱",
     "contactPlaceholderPhone": "请输入目标创作者手机号",

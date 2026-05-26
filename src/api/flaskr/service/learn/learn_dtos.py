@@ -39,6 +39,7 @@ class GeneratedType(Enum):
     # Audio types for TTS
     AUDIO_SEGMENT = "audio_segment"
     AUDIO_COMPLETE = "audio_complete"
+    AUDIO_BACKFILL_READY = "audio_backfill_ready"
     # Internal ask event (listen adapter only, not exposed to non-listen consumers)
     ASK = "ask"
 
@@ -735,6 +736,23 @@ class ElementDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AudioBackfillReadyDTO(BaseModel):
+    generated_block_bid: str = Field(
+        ..., description="Generated block ready for persisted audio backfill"
+    )
+    element_bids: List[str] = Field(
+        default_factory=list,
+        description="Persisted final element identifiers in this generated block",
+    )
+
+    def __json__(self):
+        return {
+            "generated_block_bid": self.generated_block_bid,
+            "element_bids": self.element_bids,
+        }
+
+
+@register_schema_to_swagger
 class RunElementSSEMessageDTO(BaseModel):
     type: str = Field(..., description="Run event type")
     event_type: str = Field(..., description="Run event type mirror")
@@ -756,6 +774,7 @@ class RunElementSSEMessageDTO(BaseModel):
         OutlineItemUpdateDTO,
         AudioSegmentDTO,
         AudioCompleteDTO,
+        AudioBackfillReadyDTO,
     ] = Field(..., description="Run event content")
 
     def __json__(self):

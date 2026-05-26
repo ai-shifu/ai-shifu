@@ -1,7 +1,27 @@
 {
   "__namespace__": "module.operationsCourse",
   "actions": {
+    "copyCourse": "Copy course",
     "transferCreator": "Transfer creator"
+  },
+  "copyCourseDialog": {
+    "confirm": "Confirm copy",
+    "confirmDescription": "Copy the latest draft of <strong>{courseName}</strong> to create a new draft course for <strong>{targetCreator}</strong> named <strong>{newCourseName}</strong>.",
+    "confirmTitle": "Confirm course copy",
+    "contactPlaceholderEmail": "Enter the target creator email",
+    "contactPlaceholderPhone": "Enter the target creator phone number",
+    "contactType": "Contact type",
+    "contactTypeEmail": "Email",
+    "contactTypePhone": "Phone",
+    "courseNameFallback": "Course",
+    "courseNameSuffix": "-Copy",
+    "currentCreator": "Current creator",
+    "description": "Copy the latest draft into a new draft course for the target creator.",
+    "identifier": "Target creator",
+    "identifierRequired": "Enter a valid target creator contact",
+    "newCourseName": "New course name",
+    "submitSuccess": "Course copied successfully",
+    "title": "Copy course"
   },
   "coursePromptDialog": {
     "copy": "Copy",
@@ -11,7 +31,6 @@
     "title": "Course Prompt"
   },
   "detail": {
-    "back": "Back to list",
     "basicInfo": "Basic Info",
     "boolean": {
       "no": "No",
@@ -60,6 +79,43 @@
       "has": "Has",
       "unknown": "Unknown"
     },
+    "creditUsage": {
+      "count": "{count} records",
+      "description": "Review credit consumption records for this course.",
+      "filters": {
+        "mode": "Usage mode",
+        "modeAll": "All",
+        "reset": "Reset",
+        "time": "Time",
+        "timePlaceholder": "Select time range",
+        "userKeyword": "User",
+        "userKeywordPlaceholderEmail": "Enter email or nickname",
+        "userKeywordPlaceholderPhone": "Enter phone or nickname"
+      },
+      "modelSummary": {
+        "multiple": "{model} and {count} models"
+      },
+      "modes": {
+        "ask": "Follow-up",
+        "learn": "Read",
+        "listen": "Listen",
+        "mixed": "Mixed",
+        "unknown": "Unknown mode"
+      },
+      "table": {
+        "chapter": "Chapter",
+        "createdAt": "Consumed At",
+        "credits": "Total Credits Consumed",
+        "empty": "No credit usage records",
+        "lesson": "Lesson",
+        "mode": "Usage Mode",
+        "model": "Model",
+        "nickname": "Nickname",
+        "usageCount": "Usage Count"
+      },
+      "title": "Credit Usage"
+    },
+    "creditUsageTab": "Credit Usage",
     "fields": {
       "courseId": "Course ID",
       "courseName": "Course Name",
@@ -69,7 +125,6 @@
       "updatedAt": "Updated At"
     },
     "followUps": {
-      "back": "Back to course detail",
       "drawer": {
         "currentRecordHint": "Read in order: original output -> current follow-up -> current system answer.",
         "fields": {
@@ -117,7 +172,6 @@
         "followUpCount": "Follow-ups",
         "latestFollowUpAt": "Latest Follow-up",
         "lessonCount": "Lessons",
-        "scopeHint": "These summary metrics reflect the current filtered result set.",
         "userCount": "Users"
       },
       "table": {
@@ -155,7 +209,6 @@
       "openMetric": "Open order data"
     },
     "ratings": {
-      "back": "Back to course detail",
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Chapter / Lesson Search",
@@ -191,7 +244,6 @@
         "averageScore": "Average Rating",
         "latestRatedAt": "Latest Rating",
         "ratingCount": "Ratings",
-        "scopeHint": "These summary metrics reflect the current filtered result set.",
         "userCount": "Users"
       },
       "table": {
@@ -270,6 +322,26 @@
     "startTime": "Start Date",
     "status": "Status"
   },
+  "overview": {
+    "activeFilter": "Quick Filter",
+    "metrics": {
+      "createdLast7d": "New Courses (7d)",
+      "draftCourses": "Draft Courses",
+      "learningActive30d": "Courses with Learning (30d)",
+      "ordered30d": "Courses with Orders (30d)",
+      "publishedCourses": "Published Courses",
+      "totalCourses": "Total Courses"
+    },
+    "title": "Overview",
+    "tooltips": {
+      "createdLast7d": "Courses created in last 7 days",
+      "draftCourses": "Never published courses",
+      "learningActive30d": "Courses with learning in last 30 days",
+      "ordered30d": "Courses with paid orders in last 30 days",
+      "publishedCourses": "Courses published at least once",
+      "totalCourses": "Total courses"
+    }
+  },
   "statusLabels": {
     "published": "Published",
     "unknown": "Unknown",
@@ -292,9 +364,7 @@
   "title": "Course Management",
   "transferCreatorDialog": {
     "confirm": "Transfer",
-    "confirmDescriptionCourseSuffix": " from",
-    "confirmDescriptionPrefix": "Transfer the creator of",
-    "confirmDescriptionTargetPrefix": "to",
+    "confirmDescription": "Transfer the creator of {courseName} from {currentCreator} to {targetCreator}.",
     "confirmTitle": "Confirm Creator Transfer",
     "contactPlaceholderEmail": "Enter target creator email",
     "contactPlaceholderPhone": "Enter target creator mobile",

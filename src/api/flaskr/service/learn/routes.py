@@ -23,6 +23,10 @@ from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
     list_lesson_feedbacks,
 )
+from flaskr.service.learn.preview_permissions import (
+    require_shifu_preview_permission,
+    resolve_preview_request_user,
+)
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
@@ -69,6 +73,13 @@ def _is_generator_close_error(exc: RuntimeError) -> bool:
     return str(exc) == "generator ignored GeneratorExit"
 
 
+def _release_db_session(app: Flask, *, source: str) -> None:
+    try:
+        db.session.remove()
+    except Exception:
+        app.logger.warning("%s db session cleanup failed", source, exc_info=True)
+
+
 def _stream_sse_response(
     app: Flask,
     *,
@@ -92,7 +103,10 @@ def _stream_sse_response(
             yield _to_sse_data_line(error_event_factory(exc))
             if terminal_event_factory is not None:
                 yield _to_sse_data_line(terminal_event_factory())
+        finally:
+            _release_db_session(app, source="learn stream_sse_response")
 
+    _release_db_session(app, source="learn stream_sse_response")
     return Response(
         stream_with_context(event_stream()),
         headers={"Cache-Control": "no-cache"},
@@ -122,7 +136,10 @@ def _stream_passthrough_response(
         except Exception:
             app.logger.error(error_log, exc_info=True)
             raise
+        finally:
+            _release_db_session(app, source="learn stream_passthrough_response")
 
+    _release_db_session(app, source="learn stream_passthrough_response")
     return Response(
         stream_with_context(event_stream()),
         headers={"Cache-Control": "no-cache"},
@@ -226,6 +243,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             f"get shifu, shifu_bid: {shifu_bid}, preview_mode: {preview_mode}"
         )
         preview_mode = True if preview_mode.lower() == "true" else False
+        if preview_mode:
+            user = resolve_preview_request_user(app)
+            require_shifu_preview_permission(app, user.user_id, shifu_bid)
         return make_common_response(get_shifu_info(app, shifu_bid, preview_mode))
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/outline-item-tree", methods=["GET"])
@@ -265,6 +285,8 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         )
         preview_mode = True if preview_mode.lower() == "true" else False
         user_bid = request.user.user_id
+        if preview_mode:
+            require_shifu_preview_permission(app, user_bid, shifu_bid)
         return make_common_response(
             get_outline_item_tree(app, shifu_bid, user_bid, preview_mode)
         )
@@ -333,6 +355,8 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             f"run outline item, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}, listen: {listen}"
         )
         preview_mode = True if preview_mode.lower() == "true" else False
+        if preview_mode:
+            require_shifu_preview_permission(app, user_bid, shifu_bid)
         _admit_creator_usage_for_shifu(
             shifu_bid,
             BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
@@ -480,6 +504,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             preview_request.block_index,
             visual_mode,
         )
+        require_shifu_preview_permission(app, user_bid, shifu_bid)
         _admit_creator_usage_for_shifu(
             shifu_bid,
             BILL_USAGE_SCENE_PREVIEW,
@@ -603,6 +628,8 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             True if include_non_navigable.lower() == "true" else False
         )
         user_bid = request.user.user_id
+        if preview_mode:
+            require_shifu_preview_permission(app, user_bid, shifu_bid)
         return make_common_response(
             get_listen_element_record(
                 app,
@@ -849,6 +876,8 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             f"get generated content, shifu_bid: {shifu_bid}, generated_block_bid: {generated_block_bid}, preview_mode: {preview_mode}"
         )
         preview_mode = preview_mode.lower() == "true"
+        if preview_mode:
+            require_shifu_preview_permission(app, user_bid, shifu_bid)
         return make_common_response(
             get_generated_content(
                 app, shifu_bid, generated_block_bid, user_bid, preview_mode
@@ -896,6 +925,8 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         preview_mode = preview_mode.lower() == "true"
         listen = request.args.get("listen", "False")
         listen = listen.lower() == "true"
+        if preview_mode:
+            require_shifu_preview_permission(app, user_bid, shifu_bid)
         # TTS is gated by billing admission, but it should not consume a second
         # creator runtime slot alongside the active learn stream.
         _admit_creator_usage_for_shifu(
@@ -957,6 +988,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         text = payload.get("text") or ""
         preview_mode = request.args.get("preview_mode", "False")
         preview_mode = preview_mode.lower() == "true"
+        require_shifu_preview_permission(app, user_bid, shifu_bid)
         # Preview TTS reuses the same creator admission gate without claiming an
         # extra runtime slot, so authors can preview audio during an active run.
         _admit_creator_usage_for_shifu(

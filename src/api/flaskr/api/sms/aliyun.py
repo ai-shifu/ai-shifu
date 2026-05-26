@@ -16,6 +16,14 @@ def _body_value(
     return str(getattr(body, field_name, "") or "").strip()
 
 
+def _log_provider_error(app: Flask, error: Exception) -> None:
+    error_message = getattr(error, "message", str(error))
+    error_data = getattr(error, "data", {}) or {}
+    app.logger.error(error_message)
+    app.logger.error(error_data.get("Recommend"))
+    UtilClient.assert_as_string(error_message)
+
+
 def send_sms_ali(
     app: Flask,
     mobile: str,
@@ -75,11 +83,40 @@ def send_sms_ali(
             return None
         return res
     except Exception as error:
-        error_message = getattr(error, "message", str(error))
-        error_data = getattr(error, "data", {}) or {}
-        app.logger.error(error_message)
-        app.logger.error(error_data.get("Recommend"))
-        UtilClient.assert_as_string(error_message)
+        _log_provider_error(app, error)
+    return None
+
+
+def get_sms_template_ali(
+    app: Flask,
+    *,
+    template_code: str,
+) -> dysmsapi_20170525_models.GetSmsTemplateResponse | None:
+    if not app.config.get(
+        "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", None
+    ) or not app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", None):
+        app.logger.warning(
+            "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID or "
+            "ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET not configured"
+        )
+        return None
+    resolved_template_code = str(template_code or "").strip()
+    if not resolved_template_code:
+        app.logger.warning("template_code is required for Aliyun SMS template query")
+        return None
+    config = open_api_models.Config(
+        access_key_id=app.config["ALIBABA_CLOUD_SMS_ACCESS_KEY_ID"],
+        access_key_secret=app.config["ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET"],
+    )
+    config.endpoint = "dysmsapi.aliyuncs.com"
+    client = Dysmsapi20170525Client(config)
+    request = dysmsapi_20170525_models.GetSmsTemplateRequest()
+    request.template_code = resolved_template_code
+    runtime = util_models.RuntimeOptions()
+    try:
+        return client.get_sms_template_with_options(request, runtime)
+    except Exception as error:
+        _log_provider_error(app, error)
     return None
 
 

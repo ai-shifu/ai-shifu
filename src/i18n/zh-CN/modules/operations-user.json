@@ -1,7 +1,7 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
-    "grantCredits": "增加积分",
+    "grantCredits": "发放积分/套餐",
     "moreForUser": "{user} 的更多操作"
   },
   "courseSummary": {
@@ -19,7 +19,6 @@
     "longTerm": "长期有效"
   },
   "detail": {
-    "back": "返回用户管理",
     "basicInfo": "基础信息",
     "createdCourses": "创作课程",
     "creditExpireAtHint": "多个有效期优先展示最早到期时间",
@@ -34,7 +33,36 @@
       "note": "备注",
       "sourceType": "来源"
     },
+    "creditLedgerFilters": {
+      "course": "课程",
+      "coursePlaceholder": "输入ID/名称",
+      "grantSource": "发放方式",
+      "grantSourceOptions": {
+        "all": "全部",
+        "manual": "人工发放",
+        "subscription": "套餐",
+        "topup": "积分包",
+        "trial_subscription": "体验积分"
+      },
+      "time": "时间范围",
+      "timePlaceholder": "选择时间范围",
+      "type": "类型",
+      "typeOptions": {
+        "all": "全部",
+        "consume": "消耗",
+        "grant": "发放",
+        "other": "其他"
+      },
+      "usageMode": "消耗场景",
+      "usageModeOptions": {
+        "all": "全部",
+        "ask": "追问",
+        "learn": "阅读",
+        "listen": "听课"
+      }
+    },
     "creditLedgerNoteLabels": {
+      "admin_manual_plan_grant": "运营发放套餐",
       "debug_consume": "调试内容消耗积分",
       "gift_expire": "赠送积分到期失效",
       "gift_grant": "系统发放赠送积分",
@@ -122,26 +150,48 @@
     "status": "用户状态"
   },
   "grantDialog": {
-    "confirmButton": "确认增加",
+    "bootstrapError": "套餐列表加载失败，请稍后重试。",
+    "confirmButton": "确认发放",
     "confirmDescription": "请确认本次积分发放信息，确认后将立即生效。",
     "confirmSummary": {
-      "amount": "增加积分",
+      "amount": "发放积分",
+      "mode": "发放类型",
+      "note": "备注",
+      "package": "套餐",
+      "packageCredits": "积分数",
+      "packageExpireAt": "预计截止日期",
+      "packageValidity": "有效期",
+      "source": "来源",
+      "validityPreset": "有效期"
+    },
+    "confirmTitle": "确认发放积分",
+    "description": "用于运营后台给创作者或运营发放积分或套餐。",
+    "fields": {
+      "amount": "积分",
+      "mode": "发放类型",
       "note": "备注",
       "source": "来源",
       "validityPreset": "有效期"
     },
-    "confirmTitle": "确认增加积分",
-    "description": "用于运营后台给用户增加奖励或补偿积分。",
-    "fields": {
-      "amount": "积分",
-      "note": "备注",
-      "source": "来源",
-      "type": "类型",
-      "validityPreset": "有效期"
+    "modeOptions": {
+      "credits": "发放积分",
+      "package": "发放套餐"
+    },
+    "packageConfirmDescription": "请确认本次套餐发放信息，确认后将立即生效。",
+    "packageConfirmTitle": "确认发放套餐",
+    "packageFields": {
+      "credits": "积分数",
+      "expiryHintPending": "发放成功后立即生效，截止日期将根据套餐有效期自动计算。",
+      "expiryHintResolved": "发放成功后立即生效，预计截止日期为 {dateTime}。",
+      "packageName": "套餐名",
+      "product": "套餐",
+      "validity": "有效期"
     },
     "placeholders": {
       "amount": "请输入积分数值",
-      "note": "可选，记录本次发放理由",
+      "note": "可选，记录本次发放说明",
+      "product": "请选择套餐",
+      "productLoading": "套餐加载中...",
       "source": "请选择来源",
       "validityPreset": "请选择有效期"
     },
@@ -150,17 +200,19 @@
       "reward": "奖励"
     },
     "submitButton": "确认",
-    "submitSuccess": "积分增加成功",
+    "submitSuccess": "发放成功",
     "summary": {
       "account": "账号",
       "availableCredits": "积分余额",
       "currentExpireAt": "有效期到",
-      "nickname": "昵称"
+      "currentPackage": "当前套餐",
+      "nickname": "昵称",
+      "package": "套餐"
     },
-    "title": "增加积分",
-    "typeValue": "人工发放",
+    "title": "发放积分/套餐",
     "validation": {
       "amountRequired": "请输入大于 0 的积分数值",
+      "productRequired": "请选择套餐",
       "sourceRequired": "请选择来源",
       "validityPresetRequired": "请选择有效期"
     },
@@ -180,6 +232,35 @@
     "phone": "手机号",
     "unknown": "未知",
     "wechat": "微信"
+  },
+  "overview": {
+    "activeFilter": "快捷筛选",
+    "metrics": {
+      "creators": "创作者数",
+      "guests": "游客数",
+      "learners": "学习者数",
+      "learningActive30d": "近30天活跃学习用户",
+      "newUsers30d": "近30天新增用户",
+      "paidUsers": "付费用户数",
+      "paidUsers30d": "近30天付费用户",
+      "registeredUsers": "注册用户数",
+      "registeredUsers30d": "近30天注册用户",
+      "totalUsers": "总用户数"
+    },
+    "staleData": "数据概览刷新失败，当前展示最近一次成功加载的数据。",
+    "title": "数据概览",
+    "tooltips": {
+      "creators": "创作者数量",
+      "guests": "游客状态用户数量",
+      "learners": "有学习记录的用户数量",
+      "learningActive30d": "近 30 天有学习行为的用户数量",
+      "newUsers30d": "近 30 天新增用户数量",
+      "paidUsers": "付费状态用户数量（含开通导入）",
+      "paidUsers30d": "近 30 天成功付费用户数量（含开通导入）",
+      "registeredUsers": "已注册用户数量",
+      "registeredUsers30d": "近 30 天完成注册的用户数量",
+      "totalUsers": "全部用户数量"
+    }
   },
   "registrationSourceLabels": {
     "email": "邮箱",

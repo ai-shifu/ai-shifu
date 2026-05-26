@@ -276,13 +276,14 @@
       "perYear": "每年",
       "providerAlipay": "支付宝",
       "providerManual": "人工开通",
-      "providerPingxx": "Pingxx / 支付宝二维码",
+      "providerPingxx": "Pingxx",
       "providerStripe": "Stripe",
-      "providerWechatpay": "微信支付"
+      "providerWechatpay": "微信支付",
+      "providerWithChannel": "{provider} / {channel}"
     },
     "plans": {
       "creatorMonthly": {
-        "description": "适合轻量级课程迭代",
+        "description": "适合轻量级课程体验",
         "title": "轻量版"
       },
       "creatorMonthlyPro": {
@@ -303,21 +304,9 @@
       }
     },
     "topups": {
-      "creatorLarge": {
+      "default": {
         "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
-        "title": "120 积分包"
-      },
-      "creatorMedium": {
-        "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
-        "title": "50 积分包"
-      },
-      "creatorSmall": {
-        "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
-        "title": "20 积分包"
-      },
-      "creatorXLarge": {
-        "description": "用于当前套餐期内补充积分，未使用部分会随套餐一起到期。",
-        "title": "320 积分包"
+        "title": "{credits} 积分包"
       }
     }
   },
@@ -581,39 +570,45 @@
       }
     },
     "featuresTitle": "享有权益：",
+    "footnote": {
+      "learnerEstimateIntro": "学习人次是基于平台经验的预估，按“一人完整学完一次课程，课程规模约 10 个小节，平均每小节正常学习约 15 分钟，全部使用默认模型，并开启听课模式”的口径估算。实际扣费会根据学习、预览、调试中产生的模型消耗结算，最终以积分明细为准。积分消耗影响因素：",
+      "learnerEstimateMode": "关闭听课模式、仅保留图文学习互动时，支持人次可增加 1-4 倍。",
+      "learnerEstimateModel": "选择更贵或更便宜的模型，会影响积分消耗。",
+      "learnerEstimateScale": "课程节数、每节长度、互动数量、完课率和学生追问次数的变化，都会影响积分消耗。",
+      "validity": "积分有效期：月度套餐自获取之日起 30 天内有效（含当日）；年度套餐自获取之日起按自然年有效。两类均以到期日 23:59 为截止。"
+    },
     "free": {
       "creditSummary": "赠送积分数 {credits}",
       "description": "适合首次体验",
       "priceNote": "/ 新注册 {days} 日内有效",
       "priceNoteGranted": "/ 已于 {grantedAt} 激活，有效至 {expiresAt}",
-      "priceValue": "¥0",
       "title": "体验版"
     },
     "intervalTabs": {
       "daily": "日度套餐",
       "monthly": "月度套餐",
-      "plans": "套餐",
-      "topup": "充值",
+      "plans": "积分套餐",
+      "topup": "积分包",
       "yearly": "年度套餐"
     },
     "scale": {
       "advanced": {
-        "students": "约 500 个以内学员"
+        "students": "250 - 750 人次"
       },
       "basic": {
-        "students": "10人左右"
+        "students": "5 - 15 人次"
       },
       "free": {
-        "students": "10人左右"
+        "students": "5 - 15 人次"
       },
       "lite": {
-        "students": "3人左右"
+        "students": "少于 1 人次"
       },
       "premium": {
-        "students": "约 1500 个以内学员"
+        "students": "1100 - 3300 人次"
       },
       "pro": {
-        "students": "约 1000 个以内学员"
+        "students": "500 - 1500 人次"
       },
       "sectionTitle": "学员支持规模（参考）"
     },
@@ -622,44 +617,36 @@
       "creditsRowLabel": "周期积分",
       "emptyValue": "—",
       "featuresRowLabel": "权益",
-      "studentsRowLabel": "预估支持学员",
+      "studentsRowLabel": "预估支持学习人次",
       "validityRowLabel": "积分有效期"
     },
-    "title": "积分套餐",
+    "title": "积分购买",
     "topup": {
       "creditLabel": "{credits} 积分",
       "noteFrozen": "账户下存在一个有效期内的积分套餐时，才可以使用积分包",
-      "noteInstant": "购买后即时生效, 积分永不过期。",
-      "noteTitle": "积分充值说明"
+      "noteInstant": "购买后即时生效, 积分永不过期。"
     },
     "topupComingSoon": "敬请期待",
     "validity": {
       "daily": "有效期：自购买当日起按日生效",
       "days": "有效期：自购买当日起每 {count} 天续期",
-      "free": "有效期：注册日起 15 内有效",
-      "monthly": "购买日起 30 天内",
-      "months": "有效期：自购买当月起每 {count} 个月续期",
-      "yearly": "有效期：当月购买起计算日起，每年有效",
-      "years": "有效期：自购买当月起每 {count} 年续期"
+      "free": "有效期：注册日起 {days} 天内有效",
+      "monthly": "有效期：自购买当日起 30 天内有效（含当日）",
+      "months": "有效期：自购买当日起每 {count} 个 30 天续期（含当日）",
+      "yearly": "有效期：自购买日起按自然年有效",
+      "years": "有效期：自购买日起每 {count} 个自然年续期"
     },
     "validityShort": {
       "free": "{days} 天",
-      "monthly": "30 天",
-      "monthlyMonths": "{count} 个月",
-      "yearly": "1 年",
-      "yearlyYears": "{count} 年"
-    },
-    "validityTooltip": {
-      "free": "自获取之日起 {days} 天内有效（含当日）。以到期日的 23:59 计算。",
-      "monthly": "自获取之日起 30 天有效（含当日）。以到期日的 23:59 计算。",
-      "yearly": "自获取之日起一年有效（ 1 月 1 日购买，有效期至次年 1 月 1 日）。以到期日的 23:59 计算。"
+      "monthly": "{count} 个月",
+      "yearly": "{count} 年"
     }
   },
   "page": {
     "adminLink": "打开后台账务视图",
     "tabs": {
       "ledger": "积分详情",
-      "plans": "积分套餐"
+      "plans": "积分购买"
     }
   },
   "renewal": {

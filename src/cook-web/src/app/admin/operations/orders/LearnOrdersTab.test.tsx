@@ -41,6 +41,7 @@ jest.mock('next/navigation', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getAdminOperationOrdersOverview: jest.fn(),
     getAdminOperationOrders: jest.fn(),
   },
 }));
@@ -147,12 +148,23 @@ jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
 }));
 
 const mockGetAdminOperationOrders = api.getAdminOperationOrders as jest.Mock;
+const mockGetAdminOperationOrdersOverview =
+  api.getAdminOperationOrdersOverview as jest.Mock;
 
 describe('LearnOrdersTab', () => {
   beforeEach(() => {
     mockSearchParamsValue = '';
+    mockGetAdminOperationOrdersOverview.mockReset();
     mockGetAdminOperationOrders.mockReset();
     window.localStorage.clear();
+    mockGetAdminOperationOrdersOverview.mockResolvedValue({
+      total_order_count: 10,
+      paid_order_count: 6,
+      pending_order_count: 2,
+      refunded_order_count: 1,
+      closed_order_count: 1,
+      paid_amount_total: '456.78',
+    });
     mockGetAdminOperationOrders.mockResolvedValue({
       items: [
         {
@@ -188,6 +200,7 @@ describe('LearnOrdersTab', () => {
     render(<LearnOrdersTab />);
 
     await waitFor(() => {
+      expect(mockGetAdminOperationOrdersOverview).toHaveBeenCalledWith({});
       expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
         page_index: 1,
         page_size: 20,
@@ -205,8 +218,112 @@ describe('LearnOrdersTab', () => {
 
     expect(await screen.findByText('order-1')).toBeInTheDocument();
     expect(
+      screen.queryByText('module.operationsOrder.overview.activeFilter'),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByText('module.operationsOrder.totalCount'),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.overview.metrics.pendingOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.overview.metrics.refundedOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.overview.metrics.closedOrders',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  test('activates and clears the paid overview card without refetching the default paid view', async () => {
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.overview\.metrics\.paidOrders\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+    expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+
+    const clearButtons = screen.getAllByRole('button', {
+      name: /module\.operationsOrder\.overview\.metrics\.paidOrders/,
+    });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('module.operationsOrder.overview.activeFilter'),
+      ).not.toBeInTheDocument();
+    });
+    expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+  });
+
+  test('activates and clears the total overview card while restoring the default paid view', async () => {
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.overview\.metrics\.totalOrders\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        shifu_bid: '',
+        course_name: '',
+        status: '',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    const clearButtons = screen.getAllByRole('button', {
+      name: /module\.operationsOrder\.overview\.metrics\.totalOrders/,
+    });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        shifu_bid: '',
+        course_name: '',
+        status: '502',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
   });
 
   test('hydrates the course filter from the url query', async () => {

@@ -1,0 +1,153 @@
+{
+  "__namespace__": "module.operationsCreditNotifications",
+  "actions": {
+    "applyConfig": "Save config",
+    "dryRun": "Dry-run",
+    "refresh": "Refresh",
+    "requeue": "Requeue",
+    "reset": "Reset",
+    "search": "Search",
+    "syncTemplate": "Query template",
+    "syncingTemplate": "Querying"
+  },
+  "config": {
+    "description": "Use the form to maintain notification switches, templates, thresholds, frequency controls, and lists. Provider credentials still come from environment variables or Secrets, not this config.",
+    "fields": {
+      "blacklistCreatorBids": "Blocked creator BIDs",
+      "blacklistMobiles": "Blocked mobiles",
+      "dailySmsLimit": "Daily SMS budget",
+      "disableDebug": "Disable debug",
+      "dryRunRequired": "Require dry-run",
+      "enabled": "Enable credit SMS notifications",
+      "estimatedDays": "Trigger remaining days",
+      "estimatedDaysEnabled": "Alert by remaining days",
+      "fallbackFixedValue": "Fallback fixed threshold",
+      "lookbackDays": "Consumption lookback days",
+      "mergeSameCreator": "Merge same creator",
+      "minConsumedDays": "Minimum consumed days",
+      "optOutCreatorBids": "Opt-out creator BIDs",
+      "optOutMobiles": "Opt-out mobiles",
+      "perCreatorPerTypePerDay": "Per creator/type daily limit",
+      "perMobilePerDay": "Per mobile daily limit",
+      "quietEnd": "Quiet hours end",
+      "quietHoursEnabled": "Enable quiet hours",
+      "quietStart": "Quiet hours start",
+      "smsUnitCost": "SMS unit cost",
+      "softlimitEnabled": "Enable softlimit",
+      "softlimitSms": "Softlimit SMS alert",
+      "softlimitThreshold": "Softlimit threshold",
+      "teacherPageAlert": "Teacher page alert",
+      "templateCode": "SMS template code",
+      "thresholds": "Balance thresholds",
+      "timezone": "Timezone",
+      "windows": "Expiry reminder windows"
+    },
+    "invalidConfig": "Config could not be saved. Check the form values.",
+    "loadFailed": "Notification policy could not be loaded. Refresh and try again.",
+    "loadRequired": "Notification policy has not loaded successfully, so config cannot be saved.",
+    "placeholders": {
+      "available": "Available placeholders",
+      "available_credits": "Available credits",
+      "avg_daily_consumption": "Average daily consumption",
+      "credits": "Credit amount",
+      "estimated_remaining_days": "Estimated remaining days",
+      "expires_at": "Expiration time",
+      "groups": {
+        "creditExpiring": "Expiry reminder variables",
+        "creditGranted": "Grant reminder variables",
+        "lowBalanceEstimated": "Remaining-days variables",
+        "lowBalanceFixed": "Fixed-balance / fallback variables"
+      },
+      "lookback_days": "Consumption lookback days",
+      "notes": {
+        "emptyVariables": "Within one notification type, variables unused by the actual trigger path are sent as empty strings.",
+        "estimatedLowBalance": "Remaining-days alerts estimate usable days from average daily consumption; fixed threshold variables are empty.",
+        "expiresAtOptional": "If the granted credits have no expiration time, the expiration variable is empty.",
+        "fallbackLowBalance": "When consumption history is insufficient and a fallback threshold is configured, the fixed-balance path is used; fixed variables are populated and estimated variables are empty.",
+        "fixedLowBalance": "Fixed-balance alerts populate only balance, threshold, and threshold type variables.",
+        "unsupportedValidation": "Templates that use variables unsupported by the system are blocked during template sync or enabled-config save.",
+        "windowSource": "The reminder window variable comes from the expiry window config, such as 7d, 3d, 1d, or 0d."
+      },
+      "source": "Grant source",
+      "threshold": "Fixed balance threshold",
+      "threshold_kind": "Threshold type",
+      "tolerance": "SMS templates may use only some placeholders; missing unused variables will not block saving or sending.",
+      "trigger_days": "Trigger remaining days",
+      "window": "Reminder window"
+    },
+    "saved": "Config saved.",
+    "sections": {
+      "budget": "Budget",
+      "frequency": "Frequency controls",
+      "lists": "Blocklist and opt-outs",
+      "quietHours": "Quiet hours",
+      "softlimit": "Softlimit",
+      "types": "Notification types"
+    },
+    "templateSync": {
+      "compatible": "Template variables are supported",
+      "content": "Template content",
+      "error": "Sync error",
+      "incompatible": "Template has unsupported variables",
+      "status": "Audit status",
+      "syncFailed": "Template query failed. Try again later.",
+      "templateCodeRequired": "Enter the SMS template code first.",
+      "unsupported": "Unsupported template variables",
+      "unused": "Unused system variables",
+      "variables": "Template variables"
+    },
+    "title": "Operator policy config"
+  },
+  "dryRun": {
+    "candidateCount": "{count} candidate records",
+    "empty": "No dry-run result yet.",
+    "title": "Dry-run result"
+  },
+  "empty": "No credit notification records.",
+  "filters": {
+    "all": "All",
+    "creatorBid": "Creator BID",
+    "mobile": "Mobile",
+    "notificationType": "Notification type",
+    "sourceBid": "Source ID",
+    "status": "Status"
+  },
+  "loadError": "Credit notification data could not be loaded. Refresh and try again.",
+  "messages": {
+    "requeueDone": "Requeue task submitted.",
+    "requeueFailed": "Requeue task failed."
+  },
+  "records": {
+    "totalCount": "{count} notification records"
+  },
+  "status": {
+    "failed_provider": "Provider failed",
+    "pending": "Pending",
+    "sent": "Sent",
+    "skipped_no_mobile": "No mobile",
+    "skipped_opt_out": "Skipped",
+    "suppressed_duplicate": "Duplicate"
+  },
+  "subtitle": "Inspect credit grant, expiry, and low-balance notification delivery, and configure SMS policy.",
+  "table": {
+    "action": "Action",
+    "createdAt": "Created at",
+    "creator": "Creator",
+    "dedupeKey": "Dedupe key",
+    "error": "Error",
+    "notification": "Notification",
+    "source": "Source",
+    "template": "Template",
+    "templateParams": "Param snapshot"
+  },
+  "tabs": {
+    "config": "Policy config",
+    "records": "Notification records"
+  },
+  "title": "Credit Notifications",
+  "type": {
+    "credit_expiring": "Credit expiry",
+    "credit_granted": "Credit grant",
+    "low_balance": "Low balance"
+  }
+}

@@ -13,11 +13,13 @@ const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockGetAdminOperationCourseDetail = jest.fn();
 const mockGetAdminOperationCourseUsers = jest.fn();
+const mockGetAdminOperationCourseCreditUsages = jest.fn();
 const mockGetAdminOperationCourseChapterDetail = jest.fn();
 const mockCopyText = jest.fn();
 const mockToastShow = jest.fn();
 const mockToastFail = jest.fn();
 const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
+let mockLanguage = 'en-US';
 const mockEnvState = {
   currencySymbol: '¥',
   loginMethodsEnabled: ['phone'],
@@ -42,6 +44,22 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ href: string }>) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -49,6 +67,8 @@ jest.mock('@/api', () => ({
       mockGetAdminOperationCourseDetail(...args),
     getAdminOperationCourseUsers: (...args: unknown[]) =>
       mockGetAdminOperationCourseUsers(...args),
+    getAdminOperationCourseCreditUsages: (...args: unknown[]) =>
+      mockGetAdminOperationCourseCreditUsages(...args),
     getAdminOperationCourseChapterDetail: (...args: unknown[]) =>
       mockGetAdminOperationCourseChapterDetail(...args),
   },
@@ -91,7 +111,14 @@ jest.mock('react-i18next', () => ({
         t: (key: string) => (ns && ns !== 'translation' ? `${ns}.${key}` : key),
       });
     }
-    return mockTranslationCache.get(cacheKey)!;
+    return {
+      ...mockTranslationCache.get(cacheKey)!,
+      i18n: {
+        get language() {
+          return mockLanguage;
+        },
+      },
+    };
   },
 }));
 
@@ -245,15 +272,28 @@ describe('AdminOperationCourseDetailPage', () => {
     });
   };
 
+  const openCreditUsageTab = async () => {
+    fireEvent.click(
+      await screen.findByRole('tab', {
+        name: /module\.operationsCourse\.detail\.creditUsageTab/,
+      }),
+    );
+    await screen.findByRole('button', {
+      name: 'module.order.filters.search',
+    });
+  };
+
   beforeEach(() => {
     mockReplace.mockReset();
     mockPush.mockReset();
     mockGetAdminOperationCourseDetail.mockReset();
     mockGetAdminOperationCourseUsers.mockReset();
+    mockGetAdminOperationCourseCreditUsages.mockReset();
     mockGetAdminOperationCourseChapterDetail.mockReset();
     mockCopyText.mockReset();
     mockToastShow.mockReset();
     mockToastFail.mockReset();
+    mockLanguage = 'en-US';
     mockEnvState.currencySymbol = '¥';
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
@@ -286,6 +326,36 @@ describe('AdminOperationCourseDetailPage', () => {
           last_learning_at: '2026-04-08T11:30:00Z',
           joined_at: '2026-04-07T09:00:00Z',
           last_login_at: '2026-04-08T12:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    mockGetAdminOperationCourseCreditUsages.mockResolvedValue({
+      view: 'grouped',
+      items: [
+        {
+          group_key: 'progress-1:learn',
+          usage_bid: 'usage-2',
+          progress_record_bid: 'progress-1',
+          generated_block_bid: '',
+          user_bid: 'student-1',
+          mobile: '13900001234',
+          email: '',
+          nickname: 'Bob',
+          chapter_outline_item_bid: 'chapter-1',
+          chapter_title: 'Chapter 1',
+          lesson_outline_item_bid: 'lesson-1',
+          lesson_title: 'Lesson 1',
+          usage_mode: 'learn',
+          provider: 'qwen',
+          model: 'qwen/deepseek-v4-a',
+          usage_count: 2,
+          model_variant_count: 2,
+          consumed_credits: 17,
+          created_at: '2026-04-08T12:30:00Z',
         },
       ],
       page: 1,
@@ -357,11 +427,14 @@ describe('AdminOperationCourseDetailPage', () => {
     });
   });
 
-  test('renders course detail data and can go back', async () => {
+  test('renders course detail data with breadcrumb navigation', async () => {
     render(<AdminOperationCourseDetailPage />);
 
     expect(
-      await screen.findByText('module.operationsCourse.detail.title'),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsCourse.detail.title',
+      }),
     ).toBeInTheDocument();
     expect(mockGetAdminOperationCourseDetail).toHaveBeenCalledWith({
       shifu_bid: 'course-1',
@@ -413,13 +486,112 @@ describe('AdminOperationCourseDetailPage', () => {
         .length,
     ).toBeGreaterThan(0);
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCourse.detail.back',
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.title',
       }),
-    );
+    ).toHaveAttribute('href', '/admin/operations');
+  });
 
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations');
+  test('loads credit usage tab on demand and renders credit rows', async () => {
+    render(<AdminOperationCourseDetailPage />);
+
+    expect(mockGetAdminOperationCourseCreditUsages).not.toHaveBeenCalled();
+
+    await openCreditUsageTab();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseCreditUsages).toHaveBeenCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        view: 'grouped',
+        keyword: '',
+        mode: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.creditUsage.filters.userKeyword',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        'module.operationsCourse.detail.creditUsage.modes.learn',
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.creditUsage.modelSummary.multiple',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsCourse.detail.creditUsage.table.usageCount',
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('17')).toBeInTheDocument();
+  });
+
+  test('formats course metrics and learning progress without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+    mockGetAdminOperationCourseUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'student-1',
+          mobile: '13900001234',
+          email: '',
+          nickname: 'Bob',
+          user_role: 'student',
+          learned_lesson_count: 1000,
+          total_lesson_count: 2000,
+          learning_status: 'learning',
+          is_paid: true,
+          total_paid_amount: '88',
+          last_learning_at: '2026-04-08T11:30:00Z',
+          joined_at: '2026-04-07T09:00:00Z',
+          last_login_at: '2026-04-08T12:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    mockGetAdminOperationCourseDetail.mockResolvedValueOnce({
+      basic_info: {
+        shifu_bid: 'course-1',
+        course_name: 'Course One',
+        course_status: 'published',
+        creator_user_bid: 'creator-1',
+        creator_mobile: '13800001234',
+        creator_email: '',
+        creator_nickname: 'Alice',
+        created_at: '2026-04-08T10:00:00Z',
+        updated_at: '2026-04-08T11:00:00Z',
+      },
+      metrics: {
+        visit_count_30d: 76384,
+        learner_count: 12000,
+        order_count: 4000,
+        order_amount: '88',
+        follow_up_count: 9000,
+        rating_score: '4.2',
+      },
+      chapters: [],
+    });
+
+    render(<AdminOperationCourseDetailPage />);
+
+    expect(await screen.findByText('76384')).toBeInTheDocument();
+    expect(screen.queryByText('76,384')).not.toBeInTheDocument();
+
+    await openUsersTab();
+    expect(screen.getByText('1000 / 2000')).toBeInTheDocument();
+    expect(screen.queryByText('1,000 / 2,000')).not.toBeInTheDocument();
   });
 
   test('navigates to follow-up page from the follow-up metric card', async () => {

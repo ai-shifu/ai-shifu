@@ -22,6 +22,29 @@ export const fixCodeStream = (text, curr) => {
   return curr;
 };
 
+export const mergeStreamingMarkdownText = (
+  previousText?: string | null,
+  incomingText?: string | null,
+) => {
+  const resolvedPreviousText = previousText ?? '';
+  const resolvedIncomingText = incomingText ?? '';
+
+  if (!resolvedPreviousText) {
+    return resolvedIncomingText;
+  }
+
+  if (!resolvedIncomingText) {
+    return resolvedPreviousText;
+  }
+
+  if (resolvedIncomingText.startsWith(resolvedPreviousText)) {
+    return resolvedIncomingText;
+  }
+
+  const delta = fixMarkdownStream(resolvedPreviousText, resolvedIncomingText);
+  return resolvedPreviousText + delta;
+};
+
 const MERMAID_FENCE = '```mermaid';
 const STREAMING_MARKER_REGEX = /```mermaid\s*_streaming\s*/gi;
 

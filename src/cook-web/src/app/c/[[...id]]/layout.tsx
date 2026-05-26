@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { parseUrlParams } from '@/c-utils/urlUtils';
 // import routes from './Router/index';
 // import { useRoutes } from 'react-router-dom';
 // import { ConfigProvider } from 'antd';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useTranslation } from 'react-i18next';
-import type { LearningMode } from './Components/learningModeOptions';
+import { debugError, debugInfo } from '@/c-utils/debugConsole';
 
 import { useShallow } from 'zustand/react/shallow';
 import { useParams } from 'next/navigation';
@@ -19,6 +19,7 @@ import {
 } from '@/c-constants/uiConstants';
 import { getCourseInfo } from '@/c-api/course';
 import { tracking } from '@/c-common/tools/tracking';
+import { useTracking } from '@/c-common/hooks/useTracking';
 import {
   EnvStoreState,
   SystemStoreState,
@@ -31,6 +32,7 @@ import {
   readLearningModeFromStorage,
   writeLearningModeToStorage,
 } from './Components/learningModeStorage';
+import { resolveCourseLearningMode } from './Components/learningModePreference';
 
 const parseBooleanQueryParam = (value?: string) => {
   if (typeof value !== 'string') {
@@ -40,40 +42,14 @@ const parseBooleanQueryParam = (value?: string) => {
   return value.trim().toLowerCase() === 'true';
 };
 
-const resolveLearningMode = ({
-  courseTtsEnabled,
-  hasListenModeOverride,
-  listenModeParam,
-  storedLearningMode,
-}: {
-  courseTtsEnabled: boolean | null;
-  hasListenModeOverride: boolean;
-  listenModeParam: boolean | null;
-  storedLearningMode: LearningMode | null;
-}): LearningMode => {
-  if (hasListenModeOverride) {
-    if (courseTtsEnabled === null) {
-      return listenModeParam === true ? 'listen' : 'read';
-    }
-
-    return listenModeParam === true && courseTtsEnabled === true
-      ? 'listen'
-      : 'read';
-  }
-
-  if (storedLearningMode === 'listen' && courseTtsEnabled !== false) {
-    return 'listen';
-  }
-
-  return 'read';
-};
-
 export default function ChatLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const trackedLearningModeStorageRef = useRef<string>('');
   const { i18n, t } = useTranslation();
+  const { trackEvent } = useTracking();
   const routeParams = useParams<{ id?: string[] }>();
 
   const [checkWxcode, setCheckWxcode] = useState<boolean>(false);
@@ -139,6 +115,7 @@ export default function ChatLayout({
   const params = parseUrlParams() as Record<string, string>;
   const routeCourseId = Array.isArray(routeParams?.id) ? routeParams.id[0] : '';
   const storageCourseId = routeCourseId || params.courseId || courseId;
+  const outlineBid = params.lessonid || '';
   const currChannel = params.channel || '';
   const isPreviewMode = parseBooleanQueryParam(params.preview) ?? false;
   const isSkipMode = parseBooleanQueryParam(params.skip) ?? false;
@@ -225,8 +202,42 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
+    if (!storageCourseId) {
+      return;
+    }
+
+    const trackingKey = [
+      storageCourseId,
+      hasListenModeOverride ? 'override' : 'default',
+      listenModeParam === null ? 'none' : listenModeParam ? 'listen' : 'read',
+    ].join(':');
+
+    if (trackedLearningModeStorageRef.current === trackingKey) {
+      return;
+    }
+
+    trackedLearningModeStorageRef.current = trackingKey;
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
-    const nextLearningMode = resolveLearningMode({
+
+    if (storedLearningMode === null) {
+      return;
+    }
+    void trackEvent('learner_last_learning_mode', {
+      shifu_bid: storageCourseId,
+      outline_bid: outlineBid,
+      learning_mode: storedLearningMode,
+    });
+  }, [
+    hasListenModeOverride,
+    listenModeParam,
+    outlineBid,
+    storageCourseId,
+    trackEvent,
+  ]);
+
+  useEffect(() => {
+    const storedLearningMode = readLearningModeFromStorage(storageCourseId);
+    const nextLearningMode = resolveCourseLearningMode({
       courseTtsEnabled,
       hasListenModeOverride,
       listenModeParam,
@@ -238,7 +249,6 @@ export default function ChatLayout({
       return;
     }
 
-    // Sync course preference or URL override into the global learning mode state.
     updateLearningMode(nextLearningMode);
   }, [
     courseTtsEnabled,
@@ -259,11 +269,7 @@ export default function ChatLayout({
       return;
     }
 
-    if (storedLearningMode === null && learningMode === 'read') {
-      return;
-    }
-
-    // Keep the course-scoped preference synced after user toggles mode.
+    // Keep the course-scoped preference synced after auto resolution or manual toggles.
     writeLearningModeToStorage(storageCourseId, learningMode);
   }, [hasListenModeOverride, learningMode, storageCourseId]);
 
@@ -271,8 +277,23 @@ export default function ChatLayout({
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (courseId) {
+        debugInfo('[course-info] request start', {
+          courseId,
+          previewMode: isPreviewMode,
+          path:
+            typeof window !== 'undefined'
+              ? `${window.location.pathname}${window.location.search}`
+              : '',
+        });
         try {
           const resp = await getCourseInfo(courseId, isPreviewMode);
+          debugInfo('[course-info] request success', {
+            courseId,
+            previewMode: isPreviewMode,
+            courseName: resp.course_name,
+            coursePrice: resp.course_price,
+            ttsEnabled: resp.course_tts_enabled,
+          });
           setShowVip(resp.course_price > 0);
           updateCourseName(resp.course_name);
           updateCourseAvatar(resp.course_avatar);
@@ -303,6 +324,15 @@ export default function ChatLayout({
           const isCourseNotFound = Boolean(
             (error as { isCourseNotFound?: boolean })?.isCourseNotFound,
           );
+          debugError('[course-info] request failed', {
+            courseId,
+            previewMode: isPreviewMode,
+            isCourseNotFound,
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            businessCode: (error as { code?: number | string })?.code ?? '',
+            httpStatus: (error as { status?: number | string })?.status ?? '',
+          });
           if (isCourseNotFound) {
             tracking('learner_course_404_redirect', {
               shifu_bid: courseId,

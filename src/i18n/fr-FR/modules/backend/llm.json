@@ -1,0 +1,8 @@
+{
+  "__namespace__": "server.llm",
+  "__flat__": {
+    "modelNotSupported": "Le modèle {model} n’est pas pris en charge",
+    "requestFailed": "L’appel au modèle {model} a échoué : {message}",
+    "specifiedLlmNotConfigured": "Le modèle {model} n’est pas configuré. Vérifiez la variable du fichier .env : {config_var}"
+  }
+}

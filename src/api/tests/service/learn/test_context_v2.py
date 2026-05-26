@@ -1,6 +1,7 @@
 # ruff: noqa: E402
 import asyncio
 import sys
+import threading
 import time
 import types
 import unittest
@@ -102,6 +103,7 @@ if dao.db is None:
 if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
+from flaskr.service.learn import context_v2 as context_v2_module
 from flaskr.service.learn.context_v2 import (
     BlockType as PreviewBlockType,
     MdflowContextV2,
@@ -125,6 +127,7 @@ from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_NOT_STARTED,
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
@@ -139,7 +142,9 @@ from flaskr.util import generate_id
 
 def _make_context() -> RunScriptContextV2:
     # Bypass __init__ since we only need helper methods for these tests.
-    return RunScriptContextV2.__new__(RunScriptContextV2)
+    ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+    ctx._stop_event = None
+    return ctx
 
 
 class _FakeLangfuseSpan:
@@ -337,8 +342,8 @@ class CompletionTailInteractionTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(calls, ["feedback", "next"])
-        self.assertEqual(events, ["feedback-event", "next-event"])
+        self.assertEqual(calls, ["next", "feedback"])
+        self.assertEqual(events, ["next-event", "feedback-event"])
 
     def test_skips_next_when_no_next_outline(self):
         ctx = _make_context()
@@ -571,13 +576,13 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
                 )
             )
             dao.db.session.commit()
-            events = list(self.ctx._emit_feedback_before_exception_gate())
+            events = list(self.ctx._emit_feedback_after_exception_gate())
             self.assertEqual(len(events), 1)
             self.assertEqual(events[0].type, GeneratedType.INTERACTION)
 
     def test_skips_when_no_completed_progress(self):
         with self.app.app_context():
-            events = list(self.ctx._emit_feedback_before_exception_gate())
+            events = list(self.ctx._emit_feedback_after_exception_gate())
             self.assertEqual(events, [])
 
     def test_skips_completed_progress_without_generated_blocks(self):
@@ -592,14 +597,64 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
                 )
             )
             dao.db.session.commit()
-            events = list(self.ctx._emit_feedback_before_exception_gate())
+            events = list(self.ctx._emit_feedback_after_exception_gate())
             self.assertEqual(events, [])
+
+
+class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = Flask("exception-gate-interaction-persistence")
+        cls.app.config.update(
+            SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={
+                "ai_shifu_saas": "sqlite:///:memory:",
+                "ai_shifu_admin": "sqlite:///:memory:",
+            },
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        )
+        dao.db.init_app(cls.app)
+        with cls.app.app_context():
+            dao.db.create_all()
+
+    def setUp(self):
+        self.app = self.__class__.app
+        self.ctx = _make_context()
+        self.ctx.app = self.app
+        self.ctx._outline_item_info = types.SimpleNamespace(
+            bid="outline-locked",
+            shifu_bid="shifu-1",
+        )
+        self.ctx._user_info = types.SimpleNamespace(user_id="user-1")
+        self.ctx._current_attend = None
+        with self.app.app_context():
+            LearnGeneratedBlock.query.delete()
+            LearnProgressRecord.query.delete()
+            dao.db.session.commit()
+
+    def test_emits_gate_interaction_without_existing_progress(self):
+        with self.app.app_context():
+            events = list(
+                self.ctx._emit_current_progress_gate_interaction(
+                    "?[server.order.checkout//_sys_pay]"
+                )
+            )
+
+            progress = LearnProgressRecord.query.one()
+            block = LearnGeneratedBlock.query.one()
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(progress.status, LEARN_STATUS_NOT_STARTED)
+        self.assertEqual(block.progress_record_bid, progress.progress_record_bid)
+        self.assertEqual(block.outline_item_bid, "outline-locked")
+        self.assertEqual(block.block_content_conf, "?[server.order.checkout//_sys_pay]")
 
 
 class StreamTtsGateTests(unittest.TestCase):
     def test_should_stream_tts_respects_preview_and_listen(self):
         ctx = _make_context()
 
+        ctx._input_type = "normal"
         ctx._preview_mode = False
         ctx._listen = True
         self.assertTrue(ctx._should_stream_tts())
@@ -609,6 +664,10 @@ class StreamTtsGateTests(unittest.TestCase):
 
         ctx._preview_mode = True
         ctx._listen = True
+        self.assertFalse(ctx._should_stream_tts())
+
+        ctx._preview_mode = False
+        ctx._input_type = "ask"
         self.assertFalse(ctx._should_stream_tts())
 
     def test_iter_stream_result_with_idle_callback_drains_while_waiting(self):
@@ -638,6 +697,58 @@ class StreamTtsGateTests(unittest.TestCase):
         assert outputs[0][0] == "idle"
         assert outputs[-1] == ("item", "chunk-1")
         assert idle_ticks
+
+    def test_iter_stream_result_with_idle_callback_stops_and_cleans_up(self):
+        app = Flask("stream-tts-stop")
+        ctx = _make_context()
+        ctx.app = app
+        stop_event = threading.Event()
+        ctx._stop_event = stop_event
+        remove_calls: list[str] = []
+
+        class ClosableStream:
+            def __init__(self):
+                self.close_calls = 0
+                self._yielded_first = False
+                self.second_next_started = threading.Event()
+                self.release_second = threading.Event()
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                if not self._yielded_first:
+                    self._yielded_first = True
+                    return "chunk-1"
+                self.second_next_started.set()
+                if not self.release_second.wait(timeout=1.0):
+                    raise StopIteration
+                return "chunk-2"
+
+            def close(self):
+                self.close_calls += 1
+
+        stream = ClosableStream()
+        fake_db = types.SimpleNamespace(
+            session=types.SimpleNamespace(remove=lambda: remove_calls.append("remove"))
+        )
+
+        with patch.object(context_v2_module, "db", fake_db):
+            iterator = ctx._iter_stream_result_with_idle_callback(
+                stream,
+                idle_poll_interval=0.01,
+            )
+
+            assert next(iterator) == ("item", "chunk-1")
+            assert stream.second_next_started.wait(timeout=1.0)
+
+            stop_event.set()
+            stream.release_second.set()
+            with self.assertRaises(GeneratorExit):
+                next(iterator)
+
+        assert stream.close_calls == 1
+        assert remove_calls == ["remove"]
 
 
 class ReloadFromElementBidTests(unittest.TestCase):
@@ -1606,13 +1717,13 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
             raise PaidException()
 
         ctx.run_inner = _raise_paid
-        ctx._emit_feedback_before_exception_gate = lambda: iter(["feedback"])
+        ctx._emit_feedback_after_exception_gate = lambda: iter(["feedback"])
         ctx._emit_current_progress_gate_interaction = lambda content: iter([content])
 
         with patch("flaskr.service.learn.context_v2._", lambda key: key):
             outputs = list(ctx.run(app))
 
-        self.assertEqual(outputs, ["feedback", "?[server.order.checkout//_sys_pay]"])
+        self.assertEqual(outputs, ["?[server.order.checkout//_sys_pay]", "feedback"])
 
 
 if __name__ == "__main__":

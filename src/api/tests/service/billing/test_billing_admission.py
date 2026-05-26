@@ -473,9 +473,10 @@ def test_admit_creator_usage_rejects_future_bucket_before_effective_time(
 def test_repair_subscription_cycle_mismatches_restores_admission_for_current_bucket(
     billing_admission_app: Flask,
 ) -> None:
-    paid_at = datetime(2026, 4, 15, 13, 10, 37)
-    cycle_end_at = datetime(2026, 5, 15, 13, 10, 37)
-    corrupted_start_at = datetime.now() + timedelta(hours=2)
+    reference_now = datetime.now().replace(microsecond=0)
+    paid_at = reference_now - timedelta(days=30)
+    cycle_end_at = reference_now + timedelta(days=1)
+    corrupted_start_at = reference_now + timedelta(hours=2)
     corrupted_end_at = corrupted_start_at + timedelta(days=1)
 
     with billing_admission_app.app_context():

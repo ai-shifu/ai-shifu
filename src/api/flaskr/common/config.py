@@ -163,6 +163,12 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Cook Web logo/home redirect URL (default: /)",
         group="frontend",
     ),
+    "CONTACT_US_URL": EnvVar(
+        name="CONTACT_US_URL",
+        default="",
+        description="Cook Web floating contact CTA URL (default: empty string to hide the CTA)",
+        group="frontend",
+    ),
     "HOST_URL": EnvVar(
         name="HOST_URL",
         default="",
@@ -241,6 +247,37 @@ ENV_VARS: Dict[str, EnvVar] = {
         default=10,
         type=int,
         description="Timeout in seconds for backend Umami API requests",
+        group="analytics",
+    ),
+    "ANALYTICS_DATABASE_URI": EnvVar(
+        name="ANALYTICS_DATABASE_URI",
+        default="",
+        description=(
+            "Read-only replica DSN for creator-analytics DSL queries. "
+            "Leave empty to fall back to the primary database (logs a warning)."
+        ),
+        secret=True,
+        group="analytics",
+    ),
+    "ANALYTICS_DATABASE_POOL_SIZE": EnvVar(
+        name="ANALYTICS_DATABASE_POOL_SIZE",
+        default=5,
+        type=int,
+        description="Connection pool size for the creator-analytics read-only engine",
+        group="analytics",
+    ),
+    "ANALYTICS_QUERY_TIMEOUT_SECONDS": EnvVar(
+        name="ANALYTICS_QUERY_TIMEOUT_SECONDS",
+        default=15,
+        type=int,
+        description="Per-query timeout in seconds for creator-analytics DSL execution",
+        group="analytics",
+    ),
+    "ANALYTICS_QUERY_LIMIT_MAX": EnvVar(
+        name="ANALYTICS_QUERY_LIMIT_MAX",
+        default=1000,
+        type=int,
+        description="Upper bound for the DSL `limit` field accepted by creator-analytics",
         group="analytics",
     ),
     "DEFAULT_COURSE_ID": EnvVar(
@@ -335,6 +372,12 @@ Default: "phone".""",
         description="Service agreement URL for English (en-US) users. Leave empty to disable the link.",
         group="legal",
     ),
+    "LEGAL_AGREEMENT_URL_FR_FR": EnvVar(
+        name="LEGAL_AGREEMENT_URL_FR_FR",
+        default="",
+        description="Service agreement URL for French (fr-FR) users. Leave empty to disable the link.",
+        group="legal",
+    ),
     "LEGAL_PRIVACY_URL_ZH_CN": EnvVar(
         name="LEGAL_PRIVACY_URL_ZH_CN",
         default="",
@@ -345,6 +388,12 @@ Default: "phone".""",
         name="LEGAL_PRIVACY_URL_EN_US",
         default="",
         description="Privacy policy URL for English (en-US) users. Leave empty to disable the link.",
+        group="legal",
+    ),
+    "LEGAL_PRIVACY_URL_FR_FR": EnvVar(
+        name="LEGAL_PRIVACY_URL_FR_FR",
+        default="",
+        description="Privacy policy URL for French (fr-FR) users. Leave empty to disable the link.",
         group="legal",
     ),
     # LLM Configuration
@@ -626,6 +675,20 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Cron expression for scanning billing low-balance alerts.",
         group="celery",
     ),
+    "BILLING_CREDIT_EXPIRING_CRON": EnvVar(
+        name="BILLING_CREDIT_EXPIRING_CRON",
+        default="0 * * * *",
+        description="Cron expression for scanning expiring credit notifications.",
+        group="celery",
+    ),
+    "BILLING_DAILY_LEDGER_SUMMARY_CRON": EnvVar(
+        name="BILLING_DAILY_LEDGER_SUMMARY_CRON",
+        default="30 1 * * *",
+        description=(
+            "Cron expression for finalizing the previous day's billing ledger summary."
+        ),
+        group="celery",
+    ),
     # Authentication Configuration
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",
@@ -661,6 +724,36 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         default=300,
         type=int,
         description="Expire time for phone verification code in seconds",
+        group="auth",
+    ),
+    "CAPTCHA_EXPIRE_TIME": EnvVar(
+        name="CAPTCHA_EXPIRE_TIME",
+        default=300,
+        type=int,
+        description="Expire time for image captcha challenges in seconds",
+        group="auth",
+    ),
+    "CAPTCHA_TICKET_EXPIRE_TIME": EnvVar(
+        name="CAPTCHA_TICKET_EXPIRE_TIME",
+        default=300,
+        type=int,
+        description="Expire time for one-time captcha tickets in seconds",
+        group="auth",
+    ),
+    "CAPTCHA_MAX_VERIFY_ATTEMPTS": EnvVar(
+        name="CAPTCHA_MAX_VERIFY_ATTEMPTS",
+        default=5,
+        type=int,
+        description="Maximum attempts allowed for a single image captcha challenge",
+        group="auth",
+    ),
+    "CAPTCHA_CODE_OVERRIDE": EnvVar(
+        name="CAPTCHA_CODE_OVERRIDE",
+        default="",
+        description=(
+            "Fixed image captcha code for local development and automated tests. "
+            "Ignored when ENV/MODE is production."
+        ),
         group="auth",
     ),
     "GOOGLE_OAUTH_CLIENT_ID": EnvVar(
@@ -1355,6 +1448,8 @@ REDIS_KEY_SUFFIXES: Dict[str, str] = {
     "REDIS_KEY_PREFIX_RESET_PWD": "reset_pwd:",
     "REDIS_KEY_PREFIX_PHONE": "phone:",
     "REDIS_KEY_PREFIX_PHONE_CODE": "phone_code:",
+    "REDIS_KEY_PREFIX_CAPTCHA": "captcha:",
+    "REDIS_KEY_PREFIX_CAPTCHA_TICKET": "captcha_ticket:",
     "REDIS_KEY_PREFIX_MAIL_CODE": "mail_code:",
     "REDIS_KEY_PREFIX_MAIL_LIMIT": "mail_limit:",
     "REDIS_KEY_PREFIX_PHONE_LIMIT": "phone_limit:",

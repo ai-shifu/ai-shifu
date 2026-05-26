@@ -143,7 +143,7 @@ def aggregate_daily_usage_metrics(
                 BillUsageRecord.created_at < window_ended_at,
             )
             .order_by(BillUsageRecord.id.asc())
-            .all()
+            .yield_per(1000)
         )
 
         consumed_credit_map = _load_usage_consumed_credit_map(
@@ -159,10 +159,11 @@ def aggregate_daily_usage_metrics(
         usage_count = 0
         metric_count = 0
         skipped_usage_count = 0
+        creator_cache: dict[str, str] = {}
 
         for usage in usage_rows:
             resolved_creator_bid = str(
-                resolve_usage_creator_bid(app, usage) or ""
+                _resolve_usage_creator_bid_cached(app, usage, creator_cache) or ""
             ).strip()
             if not resolved_creator_bid:
                 skipped_usage_count += 1
@@ -319,10 +320,12 @@ def aggregate_daily_ledger_summary(
             query = query.filter(
                 CreditLedgerEntry.creator_bid == normalized_creator_bid
             )
-        ledger_rows = query.order_by(CreditLedgerEntry.id.asc()).all()
+        ledger_rows = query.order_by(CreditLedgerEntry.id.asc()).yield_per(1000)
 
         aggregates: dict[tuple[str, int, int], dict[str, Any]] = {}
+        entry_count = 0
         for row in ledger_rows:
+            entry_count += 1
             creator_value = str(row.creator_bid or "").strip()
             if not creator_value:
                 continue
@@ -376,7 +379,7 @@ def aggregate_daily_ledger_summary(
             finalize=bool(finalize),
             window_started_at=window_started_at.isoformat(),
             window_ended_at=window_ended_at.isoformat(),
-            entry_count=len(ledger_rows),
+            entry_count=entry_count,
             row_count=len(aggregates),
             deleted_count=deleted_count,
         )
@@ -478,53 +481,75 @@ def detect_daily_aggregate_rebuild_range(
     normalized_shifu_bid = str(shifu_bid or "").strip()
 
     with app.app_context():
-        candidate_dates: list[datetime] = []
+        first_candidate: datetime | None = None
+        last_candidate: datetime | None = None
 
-        usage_rows = (
-            BillUsageRecord.query.filter(
-                BillUsageRecord.deleted == 0,
-                BillUsageRecord.record_level == 0,
-                BillUsageRecord.billable == 1,
-                BillUsageRecord.status == 0,
+        def add_candidate(value: datetime | None) -> None:
+            nonlocal first_candidate, last_candidate
+            if value is None:
+                return
+            if first_candidate is None or value < first_candidate:
+                first_candidate = value
+            if last_candidate is None or value > last_candidate:
+                last_candidate = value
+
+        usage_filters = [
+            BillUsageRecord.deleted == 0,
+            BillUsageRecord.record_level == 0,
+            BillUsageRecord.billable == 1,
+            BillUsageRecord.status == 0,
+        ]
+        if normalized_shifu_bid:
+            usage_filters.append(BillUsageRecord.shifu_bid == normalized_shifu_bid)
+
+        usage_query = BillUsageRecord.query.filter(*usage_filters)
+
+        if not normalized_creator_bid:
+            usage_min, usage_max = (
+                db.session.query(
+                    db.func.min(BillUsageRecord.created_at),
+                    db.func.max(BillUsageRecord.created_at),
+                )
+                .filter(*usage_filters)
+                .one()
             )
-            .order_by(BillUsageRecord.created_at.asc(), BillUsageRecord.id.asc())
-            .all()
-        )
-        for usage in usage_rows:
-            if (
-                normalized_shifu_bid
-                and str(usage.shifu_bid or "").strip() != normalized_shifu_bid
-            ):
-                continue
-            if normalized_creator_bid:
+            add_candidate(usage_min)
+            add_candidate(usage_max)
+        else:
+            creator_cache: dict[str, str] = {}
+            for usage in usage_query.order_by(
+                BillUsageRecord.created_at.asc(), BillUsageRecord.id.asc()
+            ).yield_per(1000):
                 resolved_creator_bid = str(
-                    resolve_usage_creator_bid(app, usage) or ""
+                    _resolve_usage_creator_bid_cached(app, usage, creator_cache) or ""
                 ).strip()
                 if resolved_creator_bid != normalized_creator_bid:
                     continue
-            if usage.created_at is not None:
-                candidate_dates.append(usage.created_at)
+                add_candidate(usage.created_at)
 
-        ledger_query = CreditLedgerEntry.query.filter(CreditLedgerEntry.deleted == 0)
+        ledger_filters = [CreditLedgerEntry.deleted == 0]
         if normalized_creator_bid:
-            ledger_query = ledger_query.filter(
+            ledger_filters.append(
                 CreditLedgerEntry.creator_bid == normalized_creator_bid
             )
         if not normalized_shifu_bid:
-            for row in ledger_query.order_by(
-                CreditLedgerEntry.created_at.asc(),
-                CreditLedgerEntry.id.asc(),
-            ).all():
-                if row.created_at is not None:
-                    candidate_dates.append(row.created_at)
+            ledger_min, ledger_max = (
+                db.session.query(
+                    db.func.min(CreditLedgerEntry.created_at),
+                    db.func.max(CreditLedgerEntry.created_at),
+                )
+                .filter(*ledger_filters)
+                .one()
+            )
+            add_candidate(ledger_min)
+            add_candidate(ledger_max)
 
-    if not candidate_dates:
+    if first_candidate is None or last_candidate is None:
         return None, None
 
-    candidate_dates.sort()
     return (
-        candidate_dates[0].strftime("%Y-%m-%d"),
-        candidate_dates[-1].strftime("%Y-%m-%d"),
+        first_candidate.strftime("%Y-%m-%d"),
+        last_candidate.strftime("%Y-%m-%d"),
     )
 
 
@@ -544,7 +569,7 @@ def _load_usage_consumed_credit_map(
     normalized_creator_bid = str(creator_bid or "").strip()
     if normalized_creator_bid:
         query = query.filter(CreditLedgerEntry.creator_bid == normalized_creator_bid)
-    rows = query.order_by(CreditLedgerEntry.id.asc()).all()
+    rows = query.order_by(CreditLedgerEntry.id.asc()).yield_per(1000)
 
     consumed_map: defaultdict[tuple[str, int], Decimal] = defaultdict(lambda: _ZERO)
     for row in rows:
@@ -568,6 +593,19 @@ def _load_usage_consumed_credit_map(
                 consumed_value = _quantize_decimal(consumed_credits)
             consumed_map[(usage_bid, metric_code)] += consumed_value
     return dict(consumed_map)
+
+
+def _resolve_usage_creator_bid_cached(
+    app: Flask,
+    usage: BillUsageRecord,
+    creator_cache: dict[str, str],
+) -> str | None:
+    shifu_bid = str(usage.shifu_bid or "").strip()
+    if not shifu_bid:
+        return resolve_usage_creator_bid(app, usage)
+    if shifu_bid not in creator_cache:
+        creator_cache[shifu_bid] = str(resolve_usage_creator_bid(app, usage) or "")
+    return creator_cache[shifu_bid] or None
 
 
 def _resolve_stat_window(

@@ -1,0 +1,158 @@
+{
+  "__namespace__": "module.operationsOrder",
+  "creditOrders": {
+    "creditAmountValue": "{credits} crédits",
+    "detail": {
+      "description": "Voir les détails de la commande de crédits",
+      "labels": {
+        "creatorId": "ID utilisateur",
+        "failedAt": "Échec à",
+        "failureCode": "Code d’échec",
+        "failureMessage": "Raison de l’échec",
+        "grantSourceId": "ID de source d’attribution",
+        "grantSourceType": "Type de source d’attribution",
+        "grantedCredits": "Crédits attribués",
+        "orderType": "Type de commande",
+        "paidAt": "Payé le",
+        "productCode": "Code produit",
+        "providerReference": "Référence fournisseur",
+        "validFrom": "Valide à partir de"
+      },
+      "sections": {
+        "creator": "Infos utilisateur",
+        "grant": "Enregistrement d’attribution",
+        "metadata": "Métadonnées",
+        "payment": "Infos de paiement",
+        "product": "Infos du forfait de crédits",
+        "summary": "Infos de commande"
+      },
+      "title": "Détail de la commande de crédits"
+    },
+    "emptyList": "Aucune donnée de commande de crédits",
+    "filters": {
+      "creatorKeyword": "Utilisateur",
+      "creatorKeywordPlaceholderEmail": "ID utilisateur / e-mail",
+      "creatorKeywordPlaceholderPhone": "ID utilisateur / téléphone",
+      "orderKind": "Type de commande",
+      "paymentProvider": "Fournisseur",
+      "productKeyword": "Produit",
+      "productKeywordPlaceholder": "Nom du forfait / pack"
+    },
+    "kind": {
+      "other": "Autre",
+      "plan": "Forfait de crédits",
+      "topup": "Pack de crédits"
+    },
+    "longTerm": "Long terme",
+    "overview": {
+      "metrics": {
+        "creditAmount": "Crédits disponibles",
+        "paidAmount": "Montant payé",
+        "paidOrders": "Payées",
+        "totalOrders": "Total des commandes"
+      },
+      "tooltips": {
+        "creditAmount": "Total des crédits non consommés actuellement disponibles sur tous les comptes créateurs pour l’apprentissage, la prévisualisation et le débogage",
+        "paidAmount": "Montant payé des commandes de crédits",
+        "paidOrders": "Commandes de crédits payées",
+        "totalOrders": "Total des commandes de crédits"
+      }
+    },
+    "paymentChannel": {
+      "checkoutSession": "Session de paiement"
+    },
+    "productIntervals": {
+      "day": "Quotidien",
+      "month": "Mensuel",
+      "year": "Annuel"
+    },
+    "productNameFormat": "{interval} - {name}",
+    "table": {
+      "creator": "Utilisateur",
+      "creditAmount": "Crédits",
+      "orderId": "Crédit Commande ID",
+      "orderKind": "Type de commande",
+      "paymentChannel": "Méthode de paiement",
+      "product": "Forfait de crédits",
+      "validTo": "Valide jusqu’au"
+    }
+  },
+  "detail": {
+    "fallback": "Détail de commande",
+    "sections": {
+      "activities": "Activités",
+      "coupons": "Code d’échange",
+      "course": "Infos du cours",
+      "payment": "Montant & Paiement",
+      "summary": "Infos de commande",
+      "user": "Infos utilisateur"
+    },
+    "title": "Détail de commande"
+  },
+  "emptyList": "Aucune donnée de commande",
+  "filters": {
+    "courseId": "ID du cours",
+    "courseIdPlaceholder": "ID du cours",
+    "courseName": "Cours",
+    "courseNamePlaceholder": "Nom du cours",
+    "createdAt": "Créé",
+    "endTime": "Heure de fin",
+    "orderId": "ID de commande",
+    "orderIdPlaceholder": "ID de commande",
+    "paymentChannel": "Paiement",
+    "reset": "Réinitialiser",
+    "search": "Rechercher",
+    "source": "Source",
+    "startTime": "Heure de début",
+    "status": "Statut",
+    "timeRangePlaceholder": "Plage de dates",
+    "userKeyword": "Utilisateur",
+    "userKeywordPlaceholder": "ID utilisateur / téléphone / e-mail",
+    "userKeywordPlaceholderEmail": "ID utilisateur / e-mail",
+    "userKeywordPlaceholderPhone": "ID utilisateur / téléphone"
+  },
+  "overview": {
+    "activeFilter": "Filtre actuel",
+    "metrics": {
+      "paidAmount": "Montant payé",
+      "paidOrders": "Payées",
+      "totalOrders": "Total des commandes"
+    },
+    "staleData": "Échec du chargement de la vue d’ensemble. Actualisez pour réessayer.",
+    "title": "Vue d’ensemble",
+    "tooltips": {
+      "paidAmount": "Montant payé des commandes d’apprentissage",
+      "paidOrders": "Commandes d’apprentissage payées",
+      "totalOrders": "Total des commandes d’apprentissage"
+    }
+  },
+  "source": {
+    "couponRedeem": "Utilisation du coupon",
+    "importActivation": "Activation importée",
+    "openApi": "Attribution API ouverte",
+    "userPurchase": "Achat utilisateur"
+  },
+  "table": {
+    "action": "Action",
+    "coupons": "Code d’échange",
+    "course": "Cours",
+    "createdAt": "Créé le",
+    "discountAmount": "Remise",
+    "empty": "Aucune donnée de commande",
+    "orderId": "ID de commande",
+    "paidAmount": "Payé",
+    "paymentChannel": "Canal de paiement",
+    "source": "Source de commande",
+    "status": "Statut",
+    "updatedAt": "Commande mise à jour le",
+    "user": "Utilisateur",
+    "userId": "ID utilisateur",
+    "view": "Voir le détail"
+  },
+  "tabs": {
+    "credits": "Commandes de crédits",
+    "learn": "Commandes d’apprentissage"
+  },
+  "title": "Gestion des commandes",
+  "totalCount": "{count} commandes"
+}

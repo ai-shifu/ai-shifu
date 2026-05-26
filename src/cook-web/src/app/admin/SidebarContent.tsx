@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
-import defaultLogo from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
+import LogoWithText from '@/c-components/logo/LogoWithText';
 import MainMenuModal from '@/c-components/NavDrawer/MainMenuModal';
 import NavFooter from '@/c-components/NavDrawer/NavFooter';
 import { BillingSidebarCard } from '@/components/billing/BillingSidebarCard';
@@ -22,7 +21,6 @@ export type SidebarContentProps = {
   onFooterClick: () => void;
   onUserMenuClose: (e?: Event | React.MouseEvent) => void;
   userMenuClassName?: string;
-  logoSrc: string | StaticImageData;
   activePath?: string;
   showBillingCard?: boolean;
   billingOverviewLoading?: boolean;
@@ -108,25 +106,11 @@ export const SidebarContent = ({
   onFooterClick,
   onUserMenuClose,
   userMenuClassName,
-  logoSrc,
   activePath,
   showBillingCard = true,
   billingOverviewLoading = false,
   billingOverview,
 }: SidebarContentProps) => {
-  const logoHeight = 32;
-  const logoWidth = useMemo(() => {
-    if (
-      typeof logoSrc === 'object' &&
-      'width' in logoSrc &&
-      logoSrc.width &&
-      logoSrc.height
-    ) {
-      return Math.round((logoHeight * logoSrc.width) / logoSrc.height);
-    }
-    return Math.round(logoHeight * (defaultLogo.width / defaultLogo.height));
-  }, [logoSrc]);
-
   const normalizedPath = useMemo(
     () => normalizeRoutePath(activePath),
     [activePath],
@@ -242,17 +226,9 @@ export const SidebarContent = ({
       )}
     >
       <h1 className={cn('text-xl font-bold p-4', styles.adminLogo)}>
-        <Image
-          className='dark:invert'
-          src={logoSrc}
-          alt='logo'
-          height={logoHeight}
-          width={logoWidth}
-          style={{
-            width: 'auto',
-            height: logoHeight,
-          }}
-          priority
+        <LogoWithText
+          direction='row'
+          size={32}
         />
       </h1>
       <div className='flex min-h-0 flex-1 flex-col p-2'>

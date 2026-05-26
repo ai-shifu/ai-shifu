@@ -146,7 +146,8 @@ def get_markdownflow_output_language() -> str:
 
     Returns:
         str: The full language name for MarkdownFlow output in native form.
-             Examples: "简体中文" for zh-CN, "English" for en-US.
+             Examples: "简体中文" for zh-CN, "English" for en-US,
+             and "Français" for fr-FR.
              Defaults to "English" if language not found, otherwise returns the input.
     """
     return _resolve_output_language(get_current_language())

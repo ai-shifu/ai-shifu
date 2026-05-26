@@ -16,10 +16,12 @@ const api = {
   getRuntimeConfig: 'GET /config',
 
   // auth
+  getCaptcha: 'GET /user/captcha',
+  verifyCaptcha: 'POST /user/captcha/verify',
   sendSmsCode: 'POST /user/send_sms_code',
   sendEmailCode: 'POST /user/send_email_code',
   requireTmp: 'POST /user/require_tmp',
-  verifySmsCode: 'POST /user/verify_sms_code',
+  smsLogin: 'POST /user/login_sms',
   submitFeedback: 'POST /user/submit-feedback',
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',
@@ -100,10 +102,15 @@ const api = {
   getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',
   getAdminOrderShifus: 'GET /order/admin/orders/shifus',
   importActivationOrder: 'POST /order/admin/orders/import-activation',
+  getAdminOperationUsersOverview: 'GET /shifu/admin/operations/users/overview',
   getAdminOperationUsers: 'GET /shifu/admin/operations/users',
+  getAdminOperationOrdersOverview:
+    'GET /shifu/admin/operations/orders/overview',
   getAdminOperationOrders: 'GET /shifu/admin/operations/orders',
   getAdminOperationOrderDetail:
     'GET /shifu/admin/operations/orders/{order_bid}/detail',
+  getAdminOperationCreditOrdersOverview:
+    'GET /shifu/admin/operations/orders/credits/overview',
   getAdminOperationCreditOrders: 'GET /shifu/admin/operations/orders/credits',
   getAdminOperationCreditOrderDetail:
     'GET /shifu/admin/operations/orders/credits/{bill_order_bid}/detail',
@@ -137,8 +144,26 @@ const api = {
     'GET /shifu/admin/operations/users/{user_bid}/detail',
   getAdminOperationUserCredits:
     'GET /shifu/admin/operations/users/{user_bid}/credits',
+  getAdminOperationUserGrantBootstrap:
+    'GET /shifu/admin/operations/users/{user_bid}/credit-grant/bootstrap',
   grantAdminOperationUserCredits:
     'POST /shifu/admin/operations/users/{user_bid}/credits/grant',
+  grantAdminOperationUserPackage:
+    'POST /shifu/admin/operations/users/{user_bid}/packages/grant',
+  getAdminOperationCreditNotifications:
+    'GET /shifu/admin/operations/credit-notifications',
+  getAdminOperationCreditNotificationConfig:
+    'GET /shifu/admin/operations/credit-notifications/config',
+  updateAdminOperationCreditNotificationConfig:
+    'POST /shifu/admin/operations/credit-notifications/config',
+  syncAdminOperationCreditNotificationTemplate:
+    'POST /shifu/admin/operations/credit-notifications/templates/sync',
+  dryRunAdminOperationCreditNotifications:
+    'POST /shifu/admin/operations/credit-notifications/dry-run',
+  requeueAdminOperationCreditNotification:
+    'POST /shifu/admin/operations/credit-notifications/{notification_bid}/requeue',
+  getAdminOperationCoursesOverview:
+    'GET /shifu/admin/operations/courses/overview',
   getAdminOperationCourses: 'GET /shifu/admin/operations/courses',
   getAdminOperationCoursePrompt:
     'GET /shifu/admin/operations/courses/{shifu_bid}/prompt',
@@ -146,6 +171,8 @@ const api = {
     'GET /shifu/admin/operations/courses/{shifu_bid}/detail',
   getAdminOperationCourseUsers:
     'GET /shifu/admin/operations/courses/{shifu_bid}/users',
+  getAdminOperationCourseCreditUsages:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/credit-usages',
   getAdminOperationCourseRatings:
     'GET /shifu/admin/operations/courses/{shifu_bid}/ratings',
   getAdminOperationCourseFollowUps:
@@ -154,6 +181,8 @@ const api = {
     'GET /shifu/admin/operations/courses/{shifu_bid}/follow-ups/{generated_block_bid}/detail',
   getAdminOperationCourseChapterDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/chapters/{outline_item_bid}/detail',
+  copyAdminOperationCourse:
+    'POST /shifu/admin/operations/courses/{shifu_bid}/copy',
   transferAdminOperationCourseCreator:
     'POST /shifu/admin/operations/courses/{shifu_bid}/transfer-creator',
 
@@ -173,6 +202,11 @@ const api = {
   // dashboard (teacher analytics)
   getDashboardEntry: 'GET /dashboard/entry',
   getDashboardCourseDetail: 'GET /dashboard/shifus/{shifu_bid}/detail',
+  getDashboardCourseLearners: 'GET /dashboard/shifus/{shifu_bid}/learners',
+  getDashboardCourseRatings: 'GET /dashboard/shifus/{shifu_bid}/ratings',
+  getDashboardCourseFollowUps: 'GET /dashboard/shifus/{shifu_bid}/follow-ups',
+  getDashboardCourseFollowUpDetail:
+    'GET /dashboard/shifus/{shifu_bid}/follow-ups/{generated_block_bid}/detail',
 
   // billing creator api
   getBillingBootstrap: 'GET /billing',

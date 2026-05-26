@@ -40,7 +40,7 @@ export const BirthdaySettingModal = ({
 
   const formatters = useMemo(() => {
     const isZh = i18n.language.startsWith('zh');
-    const locale = isZh ? 'zh-CN' : 'en-US';
+    const locale = isZh ? 'zh-CN' : i18n.language || 'en-US';
 
     return {
       formatMonthCaption: (date: Date) => {

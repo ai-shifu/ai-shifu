@@ -12,9 +12,6 @@ import ErrorDisplay from '@/components/ErrorDisplay';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
 import type { OrderDetail } from './order-types';
 
 type OrderDetailSheetProps = {
@@ -29,6 +26,8 @@ const fallbackValue = (value: string | undefined, fallback: string) => {
   }
   return value;
 };
+
+const joinLabelValue = (label: string, value: string) => `${label}: ${value}`;
 
 const DetailRow = ({ label, value }: { label: string; value: string }) => (
   <div className='flex items-start justify-between gap-4 text-sm'>
@@ -56,17 +55,6 @@ const OrderDetailSheet = ({
   onOpenChange,
 }: OrderDetailSheetProps) => {
   const { t } = useTranslation();
-  const loginMethodsEnabled = useEnvStore(
-    (state: EnvStoreState) => state.loginMethodsEnabled,
-  );
-  const defaultLoginMethod = useEnvStore(
-    (state: EnvStoreState) => state.defaultLoginMethod,
-  );
-  const contactType = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
-    [defaultLoginMethod, loginMethodsEnabled],
-  );
-  const isEmailMode = contactType === 'email';
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; code?: number } | null>(
@@ -82,18 +70,6 @@ const OrderDetailSheet = ({
       closed: t('module.order.paymentStatus.closed'),
       failed: t('module.order.paymentStatus.failed'),
       unknown: t('module.order.paymentStatus.unknown'),
-    }),
-    [t],
-  );
-  const paymentChannelLabels = useMemo(
-    () => ({
-      pingxx: t('module.order.paymentChannel.pingxx'),
-      stripe: t('module.order.paymentChannel.stripe'),
-      alipay: t('module.order.paymentChannel.alipay'),
-      wechatpay: t('module.order.paymentChannel.wechatpay'),
-      manual: t('module.order.paymentChannel.manual'),
-      open_api: t('module.order.paymentChannel.open_api'),
-      unknown: t('module.order.paymentChannel.unknown'),
     }),
     [t],
   );
@@ -196,11 +172,6 @@ const OrderDetailSheet = ({
 
   const summary = detail?.order;
   const payment = detail?.payment;
-  const paymentChannelLabel = summary?.payment_channel_key
-    ? t(summary.payment_channel_key)
-    : paymentChannelLabels[
-        summary?.payment_channel as 'pingxx' | 'stripe' | 'alipay' | 'wechatpay'
-      ] || paymentChannelLabels.unknown;
   const paymentStatusLabel = payment?.status_key
     ? t(payment.status_key)
     : paymentStatusByCode[payment?.status ?? 0] || paymentStatusLabels.unknown;
@@ -219,6 +190,14 @@ const OrderDetailSheet = ({
             <span className='text-base font-semibold text-foreground'>
               {summary?.order_bid || t('module.order.detailFallback')}
             </span>
+            {payment?.transaction_no ? (
+              <span className='text-xs font-normal text-muted-foreground'>
+                {joinLabelValue(
+                  t('module.order.fields.transactionNo'),
+                  payment.transaction_no,
+                )}
+              </span>
+            ) : null}
           </SheetTitle>
         </SheetHeader>
 
@@ -239,19 +218,7 @@ const OrderDetailSheet = ({
 
           {!loading && !error && detail && summary && (
             <div className='space-y-6'>
-              <Section title={t('module.order.sections.summary')}>
-                <DetailRow
-                  label={t('module.order.fields.shifu')}
-                  value={fallbackValue(summary.shifu_name, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.user')}
-                  value={fallbackValue(
-                    (isEmailMode ? summary.user_email : summary.user_mobile) ||
-                      summary.user_bid,
-                    emptyValue,
-                  )}
-                />
+              <Section title={t('module.order.sections.payment')}>
                 <DetailRow
                   label={t('module.order.fields.payable')}
                   value={summary.payable_price}
@@ -261,86 +228,12 @@ const OrderDetailSheet = ({
                   value={summary.paid_price}
                 />
                 <DetailRow
-                  label={t('module.order.fields.discount')}
-                  value={summary.discount_amount}
-                />
-                <DetailRow
-                  label={t('module.order.fields.status')}
-                  value={t(summary.status_key)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.paymentChannel')}
-                  value={paymentChannelLabel}
-                />
-                <DetailRow
-                  label={t('module.order.fields.createdAt')}
-                  value={
-                    formatAdminUtcDateTime(summary.created_at) || emptyValue
-                  }
-                />
-                <DetailRow
-                  label={t('module.order.fields.updatedAt')}
-                  value={
-                    formatAdminUtcDateTime(summary.updated_at) || emptyValue
-                  }
-                />
-              </Section>
-
-              <Section title={t('module.order.sections.payment')}>
-                <DetailRow
                   label={t('module.order.fields.paymentStatus')}
                   value={paymentStatusLabel}
                 />
                 <DetailRow
-                  label={t('module.order.fields.paymentAmount')}
-                  value={fallbackValue(payment?.amount, emptyValue)}
-                />
-                <DetailRow
                   label={t('module.order.fields.currency')}
                   value={fallbackValue(payment?.currency, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.transactionNo')}
-                  value={fallbackValue(payment?.transaction_no, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.chargeId')}
-                  value={fallbackValue(payment?.charge_id, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.paymentIntent')}
-                  value={fallbackValue(payment?.payment_intent_id, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.checkoutSession')}
-                  value={fallbackValue(
-                    payment?.checkout_session_id,
-                    emptyValue,
-                  )}
-                />
-                <DetailRow
-                  label={t('module.order.fields.latestCharge')}
-                  value={fallbackValue(payment?.latest_charge_id, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.receipt')}
-                  value={fallbackValue(payment?.receipt_url, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.paymentMethod')}
-                  value={fallbackValue(payment?.payment_method, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.paymentCreatedAt')}
-                  value={
-                    formatAdminUtcDateTime(payment?.created_at) || emptyValue
-                  }
-                />
-                <DetailRow
-                  label={t('module.order.fields.paymentUpdatedAt')}
-                  value={
-                    formatAdminUtcDateTime(payment?.updated_at) || emptyValue
-                  }
                 />
               </Section>
 
@@ -368,8 +261,10 @@ const OrderDetailSheet = ({
                     </div>
                     <div className='mt-2 flex items-center justify-between text-xs text-muted-foreground'>
                       <span>
-                        {t('module.order.fields.activityPrice')}:{' '}
-                        {activity.price}
+                        {joinLabelValue(
+                          t('module.order.fields.activityPrice'),
+                          activity.price,
+                        )}
                       </span>
                       <span>
                         {formatAdminUtcDateTime(activity.created_at) ||
@@ -404,14 +299,19 @@ const OrderDetailSheet = ({
                     </div>
                     <div className='mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground'>
                       <span>
-                        {t('module.order.fields.couponType')}:{' '}
-                        {coupon.discount_type_key
-                          ? t(coupon.discount_type_key)
-                          : couponTypeByCode[coupon.discount_type] ||
-                            couponTypeLabels.unknown}
+                        {joinLabelValue(
+                          t('module.order.fields.couponType'),
+                          coupon.discount_type_key
+                            ? t(coupon.discount_type_key)
+                            : couponTypeByCode[coupon.discount_type] ||
+                                couponTypeLabels.unknown,
+                        )}
                       </span>
                       <span>
-                        {t('module.order.fields.couponValue')}: {coupon.value}
+                        {joinLabelValue(
+                          t('module.order.fields.couponValue'),
+                          coupon.value,
+                        )}
                       </span>
                       <span>
                         {formatAdminUtcDateTime(coupon.created_at) ||

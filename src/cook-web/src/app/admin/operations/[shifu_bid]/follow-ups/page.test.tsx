@@ -14,6 +14,7 @@ const mockGetAdminOperationCourseFollowUps = jest.fn();
 const mockGetAdminOperationCourseFollowUpDetail = jest.fn();
 const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
 const mockBrowserTimeZone = jest.fn(() => 'UTC');
+let mockLanguage = 'en-US';
 const SHEET_CLOSE_LABEL = 'close-sheet';
 const mockEnvState = {
   loginMethodsEnabled: ['phone'],
@@ -35,6 +36,22 @@ jest.mock('next/navigation', () => ({
   useParams: () => ({
     shifu_bid: 'course-1',
   }),
+}));
+
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ href: string }>) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
 }));
 
 jest.mock('@/api', () => ({
@@ -76,7 +93,14 @@ jest.mock('react-i18next', () => ({
         t: (key: string) => (ns && ns !== 'translation' ? `${ns}.${key}` : key),
       });
     }
-    return mockTranslationCache.get(cacheKey)!;
+    return {
+      ...mockTranslationCache.get(cacheKey)!,
+      i18n: {
+        get language() {
+          return mockLanguage;
+        },
+      },
+    };
   },
 }));
 
@@ -156,6 +180,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     mockGetAdminOperationCourseFollowUpDetail.mockReset();
     mockBrowserTimeZone.mockReset();
     mockBrowserTimeZone.mockReturnValue('UTC');
+    mockLanguage = 'en-US';
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
     mockUserState.isInitialized = true;
@@ -248,16 +273,14 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     });
   });
 
-  test('renders follow-up list and can return to course detail', async () => {
+  test('renders follow-up list with breadcrumb navigation', async () => {
     render(<AdminOperationCourseFollowUpsPage />);
 
     expect(
-      await screen.findByText('module.operationsCourse.detail.followUps.title'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'module.operationsCourse.detail.followUps.summary.scopeHint',
-      ),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsCourse.detail.followUps.title',
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -269,6 +292,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
+        include_summary: true,
         keyword: '',
         chapter_keyword: '',
         start_time: '',
@@ -279,13 +303,144 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     expect(screen.getByText('Second follow-up question')).toBeInTheDocument();
     expect(screen.getAllByText('13900001235').length).toBeGreaterThan(0);
 
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.title',
+      }),
+    ).toHaveAttribute('href', '/admin/operations');
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.detail.title',
+      }),
+    ).toHaveAttribute('href', '/admin/operations/course-1');
+  });
+
+  test('formats follow-up summary counts without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+    mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
+      summary: {
+        follow_up_count: 76384,
+        user_count: 12000,
+        lesson_count: 9000,
+        latest_follow_up_at: '2026-04-05T11:02:00Z',
+      },
+      items: [],
+      page: 1,
+      page_size: 20,
+      total: 0,
+      page_count: 1,
+    });
+
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    expect(await screen.findByText('76384')).toBeInTheDocument();
+    expect(screen.getByText('12000')).toBeInTheDocument();
+    expect(screen.queryByText('76,384')).not.toBeInTheDocument();
+    expect(screen.queryByText('12,000')).not.toBeInTheDocument();
+  });
+
+  test('keeps summary cards scoped to all follow-ups when filters change', async () => {
+    mockGetAdminOperationCourseFollowUps
+      .mockResolvedValueOnce({
+        summary: {
+          follow_up_count: 42,
+          user_count: 7,
+          lesson_count: 5,
+          latest_follow_up_at: '2026-04-05T11:02:00Z',
+        },
+        items: [
+          {
+            generated_block_bid: 'ask-all',
+            progress_record_bid: 'progress-1',
+            user_bid: 'student-1',
+            mobile: '13900001235',
+            email: '',
+            nickname: 'Bob',
+            chapter_outline_item_bid: 'chapter-1',
+            chapter_title: 'Chapter 1',
+            lesson_outline_item_bid: 'lesson-1',
+            lesson_title: 'Lesson 1',
+            follow_up_content: 'All follow-up question',
+            turn_index: 1,
+            created_at: '2026-04-05T11:02:00Z',
+          },
+        ],
+        page: 1,
+        page_size: 20,
+        total: 42,
+        page_count: 3,
+      })
+      .mockResolvedValueOnce({
+        summary: {
+          follow_up_count: 0,
+          user_count: 0,
+          lesson_count: 0,
+          latest_follow_up_at: '',
+        },
+        items: [
+          {
+            generated_block_bid: 'ask-filtered',
+            progress_record_bid: 'progress-1',
+            user_bid: 'student-2',
+            mobile: '13900009999',
+            email: '',
+            nickname: 'Alice',
+            chapter_outline_item_bid: 'chapter-2',
+            chapter_title: 'Chapter 2',
+            lesson_outline_item_bid: 'lesson-2',
+            lesson_title: 'Lesson 2',
+            follow_up_content: 'Filtered follow-up question',
+            turn_index: 1,
+            created_at: '2026-04-06T11:02:00Z',
+          },
+        ],
+        page: 1,
+        page_size: 20,
+        total: 1,
+        page_count: 1,
+      });
+
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    expect(
+      await screen.findByText('All follow-up question'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.detail.followUps.filters.userKeywordPlaceholderPhone',
+      ),
+      {
+        target: { value: 'student-2' },
+      },
+    );
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsCourse.detail.followUps.back',
+        name: 'module.operationsCourse.detail.followUps.filters.search',
       }),
     );
 
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1');
+    expect(
+      await screen.findByText('Filtered follow-up question'),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseFollowUps).toHaveBeenLastCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        include_summary: false,
+        keyword: 'student-2',
+        chapter_keyword: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
   });
 
   test('submits filters and opens the detail drawer', async () => {
@@ -326,6 +481,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
+        include_summary: false,
         keyword: 'student',
         chapter_keyword: 'Lesson 1',
         start_time: '2026-04-05',
@@ -373,6 +529,31 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     expect(screen.getAllByText('Lesson 1').length).toBeGreaterThan(0);
   });
 
+  test('clears draft filters on reset without refetching when applied filters are already default', async () => {
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    await screen.findByText('Second follow-up question');
+    mockGetAdminOperationCourseFollowUps.mockClear();
+
+    const keywordInput = screen.getByPlaceholderText(
+      'module.operationsCourse.detail.followUps.filters.userKeywordPlaceholderPhone',
+    );
+    fireEvent.change(keywordInput, {
+      target: { value: 'unsaved draft' },
+    });
+
+    expect(keywordInput).toHaveValue('unsaved draft');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.filters.reset',
+      }),
+    );
+
+    expect(keywordInput).toHaveValue('');
+    expect(mockGetAdminOperationCourseFollowUps).not.toHaveBeenCalled();
+  });
+
   test('shows a descriptive source fallback when original output cannot be resolved', async () => {
     mockGetAdminOperationCourseFollowUpDetail.mockResolvedValueOnce({
       basic_info: {
@@ -418,7 +599,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     ).toBeInTheDocument();
   });
 
-  test('renders summary time in the viewer timezone when UTC crosses local day boundaries', async () => {
+  test('renders summary time with UTC formatting when UTC crosses local day boundaries', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
       summary: {
@@ -454,8 +635,8 @@ describe('AdminOperationCourseFollowUpsPage', () => {
 
     await screen.findByText('Cross-day follow-up question');
 
-    expect(screen.getByText('2026-04-04')).toBeInTheDocument();
-    expect(screen.getByText('18:30:00')).toBeInTheDocument();
+    expect(document.body.textContent).toContain('2026-04-04');
+    expect(document.body.textContent).toContain('18:30:00');
   });
 
   test('ignores a late detail response after the drawer is closed', async () => {

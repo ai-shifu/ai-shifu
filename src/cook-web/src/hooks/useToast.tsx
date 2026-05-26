@@ -141,6 +141,7 @@ function dispatch(action: Action) {
 }
 
 type Toast = Omit<ToasterToast, 'id'>;
+type ToastDisplayOptions = Omit<Toast, 'description' | 'variant'>;
 
 function toast({ duration = 2000, ...props }: Toast) {
   const id = genId();
@@ -195,6 +196,27 @@ function useToast() {
   };
 }
 
+function showDefaultToast(
+  description: React.ReactNode,
+  options: ToastDisplayOptions = {},
+) {
+  toast({
+    ...options,
+    description,
+  });
+}
+
+function showErrorToast(
+  description: React.ReactNode,
+  options: ToastDisplayOptions = {},
+) {
+  toast({
+    ...options,
+    description,
+    variant: 'destructive',
+  });
+}
+
 function fail(description: string, duration = 20000) {
   toast({
     title: '',
@@ -222,6 +244,15 @@ function show(description: string, duration = 20000) {
   });
 }
 
-export { useToast, toast, fail, show };
+const toastApi = {
+  useToast,
+  toast,
+  showDefaultToast,
+  showErrorToast,
+  fail,
+  show,
+};
 
-export default { useToast, toast, fail, show };
+export { useToast, toast, showDefaultToast, showErrorToast, fail, show };
+
+export default toastApi;

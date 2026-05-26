@@ -276,13 +276,14 @@
       "perYear": "yearly",
       "providerAlipay": "Alipay",
       "providerManual": "Manual",
-      "providerPingxx": "Pingxx / Alipay QR",
+      "providerPingxx": "Pingxx",
       "providerStripe": "Stripe",
-      "providerWechatpay": "WeChat Pay"
+      "providerWechatpay": "WeChat Pay",
+      "providerWithChannel": "{provider} / {channel}"
     },
     "plans": {
       "creatorMonthly": {
-        "description": "Best for lightweight course iteration.",
+        "description": "Best for a lightweight course trial.",
         "title": "Lite"
       },
       "creatorMonthlyPro": {
@@ -303,21 +304,9 @@
       }
     },
     "topups": {
-      "creatorLarge": {
+      "default": {
         "description": "Supplement your current plan. Unused credits expire with the plan period.",
-        "title": "120-credit pack"
-      },
-      "creatorMedium": {
-        "description": "Supplement your current plan. Unused credits expire with the plan period.",
-        "title": "50-credit pack"
-      },
-      "creatorSmall": {
-        "description": "Supplement your current plan. Unused credits expire with the plan period.",
-        "title": "20-credit pack"
-      },
-      "creatorXLarge": {
-        "description": "Supplement your current plan. Unused credits expire with the plan period.",
-        "title": "320-credit pack"
+        "title": "{credits}-credit pack"
       }
     }
   },
@@ -581,39 +570,45 @@
       }
     },
     "featuresTitle": "Included benefits:",
+    "footnote": {
+      "learnerEstimateIntro": "Estimated learner sessions are based on platform experience and use the benchmark “one learner completes the course once, with about 10 sections, an average of roughly 15 minutes of regular study per section, using the default model throughout, and listen mode enabled.” Actual billing is settled from model consumption generated during study, preview, and debug sessions; the credit ledger is the final source of truth. Factors affecting credit consumption:",
+      "learnerEstimateMode": "When listen mode is turned off and only text-and-image learning interactions remain, supported sessions can increase by 1-4x.",
+      "learnerEstimateModel": "Choosing a more or less expensive model will affect credit consumption.",
+      "learnerEstimateScale": "Changes in section count, section length, interaction volume, completion rate, or learner follow-up question count will affect credit consumption.",
+      "validity": "Credit validity: Monthly plans are valid for 30 days from the day you receive them (inclusive); yearly plans are valid by calendar year from the day you receive them. Both end at 23:59 on the expiry day."
+    },
     "free": {
       "creditSummary": "{credits} bonus credits",
       "description": "Best for a first look.",
       "priceNote": "/ valid within {days} days of registration",
       "priceNoteGranted": "/ activated on {grantedAt}, valid until {expiresAt}",
-      "priceValue": "¥0",
       "title": "Trial"
     },
     "intervalTabs": {
       "daily": "Daily Plans",
       "monthly": "Monthly Plans",
-      "plans": "Plans",
-      "topup": "Top-up",
+      "plans": "Credit Plans",
+      "topup": "Credit Packs",
       "yearly": "Yearly Plans"
     },
     "scale": {
       "advanced": {
-        "students": "Up to ~500 learners"
+        "students": "250 - 750 learner sessions"
       },
       "basic": {
-        "students": "Around 10 learners"
+        "students": "5 - 15 learner sessions"
       },
       "free": {
-        "students": "Around 10 learners"
+        "students": "5 - 15 learner sessions"
       },
       "lite": {
-        "students": "Around 3 learners"
+        "students": "Fewer than 1 learner session"
       },
       "premium": {
-        "students": "Up to ~1,500 learners"
+        "students": "1,100 - 3,300 learner sessions"
       },
       "pro": {
-        "students": "Up to ~1,000 learners"
+        "students": "500 - 1,500 learner sessions"
       },
       "sectionTitle": "Learner capacity (est.)"
     },
@@ -622,44 +617,36 @@
       "creditsRowLabel": "Credits per cycle",
       "emptyValue": "—",
       "featuresRowLabel": "Entitlements",
-      "studentsRowLabel": "Estimated learners",
+      "studentsRowLabel": "Estimated learner sessions",
       "validityRowLabel": "Credit validity"
     },
-    "title": "Credit Plans",
+    "title": "Buy Credits",
     "topup": {
       "creditLabel": "{credits} credits",
       "noteFrozen": "Top-up credits can be used only when the account has an active credit plan.",
-      "noteInstant": "Credits take effect immediately after purchase.",
-      "noteTitle": "Top-up notes"
+      "noteInstant": "Credits take effect immediately after purchase."
     },
     "topupComingSoon": "Coming soon",
     "validity": {
       "daily": "Validity: counted from the purchase day, valid every day",
       "days": "Validity: counted from the purchase day, renews every {count} days",
-      "free": "Validity: valid within 15 days from registration",
-      "monthly": "Valid for 30 days from purchase",
-      "months": "Validity: counted from the purchase month, renews every {count} months",
-      "yearly": "Validity: counted from the purchase month, valid every year",
-      "years": "Validity: counted from the purchase month, renews every {count} years"
+      "free": "Validity: valid within {days} days from registration",
+      "monthly": "Valid for 30 days from the purchase day, inclusive",
+      "months": "Validity: renews every {count} 30-day periods from the purchase day, inclusive",
+      "yearly": "Validity: counted by calendar year from the purchase date",
+      "years": "Validity: renews every {count} calendar years from the purchase date"
     },
     "validityShort": {
       "free": "{days} days",
-      "monthly": "30 days",
-      "monthlyMonths": "{count} months",
-      "yearly": "1 year",
-      "yearlyYears": "{count} years"
-    },
-    "validityTooltip": {
-      "free": "Valid for {days} days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
-      "monthly": "Valid for 30 days from the day you receive it (inclusive). Counted to 23:59 on the expiry day.",
-      "yearly": "Valid for one year from the day you receive it (e.g., purchased on Jan 1, remains valid through Jan 1 of the next year). Counted to 23:59 on the expiry day."
+      "monthly": "{count, plural, one {# month} other {# months}}",
+      "yearly": "{count, plural, one {# year} other {# years}}"
     }
   },
   "page": {
     "adminLink": "Open billing ops",
     "tabs": {
       "ledger": "Credit Details",
-      "plans": "Credit Plans"
+      "plans": "Buy Credits"
     }
   },
   "renewal": {

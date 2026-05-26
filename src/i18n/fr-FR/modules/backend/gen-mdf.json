@@ -1,0 +1,12 @@
+{
+  "__namespace__": "server.genMdf",
+  "MDF_API_CONNECTION_ERROR": "Échec de la connexion au service MDF",
+  "MDF_API_ERROR": "Échec de la conversion MDF",
+  "MDF_API_INVALID_RESPONSE": "Réponse invalide du service MDF",
+  "MDF_API_NOT_CONFIGURED": "Le service de conversion MDF n’est pas configuré",
+  "MDF_API_REQUEST_ERROR": "Échec de la requête de conversion MDF",
+  "MDF_API_TIMEOUT": "La requête de conversion MDF a expiré",
+  "MDF_API_UNAUTHORIZED": "Échec de l’authentification du service de conversion MDF",
+  "TEXT_REQUIRED": "Le contenu textuel est requis",
+  "TEXT_TOO_LONG": "Le contenu texte dépasse la longueur maximale de 10 000 caractères"
+}

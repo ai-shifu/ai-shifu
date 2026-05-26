@@ -6,6 +6,8 @@ import sys
 from types import ModuleType
 from types import SimpleNamespace
 
+from flask import Flask
+
 
 def _install_litellm_stub() -> None:
     if "litellm" in sys.modules:
@@ -138,6 +140,69 @@ def _mock_user(monkeypatch, user_id: str, *, is_creator: bool = False):
     return dummy_user
 
 
+def test_stream_passthrough_releases_request_db_session(monkeypatch):
+    from flaskr.service.learn import routes
+
+    app = Flask(__name__)
+    calls = []
+    monkeypatch.setattr(
+        routes,
+        "db",
+        SimpleNamespace(session=SimpleNamespace(remove=lambda: calls.append("remove"))),
+    )
+
+    def _messages():
+        calls.append("iterate")
+        yield 'data: {"type":"done"}\n\n'
+
+    with app.test_request_context("/api/learn/shifu/s/run/o"):
+        resp = routes._stream_passthrough_response(
+            app,
+            message_iter_factory=_messages,
+            close_log="closed",
+            error_log="error",
+        )
+        assert calls == ["remove"]
+        body = "".join(resp.response)
+
+    assert body == 'data: {"type":"done"}\n\n'
+    assert calls == ["remove", "iterate", "remove"]
+
+
+def test_stream_passthrough_ignores_request_db_session_remove_failure(monkeypatch):
+    from flaskr.service.learn import routes
+
+    app = Flask(__name__)
+    calls = []
+
+    def _remove():
+        calls.append("remove")
+        raise RuntimeError("remove failed")
+
+    monkeypatch.setattr(
+        routes,
+        "db",
+        SimpleNamespace(session=SimpleNamespace(remove=_remove)),
+    )
+
+    def _messages():
+        calls.append("iterate")
+        yield 'data: {"type":"done"}\n\n'
+
+    with app.test_request_context("/api/learn/shifu/s/run/o"):
+        resp = routes._stream_passthrough_response(
+            app,
+            message_iter_factory=_messages,
+            close_log="closed",
+            error_log="error",
+        )
+        assert calls == ["remove"]
+        body = "".join(resp.response)
+
+    assert body == 'data: {"type":"done"}\n\n'
+    assert calls == ["remove", "iterate", "remove"]
+
+
 def test_generated_block_tts_route_keeps_admission_but_skips_runtime_slot() -> None:
     route_fn = _find_nested_route("synthesize_generated_block_audio_api")
     called_names = _collect_called_names(route_fn)
@@ -179,6 +244,10 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
     _mock_user(monkeypatch, "user-preview")
     monkeypatch.setattr(
         "flaskr.service.learn.routes.is_builtin_demo_shifu",
+        lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.preview_permissions.is_builtin_demo_shifu",
         lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
     )
     monkeypatch.setattr(

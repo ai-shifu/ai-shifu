@@ -21,7 +21,6 @@ def _reset_config_cache(*keys: str) -> None:
 @pytest.fixture(autouse=True)
 def clear_public_url_config_cache():
     keys = (
-        "ENV",
         "HOST_URL",
         "PATH_PREFIX",
         "WECHATPAY_APP_ID",
@@ -79,14 +78,13 @@ def test_public_urls_use_path_prefix_for_backend_callbacks(
 def test_public_urls_fall_back_to_forwarded_request_origin(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setenv("ENV", "testing")
     monkeypatch.delenv("HOST_URL", raising=False)
     monkeypatch.setenv("PATH_PREFIX", "/api")
-    _reset_config_cache("ENV", "HOST_URL", "PATH_PREFIX")
+    _reset_config_cache("HOST_URL", "PATH_PREFIX")
 
     app = Flask(__name__)
     with app.test_request_context(
-        "/api/runtime-config",
+        "/api/orders",
         headers={
             "X-Forwarded-Proto": "https",
             "X-Forwarded-Host": "forwarded.example.com",
@@ -96,19 +94,44 @@ def test_public_urls_fall_back_to_forwarded_request_origin(
             build_google_oauth_callback_url()
             == "https://forwarded.example.com/login/google-callback"
         )
+        assert (
+            build_alipay_notify_url()
+            == "https://forwarded.example.com/api/callback/alipay-notify"
+        )
+        assert (
+            build_wechatpay_notify_url()
+            == "https://forwarded.example.com/api/callback/wechatpay-notify"
+        )
+        assert (
+            build_stripe_learner_result_url()
+            == "https://forwarded.example.com/payment/stripe/result"
+        )
+        assert (
+            build_stripe_billing_result_url(canceled=True)
+            == "https://forwarded.example.com/payment/stripe/billing-result"
+            "?canceled=1"
+        )
 
 
-def test_public_urls_reject_request_origin_fallback_in_production(
+def test_public_urls_prefer_origin_header_when_host_url_missing(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setenv("ENV", "production")
     monkeypatch.delenv("HOST_URL", raising=False)
-    _reset_config_cache("ENV", "HOST_URL")
+    _reset_config_cache("HOST_URL")
 
     app = Flask(__name__)
-    with app.test_request_context("/api/runtime-config"):
-        with pytest.raises(RuntimeError, match="HOST_URL must be configured"):
-            build_google_oauth_callback_url()
+    with app.test_request_context(
+        "/api/runtime-config",
+        headers={
+            "Origin": "https://frontend.example.com",
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Host": "forwarded.example.com",
+        },
+    ):
+        assert (
+            build_stripe_learner_result_url()
+            == "https://frontend.example.com/payment/stripe/result"
+        )
 
 
 def test_public_urls_reject_host_url_with_path(monkeypatch: pytest.MonkeyPatch):

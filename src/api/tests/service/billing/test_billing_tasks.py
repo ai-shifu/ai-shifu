@@ -40,6 +40,7 @@ from flaskr.service.billing.tasks import (
     aggregate_daily_usage_metrics_task,
     dispatch_due_renewal_events_task,
     expire_wallet_buckets_task,
+    finalize_daily_ledger_summary_task,
     reconcile_provider_reference_task,
     replay_usage_settlement_task,
     rebuild_daily_aggregates_task,
@@ -235,6 +236,95 @@ def test_aggregate_daily_ledger_summary_task_calls_helper(
     }
     assert payload["status"] == "finalized"
     assert payload["task_name"] == "billing.aggregate_daily_ledger_summary"
+
+
+def test_finalize_daily_ledger_summary_task_defaults_to_previous_day(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_app = object()
+    _install_fake_app_module(monkeypatch, fake_app)
+
+    captured: dict[str, object] = {}
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 5, 22, 2, 0, 0, tzinfo=tz)
+
+    def _fake_finalize_daily_ledger_summary(
+        app,
+        *,
+        stat_date: str = "",
+        creator_bid: str = "",
+    ):
+        captured["app"] = app
+        captured["stat_date"] = stat_date
+        captured["creator_bid"] = creator_bid
+        return {
+            "status": "finalized",
+            "stat_date": stat_date,
+            "creator_bid": creator_bid or None,
+            "finalize": True,
+        }
+
+    monkeypatch.setattr("flaskr.service.billing.tasks.datetime", FixedDateTime)
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.finalize_daily_ledger_summary",
+        _fake_finalize_daily_ledger_summary,
+    )
+
+    payload = finalize_daily_ledger_summary_task(creator_bid=" creator-task-3 ")
+
+    assert captured == {
+        "app": fake_app,
+        "stat_date": "2026-05-21",
+        "creator_bid": "creator-task-3",
+    }
+    assert payload["status"] == "finalized"
+    assert payload["task_name"] == "billing.finalize_daily_ledger_summary"
+
+
+def test_finalize_daily_ledger_summary_task_accepts_explicit_stat_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_app = object()
+    _install_fake_app_module(monkeypatch, fake_app)
+
+    captured: dict[str, object] = {}
+
+    def _fake_finalize_daily_ledger_summary(
+        app,
+        *,
+        stat_date: str = "",
+        creator_bid: str = "",
+    ):
+        captured["app"] = app
+        captured["stat_date"] = stat_date
+        captured["creator_bid"] = creator_bid
+        return {
+            "status": "finalized",
+            "stat_date": stat_date,
+            "creator_bid": creator_bid or None,
+            "finalize": True,
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.finalize_daily_ledger_summary",
+        _fake_finalize_daily_ledger_summary,
+    )
+
+    payload = finalize_daily_ledger_summary_task(
+        stat_date=" 2026-05-20 ",
+        creator_bid=" creator-task-4 ",
+    )
+
+    assert captured == {
+        "app": fake_app,
+        "stat_date": "2026-05-20",
+        "creator_bid": "creator-task-4",
+    }
+    assert payload["status"] == "finalized"
+    assert payload["task_name"] == "billing.finalize_daily_ledger_summary"
 
 
 def test_rebuild_daily_aggregates_task_calls_helper(
@@ -774,32 +864,33 @@ def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
     assert payload["task_name"] == "billing.reconcile_provider_reference"
 
 
-def test_send_low_balance_alert_task_filters_to_low_balance_alerts(
+def test_send_low_balance_alert_task_preserves_legacy_name_and_delegates_scan(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = Flask(__name__)
     _install_fake_app_module(monkeypatch, fake_app)
+    captured: dict[str, object] = {}
+
     monkeypatch.setattr(
-        "flaskr.service.billing.tasks.build_billing_overview",
-        lambda app, creator_bid, timezone_name=None: {
-            "creator_bid": creator_bid,
-            "wallet": {"available_credits": "0E-10"},
-            "billing_alerts": [
-                {"code": "low_balance", "severity": "warning"},
-                {"code": "subscription_past_due", "severity": "error"},
-            ],
-        },
+        "flaskr.service.billing.tasks._scan_low_balance_notifications",
+        lambda app, *, creator_bid="": (
+            captured.update({"app": app, "creator_bid": creator_bid})
+            or {
+                "status": "created",
+                "candidate_count": 1,
+                "created_count": 1,
+                "enqueued_count": 1,
+                "notifications": [{"notification_bid": "notification-1"}],
+            }
+        ),
     )
 
     payload = send_low_balance_alert_task(creator_bid="creator-task-alert")
 
-    assert payload["status"] == "alerts_found"
-    assert payload["creator_count"] == 1
-    assert payload["alert_count"] == 1
-    assert payload["creators"][0]["creator_bid"] == "creator-task-alert"
-    assert payload["creators"][0]["alerts"] == [
-        {"code": "low_balance", "severity": "warning"}
-    ]
+    assert captured == {"app": fake_app, "creator_bid": "creator-task-alert"}
+    assert payload["status"] == "created"
+    assert payload["created_count"] == 1
+    assert payload["enqueued_count"] == 1
     assert payload["task_name"] == "billing.send_low_balance_alert"
 
 

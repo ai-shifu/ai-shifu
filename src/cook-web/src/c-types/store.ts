@@ -1,14 +1,10 @@
 import { UserInfo } from './index';
 
+export type SupportedLocale = 'zh-CN' | 'en-US' | 'fr-FR';
+
 export interface LegalUrls {
-  agreement: {
-    'zh-CN': string;
-    'en-US': string;
-  };
-  privacy: {
-    'zh-CN': string;
-    'en-US': string;
-  };
+  agreement: Record<SupportedLocale, string>;
+  privacy: Record<SupportedLocale, string>;
 }
 
 export interface EnvStoreState {
@@ -27,6 +23,7 @@ export interface EnvStoreState {
   faviconUrl: string;
   enableWxcode: string;
   homeUrl: string;
+  contactUsUrl: string;
   currencySymbol: string;
   billingEnabled: string;
   stripePublishableKey: string;
@@ -52,6 +49,7 @@ export interface EnvStoreState {
   updateFaviconUrl: (icon: string) => Promise<void>;
   updateEnableWxcode: (value: string) => Promise<void>;
   updateHomeUrl: (url: string) => Promise<void>;
+  updateContactUsUrl: (url: string) => Promise<void>;
   updateCurrencySymbol: (symbol: string) => Promise<void>;
   updateBillingEnabled: (value: string) => Promise<void>;
   updateStripePublishableKey: (key: string) => Promise<void>;

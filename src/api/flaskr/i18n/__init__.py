@@ -275,8 +275,19 @@ def set_language(language):
     _thread_local.language = language
 
 
+def clear_language():
+    if hasattr(_thread_local, "language"):
+        delattr(_thread_local, "language")
+
+
 def get_i18n_list(app: Flask):
     return list(_translations.keys())
 
 
-__all__ = ["_", "set_language", "get_i18n_list", "load_translations"]
+__all__ = [
+    "_",
+    "set_language",
+    "clear_language",
+    "get_i18n_list",
+    "load_translations",
+]

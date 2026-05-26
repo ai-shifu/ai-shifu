@@ -15,6 +15,7 @@ import {
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -39,6 +40,7 @@ import {
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
+import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
 import {
   buildAdminOperationsCourseDetailUrl,
   buildAdminOperationsCourseRatingsUrl,
@@ -108,8 +110,32 @@ const createRatingFilters = (): RatingFilters => ({
   endTime: '',
 });
 
-const formatCount = (value: number): string =>
-  Number.isFinite(value) ? value.toLocaleString() : '--';
+const normalizeRatingFilters = (filters: RatingFilters): RatingFilters => ({
+  keyword: filters.keyword.trim(),
+  chapterKeyword: filters.chapterKeyword.trim(),
+  score: filters.score,
+  mode: filters.mode,
+  commentFilter: filters.commentFilter,
+  sortBy: filters.sortBy,
+  startTime: filters.startTime,
+  endTime: filters.endTime,
+});
+
+const areRatingFiltersEqual = (first: RatingFilters, second: RatingFilters) =>
+  first.keyword === second.keyword &&
+  first.chapterKeyword === second.chapterKeyword &&
+  first.score === second.score &&
+  first.mode === second.mode &&
+  first.commentFilter === second.commentFilter &&
+  first.sortBy === second.sortBy &&
+  first.startTime === second.startTime &&
+  first.endTime === second.endTime;
+
+const isDefaultRatingFilters = (filters: RatingFilters) =>
+  areRatingFiltersEqual(filters, createRatingFilters());
+
+const formatCount = (value: number, locale: string): string =>
+  formatAdminCount(value, locale);
 
 const formatValue = (value: string | undefined | null, emptyValue: string) => {
   const normalizedValue = value?.trim() || '';
@@ -227,7 +253,6 @@ function ClearableTextInput({
 
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
- * t('module.operationsCourse.detail.ratings.back')
  * t('module.operationsCourse.detail.ratings.title')
  * t('module.operationsCourse.detail.ratings.openMetric')
  * t('module.operationsCourse.detail.ratings.emptyValue')
@@ -235,7 +260,6 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.ratings.summary.ratingCount')
  * t('module.operationsCourse.detail.ratings.summary.userCount')
  * t('module.operationsCourse.detail.ratings.summary.latestRatedAt')
- * t('module.operationsCourse.detail.ratings.summary.scopeHint')
  * t('module.operationsCourse.detail.ratings.filters.userKeyword')
  * t('module.operationsCourse.detail.ratings.filters.userKeywordPlaceholderPhone')
  * t('module.operationsCourse.detail.ratings.filters.userKeywordPlaceholderEmail')
@@ -273,7 +297,7 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.ratings.table.guestUser')
  */
 export default function AdminOperationCourseRatingsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');
   const router = useRouter();
   const params = useParams<{ shifu_bid?: string | string[] }>();
@@ -298,6 +322,9 @@ export default function AdminOperationCourseRatingsPage() {
 
   const [ratings, setRatings] =
     useState<AdminOperationCourseRatingListResponse>(EMPTY_RATINGS_RESPONSE);
+  const [fullSummary, setFullSummary] = useState(
+    EMPTY_RATINGS_RESPONSE.summary,
+  );
   const [pageIndex, setPageIndex] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
@@ -306,6 +333,7 @@ export default function AdminOperationCourseRatingsPage() {
   const [filtersDraft, setFiltersDraft] =
     useState<RatingFilters>(createRatingFilters);
   const requestIdRef = useRef(0);
+  const fullSummaryLoadedRef = useRef(false);
 
   const detailPageUrl = useMemo(
     () => buildAdminOperationsCourseDetailUrl(shifuBid),
@@ -327,11 +355,17 @@ export default function AdminOperationCourseRatingsPage() {
     async (nextPage: number, nextFilters: RatingFilters) => {
       if (!shifuBid) {
         setRatings(EMPTY_RATINGS_RESPONSE);
+        setFullSummary(EMPTY_RATINGS_RESPONSE.summary);
+        fullSummaryLoadedRef.current = false;
         setError({ message: unknownErrorMessage });
         setLoading(false);
         return;
       }
 
+      const resolvedFilters = normalizeRatingFilters(nextFilters);
+      const shouldRefreshFullSummary =
+        isDefaultRatingFilters(resolvedFilters) &&
+        !fullSummaryLoadedRef.current;
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
       setLoading(true);
@@ -341,24 +375,34 @@ export default function AdminOperationCourseRatingsPage() {
           shifu_bid: shifuBid,
           page: nextPage,
           page_size: PAGE_SIZE,
-          keyword: nextFilters.keyword,
-          chapter_keyword: nextFilters.chapterKeyword,
+          include_summary: shouldRefreshFullSummary,
+          keyword: resolvedFilters.keyword,
+          chapter_keyword: resolvedFilters.chapterKeyword,
           score:
-            nextFilters.score === FILTER_ALL_OPTION ? '' : nextFilters.score,
-          mode: nextFilters.mode === FILTER_ALL_OPTION ? '' : nextFilters.mode,
+            resolvedFilters.score === FILTER_ALL_OPTION
+              ? ''
+              : resolvedFilters.score,
+          mode:
+            resolvedFilters.mode === FILTER_ALL_OPTION
+              ? ''
+              : resolvedFilters.mode,
           has_comment:
-            nextFilters.commentFilter === COMMENT_FILTER_COMMENTED_OPTION
+            resolvedFilters.commentFilter === COMMENT_FILTER_COMMENTED_OPTION
               ? 'true'
               : '',
           sort_by:
-            nextFilters.sortBy === SORT_BY_LATEST_OPTION
+            resolvedFilters.sortBy === SORT_BY_LATEST_OPTION
               ? ''
-              : nextFilters.sortBy,
-          start_time: nextFilters.startTime,
-          end_time: nextFilters.endTime,
+              : resolvedFilters.sortBy,
+          start_time: resolvedFilters.startTime,
+          end_time: resolvedFilters.endTime,
         });
         if (requestId !== requestIdRef.current) {
           return;
+        }
+        if (shouldRefreshFullSummary) {
+          setFullSummary(response?.summary || EMPTY_RATINGS_RESPONSE.summary);
+          fullSummaryLoadedRef.current = true;
         }
         setRatings(response || EMPTY_RATINGS_RESPONSE);
       } catch (err) {
@@ -410,7 +454,6 @@ export default function AdminOperationCourseRatingsPage() {
   const outlineColumnLabel = hasChapterHierarchy
     ? tOperations('detail.ratings.table.chapter')
     : tOperations('detail.ratings.table.lesson');
-  const summaryScopeHint = tOperations('detail.ratings.summary.scopeHint');
   const userKeywordInputId = 'rating-user-keyword-filter';
   const outlineKeywordInputId = 'rating-outline-keyword-filter';
   const ratingTimeFilterAriaLabel = tOperations(
@@ -428,30 +471,30 @@ export default function AdminOperationCourseRatingsPage() {
       {
         key: 'averageScore',
         label: tOperations('detail.ratings.summary.averageScore'),
-        value: ratings.summary.average_score || emptyValue,
+        value: fullSummary.average_score || emptyValue,
         tone: 'number' as const,
       },
       {
         key: 'ratingCount',
         label: tOperations('detail.ratings.summary.ratingCount'),
-        value: formatCount(ratings.summary.rating_count),
+        value: formatCount(fullSummary.rating_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'userCount',
         label: tOperations('detail.ratings.summary.userCount'),
-        value: formatCount(ratings.summary.user_count),
+        value: formatCount(fullSummary.user_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'latestRatedAt',
         label: tOperations('detail.ratings.summary.latestRatedAt'),
         value:
-          formatAdminUtcDateTime(ratings.summary.latest_rated_at) || emptyValue,
+          formatAdminUtcDateTime(fullSummary.latest_rated_at) || emptyValue,
         tone: 'timestamp' as const,
       },
     ],
-    [emptyValue, ratings.summary, tOperations],
+    [emptyValue, fullSummary, i18n.language, tOperations],
   );
 
   const resolveUserSecondary = useCallback(
@@ -479,26 +522,36 @@ export default function AdminOperationCourseRatingsPage() {
   );
 
   const handleSearch = useCallback(() => {
-    const nextFilters = {
-      keyword: filtersDraft.keyword.trim(),
-      chapterKeyword: filtersDraft.chapterKeyword.trim(),
-      score: filtersDraft.score,
-      mode: filtersDraft.mode,
-      commentFilter: filtersDraft.commentFilter,
-      sortBy: filtersDraft.sortBy,
-      startTime: filtersDraft.startTime,
-      endTime: filtersDraft.endTime,
-    };
+    const nextFilters = normalizeRatingFilters(filtersDraft);
+    if (pageIndex === 1 && areRatingFiltersEqual(nextFilters, filters)) {
+      return;
+    }
+    if (
+      isDefaultRatingFilters(nextFilters) &&
+      !isDefaultRatingFilters(filters)
+    ) {
+      fullSummaryLoadedRef.current = false;
+    }
     setFilters(nextFilters);
     setPageIndex(1);
-  }, [filtersDraft]);
+  }, [filters, filtersDraft, pageIndex]);
 
   const handleReset = useCallback(() => {
     const nextFilters = createRatingFilters();
+    if (
+      pageIndex === 1 &&
+      areRatingFiltersEqual(nextFilters, filters) &&
+      areRatingFiltersEqual(nextFilters, filtersDraft)
+    ) {
+      return;
+    }
     setFiltersDraft(nextFilters);
+    if (!areRatingFiltersEqual(nextFilters, filters)) {
+      fullSummaryLoadedRef.current = false;
+    }
     setFilters(nextFilters);
     setPageIndex(1);
-  }, []);
+  }, [filters, filtersDraft, pageIndex]);
 
   const handlePageChange = useCallback(
     (nextPage: number) => {
@@ -726,24 +779,23 @@ export default function AdminOperationCourseRatingsPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-        <div className='mb-5 flex shrink-0 flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between'>
-          <div className='space-y-1'>
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {tOperations('detail.ratings.title')}
-            </h1>
-            <p className='text-sm text-muted-foreground'>{summaryScopeHint}</p>
-          </div>
-          <Button
-            variant='outline'
-            className='sm:mr-3'
-            onClick={() => {
-              if (detailPageUrl) {
-                router.push(detailPageUrl);
-              }
-            }}
-          >
-            {tOperations('detail.ratings.back')}
-          </Button>
+        <div className='mb-5 shrink-0 space-y-3 pt-6'>
+          <AdminOperationsBreadcrumb
+            items={[
+              {
+                label: tOperations('title'),
+                href: '/admin/operations',
+              },
+              {
+                label: tOperations('detail.title'),
+                href: detailPageUrl || undefined,
+              },
+              { label: tOperations('detail.ratings.title') },
+            ]}
+          />
+          <h1 className='text-2xl font-semibold text-gray-900'>
+            {tOperations('detail.ratings.title')}
+          </h1>
         </div>
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>

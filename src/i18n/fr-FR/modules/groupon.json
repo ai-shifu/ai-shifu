@@ -1,0 +1,8 @@
+{
+  "__namespace__": "module.groupon",
+  "inputMessage": "Veuillez saisir le code d’échange",
+  "modify": "Modifier le code >",
+  "placeholder": "Veuillez saisir le code d’échange",
+  "title": "Code d’échange",
+  "useOtherPayment": "Autres moyens de paiement"
+}

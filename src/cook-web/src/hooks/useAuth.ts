@@ -2,6 +2,7 @@ import { useToast } from '@/hooks/useToast';
 import { useUserStore } from '@/store';
 import apiService from '@/api';
 import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import type { UserInfo } from '@/c-types';
 import { useTracking } from '@/c-common/hooks/useTracking';
 
@@ -115,6 +116,12 @@ export function useAuth(options: UseAuthOptions = {}) {
             ? t('module.auth.otpExpired')
             : t('module.auth.credentialError');
         break;
+      case 1013:
+        description = t('module.auth.otpExpired');
+        break;
+      case 1014:
+        description = t('module.auth.otpInvalid');
+        break;
       default:
         description = message || t('common.core.networkError');
     }
@@ -156,7 +163,7 @@ export function useAuth(options: UseAuthOptions = {}) {
   ) => {
     try {
       const response = await callWithTokenRefresh(() =>
-        apiService.verifySmsCode({
+        apiService.smsLogin({
           mobile,
           sms_code,
           language,
@@ -187,10 +194,14 @@ export function useAuth(options: UseAuthOptions = {}) {
   };
 
   // Send SMS verification code with automatic token refresh
-  const sendSmsCode = async (mobile: string, language: string) => {
+  const sendSmsCode = async (mobile: string, captchaTicket: string) => {
     try {
       const response = await callWithTokenRefresh(() =>
-        apiService.sendSmsCode({ mobile, language }),
+        apiService.sendSmsCode({
+          mobile,
+          captcha_ticket: captchaTicket,
+          language: i18n.language,
+        }),
       );
 
       if (response.code !== 0) {

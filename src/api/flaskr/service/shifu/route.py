@@ -37,6 +37,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from pydantic import ValidationError
 from flask import (
     Flask,
     request,
@@ -57,6 +58,8 @@ from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import (
+    assert_creator_debug_allowed,
+    build_operator_credit_orders_overview,
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
 )
@@ -68,6 +71,7 @@ from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_config
+from flaskr.common.public_urls import resolve_public_origin
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
     finalize_langfuse_trace,
@@ -90,6 +94,8 @@ from flaskr.service.user.utils import get_user_language
 from flaskr.service.user.utils import (
     ensure_demo_course_permissions,
     load_existing_demo_shifu_ids,
+    mark_creator_role_if_needed,
+    run_creator_granted_post_auth,
 )
 from flaskr.util.uuid import generate_id
 
@@ -108,22 +114,35 @@ from flaskr.service.shifu.shifu_draft_funcs import (
 )
 from flaskr.service.shifu.admin import (
     OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
+    get_operator_course_credit_usages,
+    get_operator_course_overview,
     get_operator_course_follow_up_detail,
     get_operator_course_follow_ups,
     get_operator_course_prompt,
     get_operator_course_ratings,
     get_operator_user_detail,
     get_operator_user_credits,
+    get_operator_user_grant_bootstrap,
+    get_operator_user_overview,
     grant_operator_user_credits,
+    grant_operator_user_package,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
     get_operator_course_users,
     list_operator_courses,
     list_operator_users,
+    copy_operator_course,
+    dry_run_operator_credit_notifications,
+    get_operator_credit_notification_config,
     transfer_operator_course_creator,
+    list_operator_credit_notifications,
+    requeue_operator_credit_notification,
+    sync_operator_credit_notification_template,
+    update_operator_credit_notification_config,
 )
 from flaskr.service.order.api import (
     get_operator_order_detail,
+    get_operator_order_overview,
     list_operator_orders,
 )
 from flaskr.service.promo.api import (
@@ -141,7 +160,10 @@ from flaskr.service.promo.api import (
     update_operator_promotion_coupon,
     update_operator_promotion_coupon_status,
 )
-from flaskr.service.shifu.admin_dtos import AdminOperationUserCreditGrantRequestDTO
+from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserCreditGrantRequestDTO,
+    AdminOperationUserPackageGrantRequestDTO,
+)
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
     preview_shifu_draft,
@@ -257,11 +279,7 @@ def _get_request_base_url() -> str:
     """
     Determine the base URL for frontend links.
     """
-    server_name = current_app.config.get("SERVER_NAME")
-    if server_name:
-        scheme = "https" if request.is_secure else "http"
-        return f"{scheme}://{server_name}".rstrip("/")
-    return request.url_root.rstrip("/")
+    return resolve_public_origin()
 
 
 def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | None:
@@ -282,6 +300,26 @@ def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | No
         except ValueError:
             continue
     raise_param_error("datetime format invalid")
+
+
+def _parse_boolean_query_param(
+    raw_value: object,
+    *,
+    field_name: str,
+    default: bool = False,
+) -> bool:
+    if raw_value is None:
+        return default
+    if isinstance(raw_value, bool):
+        return raw_value
+    normalized = str(raw_value).strip().lower()
+    if not normalized:
+        return default
+    if normalized in {"true", "1", "yes"}:
+        return True
+    if normalized in {"false", "0", "no"}:
+        return False
+    raise_param_error(f"{field_name} is not a boolean")
 
 
 def _parse_positive_query_int(
@@ -351,6 +389,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         creator_bid = str(getattr(request_user, "user_id", "") or "").strip()
         if not creator_bid or not getattr(request_user, "is_creator", False):
             return None
+        assert_creator_debug_allowed(app, creator_bid)
         return admit_creator_usage(
             app,
             creator_bid=creator_bid,
@@ -556,6 +595,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Course updated end date (YYYY-MM-DD)
+            - name: quick_filter
+              type: string
+              required: false
+              description: draft, published, created_last_7d, learning_active_30d, paid_order_30d
         responses:
             200:
                 description: List operator-visible courses
@@ -568,7 +611,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                 message:
                                     type: string
                                 data:
-                                    $ref: "#/components/schemas/PageNationDTO"
+                                    $ref: "#/components/schemas/AdminOperationCourseListDTO"
         """
         _require_operator()
         page_index = request.args.get("page_index", 1)
@@ -585,6 +628,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "shifu_bid": request.args.get("shifu_bid", ""),
             "course_name": request.args.get("course_name", ""),
             "course_status": request.args.get("course_status", ""),
+            "quick_filter": request.args.get("quick_filter", ""),
             "creator_keyword": request.args.get("creator_keyword", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
@@ -606,6 +650,30 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(
             list_operator_courses(app, page_index, page_size, filters)
         )
+
+    @app.route(path_prefix + "/admin/operations/courses/overview", methods=["GET"])
+    def admin_operations_course_overview():
+        """
+        Operator course overview
+        ---
+        tags:
+            - 课程
+        responses:
+            200:
+                description: Operator-visible course overview metrics
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/AdminOperationCourseOverviewDTO"
+        """
+        _require_operator()
+        return make_common_response(get_operator_course_overview(app))
 
     @app.route(path_prefix + "/admin/operations/users", methods=["GET"])
     def admin_operations_users():
@@ -643,6 +711,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: regular, creator, learner, or operator
+            - name: quick_filter
+              type: string
+              required: false
+              description: creator, learner, registered, paid, created_last_30d, registered_last_30d, learning_active_30d, paid_last_30d, guest
             - name: start_time
               type: string
               required: false
@@ -663,7 +735,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                 message:
                                     type: string
                                 data:
-                                    $ref: "#/components/schemas/PageNationDTO"
+                                    $ref: "#/components/schemas/AdminOperationUserListDTO"
         """
         _require_operator()
         page_index = request.args.get("page_index", 1)
@@ -683,6 +755,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "nickname": request.args.get("nickname", ""),
             "user_status": request.args.get("user_status", ""),
             "user_role": request.args.get("user_role", ""),
+            "quick_filter": request.args.get("quick_filter", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
                 is_end=False,
@@ -695,6 +768,30 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(
             list_operator_users(app, page_index, page_size, filters)
         )
+
+    @app.route(path_prefix + "/admin/operations/users/overview", methods=["GET"])
+    def admin_operations_user_overview():
+        """
+        Operator user overview
+        ---
+        tags:
+            - User
+        responses:
+            200:
+                description: Operator-visible user overview metrics
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/AdminOperationUserOverviewDTO"
+        """
+        _require_operator()
+        return make_common_response(get_operator_user_overview(app))
 
     @app.route(path_prefix + "/admin/operations/orders", methods=["GET"])
     def admin_operations_orders():
@@ -778,6 +875,147 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             list_operator_orders(app, page_index, page_size, filters)
         )
 
+    @app.route(path_prefix + "/admin/operations/orders/overview", methods=["GET"])
+    def admin_operations_order_overview():
+        """
+        Operator learning order overview
+        ---
+        tags:
+            - Order
+        responses:
+            200:
+                description: Operator-visible learning order overview metrics
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/OrderAdminOverviewDTO"
+        """
+        _require_operator()
+        return make_common_response(get_operator_order_overview(app))
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications",
+        methods=["GET"],
+    )
+    def admin_operation_credit_notifications():
+        """List operator credit notification records."""
+        _require_operator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+        filters = {
+            "creator_bid": request.args.get("creator_bid", ""),
+            "target_user_bid": request.args.get("target_user_bid", ""),
+            "mobile": request.args.get("mobile", ""),
+            "notification_type": request.args.get("notification_type", ""),
+            "channel": request.args.get("channel", ""),
+            "status": request.args.get("status", ""),
+            "source_type": request.args.get("source_type", ""),
+            "source_bid": request.args.get("source_bid", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            list_operator_credit_notifications(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/config",
+        methods=["GET"],
+    )
+    def admin_operation_credit_notification_config():
+        """Get operator credit notification config."""
+        _require_operator()
+        return make_common_response(get_operator_credit_notification_config(app))
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/config",
+        methods=["POST"],
+    )
+    def admin_operation_update_credit_notification_config():
+        """Update operator credit notification config."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_config")
+        return make_common_response(
+            update_operator_credit_notification_config(app, payload=payload)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/templates/sync",
+        methods=["POST"],
+    )
+    def admin_operation_credit_notification_template_sync():
+        """Sync one SMS template for operator credit notification config."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_template_sync")
+        return make_common_response(
+            sync_operator_credit_notification_template(
+                app,
+                notification_type=str(payload.get("notification_type") or ""),
+                template_code=str(payload.get("template_code") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/dry-run",
+        methods=["POST"],
+    )
+    def admin_operation_credit_notification_dry_run():
+        """Dry-run operator credit notification scans."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_dry_run")
+        return make_common_response(
+            dry_run_operator_credit_notifications(
+                app,
+                notification_type=str(payload.get("notification_type") or ""),
+                creator_bid=str(payload.get("creator_bid") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/credit-notifications/<notification_bid>/requeue",
+        methods=["POST"],
+    )
+    def admin_operation_credit_notification_requeue(notification_bid: str):
+        """Requeue one failed provider credit notification."""
+        _require_operator()
+        return make_common_response(
+            requeue_operator_credit_notification(
+                app,
+                notification_bid=notification_bid,
+            )
+        )
+
     @app.route(
         path_prefix + "/admin/operations/orders/<order_bid>/detail",
         methods=["GET"],
@@ -838,6 +1076,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: payment_provider
               type: string
               required: false
+            - name: has_available_credits
+              type: boolean
+              required: false
+              description: Only include orders whose granted credits still have remaining balance
             - name: start_time
               type: string
               required: false
@@ -870,6 +1112,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 bill_order_bid=request.args.get("bill_order_bid", ""),
                 credit_order_kind=request.args.get("credit_order_kind", ""),
                 status=request.args.get("status", ""),
+                has_available_credits=_parse_boolean_query_param(
+                    request.args.get("has_available_credits"),
+                    field_name="has_available_credits",
+                ),
                 payment_provider=request.args.get("payment_provider", ""),
                 start_time=_parse_datetime_filter(
                     request.args.get("start_time", ""),
@@ -881,6 +1127,33 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 ),
             )
         )
+
+    @app.route(
+        path_prefix + "/admin/operations/orders/credits/overview",
+        methods=["GET"],
+    )
+    def admin_operations_credit_order_overview():
+        """
+        Operator credit order overview
+        ---
+        tags:
+            - Order
+        responses:
+            200:
+                description: Operator-visible credit order overview metrics
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/OperatorCreditOrderOverviewDTO"
+        """
+        _require_operator()
+        return make_common_response(build_operator_credit_orders_overview(app))
 
     @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["GET"])
     def admin_operations_promotion_coupons():
@@ -904,6 +1177,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "shifu_bid": request.args.get("shifu_bid", ""),
             "course_name": request.args.get("course_name", ""),
             "usage_type": request.args.get("usage_type", ""),
+            "ops_state": request.args.get("ops_state", ""),
             "discount_type": request.args.get("discount_type", ""),
             "status": request.args.get("status", ""),
             "start_time": _parse_datetime_filter(
@@ -1074,6 +1348,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "course_query": request.args.get("course_query", ""),
             "shifu_bid": request.args.get("shifu_bid", ""),
             "course_name": request.args.get("course_name", ""),
+            "apply_type": request.args.get("apply_type", ""),
+            "channel": request.args.get("channel", ""),
             "discount_type": request.args.get("discount_type", ""),
             "status": request.args.get("status", ""),
             "start_time": _parse_datetime_filter(
@@ -1217,6 +1493,36 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: page_size
               type: integer
               required: false
+            - name: credit_type
+              in: query
+              type: string
+              required: false
+              description: Credit ledger type filter
+            - name: grant_source
+              in: query
+              type: string
+              required: false
+              description: Grant source filter
+            - name: course_query
+              in: query
+              type: string
+              required: false
+              description: Course ID exact match or course name fuzzy match for consume rows
+            - name: usage_mode
+              in: query
+              type: string
+              required: false
+              description: Consume mode filter
+            - name: start_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter start time
+            - name: end_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter end time
         responses:
             200:
                 description: Operator user credits detail
@@ -1232,12 +1538,56 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if page_index < 1 or page_size < 1:
             raise_param_error("page_index or page_size is less than 1")
 
+        filters = {
+            "credit_type": request.args.get("credit_type", ""),
+            "grant_source": request.args.get("grant_source", ""),
+            "course_query": request.args.get("course_query", ""),
+            "usage_mode": request.args.get("usage_mode", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+
         return make_common_response(
             get_operator_user_credits(
                 app,
                 user_bid=user_bid,
                 page_index=page_index,
                 page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/credit-grant/bootstrap",
+        methods=["GET"],
+    )
+    def admin_operation_user_credit_grant_bootstrap(user_bid: str):
+        """
+        Get operator user grant bootstrap
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+        responses:
+            200:
+                description: Operator user grant bootstrap payload
+        """
+        _require_operator()
+        return make_common_response(
+            get_operator_user_grant_bootstrap(
+                app,
+                user_bid=user_bid,
             )
         )
 
@@ -1268,14 +1618,58 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 description: Operator user credits grant result
         """
         _require_operator()
+        payload_data = request.get_json(silent=True) or {}
         try:
             payload = AdminOperationUserCreditGrantRequestDTO.model_validate(
-                request.get_json() or {}
+                payload_data
             )
-        except Exception:
+        except ValidationError:
             raise_param_error("credits_grant_payload")
         return make_common_response(
             grant_operator_user_credits(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/packages/grant",
+        methods=["POST"],
+    )
+    def admin_operation_user_package_grant(user_bid: str):
+        """
+        Grant operator user package
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+        requestBody:
+            required: true
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/AdminOperationUserPackageGrantRequestDTO"
+        responses:
+            200:
+                description: Operator user package grant result
+        """
+        _require_operator()
+        payload_data = request.get_json(silent=True) or {}
+        try:
+            payload = AdminOperationUserPackageGrantRequestDTO.model_validate(
+                payload_data
+            )
+        except ValidationError:
+            raise_param_error("package_grant_payload")
+        return make_common_response(
+            grant_operator_user_package(
                 app,
                 user_bid=user_bid,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
@@ -1453,6 +1847,95 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         )
 
     @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/credit-usages",
+        methods=["GET"],
+    )
+    def admin_operation_course_credit_usages(shifu_bid: str):
+        """
+        Get operator course credit usage list
+        ---
+        tags:
+            - Shifu
+        parameters:
+            - name: shifu_bid
+              in: path
+              type: string
+              required: true
+              description: Course shifu bid
+            - name: page
+              in: query
+              type: integer
+              required: false
+              description: Page index
+            - name: page_size
+              in: query
+              type: integer
+              required: false
+              description: Page size
+            - name: keyword
+              in: query
+              type: string
+              required: false
+              description: User keyword
+            - name: mode
+              in: query
+              type: string
+              required: false
+              description: Credit usage mode filter
+            - name: view
+              in: query
+              type: string
+              required: false
+              description: Credit usage view mode, grouped or raw
+            - name: start_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter start time
+            - name: end_time
+              in: query
+              type: string
+              required: false
+              description: Inclusive filter end time
+        responses:
+            200:
+                description: Operator course credit usage list
+        """
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page"),
+            field_name="page",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "mode": request.args.get("mode", ""),
+            "view": request.args.get("view", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            get_operator_course_credit_usages(
+                app,
+                shifu_bid=shifu_bid,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
         path_prefix + "/admin/operations/courses/<shifu_bid>/ratings",
         methods=["GET"],
     )
@@ -1518,6 +2001,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Inclusive filter end time
+            - name: include_summary
+              in: query
+              type: boolean
+              required: false
+              description: Whether to include expensive summary metrics. Defaults to true. When false, summary fields are returned as defaults while total and page_count still reflect the filtered result.
         responses:
             200:
                 description: Operator course rating list
@@ -1549,6 +2037,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 is_end=True,
             ),
         }
+        include_summary = _parse_boolean_query_param(
+            request.args.get("include_summary", None),
+            field_name="include_summary",
+            default=True,
+        )
         return make_common_response(
             get_operator_course_ratings(
                 app,
@@ -1556,6 +2049,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+                include_summary=include_summary,
             )
         )
 
@@ -1605,6 +2099,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Inclusive filter end time
+            - name: include_summary
+              in: query
+              type: boolean
+              required: false
+              description: Whether to include expensive summary metrics
         responses:
             200:
                 description: Operator course follow-up list
@@ -1632,6 +2131,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 is_end=True,
             ),
         }
+        include_summary = _parse_boolean_query_param(
+            request.args.get("include_summary", None),
+            field_name="include_summary",
+            default=True,
+        )
         return make_common_response(
             get_operator_course_follow_ups(
                 app,
@@ -1639,6 +2143,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+                include_summary=include_summary,
             )
         )
 
@@ -1677,6 +2182,40 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 app,
                 shifu_bid=shifu_bid,
                 generated_block_bid=generated_block_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/copy",
+        methods=["POST"],
+    )
+    def admin_copy_course(shifu_bid: str):
+        _require_operator()
+        payload = request.get_json() or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
+        contact_type = _normalize_contact_type(payload.get("contact_type", ""))
+        allowed_methods = _get_login_methods_enabled()
+        if contact_type not in {"phone", "email"}:
+            raise_param_error("contact_type")
+        if allowed_methods and contact_type not in allowed_methods:
+            raise_param_error("contact_type")
+
+        identifiers = _validate_contacts(
+            contact_type,
+            _normalize_contacts(payload.get("identifier", "")),
+        )
+        if len(identifiers) != 1:
+            raise_param_error("contact")
+
+        return make_common_response(
+            copy_operator_course(
+                app,
+                shifu_bid=shifu_bid,
+                contact_type=contact_type,
+                identifier=identifiers[0],
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                new_course_name=str(payload.get("new_course_name", "") or ""),
             )
         )
 
@@ -1857,8 +2396,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             auth_types = ["edit", "publish"]
 
         demo_shifu_ids = load_existing_demo_shifu_ids()
+        creator_upgrade_contexts: dict[str, dict[str, object]] = {}
         for contact in contacts:
             aggregate = aggregate_by_contact.get(contact)
+            created_new_user = False
             should_grant_demo_permissions = False
             if aggregate is None:
                 aggregate, created_new_user = ensure_user_for_identifier(
@@ -1893,6 +2434,16 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 ensure_demo_course_permissions(
                     app, aggregate.user_bid, demo_ids=demo_shifu_ids
                 )
+            if permission in {"edit", "publish"}:
+                creator_granted_now = mark_creator_role_if_needed(aggregate.user_bid)
+                if creator_granted_now:
+                    creator_upgrade_contexts.setdefault(
+                        aggregate.user_bid,
+                        {
+                            "created_new_user": created_new_user,
+                            "language": aggregate.user_language,
+                        },
+                    )
 
             auth = AiCourseAuth.query.filter(
                 AiCourseAuth.course_id == shifu_bid,
@@ -1914,6 +2465,14 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             _clear_shifu_permission_cache(aggregate.user_bid, shifu_bid)
 
         db.session.commit()
+        for user_id, upgrade_context in creator_upgrade_contexts.items():
+            run_creator_granted_post_auth(
+                app,
+                user_id=user_id,
+                source="shifu_permission_grant",
+                created_new_user=bool(upgrade_context.get("created_new_user")),
+                language=str(upgrade_context.get("language") or ""),
+            )
         return make_common_response({"count": len(contacts)})
 
     @app.route(
@@ -2337,6 +2896,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         user_id = request.user.user_id
         variables = request.get_json().get("variables")
         base_url = _get_request_base_url()
+        _admit_creator_debug_usage()
         return make_common_response(
             preview_shifu_draft(app, user_id, shifu_bid, variables, base_url)
         )
@@ -3312,7 +3872,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             set_language(original_language)
 
     @app.route(path_prefix + "/ask/preview", methods=["POST"])
-    @bypass_token_validation
     def ask_preview_api():
         """
         Preview ask provider output with current settings
@@ -3593,7 +4152,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(config)
 
     @app.route(path_prefix + "/tts/preview", methods=["POST"])
-    @bypass_token_validation
     def tts_preview_api():
         """
         Preview TTS with specified settings

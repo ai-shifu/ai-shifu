@@ -35,6 +35,7 @@ from .utils import (
 )
 from .models import DraftShifu, FavoriteScenario, ShifuUserArchive, PublishedShifu
 from .permissions import get_user_shifu_permissions
+from .course_activity import load_course_activity_map
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
@@ -335,6 +336,9 @@ def create_shifu_draft(
             shifu_state=STATUS_DRAFT,
             is_favorite=False,
             archived=False,
+            can_manage_archive=True,
+            can_manage_permissions=True,
+            created_user_bid=user_id,
         )
 
 
@@ -645,8 +649,26 @@ def get_shifu_draft_list(
         shifu_drafts: list[DraftShifu] = (
             db.session.query(DraftShifu)
             .filter(DraftShifu.id.in_(latest_subquery))
-            .order_by(DraftShifu.title.asc(), DraftShifu.shifu_bid.asc())
             .all()
+        )
+
+        activity_map = load_course_activity_map(
+            shifu_drafts,
+            [],
+            include_published_outline=False,
+        )
+
+        def resolve_updated_at(draft: DraftShifu) -> datetime:
+            activity = activity_map.get(str(draft.shifu_bid or "").strip(), {})
+            return activity.get("updated_at") or draft.updated_at or datetime.min
+
+        shifu_drafts.sort(
+            key=lambda draft: (
+                resolve_updated_at(draft),
+                draft.updated_at or datetime.min,
+                int(draft.id or 0),
+            ),
+            reverse=True,
         )
 
         if is_favorite:
@@ -696,6 +718,9 @@ def get_shifu_draft_list(
                 STATUS_DRAFT,
                 bool(is_favorite),
                 is_archived(shifu_draft),
+                can_manage_archive=True,
+                can_manage_permissions=(shifu_draft.created_user_bid == user_id),
+                created_user_bid=shifu_draft.created_user_bid or "",
             )
             for shifu_draft in shifu_drafts
         ]
@@ -786,6 +811,9 @@ def get_shifu_published_list(
                 STATUS_PUBLISHED,
                 False,
                 False,
+                can_manage_archive=True,
+                can_manage_permissions=(shifu.created_user_bid == user_id),
+                created_user_bid=shifu.created_user_bid or "",
             )
             for shifu in shifus
         ]

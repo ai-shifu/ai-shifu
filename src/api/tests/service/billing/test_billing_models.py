@@ -8,6 +8,7 @@ from flaskr.service.billing.consts import (
     BILLING_INTERVAL_DAY,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_YEAR,
+    BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
     BILL_CONFIG_KEY_CREDIT_PRECISION,
     BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
     BILL_CONFIG_KEY_RATE_VERSION,
@@ -25,8 +26,15 @@ from flaskr.service.billing.consts import (
     BILL_SYS_CONFIG_SEEDS,
     CREDIT_USAGE_RATE_SEEDS,
 )
-from flaskr.service.billing.models import BillingProduct, CreditUsageRate
-from flaskr.service.billing.queries import calculate_billing_cycle_end
+from flaskr.service.billing.models import (
+    BillingProduct,
+    CreditUsageRate,
+    NotificationRecord,
+)
+from flaskr.service.billing.queries import (
+    calculate_billing_cycle_end,
+    calculate_self_managed_billing_cycle_end,
+)
 from flaskr.service.metering import consts as metering_consts
 from flaskr.service.promo import consts as promo_consts
 from flaskr.service.shifu import consts as shifu_consts
@@ -127,6 +135,42 @@ def test_calculate_billing_cycle_end_supports_day_month_and_year_intervals() -> 
     ) == datetime(2027, 4, 16, 12, 0, 0)
 
 
+def test_calculate_self_managed_billing_cycle_end_uses_validity_day_end() -> None:
+    daily_product = BillingProduct(
+        billing_interval=BILLING_INTERVAL_DAY,
+        billing_interval_count=7,
+    )
+    monthly_product = BillingProduct(
+        billing_interval=BILLING_INTERVAL_MONTH,
+        billing_interval_count=1,
+    )
+    yearly_product = BillingProduct(
+        billing_interval=BILLING_INTERVAL_YEAR,
+        billing_interval_count=1,
+    )
+
+    assert calculate_self_managed_billing_cycle_end(
+        daily_product,
+        cycle_start_at=datetime(2026, 4, 16, 12, 0, 0),
+    ) == datetime(2026, 4, 22, 23, 59, 59)
+    assert calculate_self_managed_billing_cycle_end(
+        monthly_product,
+        cycle_start_at=datetime(2026, 4, 16, 12, 0, 0),
+    ) == datetime(2026, 5, 15, 23, 59, 59)
+    assert calculate_self_managed_billing_cycle_end(
+        monthly_product,
+        cycle_start_at=datetime(2026, 1, 31, 12, 0, 0),
+    ) == datetime(2026, 3, 1, 23, 59, 59)
+    assert calculate_self_managed_billing_cycle_end(
+        yearly_product,
+        cycle_start_at=datetime(2026, 4, 16, 12, 0, 0),
+    ) == datetime(2027, 4, 16, 23, 59, 59)
+    assert calculate_self_managed_billing_cycle_end(
+        yearly_product,
+        cycle_start_at=datetime(2024, 2, 29, 12, 0, 0),
+    ) == datetime(2025, 3, 1, 23, 59, 59)
+
+
 def test_credit_usage_rate_model_registers_unique_constraints() -> None:
     unique_constraint_names = {
         constraint.name
@@ -139,14 +183,37 @@ def test_credit_usage_rate_model_registers_unique_constraints() -> None:
 
 
 def test_billing_sys_config_seeds_cover_required_bootstrap_keys() -> None:
-    assert len(BILL_SYS_CONFIG_SEEDS) == 4
+    assert len(BILL_SYS_CONFIG_SEEDS) == 5
     assert {row["key"] for row in BILL_SYS_CONFIG_SEEDS} == {
+        BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
         BILL_CONFIG_KEY_CREDIT_PRECISION,
         BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
         BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
         BILL_CONFIG_KEY_RATE_VERSION,
     }
     assert all(row["is_encrypted"] == 0 for row in BILL_SYS_CONFIG_SEEDS)
+
+
+def test_notification_records_model_uses_shared_notification_table() -> None:
+    table = NotificationRecord.__table__
+
+    assert NotificationRecord.__tablename__ == "notification_records"
+    assert "notification_bid" in table.c
+    assert "notification_type" in table.c
+    assert "channel" in table.c
+    assert "creator_bid" in table.c
+    assert "dedupe_key" in table.c
+    assert "template_params" in table.c
+    assert "policy_snapshot" in table.c
+    assert "provider_response" in table.c
+
+    unique_constraint_names = {
+        constraint.name
+        for constraint in table.constraints
+        if getattr(constraint, "name", None)
+    }
+    assert "uq_notification_records_notification_bid" in unique_constraint_names
+    assert "uq_notification_records_dedupe_key" in unique_constraint_names
 
 
 def test_billing_consts_keep_7100_segment_isolated_and_reuse_metering_usage_codes() -> (

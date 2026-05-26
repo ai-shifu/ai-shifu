@@ -1,0 +1,10 @@
+{
+  "__namespace__": "server.banner",
+  "__flat__": {
+    "bannerPopUpCancelText": "Continuer l’exploration",
+    "bannerPopUpConfirmText": "Débloquer maintenant !",
+    "bannerPopUpContent": "Bénéficiez d’un accès illimité et apprenez sans stress",
+    "bannerPopUpTitle": "Débloquez tout le contenu à tout moment",
+    "bannerTitle": "Tout débloquer"
+  }
+}

@@ -1,4 +1,3 @@
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -27,6 +26,12 @@ import {
   getPlanScaleKeys,
 } from './BillingOverviewCards';
 import styles from './BillingPlanComparisonTable.module.scss';
+
+// Language-neutral typographic enumerators that anchor each metric row label
+// to the matching footnote item. Not user-facing copy, so they stay out of
+// i18n.
+const ROW_ENUM_LEARNER = '①';
+const ROW_ENUM_VALIDITY = '②';
 
 type FeatureRow = {
   i18nKey: string;
@@ -111,7 +116,6 @@ type ColumnDescriptor = {
   creditAmount: string;
   featured: boolean;
   validityShort: string;
-  validityTooltip: string;
   studentLabel?: string;
   features: boolean[];
   action: ColumnAction;
@@ -122,37 +126,22 @@ type BillingTranslator = (
   options?: Record<string, unknown>,
 ) => string;
 
-function resolvePlanValidityDisplay(
+function resolvePlanValidityShort(
   t: BillingTranslator,
   plan: BillingPlan,
-): { short: string; tooltip: string } {
+): string {
   const intervalCount = Math.max(plan.billing_interval_count || 0, 1);
-  const isMultiCycle = intervalCount > 1;
   if (plan.billing_interval === 'month') {
-    return {
-      short: isMultiCycle
-        ? t('module.billing.package.validityShort.monthlyMonths', {
-            count: intervalCount,
-          })
-        : t('module.billing.package.validityShort.monthly'),
-      tooltip: isMultiCycle
-        ? ''
-        : t('module.billing.package.validityTooltip.monthly'),
-    };
+    return t('module.billing.package.validityShort.monthly', {
+      count: intervalCount,
+    });
   }
   if (plan.billing_interval === 'year') {
-    return {
-      short: isMultiCycle
-        ? t('module.billing.package.validityShort.yearlyYears', {
-            count: intervalCount,
-          })
-        : t('module.billing.package.validityShort.yearly'),
-      tooltip: isMultiCycle
-        ? ''
-        : t('module.billing.package.validityTooltip.yearly'),
-    };
+    return t('module.billing.package.validityShort.yearly', {
+      count: intervalCount,
+    });
   }
-  return { short: '', tooltip: '' };
+  return '';
 }
 
 export type BillingPlanComparisonTableProps = {
@@ -229,18 +218,17 @@ export function BillingPlanComparisonTable({
               trialOffer.currency,
               i18n.language,
             )
-          : t('module.billing.package.free.priceValue'),
+          : emptyValue,
       periodLabel: '',
       creditAmount: t('module.billing.package.topup.creditLabel', {
         credits: formatBillingCreditAmount(trialOffer?.credit_amount || 0),
       }),
       featured: isTrialCurrentPlan || !hasActiveSubscription,
-      validityShort: t('module.billing.package.validityShort.free', {
-        days: trialOffer?.valid_days || 15,
-      }),
-      validityTooltip: t('module.billing.package.validityTooltip.free', {
-        days: trialOffer?.valid_days || 15,
-      }),
+      validityShort: trialOffer
+        ? t('module.billing.package.validityShort.free', {
+            days: trialOffer.valid_days,
+          })
+        : emptyValue,
       studentLabel: trialScale ? t(trialScale.students) : undefined,
       features: featureRows.map(
         row => row.unlockIndex === -1 || trialFeatureSet.has(row.i18nKey),
@@ -294,10 +282,7 @@ export function BillingPlanComparisonTable({
         credits: formatBillingCreditAmount(plan.credit_amount),
       }),
       featured: isCurrentPlan,
-      ...(() => {
-        const v = resolvePlanValidityDisplay(t, plan);
-        return { validityShort: v.short, validityTooltip: v.tooltip };
-      })(),
+      validityShort: resolvePlanValidityShort(t, plan),
       studentLabel: planScale ? t(planScale.students) : undefined,
       features: featureRows.map(
         row => row.unlockIndex === -1 || idx >= row.unlockIndex,
@@ -330,6 +315,45 @@ export function BillingPlanComparisonTable({
     return null;
   }
 
+  const renderColumnAction = (col: ColumnDescriptor) => {
+    const actionButton = (
+      <Button
+        className={cn(
+          styles.columnAction,
+          col.action.tone === 'current' && 'disabled:opacity-100',
+        )}
+        data-testid={col.action.testId}
+        disabled={col.action.disabled || col.action.loading}
+        onClick={col.action.onClick}
+        type='button'
+        variant={TONE_VARIANT[col.action.tone]}
+      >
+        {col.action.loading ? processingLabel : col.action.label}
+      </Button>
+    );
+
+    if (!col.action.tooltip) {
+      return actionButton;
+    }
+
+    return (
+      <TooltipProvider delayDuration={0}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={styles.columnActionWrap}
+              data-testid={`${col.action.testId}-trigger`}
+              tabIndex={0}
+            >
+              {actionButton}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{col.action.tooltip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   return (
     <div
       className={styles.tableWrapper}
@@ -346,41 +370,44 @@ export function BillingPlanComparisonTable({
         </colgroup>
         <thead>
           <tr>
-            {columns.map(col => {
-              const actionButton = (
-                <Button
-                  className={cn(
-                    styles.columnAction,
-                    col.action.tone === 'current' && 'disabled:opacity-100',
-                  )}
-                  data-testid={col.action.testId}
-                  disabled={col.action.disabled || col.action.loading}
-                  onClick={col.action.onClick}
-                  type='button'
-                  variant={TONE_VARIANT[col.action.tone]}
+            {columns.map(col => (
+              <th
+                key={`${col.key}-title`}
+                className={cn(
+                  styles.columnHead,
+                  styles.columnTitleHead,
+                  col.featured && styles.featuredColumnTitle,
+                )}
+                data-testid={col.testId}
+                data-featured={col.featured ? 'true' : 'false'}
+                scope='col'
+              >
+                <div className={styles.columnTitleRow}>
+                  <span className={styles.columnTitle}>{col.title}</span>
+                  {col.badgeLabel ? (
+                    <span className={styles.columnBadge}>
+                      <Star className={styles.columnBadgeIcon} />
+                      {col.badgeLabel}
+                    </span>
+                  ) : null}
+                </div>
+              </th>
+            ))}
+          </tr>
+          <tr>
+            {columns.map(col => (
+              <td
+                key={`${col.key}-price`}
+                className={cn(
+                  styles.columnHead,
+                  styles.columnPriceHead,
+                  col.featured && styles.featuredColumnPrice,
+                )}
+              >
+                <div
+                  className={styles.columnPriceSummary}
+                  data-testid={`${col.testId}-price-summary`}
                 >
-                  {col.action.loading ? processingLabel : col.action.label}
-                </Button>
-              );
-              return (
-                <th
-                  key={col.key}
-                  className={cn(
-                    styles.columnHead,
-                    col.featured && styles.featuredColumn,
-                  )}
-                  data-testid={col.testId}
-                  data-featured={col.featured ? 'true' : 'false'}
-                >
-                  <div className={styles.columnTitleRow}>
-                    <span className={styles.columnTitle}>{col.title}</span>
-                    {col.badgeLabel ? (
-                      <span className={styles.columnBadge}>
-                        <Star className={styles.columnBadgeIcon} />
-                        {col.badgeLabel}
-                      </span>
-                    ) : null}
-                  </div>
                   <div className={styles.columnPrice}>
                     {col.periodLabel
                       ? `${col.priceLabel} / ${col.periodLabel}`
@@ -389,27 +416,23 @@ export function BillingPlanComparisonTable({
                   <div className={styles.columnCreditAmount}>
                     {col.creditAmount}
                   </div>
-                  {col.action.tooltip ? (
-                    <TooltipProvider delayDuration={0}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={styles.columnActionWrap}
-                            data-testid={`${col.action.testId}-trigger`}
-                            tabIndex={0}
-                          >
-                            {actionButton}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>{col.action.tooltip}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ) : (
-                    actionButton
-                  )}
-                </th>
-              );
-            })}
+                </div>
+              </td>
+            ))}
+          </tr>
+          <tr>
+            {columns.map(col => (
+              <td
+                key={`${col.key}-action`}
+                className={cn(
+                  styles.columnHead,
+                  styles.columnActionHead,
+                  col.featured && styles.featuredColumnAction,
+                )}
+              >
+                {renderColumnAction(col)}
+              </td>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -431,6 +454,7 @@ export function BillingPlanComparisonTable({
               >
                 <div className={styles.cellLabel}>
                   {t('module.billing.package.table.studentsRowLabel')}
+                  <span className='ml-1 font-medium'>{ROW_ENUM_LEARNER}</span>
                 </div>
                 <div className={styles.cellValue}>
                   {col.studentLabel || emptyValue}
@@ -446,30 +470,10 @@ export function BillingPlanComparisonTable({
               >
                 <div className={styles.cellLabel}>
                   {t('module.billing.package.table.validityRowLabel')}
+                  <span className='ml-1 font-medium'>{ROW_ENUM_VALIDITY}</span>
                 </div>
                 <div className={styles.cellValue}>
-                  <TooltipProvider delayDuration={0}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span
-                          className={styles.validityHint}
-                          tabIndex={col.validityTooltip ? 0 : -1}
-                        >
-                          {col.validityShort || emptyValue}
-                          {col.validityTooltip ? (
-                            <InformationCircleIcon
-                              className={styles.validityIcon}
-                            />
-                          ) : null}
-                        </span>
-                      </TooltipTrigger>
-                      {col.validityTooltip ? (
-                        <TooltipContent className={styles.validityTooltipBody}>
-                          {col.validityTooltip}
-                        </TooltipContent>
-                      ) : null}
-                    </Tooltip>
-                  </TooltipProvider>
+                  <span>{col.validityShort || emptyValue}</span>
                 </div>
               </td>
             ))}

@@ -15,6 +15,8 @@ def test_shifu_preview_routes_gate_creator_debug_usage_with_billing_admission() 
     assert source.count("_admit_creator_debug_usage()") >= 3
     assert "def ask_preview_api():" in source
     assert "def tts_preview_api():" in source
+    assert "@bypass_token_validation\n    def ask_preview_api():" not in source
+    assert "@bypass_token_validation\n    def tts_preview_api():" not in source
 
 
 def test_shifu_ask_preview_routes_pass_debug_usage_context_into_chat_llm() -> None:

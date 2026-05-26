@@ -185,8 +185,8 @@ describe('AdminBillingPage', () => {
           product_bid: 'bill-product-topup-small',
           product_code: 'creator-topup-small',
           product_type: 'topup',
-          display_name: 'module.billing.catalog.topups.creatorSmall.title',
-          description: 'module.billing.catalog.topups.creatorSmall.description',
+          display_name: 'module.billing.catalog.topups.default.title',
+          description: 'module.billing.catalog.topups.default.description',
           currency: 'CNY',
           price_amount: 19900,
           credit_amount: 500000,
@@ -287,8 +287,10 @@ describe('AdminBillingPage', () => {
     const packagesPanel = screen.getByTestId('admin-billing-packages-panel');
 
     expect(screen.getByTestId('admin-billing-page')).toBeInTheDocument();
-    expect(packagesPanel).toHaveClass('flex-1');
-    expect(packagesPanel).toHaveClass('overflow-y-auto');
+    expect(screen.getByTestId('admin-billing-page')).toHaveClass(
+      'overscroll-none',
+    );
+    expect(packagesPanel).toHaveClass('mt-0');
     expect(
       within(tabs).getByRole('tab', {
         name: 'module.billing.page.tabs.plans',
@@ -438,7 +440,7 @@ describe('AdminBillingPage', () => {
       await screen.findByText('module.billing.details.title'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('admin-billing-details-panel')).toHaveClass(
-      'overflow-y-auto',
+      'mt-0',
     );
     expect(mockGetBillingCatalog).toHaveBeenCalledWith({
       timezone: 'Asia/Shanghai',

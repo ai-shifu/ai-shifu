@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -16,7 +17,23 @@ const mockGrantDialogPrefix = 'grant-dialog-';
 const mockGrantSuccessLabel = 'mock-grant-success';
 const buildGrantDialogLabel = (userBid: string) =>
   `${mockGrantDialogPrefix}${userBid}`;
-const translationCache = new Map<string, { t: (key: string) => string }>();
+let mockLanguage = 'en-US';
+const translationCache = new Map<
+  string,
+  { t: (key: string) => string; i18n: { language: string } }
+>();
+const DEFAULT_OVERVIEW = {
+  total_user_count: 128,
+  registered_user_count: 102,
+  creator_user_count: 24,
+  learner_user_count: 78,
+  paid_user_count: 35,
+  created_last_30d_user_count: 12,
+  registered_last_30d_user_count: 10,
+  learning_active_30d_user_count: 18,
+  paid_last_30d_user_count: 9,
+  guest_user_count: 6,
+};
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
   const cacheKey = ns || 'translation';
@@ -24,6 +41,11 @@ const baseTranslation = (namespace?: string | string[]) => {
     translationCache.set(cacheKey, {
       t: (key: string) => {
         return ns && ns !== 'translation' ? `${ns}.${key}` : key;
+      },
+      i18n: {
+        get language() {
+          return mockLanguage;
+        },
       },
     });
   }
@@ -67,7 +89,9 @@ jest.mock('next/link', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getAdminOperationUsersOverview: jest.fn(),
     getAdminOperationUsers: jest.fn(),
+    getAdminOperationUserDetail: jest.fn(),
   },
 }));
 
@@ -92,9 +116,11 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
   DropdownMenuItem: ({
     children,
     onClick,
-  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
+    disabled,
+  }: React.PropsWithChildren<{ onClick?: () => void; disabled?: boolean }>) => (
     <button
       type='button'
+      disabled={disabled}
       onClick={onClick}
     >
       {children}
@@ -241,16 +267,61 @@ jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
   ),
 }));
 
+jest.mock('@/components/ui/tooltip', () => ({
+  __esModule: true,
+  TooltipProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  TooltipTrigger: ({
+    children,
+  }: React.PropsWithChildren<{ asChild?: boolean }>) => <>{children}</>,
+  TooltipContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+}));
+
+const mockGetAdminOperationUsersOverview =
+  api.getAdminOperationUsersOverview as jest.Mock;
 const mockGetAdminOperationUsers = api.getAdminOperationUsers as jest.Mock;
+const mockGetAdminOperationUserDetail =
+  api.getAdminOperationUserDetail as jest.Mock;
+
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
+
+const flushMicrotasks = async () => {
+  await act(async () => {
+    await Promise.resolve();
+  });
+};
+
+const renderResolvedPage = async () => {
+  render(<AdminOperationUsersPage />);
+  await screen.findByRole('heading', {
+    level: 1,
+    name: 'module.operationsUser.title',
+  });
+  await screen.findByText(String(DEFAULT_OVERVIEW.total_user_count));
+};
 
 describe('AdminOperationUsersPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
     mockMutateBillingOverview.mockReset();
+    mockGetAdminOperationUsersOverview.mockReset();
     mockGetAdminOperationUsers.mockReset();
+    mockGetAdminOperationUserDetail.mockReset();
+    mockLanguage = 'en-US';
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
     mockUserState.userInfo = { is_operator: true };
+    mockGetAdminOperationUsersOverview.mockResolvedValue(DEFAULT_OVERVIEW);
     mockGetAdminOperationUsers.mockResolvedValue({
       items: [
         {
@@ -264,6 +335,7 @@ describe('AdminOperationUsersPage', () => {
           login_methods: ['phone', 'google'],
           registration_source: 'google',
           language: 'zh-CN',
+          learning_course_count: 1,
           learning_courses: [
             {
               shifu_bid: 'course-1',
@@ -273,6 +345,7 @@ describe('AdminOperationUsersPage', () => {
               total_lesson_count: 4,
             },
           ],
+          created_course_count: 2,
           created_courses: [
             {
               shifu_bid: 'course-2',
@@ -305,6 +378,55 @@ describe('AdminOperationUsersPage', () => {
       page_size: 20,
       total: 1,
     });
+    mockGetAdminOperationUserDetail.mockResolvedValue({
+      user_bid: 'user-1',
+      mobile: '13812345678',
+      email: 'user-1@example.com',
+      nickname: 'Nick',
+      user_status: 'paid',
+      user_role: 'operator',
+      user_roles: ['operator', 'creator', 'learner'],
+      login_methods: ['phone', 'google'],
+      registration_source: 'google',
+      language: 'zh-CN',
+      learning_course_count: 1,
+      learning_courses: [
+        {
+          shifu_bid: 'course-1',
+          course_name: 'Learned Course',
+          course_status: 'published',
+          completed_lesson_count: 1,
+          total_lesson_count: 4,
+        },
+      ],
+      created_course_count: 2,
+      created_courses: [
+        {
+          shifu_bid: 'course-2',
+          course_name: 'Created Course',
+          course_status: 'unpublished',
+          completed_lesson_count: 0,
+          total_lesson_count: 0,
+        },
+        {
+          shifu_bid: 'course-3',
+          course_name: 'Second Created Course',
+          course_status: 'published',
+          completed_lesson_count: 0,
+          total_lesson_count: 0,
+        },
+      ],
+      total_paid_amount: '88.50',
+      available_credits: '35.5',
+      subscription_credits: '27.5',
+      topup_credits: '8',
+      credits_expire_at: '2026-05-01T00:00:00Z',
+      has_active_subscription: false,
+      last_login_at: '2026-04-15T09:00:00Z',
+      last_learning_at: '2026-04-15T10:00:00Z',
+      created_at: '2026-04-14T10:00:00Z',
+      updated_at: '2026-04-14T11:00:00Z',
+    });
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: {
@@ -316,6 +438,10 @@ describe('AdminOperationUsersPage', () => {
     });
   });
 
+  afterEach(async () => {
+    await flushMicrotasks();
+  });
+
   afterAll(() => {
     Object.defineProperty(window, 'location', {
       configurable: true,
@@ -323,8 +449,55 @@ describe('AdminOperationUsersPage', () => {
     });
   });
 
+  test('loads user overview after the initial list request settles', async () => {
+    const listDeferred = createDeferred<{
+      items: Array<Record<string, unknown>>;
+      page: number;
+      page_count: number;
+      page_size: number;
+      total: number;
+    }>();
+    const overviewDeferred =
+      createDeferred<Record<string, number | undefined>>();
+    mockGetAdminOperationUsers.mockReturnValueOnce(listDeferred.promise);
+    mockGetAdminOperationUsersOverview.mockReturnValueOnce(
+      overviewDeferred.promise,
+    );
+
+    await act(async () => {
+      render(<AdminOperationUsersPage />);
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
+    });
+    expect(mockGetAdminOperationUsersOverview).not.toHaveBeenCalled();
+
+    await act(async () => {
+      listDeferred.resolve({
+        items: [],
+        page: 1,
+        page_count: 1,
+        page_size: 20,
+        total: 0,
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsersOverview).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      overviewDeferred.resolve(DEFAULT_OVERVIEW);
+      await overviewDeferred.promise;
+    });
+  });
+
   test('loads and renders operator users', async () => {
-    render(<AdminOperationUsersPage />);
+    await act(async () => {
+      render(<AdminOperationUsersPage />);
+    });
+    await flushMicrotasks();
 
     await waitFor(() => {
       expect(mockGetAdminOperationUsers).toHaveBeenCalledWith({
@@ -334,14 +507,26 @@ describe('AdminOperationUsersPage', () => {
         nickname: '',
         user_status: '',
         user_role: '',
+        quick_filter: '',
         start_time: '',
         end_time: '',
       });
     });
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsersOverview).toHaveBeenCalled();
+    });
 
     expect(
-      await screen.findByText('module.operationsUser.title'),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsUser.title',
+      }),
     ).toBeInTheDocument();
+    expect(screen.getAllByText('module.operationsUser.title')).toHaveLength(1);
+    expect(
+      screen.getByText('module.operationsUser.overview.title'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('128')).toBeInTheDocument();
     expect(await screen.findByText('user-1')).toBeInTheDocument();
     expect(screen.getByText('user-1@example.com')).toBeInTheDocument();
     expect(screen.getByText('Nick')).toBeInTheDocument();
@@ -372,12 +557,38 @@ describe('AdminOperationUsersPage', () => {
         name: 'module.operationsUser.table.createdCourses (2)',
       }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'user-1' })).toHaveAttribute(
+      'href',
+      '/admin/operations/users/user-1',
+    );
+    expect(screen.getByRole('link', { name: 'user-1' })).toHaveAttribute(
+      'target',
+      '_blank',
+    );
+    expect(screen.getByRole('link', { name: 'user-1' })).toHaveAttribute(
+      'rel',
+      'noopener noreferrer',
+    );
     expect(
       screen.getByRole('link', { name: 'user-1@example.com' }),
     ).toHaveAttribute('href', '/admin/operations/users/user-1');
+    expect(
+      screen.getByRole('link', { name: 'user-1@example.com' }),
+    ).toHaveAttribute('target', '_blank');
+    expect(
+      screen.getByRole('link', { name: 'user-1@example.com' }),
+    ).toHaveAttribute('rel', 'noopener noreferrer');
     expect(screen.getByRole('link', { name: '35.5' })).toHaveAttribute(
       'href',
       '/admin/operations/users/user-1#credits',
+    );
+    expect(screen.getByRole('link', { name: '35.5' })).toHaveAttribute(
+      'target',
+      '_blank',
+    );
+    expect(screen.getByRole('link', { name: '35.5' })).toHaveAttribute(
+      'rel',
+      'noopener noreferrer',
     );
     expect(
       screen.getByRole('button', {
@@ -391,12 +602,56 @@ describe('AdminOperationUsersPage', () => {
     ).toBeInTheDocument();
   });
 
-  test('opens the credit grant dialog from the action menu', async () => {
+  test('formats overview counts and credits without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+    mockGetAdminOperationUsersOverview.mockResolvedValueOnce({
+      ...DEFAULT_OVERVIEW,
+      total_user_count: 76384,
+    });
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-1',
+          mobile: '13812345678',
+          email: 'user-1@example.com',
+          nickname: 'Nick',
+          user_status: 'paid',
+          user_role: 'operator',
+          user_roles: ['operator'],
+          login_methods: ['phone'],
+          registration_source: 'google',
+          language: 'zh-CN',
+          learning_course_count: 0,
+          learning_courses: [],
+          created_course_count: 0,
+          created_courses: [],
+          total_paid_amount: '88.50',
+          available_credits: '10000',
+          subscription_credits: '10000',
+          topup_credits: '0',
+          credits_expire_at: '2026-05-01T00:00:00Z',
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
     render(<AdminOperationUsersPage />);
 
-    await waitFor(() => {
-      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
-    });
+    expect(await screen.findByText('76384')).toBeInTheDocument();
+    expect(screen.getByText('10000')).toBeInTheDocument();
+    expect(screen.queryByText('76,384')).not.toBeInTheDocument();
+    expect(screen.queryByText('10,000')).not.toBeInTheDocument();
+  });
+
+  test('opens the credit grant dialog from the action menu', async () => {
+    await renderResolvedPage();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -407,12 +662,53 @@ describe('AdminOperationUsersPage', () => {
     expect(await screen.findByText('grant-dialog-user-1')).toBeInTheDocument();
   });
 
-  test('revalidates billing overview after credits are granted successfully', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
+  test('disables the grant action for unsupported target roles', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-regular',
+          mobile: '',
+          email: 'user-regular@example.com',
+          nickname: 'Regular User',
+          user_status: 'registered',
+          user_role: 'regular',
+          user_roles: ['regular'],
+          login_methods: ['email'],
+          registration_source: 'email',
+          language: 'zh-CN',
+          learning_course_count: 0,
+          learning_courses: [],
+          created_course_count: 0,
+          created_courses: [],
+          total_paid_amount: '0',
+          available_credits: '0',
+          subscription_credits: '0',
+          topup_credits: '0',
+          credits_expire_at: '',
+          has_active_subscription: false,
+          last_login_at: '',
+          last_learning_at: '',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
     });
+
+    await renderResolvedPage();
+
+    const actionButton = await screen.findByRole('button', {
+      name: 'module.operationsUser.actions.grantCredits',
+    });
+
+    expect(actionButton).toBeDisabled();
+  });
+
+  test('revalidates billing overview after credits are granted successfully', async () => {
+    await renderResolvedPage();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -435,11 +731,7 @@ describe('AdminOperationUsersPage', () => {
   });
 
   test('submits search filters', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
-    });
+    await renderResolvedPage();
 
     const identifierInput = screen.getAllByRole('textbox')[0];
     fireEvent.change(identifierInput, {
@@ -464,16 +756,304 @@ describe('AdminOperationUsersPage', () => {
         nickname: '',
         user_status: '',
         user_role: 'creator',
+        quick_filter: '',
         start_time: '',
         end_time: '',
       });
     });
   });
 
-  test('keeps nickname visible when collapsed and shifts remaining filters forward when expanded', async () => {
-    render(<AdminOperationUsersPage />);
+  test('clicking the paid users overview card syncs status and quick filter', async () => {
+    await renderResolvedPage();
 
-    await screen.findByText('module.operationsUser.title');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.overview.metrics.paidUsers',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          user_status: 'paid',
+          quick_filter: 'paid',
+          identifier: '',
+          nickname: '',
+        }),
+      );
+    });
+
+    expect(
+      screen.getByText('module.operationsUser.overview.activeFilter'),
+    ).toBeInTheDocument();
+  });
+
+  test('clicking the registered users overview card applies the registered quick filter', async () => {
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.overview.metrics.registeredUsers',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: 'registered',
+          user_status: '',
+          identifier: '',
+          nickname: '',
+        }),
+      );
+    });
+  });
+
+  test('clicking the active learning overview card applies and clears the quick filter chip', async () => {
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsUser\.overview\.metrics\.learningActive30d/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: 'learning_active_30d',
+        }),
+      );
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsUser\.overview\.metrics\.learningActive30d common\.core\.close/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: '',
+          user_status: '',
+          user_role: '',
+          start_time: '',
+          end_time: '',
+        }),
+      );
+    });
+  });
+
+  test('clicking the new users overview card syncs the calendar-day date range', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-05-06T10:00:00Z'));
+
+    try {
+      await renderResolvedPage();
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: /module\.operationsUser\.overview\.metrics\.newUsers30d/i,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            quick_filter: 'created_last_30d',
+            start_time: '2026-04-07',
+            end_time: '2026-05-06',
+          }),
+        );
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('clicking the recent registered overview card applies the quick filter without overriding created-at range', async () => {
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /module\.operationsUser\.overview\.metrics\.registeredUsers30d/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: 'registered_last_30d',
+          start_time: '',
+          end_time: '',
+        }),
+      );
+    });
+  });
+
+  test('reinitializing the page clears the stale quick filter state', async () => {
+    const { rerender } = render(<AdminOperationUsersPage />);
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'module.operationsUser.title',
+    });
+    await screen.findByText(String(DEFAULT_OVERVIEW.total_user_count));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.overview.metrics.paidUsers',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: 'paid',
+          user_status: 'paid',
+        }),
+      );
+    });
+
+    const refreshedListDeferred = createDeferred<{
+      items: Array<Record<string, unknown>>;
+      page: number;
+      page_count: number;
+      page_size: number;
+      total: number;
+    }>();
+    const refreshedOverviewDeferred =
+      createDeferred<Record<string, number | undefined>>();
+
+    mockUserState.isInitialized = false;
+    await act(async () => {
+      rerender(<AdminOperationUsersPage />);
+      await Promise.resolve();
+    });
+
+    mockGetAdminOperationUsers.mockReturnValueOnce(
+      refreshedListDeferred.promise,
+    );
+    mockGetAdminOperationUsersOverview.mockReturnValueOnce(
+      refreshedOverviewDeferred.promise,
+    );
+    mockUserState.isInitialized = true;
+    await act(async () => {
+      rerender(<AdminOperationUsersPage />);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          page_index: 1,
+          page_size: 20,
+          quick_filter: '',
+          user_status: '',
+          user_role: '',
+          start_time: '',
+          end_time: '',
+        }),
+      );
+    });
+    await act(async () => {
+      refreshedListDeferred.resolve({
+        items: [],
+        page: 1,
+        page_count: 1,
+        page_size: 20,
+        total: 0,
+      });
+      await refreshedListDeferred.promise;
+    });
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsersOverview).toHaveBeenCalledTimes(2);
+    });
+    await act(async () => {
+      refreshedOverviewDeferred.resolve(DEFAULT_OVERVIEW);
+      await refreshedOverviewDeferred.promise;
+    });
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          quick_filter: '',
+          user_status: '',
+          user_role: '',
+          start_time: '',
+          end_time: '',
+        }),
+      );
+    });
+    expect(
+      await screen.findByText(String(DEFAULT_OVERVIEW.total_user_count)),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByText('module.operationsUser.overview.activeFilter'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('keeps the last successful overview when refresh fails and shows a warning', async () => {
+    const { rerender } = render(<AdminOperationUsersPage />);
+
+    expect(await screen.findByText('128')).toBeInTheDocument();
+
+    const refreshedListDeferred = createDeferred<{
+      items: Array<Record<string, unknown>>;
+      page: number;
+      page_count: number;
+      page_size: number;
+      total: number;
+    }>();
+    const refreshedOverviewDeferred =
+      createDeferred<Record<string, number | undefined>>();
+
+    mockUserState.isInitialized = false;
+    await act(async () => {
+      rerender(<AdminOperationUsersPage />);
+      await Promise.resolve();
+    });
+
+    mockGetAdminOperationUsers.mockReturnValueOnce(
+      refreshedListDeferred.promise,
+    );
+    mockGetAdminOperationUsersOverview.mockReturnValueOnce(
+      refreshedOverviewDeferred.promise,
+    );
+    mockUserState.isInitialized = true;
+    await act(async () => {
+      rerender(<AdminOperationUsersPage />);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      refreshedListDeferred.resolve({
+        items: [],
+        page: 1,
+        page_count: 1,
+        page_size: 20,
+        total: 0,
+      });
+      await refreshedListDeferred.promise;
+    });
+    await waitFor(() => {
+      expect(mockGetAdminOperationUsersOverview).toHaveBeenCalledTimes(2);
+    });
+    await act(async () => {
+      refreshedOverviewDeferred.reject(new Error('overview failed'));
+      try {
+        await refreshedOverviewDeferred.promise;
+      } catch {}
+    });
+
+    expect(await screen.findByText('128')).toBeInTheDocument();
+    expect(
+      await screen.findByText('module.operationsUser.overview.staleData'),
+    ).toBeInTheDocument();
+  });
+
+  test('keeps nickname visible when collapsed and shifts remaining filters forward when expanded', async () => {
+    await renderResolvedPage();
 
     expect(screen.getAllByRole('textbox')).toHaveLength(2);
     expect(
@@ -508,11 +1088,7 @@ describe('AdminOperationUsersPage', () => {
   });
 
   test('opens course dialog from summary cells', async () => {
-    render(<AdminOperationUsersPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationUsers).toHaveBeenCalledTimes(1);
-    });
+    await renderResolvedPage();
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -520,12 +1096,18 @@ describe('AdminOperationUsersPage', () => {
       }),
     );
 
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
+        user_bid: 'user-1',
+      });
+    });
+
     expect(
       screen.getByText(
         'module.operationsUser.courseSummary.dialog.createdTitle',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('Created Course')).toBeInTheDocument();
+    expect(await screen.findByText('Created Course')).toBeInTheDocument();
     expect(screen.getByText('course-2')).toBeInTheDocument();
     expect(
       screen.getByText('module.operationsCourse.statusLabels.unpublished'),
@@ -533,6 +1115,320 @@ describe('AdminOperationUsersPage', () => {
     expect(
       screen.getByRole('link', { name: 'Created Course' }),
     ).toHaveAttribute('href', '/admin/operations/course-2');
+  });
+
+  test('reuses cached detail data when reopening course dialog for the same user', async () => {
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (2)',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+    });
+
+    expect(await screen.findByText('Created Course')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.learningCourses (1)',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsUser.courseSummary.dialog.learningTitle',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Learned Course')).toBeInTheDocument();
+    expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+  });
+
+  test('deduplicates in-flight detail requests for the same user while switching dialog tabs', async () => {
+    const deferredDetail =
+      createDeferred<
+        Parameters<typeof mockGetAdminOperationUserDetail>[0] extends never
+          ? never
+          : Awaited<ReturnType<typeof api.getAdminOperationUserDetail>>
+      >();
+    mockGetAdminOperationUserDetail.mockReturnValueOnce(deferredDetail.promise);
+
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (2)',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.learningCourses (1)',
+      }),
+    );
+
+    expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      deferredDetail.resolve({
+        user_bid: 'user-1',
+        mobile: '13812345678',
+        email: 'user-1@example.com',
+        nickname: 'Nick',
+        user_status: 'paid',
+        user_role: 'operator',
+        user_roles: ['operator', 'creator', 'learner'],
+        login_methods: ['phone', 'google'],
+        registration_source: 'google',
+        language: 'zh-CN',
+        learning_course_count: 1,
+        learning_courses: [
+          {
+            shifu_bid: 'course-1',
+            course_name: 'Learned Course',
+            course_status: 'published',
+            completed_lesson_count: 1,
+            total_lesson_count: 4,
+          },
+        ],
+        created_course_count: 2,
+        created_courses: [
+          {
+            shifu_bid: 'course-2',
+            course_name: 'Created Course',
+            course_status: 'unpublished',
+            completed_lesson_count: 0,
+            total_lesson_count: 0,
+          },
+          {
+            shifu_bid: 'course-3',
+            course_name: 'Second Created Course',
+            course_status: 'published',
+            completed_lesson_count: 0,
+            total_lesson_count: 0,
+          },
+        ],
+        total_paid_amount: '88.50',
+        available_credits: '35.5',
+        subscription_credits: '27.5',
+        topup_credits: '8',
+        credits_expire_at: '2026-05-01T00:00:00Z',
+        has_active_subscription: false,
+        last_login_at: '2026-04-15T09:00:00Z',
+        last_learning_at: '2026-04-15T10:00:00Z',
+        created_at: '2026-04-14T10:00:00Z',
+        updated_at: '2026-04-14T11:00:00Z',
+      });
+      await deferredDetail.promise;
+    });
+
+    expect(
+      await screen.findByText(
+        'module.operationsUser.courseSummary.dialog.learningTitle',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Learned Course')).toBeInTheDocument();
+  });
+
+  test('keeps cached dialog state when an older request resolves later', async () => {
+    const deferredUserOneDetail =
+      createDeferred<
+        Awaited<ReturnType<typeof api.getAdminOperationUserDetail>>
+      >();
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'user-1',
+          mobile: '13812345678',
+          email: 'user-1@example.com',
+          nickname: 'Nick',
+          user_status: 'paid',
+          user_role: 'operator',
+          user_roles: ['operator', 'creator', 'learner'],
+          login_methods: ['phone', 'google'],
+          registration_source: 'google',
+          language: 'zh-CN',
+          learning_course_count: 1,
+          learning_courses: [],
+          created_course_count: 2,
+          created_courses: [],
+          total_paid_amount: '88.50',
+          available_credits: '35.5',
+          subscription_credits: '27.5',
+          topup_credits: '8',
+          credits_expire_at: '2026-05-01T00:00:00Z',
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+        {
+          user_bid: 'user-2',
+          mobile: '13912345678',
+          email: 'user-2@example.com',
+          nickname: 'Other User',
+          user_status: 'paid',
+          user_role: 'learner',
+          user_roles: ['learner'],
+          login_methods: ['phone'],
+          registration_source: 'phone',
+          language: 'zh-CN',
+          learning_course_count: 1,
+          learning_courses: [],
+          created_course_count: 1,
+          created_courses: [],
+          total_paid_amount: '12.00',
+          available_credits: '5',
+          subscription_credits: '5',
+          topup_credits: '0',
+          credits_expire_at: '2026-05-01T00:00:00Z',
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 2,
+    });
+    mockGetAdminOperationUserDetail.mockImplementation(({ user_bid }) => {
+      if (user_bid === 'user-1') {
+        return deferredUserOneDetail.promise;
+      }
+      if (user_bid === 'user-2') {
+        return Promise.resolve({
+          user_bid: 'user-2',
+          mobile: '13912345678',
+          email: 'user-2@example.com',
+          nickname: 'Other User',
+          user_status: 'paid',
+          user_role: 'learner',
+          user_roles: ['learner'],
+          login_methods: ['phone'],
+          registration_source: 'phone',
+          language: 'zh-CN',
+          learning_course_count: 1,
+          learning_courses: [
+            {
+              shifu_bid: 'course-9',
+              course_name: 'Cached Learned Course',
+              course_status: 'published',
+              completed_lesson_count: 2,
+              total_lesson_count: 5,
+            },
+          ],
+          created_course_count: 1,
+          created_courses: [
+            {
+              shifu_bid: 'course-8',
+              course_name: 'Cached Created Course',
+              course_status: 'published',
+              completed_lesson_count: 0,
+              total_lesson_count: 0,
+            },
+          ],
+          total_paid_amount: '12.00',
+          available_credits: '5',
+          subscription_credits: '5',
+          topup_credits: '0',
+          credits_expire_at: '2026-05-01T00:00:00Z',
+          has_active_subscription: false,
+          last_login_at: '2026-04-15T09:00:00Z',
+          last_learning_at: '2026-04-15T10:00:00Z',
+          created_at: '2026-04-14T10:00:00Z',
+          updated_at: '2026-04-14T11:00:00Z',
+        });
+      }
+      return Promise.reject(new Error(`unexpected user ${user_bid}`));
+    });
+
+    await renderResolvedPage();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (1)',
+      }),
+    );
+
+    expect(
+      await screen.findByText('Cached Created Course'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses (2)',
+      }),
+    );
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'module.operationsUser.table.learningCourses (1)',
+      })[1],
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsUser.courseSummary.dialog.learningTitle',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      deferredUserOneDetail.resolve({
+        user_bid: 'user-1',
+        mobile: '13812345678',
+        email: 'user-1@example.com',
+        nickname: 'Nick',
+        user_status: 'paid',
+        user_role: 'operator',
+        user_roles: ['operator', 'creator', 'learner'],
+        login_methods: ['phone', 'google'],
+        registration_source: 'google',
+        language: 'zh-CN',
+        learning_course_count: 1,
+        learning_courses: [
+          {
+            shifu_bid: 'course-1',
+            course_name: 'Learned Course',
+            course_status: 'published',
+            completed_lesson_count: 1,
+            total_lesson_count: 4,
+          },
+        ],
+        created_course_count: 2,
+        created_courses: [
+          {
+            shifu_bid: 'course-2',
+            course_name: 'Created Course',
+            course_status: 'unpublished',
+            completed_lesson_count: 0,
+            total_lesson_count: 0,
+          },
+        ],
+        total_paid_amount: '88.50',
+        available_credits: '35.5',
+        subscription_credits: '27.5',
+        topup_credits: '8',
+        credits_expire_at: '2026-05-01T00:00:00Z',
+        has_active_subscription: false,
+        last_login_at: '2026-04-15T09:00:00Z',
+        last_learning_at: '2026-04-15T10:00:00Z',
+        created_at: '2026-04-14T10:00:00Z',
+        updated_at: '2026-04-14T11:00:00Z',
+      });
+      await deferredUserOneDetail.promise;
+    });
+    await flushMicrotasks();
+
+    expect(screen.getByText('Cached Learned Course')).toBeInTheDocument();
+    expect(screen.queryByText('Learned Course')).not.toBeInTheDocument();
   });
 
   test('links the user id cell when the primary contact is empty', async () => {
@@ -568,11 +1464,17 @@ describe('AdminOperationUsersPage', () => {
       total: 1,
     });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     expect(
       await screen.findByRole('link', { name: 'user-no-contact' }),
     ).toHaveAttribute('href', '/admin/operations/users/user-no-contact');
+    expect(
+      screen.getByRole('link', { name: 'user-no-contact' }),
+    ).toHaveAttribute('target', '_blank');
+    expect(
+      screen.getByRole('link', { name: 'user-no-contact' }),
+    ).toHaveAttribute('rel', 'noopener noreferrer');
     const row = screen
       .getByRole('link', { name: 'user-no-contact' })
       .closest('tr');
@@ -621,7 +1523,7 @@ describe('AdminOperationUsersPage', () => {
       total: 1,
     });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     const row = (
       await screen.findByRole('link', { name: 'user-phone-only' })
@@ -656,7 +1558,9 @@ describe('AdminOperationUsersPage', () => {
           login_methods: ['email'],
           registration_source: 'email',
           language: 'en-US',
+          learning_course_count: 0,
           learning_courses: [],
+          created_course_count: 1,
           created_courses: [
             {
               shifu_bid: 'course-unknown',
@@ -682,8 +1586,42 @@ describe('AdminOperationUsersPage', () => {
       page_size: 20,
       total: 1,
     });
+    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+      user_bid: 'user-1',
+      mobile: '',
+      email: 'user-1@example.com',
+      nickname: 'Nick',
+      user_status: 'registered',
+      user_role: 'creator',
+      user_roles: ['creator'],
+      login_methods: ['email'],
+      registration_source: 'email',
+      language: 'en-US',
+      learning_course_count: 0,
+      learning_courses: [],
+      created_course_count: 1,
+      created_courses: [
+        {
+          shifu_bid: 'course-unknown',
+          course_name: 'Unknown State Course',
+          course_status: '',
+          completed_lesson_count: 0,
+          total_lesson_count: 0,
+        },
+      ],
+      total_paid_amount: '0',
+      available_credits: '0',
+      subscription_credits: '0',
+      topup_credits: '0',
+      credits_expire_at: '',
+      has_active_subscription: false,
+      last_login_at: '',
+      last_learning_at: '',
+      created_at: '2026-04-14T10:00:00Z',
+      updated_at: '2026-04-14T11:00:00Z',
+    });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     fireEvent.click(
       await screen.findByRole('button', {
@@ -692,7 +1630,7 @@ describe('AdminOperationUsersPage', () => {
     );
 
     expect(
-      screen.getByText('module.operationsCourse.statusLabels.unknown'),
+      await screen.findByText('module.operationsCourse.statusLabels.unknown'),
     ).toBeInTheDocument();
   });
 
@@ -710,7 +1648,9 @@ describe('AdminOperationUsersPage', () => {
           login_methods: ['password'],
           registration_source: 'unknown',
           language: 'en-US',
+          learning_course_count: 0,
           learning_courses: [],
+          created_course_count: 1,
           created_courses: [
             {
               shifu_bid: 'course-archived',
@@ -736,8 +1676,42 @@ describe('AdminOperationUsersPage', () => {
       page_size: 20,
       total: 1,
     });
+    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+      user_bid: 'user-unknown-values',
+      mobile: '',
+      email: 'user-unknown@example.com',
+      nickname: 'Unknown Values',
+      user_status: 'registered',
+      user_role: 'creator',
+      user_roles: ['creator'],
+      login_methods: ['password'],
+      registration_source: 'unknown',
+      language: 'en-US',
+      learning_course_count: 0,
+      learning_courses: [],
+      created_course_count: 1,
+      created_courses: [
+        {
+          shifu_bid: 'course-archived',
+          course_name: 'Archived Course',
+          course_status: 'archived',
+          completed_lesson_count: 0,
+          total_lesson_count: 0,
+        },
+      ],
+      total_paid_amount: '0',
+      available_credits: '0',
+      subscription_credits: '0',
+      topup_credits: '0',
+      credits_expire_at: '',
+      has_active_subscription: false,
+      last_login_at: '',
+      last_learning_at: '',
+      created_at: '2026-04-14T10:00:00Z',
+      updated_at: '2026-04-14T11:00:00Z',
+    });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     expect(
       await screen.findByText(
@@ -752,7 +1726,7 @@ describe('AdminOperationUsersPage', () => {
     );
 
     expect(
-      screen.getByText(
+      await screen.findByText(
         'module.operationsCourse.statusLabels.unknown (archived)',
       ),
     ).toBeInTheDocument();
@@ -791,7 +1765,7 @@ describe('AdminOperationUsersPage', () => {
       total: 1,
     });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     expect(
       await screen.findByText('module.user.defaultUserName'),
@@ -831,7 +1805,7 @@ describe('AdminOperationUsersPage', () => {
       total: 1,
     });
 
-    render(<AdminOperationUsersPage />);
+    await renderResolvedPage();
 
     expect(
       await screen.findByText('module.operationsUser.credits.longTerm'),
@@ -878,16 +1852,7 @@ describe('AdminOperationUsersPage', () => {
       total: 21,
     });
 
-    render(<AdminOperationUsersPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOperationUsers).toHaveBeenCalledWith(
-        expect.objectContaining({
-          page_index: 1,
-          page_size: 20,
-        }),
-      );
-    });
+    await renderResolvedPage();
 
     fireEvent.click(
       await screen.findByRole('link', {

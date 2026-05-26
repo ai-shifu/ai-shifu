@@ -9,6 +9,7 @@ from flaskr.service.user.password_utils import (
     validate_password_strength,
 )
 from flaskr.service.user.models import AuthCredential
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.util.uuid import generate_id
 from flaskr.service.user.repository import (
     find_credential,
@@ -32,6 +33,10 @@ from ..service.user.utils import (
     send_email_code,
     send_sms_code,
 )
+from flaskr.service.user.captcha import (
+    create_captcha_challenge,
+    verify_captcha_code,
+)
 from flaskr.service.user.verification_codes import consume_verification_code
 from ..service.feedback.funs import submit_feedback
 from ..service.user.auth import get_provider
@@ -41,6 +46,29 @@ from ..service.common.dtos import OAuthStartDTO
 from .common import make_common_response, bypass_token_validation, by_pass_login_func
 from flaskr.dao import db
 from flaskr.i18n import set_language
+
+
+def _extract_request_language(payload: dict | None = None) -> str | None:
+    if isinstance(payload, dict):
+        language = payload.get("language")
+        if language:
+            return str(language).strip()
+
+    accept_language = request.headers.get("Accept-Language", "")
+    if not accept_language:
+        return None
+
+    first_part = accept_language.split(",")[0].strip()
+    if not first_part:
+        return None
+
+    return first_part.split(";")[0].strip() or None
+
+
+def _apply_request_language(payload: dict | None = None) -> None:
+    language = _extract_request_language(payload)
+    if language:
+        set_language(language)
 
 
 def optional_token_validation(f):
@@ -271,6 +299,38 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         resp = make_response(make_common_response(user_token))
         return resp
 
+    @app.route(path_prefix + "/captcha", methods=["GET"])
+    @bypass_token_validation
+    def captcha_api():
+        """
+        Create image captcha
+        ---
+        tags:
+           - user
+        """
+        _apply_request_language()
+        return make_common_response(create_captcha_challenge(app))
+
+    @app.route(path_prefix + "/captcha/verify", methods=["POST"])
+    @bypass_token_validation
+    def captcha_verify_api():
+        """
+        Verify image captcha and return one-time ticket
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        captcha_id = payload.get("captcha_id", None)
+        captcha_code = payload.get("captcha_code", None)
+        if not captcha_id:
+            raise_param_error("captcha_id")
+        if not captcha_code:
+            raise_param_error("captcha_code")
+        return make_common_response(verify_captcha_code(app, captcha_id, captcha_code))
+
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
@@ -289,8 +349,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 mobile:
                   type: string
                   description: mobile phone number
+                captcha_ticket:
+                  type: string
+                  description: one-time image captcha ticket
               required:
                 - mobile
+                - captcha_ticket
         responses:
             200:
                 description: sent success
@@ -317,14 +381,44 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 description: parameter error
 
         """
-        mobile = request.get_json().get("mobile", None)
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        mobile = normalize_phone_identifier(payload.get("mobile", None))
+        captcha_ticket = payload.get("captcha_ticket", None)
         if not mobile:
             raise_param_error("mobile")
         if "X-Forwarded-For" in request.headers:
             client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
         else:
             client_ip = request.remote_addr
-        return make_common_response(send_sms_code(app, mobile, client_ip))
+        return make_common_response(
+            send_sms_code(app, mobile, client_ip, captcha_ticket)
+        )
+
+    @app.route(path_prefix + "/console_send_sms_code", methods=["POST"])
+    @bypass_token_validation
+    @optional_token_validation
+    def console_send_sms_code_api():
+        """
+        Send SMS verification code for console clients without image captcha
+        ---
+        tags:
+           - user
+        """
+        payload = request.get_json(silent=True)
+        payload = payload if isinstance(payload, dict) else {}
+        _apply_request_language(payload)
+        mobile = normalize_phone_identifier(payload.get("mobile", None))
+        if not mobile:
+            raise_param_error("mobile")
+        if "X-Forwarded-For" in request.headers:
+            client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
+        else:
+            client_ip = request.remote_addr
+        return make_common_response(
+            send_sms_code(app, mobile, client_ip, require_captcha=False)
+        )
 
     @app.route(path_prefix + "/send_email_code", methods=["POST"])
     @bypass_token_validation
@@ -355,22 +449,15 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         return make_common_response(send_email_code(app, email, client_ip, language))
 
-    @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
-    @bypass_token_validation
-    @optional_token_validation
-    def verify_sms_code_api():
-        """
-        Send verify email code
-        ---
-        tags:
-           - user
-        """
+    def _handle_sms_login():
         with app.app_context():
-            mobile = request.get_json().get("mobile", None)
-            sms_code = request.get_json().get("sms_code", None)
-            course_id = request.get_json().get("course_id", None)
-            language = request.get_json().get("language", None)
-            login_context = request.get_json().get("login_context", None)
+            payload = request.get_json(silent=True)
+            payload = payload if isinstance(payload, dict) else {}
+            mobile = normalize_phone_identifier(payload.get("mobile", None))
+            sms_code = payload.get("sms_code", None)
+            course_id = payload.get("course_id", None)
+            language = payload.get("language", None)
+            login_context = payload.get("login_context", None)
             user_id = (
                 None if getattr(request, "user", None) is None else request.user.user_id
             )
@@ -408,6 +495,18 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             )
             resp = make_response(make_common_response(auth_result.token))
             return resp
+
+    @app.route(path_prefix + "/login_sms", methods=["POST"])
+    @bypass_token_validation
+    @optional_token_validation
+    def login_sms_api():
+        """
+        Login through SMS verification code for web clients
+        ---
+        tags:
+           - user
+        """
+        return _handle_sms_login()
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     def get_profile():
@@ -769,14 +868,18 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         for c in creds:
             if c.provider_name in ("phone", "email") and c.identifier:
                 normalized = (
-                    c.identifier.lower() if c.provider_name == "email" else c.identifier
+                    c.identifier.lower()
+                    if c.provider_name == "email"
+                    else normalize_phone_identifier(c.identifier)
                 )
                 available_identifiers.append(normalized)
 
         selected_identifier = None
         if identifier:
             normalized = (
-                identifier.strip().lower() if "@" in identifier else identifier.strip()
+                identifier.strip().lower()
+                if "@" in identifier
+                else normalize_phone_identifier(identifier)
             )
             if normalized not in available_identifiers:
                 # Avoid leaking whether another account exists for the identifier.
@@ -880,7 +983,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         raw_identifier = identifier.strip()
         normalized_identifier = (
-            raw_identifier.lower() if "@" in raw_identifier else raw_identifier
+            raw_identifier.lower()
+            if "@" in raw_identifier
+            else normalize_phone_identifier(raw_identifier)
         )
 
         # Reset is only allowed for existing users. New users must go through
@@ -892,7 +997,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_error("server.user.userNotFound")
 
         # Verify identity via verification code without creating/merging users.
-        consume_verification_code(app, identifier=raw_identifier, code=code)
+        consume_verification_code(app, identifier=normalized_identifier, code=code)
 
         user_bid = aggregate.user_bid
         subject_format = "email" if "@" in normalized_identifier else "phone"

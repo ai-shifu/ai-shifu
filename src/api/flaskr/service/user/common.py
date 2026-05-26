@@ -17,6 +17,7 @@ from .repository import (
     update_user_entity_fields,
     upsert_credential,
 )
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from ..profile.funcs import save_user_profiles
 from ..profile.dtos import ProfileToSave
 from .token_store import token_store
@@ -128,7 +129,7 @@ def update_user_info(
                     verified=False,
                 )
         if mobile is not None:
-            normalized_phone = mobile.strip() if mobile else ""
+            normalized_phone = normalize_phone_identifier(mobile) if mobile else ""
             if normalized_phone:
                 upsert_credential(
                     app,

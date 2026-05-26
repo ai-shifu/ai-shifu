@@ -19,6 +19,15 @@ export type AdminOperationCourseItem = {
   updated_at: string;
 };
 
+export type AdminOperationCourseOverview = {
+  total_course_count: number;
+  draft_course_count: number;
+  published_course_count: number;
+  created_last_7d_course_count: number;
+  learning_active_30d_course_count: number;
+  paid_order_30d_course_count: number;
+};
+
 export type AdminOperationCourseListResponse = {
   items: AdminOperationCourseItem[];
   page: number;
@@ -29,6 +38,15 @@ export type AdminOperationCourseListResponse = {
 
 export type AdminOperationCoursePromptResponse = {
   course_prompt: string;
+};
+
+export type AdminOperationCourseCopyResponse = {
+  source_shifu_bid: string;
+  new_shifu_bid: string;
+  new_course_name: string;
+  target_creator_user_bid: string;
+  created_new_user: boolean;
+  granted_demo_permissions: boolean;
 };
 
 export type AdminOperationCourseDetailBasicInfo = {
@@ -117,6 +135,59 @@ export type AdminOperationCourseUserItem = {
 
 export type AdminOperationCourseUsersResponse = {
   items: AdminOperationCourseUserItem[];
+  page: number;
+  page_count: number;
+  page_size: number;
+  total: number;
+};
+
+export type AdminOperationCourseCreditUsageMode =
+  | 'learn'
+  | 'listen'
+  | 'ask'
+  | 'mixed'
+  | LooseString;
+
+export type AdminOperationCourseCreditUsageView = 'grouped' | 'raw';
+
+export type AdminOperationCourseCreditUsageModeFilter =
+  | 'all'
+  | 'learn'
+  | 'listen'
+  | 'ask';
+
+export type AdminOperationCourseCreditUsageFilters = {
+  keyword: string;
+  mode: AdminOperationCourseCreditUsageModeFilter;
+  startTime: string;
+  endTime: string;
+};
+
+export type AdminOperationCourseCreditUsageItem = {
+  group_key: string;
+  usage_bid: string;
+  progress_record_bid: string;
+  generated_block_bid: string;
+  user_bid: string;
+  mobile: string;
+  email: string;
+  nickname: string;
+  chapter_outline_item_bid: string;
+  chapter_title: string;
+  lesson_outline_item_bid: string;
+  lesson_title: string;
+  usage_mode: AdminOperationCourseCreditUsageMode;
+  provider: string;
+  model: string;
+  usage_count: number;
+  model_variant_count: number;
+  consumed_credits: number;
+  created_at: string;
+};
+
+export type AdminOperationCourseCreditUsageListResponse = {
+  view: AdminOperationCourseCreditUsageView;
+  items: AdminOperationCourseCreditUsageItem[];
   page: number;
   page_count: number;
   page_size: number;

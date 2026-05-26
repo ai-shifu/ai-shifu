@@ -43,7 +43,7 @@ def resolve_public_origin() -> str:
     if configured_origin:
         return configured_origin
 
-    request_origin = _request_origin() if _allow_request_origin_fallback() else ""
+    request_origin = _request_origin()
     if request_origin:
         return request_origin
 
@@ -62,16 +62,15 @@ def _request_origin() -> str:
     if not has_request_context():
         return ""
 
+    origin = _first_header_value(request.headers.get("Origin"))
+    if origin and origin.lower() != "null":
+        return _normalize_origin(origin)
+
     forwarded_proto = _first_header_value(request.headers.get("X-Forwarded-Proto"))
     forwarded_host = _first_header_value(request.headers.get("X-Forwarded-Host"))
     scheme = forwarded_proto or request.scheme
     host = forwarded_host or request.host
     return _normalize_origin(f"{scheme}://{host}")
-
-
-def _allow_request_origin_fallback() -> bool:
-    env = str(get_config("ENV", "production") or "production").strip().lower()
-    return env in {"dev", "development", "local", "test", "testing"}
 
 
 def _normalize_origin(value: str) -> str:

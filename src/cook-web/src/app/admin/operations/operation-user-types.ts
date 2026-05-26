@@ -1,3 +1,5 @@
+import type { BillingPlan } from '@/types/billing';
+
 type LooseString = string & {};
 
 export type AdminOperationUserCourseItem = {
@@ -33,7 +35,9 @@ export type AdminOperationUserItem = {
     | LooseString;
   language: string;
   learning_courses: AdminOperationUserCourseItem[];
+  learning_course_count: number;
   created_courses: AdminOperationUserCourseItem[];
+  created_course_count: number;
   total_paid_amount: string;
   available_credits: string;
   subscription_credits: string;
@@ -44,6 +48,19 @@ export type AdminOperationUserItem = {
   last_learning_at: string;
   created_at: string;
   updated_at: string;
+};
+
+export type AdminOperationUserOverview = {
+  total_user_count: number;
+  registered_user_count: number;
+  creator_user_count: number;
+  learner_user_count: number;
+  paid_user_count: number;
+  created_last_30d_user_count: number;
+  registered_last_30d_user_count: number;
+  learning_active_30d_user_count: number;
+  paid_last_30d_user_count: number;
+  guest_user_count: number;
 };
 
 export type AdminOperationUserListResponse = {
@@ -62,6 +79,34 @@ export type AdminOperationUserCreditSummary = {
   topup_credits: string;
   credits_expire_at: string;
   has_active_subscription: boolean;
+};
+
+export type AdminOperationUserCreditTypeFilter =
+  | 'all'
+  | 'consume'
+  | 'grant'
+  | 'other';
+
+export type AdminOperationUserCreditGrantSourceFilter =
+  | 'all'
+  | 'subscription'
+  | 'trial_subscription'
+  | 'topup'
+  | 'manual';
+
+export type AdminOperationUserCreditUsageModeFilter =
+  | 'all'
+  | 'learn'
+  | 'listen'
+  | 'ask';
+
+export type AdminOperationUserCreditFilters = {
+  creditType: AdminOperationUserCreditTypeFilter;
+  grantSource: AdminOperationUserCreditGrantSourceFilter;
+  courseQuery: string;
+  usageMode: AdminOperationUserCreditUsageModeFilter;
+  startTime: string;
+  endTime: string;
 };
 
 export type AdminOperationUserCreditLedgerItem = {
@@ -106,3 +151,30 @@ export type AdminOperationUserCreditGrantResponse = {
   ledger_bid: string;
   summary: AdminOperationUserCreditSummary;
 };
+
+export type AdminOperationUserGrantBootstrapResponse = {
+  plans: BillingPlan[];
+  current_subscription_product_display_name_i18n_key: string;
+  notification_status: string;
+};
+
+export type AdminOperationUserPackageGrantRequest = {
+  request_id: string;
+  product_bid: string;
+  note?: string;
+};
+
+export type AdminOperationUserPackageGrantResponse = {
+  user_bid: string;
+  product_bid: string;
+  subscription_bid: string;
+  bill_order_bid: string;
+  current_period_start_at: string;
+  current_period_end_at: string;
+  notification_status: string;
+  summary: AdminOperationUserCreditSummary;
+};
+
+export type AdminOperationUserBenefitGrantResponse =
+  | AdminOperationUserCreditGrantResponse
+  | AdminOperationUserPackageGrantResponse;

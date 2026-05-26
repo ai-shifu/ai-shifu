@@ -1,4 +1,8 @@
-import type { AudioCompleteData, AudioSegmentData } from '@/c-api/studyV2';
+import type {
+  AudioCompleteData,
+  AudioSegmentData,
+  SubtitleCueData,
+} from '@/c-api/studyV2';
 
 export interface AudioSegment {
   segmentIndex: number;
@@ -6,9 +10,12 @@ export interface AudioSegment {
   durationMs: number;
   isFinal: boolean;
   position?: number;
+  streamElementNumber?: number;
+  streamElementType?: string;
   elementId?: string;
   slideId?: string;
-  avContract?: Record<string, any> | null;
+  avContract?: Record<string, unknown> | null;
+  subtitleCues?: SubtitleCueData[];
 }
 
 export interface AudioTrack {
@@ -18,7 +25,8 @@ export interface AudioTrack {
   durationMs?: number;
   isAudioStreaming?: boolean;
   audioSegments?: AudioSegment[];
-  avContract?: Record<string, any> | null;
+  avContract?: Record<string, unknown> | null;
+  subtitleCues?: SubtitleCueData[];
 }
 
 export interface AudioItem {
@@ -109,19 +117,172 @@ export interface AudioSegmentPayload {
   is_final?: boolean;
   isFinal?: boolean;
   position?: number;
+  stream_element_number?: number;
+  streamElementNumber?: number;
+  stream_element_type?: string;
+  streamElementType?: string;
   element_id?: string;
   elementId?: string;
   slide_id?: string;
   slideId?: string;
-  av_contract?: Record<string, any> | null;
-  avContract?: Record<string, any> | null;
+  av_contract?: Record<string, unknown> | null;
+  avContract?: Record<string, unknown> | null;
+  subtitle_cues?: unknown;
+  subtitleCues?: unknown;
 }
 
+const parseAudioPayloadObject = (
+  payload: unknown,
+): Record<string, unknown> | null => {
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    return payload as Record<string, unknown>;
+  }
+
+  if (typeof payload !== 'string') {
+    return null;
+  }
+
+  const normalized = payload.trim();
+  if (!normalized || !normalized.startsWith('{')) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(normalized);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch (error) {
+    console.warn('Failed to parse audio payload object:', error);
+  }
+
+  return null;
+};
+
+const readAudioPayloadField = (
+  payload: Record<string, unknown>,
+  keys: string[],
+) => {
+  for (const key of keys) {
+    if (key in payload) {
+      return payload[key];
+    }
+  }
+  return undefined;
+};
+
+const normalizeAudioPayloadNumber = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsedValue = Number(value);
+    if (Number.isFinite(parsedValue)) {
+      return parsedValue;
+    }
+  }
+
+  return undefined;
+};
+
+const normalizeAudioPayloadBoolean = (value: unknown) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.toLowerCase();
+    if (normalized === 'true') {
+      return true;
+    }
+    if (normalized === 'false') {
+      return false;
+    }
+  }
+  return undefined;
+};
+
+const normalizeAudioPayloadString = (value: unknown) =>
+  typeof value === 'string' ? value : undefined;
+
+const normalizeAudioPayloadObject = (value: unknown) =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+
+const normalizeAudioSubtitleCueNumber = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsedValue = Number(value);
+    if (Number.isFinite(parsedValue)) {
+      return parsedValue;
+    }
+  }
+
+  return undefined;
+};
+
+export const normalizeAudioSubtitleCues = (
+  rawSubtitleCues: unknown,
+): SubtitleCueData[] | undefined => {
+  if (!Array.isArray(rawSubtitleCues)) {
+    return undefined;
+  }
+
+  const subtitleCues = rawSubtitleCues.reduce<SubtitleCueData[]>(
+    (result, rawCue) => {
+      if (!rawCue || typeof rawCue !== 'object') {
+        return result;
+      }
+
+      const cue = rawCue as Record<string, unknown>;
+      const text = typeof cue.text === 'string' ? cue.text : '';
+      const startMs = normalizeAudioSubtitleCueNumber(cue.start_ms);
+      const endMs = normalizeAudioSubtitleCueNumber(cue.end_ms);
+
+      if (!text || startMs === undefined || endMs === undefined) {
+        return result;
+      }
+
+      const segmentIndex = normalizeAudioSubtitleCueNumber(cue.segment_index);
+      const position = normalizeAudioSubtitleCueNumber(cue.position);
+
+      result.push({
+        text,
+        start_ms: startMs,
+        end_ms: endMs,
+        ...(segmentIndex === undefined ? {} : { segment_index: segmentIndex }),
+        ...(position === undefined ? {} : { position }),
+      });
+
+      return result;
+    },
+    [],
+  );
+
+  return subtitleCues.length > 0 ? subtitleCues : undefined;
+};
+
 export const normalizeAudioSegmentPayload = (
-  payload: AudioSegmentPayload,
+  payload: unknown,
 ): AudioSegment | null => {
-  const segmentIndex = payload.segment_index ?? payload.segmentIndex;
-  const audioData = payload.audio_data ?? payload.audioData;
+  const source = parseAudioPayloadObject(payload);
+  if (!source) {
+    return null;
+  }
+
+  const segmentIndex = normalizeAudioPayloadNumber(
+    readAudioPayloadField(source, ['segment_index', 'segmentIndex']),
+  );
+  const audioData = normalizeAudioPayloadString(
+    readAudioPayloadField(source, ['audio_data', 'audioData']),
+  );
 
   if (segmentIndex === undefined || !audioData) {
     return null;
@@ -130,12 +291,100 @@ export const normalizeAudioSegmentPayload = (
   return {
     segmentIndex,
     audioData,
-    durationMs: payload.duration_ms ?? payload.durationMs ?? 0,
-    isFinal: payload.is_final ?? payload.isFinal ?? false,
-    position: payload.position,
-    elementId: payload.element_id ?? payload.elementId,
-    slideId: payload.slide_id ?? payload.slideId,
-    avContract: payload.av_contract ?? payload.avContract ?? null,
+    durationMs:
+      normalizeAudioPayloadNumber(
+        readAudioPayloadField(source, ['duration_ms', 'durationMs']),
+      ) ?? 0,
+    isFinal:
+      normalizeAudioPayloadBoolean(
+        readAudioPayloadField(source, ['is_final', 'isFinal']),
+      ) ?? false,
+    position: normalizeAudioPayloadNumber(source.position),
+    streamElementNumber: normalizeAudioPayloadNumber(
+      readAudioPayloadField(source, [
+        'stream_element_number',
+        'streamElementNumber',
+      ]),
+    ),
+    streamElementType: normalizeAudioPayloadString(
+      readAudioPayloadField(source, [
+        'stream_element_type',
+        'streamElementType',
+      ]),
+    ),
+    elementId: normalizeAudioPayloadString(
+      readAudioPayloadField(source, ['element_id', 'elementId']),
+    ),
+    slideId: normalizeAudioPayloadString(
+      readAudioPayloadField(source, ['slide_id', 'slideId']),
+    ),
+    avContract:
+      normalizeAudioPayloadObject(
+        readAudioPayloadField(source, ['av_contract', 'avContract']),
+      ) ?? null,
+    subtitleCues: normalizeAudioSubtitleCues(
+      readAudioPayloadField(source, ['subtitle_cues', 'subtitleCues']),
+    ),
+  };
+};
+
+export const normalizeAudioCompletePayload = (
+  payload: unknown,
+): AudioCompleteData | null => {
+  const source = parseAudioPayloadObject(payload);
+  if (!source) {
+    return null;
+  }
+
+  const audioUrl =
+    normalizeAudioPayloadString(
+      readAudioPayloadField(source, ['audio_url', 'audioUrl']),
+    )?.trim() || '';
+
+  if (!audioUrl) {
+    return null;
+  }
+
+  const audioBid =
+    normalizeAudioPayloadString(
+      readAudioPayloadField(source, ['audio_bid', 'audioBid']),
+    ) || '';
+  const durationMs =
+    normalizeAudioPayloadNumber(
+      readAudioPayloadField(source, ['duration_ms', 'durationMs']),
+    ) ?? 0;
+  const position = normalizeAudioPayloadNumber(source.position);
+  const streamElementNumber = normalizeAudioPayloadNumber(
+    readAudioPayloadField(source, [
+      'stream_element_number',
+      'streamElementNumber',
+    ]),
+  );
+  const streamElementType = normalizeAudioPayloadString(
+    readAudioPayloadField(source, ['stream_element_type', 'streamElementType']),
+  );
+  const slideId = normalizeAudioPayloadString(
+    readAudioPayloadField(source, ['slide_id', 'slideId']),
+  );
+  const avContract = normalizeAudioPayloadObject(
+    readAudioPayloadField(source, ['av_contract', 'avContract']),
+  );
+  const subtitleCues = normalizeAudioSubtitleCues(
+    readAudioPayloadField(source, ['subtitle_cues', 'subtitleCues']),
+  );
+
+  return {
+    audio_url: audioUrl,
+    audio_bid: audioBid,
+    duration_ms: durationMs,
+    ...(position === undefined ? {} : { position }),
+    ...(streamElementNumber === undefined
+      ? {}
+      : { stream_element_number: streamElementNumber }),
+    ...(streamElementType ? { stream_element_type: streamElementType } : {}),
+    ...(slideId ? { slide_id: slideId } : {}),
+    ...(avContract === undefined ? {} : { av_contract: avContract }),
+    ...(subtitleCues ? { subtitle_cues: subtitleCues } : {}),
   };
 };
 
@@ -145,9 +394,12 @@ const toAudioSegment = (segment: AudioSegmentData): AudioSegment => ({
   durationMs: segment.duration_ms,
   isFinal: segment.is_final,
   position: normalizeAudioPosition(segment.position),
+  streamElementNumber: segment.stream_element_number,
+  streamElementType: segment.stream_element_type,
   elementId: segment.element_id,
   slideId: segment.slide_id,
   avContract: segment.av_contract ?? null,
+  subtitleCues: normalizeAudioSubtitleCues(segment.subtitle_cues),
 });
 
 export const toAudioSegmentData = (
@@ -158,9 +410,12 @@ export const toAudioSegmentData = (
   duration_ms: segment.durationMs,
   is_final: segment.isFinal,
   position: normalizeAudioPosition(segment.position),
+  stream_element_number: segment.streamElementNumber,
+  stream_element_type: segment.streamElementType,
   element_id: segment.elementId,
   slide_id: segment.slideId,
   av_contract: segment.avContract ?? null,
+  subtitle_cues: segment.subtitleCues,
 });
 
 export const getAudioSegmentDataListFromTracks = (
@@ -208,6 +463,7 @@ export const mergeAudioSegmentByUniqueKey = (
       ),
       audioData: incoming.audioData || duplicatedSegment?.audioData || '',
       durationMs: incoming.durationMs ?? duplicatedSegment?.durationMs ?? 0,
+      subtitleCues: incoming.subtitleCues ?? duplicatedSegment?.subtitleCues,
     };
     const nextSegments = [...segments];
     nextSegments[duplicatedIndex] = mergedDuplicatedSegment;
@@ -233,13 +489,17 @@ const upsertAudioTrackSegment = (
     incoming,
   );
   const nextStreaming = !incoming.isFinal;
+  const incomingSubtitleCues = incoming.subtitleCues;
 
   const hasNoChanges =
     existingTrack &&
     nextSegments === existingSegments &&
     existingTrack.isAudioStreaming === nextStreaming &&
     (!incoming.slideId || existingTrack.slideId === incoming.slideId) &&
-    (!incoming.avContract || existingTrack.avContract === incoming.avContract);
+    (!incoming.avContract ||
+      existingTrack.avContract === incoming.avContract) &&
+    (!incomingSubtitleCues ||
+      existingTrack.subtitleCues === incomingSubtitleCues);
   if (hasNoChanges) {
     return tracks;
   }
@@ -261,6 +521,9 @@ const upsertAudioTrackSegment = (
   if (incoming.avContract) {
     nextTrack.avContract = incoming.avContract;
   }
+  if (incomingSubtitleCues) {
+    nextTrack.subtitleCues = incomingSubtitleCues;
+  }
 
   if (targetIndex >= 0) {
     const nextTracks = [...tracks];
@@ -270,12 +533,39 @@ const upsertAudioTrackSegment = (
   return sortAudioTracksByPosition([...tracks, nextTrack]);
 };
 
+const markLastAudioSegmentFinal = (
+  segments: AudioSegment[] = [],
+): AudioSegment[] => {
+  if (!segments.length) {
+    return segments;
+  }
+
+  const sortedSegments = sortAudioSegmentsByIndex(segments);
+  const lastSegmentIndex = sortedSegments.length - 1;
+  const lastSegment = sortedSegments[lastSegmentIndex];
+  const isSameOrder = sortedSegments.every(
+    (segment, index) => segment === segments[index],
+  );
+
+  if (lastSegment?.isFinal) {
+    return isSameOrder ? segments : sortedSegments;
+  }
+
+  const nextSegments = [...sortedSegments];
+  nextSegments[lastSegmentIndex] = {
+    ...lastSegment,
+    isFinal: true,
+  };
+  return nextSegments;
+};
+
 const normalizeTrackForUpsert = (
   complete: Partial<AudioCompleteData>,
 ): {
   position: number;
   slideId?: string;
-  avContract?: Record<string, any> | null;
+  avContract?: Record<string, unknown> | null;
+  subtitleCues?: SubtitleCueData[];
 } => {
   const parsedPosition =
     complete.position === undefined || complete.position === null
@@ -287,6 +577,7 @@ const normalizeTrackForUpsert = (
       : DEFAULT_AUDIO_POSITION,
     slideId: complete.slide_id ?? undefined,
     avContract: complete.av_contract ?? null,
+    subtitleCues: normalizeAudioSubtitleCues(complete.subtitle_cues),
   };
 };
 
@@ -294,19 +585,25 @@ const upsertAudioTrackComplete = (
   tracks: AudioTrack[],
   complete: Partial<AudioCompleteData>,
 ): AudioTrack[] => {
-  const { position, slideId, avContract } = normalizeTrackForUpsert(complete);
+  const { position, slideId, avContract, subtitleCues } =
+    normalizeTrackForUpsert(complete);
   const targetIndex = tracks.findIndex(
     track => normalizeAudioPosition(track.position) === position,
   );
   const existingTrack = targetIndex >= 0 ? tracks[targetIndex] : undefined;
+  const finalizedAudioSegments = existingTrack?.audioSegments?.length
+    ? markLastAudioSegmentFinal(existingTrack.audioSegments)
+    : existingTrack?.audioSegments;
   const hasNoChanges =
     existingTrack &&
     existingTrack.audioUrl === (complete.audio_url ?? existingTrack.audioUrl) &&
     existingTrack.durationMs ===
       (complete.duration_ms ?? existingTrack.durationMs) &&
     existingTrack.isAudioStreaming === false &&
+    existingTrack.audioSegments === finalizedAudioSegments &&
     (!slideId || existingTrack.slideId === slideId) &&
-    (!avContract || existingTrack.avContract === avContract);
+    (!avContract || existingTrack.avContract === avContract) &&
+    (!subtitleCues || existingTrack.subtitleCues === subtitleCues);
   if (hasNoChanges) {
     return tracks;
   }
@@ -322,11 +619,17 @@ const upsertAudioTrackComplete = (
   nextTrack.audioUrl = complete.audio_url ?? nextTrack.audioUrl;
   nextTrack.durationMs = complete.duration_ms ?? nextTrack.durationMs;
   nextTrack.isAudioStreaming = false;
+  if (finalizedAudioSegments) {
+    nextTrack.audioSegments = finalizedAudioSegments;
+  }
   if (slideId) {
     nextTrack.slideId = slideId;
   }
   if (avContract) {
     nextTrack.avContract = avContract;
+  }
+  if (subtitleCues) {
+    nextTrack.subtitleCues = subtitleCues;
   }
 
   if (targetIndex >= 0) {

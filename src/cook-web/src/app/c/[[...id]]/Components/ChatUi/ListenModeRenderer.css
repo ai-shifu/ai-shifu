@@ -258,21 +258,40 @@
     transform: none;
   }
 }
+.listen-reveal-wrapper.mobile {
+  min-width: 0;
+  max-width: 100%;
+}
 .listen-reveal-wrapper.mobile .listen-slide-shell {
   display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 0;
   flex: 1 1 auto;
   box-sizing: border-box;
+  overflow: hidden;
 }
 .listen-reveal-wrapper.mobile .listen-slide-root {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 0;
   background: var(--color-5);
 }
+.listen-reveal-wrapper.mobile .listen-slide-root .slide__viewport,
 .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage,
 .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__layer,
+.listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__content,
 .listen-reveal-wrapper.mobile .listen-slide-root .slide-content--single {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 0;
   height: 100%;
+}
+.listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__layer {
+  overflow-x: hidden;
 }
 .listen-reveal-wrapper.mobile
   .listen-slide-root
@@ -283,6 +302,8 @@
   .listen-slide-root
   .slide-stage__content:has(.slide-element--single)
   .slide-element--single {
+  min-width: 0;
+  max-width: 100%;
   min-height: 100%;
   flex: 1 1 auto;
 }
@@ -291,16 +312,57 @@
 }
 .listen-reveal-wrapper.mobile .listen-slide-root .slide-element--single {
   display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 .listen-reveal-wrapper.mobile
   .listen-slide-root
   .slide-element--single
   > .content-render-iframe-sandbox {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   align-self: center;
   justify-content: center !important;
+}
+.listen-reveal-wrapper.mobile
+  .listen-slide-root
+  .slide-element--single
+  > .content-render-iframe-sandbox
+  .content-render,
+.listen-reveal-wrapper.mobile
+  .listen-slide-root
+  .slide-element--single
+  > .content-render-iframe-sandbox
+  .markdown-body,
+.listen-reveal-wrapper.mobile
+  .listen-slide-root
+  .slide-element--single
+  > .content-render-iframe-sandbox
+  .markdown-renderer,
+.listen-reveal-wrapper.mobile
+  .listen-slide-root
+  .slide-element--single
+  > .content-render-iframe-sandbox
+  .markdown-render {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.listen-reveal-wrapper.mobile
+  .listen-slide-root
+  .slide-element--single
+  > .content-render-iframe-sandbox
+  .markdown-render
+  pre {
+  max-width: 100%;
+  overflow-x: auto;
 }
 .listen-reveal-wrapper.mobile
   .listen-slide-player-mobile

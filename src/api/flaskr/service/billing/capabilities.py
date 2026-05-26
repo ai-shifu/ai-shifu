@@ -222,6 +222,7 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         task_entries=(
             "billing.aggregate_daily_usage_metrics",
             "billing.aggregate_daily_ledger_summary",
+            "billing.finalize_daily_ledger_summary",
             "billing.rebuild_daily_aggregates",
         ),
         cli_entries=("flask console billing rebuild-daily-aggregates",),

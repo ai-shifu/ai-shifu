@@ -1,0 +1,153 @@
+{
+  "__namespace__": "module.operationsCreditNotifications",
+  "actions": {
+    "applyConfig": "Enregistrer",
+    "dryRun": "Dry-run",
+    "refresh": "Actualiser",
+    "requeue": "Relancer",
+    "reset": "Réinitialiser",
+    "search": "Rechercher",
+    "syncTemplate": "Interroger le modèle",
+    "syncingTemplate": "Interrogation"
+  },
+  "config": {
+    "description": "Utilisez le formulaire pour gérer les interrupteurs, modèles, seuils, contrôles de fréquence et listes. Les identifiants fournisseur viennent toujours des variables d’environnement ou des Secrets.",
+    "fields": {
+      "blacklistCreatorBids": "Creator BID bloqués",
+      "blacklistMobiles": "Mobiles bloqués",
+      "dailySmsLimit": "Budget SMS quotidien",
+      "disableDebug": "Désactiver le debug",
+      "dryRunRequired": "Dry-run requis",
+      "enabled": "Activer les SMS de crédits",
+      "estimatedDays": "Jours restants déclencheurs",
+      "estimatedDaysEnabled": "Alerte par jours restants",
+      "fallbackFixedValue": "Seuil fixe de secours",
+      "lookbackDays": "Jours d’historique consommation",
+      "mergeSameCreator": "Fusionner le même créateur",
+      "minConsumedDays": "Jours consommés minimum",
+      "optOutCreatorBids": "Creator BID désabonnés",
+      "optOutMobiles": "Mobiles désabonnés",
+      "perCreatorPerTypePerDay": "Limite quotidienne créateur/type",
+      "perMobilePerDay": "Limite quotidienne par mobile",
+      "quietEnd": "Fin des heures calmes",
+      "quietHoursEnabled": "Activer les heures calmes",
+      "quietStart": "Début des heures calmes",
+      "smsUnitCost": "Coût unitaire SMS",
+      "softlimitEnabled": "Activer softlimit",
+      "softlimitSms": "Alerte SMS softlimit",
+      "softlimitThreshold": "Seuil softlimit",
+      "teacherPageAlert": "Alerte page enseignant",
+      "templateCode": "Code modèle SMS",
+      "thresholds": "Seuils de solde",
+      "timezone": "Fuseau horaire",
+      "windows": "Fenêtres de rappel d’expiration"
+    },
+    "invalidConfig": "Impossible d’enregistrer la configuration. Vérifiez les valeurs du formulaire.",
+    "loadFailed": "Impossible de charger la stratégie de notification. Actualisez puis réessayez.",
+    "loadRequired": "La stratégie de notification n’a pas été chargée correctement. La configuration ne peut pas être enregistrée.",
+    "placeholders": {
+      "available": "Variables disponibles",
+      "available_credits": "Crédits disponibles",
+      "avg_daily_consumption": "Consommation moyenne quotidienne",
+      "credits": "Montant de crédits",
+      "estimated_remaining_days": "Jours restants estimés",
+      "expires_at": "Date d’expiration",
+      "groups": {
+        "creditExpiring": "Variables de rappel d’expiration",
+        "creditGranted": "Variables de rappel d’attribution",
+        "lowBalanceEstimated": "Variables par jours restants",
+        "lowBalanceFixed": "Variables de solde fixe / secours"
+      },
+      "lookback_days": "Jours d’historique consommation",
+      "notes": {
+        "emptyVariables": "Dans un même type de notification, les variables sans valeur pour le chemin déclencheur réel sont envoyées comme chaînes vides.",
+        "estimatedLowBalance": "Les alertes par jours restants estiment les jours utilisables à partir de la consommation moyenne quotidienne ; les variables de seuil fixe sont vides.",
+        "expiresAtOptional": "Si les crédits attribués n’ont pas de date d’expiration, la variable d’expiration est vide.",
+        "fallbackLowBalance": "Quand l’historique de consommation est insuffisant et qu’un seuil de secours est configuré, le chemin de solde fixe est utilisé ; les variables fixes sont renseignées et les variables estimées sont vides.",
+        "fixedLowBalance": "Les alertes de solde fixe renseignent uniquement le solde, le seuil et le type de seuil.",
+        "unsupportedValidation": "Les modèles qui utilisent des variables non prises en charge par le système sont bloqués lors de la synchronisation du modèle ou de l’enregistrement activé.",
+        "windowSource": "La variable de fenêtre de rappel vient de la configuration des fenêtres d’expiration, par exemple 7d, 3d, 1d ou 0d."
+      },
+      "source": "Source d’attribution",
+      "threshold": "Seuil fixe de solde",
+      "threshold_kind": "Type de seuil",
+      "tolerance": "Les modèles SMS peuvent n’utiliser qu’une partie des variables ; les variables inutilisées manquantes ne bloquent ni l’enregistrement ni l’envoi.",
+      "trigger_days": "Jours restants déclencheurs",
+      "window": "Fenêtre de rappel"
+    },
+    "saved": "Configuration enregistrée.",
+    "sections": {
+      "budget": "Budget",
+      "frequency": "Contrôles de fréquence",
+      "lists": "Blocages et désabonnements",
+      "quietHours": "Heures calmes",
+      "softlimit": "Softlimit",
+      "types": "Types de notification"
+    },
+    "templateSync": {
+      "compatible": "Variables du modèle prises en charge",
+      "content": "Contenu du modèle",
+      "error": "Erreur de synchronisation",
+      "incompatible": "Le modèle contient des variables non prises en charge",
+      "status": "Statut d’audit",
+      "syncFailed": "Échec de la requête du modèle. Réessayez plus tard.",
+      "templateCodeRequired": "Saisissez d’abord le code du modèle SMS.",
+      "unsupported": "Variables du modèle non prises en charge",
+      "unused": "Variables système inutilisées",
+      "variables": "Variables du modèle"
+    },
+    "title": "Configuration opérateur"
+  },
+  "dryRun": {
+    "candidateCount": "{count} enregistrements prévus",
+    "empty": "Aucun résultat dry-run.",
+    "title": "Résultat dry-run"
+  },
+  "empty": "Aucun enregistrement de notification de crédits.",
+  "filters": {
+    "all": "Tous",
+    "creatorBid": "Creator BID",
+    "mobile": "Mobile",
+    "notificationType": "Type de notification",
+    "sourceBid": "ID source",
+    "status": "Statut"
+  },
+  "loadError": "Impossible de charger les notifications de crédits. Actualisez puis réessayez.",
+  "messages": {
+    "requeueDone": "Tâche de relance envoyée.",
+    "requeueFailed": "Échec de la tâche de relance."
+  },
+  "records": {
+    "totalCount": "{count} enregistrements de notification"
+  },
+  "status": {
+    "failed_provider": "Fournisseur échoué",
+    "pending": "En attente",
+    "sent": "Envoyé",
+    "skipped_no_mobile": "Sans mobile",
+    "skipped_opt_out": "Ignoré",
+    "suppressed_duplicate": "Doublon"
+  },
+  "subtitle": "Consultez la livraison des notifications de crédits attribués, expirants ou bas, et configurez la politique SMS.",
+  "table": {
+    "action": "Action",
+    "createdAt": "Créé le",
+    "creator": "Créateur",
+    "dedupeKey": "Clé d’idempotence",
+    "error": "Erreur",
+    "notification": "Notification",
+    "source": "Source",
+    "template": "Modèle",
+    "templateParams": "Paramètres"
+  },
+  "tabs": {
+    "config": "Configuration de la politique",
+    "records": "Notifications"
+  },
+  "title": "Notifications de crédits",
+  "type": {
+    "credit_expiring": "Expiration des crédits",
+    "credit_granted": "Attribution de crédits",
+    "low_balance": "Solde bas"
+  }
+}

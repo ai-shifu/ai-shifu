@@ -10,6 +10,7 @@ import type {
 } from '@/types/billing';
 import { TopupCard } from './BillingOverviewCards';
 import type { ShowcaseTab } from './BillingOverviewCards';
+import { BillingOverviewFootnote } from './BillingOverviewFootnote';
 import { BillingPlanComparisonTable } from './BillingPlanComparisonTable';
 
 type BillingOverviewShowcaseProps = {
@@ -130,20 +131,7 @@ export function BillingOverviewShowcase({
           <Skeleton className='h-[620px] rounded-[34px]' />
         </div>
       ) : showcaseTab === 'topup' ? (
-        <div className='space-y-4'>
-          <div
-            className='rounded-2xl border border-[rgba(0,82,217,0.12)] bg-[rgba(0,82,217,0.04)] px-5 py-4 text-sm leading-6 text-[var(--base-foreground,#0A0A0A)]'
-            data-testid='billing-topup-note'
-          >
-            <div className='font-medium text-[var(--base-foreground,#0A0A0A)]'>
-              {t('module.billing.package.topup.noteTitle')}
-            </div>
-            <ul className='mt-2 list-disc space-y-1 pl-5 text-[var(--base-muted-foreground,#525252)]'>
-              <li>{t('module.billing.package.topup.noteInstant')}</li>
-              <li>{t('module.billing.package.topup.noteFrozen')}</li>
-            </ul>
-          </div>
-
+        <div className='space-y-6'>
           <div
             className='grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]'
             data-testid='billing-topup-grid'
@@ -182,23 +170,36 @@ export function BillingOverviewShowcase({
               );
             })}
           </div>
+
+          <div
+            className='text-[length:var(--text-sm-font-size,14px)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'
+            data-testid='billing-topup-note'
+          >
+            <ul className='list-disc space-y-2 pl-5'>
+              <li>{t('module.billing.package.topup.noteInstant')}</li>
+              <li>{t('module.billing.package.topup.noteFrozen')}</li>
+            </ul>
+          </div>
         </div>
       ) : (
-        <BillingPlanComparisonTable
-          checkoutLoadingKey={checkoutLoadingKey}
-          currentPlan={currentPlan}
-          alipayAvailable={alipayAvailable}
-          hasActiveSubscription={hasActiveSubscription}
-          isTrialCurrentPlan={isTrialCurrentPlan}
-          orderedPlans={orderedPlans}
-          paidPlans={paidPlans}
-          pingxxAvailable={pingxxAvailable}
-          renderFreeColumn={renderFreeCard}
-          stripeAvailable={stripeAvailable}
-          trialOffer={trialOffer}
-          wechatpayAvailable={wechatpayAvailable}
-          onSelectPlanCheckout={onSelectPlanCheckout}
-        />
+        <div className='space-y-6'>
+          <BillingPlanComparisonTable
+            checkoutLoadingKey={checkoutLoadingKey}
+            currentPlan={currentPlan}
+            alipayAvailable={alipayAvailable}
+            hasActiveSubscription={hasActiveSubscription}
+            isTrialCurrentPlan={isTrialCurrentPlan}
+            orderedPlans={orderedPlans}
+            paidPlans={paidPlans}
+            pingxxAvailable={pingxxAvailable}
+            renderFreeColumn={renderFreeCard}
+            stripeAvailable={stripeAvailable}
+            trialOffer={trialOffer}
+            wechatpayAvailable={wechatpayAvailable}
+            onSelectPlanCheckout={onSelectPlanCheckout}
+          />
+          <BillingOverviewFootnote />
+        </div>
       )}
     </>
   );

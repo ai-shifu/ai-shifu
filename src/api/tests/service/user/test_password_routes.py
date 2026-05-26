@@ -111,3 +111,55 @@ def test_password_login_after_setting_password(test_client, app):
     assert body["code"] == 0
     assert body["data"]["token"]
     assert body["data"]["userInfo"]["mobile"] == phone
+
+
+def test_sms_login_route_logs_in_with_phone_code(test_client):
+    phone = "15500003333"
+
+    resp, body = _post_json(
+        test_client,
+        "/api/user/login_sms",
+        {
+            "mobile": phone,
+            "sms_code": "9999",
+            "language": "zh-CN",
+            "login_context": "admin",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert body["code"] == 0
+    assert body["data"]["token"]
+    assert body["data"]["userInfo"]["mobile"] == phone
+
+
+def test_sms_login_route_normalizes_cn_prefix(test_client, app):
+    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+
+    phone = "15500004444"
+
+    resp, body = _post_json(
+        test_client,
+        "/api/user/login_sms",
+        {
+            "mobile": f"+86{phone}",
+            "sms_code": "9999",
+            "language": "zh-CN",
+            "login_context": "admin",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert body["code"] == 0
+    assert body["data"]["token"]
+    assert body["data"]["userInfo"]["mobile"] == phone
+
+    with app.app_context():
+        entity = UserEntity.query.filter_by(user_identify=phone).first()
+        assert entity is not None
+        credential = AuthCredential.query.filter_by(
+            provider_name="phone",
+            identifier=phone,
+            user_bid=entity.user_bid,
+        ).first()
+        assert credential is not None

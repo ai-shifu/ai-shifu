@@ -3,13 +3,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 import CreditOrdersTab from './CreditOrdersTab';
 
-const translationCache = new Map<string, { t: (key: string) => string }>();
+const translationCache = new Map<
+  string,
+  { t: (key: string, options?: Record<string, unknown>) => string }
+>();
 const TRANSLATION_OVERRIDES: Record<string, string> = {
   'module.billing.catalog.plans.creatorYearlyLite.title': 'Advanced',
-  'module.billing.catalog.topups.creatorSmall.title': '20-credit pack',
+  'module.billing.catalog.topups.default.title': '{credits}-credit pack',
   'module.operationsOrder.creditOrders.productIntervals.year': 'Yearly',
   'module.operationsOrder.creditOrders.productNameFormat': 'Yearly - Advanced',
 };
+let mockLanguage = 'en-US';
 
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -18,7 +22,9 @@ const baseTranslation = (namespace?: string | string[]) => {
     translationCache.set(cacheKey, {
       t: (key: string, options?: Record<string, unknown>) => {
         if (TRANSLATION_OVERRIDES[key]) {
-          return TRANSLATION_OVERRIDES[key];
+          return TRANSLATION_OVERRIDES[key]
+            .replace('{credits}', String(options?.credits ?? ''))
+            .replace('{count}', String(options?.count ?? ''));
         }
         if (options && Object.prototype.hasOwnProperty.call(options, 'count')) {
           return `${ns ? `${ns}.` : ''}${key}:${options.count}`;
@@ -55,6 +61,7 @@ jest.mock('next/link', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getAdminOperationCreditOrdersOverview: jest.fn(),
     getAdminOperationCreditOrders: jest.fn(),
     getAdminOperationCreditOrderDetail: jest.fn(),
   },
@@ -90,7 +97,9 @@ jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => ({
     ...baseTranslation(namespace),
     i18n: {
-      language: 'en-US',
+      get language() {
+        return mockLanguage;
+      },
     },
   }),
 }));
@@ -180,14 +189,30 @@ jest.mock('@/components/ui/Sheet', () => ({
 
 const mockGetAdminOperationCreditOrders =
   api.getAdminOperationCreditOrders as jest.Mock;
+const mockGetAdminOperationCreditOrdersOverview =
+  api.getAdminOperationCreditOrdersOverview as jest.Mock;
 const mockGetAdminOperationCreditOrderDetail =
   api.getAdminOperationCreditOrderDetail as jest.Mock;
 
 describe('CreditOrdersTab', () => {
   beforeEach(() => {
+    mockGetAdminOperationCreditOrdersOverview.mockReset();
     mockGetAdminOperationCreditOrders.mockReset();
     mockGetAdminOperationCreditOrderDetail.mockReset();
+    mockLanguage = 'en-US';
     window.localStorage.clear();
+    mockGetAdminOperationCreditOrdersOverview.mockResolvedValue({
+      total_order_count: 12,
+      paid_order_count: 7,
+      pending_order_count: 2,
+      refunded_order_count: 1,
+      closed_order_count: 1,
+      canceled_order_count: 1,
+      available_credit_total: 5024,
+      paid_amount_total: 819900,
+      currency: 'CNY',
+      paid_amount_totals_by_currency: { CNY: 819900 },
+    });
 
     mockGetAdminOperationCreditOrders.mockResolvedValue({
       items: [
@@ -202,8 +227,8 @@ describe('CreditOrdersTab', () => {
           product_bid: 'product-1',
           product_code: 'creator-topup-small',
           product_type: 'topup',
-          product_name_key: 'module.billing.catalog.topups.creatorSmall.title',
-          credit_amount: 20,
+          product_name_key: 'module.billing.catalog.topups.default.title',
+          credit_amount: 24,
           valid_from: '2026-04-27T10:00:00Z',
           valid_to: '2026-05-27T10:00:00Z',
           order_type: 'topup',
@@ -273,8 +298,8 @@ describe('CreditOrdersTab', () => {
         product_bid: 'product-1',
         product_code: 'creator-topup-small',
         product_type: 'topup',
-        product_name_key: 'module.billing.catalog.topups.creatorSmall.title',
-        credit_amount: 20,
+        product_name_key: 'module.billing.catalog.topups.default.title',
+        credit_amount: 24,
         valid_from: '2026-04-27T10:00:00Z',
         valid_to: '2026-05-27T10:00:00Z',
         order_type: 'topup',
@@ -294,7 +319,7 @@ describe('CreditOrdersTab', () => {
         has_attention: false,
       },
       grant: {
-        granted_credits: 20,
+        granted_credits: 24,
         valid_from: '2026-04-27T10:00:00Z',
         valid_to: '2026-05-27T10:00:00Z',
         source_type: 'topup',
@@ -310,6 +335,9 @@ describe('CreditOrdersTab', () => {
     render(<CreditOrdersTab />);
 
     await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrdersOverview).toHaveBeenCalledWith(
+        {},
+      );
       expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledWith({
         page_index: 1,
         page_size: 20,
@@ -324,12 +352,219 @@ describe('CreditOrdersTab', () => {
     });
 
     expect(await screen.findByText('bill-order-1')).toBeInTheDocument();
-    expect(screen.getByText('20-credit pack')).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsOrder.overview.activeFilter'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('24-credit pack')).toBeInTheDocument();
     expect(await screen.findByText('Yearly - Advanced')).toBeInTheDocument();
     expect(
-      screen.queryByText('module.billing.catalog.topups.creatorSmall.title'),
+      screen.queryByText('module.billing.catalog.topups.default.title'),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('creator-topup-small')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.creditOrders.overview.metrics.pendingOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.creditOrders.overview.metrics.refundedOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.creditOrders.overview.metrics.closedOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.creditOrders.overview.metrics.canceledOrders',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  test('activates and clears the paid overview card without refetching the default paid credit view', async () => {
+    render(<CreditOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.creditOrders\.overview\.metrics\.paidOrders\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+    expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+
+    const clearButtons = screen.getAllByRole('button', {
+      name: /module\.operationsOrder\.creditOrders\.overview\.metrics\.paidOrders/,
+    });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('module.operationsOrder.overview.activeFilter'),
+      ).not.toBeInTheDocument();
+    });
+    expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+  });
+
+  test('activates and clears the total overview card while restoring the default paid credit view', async () => {
+    render(<CreditOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.creditOrders\.overview\.metrics\.totalOrders\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        creator_keyword: '',
+        product_keyword: '',
+        credit_order_kind: '',
+        status: '',
+        payment_provider: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    const clearButtons = screen.getAllByRole('button', {
+      name: /module\.operationsOrder\.creditOrders\.overview\.metrics\.totalOrders/,
+    });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        creator_keyword: '',
+        product_keyword: '',
+        credit_order_kind: '',
+        status: 'paid',
+        payment_provider: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+  });
+
+  test('clicks available credits overview card to filter orders with remaining credits', async () => {
+    render(<CreditOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.creditOrders\.overview\.metrics\.creditAmount\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        creator_keyword: '',
+        product_keyword: '',
+        credit_order_kind: '',
+        status: 'paid',
+        has_available_credits: true,
+        payment_provider: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+  });
+
+  test('preserves available credits quick filter when refining with search', async () => {
+    render(<CreditOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.creditOrders\.overview\.metrics\.creditAmount\b/,
+      }),
+    );
+
+    await screen.findByText('module.operationsOrder.overview.activeFilter');
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsOrder.creditOrders.filters.creatorKeywordPlaceholderPhone',
+      ),
+      {
+        target: { value: '13800138000' },
+      },
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsOrder.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        creator_keyword: '13800138000',
+        product_keyword: '',
+        credit_order_kind: '',
+        status: 'paid',
+        has_available_credits: true,
+        payment_provider: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    expect(
+      screen.getByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+  });
+
+  test('formats credit amounts and paid amounts without grouping in Chinese locale', async () => {
+    mockLanguage = 'zh-CN';
+
+    render(<CreditOrdersTab />);
+
+    expect(
+      await screen.findByText(
+        'module.operationsOrder.creditOrders.creditAmountValue:5000',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('¥8000')).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.creditOrders.creditAmountValue:5,000',
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('¥8,000')).not.toBeInTheDocument();
   });
 
   test('submits filters and opens detail sheet', async () => {
@@ -442,7 +677,7 @@ describe('CreditOrdersTab', () => {
           product_bid: 'product-3',
           product_code: 'creator-topup-small',
           product_type: 'topup',
-          product_name_key: 'module.billing.catalog.topups.creatorSmall.title',
+          product_name_key: 'module.billing.catalog.topups.default.title',
           credit_amount: 20,
           valid_from: '2026-04-27T10:00:00Z',
           valid_to: '2026-05-27T10:00:00Z',
@@ -480,7 +715,7 @@ describe('CreditOrdersTab', () => {
         product_bid: 'product-3',
         product_code: 'creator-topup-small',
         product_type: 'topup',
-        product_name_key: 'module.billing.catalog.topups.creatorSmall.title',
+        product_name_key: 'module.billing.catalog.topups.default.title',
         credit_amount: 20,
         valid_from: '2026-04-27T10:00:00Z',
         valid_to: '2026-05-27T10:00:00Z',
