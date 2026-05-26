@@ -334,6 +334,9 @@ export type CreatorBillingOverview = {
   subscription: BillingSubscription | null;
   billing_alerts: BillingAlert[];
   trial_offer: BillingTrialOffer;
+  credit_status?: 'normal' | 'softlimit' | 'hardlimit';
+  debug_allowed?: boolean;
+  softlimit_threshold?: string | null;
 };
 
 export type BillingOrderSummary = {

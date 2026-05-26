@@ -36,7 +36,6 @@ import {
 } from '@/lib/billing';
 import { BillingAlertsBanner } from './BillingAlertsBanner';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
-import { BillingOverviewHero } from './BillingOverviewHero';
 import { BillingOverviewShowcase } from './BillingOverviewShowcase';
 import { BillingPingxxQrDialog } from './BillingPingxxQrDialog';
 import type { ShowcaseTab } from './BillingOverviewCards';
@@ -475,8 +474,6 @@ export function BillingOverviewTab({
       className='space-y-8'
       data-testid='billing-overview-tab'
     >
-      <BillingOverviewHero />
-
       {loadError ? (
         <div className='rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>
           {t('module.billing.overview.loadError')}

@@ -36,7 +36,7 @@ from flaskr.api.tts import (
     VoiceSettings,
     AudioSettings,
 )
-from flaskr.service.tts import preprocess_for_tts
+from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     get_audio_duration_ms,
@@ -742,6 +742,7 @@ def synthesize_long_text_to_oss(
     usage_parent_bid = ""
     usage_metadata: Optional[dict] = None
     total_word_count = 0
+    total_output_chars = 0
     if usage_context is not None:
         usage_parent_bid = parent_usage_bid or generate_id(app)
 
@@ -786,7 +787,12 @@ def synthesize_long_text_to_oss(
                 audio_parts.append(result.audio_data)
                 if usage_context is not None:
                     segment_length = len(segment_text or "")
+                    segment_output_chars = resolve_tts_billable_chars(
+                        segment_text,
+                        int(getattr(result, "usage_characters", 0) or 0),
+                    )
                     total_word_count += int(result.word_count or 0)
+                    total_output_chars += segment_output_chars
                     latency_ms = int((time.monotonic() - segment_start) * 1000)
                     record_tts_usage(
                         app,
@@ -795,8 +801,8 @@ def synthesize_long_text_to_oss(
                         model=(model or "").strip(),
                         is_stream=False,
                         input=segment_length,
-                        output=segment_length,
-                        total=segment_length,
+                        output=segment_output_chars,
+                        total=segment_output_chars,
                         word_count=int(result.word_count or 0),
                         duration_ms=int(result.duration_ms or 0),
                         latency_ms=latency_ms,
@@ -845,7 +851,12 @@ def synthesize_long_text_to_oss(
                 if usage_context is not None:
                     segment_text = segment_map.get(index, "")
                     segment_length = len(segment_text or "")
+                    segment_output_chars = resolve_tts_billable_chars(
+                        segment_text,
+                        int(getattr(result, "usage_characters", 0) or 0),
+                    )
                     total_word_count += int(result.word_count or 0)
+                    total_output_chars += segment_output_chars
                     record_tts_usage(
                         app,
                         usage_context,
@@ -853,8 +864,8 @@ def synthesize_long_text_to_oss(
                         model=(model or "").strip(),
                         is_stream=False,
                         input=segment_length,
-                        output=segment_length,
-                        total=segment_length,
+                        output=segment_output_chars,
+                        total=segment_output_chars,
                         word_count=int(result.word_count or 0),
                         duration_ms=int(result.duration_ms or 0),
                         latency_ms=0,
@@ -886,8 +897,8 @@ def synthesize_long_text_to_oss(
             model=(model or "").strip(),
             is_stream=False,
             input=raw_length,
-            output=cleaned_length,
-            total=cleaned_length,
+            output=total_output_chars or cleaned_length,
+            total=total_output_chars or cleaned_length,
             word_count=total_word_count,
             duration_ms=int(duration_ms or 0),
             latency_ms=0,

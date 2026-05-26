@@ -11,6 +11,7 @@ def test_env_registry_includes_celery_runtime_variables() -> None:
     assert ENV_VARS["BILLING_RENEWAL_CRON"].group == "celery"
     assert ENV_VARS["BILLING_BUCKET_EXPIRE_CRON"].group == "celery"
     assert ENV_VARS["BILLING_LOW_BALANCE_CRON"].group == "celery"
+    assert ENV_VARS["BILLING_CREDIT_EXPIRING_CRON"].group == "celery"
     assert ENV_VARS["BILLING_DAILY_LEDGER_SUMMARY_CRON"].group == "celery"
 
 
@@ -23,4 +24,5 @@ def test_env_example_exports_celery_variables() -> None:
     assert 'BILLING_RENEWAL_CRON="* * * * *"' in output
     assert 'BILLING_BUCKET_EXPIRE_CRON="* * * * *"' in output
     assert 'BILLING_LOW_BALANCE_CRON="0 * * * *"' in output
+    assert 'BILLING_CREDIT_EXPIRING_CRON="0 * * * *"' in output
     assert 'BILLING_DAILY_LEDGER_SUMMARY_CRON="30 1 * * *"' in output

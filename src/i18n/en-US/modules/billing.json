@@ -647,7 +647,8 @@
     "tabs": {
       "ledger": "Credit Details",
       "plans": "Buy Credits"
-    }
+    },
+    "title": "Membership and Credits"
   },
   "renewal": {
     "eventType": {

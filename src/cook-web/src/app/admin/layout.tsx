@@ -128,7 +128,7 @@ const MainInterface = ({
           className='flex-1 overflow-y-auto overflow-x-hidden bg-background'
           data-testid='admin-layout-content'
         >
-          <div className='mx-auto box-border flex h-full min-h-0 max-w-6xl flex-col px-5 py-5'>
+          <div className='mx-auto box-border flex h-full min-h-0 max-w-6xl flex-col px-6 py-[22px]'>
             {children}
           </div>
         </div>

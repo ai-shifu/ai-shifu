@@ -16,7 +16,10 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_USAGE,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
-from flaskr.service.billing.daily_aggregates import rebuild_daily_aggregates
+from flaskr.service.billing.daily_aggregates import (
+    detect_daily_aggregate_rebuild_range,
+    rebuild_daily_aggregates,
+)
 from flaskr.service.billing.models import (
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
@@ -221,6 +224,66 @@ def test_rebuild_daily_aggregates_scopes_usage_by_shifu_and_skips_ledger(
             ("shifu-a", 50),
             ("shifu-b", 999),
         ]
+
+
+def test_detect_daily_aggregate_rebuild_range_uses_raw_data_bounds(
+    billing_daily_rebuild_app: Flask,
+) -> None:
+    with billing_daily_rebuild_app.app_context():
+        _add_usage(
+            usage_bid="usage-range-late",
+            shifu_bid="shifu-range-1",
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            input_tokens=100,
+        )
+        _add_ledger(
+            creator_bid="creator-range-1",
+            ledger_bid="ledger-range-early",
+            source_bid="topup-range-early",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            amount=Decimal("5.0000000000"),
+            created_at=datetime(2026, 4, 7, 9, 1, 0),
+        )
+        dao.db.session.commit()
+
+        assert detect_daily_aggregate_rebuild_range(billing_daily_rebuild_app) == (
+            "2026-04-07",
+            "2026-04-09",
+        )
+
+
+def test_detect_daily_aggregate_rebuild_range_scopes_shifu_usage_only(
+    billing_daily_rebuild_app: Flask,
+) -> None:
+    with billing_daily_rebuild_app.app_context():
+        _add_usage(
+            usage_bid="usage-range-shifu-a",
+            shifu_bid="shifu-range-a",
+            created_at=datetime(2026, 4, 9, 9, 0, 0),
+            input_tokens=100,
+        )
+        _add_usage(
+            usage_bid="usage-range-shifu-b",
+            shifu_bid="shifu-range-b",
+            created_at=datetime(2026, 4, 10, 9, 0, 0),
+            input_tokens=100,
+        )
+        _add_ledger(
+            creator_bid="creator-range-1",
+            ledger_bid="ledger-range-outside-shifu",
+            source_bid="topup-range-outside-shifu",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_TOPUP,
+            amount=Decimal("5.0000000000"),
+            created_at=datetime(2026, 4, 7, 9, 1, 0),
+        )
+        dao.db.session.commit()
+
+        assert detect_daily_aggregate_rebuild_range(
+            billing_daily_rebuild_app,
+            shifu_bid="shifu-range-a",
+        ) == ("2026-04-09", "2026-04-09")
 
 
 def _add_rate() -> None:

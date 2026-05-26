@@ -165,6 +165,9 @@ class BillingOverviewDTO(BillingBaseDTO):
     subscription: BillingSubscriptionDTO | None = None
     billing_alerts: list[BillingAlertDTO]
     trial_offer: BillingTrialOfferDTO
+    credit_status: str = "normal"
+    debug_allowed: bool = True
+    softlimit_threshold: str | None = None
 
 
 @register_schema_to_swagger

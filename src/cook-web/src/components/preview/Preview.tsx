@@ -1,19 +1,25 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/button';
 import { Loader2, MonitorPlay, PlayIcon } from 'lucide-react';
+import { useEnvStore } from '@/c-store';
 import { useShifu } from '@/store';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { useBillingOverview } from '@/hooks/useBillingData';
 
 const PreviewSettingsModal = () => {
   const { t } = useTranslation();
   const { currentShifu, actions } = useShifu();
   const { trackEvent } = useTracking();
   const [loading, setLoading] = useState(false);
+  const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
+  const { data: billingOverview } = useBillingOverview();
+  const debugAllowed =
+    !billingEnabled || billingOverview?.debug_allowed === true;
 
   const handleStartPreview = async () => {
-    if (loading) {
+    if (loading || !debugAllowed) {
       return;
     }
 
@@ -46,8 +52,13 @@ const PreviewSettingsModal = () => {
         size='sm'
         className='h-8 px-2 text-xs font-normal'
         onClick={handleStartPreview}
-        disabled={loading}
+        disabled={loading || !debugAllowed}
         loading={loading}
+        title={
+          debugAllowed
+            ? undefined
+            : t('module.preview.debugDisabledBySoftLimit')
+        }
       >
         {loading ? null : <MonitorPlay className='h-4 w-4 mr-[5px]' />}{' '}
         <span className='title'>{t('module.preview.previewAll')}</span>

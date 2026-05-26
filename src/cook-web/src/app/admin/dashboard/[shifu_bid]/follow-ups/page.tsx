@@ -2,11 +2,11 @@
 
 import { X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
@@ -14,14 +14,6 @@ import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/Breadcrumb';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import {
@@ -546,360 +538,359 @@ export default function AdminDashboardCourseFollowUpsPage() {
 
   return (
     <div className='h-full overflow-auto pr-1'>
-      <div className='space-y-5 pb-6'>
-        <div>
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link href='/admin/dashboard'>
-                    {t('module.dashboard.title')}
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link href={detailPageUrl || '/admin/dashboard'}>
-                    {t('module.dashboard.detail.title')}
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>
-                  {t('module.dashboard.detail.followUps.title')}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-
-        <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
-          {summaryCards.map(card => (
-            <Card
-              key={card.label}
-              className='border-border/80 shadow-sm'
-            >
-              <CardContent className='flex h-full flex-col p-4'>
-                <div className='text-sm font-medium text-muted-foreground'>
-                  {card.label}
-                </div>
-                {card.tone === 'timestamp' ? (
-                  <div className='mt-3 space-y-0.5 text-foreground'>
-                    {splitTimestampValue(card.value).map((part, index) => (
-                      <div
-                        key={`${card.label}-${part}-${index}`}
-                        className={cn(
-                          'break-all tracking-tight',
-                          index === 0 ? 'text-base font-medium' : 'text-sm',
-                        )}
-                      >
-                        {part}
-                      </div>
-                    ))}
+      <div className='pb-6'>
+        <AdminBreadcrumb
+          items={[
+            {
+              label: t('module.dashboard.title'),
+              href: '/admin/dashboard',
+            },
+            {
+              label: t('module.dashboard.detail.title'),
+              href: detailPageUrl || '/admin/dashboard',
+            },
+            { label: t('module.dashboard.detail.followUps.title') },
+          ]}
+        />
+        <div className='space-y-5'>
+          <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
+            {summaryCards.map(card => (
+              <Card
+                key={card.label}
+                className='border-border/80 shadow-sm'
+              >
+                <CardContent className='flex h-full flex-col p-4'>
+                  <div className='text-sm font-medium text-muted-foreground'>
+                    {card.label}
                   </div>
-                ) : (
-                  <div className='mt-3 text-xl font-semibold text-foreground'>
-                    {card.value}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  {card.tone === 'timestamp' ? (
+                    <div className='mt-3 space-y-0.5 text-foreground'>
+                      {splitTimestampValue(card.value).map((part, index) => (
+                        <div
+                          key={`${card.label}-${part}-${index}`}
+                          className={cn(
+                            'break-all tracking-tight',
+                            index === 0 ? 'text-base font-medium' : 'text-sm',
+                          )}
+                        >
+                          {part}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className='mt-3 text-xl font-semibold text-foreground'>
+                      {card.value}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-        <Card className='overflow-hidden border-border/80 shadow-sm'>
-          <CardHeader className='pb-3'>
-            <div className='flex items-center gap-3'>
-              <CardTitle className='text-base font-semibold tracking-normal'>
-                {t('module.dashboard.detail.followUps.table.title')}
-              </CardTitle>
-              <p className='text-xs leading-5 text-muted-foreground/85'>
-                {t('module.dashboard.detail.followUps.turnIndexHelp')}
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent className='space-y-5 pt-0'>
-            <form
-              className='rounded-xl border border-border bg-muted/20 p-3'
-              onSubmit={event => {
-                event.preventDefault();
-                handleSearch();
-              }}
-            >
-              <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
-                <div className='flex flex-col gap-2'>
-                  <label className='text-xs font-medium text-muted-foreground'>
-                    {t('module.dashboard.detail.followUps.filters.userKeyword')}
-                  </label>
-                  <ClearableTextInput
-                    value={filtersDraft.keyword}
-                    placeholder={userKeywordPlaceholder}
-                    clearLabel={clearLabel}
-                    onChange={value =>
-                      setFiltersDraft(previous => ({
-                        ...previous,
-                        keyword: value,
-                        userBid:
-                          previous.userBid &&
-                          value.trim() !== previous.keyword.trim()
-                            ? ''
-                            : previous.userBid,
-                      }))
-                    }
-                    onSubmit={handleSearch}
-                  />
+          <Card className='overflow-hidden border-border/80 shadow-sm'>
+            <CardHeader className='pb-3'>
+              <div className='flex items-center gap-3'>
+                <CardTitle className='text-base font-semibold tracking-normal'>
+                  {t('module.dashboard.detail.followUps.table.title')}
+                </CardTitle>
+                <p className='text-xs leading-5 text-muted-foreground/85'>
+                  {t('module.dashboard.detail.followUps.turnIndexHelp')}
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className='space-y-5 pt-0'>
+              <form
+                className='rounded-xl border border-border bg-muted/20 p-3'
+                onSubmit={event => {
+                  event.preventDefault();
+                  handleSearch();
+                }}
+              >
+                <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
+                  <div className='flex flex-col gap-2'>
+                    <label className='text-xs font-medium text-muted-foreground'>
+                      {t(
+                        'module.dashboard.detail.followUps.filters.userKeyword',
+                      )}
+                    </label>
+                    <ClearableTextInput
+                      value={filtersDraft.keyword}
+                      placeholder={userKeywordPlaceholder}
+                      clearLabel={clearLabel}
+                      onChange={value =>
+                        setFiltersDraft(previous => ({
+                          ...previous,
+                          keyword: value,
+                          userBid:
+                            previous.userBid &&
+                            value.trim() !== previous.keyword.trim()
+                              ? ''
+                              : previous.userBid,
+                        }))
+                      }
+                      onSubmit={handleSearch}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-2'>
+                    <label className='text-xs font-medium text-muted-foreground'>
+                      {outlineFilterLabel}
+                    </label>
+                    <ClearableTextInput
+                      value={filtersDraft.chapterKeyword}
+                      placeholder={outlineFilterPlaceholder}
+                      clearLabel={clearLabel}
+                      onChange={value =>
+                        setFiltersDraft(previous => ({
+                          ...previous,
+                          chapterKeyword: value,
+                        }))
+                      }
+                      onSubmit={handleSearch}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-2'>
+                    <label className='text-xs font-medium text-muted-foreground'>
+                      {t(
+                        'module.dashboard.detail.followUps.filters.followUpTime',
+                      )}
+                    </label>
+                    <AdminDateRangeFilter
+                      startValue={filtersDraft.startTime}
+                      endValue={filtersDraft.endTime}
+                      triggerAriaLabel={t(
+                        'module.dashboard.detail.followUps.filters.followUpTime',
+                      )}
+                      placeholder={t(
+                        'module.dashboard.detail.followUps.filters.timePlaceholder',
+                      )}
+                      resetLabel={t(
+                        'module.dashboard.detail.followUps.filters.reset',
+                      )}
+                      clearLabel={clearLabel}
+                      onChange={({ start, end }) =>
+                        setFiltersDraft(previous => ({
+                          ...previous,
+                          startTime: start,
+                          endTime: end,
+                        }))
+                      }
+                    />
+                  </div>
                 </div>
-                <div className='flex flex-col gap-2'>
-                  <label className='text-xs font-medium text-muted-foreground'>
-                    {outlineFilterLabel}
-                  </label>
-                  <ClearableTextInput
-                    value={filtersDraft.chapterKeyword}
-                    placeholder={outlineFilterPlaceholder}
-                    clearLabel={clearLabel}
-                    onChange={value =>
-                      setFiltersDraft(previous => ({
-                        ...previous,
-                        chapterKeyword: value,
-                      }))
-                    }
-                    onSubmit={handleSearch}
-                  />
-                </div>
-                <div className='flex flex-col gap-2'>
-                  <label className='text-xs font-medium text-muted-foreground'>
+
+                <div className='mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3 xl:items-end'>
+                  <div className='pl-3 text-sm text-muted-foreground xl:self-center'>
                     {t(
-                      'module.dashboard.detail.followUps.filters.followUpTime',
+                      'module.dashboard.detail.followUps.filters.resultCount',
+                      {
+                        count: followUps.total,
+                      },
                     )}
-                  </label>
-                  <AdminDateRangeFilter
-                    startValue={filtersDraft.startTime}
-                    endValue={filtersDraft.endTime}
-                    triggerAriaLabel={t(
-                      'module.dashboard.detail.followUps.filters.followUpTime',
-                    )}
-                    placeholder={t(
-                      'module.dashboard.detail.followUps.filters.timePlaceholder',
-                    )}
-                    resetLabel={t(
-                      'module.dashboard.detail.followUps.filters.reset',
-                    )}
-                    clearLabel={clearLabel}
-                    onChange={({ start, end }) =>
-                      setFiltersDraft(previous => ({
-                        ...previous,
-                        startTime: start,
-                        endTime: end,
-                      }))
-                    }
-                  />
+                  </div>
+                  <div className='hidden xl:block' />
+                  <div className='flex min-h-9 items-center justify-start gap-2 md:justify-end'>
+                    <Button
+                      type='button'
+                      size='sm'
+                      variant='outline'
+                      className='h-9 px-4'
+                      onClick={handleReset}
+                      disabled={loading}
+                    >
+                      {t('module.dashboard.detail.followUps.filters.reset')}
+                    </Button>
+                    <Button
+                      type='submit'
+                      size='sm'
+                      className='h-9 px-4'
+                      disabled={loading}
+                    >
+                      {t('module.dashboard.detail.followUps.filters.search')}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </form>
 
-              <div className='mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3 xl:items-end'>
-                <div className='pl-3 text-sm text-muted-foreground xl:self-center'>
-                  {t('module.dashboard.detail.followUps.filters.resultCount', {
-                    count: followUps.total,
-                  })}
-                </div>
-                <div className='hidden xl:block' />
-                <div className='flex min-h-9 items-center justify-start gap-2 md:justify-end'>
-                  <Button
-                    type='button'
-                    size='sm'
-                    variant='outline'
-                    className='h-9 px-4'
-                    onClick={handleReset}
-                    disabled={loading}
-                  >
-                    {t('module.dashboard.detail.followUps.filters.reset')}
-                  </Button>
-                  <Button
-                    type='submit'
-                    size='sm'
-                    className='h-9 px-4'
-                    disabled={loading}
-                  >
-                    {t('module.dashboard.detail.followUps.filters.search')}
-                  </Button>
-                </div>
-              </div>
-            </form>
-
-            {error ? (
-              <ErrorDisplay
-                errorCode={error.code || 0}
-                errorMessage={error.message}
-                onRetry={() => fetchFollowUps(pageIndex, filters)}
-              />
-            ) : (
-              <AdminTableShell
-                loading={loading}
-                isEmpty={rows.length === 0}
-                emptyContent={t(
-                  'module.dashboard.detail.followUps.table.empty',
-                )}
-                emptyColSpan={6}
-                withTooltipProvider
-                tableWrapperClassName='overflow-auto'
-                loadingClassName='min-h-[240px]'
-                table={emptyRow => (
-                  <Table className='table-auto'>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
-                          {t(
-                            'module.dashboard.detail.followUps.table.createdAt',
-                          )}
-                        </TableHead>
-                        <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
-                          {t('module.dashboard.detail.followUps.table.user')}
-                        </TableHead>
-                        <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
-                          {outlineColumnLabel}
-                        </TableHead>
-                        <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
-                          {t('module.dashboard.detail.followUps.table.content')}
-                        </TableHead>
-                        <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
-                          {t(
-                            'module.dashboard.detail.followUps.table.turnIndex',
-                          )}
-                        </TableHead>
-                        <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
-                          {t('module.dashboard.detail.followUps.table.action')}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {rows.length === 0
-                        ? emptyRow
-                        : rows.map(item => {
-                            const primaryAccount = resolvePrimaryAccount({
-                              mobile: item.mobile,
-                              email: item.email,
-                              userBid: item.user_bid,
-                              contactMode,
-                              emptyValue,
-                            });
-                            const secondaryAccount = resolveUserSecondary(item);
-                            const primaryLessonDisplay =
-                              resolvePrimaryLessonDisplay({
-                                lessonTitle: item.lesson_title,
-                                chapterTitle: item.chapter_title,
+              {error ? (
+                <ErrorDisplay
+                  errorCode={error.code || 0}
+                  errorMessage={error.message}
+                  onRetry={() => fetchFollowUps(pageIndex, filters)}
+                />
+              ) : (
+                <AdminTableShell
+                  loading={loading}
+                  isEmpty={rows.length === 0}
+                  emptyContent={t(
+                    'module.dashboard.detail.followUps.table.empty',
+                  )}
+                  emptyColSpan={6}
+                  withTooltipProvider
+                  tableWrapperClassName='overflow-auto'
+                  loadingClassName='min-h-[240px]'
+                  table={emptyRow => (
+                    <Table className='table-auto'>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
+                            {t(
+                              'module.dashboard.detail.followUps.table.createdAt',
+                            )}
+                          </TableHead>
+                          <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
+                            {t('module.dashboard.detail.followUps.table.user')}
+                          </TableHead>
+                          <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
+                            {outlineColumnLabel}
+                          </TableHead>
+                          <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
+                            {t(
+                              'module.dashboard.detail.followUps.table.content',
+                            )}
+                          </TableHead>
+                          <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
+                            {t(
+                              'module.dashboard.detail.followUps.table.turnIndex',
+                            )}
+                          </TableHead>
+                          <TableHead className='h-10 whitespace-nowrap bg-muted/80 text-xs text-left'>
+                            {t(
+                              'module.dashboard.detail.followUps.table.action',
+                            )}
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rows.length === 0
+                          ? emptyRow
+                          : rows.map(item => {
+                              const primaryAccount = resolvePrimaryAccount({
+                                mobile: item.mobile,
+                                email: item.email,
+                                userBid: item.user_bid,
+                                contactMode,
                                 emptyValue,
                               });
-                            const secondaryChapterDisplay =
-                              resolveSecondaryChapterDisplay({
-                                chapterTitle: item.chapter_title,
-                                lessonTitle: item.lesson_title,
-                              });
-                            const turnIndexLabel = item.turn_index
-                              ? t(
-                                  'module.dashboard.detail.followUps.turnIndex',
-                                  {
-                                    count: item.turn_index,
-                                  },
-                                )
-                              : emptyValue;
-                            return (
-                              <TableRow key={item.generated_block_bid}>
-                                <TableCell className='whitespace-nowrap py-3 align-middle text-sm text-foreground/80'>
-                                  <AdminTooltipText
-                                    text={item.created_at}
-                                    emptyValue={emptyValue}
-                                    className='block max-w-[180px]'
-                                  />
-                                </TableCell>
-                                <TableCell className='py-3 align-middle'>
-                                  <div className='flex flex-col gap-0.5 leading-tight'>
-                                    <div className='font-medium text-foreground'>
-                                      <AdminTooltipText
-                                        text={primaryAccount}
-                                        emptyValue={emptyValue}
-                                        className='block max-w-[180px] text-sm text-foreground'
-                                      />
-                                    </div>
-                                    {secondaryAccount ? (
-                                      <div className='text-xs text-muted-foreground'>
+                              const secondaryAccount =
+                                resolveUserSecondary(item);
+                              const primaryLessonDisplay =
+                                resolvePrimaryLessonDisplay({
+                                  lessonTitle: item.lesson_title,
+                                  chapterTitle: item.chapter_title,
+                                  emptyValue,
+                                });
+                              const secondaryChapterDisplay =
+                                resolveSecondaryChapterDisplay({
+                                  chapterTitle: item.chapter_title,
+                                  lessonTitle: item.lesson_title,
+                                });
+                              const turnIndexLabel = item.turn_index
+                                ? t(
+                                    'module.dashboard.detail.followUps.turnIndex',
+                                    {
+                                      count: item.turn_index,
+                                    },
+                                  )
+                                : emptyValue;
+                              return (
+                                <TableRow key={item.generated_block_bid}>
+                                  <TableCell className='whitespace-nowrap py-3 align-middle text-sm text-foreground/80'>
+                                    <AdminTooltipText
+                                      text={item.created_at}
+                                      emptyValue={emptyValue}
+                                      className='block max-w-[180px]'
+                                    />
+                                  </TableCell>
+                                  <TableCell className='py-3 align-middle'>
+                                    <div className='flex flex-col gap-0.5 leading-tight'>
+                                      <div className='font-medium text-foreground'>
                                         <AdminTooltipText
-                                          text={secondaryAccount}
+                                          text={primaryAccount}
                                           emptyValue={emptyValue}
-                                          className='block max-w-[180px] text-xs text-muted-foreground'
+                                          className='block max-w-[180px] text-sm text-foreground'
                                         />
                                       </div>
-                                    ) : null}
-                                  </div>
-                                </TableCell>
-                                <TableCell className='py-3 align-top'>
-                                  <div className='flex flex-col gap-0.5 leading-tight'>
-                                    <div className='font-medium text-foreground'>
+                                      {secondaryAccount ? (
+                                        <div className='text-xs text-muted-foreground'>
+                                          <AdminTooltipText
+                                            text={secondaryAccount}
+                                            emptyValue={emptyValue}
+                                            className='block max-w-[180px] text-xs text-muted-foreground'
+                                          />
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className='py-3 align-top'>
+                                    <div className='flex flex-col gap-0.5 leading-tight'>
+                                      <div className='font-medium text-foreground'>
+                                        <AdminTooltipText
+                                          text={primaryLessonDisplay}
+                                          emptyValue={emptyValue}
+                                          className='block max-w-[220px] text-sm text-foreground'
+                                        />
+                                      </div>
+                                      {secondaryChapterDisplay ? (
+                                        <AdminTooltipText
+                                          text={secondaryChapterDisplay}
+                                          emptyValue={emptyValue}
+                                          className='block max-w-[220px] text-xs text-muted-foreground'
+                                        />
+                                      ) : null}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className='py-3 align-top'>
+                                    <div className='py-1.5'>
                                       <AdminTooltipText
-                                        text={primaryLessonDisplay}
+                                        text={item.follow_up_content}
                                         emptyValue={emptyValue}
-                                        className='block max-w-[220px] text-sm text-foreground'
+                                        className='block max-w-[320px] text-sm font-medium text-foreground'
                                       />
                                     </div>
-                                    {secondaryChapterDisplay ? (
-                                      <AdminTooltipText
-                                        text={secondaryChapterDisplay}
-                                        emptyValue={emptyValue}
-                                        className='block max-w-[220px] text-xs text-muted-foreground'
-                                      />
-                                    ) : null}
-                                  </div>
-                                </TableCell>
-                                <TableCell className='py-3 align-top'>
-                                  <div className='py-1.5'>
-                                    <AdminTooltipText
-                                      text={item.follow_up_content}
-                                      emptyValue={emptyValue}
-                                      className='block max-w-[320px] text-sm font-medium text-foreground'
-                                    />
-                                  </div>
-                                </TableCell>
-                                <TableCell className='whitespace-nowrap py-3 align-top text-sm text-foreground'>
-                                  {turnIndexLabel}
-                                </TableCell>
-                                <TableCell className='py-3 align-top'>
-                                  <Button
-                                    type='button'
-                                    variant='link'
-                                    className='h-auto px-0 py-0 text-left text-sm'
-                                    onClick={() =>
-                                      handleOpenDetail(item.generated_block_bid)
-                                    }
-                                  >
-                                    {t(
-                                      'module.dashboard.detail.followUps.table.detailAction',
-                                    )}
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                    </TableBody>
-                  </Table>
-                )}
-                footer={
-                  <AdminPagination
-                    pageIndex={currentPage}
-                    pageCount={pageCount}
-                    onPageChange={handlePageChange}
-                    prevLabel={t('module.dashboard.pagination.prev')}
-                    nextLabel={t('module.dashboard.pagination.next')}
-                    prevAriaLabel={t('module.dashboard.pagination.prev')}
-                    nextAriaLabel={t('module.dashboard.pagination.next')}
-                    className='mx-0 w-auto justify-end'
-                    hideWhenSinglePage
-                  />
-                }
-              />
-            )}
-          </CardContent>
-        </Card>
+                                  </TableCell>
+                                  <TableCell className='whitespace-nowrap py-3 align-top text-sm text-foreground'>
+                                    {turnIndexLabel}
+                                  </TableCell>
+                                  <TableCell className='py-3 align-top'>
+                                    <Button
+                                      type='button'
+                                      variant='link'
+                                      className='h-auto px-0 py-0 text-left text-sm'
+                                      onClick={() =>
+                                        handleOpenDetail(
+                                          item.generated_block_bid,
+                                        )
+                                      }
+                                    >
+                                      {t(
+                                        'module.dashboard.detail.followUps.table.detailAction',
+                                      )}
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                      </TableBody>
+                    </Table>
+                  )}
+                  footer={
+                    <AdminPagination
+                      pageIndex={currentPage}
+                      pageCount={pageCount}
+                      onPageChange={handlePageChange}
+                      prevLabel={t('module.dashboard.pagination.prev')}
+                      nextLabel={t('module.dashboard.pagination.next')}
+                      prevAriaLabel={t('module.dashboard.pagination.prev')}
+                      nextAriaLabel={t('module.dashboard.pagination.next')}
+                      className='mx-0 w-auto justify-end'
+                      hideWhenSinglePage
+                    />
+                  }
+                />
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <FollowUpDetailSheet

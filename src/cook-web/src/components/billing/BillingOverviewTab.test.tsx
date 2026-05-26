@@ -421,8 +421,10 @@ describe('BillingOverviewTab', () => {
     );
 
     expect(
-      screen.getByText('module.billing.package.title'),
-    ).toBeInTheDocument();
+      screen.queryByRole('heading', {
+        name: 'module.billing.package.title',
+      }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('tab', {
         name: 'module.billing.package.intervalTabs.plans',

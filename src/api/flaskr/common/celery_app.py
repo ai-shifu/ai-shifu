@@ -14,6 +14,7 @@ _DEFAULT_BROKER_URL = "redis://localhost:6379/0"
 _DEFAULT_BILLING_RENEWAL_CRON = "* * * * *"
 _DEFAULT_BILLING_BUCKET_EXPIRE_CRON = "* * * * *"
 _DEFAULT_BILLING_LOW_BALANCE_CRON = "0 * * * *"
+_DEFAULT_BILLING_CREDIT_EXPIRING_CRON = "0 * * * *"
 _DEFAULT_BILLING_DAILY_LEDGER_SUMMARY_CRON = "30 1 * * *"
 
 __CELERY_APP__: Celery | None = None
@@ -53,14 +54,17 @@ def get_celery_app(flask_app: Flask | None = None) -> Celery:
 
 
 def _build_celery_config(flask_app: Flask) -> dict[str, Any]:
+    default_broker_url = "memory://" if flask_app.testing else _DEFAULT_BROKER_URL
+    default_result_backend = "cache+memory://" if flask_app.testing else None
     broker_url = (
         flask_app.config.get("CELERY_BROKER_URL")
         or os.getenv("CELERY_BROKER_URL")
-        or _DEFAULT_BROKER_URL
+        or default_broker_url
     )
     result_backend = (
         flask_app.config.get("CELERY_RESULT_BACKEND")
         or os.getenv("CELERY_RESULT_BACKEND")
+        or default_result_backend
         or broker_url
     )
     task_always_eager = _to_bool(
@@ -105,6 +109,14 @@ def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, Any]:
                 flask_app,
                 "BILLING_LOW_BALANCE_CRON",
                 _DEFAULT_BILLING_LOW_BALANCE_CRON,
+            ),
+        },
+        "billing.scan_credit_expiring_notifications.schedule": {
+            "task": "billing.scan_credit_expiring_notifications",
+            "schedule": _resolve_billing_crontab(
+                flask_app,
+                "BILLING_CREDIT_EXPIRING_CRON",
+                _DEFAULT_BILLING_CREDIT_EXPIRING_CRON,
             ),
         },
         "billing.finalize_daily_ledger_summary.schedule": {

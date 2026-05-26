@@ -166,8 +166,10 @@
       "orders": "总订单数"
     },
     "table": {
+      "action": "操作",
       "course": "课程",
       "empty": "暂无课程",
+      "footnote": "课程数：{count}（统计范围说明：仅统计您本人创建并拥有的课程数据；协作课程的数据不包含在内。）",
       "lastActive": "最近活跃",
       "learners": "学员数",
       "orderAmount": "订单金额",
@@ -177,7 +179,9 @@
       "search": "查询",
       "searchPlaceholder": "搜索课程名称 / 课程ID",
       "title": "课程列表",
-      "totalCount": "共 {count}"
+      "totalCount": "共 {count}",
+      "viewCourse": "查看课程",
+      "viewOrders": "查看订单"
     }
   },
   "filters": {

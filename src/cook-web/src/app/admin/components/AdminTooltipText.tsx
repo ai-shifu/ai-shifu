@@ -15,6 +15,7 @@ type AdminTooltipTextProps = {
   className?: string;
   emptyValue: string;
   alwaysShowTooltip?: boolean;
+  forceTooltip?: boolean;
 };
 
 export default function AdminTooltipText({
@@ -23,6 +24,7 @@ export default function AdminTooltipText({
   className,
   emptyValue,
   alwaysShowTooltip = false,
+  forceTooltip = false,
 }: AdminTooltipTextProps) {
   const triggerRef = useRef<HTMLSpanElement | null>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -85,7 +87,11 @@ export default function AdminTooltipText({
     </span>
   );
 
-  if (!alwaysShowTooltip && !isOverflowing) {
+  const shouldShowTooltip =
+    isOverflowing ||
+    ((alwaysShowTooltip || forceTooltip) && trimmedText.length > 0);
+
+  if (!shouldShowTooltip) {
     return content;
   }
 

@@ -71,6 +71,7 @@ import { useEnvStore } from '@/c-store';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import { useShifu, useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { useBillingOverview } from '@/hooks/useBillingData';
 import {
   AskProviderSchemaValidationError,
   buildAskProviderConfigForSubmit as buildAskProviderConfigBySchema,
@@ -145,6 +146,10 @@ export default function ShifuSettingDialog({
   const { toast } = useToast();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
   const currencySymbol = useEnvStore(state => state.currencySymbol);
+  const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
+  const { data: billingOverview } = useBillingOverview();
+  const debugAllowed =
+    !billingEnabled || billingOverview?.debug_allowed === true;
   const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
   const resolvedDefaultModel =
     models.find(option => option.value === defaultLlmModel)?.label ||
@@ -1013,6 +1018,13 @@ export default function ShifuSettingDialog({
       stopTtsPreview();
       return;
     }
+    if (!debugAllowed) {
+      toast({
+        title: t('module.shifuSetting.debugDisabledBySoftLimit'),
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const sessionId = ttsPreviewSessionRef.current + 1;
     ttsPreviewSessionRef.current = sessionId;
@@ -1122,6 +1134,9 @@ export default function ShifuSettingDialog({
     playPreviewSegment,
     requestExclusive,
     stopTtsPreview,
+    debugAllowed,
+    t,
+    toast,
   ]);
 
   // Cleanup TTS preview audio on unmount
@@ -1227,6 +1242,13 @@ export default function ShifuSettingDialog({
     if (currentShifu?.readonly || askPreviewLoading) {
       return;
     }
+    if (!debugAllowed) {
+      toast({
+        title: t('module.shifuSetting.debugDisabledBySoftLimit'),
+        variant: 'destructive',
+      });
+      return;
+    }
     const query = askPreviewQuery.trim();
     if (!query) {
       toast({
@@ -1300,6 +1322,7 @@ export default function ShifuSettingDialog({
     askTemperatureInput,
     buildAskProviderConfigForSubmit,
     currentShifu?.readonly,
+    debugAllowed,
     normalizeAskTemperature,
     resolvedAskProvider,
     t,
@@ -1655,7 +1678,7 @@ export default function ShifuSettingDialog({
                 />
 
                 <AskSettingsSection
-                  readonly={currentShifu?.readonly}
+                  readonly={currentShifu?.readonly || !debugAllowed}
                   askProviderOptions={askProviderOptions}
                   resolvedAskProvider={resolvedAskProvider}
                   askProviderLlmValue={ASK_PROVIDER_LLM}
@@ -2043,8 +2066,15 @@ export default function ShifuSettingDialog({
                           type='button'
                           variant='outline'
                           onClick={handleTtsPreview}
-                          disabled={ttsPreviewLoading}
+                          disabled={ttsPreviewLoading || !debugAllowed}
                           className='w-full'
+                          title={
+                            debugAllowed
+                              ? undefined
+                              : t(
+                                  'module.shifuSetting.debugDisabledBySoftLimit',
+                                )
+                          }
                         >
                           {ttsPreviewLoading ? (
                             <>

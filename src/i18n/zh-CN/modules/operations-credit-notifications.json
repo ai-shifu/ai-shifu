@@ -1,0 +1,153 @@
+{
+  "__namespace__": "module.operationsCreditNotifications",
+  "actions": {
+    "applyConfig": "保存配置",
+    "dryRun": "Dry-run",
+    "refresh": "刷新",
+    "requeue": "重发",
+    "reset": "重置",
+    "search": "搜索",
+    "syncTemplate": "查询模板",
+    "syncingTemplate": "查询中"
+  },
+  "config": {
+    "description": "通过表单维护通知开关、模板、阈值、频控和名单。供应商密钥仍来自环境变量或 Secret，不在这里配置。",
+    "fields": {
+      "blacklistCreatorBids": "黑名单 Creator BID",
+      "blacklistMobiles": "黑名单手机号",
+      "dailySmsLimit": "每日短信预算",
+      "disableDebug": "禁用调试",
+      "dryRunRequired": "要求 Dry-run",
+      "enabled": "启用积分短信通知",
+      "estimatedDays": "触发可用天数",
+      "estimatedDaysEnabled": "按可用天数提醒",
+      "fallbackFixedValue": "数据不足兜底阈值",
+      "lookbackDays": "日消耗回看天数",
+      "mergeSameCreator": "同一创作者合并",
+      "minConsumedDays": "最少有效消耗天数",
+      "optOutCreatorBids": "退订 Creator BID",
+      "optOutMobiles": "退订手机号",
+      "perCreatorPerTypePerDay": "每创作者/类型每日上限",
+      "perMobilePerDay": "每手机号每日上限",
+      "quietEnd": "免打扰结束",
+      "quietHoursEnabled": "启用免打扰",
+      "quietStart": "免打扰开始",
+      "smsUnitCost": "短信单价",
+      "softlimitEnabled": "启用 softlimit",
+      "softlimitSms": "softlimit 短信提醒",
+      "softlimitThreshold": "softlimit 阈值",
+      "teacherPageAlert": "老师端页面提醒",
+      "templateCode": "短信模板 Code",
+      "thresholds": "余额阈值",
+      "timezone": "时区",
+      "windows": "到期提醒窗口"
+    },
+    "invalidConfig": "配置保存失败，请检查表单内容。",
+    "loadFailed": "通知策略读取失败，请刷新后重试。",
+    "loadRequired": "通知策略尚未成功读取，不能保存配置。",
+    "placeholders": {
+      "available": "可用占位符",
+      "available_credits": "当前可用积分",
+      "avg_daily_consumption": "平均日消耗",
+      "credits": "积分数",
+      "estimated_remaining_days": "预计剩余可用天数",
+      "expires_at": "过期时间",
+      "groups": {
+        "creditExpiring": "到期提醒变量",
+        "creditGranted": "发放提醒变量",
+        "lowBalanceEstimated": "按可用天数变量",
+        "lowBalanceFixed": "固定余额/兜底变量"
+      },
+      "lookback_days": "日消耗回看天数",
+      "notes": {
+        "emptyVariables": "同一通知类型下，不同触发路径没有值的变量会以空字符串发送。",
+        "estimatedLowBalance": "按可用天数提醒会根据日均消耗估算剩余天数；固定余额阈值变量为空。",
+        "expiresAtOptional": "如果发放积分没有过期时间，过期时间变量会为空。",
+        "fallbackLowBalance": "当日消耗数据不足且配置兜底阈值时，会退回固定余额路径；固定余额变量有值，按天数估算变量为空。",
+        "fixedLowBalance": "固定余额阈值触发时只有余额、阈值和阈值类型有值。",
+        "unsupportedValidation": "模板使用系统不支持的变量时，查询模板或启用保存会拦截。",
+        "windowSource": "提醒窗口变量来自到期提醒窗口配置，例如 7d、3d、1d、0d。"
+      },
+      "source": "发放来源",
+      "threshold": "固定余额阈值",
+      "threshold_kind": "阈值类型",
+      "tolerance": "短信模板可只使用部分占位符；系统不会因模板少用变量而拦截保存或发送。",
+      "trigger_days": "触发可用天数",
+      "window": "提醒窗口"
+    },
+    "saved": "配置已保存。",
+    "sections": {
+      "budget": "预算",
+      "frequency": "频控",
+      "lists": "黑名单与退订",
+      "quietHours": "免打扰",
+      "softlimit": "Softlimit",
+      "types": "通知类型"
+    },
+    "templateSync": {
+      "compatible": "模板变量可用",
+      "content": "模板内容",
+      "error": "同步错误",
+      "incompatible": "模板含不支持变量",
+      "status": "审核状态",
+      "syncFailed": "模板查询失败，请稍后重试。",
+      "templateCodeRequired": "请先填写短信模板 Code。",
+      "unsupported": "不支持的模板变量",
+      "unused": "未使用的系统变量",
+      "variables": "模板实际变量"
+    },
+    "title": "运营策略配置"
+  },
+  "dryRun": {
+    "candidateCount": "预计命中 {count} 条",
+    "empty": "暂无 dry-run 结果。",
+    "title": "Dry-run 结果"
+  },
+  "empty": "暂无积分通知记录。",
+  "filters": {
+    "all": "全部",
+    "creatorBid": "Creator BID",
+    "mobile": "手机号",
+    "notificationType": "通知类型",
+    "sourceBid": "来源 ID",
+    "status": "状态"
+  },
+  "loadError": "积分通知数据读取失败，请刷新后重试。",
+  "messages": {
+    "requeueDone": "已提交重发任务。",
+    "requeueFailed": "重发任务提交失败。"
+  },
+  "records": {
+    "totalCount": "共 {count} 条通知记录"
+  },
+  "status": {
+    "failed_provider": "供应商失败",
+    "pending": "待发送",
+    "sent": "已发送",
+    "skipped_no_mobile": "无手机号",
+    "skipped_opt_out": "已跳过",
+    "suppressed_duplicate": "重复抑制"
+  },
+  "subtitle": "查看积分到账、到期和低余额提醒的投递状态，并配置短信策略。",
+  "table": {
+    "action": "操作",
+    "createdAt": "创建时间",
+    "creator": "创作者",
+    "dedupeKey": "幂等键",
+    "error": "错误",
+    "notification": "通知",
+    "source": "来源",
+    "template": "模板",
+    "templateParams": "参数快照"
+  },
+  "tabs": {
+    "config": "策略配置",
+    "records": "通知记录"
+  },
+  "title": "积分通知",
+  "type": {
+    "credit_expiring": "积分到期",
+    "credit_granted": "积分到账",
+    "low_balance": "余额提醒"
+  }
+}

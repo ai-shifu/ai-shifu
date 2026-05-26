@@ -14,6 +14,10 @@ from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.uuid import generate_id
 
+from .credit_notifications import (
+    enqueue_credit_notification,
+    stage_credit_granted_notification_for_order,
+)
 from .consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -212,7 +216,20 @@ def grant_manual_plan_to_user(
             )
             now = datetime.now()
             if existing_order is not None:
-                grant_paid_order_credits(app, existing_order)
+                granted = grant_paid_order_credits(app, existing_order)
+                notification_bid = ""
+                if granted:
+                    grant_notification = stage_credit_granted_notification_for_order(
+                        app,
+                        creator_bid=existing_order.creator_bid,
+                        bill_order_bid=existing_order.bill_order_bid,
+                        commit=False,
+                        enqueue=False,
+                    )
+                    if grant_notification.get("status") == "pending":
+                        notification_bid = str(
+                            grant_notification.get("notification_bid") or ""
+                        ).strip()
                 notification_status = _ensure_notification_extension_metadata(
                     existing_order,
                     requested_at=now,
@@ -221,6 +238,8 @@ def grant_manual_plan_to_user(
                 )
                 db.session.add(existing_order)
                 db.session.commit()
+                if notification_bid:
+                    enqueue_credit_notification(app, notification_bid=notification_bid)
                 subscription = (
                     BillingSubscription.query.filter(
                         BillingSubscription.deleted == 0,
@@ -371,9 +390,24 @@ def grant_manual_plan_to_user(
             db.session.add(order)
             db.session.flush()
 
-            grant_paid_order_credits(app, order)
+            granted = grant_paid_order_credits(app, order)
+            notification_bid = ""
+            if granted:
+                grant_notification = stage_credit_granted_notification_for_order(
+                    app,
+                    creator_bid=order.creator_bid,
+                    bill_order_bid=order.bill_order_bid,
+                    commit=False,
+                    enqueue=False,
+                )
+                if grant_notification.get("status") == "pending":
+                    notification_bid = str(
+                        grant_notification.get("notification_bid") or ""
+                    ).strip()
 
             db.session.commit()
+            if notification_bid:
+                enqueue_credit_notification(app, notification_bid=notification_bid)
             return ManualPlanGrantResult(
                 user_bid=normalized_user_bid,
                 product_bid=product.product_bid,

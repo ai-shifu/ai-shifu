@@ -6,6 +6,7 @@
     "adminPlanGrantRoleUnsupported": "当前用户身份不支持发放积分或套餐",
     "creditInsufficient": "积分余额不足，暂时无法继续调用，请先充值或开通订阅",
     "customDomainDisabled": "当前创作者未开通自定义域名权益",
+    "debugDisabledBySoftLimit": "积分余额已低于提醒阈值，暂时不能继续调试，请先充值或开通订阅",
     "disabled": "积分计费功能当前未启用",
     "domainBindingNotFound": "未找到对应的自定义域名绑定记录",
     "domainHostConflict": "该自定义域名已被其他创作者绑定",

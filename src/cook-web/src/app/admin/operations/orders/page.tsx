@@ -4,6 +4,8 @@ import React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import Loading from '@/components/loading';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import useOperatorGuard from '../useOperatorGuard';
 import {
@@ -61,33 +63,35 @@ export default function AdminOperationOrdersPage() {
   }
 
   return (
-    <div className='flex h-full flex-col gap-5 p-0'>
-      <div>
-        <h1 className='text-2xl font-semibold text-gray-900'>{t('title')}</h1>
-      </div>
-
+    <div className='flex h-full flex-col p-0'>
+      <AdminBreadcrumb items={[{ label: t('title') }]} />
       <Tabs
         value={activeTab}
-        className='flex h-full flex-col gap-5'
+        className='flex h-full flex-col'
         onValueChange={value => updateTab(value as OperationOrdersTab)}
       >
-        <TabsList
-          className={ORDER_TABS_LIST_CLASSNAME}
-          data-testid='admin-operation-orders-tabs'
-        >
-          <TabsTrigger
-            value='learn'
-            className={ORDER_TABS_TRIGGER_CLASSNAME}
-          >
-            {t('tabs.learn')}
-          </TabsTrigger>
-          <TabsTrigger
-            value='credits'
-            className={ORDER_TABS_TRIGGER_CLASSNAME}
-          >
-            {t('tabs.credits')}
-          </TabsTrigger>
-        </TabsList>
+        <AdminTitle
+          title={t('title')}
+          tabs={
+            <TabsList
+              className={ORDER_TABS_LIST_CLASSNAME}
+              data-testid='admin-operation-orders-tabs'
+            >
+              <TabsTrigger
+                value='learn'
+                className={ORDER_TABS_TRIGGER_CLASSNAME}
+              >
+                {t('tabs.learn')}
+              </TabsTrigger>
+              <TabsTrigger
+                value='credits'
+                className={ORDER_TABS_TRIGGER_CLASSNAME}
+              >
+                {t('tabs.credits')}
+              </TabsTrigger>
+            </TabsList>
+          }
+        />
 
         <div className='min-h-0 flex-1'>
           {activeTab === 'learn' ? <LearnOrdersTab /> : <CreditOrdersTab />}

@@ -44,6 +44,7 @@ from .bucket_categories import (
     build_wallet_bucket_runtime_sort_key,
     load_billing_order_type_by_bid,
 )
+from .credit_notifications import resolve_creator_limit_state
 from .domains import build_creator_domain_bindings, manage_creator_domain_binding
 from .dtos import (
     AdminBillingDailyLedgerSummaryPageDTO,
@@ -593,12 +594,19 @@ def build_billing_overview(
         subscription_payload = _serialize_subscription(
             app, subscription, timezone_name=timezone_name
         )
+        limit_state = resolve_creator_limit_state(app, normalized_creator_bid)
+        softlimit_threshold = limit_state.get("softlimit_threshold")
         return BillingOverviewDTO(
             creator_bid=normalized_creator_bid,
             wallet=wallet_payload,
             subscription=subscription_payload,
             billing_alerts=_build_billing_alerts(wallet_payload, subscription),
             trial_offer=trial_offer,
+            credit_status=str(limit_state.get("state") or "normal"),
+            debug_allowed=bool(limit_state.get("debug_allowed", True)),
+            softlimit_threshold=(
+                str(softlimit_threshold) if softlimit_threshold is not None else None
+            ),
         )
 
 

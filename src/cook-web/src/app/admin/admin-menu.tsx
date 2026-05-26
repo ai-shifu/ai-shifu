@@ -71,6 +71,11 @@ export const buildAdminMenuItems = ({
           label: t('common.core.promotionManagement'),
           href: '/admin/operations/promotions',
         },
+        {
+          id: 'operations-credit-notification',
+          label: t('common.core.creditNotificationManagement'),
+          href: '/admin/operations/credit-notifications',
+        },
       ],
     });
   }

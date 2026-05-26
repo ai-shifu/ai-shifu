@@ -166,8 +166,10 @@
       "orders": "Total Orders"
     },
     "table": {
+      "action": "Actions",
       "course": "Course",
       "empty": "No courses",
+      "footnote": "Courses: {count} (Scope: Only data from courses you created and own is included. Collaborative courses are excluded.)",
       "lastActive": "Last active",
       "learners": "Learners",
       "orderAmount": "Order Amount",
@@ -177,7 +179,9 @@
       "search": "Search",
       "searchPlaceholder": "Search by course name / course id",
       "title": "Course List",
-      "totalCount": "Total: {count}"
+      "totalCount": "Total: {count}",
+      "viewCourse": "View Course",
+      "viewOrders": "View Orders"
     }
   },
   "filters": {
