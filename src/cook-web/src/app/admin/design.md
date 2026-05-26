@@ -37,7 +37,10 @@
 ```tsx
 <div className='flex h-full flex-col'>
   <AdminBreadcrumb items={[{ label: pageTitle }]} />
-  <AdminTitle title={pageTitle} actions={actions} />
+  <AdminTitle
+    title={pageTitle}
+    actions={actions}
+  />
   {filters}
   {summaryCards}
   {table}
@@ -49,12 +52,12 @@
 ```tsx
 <div className='flex h-full flex-col'>
   <AdminBreadcrumb
-    items={[
-      { label: parentTitle, href: parentHref },
-      { label: currentTitle },
-    ]}
+    items={[{ label: parentTitle, href: parentHref }, { label: currentTitle }]}
   />
-  <AdminTitle title={currentTitle} actions={actions} />
+  <AdminTitle
+    title={currentTitle}
+    actions={actions}
+  />
   {summaryCards}
   {detailSections}
 </div>
@@ -352,13 +355,13 @@ src/app/admin/components/AdminPagination.tsx
 表头使用：
 
 ```tsx
-getAdminStickyRightHeaderClass()
+getAdminStickyRightHeaderClass();
 ```
 
 单元格使用：
 
 ```tsx
-getAdminStickyRightCellClass()
+getAdminStickyRightCellClass();
 ```
 
 规则：

@@ -17,7 +17,8 @@ export const ADMIN_TABLE_HEADER_CELL_CLASS = cn(
   ADMIN_TABLE_HEADER_BASE_CLASS,
 );
 
-export const ADMIN_TABLE_HEADER_CELL_CENTER_CLASS = ADMIN_TABLE_HEADER_CELL_CLASS;
+export const ADMIN_TABLE_HEADER_CELL_CENTER_CLASS =
+  ADMIN_TABLE_HEADER_CELL_CLASS;
 
 export const ADMIN_TABLE_HEADER_LAST_CELL_CLASS = cn(
   'relative sticky top-0 z-30',
@@ -30,8 +31,7 @@ export const ADMIN_TABLE_HEADER_LAST_CELL_CENTER_CLASS =
 export const ADMIN_TABLE_RESIZE_HANDLE_CLASS =
   'absolute top-0 right-0 h-full w-2 cursor-col-resize select-none';
 
-const ADMIN_TABLE_STICKY_RIGHT_SHADOW_CLASS =
-  'shadow-none before:content-none';
+const ADMIN_TABLE_STICKY_RIGHT_SHADOW_CLASS = 'shadow-none before:content-none';
 
 export const getAdminStickyRightHeaderClass = (className?: string) =>
   cn(

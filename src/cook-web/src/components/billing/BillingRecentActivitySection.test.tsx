@@ -366,9 +366,9 @@ describe('BillingRecentActivitySection', () => {
     const skeletonRows = screen.getAllByTestId('billing-usage-skeleton-row');
     expect(skeletonRows).toHaveLength(10);
     expect(skeletonRows[0]).toHaveClass('hover:!bg-transparent');
-    expect(
-      skeletonRows[0].querySelector('td:last-child > div'),
-    ).toHaveClass('ml-auto');
+    expect(skeletonRows[0].querySelector('td:last-child > div')).toHaveClass(
+      'ml-auto',
+    );
 
     await act(async () => {
       resolveSecondPage?.({

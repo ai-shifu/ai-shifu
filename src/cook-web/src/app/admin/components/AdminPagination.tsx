@@ -6,9 +6,7 @@ import {
 } from '@/components/pagination/AppPagination';
 import { cn } from '@/lib/utils';
 
-export type {
-  AppPaginationProps as AdminPaginationProps,
-} from '@/components/pagination/AppPagination';
+export type { AppPaginationProps as AdminPaginationProps } from '@/components/pagination/AppPagination';
 
 const ADMIN_PAGINATION_CLASS = '[&_li:last-child_a]:pr-0';
 
