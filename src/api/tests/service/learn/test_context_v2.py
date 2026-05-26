@@ -1860,11 +1860,7 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
     def test_missing_document_hash_clears_entries(self):
         store, cache, doc = _make_preview_store()
         store.save(
-            {
-                "entries": [
-                    {"block_index": 1, "user": "stale", "assistant": "stale"}
-                ]
-            }
+            {"entries": [{"block_index": 1, "user": "stale", "assistant": "stale"}]}
         )
         self.assertEqual(store.get_context(doc, 3), [])
         self.assertEqual(cache.store, {})
@@ -1874,9 +1870,7 @@ class PreviewContextStoreTruncationTests(unittest.TestCase):
         store.save(
             {
                 "document_hash": "",
-                "entries": [
-                    {"block_index": 1, "user": "stale", "assistant": "stale"}
-                ],
+                "entries": [{"block_index": 1, "user": "stale", "assistant": "stale"}],
             }
         )
         self.assertEqual(store.get_context(doc, 3), [])
