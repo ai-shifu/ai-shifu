@@ -32,7 +32,7 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.util.timezone import format_with_app_timezone
+from flaskr.util.timezone import format_with_app_timezone, serialize_with_app_timezone
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -712,6 +712,13 @@ def _serialize_template_option(
         ),
         "source": source,
     }
+
+
+def _format_operator_datetime(app: Flask, value: datetime | None) -> str:
+    if not value:
+        return ""
+    serialized_value = serialize_with_app_timezone(app, value, tz_name="UTC")
+    return str(serialized_value or "").replace("+00:00", "Z")
 
 
 def _load_notification_template(template_code: str) -> NotificationTemplate | None:
@@ -2991,6 +2998,7 @@ def list_credit_notifications(
             }
         items = [
             _serialize_notification_record_summary(
+                app,
                 row,
                 creator_nickname=creator_nickname_map.get(
                     str(row.creator_bid or "").strip(), ""
@@ -3046,6 +3054,7 @@ def get_credit_notification_detail(
         if template is not None:
             template_name = str(template.template_name or "").strip()
         return _serialize_notification_record(
+            app,
             row,
             creator_nickname=creator_nickname,
             template_name=template_name,
@@ -3057,6 +3066,7 @@ def math_ceil(total: int, page_size: int) -> int:
 
 
 def _serialize_notification_record_summary(
+    app: Flask,
     row: NotificationRecord,
     *,
     creator_nickname: str = "",
@@ -3077,15 +3087,16 @@ def _serialize_notification_record_summary(
         "template_name": template_name,
         "error_code": row.error_code,
         "error_message": row.error_message,
-        "requested_at": row.requested_at.isoformat() if row.requested_at else "",
-        "attempted_at": row.attempted_at.isoformat() if row.attempted_at else "",
-        "sent_at": row.sent_at.isoformat() if row.sent_at else "",
-        "created_at": row.created_at.isoformat() if row.created_at else "",
-        "updated_at": row.updated_at.isoformat() if row.updated_at else "",
+        "requested_at": _format_operator_datetime(app, row.requested_at),
+        "attempted_at": _format_operator_datetime(app, row.attempted_at),
+        "sent_at": _format_operator_datetime(app, row.sent_at),
+        "created_at": _format_operator_datetime(app, row.created_at),
+        "updated_at": _format_operator_datetime(app, row.updated_at),
     }
 
 
 def _serialize_notification_record(
+    app: Flask,
     row: NotificationRecord,
     *,
     creator_nickname: str = "",
@@ -3110,11 +3121,11 @@ def _serialize_notification_record(
         "provider_response": row.provider_response_json or {},
         "error_code": row.error_code,
         "error_message": row.error_message,
-        "requested_at": row.requested_at.isoformat() if row.requested_at else "",
-        "attempted_at": row.attempted_at.isoformat() if row.attempted_at else "",
-        "sent_at": row.sent_at.isoformat() if row.sent_at else "",
-        "created_at": row.created_at.isoformat() if row.created_at else "",
-        "updated_at": row.updated_at.isoformat() if row.updated_at else "",
+        "requested_at": _format_operator_datetime(app, row.requested_at),
+        "attempted_at": _format_operator_datetime(app, row.attempted_at),
+        "sent_at": _format_operator_datetime(app, row.sent_at),
+        "created_at": _format_operator_datetime(app, row.created_at),
+        "updated_at": _format_operator_datetime(app, row.updated_at),
         "metadata": row.metadata_json or {},
     }
 

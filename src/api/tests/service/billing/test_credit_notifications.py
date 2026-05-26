@@ -1206,6 +1206,8 @@ def test_credit_notification_list_omits_detail_payloads(
     assert item["notification_bid"] == "notification-list-summary"
     assert item["creator_nickname"] == "Creator"
     assert item["template_name"] == "Template TPL-LOW"
+    assert item["created_at"] == "2026-05-21T08:00:00Z"
+    assert item["updated_at"] == "2026-05-21T08:00:00Z"
     assert "template_params" not in item
     assert "policy_snapshot" not in item
     assert "provider_response" not in item
@@ -1258,6 +1260,8 @@ def test_credit_notification_detail_includes_diagnostic_payloads(
     assert payload["dedupe_key"] == "low_balance:creator-1:5.00:2026-05-21"
     assert payload["creator_nickname"] == "Creator"
     assert payload["template_name"] == "Template TPL-LOW"
+    assert payload["created_at"] == "2026-05-21T08:00:00Z"
+    assert payload["updated_at"] == "2026-05-21T08:00:00Z"
 
 
 def test_credit_notifications_skip_non_creator_billing_facts(

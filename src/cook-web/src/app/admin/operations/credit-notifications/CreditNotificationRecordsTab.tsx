@@ -13,7 +13,7 @@ import {
   getAdminStickyRightHeaderClass,
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { Button } from '@/components/ui/Button';
 import {
@@ -666,9 +666,7 @@ export function CreditNotificationRecordsTab({
                     className={TABLE_TEXT_CELL_CLASS}
                     style={getColumnStyle('createdAt')}
                   >
-                    {renderTooltipText(
-                      formatAdminNaiveDateTime(item.created_at),
-                    )}
+                    {renderTooltipText(formatAdminUtcDateTime(item.created_at))}
                   </TableCell>
                   <TableCell
                     className={TABLE_CELL_CLASS}

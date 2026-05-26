@@ -129,11 +129,25 @@ function scoreTemplateForType(
   return codeScore + textScore;
 }
 
+const isTemplateCompatibleWithType = (
+  option: AdminOperationCreditNotificationTemplateOption,
+  type: KnownNotificationType,
+) => {
+  const compatibleTypes = option.compatible_notification_types || [];
+  return compatibleTypes.length === 0 || compatibleTypes.includes(type);
+};
+
+const hasExplicitTemplateCompatibility = (
+  option: AdminOperationCreditNotificationTemplateOption,
+  type: KnownNotificationType,
+) => (option.compatible_notification_types || []).includes(type);
+
 export function getTemplateOptionsForType(
   templateOptions: AdminOperationCreditNotificationTemplateOption[],
   type: KnownNotificationType,
 ) {
   const scored = templateOptions
+    .filter(option => isTemplateCompatibleWithType(option, type))
     .map(option => ({
       option,
       score: scoreTemplateForType(option, type),
@@ -146,7 +160,7 @@ export function getTemplateOptionsForType(
   }
 
   return templateOptions.filter(option =>
-    (option.compatible_notification_types || []).includes(type),
+    hasExplicitTemplateCompatibility(option, type),
   );
 }
 

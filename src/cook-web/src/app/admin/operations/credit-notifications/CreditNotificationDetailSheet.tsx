@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -30,7 +30,7 @@ const isEmptyObject = (value: Record<string, unknown>) =>
 const formatValue = (value?: string | null) => value || EMPTY_LABEL;
 
 const formatDateTime = (value?: string | null) =>
-  value ? formatAdminNaiveDateTime(value) || EMPTY_LABEL : EMPTY_LABEL;
+  value ? formatAdminUtcDateTime(value) || EMPTY_LABEL : EMPTY_LABEL;
 
 const formatJson = (value?: Record<string, unknown> | null) => {
   if (!value || isEmptyObject(value)) {
