@@ -123,6 +123,7 @@ from flaskr.service.shifu.admin import (
     get_operator_course_ratings,
     get_operator_user_detail,
     get_operator_user_credits,
+    get_operator_user_credit_usage_detail,
     get_operator_user_grant_bootstrap,
     get_operator_user_overview,
     grant_operator_user_credits,
@@ -1545,6 +1546,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Course ID exact match or course name fuzzy match for consume rows
+            - name: usage_scene
+              in: query
+              type: string
+              required: false
+              description: Consume scene filter
             - name: usage_mode
               in: query
               type: string
@@ -1579,6 +1585,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "credit_type": request.args.get("credit_type", ""),
             "grant_source": request.args.get("grant_source", ""),
             "course_query": request.args.get("course_query", ""),
+            "usage_scene": request.args.get("usage_scene", ""),
             "usage_mode": request.args.get("usage_mode", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
@@ -1597,6 +1604,41 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/users/<user_bid>/credits/usages/<usage_bid>/detail",
+        methods=["GET"],
+    )
+    def admin_operation_user_credit_usage_detail(user_bid: str, usage_bid: str):
+        """
+        Get operator user credit usage content detail
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+            - name: usage_bid
+              in: path
+              type: string
+              required: true
+              description: Usage business identifier
+        responses:
+            200:
+                description: Operator user credit usage content detail
+        """
+        _require_operator()
+        return make_common_response(
+            get_operator_user_credit_usage_detail(
+                app,
+                user_bid=user_bid,
+                usage_bid=usage_bid,
             )
         )
 
@@ -1919,6 +1961,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Credit usage mode filter
+            - name: usage_scene
+              in: query
+              type: string
+              required: false
+              description: Credit usage scene filter
             - name: view
               in: query
               type: string
@@ -1952,6 +1999,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         filters = {
             "keyword": request.args.get("keyword", ""),
             "mode": request.args.get("mode", ""),
+            "usage_scene": request.args.get("usage_scene", ""),
             "view": request.args.get("view", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
@@ -2003,6 +2051,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 filters={
                     "user_bid": request.args.get("user_bid", ""),
                     "outline_item_bid": request.args.get("outline_item_bid", ""),
+                    "usage_scene": request.args.get("usage_scene", ""),
                     "mode": request.args.get("mode", ""),
                 },
             )

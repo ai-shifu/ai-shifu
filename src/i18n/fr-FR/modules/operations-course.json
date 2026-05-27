@@ -106,6 +106,8 @@
         "mode": "Scène d'utilisation",
         "modeAll": "Tous",
         "reset": "Réinitialiser",
+        "scene": "Type d’utilisation",
+        "sceneAll": "Tous",
         "time": "Heure",
         "timePlaceholder": "Sélectionner une plage horaire",
         "userKeyword": "Utilisateur",
@@ -122,6 +124,12 @@
         "mixed": "Mixte",
         "unknown": "Scène inconnue"
       },
+      "scenes": {
+        "debug": "Débogage",
+        "learning": "Apprentissage",
+        "preview": "Aperçu",
+        "unknown": "Type inconnu"
+      },
       "table": {
         "chapter": "Chapitre",
         "createdAt": "Dernière consommation",
@@ -131,6 +139,7 @@
         "mode": "Scène",
         "model": "Modèle",
         "nickname": "Surnom",
+        "scene": "Type d’utilisation",
         "usageCount": "Nombre d'utilisations"
       },
       "title": "Consommation de crédits"
