@@ -1,6 +1,6 @@
 import { SSE } from 'sse.js';
 import request, { attachSseBusinessResponseFallback } from '@/lib/request';
-import { v4 } from 'uuid';
+import { buildTraceHeaders } from '@/lib/request-trace';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
 import {
@@ -329,19 +329,21 @@ export const getRunMessage = (
     return source;
   }
 
-  const source = new SSE(
-    `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Request-ID': v4().replace(/-/g, ''),
-        Authorization: `Bearer ${token}`,
-        Token: token,
-      },
-      payload: JSON.stringify(payload),
-      method: 'PUT',
-    },
-  );
+  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`;
+  const traceHeaders = buildTraceHeaders({
+    'Content-Type': 'application/json',
+    ...(token
+      ? {
+          Authorization: `Bearer ${token}`,
+          Token: token,
+        }
+      : {}),
+  });
+  const source = new SSE(url, {
+    headers: traceHeaders.headers,
+    payload: JSON.stringify(payload),
+    method: 'PUT',
+  });
 
   source.addEventListener('message', event => {
     try {
@@ -371,6 +373,13 @@ export const getRunMessage = (
 
   attachSseBusinessResponseFallback(source, {
     requestToken: token || '',
+    meta: {
+      url,
+      method: 'PUT',
+      requestToken: token || '',
+      requestId: traceHeaders.requestId,
+      harnessRunId: traceHeaders.harnessRunId,
+    },
     onHandled: error => {
       dispatchSseBusinessError(source, error);
     },
@@ -388,17 +397,18 @@ const createSseSource = (
   onError?: (error: unknown) => void,
 ) => {
   const token = useUserStore.getState().getToken();
-  const headers: Record<string, string> = {
+  const traceHeaders = buildTraceHeaders({
     'Content-Type': 'application/json',
-    'X-Request-ID': v4().replace(/-/g, ''),
-  };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-    headers.Token = token;
-  }
+    ...(token
+      ? {
+          Authorization: `Bearer ${token}`,
+          Token: token,
+        }
+      : {}),
+  });
 
   const source = new SSE(url, {
-    headers,
+    headers: traceHeaders.headers,
     payload: JSON.stringify(payload),
     method: 'POST',
   });
@@ -418,6 +428,13 @@ const createSseSource = (
 
   attachSseBusinessResponseFallback(source, {
     requestToken: token || '',
+    meta: {
+      url,
+      method: 'POST',
+      requestToken: token || '',
+      requestId: traceHeaders.requestId,
+      harnessRunId: traceHeaders.harnessRunId,
+    },
     onHandled: error => {
       dispatchSseBusinessError(source, error);
     },

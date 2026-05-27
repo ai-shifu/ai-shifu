@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { SSE } from 'sse.js';
-import { v4 as uuidv4 } from 'uuid';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { createInteractionParser } from 'remark-flow';
 import {
@@ -35,6 +34,7 @@ import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 import type { ErrorWithCode } from '@/lib/request';
+import { buildTraceHeaders } from '@/lib/request-trace';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
 import {
@@ -1333,14 +1333,15 @@ export function usePreviewChat() {
 
       try {
         const tokenValue = useUserStore.getState().getToken();
-        const headers: Record<string, string> = {
+        const traceHeaders = buildTraceHeaders({
           'Content-Type': 'application/json',
-          'X-Request-ID': uuidv4().replace(/-/g, ''),
-        };
-        if (tokenValue) {
-          headers.Authorization = `Bearer ${tokenValue}`;
-          headers.Token = tokenValue;
-        }
+          ...(tokenValue
+            ? {
+                Authorization: `Bearer ${tokenValue}`,
+                Token: tokenValue,
+              }
+            : {}),
+        });
         const payload: Record<string, unknown> = {
           block_index: finalBlockIndex,
           content: finalMdflow,
@@ -1350,16 +1351,22 @@ export function usePreviewChat() {
         if (normalizedUserInput) {
           payload.user_input = normalizedUserInput;
         }
-        const source = new SSE(
-          `${resolvedBaseUrl}/api/learn/shifu/${finalShifuBid}/preview/${finalOutlineBid}`,
-          {
-            headers,
-            payload: JSON.stringify(payload),
-            method: 'POST',
-          },
-        );
+        const url = `${resolvedBaseUrl}/api/learn/shifu/${finalShifuBid}/preview/${finalOutlineBid}`;
+        const source = new SSE(url, {
+          headers: traceHeaders.headers,
+          payload: JSON.stringify(payload),
+          method: 'POST',
+        });
         sseRef.current = source;
         attachSseBusinessResponseFallback(source, {
+          requestToken: tokenValue || '',
+          meta: {
+            url,
+            method: 'POST',
+            requestToken: tokenValue || '',
+            requestId: traceHeaders.requestId,
+            harnessRunId: traceHeaders.harnessRunId,
+          },
           onHandled: error => {
             if (sseRef.current !== source) {
               return;
@@ -1835,26 +1842,33 @@ export function usePreviewChat() {
 
       const resolvedBaseUrl = await resolveBaseUrl();
       const tokenValue = useUserStore.getState().getToken();
-      const headers: Record<string, string> = {
+      const traceHeaders = buildTraceHeaders({
         'Content-Type': 'application/json',
-        'X-Request-ID': uuidv4().replace(/-/g, ''),
-      };
-      if (tokenValue) {
-        headers.Authorization = `Bearer ${tokenValue}`;
-        headers.Token = tokenValue;
-      }
+        ...(tokenValue
+          ? {
+              Authorization: `Bearer ${tokenValue}`,
+              Token: tokenValue,
+            }
+          : {}),
+      });
 
       return new Promise((resolve, reject) => {
-        const source = new SSE(
-          `${resolvedBaseUrl}/api/learn/shifu/${shifuBid}/tts/preview?preview_mode=true`,
-          {
-            headers,
-            payload: JSON.stringify({ text: text || '' }),
-            method: 'POST',
-          },
-        );
+        const url = `${resolvedBaseUrl}/api/learn/shifu/${shifuBid}/tts/preview?preview_mode=true`;
+        const source = new SSE(url, {
+          headers: traceHeaders.headers,
+          payload: JSON.stringify({ text: text || '' }),
+          method: 'POST',
+        });
         ttsSseRef.current[blockId] = source;
         attachSseBusinessResponseFallback(source, {
+          requestToken: tokenValue || '',
+          meta: {
+            url,
+            method: 'POST',
+            requestToken: tokenValue || '',
+            requestId: traceHeaders.requestId,
+            harnessRunId: traceHeaders.harnessRunId,
+          },
           onHandled: error => {
             setTrackedContentList(prevState =>
               ensureAudioItem(
