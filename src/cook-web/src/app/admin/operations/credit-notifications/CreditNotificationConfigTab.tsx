@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import { Switch } from '@/components/ui/Switch';
+import AdminTimeSelect from '@/app/admin/components/AdminTimeSelect';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import type {
   AdminOperationCreditNotificationDryRunResponse,
@@ -30,7 +31,6 @@ import {
   CreditNotificationManagedListDialog,
   type CreditNotificationManagedListType as ManagedListType,
 } from './CreditNotificationManagedListDialog';
-import { CreditNotificationQuietTimeSelect } from './CreditNotificationQuietTimeSelect';
 import {
   CreditNotificationTypeConfigCard,
   getTemplateOptionsForType,
@@ -810,7 +810,7 @@ export function CreditNotificationConfigTab({
                   'module.operationsCreditNotifications.config.fieldTips.quietStart',
                 )}
               >
-                <CreditNotificationQuietTimeSelect
+                <AdminTimeSelect
                   id='credit-notification-quiet-start'
                   value={policy.quiet_hours.start}
                   onChange={value =>
@@ -829,7 +829,7 @@ export function CreditNotificationConfigTab({
                   'module.operationsCreditNotifications.config.fieldTips.quietEnd',
                 )}
               >
-                <CreditNotificationQuietTimeSelect
+                <AdminTimeSelect
                   id='credit-notification-quiet-end'
                   value={policy.quiet_hours.end}
                   onChange={value =>
