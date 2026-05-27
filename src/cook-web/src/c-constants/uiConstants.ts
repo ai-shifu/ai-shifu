@@ -35,6 +35,10 @@ const isMobileUserAgent = () => {
 };
 
 export const calcFrameLayout = selector => {
+  if (typeof document === 'undefined') {
+    return FRAME_LAYOUT_PC;
+  }
+
   const elem = document.querySelector(selector);
   if (!elem) {
     return FRAME_LAYOUT_PC;

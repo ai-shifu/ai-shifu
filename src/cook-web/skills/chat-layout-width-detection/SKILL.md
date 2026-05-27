@@ -19,6 +19,7 @@ description: 当修复 ai-shifu 聊天页在移动端与桌面端布局判定不
 5. 当布局切换到移动端时，关闭遗留的“桌面态已打开抽屉”状态。
 6. 为 `calcFrameLayout` 增加或更新测试，覆盖 root 节点缺失与移动端 WebView 容器宽度异常偏大的场景。
 7. 若仅调整移动端命中条件，优先把改动限制在 `calcFrameLayout` 内部，不要改调用方对 `FRAME_LAYOUT_*` 的比较逻辑。
+8. `calcFrameLayout` 可能在 store 初始化阶段被服务端模块求值调用，读取 `document` 前必须做 SSR guard，服务端默认回退 `FRAME_LAYOUT_PC`，避免非聊天页面或错误兜底页因 `document is not defined` 先崩溃。
 
 ## 备注
 
