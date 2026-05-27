@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
 import {
@@ -8,6 +8,21 @@ import {
 
 const mockIsLessonFeedbackInteractionContent = jest.fn(
   (content?: string) => content?.includes('lesson_feedback') ?? false,
+);
+const mockAskBlock = jest.fn(
+  ({
+    element_bid,
+    isExpanded,
+  }: {
+    element_bid?: string;
+    isExpanded?: boolean;
+  }) => (
+    <div
+      data-element-bid={element_bid ?? ''}
+      data-expanded={isExpanded ? 'true' : 'false'}
+      data-testid='ask-block'
+    />
+  ),
 );
 
 jest.mock('react-i18next', () => ({
@@ -43,7 +58,8 @@ jest.mock('./useChatLogicHook', () => ({
 
 jest.mock('./AskBlock', () => ({
   __esModule: true,
-  default: () => <div data-testid='ask-block' />,
+  default: (props: { element_bid?: string; isExpanded?: boolean }) =>
+    mockAskBlock(props),
 }));
 
 jest.mock('@/c-utils/lesson-feedback-interaction-defaults', () => ({
@@ -74,6 +90,7 @@ const getMockSlide = () =>
 describe('ListenModeSlideRenderer', () => {
   beforeEach(() => {
     getMockSlide().mockClear();
+    mockAskBlock.mockClear();
     mockIsLessonFeedbackInteractionContent.mockClear();
   });
 
@@ -186,6 +203,46 @@ describe('ListenModeSlideRenderer', () => {
         user_input: '比较熟悉',
         readonly: true,
       }),
+    );
+  });
+
+  it('keeps the mobile ask block mounted and collapsed after closing the listen panel', async () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={true}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const askButton = screen.getByText('module.chat.ask').closest('button');
+
+    expect(askButton).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(askButton as HTMLButtonElement);
+    });
+    expect(screen.getByTestId('ask-block')).toHaveAttribute(
+      'data-expanded',
+      'true',
+    );
+
+    await act(async () => {
+      fireEvent.click(askButton as HTMLButtonElement);
+    });
+    expect(screen.getByTestId('ask-block')).toHaveAttribute(
+      'data-expanded',
+      'false',
+    );
+    expect(screen.getByTestId('ask-block')).toHaveAttribute(
+      'data-element-bid',
+      'content-1',
     );
   });
 
