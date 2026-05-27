@@ -448,8 +448,7 @@ const ListenModeSlideRenderer = ({
   const [hasSettledTailInteraction, setHasSettledTailInteraction] =
     useState(false);
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
-  const [isMobileAskPanelMounted, setIsMobileAskPanelMounted] =
-    useState(false);
+  const [isMobileAskPanelMounted, setIsMobileAskPanelMounted] = useState(false);
   const [mobileAskPanelElementBid, setMobileAskPanelElementBid] = useState('');
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
   const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
