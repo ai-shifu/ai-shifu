@@ -100,10 +100,17 @@ export type AdminOperationUserCreditUsageModeFilter =
   | 'listen'
   | 'ask';
 
+export type AdminOperationUserCreditUsageSceneFilter =
+  | 'all'
+  | 'learning'
+  | 'preview'
+  | 'debug';
+
 export type AdminOperationUserCreditFilters = {
   creditType: AdminOperationUserCreditTypeFilter;
   grantSource: AdminOperationUserCreditGrantSourceFilter;
   courseQuery: string;
+  usageScene: AdminOperationUserCreditUsageSceneFilter;
   usageMode: AdminOperationUserCreditUsageModeFilter;
   startTime: string;
   endTime: string;
@@ -122,6 +129,13 @@ export type AdminOperationUserCreditLedgerItem = {
   consumable_from: string;
   note: string;
   note_code: string;
+  usage_bid: string;
+  course_bid: string;
+  course_name: string;
+  chapter_title: string;
+  lesson_title: string;
+  usage_scene: string;
+  usage_mode: string;
 };
 
 export type AdminOperationUserCreditsResponse = {
@@ -131,6 +145,31 @@ export type AdminOperationUserCreditsResponse = {
   page_count: number;
   page_size: number;
   total: number;
+};
+
+export type AdminOperationUserCreditUsageDetailItem = {
+  usage_bid: string;
+  created_at: string;
+  content: string;
+  consumed_credits: string;
+  usage_units: number;
+  input_tokens: number;
+  output_tokens: number;
+  word_count: number;
+  duration_ms: number;
+  segment_count: number;
+};
+
+export type AdminOperationUserCreditUsageDetailResponse = {
+  usage_bid: string;
+  course_bid: string;
+  course_name: string;
+  chapter_title: string;
+  lesson_title: string;
+  usage_scene: string;
+  usage_mode: string;
+  total_consumed_credits: string;
+  items: AdminOperationUserCreditUsageDetailItem[];
 };
 
 export type AdminOperationUserCreditGrantRequest = {

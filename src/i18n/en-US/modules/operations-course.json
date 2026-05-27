@@ -82,10 +82,32 @@
     "creditUsage": {
       "count": "{count} records",
       "description": "Review credit consumption records for this course.",
+      "details": {
+        "collapse": "Collapse",
+        "durationMinutesSeconds": "{minutes}m {seconds}s",
+        "durationSeconds": "{seconds}s",
+        "empty": "No usage details",
+        "expand": "Expand",
+        "openUsageDetails": "Open {count} credit usage details",
+        "table": {
+          "createdAt": "Consumed At",
+          "credits": "Credits",
+          "inputTokens": "Input Tokens",
+          "outputSummary": "Output Summary",
+          "outputTokens": "Output Tokens",
+          "ttsContent": "Synthesized Content",
+          "ttsDuration": "Audio Duration",
+          "ttsSegmentCount": "Segments",
+          "ttsWordCount": "Synthesized Words"
+        },
+        "title": "Credit Usage Details"
+      },
       "filters": {
         "mode": "Usage mode",
         "modeAll": "All",
         "reset": "Reset",
+        "scene": "Usage type",
+        "sceneAll": "All",
         "time": "Time",
         "timePlaceholder": "Select time range",
         "userKeyword": "User",
@@ -102,15 +124,22 @@
         "mixed": "Mixed",
         "unknown": "Unknown mode"
       },
+      "scenes": {
+        "debug": "Debug",
+        "learning": "Learning",
+        "preview": "Preview",
+        "unknown": "Unknown type"
+      },
       "table": {
         "chapter": "Chapter",
-        "createdAt": "Consumed At",
+        "createdAt": "Latest Consumed At",
         "credits": "Total Credits Consumed",
         "empty": "No credit usage records",
         "lesson": "Lesson",
         "mode": "Usage Mode",
         "model": "Model",
         "nickname": "Nickname",
+        "scene": "Usage Type",
         "usageCount": "Usage Count"
       },
       "title": "Credit Usage"
@@ -198,6 +227,10 @@
     },
     "metrics": "Metrics",
     "metricsLabels": {
+      "completedUserAvgCredits": "Avg Credits Consumed per Completed User",
+      "creditConsumedTotal": "Total Credits Consumed",
+      "creditUsageCount": "Credit Usage Count",
+      "creditUserCount": "Credit Usage Users",
       "followUpCount": "Ask",
       "learnerCount": "Learners",
       "orderAmount": "Collected Revenue (Incl. Coupon Codes)",

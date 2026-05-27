@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sys
 from types import SimpleNamespace
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
@@ -60,6 +60,7 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.shifu.admin import (
+    _coerce_operator_datetime,
     get_operator_course_chapter_detail,
     get_operator_course_detail,
 )
@@ -704,6 +705,23 @@ def _seed_outline(
     )
 
 
+def test_coerce_operator_datetime_accepts_mysql_string_values(app):
+    with app.app_context():
+        assert _coerce_operator_datetime("2026-05-20 16:40:51") == datetime(
+            2026, 5, 20, 16, 40, 51
+        )
+
+
+def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app):
+    with app.app_context():
+        assert _coerce_operator_datetime("2026-05-22T10:00:00+08:00") == datetime(
+            2026, 5, 22, 2, 0, 0
+        )
+        assert _coerce_operator_datetime(
+            datetime(2026, 5, 22, 10, 0, 0, tzinfo=timezone.utc)
+        ) == datetime(2026, 5, 22, 10, 0, 0)
+
+
 def test_admin_operation_course_detail_route_returns_latest_detail(
     app,
     test_client,
@@ -945,6 +963,11 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
         "order_amount": "88",
         "follow_up_count": 1,
         "rating_score": "4.0",
+        "credit_consumed_total": 0,
+        "credit_usage_count": 0,
+        "credit_user_count": 0,
+        "completed_credit_user_count": 0,
+        "completed_user_avg_credits": None,
     }
     assert payload["data"]["chapters"] == [
         {
@@ -1773,6 +1796,116 @@ def test_admin_operation_course_users_route_marks_redeem_orders_as_paid(
     assert paid_only_payload["data"]["items"][0]["user_bid"] == "redeem-user"
 
 
+def test_admin_operation_course_detail_metrics_include_credit_usage_and_completed_average(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin.get_course_visit_count_30d",
+        lambda _app, _shifu_bid: 0,
+    )
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="student-completed", phone="13900001235")
+        _seed_user(app, user_bid="student-learning", phone="13900001236")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        for lesson_bid, position in [("lesson-1", "1.1"), ("lesson-2", "1.2")]:
+            _seed_outline(
+                shifu_bid="course-detail",
+                model=DraftOutlineItem,
+                outline_item_bid=lesson_bid,
+                parent_bid="chapter-1",
+                title=lesson_bid,
+                position=position,
+                item_type=UNIT_TYPE_VALUE_NORMAL,
+                updated_at=created_at,
+            )
+            _seed_progress(
+                shifu_bid="course-detail",
+                outline_item_bid=lesson_bid,
+                user_bid="student-completed",
+                status=LEARN_STATUS_COMPLETED,
+                created_at=created_at,
+                updated_at=created_at,
+            )
+        _seed_progress(
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            user_bid="student-learning",
+            status=LEARN_STATUS_COMPLETED,
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_progress(
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-2",
+            user_bid="student-learning",
+            status=LEARN_STATUS_IN_PROGRESS,
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_credit_usage(
+            usage_bid="usage-completed",
+            user_bid="student-completed",
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            progress_record_bid="progress-completed",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="openai",
+            model="gpt-4.1",
+            consumed_credits=Decimal("12"),
+            created_at=datetime(2026, 4, 4, 10, 0, 0),
+            extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
+        )
+        _seed_credit_usage(
+            usage_bid="usage-learning",
+            user_bid="student-learning",
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            progress_record_bid="progress-learning",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="openai",
+            model="gpt-4.1",
+            consumed_credits=Decimal("8"),
+            created_at=datetime(2026, 4, 4, 11, 0, 0),
+            extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["metrics"]["credit_consumed_total"] == 20
+    assert payload["data"]["metrics"]["credit_usage_count"] == 2
+    assert payload["data"]["metrics"]["credit_user_count"] == 2
+    assert payload["data"]["metrics"]["completed_credit_user_count"] == 1
+    assert payload["data"]["metrics"]["completed_user_avg_credits"] == 12
+
+
 def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_filters(
     app,
     test_client,
@@ -1919,23 +2052,29 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["view"] == "grouped"
-    assert payload["data"]["total"] == 4
+    assert payload["data"]["total"] == 5
     assert [item["group_key"] for item in payload["data"]["items"]] == [
-        "progress-1:listen",
-        "progress-2:ask",
-        "progress-1:learn",
-        "progress-3:learn",
+        "student-1:lesson-1:preview:learn",
+        "student-1:lesson-1:learning:listen",
+        "student-2:lesson-2:learning:ask",
+        "student-1:lesson-1:learning:learn",
+        "student-2:lesson-2:learning:learn",
     ]
-    assert payload["data"]["items"][0]["usage_bid"] == "usage-listen-1"
-    assert payload["data"]["items"][0]["usage_mode"] == "listen"
-    assert payload["data"]["items"][0]["usage_count"] == 1
-    assert payload["data"]["items"][0]["model_variant_count"] == 1
-    assert payload["data"]["items"][0]["consumed_credits"] == 12
-    assert payload["data"]["items"][1]["usage_mode"] == "ask"
-    assert payload["data"]["items"][1]["email"] == "student2@example.com"
-    assert payload["data"]["items"][1]["chapter_title"] == "Chapter 2"
-    assert payload["data"]["items"][2]["usage_mode"] == "learn"
-    assert payload["data"]["items"][2]["consumed_credits"] == 5
+    assert payload["data"]["items"][0]["usage_bid"] == "usage-preview-1"
+    assert payload["data"]["items"][0]["usage_scene"] == "preview"
+    assert payload["data"]["items"][0]["usage_mode"] == "learn"
+    assert payload["data"]["items"][0]["consumed_credits"] == 1
+    assert payload["data"]["items"][1]["usage_bid"] == "usage-listen-1"
+    assert payload["data"]["items"][1]["usage_scene"] == "learning"
+    assert payload["data"]["items"][1]["usage_mode"] == "listen"
+    assert payload["data"]["items"][1]["usage_count"] == 1
+    assert payload["data"]["items"][1]["model_variant_count"] == 1
+    assert payload["data"]["items"][1]["consumed_credits"] == 12
+    assert payload["data"]["items"][2]["usage_mode"] == "ask"
+    assert payload["data"]["items"][2]["email"] == "student2@example.com"
+    assert payload["data"]["items"][2]["chapter_title"] == "Chapter 2"
+    assert payload["data"]["items"][3]["usage_mode"] == "learn"
+    assert payload["data"]["items"][3]["consumed_credits"] == 5
 
     filtered_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
@@ -1947,7 +2086,10 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert filtered_response.status_code == 200
     assert filtered_payload["code"] == 0
     assert filtered_payload["data"]["total"] == 1
-    assert filtered_payload["data"]["items"][0]["group_key"] == "progress-2:ask"
+    assert (
+        filtered_payload["data"]["items"][0]["group_key"]
+        == "student-2:lesson-2:learning:ask"
+    )
     assert filtered_payload["data"]["items"][0]["usage_bid"] == "usage-ask-1"
 
     phone_filtered_response = test_client.get(
@@ -1961,7 +2103,8 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert phone_filtered_payload["code"] == 0
     assert phone_filtered_payload["data"]["total"] == 1
     assert (
-        phone_filtered_payload["data"]["items"][0]["group_key"] == "progress-1:listen"
+        phone_filtered_payload["data"]["items"][0]["group_key"]
+        == "student-1:lesson-1:learning:listen"
     )
     assert phone_filtered_payload["data"]["items"][0]["usage_count"] == 1
     assert phone_filtered_payload["data"]["items"][0]["consumed_credits"] == 12
@@ -1975,13 +2118,30 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
 
     assert learn_filtered_response.status_code == 200
     assert learn_filtered_payload["code"] == 0
-    assert learn_filtered_payload["data"]["total"] == 2
+    assert learn_filtered_payload["data"]["total"] == 3
     assert [item["group_key"] for item in learn_filtered_payload["data"]["items"]] == [
-        "progress-1:learn",
-        "progress-3:learn",
+        "student-1:lesson-1:preview:learn",
+        "student-1:lesson-1:learning:learn",
+        "student-2:lesson-2:learning:learn",
     ]
+    assert learn_filtered_payload["data"]["items"][0]["usage_scene"] == "preview"
     assert learn_filtered_payload["data"]["items"][0]["usage_mode"] == "learn"
-    assert learn_filtered_payload["data"]["items"][0]["consumed_credits"] == 5
+    assert learn_filtered_payload["data"]["items"][0]["consumed_credits"] == 1
+
+    preview_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
+        "&usage_scene=preview",
+        headers={"Token": "test-token"},
+    )
+    preview_filtered_payload = preview_filtered_response.get_json(force=True)
+
+    assert preview_filtered_response.status_code == 200
+    assert preview_filtered_payload["code"] == 0
+    assert preview_filtered_payload["data"]["total"] == 1
+    assert (
+        preview_filtered_payload["data"]["items"][0]["group_key"]
+        == "student-1:lesson-1:preview:learn"
+    )
 
     paged_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=2&page_size=2",
@@ -1991,10 +2151,10 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
 
     assert paged_response.status_code == 200
     assert paged_payload["code"] == 0
-    assert paged_payload["data"]["total"] == 4
+    assert paged_payload["data"]["total"] == 5
     assert [item["group_key"] for item in paged_payload["data"]["items"]] == [
-        "progress-1:learn",
-        "progress-3:learn",
+        "student-2:lesson-2:learning:ask",
+        "student-1:lesson-1:learning:learn",
     ]
 
     partial_phone_filtered_response = test_client.get(
@@ -2019,7 +2179,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
 
     assert nickname_filtered_response.status_code == 200
     assert nickname_filtered_payload["code"] == 0
-    assert nickname_filtered_payload["data"]["total"] == 4
+    assert nickname_filtered_payload["data"]["total"] == 5
 
     raw_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20"
@@ -2031,20 +2191,99 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert raw_response.status_code == 200
     assert raw_payload["code"] == 0
     assert raw_payload["data"]["view"] == "raw"
-    assert raw_payload["data"]["total"] == 4
+    assert raw_payload["data"]["total"] == 5
     assert [item["group_key"] for item in raw_payload["data"]["items"]] == [
+        "usage-preview-1",
         "usage-listen-1",
         "usage-ask-1",
         "usage-learn-1",
         "usage-learn-2",
     ]
-    assert raw_payload["data"]["items"][0]["usage_mode"] == "listen"
+    assert raw_payload["data"]["items"][0]["usage_scene"] == "preview"
+    assert raw_payload["data"]["items"][0]["usage_mode"] == "learn"
 
 
-def test_admin_operation_course_credit_usages_route_rejects_invalid_mode(
+def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
     app,
     test_client,
     monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(
+            app,
+            user_bid="student-1",
+            phone="13900001235",
+            email="student1@example.com",
+        )
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            parent_bid="chapter-1",
+            title="Lesson 1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_credit_usage(
+            usage_bid="usage-blank-model",
+            user_bid="student-1",
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="",
+            model="",
+            consumed_credits=Decimal("5"),
+            created_at=datetime(2026, 4, 4, 10, 0, 0),
+            extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["total"] == 1
+    assert payload["data"]["items"][0]["model_variant_count"] == 0
+
+
+@pytest.mark.parametrize(
+    ("query", "field"),
+    [
+        ("mode=invalid_mode", "mode"),
+        ("usage_scene=invalid_scene", "usage_scene"),
+    ],
+)
+def test_admin_operation_course_credit_usages_route_rejects_invalid_filters(
+    app,
+    test_client,
+    monkeypatch,
+    query,
+    field,
 ):
     _mock_operator(monkeypatch)
 
@@ -2059,14 +2298,14 @@ def test_admin_operation_course_credit_usages_route_rejects_invalid_mode(
         db.session.commit()
 
     response = test_client.get(
-        "/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20&mode=invalid_mode",
+        f"/api/shifu/admin/operations/courses/course-detail/credit-usages?page=1&page_size=20&{query}",
         headers={"Token": "test-token"},
     )
     payload = response.get_json(force=True)
 
     assert response.status_code == 200
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
-    assert payload["message"] == "Params Error mode"
+    assert payload["message"] == f"Params Error {field}"
 
 
 def test_admin_operation_course_credit_usages_route_rejects_invalid_view(
@@ -2095,6 +2334,187 @@ def test_admin_operation_course_credit_usages_route_rejects_invalid_view(
     assert response.status_code == 200
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
     assert payload["message"] == "Params Error view"
+
+
+def test_admin_operation_course_credit_usages_route_rejects_missing_course(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/missing-course/credit-usages?page=1&page_size=20"
+        "&view=grouped&keyword=&mode=&start_time=&end_time=",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.shifu.shifuNotFound"]
+
+
+def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summary(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="student-1", phone="13900001235")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            parent_bid="chapter-1",
+            title="Lesson 1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_credit_usage(
+            usage_bid="usage-detail-1",
+            user_bid="student-1",
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            progress_record_bid="progress-1",
+            generated_block_bid="block-detail-1",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="openai",
+            model="gpt-4.1",
+            consumed_credits=Decimal("5"),
+            created_at=datetime(2026, 4, 4, 10, 0, 0),
+            extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
+        )
+        _seed_generated_element(
+            element_bid="element-detail-collision",
+            progress_record_bid="progress-other",
+            user_bid="student-other",
+            generated_block_bid="block-detail-1",
+            outline_item_bid="lesson-other",
+            shifu_bid="other-course",
+            created_at=datetime(2026, 4, 4, 10, 0, 1),
+            content_text="Wrong course output",
+        )
+        _seed_generated_element(
+            element_bid="element-detail-1",
+            progress_record_bid="progress-1",
+            user_bid="student-1",
+            generated_block_bid="block-detail-1",
+            outline_item_bid="lesson-1",
+            shifu_bid="course-detail",
+            created_at=datetime(2026, 4, 4, 10, 0, 1),
+            content_text="Generated answer",
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages/details"
+        "?page=1&page_size=10&user_bid=student-1&outline_item_bid=lesson-1&mode=learn",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["page"] == 1
+    assert payload["data"]["page_size"] == 10
+    assert payload["data"]["total"] == 1
+    assert payload["data"]["page_count"] == 1
+    item = payload["data"]["items"][0]
+    assert item["usage_bid"] == "usage-detail-1"
+    assert item["consumed_credits"] == 5
+    assert item["input_tokens"] == 100
+    assert item["output_tokens"] == 200
+    assert item["output_summary"] == "Generated answer"
+
+
+def test_admin_operation_course_credit_usage_details_route_paginates_and_filters_mode(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="student-1", phone="13900001235")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        for index in range(3):
+            _seed_credit_usage(
+                usage_bid=f"usage-detail-{index}",
+                user_bid="student-1",
+                shifu_bid="course-detail",
+                outline_item_bid="lesson-1",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="openai",
+                model="gpt-4.1",
+                consumed_credits=Decimal("1"),
+                created_at=datetime(2026, 4, 4, 10, index, 0),
+                extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
+            )
+        _seed_credit_usage(
+            usage_bid="usage-detail-listen",
+            user_bid="student-1",
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider="volcengine",
+            model="cancan-2.0",
+            consumed_credits=Decimal("2"),
+            created_at=datetime(2026, 4, 4, 11, 0, 0),
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages/details"
+        "?page=2&page_size=2&user_bid=student-1&outline_item_bid=lesson-1&mode=learn",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["total"] == 3
+    assert payload["data"]["page_count"] == 2
+    assert [item["usage_bid"] for item in payload["data"]["items"]] == [
+        "usage-detail-0"
+    ]
+    assert payload["data"]["items"][0]["output_summary"] == ""
 
 
 def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_progress_separate(
@@ -2171,13 +2591,12 @@ def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_pr
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["view"] == "grouped"
-    assert payload["data"]["total"] == 2
+    assert payload["data"]["total"] == 1
     assert [item["group_key"] for item in payload["data"]["items"]] == [
-        "usage-no-progress-2",
-        "usage-no-progress-1",
+        "student-1:lesson-1:learning:learn",
     ]
-    assert payload["data"]["items"][0]["usage_count"] == 1
-    assert payload["data"]["items"][1]["usage_count"] == 1
+    assert payload["data"]["items"][0]["usage_count"] == 2
+    assert payload["data"]["items"][0]["consumed_credits"] == 5
 
 
 def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(

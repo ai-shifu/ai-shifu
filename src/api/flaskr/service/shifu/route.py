@@ -114,6 +114,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
 )
 from flaskr.service.shifu.admin import (
     OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
+    get_operator_course_credit_usage_details,
     get_operator_course_credit_usages,
     get_operator_course_overview,
     get_operator_course_follow_up_detail,
@@ -122,6 +123,7 @@ from flaskr.service.shifu.admin import (
     get_operator_course_ratings,
     get_operator_user_detail,
     get_operator_user_credits,
+    get_operator_user_credit_usage_detail,
     get_operator_user_grant_bootstrap,
     get_operator_user_overview,
     grant_operator_user_credits,
@@ -134,7 +136,10 @@ from flaskr.service.shifu.admin import (
     copy_operator_course,
     dry_run_operator_credit_notifications,
     get_operator_credit_notification_config,
+    get_operator_credit_notification_detail,
     transfer_operator_course_creator,
+    get_operator_credit_notification_overview,
+    list_operator_credit_notification_templates,
     list_operator_credit_notifications,
     requeue_operator_credit_notification,
     sync_operator_credit_notification_template,
@@ -900,6 +905,15 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(get_operator_order_overview(app))
 
     @app.route(
+        path_prefix + "/admin/operations/credit-notifications/overview",
+        methods=["GET"],
+    )
+    def admin_operation_credit_notifications_overview():
+        """Return global operator credit notification overview."""
+        _require_operator()
+        return make_common_response(get_operator_credit_notification_overview(app))
+
+    @app.route(
         path_prefix + "/admin/operations/credit-notifications",
         methods=["GET"],
     )
@@ -917,6 +931,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             raise_param_error("page_index or page_size is less than 1")
         filters = {
             "creator_bid": request.args.get("creator_bid", ""),
+            "creator_keyword": request.args.get("creator_keyword", ""),
             "target_user_bid": request.args.get("target_user_bid", ""),
             "mobile": request.args.get("mobile", ""),
             "notification_type": request.args.get("notification_type", ""),
@@ -939,6 +954,20 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/<notification_bid>",
+        methods=["GET"],
+    )
+    def admin_operation_credit_notification_detail(notification_bid: str):
+        """Return one operator credit notification record detail."""
+        _require_operator()
+        return make_common_response(
+            get_operator_credit_notification_detail(
+                app,
+                notification_bid=notification_bid,
             )
         )
 
@@ -982,6 +1011,15 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 template_code=str(payload.get("template_code") or ""),
             )
         )
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/templates",
+        methods=["GET"],
+    )
+    def admin_operation_credit_notification_templates():
+        """List SMS templates for operator credit notification config."""
+        _require_operator()
+        return make_common_response(list_operator_credit_notification_templates(app))
 
     @app.route(
         path_prefix + "/admin/operations/credit-notifications/dry-run",
@@ -1508,6 +1546,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Course ID exact match or course name fuzzy match for consume rows
+            - name: usage_scene
+              in: query
+              type: string
+              required: false
+              description: Consume scene filter
             - name: usage_mode
               in: query
               type: string
@@ -1542,6 +1585,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "credit_type": request.args.get("credit_type", ""),
             "grant_source": request.args.get("grant_source", ""),
             "course_query": request.args.get("course_query", ""),
+            "usage_scene": request.args.get("usage_scene", ""),
             "usage_mode": request.args.get("usage_mode", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
@@ -1560,6 +1604,41 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/users/<user_bid>/credits/usages/<usage_bid>/detail",
+        methods=["GET"],
+    )
+    def admin_operation_user_credit_usage_detail(user_bid: str, usage_bid: str):
+        """
+        Get operator user credit usage content detail
+        ---
+        tags:
+            - User
+        parameters:
+            - name: user_bid
+              in: path
+              type: string
+              required: true
+              description: User business identifier
+            - name: usage_bid
+              in: path
+              type: string
+              required: true
+              description: Usage business identifier
+        responses:
+            200:
+                description: Operator user credit usage content detail
+        """
+        _require_operator()
+        return make_common_response(
+            get_operator_user_credit_usage_detail(
+                app,
+                user_bid=user_bid,
+                usage_bid=usage_bid,
             )
         )
 
@@ -1882,6 +1961,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: string
               required: false
               description: Credit usage mode filter
+            - name: usage_scene
+              in: query
+              type: string
+              required: false
+              description: Credit usage scene filter
             - name: view
               in: query
               type: string
@@ -1915,6 +1999,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         filters = {
             "keyword": request.args.get("keyword", ""),
             "mode": request.args.get("mode", ""),
+            "usage_scene": request.args.get("usage_scene", ""),
             "view": request.args.get("view", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
@@ -1932,6 +2017,43 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/courses/<shifu_bid>/credit-usages/details",
+        methods=["GET"],
+    )
+    def admin_operation_course_credit_usage_details(shifu_bid: str):
+        """
+        Get operator course credit usage detail list
+        ---
+        tags:
+            - Shifu
+        """
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page"),
+            field_name="page",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=10,
+        )
+        return make_common_response(
+            get_operator_course_credit_usage_details(
+                app,
+                shifu_bid=shifu_bid,
+                page_index=page_index,
+                page_size=page_size,
+                filters={
+                    "user_bid": request.args.get("user_bid", ""),
+                    "outline_item_bid": request.args.get("outline_item_bid", ""),
+                    "usage_scene": request.args.get("usage_scene", ""),
+                    "mode": request.args.get("mode", ""),
+                },
             )
         )
 

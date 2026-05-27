@@ -757,6 +757,33 @@ class NotificationRecord(BillingTableMixin, db.Model):
             "source_type",
             "source_bid",
         ),
+        Index(
+            "ix_notification_records_deleted_created_id",
+            "deleted",
+            "created_at",
+            "id",
+        ),
+        Index(
+            "ix_notification_records_deleted_status_created_id",
+            "deleted",
+            "status",
+            "created_at",
+            "id",
+        ),
+        Index(
+            "ix_notification_records_deleted_source_type_created_id",
+            "deleted",
+            "source_type",
+            "created_at",
+            "id",
+        ),
+        Index(
+            "ix_notification_records_deleted_type_created_id",
+            "deleted",
+            "notification_type",
+            "created_at",
+            "id",
+        ),
         {"comment": "Notification delivery records"},
     )
 

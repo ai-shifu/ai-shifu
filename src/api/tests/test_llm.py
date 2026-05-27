@@ -514,6 +514,7 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(monkeypatch, ap
 
 def test_chat_llm_streams(monkeypatch, app):
     captured_kwargs = {}
+    captured_usage = {}
 
     def fake_completion(*args, **kwargs):
         captured_kwargs["kwargs"] = kwargs
@@ -524,6 +525,11 @@ def test_chat_llm_streams(monkeypatch, app):
         return iter(chunks)
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(
+        llm,
+        "record_llm_usage",
+        lambda *args, **kwargs: captured_usage.update(kwargs),
+    )
     provider_state = llm.ProviderState(
         enabled=True,
         params={"api_key": "test-key", "api_base": "https://example.com"},
@@ -558,6 +564,7 @@ def test_chat_llm_streams(monkeypatch, app):
     assert span.generation_args["name"] == "chat-test"
     assert span.generation_args["trace_id"] == "trace-1"
     assert span.generation_args["parent_observation_id"] == "span-1"
+    assert captured_usage["extra"]["output_text"] == "Hi there"
 
 
 def test_chat_llm_falls_back_to_request_trace_id(monkeypatch, app):

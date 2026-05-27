@@ -68,6 +68,11 @@ export type AdminOperationCourseDetailMetrics = {
   order_amount: string;
   follow_up_count: number;
   rating_score: string;
+  credit_consumed_total: number;
+  credit_usage_count: number;
+  credit_user_count: number;
+  completed_credit_user_count: number;
+  completed_user_avg_credits: number | null;
 };
 
 export type AdminOperationCourseDetailChapter = {
@@ -150,6 +155,18 @@ export type AdminOperationCourseCreditUsageMode =
 
 export type AdminOperationCourseCreditUsageView = 'grouped' | 'raw';
 
+export type AdminOperationCourseCreditUsageScene =
+  | 'learning'
+  | 'preview'
+  | 'debug'
+  | LooseString;
+
+export type AdminOperationCourseCreditUsageSceneFilter =
+  | 'all'
+  | 'learning'
+  | 'preview'
+  | 'debug';
+
 export type AdminOperationCourseCreditUsageModeFilter =
   | 'all'
   | 'learn'
@@ -158,6 +175,7 @@ export type AdminOperationCourseCreditUsageModeFilter =
 
 export type AdminOperationCourseCreditUsageFilters = {
   keyword: string;
+  usageScene: AdminOperationCourseCreditUsageSceneFilter;
   mode: AdminOperationCourseCreditUsageModeFilter;
   startTime: string;
   endTime: string;
@@ -176,6 +194,7 @@ export type AdminOperationCourseCreditUsageItem = {
   chapter_title: string;
   lesson_outline_item_bid: string;
   lesson_title: string;
+  usage_scene: AdminOperationCourseCreditUsageScene;
   usage_mode: AdminOperationCourseCreditUsageMode;
   provider: string;
   model: string;
@@ -188,6 +207,26 @@ export type AdminOperationCourseCreditUsageItem = {
 export type AdminOperationCourseCreditUsageListResponse = {
   view: AdminOperationCourseCreditUsageView;
   items: AdminOperationCourseCreditUsageItem[];
+  page: number;
+  page_count: number;
+  page_size: number;
+  total: number;
+};
+
+export type AdminOperationCourseCreditUsageDetailItem = {
+  usage_bid: string;
+  consumed_credits: number;
+  input_tokens: number;
+  output_tokens: number;
+  word_count: number;
+  duration_ms: number;
+  segment_count: number;
+  output_summary: string;
+  created_at: string;
+};
+
+export type AdminOperationCourseCreditUsageDetailListResponse = {
+  items: AdminOperationCourseCreditUsageDetailItem[];
   page: number;
   page_count: number;
   page_size: number;

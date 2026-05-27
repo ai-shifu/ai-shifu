@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import type {
   AdminOperationUserCourseItem,
   AdminOperationUserCreditFilters,
+  AdminOperationUserCreditUsageDetailResponse,
   AdminOperationUserCreditsResponse,
 } from '../../operation-user-types';
 import UserCoursesTab from './UserCoursesTab';
@@ -32,16 +33,23 @@ type UserDetailTabsSectionProps = {
   onTabChange: (tab: DetailTab) => void;
   creditLedgerProps: {
     filtersDraft: AdminOperationUserCreditFilters;
+    activeCreditType: AdminOperationUserCreditFilters['creditType'];
     loading: boolean;
     error: { message: string; code?: number } | null;
     items: AdminOperationUserCreditsResponse['items'];
     pageIndex: number;
     pageCount: number;
+    userLabel: string;
     onFiltersChange: (filters: AdminOperationUserCreditFilters) => void;
+    onTypeChange: (filters: AdminOperationUserCreditFilters) => void;
     onSearch: () => void;
     onReset: () => void;
     onPageChange: (page: number) => void;
     onRetry: () => void;
+    onCourseOpen: (courseBid: string) => void;
+    onUsageDetailLoad: (
+      usageBid: string,
+    ) => Promise<AdminOperationUserCreditUsageDetailResponse>;
   };
   learningCoursesProps: {
     title: string;
@@ -84,7 +92,7 @@ export default function UserDetailTabsSection({
     <div
       id='credits'
       ref={sectionRef}
-      className='space-y-5'
+      className='flex min-h-0 flex-1 flex-col gap-5'
     >
       <UserDetailInfoCard
         title={creditsOverviewTitle}
@@ -93,7 +101,7 @@ export default function UserDetailTabsSection({
       />
 
       <Tabs
-        className='space-y-4'
+        className='flex min-h-0 flex-1 flex-col gap-4'
         value={activeTab}
         onValueChange={value => {
           if (!isDetailTab(value)) {
@@ -102,7 +110,7 @@ export default function UserDetailTabsSection({
           onTabChange(value);
         }}
       >
-        <TabsList>
+        <TabsList className='self-start justify-start'>
           <TabsTrigger value='credits'>{creditsTabLabel}</TabsTrigger>
           <TabsTrigger value='learning'>{learningTabLabel}</TabsTrigger>
           <TabsTrigger value='created'>{createdTabLabel}</TabsTrigger>
@@ -110,27 +118,32 @@ export default function UserDetailTabsSection({
 
         <TabsContent
           value='credits'
-          className='mt-0'
+          className='mt-0 min-h-0 flex-1'
         >
           <UserCreditLedgerTab
             filtersDraft={creditLedgerProps.filtersDraft}
+            activeCreditType={creditLedgerProps.activeCreditType}
             loading={creditLedgerProps.loading}
             error={creditLedgerProps.error}
             items={creditLedgerProps.items}
             pageIndex={creditLedgerProps.pageIndex}
             pageCount={creditLedgerProps.pageCount}
+            userLabel={creditLedgerProps.userLabel}
             emptyValue={emptyValue}
             onFiltersChange={creditLedgerProps.onFiltersChange}
+            onTypeChange={creditLedgerProps.onTypeChange}
             onSearch={creditLedgerProps.onSearch}
             onReset={creditLedgerProps.onReset}
             onPageChange={creditLedgerProps.onPageChange}
             onRetry={creditLedgerProps.onRetry}
+            onCourseOpen={creditLedgerProps.onCourseOpen}
+            onUsageDetailLoad={creditLedgerProps.onUsageDetailLoad}
           />
         </TabsContent>
 
         <TabsContent
           value='learning'
-          className='mt-0'
+          className='mt-0 min-h-0 flex-1'
         >
           <UserCoursesTab
             title={learningCoursesProps.title}
@@ -147,7 +160,7 @@ export default function UserDetailTabsSection({
 
         <TabsContent
           value='created'
-          className='mt-0'
+          className='mt-0 min-h-0 flex-1'
         >
           <UserCoursesTab
             title={createdCoursesProps.title}

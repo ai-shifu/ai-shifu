@@ -82,10 +82,32 @@
     "creditUsage": {
       "count": "{count} enregistrements",
       "description": "Consulter les enregistrements de consommation de crédits de ce cours.",
+      "details": {
+        "collapse": "Réduire",
+        "durationMinutesSeconds": "{minutes} min {seconds} s",
+        "durationSeconds": "{seconds} s",
+        "empty": "Aucun détail de consommation",
+        "expand": "Développer",
+        "openUsageDetails": "Ouvrir les détails des {count} consommations",
+        "table": {
+          "createdAt": "Consommé le",
+          "credits": "Crédits",
+          "inputTokens": "Tokens d'entrée",
+          "outputSummary": "Résumé de sortie",
+          "outputTokens": "Tokens de sortie",
+          "ttsContent": "Contenu synthétisé",
+          "ttsDuration": "Durée audio",
+          "ttsSegmentCount": "Segments",
+          "ttsWordCount": "Mots synthétisés"
+        },
+        "title": "Détails de consommation des crédits"
+      },
       "filters": {
         "mode": "Scène d'utilisation",
         "modeAll": "Tous",
         "reset": "Réinitialiser",
+        "scene": "Type d’utilisation",
+        "sceneAll": "Tous",
         "time": "Heure",
         "timePlaceholder": "Sélectionner une plage horaire",
         "userKeyword": "Utilisateur",
@@ -102,15 +124,22 @@
         "mixed": "Mixte",
         "unknown": "Scène inconnue"
       },
+      "scenes": {
+        "debug": "Débogage",
+        "learning": "Apprentissage",
+        "preview": "Aperçu",
+        "unknown": "Type inconnu"
+      },
       "table": {
         "chapter": "Chapitre",
-        "createdAt": "Heure de consommation",
+        "createdAt": "Dernière consommation",
         "credits": "Total des crédits consommés",
         "empty": "Aucun enregistrement de consommation de crédits",
         "lesson": "Leçon",
         "mode": "Scène",
         "model": "Modèle",
         "nickname": "Surnom",
+        "scene": "Type d’utilisation",
         "usageCount": "Nombre d'utilisations"
       },
       "title": "Consommation de crédits"
@@ -198,6 +227,10 @@
     },
     "metrics": "Métriques",
     "metricsLabels": {
+      "completedUserAvgCredits": "Moy. crédits consommés par utilisateur terminé",
+      "creditConsumedTotal": "Crédits consommés",
+      "creditUsageCount": "Nombre de consommations de crédits",
+      "creditUserCount": "Utilisateurs consommateurs de crédits",
       "followUpCount": "Questions",
       "learnerCount": "Apprenants",
       "orderAmount": "Revenus collectés (codes coupon inclus)",

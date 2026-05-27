@@ -82,10 +82,32 @@
     "creditUsage": {
       "count": "{count} 条记录",
       "description": "查看该课程的积分消耗记录。",
+      "details": {
+        "collapse": "收起",
+        "durationMinutesSeconds": "{minutes}分{seconds}秒",
+        "durationSeconds": "{seconds}秒",
+        "empty": "暂无消耗明细",
+        "expand": "展开",
+        "openUsageDetails": "查看{count}次消耗明细",
+        "table": {
+          "createdAt": "消耗时间",
+          "credits": "消耗积分",
+          "inputTokens": "输入 Tokens",
+          "outputSummary": "输出摘要",
+          "outputTokens": "输出 Tokens",
+          "ttsContent": "合成内容",
+          "ttsDuration": "音频时长",
+          "ttsSegmentCount": "分段数",
+          "ttsWordCount": "合成字数"
+        },
+        "title": "积分消耗明细"
+      },
       "filters": {
         "mode": "消耗场景",
         "modeAll": "全部",
         "reset": "重置",
+        "scene": "消耗类型",
+        "sceneAll": "全部",
         "time": "时间",
         "timePlaceholder": "选择时间范围",
         "userKeyword": "用户",
@@ -102,15 +124,22 @@
         "mixed": "混合",
         "unknown": "未知场景"
       },
+      "scenes": {
+        "debug": "调试",
+        "learning": "学习",
+        "preview": "预览",
+        "unknown": "未知类型"
+      },
       "table": {
         "chapter": "章节",
-        "createdAt": "消耗时间",
+        "createdAt": "最近消耗时间",
         "credits": "总消耗积分",
         "empty": "暂无积分消耗记录",
         "lesson": "小节",
         "mode": "消耗场景",
         "model": "模型",
         "nickname": "昵称",
+        "scene": "消耗类型",
         "usageCount": "消耗次数"
       },
       "title": "积分消耗"
@@ -198,6 +227,10 @@
     },
     "metrics": "数据概览",
     "metricsLabels": {
+      "completedUserAvgCredits": "完课用户平均积分消耗",
+      "creditConsumedTotal": "总消耗积分",
+      "creditUsageCount": "积分消耗次数",
+      "creditUserCount": "积分消耗用户数",
       "followUpCount": "追问数",
       "learnerCount": "学习人数",
       "orderAmount": "实收总额（含兑换码）",

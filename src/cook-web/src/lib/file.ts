@@ -2,9 +2,9 @@
  * File upload utility functions
  */
 import { useUserStore } from '@/store';
-import { v4 as uuidv4 } from 'uuid';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { getStringEnv } from '@/c-utils/envUtils';
+import { buildTraceHeaders } from './request-trace';
 
 /**
  * Upload a file to the server using FormData and fetch
@@ -57,19 +57,18 @@ export const uploadFile = async (
       // Get token
       const token = useUserStore.getState().getToken();
 
-      // Add headers if provided
-      if (headers) {
-        Object.entries(headers).forEach(([key, value]) => {
-          xhr.setRequestHeader(key, value);
-        });
-      }
-
-      // Add token headers
-      if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.setRequestHeader('Token', token);
-        xhr.setRequestHeader('X-Request-ID', uuidv4().replace(/-/g, ''));
-      }
+      const traceHeaders = buildTraceHeaders({
+        ...(headers || {}),
+        ...(token
+          ? {
+              Authorization: `Bearer ${token}`,
+              Token: token,
+            }
+          : {}),
+      });
+      Object.entries(traceHeaders.headers).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
 
       xhr.upload.addEventListener('progress', event => {
         if (event.lengthComputable) {
@@ -115,23 +114,20 @@ export const uploadFile = async (
     // Get token
     const token = useUserStore.getState().getToken();
 
-    // Prepare headers
-    let mergedHeaders = headers ? { ...headers } : {};
-
-    // Add token headers
-    if (token) {
-      mergedHeaders = {
-        ...mergedHeaders,
-        Authorization: `Bearer ${token}`,
-        Token: token,
-        'X-Request-ID': uuidv4().replace(/-/g, ''),
-      };
-    }
+    const traceHeaders = buildTraceHeaders({
+      ...(headers || {}),
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
+            Token: token,
+          }
+        : {}),
+    });
 
     const requestOptions: RequestInit = {
       method: 'POST',
       body: formData,
-      headers: mergedHeaders,
+      headers: traceHeaders.headers,
     };
 
     return fetch(url, requestOptions);
@@ -171,23 +167,20 @@ export const uploadMultipleFiles = async (
   // Get token
   const token = useUserStore.getState().getToken();
 
-  // Prepare headers
-  let mergedHeaders = headers ? { ...headers } : {};
-
-  // Add token headers
-  if (token) {
-    mergedHeaders = {
-      ...mergedHeaders,
-      Authorization: `Bearer ${token}`,
-      Token: token,
-      'X-Request-ID': uuidv4().replace(/-/g, ''),
-    };
-  }
+  const traceHeaders = buildTraceHeaders({
+    ...(headers || {}),
+    ...(token
+      ? {
+          Authorization: `Bearer ${token}`,
+          Token: token,
+        }
+      : {}),
+  });
 
   const requestOptions: RequestInit = {
     method: 'POST',
     body: formData,
-    headers: mergedHeaders,
+    headers: traceHeaders.headers,
   };
 
   return fetch(url, requestOptions);
