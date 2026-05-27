@@ -1556,6 +1556,7 @@ export default function AdminOperationUsersPage() {
                 'module.order.paginationNextAriaLabel',
                 'Go to next page',
               ),
+              hideWhenSinglePage: true,
             }}
           />
           <Dialog

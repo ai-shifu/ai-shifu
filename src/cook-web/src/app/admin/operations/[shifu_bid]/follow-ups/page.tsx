@@ -1027,6 +1027,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                         'module.order.paginationNextAriaLabel',
                         'Go to next page',
                       ),
+                      hideWhenSinglePage: true,
                     }}
                   />
                 )}

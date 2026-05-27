@@ -654,6 +654,7 @@ export default function CourseCreditUsageTab({
               nextLabel: t('module.order.paginationNext'),
               prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
               nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+              hideWhenSinglePage: true,
             }}
             table={
               error ? (
@@ -929,6 +930,7 @@ export default function CourseCreditUsageTab({
                 nextLabel: t('module.order.paginationNext'),
                 prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
                 nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+                hideWhenSinglePage: true,
               }}
               table={
                 detailError ? (

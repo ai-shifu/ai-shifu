@@ -281,6 +281,7 @@ export default function CourseUsersTab({
             nextLabel: t('module.order.paginationNext'),
             prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
             nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+            hideWhenSinglePage: true,
           }}
           table={
             error ? (

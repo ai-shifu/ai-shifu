@@ -663,6 +663,7 @@ export function CreditNotificationRecordsTab({
           nextLabel: t('module.order.paginationNext'),
           prevAriaLabel: t('module.order.paginationPrev'),
           nextAriaLabel: t('module.order.paginationNext'),
+          hideWhenSinglePage: true,
         }}
         footerClassName='mt-3'
       />

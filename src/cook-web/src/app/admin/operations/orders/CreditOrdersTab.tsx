@@ -1004,6 +1004,7 @@ export default function CreditOrdersTab() {
               nextLabel: t('module.order.paginationNext'),
               prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
               nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+              hideWhenSinglePage: true,
             }}
             footerClassName='mt-3'
           />

@@ -3321,6 +3321,7 @@ export default function AdminOperationPromotionsPage() {
                 'module.order.paginationNextAriaLabel',
                 'Go to next page',
               ),
+              hideWhenSinglePage: true,
             }}
             footerClassName='mt-3'
           />
@@ -3618,6 +3619,7 @@ export default function AdminOperationPromotionsPage() {
                 'module.order.paginationNextAriaLabel',
                 'Go to next page',
               ),
+              hideWhenSinglePage: true,
             }}
             footerClassName='mt-3'
           />
