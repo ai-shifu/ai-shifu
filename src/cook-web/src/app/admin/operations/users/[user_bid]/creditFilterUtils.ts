@@ -6,6 +6,7 @@ export const createUserCreditFilters = (): AdminOperationUserCreditFilters => ({
   creditType: FILTER_ALL_OPTION,
   grantSource: FILTER_ALL_OPTION,
   courseQuery: '',
+  usageScene: FILTER_ALL_OPTION,
   usageMode: FILTER_ALL_OPTION,
   startTime: '',
   endTime: '',
@@ -18,6 +19,7 @@ export const sanitizeCreditFiltersByType = (
     return {
       ...filters,
       courseQuery: '',
+      usageScene: FILTER_ALL_OPTION,
       usageMode: FILTER_ALL_OPTION,
     };
   }
@@ -32,6 +34,7 @@ export const sanitizeCreditFiltersByType = (
       ...filters,
       grantSource: FILTER_ALL_OPTION,
       courseQuery: '',
+      usageScene: FILTER_ALL_OPTION,
       usageMode: FILTER_ALL_OPTION,
     };
   }

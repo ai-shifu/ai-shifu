@@ -26,6 +26,10 @@ import {
 } from '@/lib/billing';
 
 const RECENT_ITEMS_LIMIT = 10;
+const USAGE_TABLE_HEADER_HEIGHT = 40;
+const USAGE_TABLE_ROW_HEIGHT = 53;
+const USAGE_TABLE_PAGE_MIN_HEIGHT =
+  USAGE_TABLE_HEADER_HEIGHT + RECENT_ITEMS_LIMIT * USAGE_TABLE_ROW_HEIGHT;
 
 type BillingRecentActivitySectionProps = {
   className?: string;
@@ -114,6 +118,15 @@ export function BillingRecentActivitySection({
   const ledgerItems = ledgerData?.items || [];
   const pageCount = Number(ledgerData?.page_count || 1);
   const currentPage = Number(ledgerData?.page || pageIndex);
+  const shouldUsePageHeight =
+    ledgerLoading || ledgerItems.length >= RECENT_ITEMS_LIMIT;
+  const shouldStretchTable = stretchToFill && shouldUsePageHeight;
+  const usageTablePageStyle: React.CSSProperties | undefined =
+    shouldUsePageHeight
+      ? {
+          minHeight: USAGE_TABLE_PAGE_MIN_HEIGHT,
+        }
+      : undefined;
 
   return (
     <section
@@ -143,8 +156,9 @@ export function BillingRecentActivitySection({
           containerClassName={cn(stretchToFill && 'min-h-0 flex-1')}
           tableWrapperClassName={cn(
             'overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] [&_tbody_tr[data-admin-skeleton-row]:hover]:!bg-transparent [&_tbody_tr[data-admin-skeleton-row]:hover_td]:!bg-transparent',
-            stretchToFill && 'flex min-h-0 flex-1 flex-col',
+            shouldStretchTable && 'flex min-h-0 flex-1 flex-col',
           )}
+          tableWrapperStyle={usageTablePageStyle}
           footerClassName='px-0'
           pagination={
             pageCount > 1
@@ -168,7 +182,11 @@ export function BillingRecentActivitySection({
           }
           table={emptyRow => (
             <div
-              className={cn('overflow-auto', stretchToFill && 'min-h-0 flex-1')}
+              className={cn(
+                'overflow-auto',
+                shouldStretchTable && 'min-h-0 flex-1',
+              )}
+              style={usageTablePageStyle}
               data-testid='billing-usage-table-scroll'
             >
               <Table

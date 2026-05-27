@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminTitle from '@/app/admin/components/AdminTitle';
@@ -27,6 +27,7 @@ import type {
   AdminOperationCourseCreditUsageFilters,
   AdminOperationCourseCreditUsageItem,
   AdminOperationCourseCreditUsageListResponse,
+  AdminOperationCourseCreditUsageSceneFilter,
   AdminOperationCourseChapterDetailResponse,
   AdminOperationCourseDetailChapter,
   AdminOperationCourseDetailResponse,
@@ -164,6 +165,7 @@ const formatLearningProgress = (
 const createCourseCreditUsageFilters =
   (): AdminOperationCourseCreditUsageFilters => ({
     keyword: '',
+    usageScene: FILTER_ALL_OPTION,
     mode: FILTER_ALL_OPTION,
     startTime: '',
     endTime: '',
@@ -264,11 +266,17 @@ const createCourseCreditUsageFilters =
  * t('module.operationsCourse.detail.creditUsage.filters.userKeyword')
  * t('module.operationsCourse.detail.creditUsage.filters.userKeywordPlaceholderPhone')
  * t('module.operationsCourse.detail.creditUsage.filters.userKeywordPlaceholderEmail')
+ * t('module.operationsCourse.detail.creditUsage.filters.scene')
+ * t('module.operationsCourse.detail.creditUsage.filters.sceneAll')
  * t('module.operationsCourse.detail.creditUsage.filters.mode')
  * t('module.operationsCourse.detail.creditUsage.filters.modeAll')
  * t('module.operationsCourse.detail.creditUsage.filters.time')
  * t('module.operationsCourse.detail.creditUsage.filters.timePlaceholder')
  * t('module.operationsCourse.detail.creditUsage.filters.reset')
+ * t('module.operationsCourse.detail.creditUsage.scenes.learning')
+ * t('module.operationsCourse.detail.creditUsage.scenes.preview')
+ * t('module.operationsCourse.detail.creditUsage.scenes.debug')
+ * t('module.operationsCourse.detail.creditUsage.scenes.unknown')
  * t('module.operationsCourse.detail.creditUsage.modes.learn')
  * t('module.operationsCourse.detail.creditUsage.modes.listen')
  * t('module.operationsCourse.detail.creditUsage.modes.ask')
@@ -277,6 +285,7 @@ const createCourseCreditUsageFilters =
  * t('module.operationsCourse.detail.creditUsage.modelSummary.multiple')
  * t('module.operationsCourse.detail.creditUsage.table.createdAt')
  * t('module.operationsCourse.detail.creditUsage.table.nickname')
+ * t('module.operationsCourse.detail.creditUsage.table.scene')
  * t('module.operationsCourse.detail.creditUsage.table.mode')
  * t('module.operationsCourse.detail.creditUsage.table.chapter')
  * t('module.operationsCourse.detail.creditUsage.table.lesson')
@@ -298,6 +307,7 @@ const createCourseCreditUsageFilters =
 export default function AdminOperationCourseDetailPage() {
   const router = useRouter();
   const params = useParams<{ shifu_bid?: string }>();
+  const searchParams = useSearchParams();
   const { t, i18n } = useTranslation();
   const { t: tOperations } = useTranslation('module.operationsCourse');
   const { isReady } = useOperatorGuard();
@@ -346,6 +356,7 @@ export default function AdminOperationCourseDetailPage() {
     useState<ErrorState | null>(null);
   const [courseCreditUsagePage, setCourseCreditUsagePage] = useState(1);
   const courseCreditUsagesRequestIdRef = useRef(0);
+  const detailTabsRef = useRef<HTMLDivElement | null>(null);
   const {
     setColumnWidths: setChapterColumnWidths,
     getColumnStyle: getChapterColumnStyle,
@@ -387,6 +398,20 @@ export default function AdminOperationCourseDetailPage() {
   );
   const emptyValue = '--';
   const unknownErrorMessage = t('common.core.unknownError');
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'chapters' || tab === 'users' || tab === 'creditUsage') {
+      setActiveTab(tab);
+      if (tab === 'creditUsage') {
+        window.requestAnimationFrame(() => {
+          detailTabsRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          });
+        });
+      }
+    }
+  }, [searchParams]);
   const contactMode = useMemo(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
@@ -512,6 +537,10 @@ export default function AdminOperationCourseDetailPage() {
           page_size: COURSE_CREDIT_USAGE_PAGE_SIZE,
           view: 'grouped',
           keyword: resolvedFilters.keyword.trim(),
+          usage_scene:
+            resolvedFilters.usageScene === FILTER_ALL_OPTION
+              ? ''
+              : resolvedFilters.usageScene,
           mode:
             resolvedFilters.mode === FILTER_ALL_OPTION
               ? ''
@@ -562,6 +591,7 @@ export default function AdminOperationCourseDetailPage() {
         page_size: COURSE_CREDIT_USAGE_DETAIL_PAGE_SIZE,
         user_bid: row.user_bid,
         outline_item_bid: row.lesson_outline_item_bid,
+        usage_scene: row.usage_scene,
         mode: row.usage_mode === 'mixed' ? '' : row.usage_mode,
       })) as AdminOperationCourseCreditUsageDetailListResponse;
     },
@@ -894,6 +924,23 @@ export default function AdminOperationCourseDetailPage() {
       setCourseUserPage(nextPage);
     },
     [courseUserPageCount, currentCourseUserPage],
+  );
+
+  const handleCourseCreditUsageSceneChange = useCallback(
+    (value: AdminOperationCourseCreditUsageSceneFilter) => {
+      const nextDraftFilters = {
+        ...courseCreditUsageFiltersDraft,
+        usageScene: value,
+      };
+      setCourseCreditUsageFiltersDraft(nextDraftFilters);
+      setCourseCreditUsageFilters(prevFilters => ({
+        ...prevFilters,
+        usageScene: value,
+        keyword: prevFilters.keyword.trim(),
+      }));
+      setCourseCreditUsagePage(1);
+    },
+    [courseCreditUsageFiltersDraft],
   );
 
   const handleCourseCreditUsageSearch = useCallback(() => {
@@ -1460,7 +1507,10 @@ export default function AdminOperationCourseDetailPage() {
               onValueChange={value => setActiveTab(value as CourseDetailTab)}
               className='space-y-4'
             >
-              <div className='overflow-x-auto'>
+              <div
+                ref={detailTabsRef}
+                className='overflow-x-auto'
+              >
                 <TabsList>
                   <TabsTrigger value='chapters'>
                     {tOperations('detail.chapters')}
@@ -1566,6 +1616,7 @@ export default function AdminOperationCourseDetailPage() {
                       keyword: value,
                     }))
                   }
+                  onSceneChange={handleCourseCreditUsageSceneChange}
                   onModeChange={value =>
                     setCourseCreditUsageFiltersDraft(prev => ({
                       ...prev,

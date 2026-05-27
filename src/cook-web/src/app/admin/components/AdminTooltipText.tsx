@@ -14,6 +14,7 @@ type AdminTooltipTextProps = {
   displayText?: ReactNode;
   className?: string;
   emptyValue: string;
+  alwaysShowTooltip?: boolean;
   forceTooltip?: boolean;
 };
 
@@ -22,6 +23,7 @@ export default function AdminTooltipText({
   displayText,
   className,
   emptyValue,
+  alwaysShowTooltip = false,
   forceTooltip = false,
 }: AdminTooltipTextProps) {
   const triggerRef = useRef<HTMLSpanElement | null>(null);
@@ -86,7 +88,8 @@ export default function AdminTooltipText({
   );
 
   const shouldShowTooltip =
-    isOverflowing || (forceTooltip && trimmedText.length > 0);
+    isOverflowing ||
+    ((alwaysShowTooltip || forceTooltip) && trimmedText.length > 0);
 
   if (!shouldShowTooltip) {
     return content;

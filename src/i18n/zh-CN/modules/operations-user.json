@@ -27,11 +27,18 @@
     "creditLedgerColumns": {
       "amount": "变更积分",
       "balanceAfter": "变更后余额",
+      "consumedCredits": "消耗积分",
+      "course": "课程",
       "createdAt": "变更时间",
       "entryType": "类型",
       "expiresAt": "到期时间",
+      "grantedCredits": "获得积分",
       "note": "备注",
-      "sourceType": "来源"
+      "sectionChapter": "节/章",
+      "sourceType": "来源",
+      "usageMode": "方式",
+      "usageScene": "场景",
+      "user": "用户"
     },
     "creditLedgerFilters": {
       "course": "课程",
@@ -53,12 +60,19 @@
         "grant": "发放",
         "other": "其他"
       },
-      "usageMode": "消耗场景",
+      "usageMode": "消耗方式",
       "usageModeOptions": {
         "all": "全部",
         "ask": "追问",
         "learn": "阅读",
         "listen": "听课"
+      },
+      "usageScene": "消耗场景",
+      "usageSceneOptions": {
+        "all": "全部",
+        "debug": "调试",
+        "learning": "学习",
+        "preview": "预览"
       }
     },
     "creditLedgerNoteLabels": {
@@ -119,6 +133,37 @@
       "topup_expire": "积分包过期",
       "topup_grant": "积分包发放",
       "trial_subscription_grant": "体验套餐发放"
+    },
+    "creditLedgerUsageSceneLabels": {
+      "debug": "调试",
+      "learning": "学习",
+      "preview": "预览"
+    },
+    "creditUsageDetail": {
+      "actions": {
+        "open": "明细",
+        "openAriaLabel": "查看积分消耗明细"
+      },
+      "collapse": "收起",
+      "columns": {
+        "consumedCredits": "消耗积分",
+        "createdAt": "消耗时间",
+        "inputTokens": "输入 Tokens",
+        "outputSummary": "输出摘要",
+        "outputTokens": "输出 Tokens",
+        "ttsContent": "合成内容",
+        "ttsDuration": "音频时长",
+        "ttsSegmentCount": "分段数",
+        "ttsWordCount": "合成字数"
+      },
+      "description": "展示本次结算内可关联到的输出内容和积分消耗。",
+      "durationMinutesSeconds": "{minutes}分{seconds}秒",
+      "durationSeconds": "{seconds}秒",
+      "empty": "暂无消耗明细",
+      "error": "消耗明细加载失败",
+      "expand": "展开",
+      "loading": "加载中",
+      "title": "积分消耗明细"
     },
     "creditsOverview": "积分概览",
     "creditsOverviewLabels": {

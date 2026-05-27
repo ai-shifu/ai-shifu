@@ -6,7 +6,6 @@ import React, {
   useState,
 } from 'react';
 import { SSE } from 'sse.js';
-import { v4 as uuidv4 } from 'uuid';
 import {
   Copy,
   Check,
@@ -21,6 +20,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { uploadFile } from '@/lib/file';
+import { buildTraceHeaders } from '@/lib/request-trace';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
 import {
@@ -1040,16 +1040,17 @@ export default function ShifuSettingDialog({
 
     const baseUrl = getResolvedBaseURL();
     const token = useUserStore.getState().getToken();
-    const headers: Record<string, string> = {
+    const traceHeaders = buildTraceHeaders({
       'Content-Type': 'application/json',
-      'X-Request-ID': uuidv4().replace(/-/g, ''),
-    };
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      headers.Token = token;
-    }
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
+            Token: token,
+          }
+        : {}),
+    });
     const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
-      headers,
+      headers: traceHeaders.headers,
       payload: JSON.stringify({
         provider: resolvedProvider,
         model: ttsModel || '',

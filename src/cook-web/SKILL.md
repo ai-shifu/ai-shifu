@@ -63,6 +63,8 @@
 - 作者侧预览区如果要对特定业务错误提供后续操作，优先把错误码挂在预览错误项上，再由 `LessonPreview` 按错误码渲染定向 CTA；像 `7101` 积分不足这类场景，应直接提供跳转 `/admin/billing?tab=packages` 的充值入口，而不是靠文案匹配做分支。
 - 作者侧预览/调试模式如果要补阅读模式风格的打字机节奏，优先在 `src/components/lesson-preview/` 下独立维护一套 preview gate 和缓存完成态，不要直接复用 learner 页 `readModeTypewriterGate`，避免作者侧交互节奏与学习页状态机互相耦合。
 - 作者侧预览里的喇叭辅助行要视作正文 text element 的后置 helper：只有父级是 `text` element 且该正文块打字机完成后才显示；父级是 `html`、`interaction` 等非 text element 时不要渲染这行辅助能力。
+- cook-web App Router 错误兜底页应同时覆盖 `src/app/error.tsx` 与 `src/app/global-error.tsx`，并在页面上直接展示错误 `name/message/digest/cause/URL/stack` 等排障信息；复制错误信息时还要带上当前链接、来源链接和简要浏览器环境（浏览器名称、操作系统），但不要复制用户信息、token 或密码。
+- 根布局、错误兜底页和全局 Provider 这类基础入口不要从 `@/store` barrel 静态引入状态模块；优先 import 精确子模块，避免 barrel 触发 `useShifu/useTracking/useUiLayoutStore` 等无关模块副作用。
 
 - 后台管理页筛选区布局优先复用 `src/app/admin/components/AdminFilter.tsx`；筛选项 label 使用 `--base-foreground` 与 text-sm/medium token，需要纵向对齐时传入固定 label 宽度；查询和重置按钮左右内边距保持 `16px`，展开按钮使用 `--base-foreground` 并保持与查询按钮 `24px`、与 chevron `4px` 的间距；当筛选项数量不超过收起态展示数量时不要显示展开/收起按钮。
 - 后台管理页筛选项只有两种响应式形态：`xl` 及以上用固定三列横向展示，`xl` 以下直接切换为纵向一行一个筛选项，不要使用 `auto-fit` 或 `md:grid-cols-2` 造成两列加一列的中间态；输入控件最大宽度限制应跟随横向断点启用，共享筛选项容器需要 `min-w-0`，避免窄屏时控件被提前压缩。
@@ -99,6 +101,7 @@
 - `skills/hook-contract-refactor-safety/SKILL.md`
 - `skills/chat-system-interaction-button-overrides/SKILL.md`
 - `skills/shared-loading-dots/SKILL.md`
+- `skills/app-error-boundary-display/SKILL.md`
 - `skills/admin-breadcrumbs/SKILL.md`
 - `skills/admin-filter-layout/SKILL.md`
 - `skills/admin-table-visual-system/SKILL.md`

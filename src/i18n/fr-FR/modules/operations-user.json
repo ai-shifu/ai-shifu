@@ -27,11 +27,18 @@
     "creditLedgerColumns": {
       "amount": "Montant",
       "balanceAfter": "Solde après",
+      "consumedCredits": "Crédits consommés",
+      "course": "Cours",
       "createdAt": "Modifié le",
       "entryType": "Type",
       "expiresAt": "Expire le",
+      "grantedCredits": "Crédits obtenus",
       "note": "Note",
-      "sourceType": "Source"
+      "sectionChapter": "Section/chapitre",
+      "sourceType": "Source",
+      "usageMode": "Mode",
+      "usageScene": "Scène",
+      "user": "Utilisateur"
     },
     "creditLedgerFilters": {
       "course": "Cours",
@@ -53,12 +60,19 @@
         "grant": "Attribution",
         "other": "Autre"
       },
-      "usageMode": "Scénario d’utilisation",
+      "usageMode": "Mode d’utilisation",
       "usageModeOptions": {
         "all": "Tout",
         "ask": "Relance",
         "learn": "Lecture",
         "listen": "Écoute"
+      },
+      "usageScene": "Scène d’utilisation",
+      "usageSceneOptions": {
+        "all": "Tous",
+        "debug": "Débogage",
+        "learning": "Apprentissage",
+        "preview": "Aperçu"
       }
     },
     "creditLedgerNoteLabels": {
@@ -119,6 +133,37 @@
       "topup_expire": "Expiration recharge",
       "topup_grant": "Attribution recharge",
       "trial_subscription_grant": "Attribution d’abonnement d’essai"
+    },
+    "creditLedgerUsageSceneLabels": {
+      "debug": "Débogage",
+      "learning": "Apprentissage",
+      "preview": "Aperçu"
+    },
+    "creditUsageDetail": {
+      "actions": {
+        "open": "Détails",
+        "openAriaLabel": "Voir les détails de consommation de crédits"
+      },
+      "collapse": "Réduire",
+      "columns": {
+        "consumedCredits": "Crédits",
+        "createdAt": "Consommé le",
+        "inputTokens": "Tokens d'entrée",
+        "outputSummary": "Résumé de sortie",
+        "outputTokens": "Tokens de sortie",
+        "ttsContent": "Contenu synthétisé",
+        "ttsDuration": "Durée audio",
+        "ttsSegmentCount": "Segments",
+        "ttsWordCount": "Mots synthétisés"
+      },
+      "description": "Affiche le contenu de sortie et les crédits consommés pour ce règlement lorsque disponibles.",
+      "durationMinutesSeconds": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "empty": "Aucun détail de consommation",
+      "error": "Échec du chargement des détails",
+      "expand": "Développer",
+      "loading": "Chargement",
+      "title": "Détails de consommation des crédits"
     },
     "creditsOverview": "Vue d’ensemble des crédits",
     "creditsOverviewLabels": {

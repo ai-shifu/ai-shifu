@@ -9,7 +9,7 @@ import {
 } from '@/c-constants/uiConstants';
 import { useEnvStore, useSystemStore } from '@/c-store';
 import { parseUrlParams } from '@/c-utils/urlUtils';
-import { useUserStore } from '@/store';
+import { useUserStore } from '@/store/useUserStore';
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
