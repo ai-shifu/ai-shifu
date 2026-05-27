@@ -942,7 +942,7 @@ const OrdersPage = () => {
               loading={loading}
               isEmpty={orders.length === 0}
               emptyContent={t('module.order.emptyList')}
-              emptyColSpan={9}
+              emptyColSpan={Object.keys(DEFAULT_COLUMN_WIDTHS).length}
               withTooltipProvider
               tableWrapperClassName='max-h-[calc(100vh-20rem)] overflow-auto'
               footnote={t('module.order.totalCount', { count: total })}

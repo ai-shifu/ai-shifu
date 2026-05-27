@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
-import { AlertCircle, ChevronDown, X } from 'lucide-react';
+import { AlertCircle, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
 import api from '@/api';
@@ -14,7 +14,7 @@ import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import {
   formatAdminCount,
   formatAdminCredits,
@@ -28,12 +28,6 @@ import {
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/DropdownMenu';
 import {
   Dialog,
   DialogContent,
@@ -1184,7 +1178,7 @@ export default function AdminOperationUsersPage() {
             loading={loading}
             isEmpty={users.length === 0}
             emptyContent={tOperationsUsers('emptyList')}
-            emptyColSpan={17}
+            emptyColSpan={Object.keys(DEFAULT_COLUMN_WIDTHS).length}
             tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
             table={emptyRow => (
               <Table>
@@ -1521,35 +1515,25 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('action')}
                         >
                           <div className='flex justify-center'>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  type='button'
-                                  aria-label={tOperationsUsers(
-                                    'actions.moreForUser',
-                                    {
-                                      user: user.user_bid,
-                                    },
-                                  )}
-                                  className='inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none'
-                                >
-                                  {t('common.core.more')}
-                                  <ChevronDown className='h-3.5 w-3.5' />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align='center'>
-                                <DropdownMenuItem
-                                  disabled={!canGrantBenefitsToUser(user)}
-                                  onClick={() => {
-                                    if (canGrantBenefitsToUser(user)) {
-                                      setGrantDialogUser(user);
-                                    }
-                                  }}
-                                >
-                                  {tOperationsUsers('actions.grantCredits')}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <AdminRowActions
+                              label={t('common.core.more')}
+                              ariaLabel={tOperationsUsers(
+                                'actions.moreForUser',
+                                {
+                                  user: user.user_bid,
+                                },
+                              )}
+                              actions={[
+                                {
+                                  key: 'grant-credits',
+                                  label: tOperationsUsers(
+                                    'actions.grantCredits',
+                                  ),
+                                  disabled: !canGrantBenefitsToUser(user),
+                                  onClick: () => setGrantDialogUser(user),
+                                },
+                              ]}
+                            />
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1558,26 +1542,21 @@ export default function AdminOperationUsersPage() {
                 </TableBody>
               </Table>
             )}
-            footer={
-              pageCount > 1 ? (
-                <AdminPagination
-                  pageIndex={pageIndex}
-                  pageCount={pageCount}
-                  onPageChange={handlePageChange}
-                  prevLabel={t('module.order.paginationPrev', 'Previous')}
-                  nextLabel={t('module.order.paginationNext', 'Next')}
-                  prevAriaLabel={t(
-                    'module.order.paginationPrevAriaLabel',
-                    'Go to previous page',
-                  )}
-                  nextAriaLabel={t(
-                    'module.order.paginationNextAriaLabel',
-                    'Go to next page',
-                  )}
-                  className='justify-end w-auto mx-0'
-                />
-              ) : null
-            }
+            pagination={{
+              pageIndex,
+              pageCount,
+              onPageChange: handlePageChange,
+              prevLabel: t('module.order.paginationPrev', 'Previous'),
+              nextLabel: t('module.order.paginationNext', 'Next'),
+              prevAriaLabel: t(
+                'module.order.paginationPrevAriaLabel',
+                'Go to previous page',
+              ),
+              nextAriaLabel: t(
+                'module.order.paginationNextAriaLabel',
+                'Go to next page',
+              ),
+            }}
           />
           <Dialog
             open={Boolean(courseDialog)}

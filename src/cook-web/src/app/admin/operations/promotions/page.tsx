@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { CalendarIcon, ChevronDown, Plus, X } from 'lucide-react';
+import { CalendarIcon, Plus, X } from 'lucide-react';
 import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
@@ -11,7 +11,7 @@ import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -49,12 +49,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/DropdownMenu';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Calendar } from '@/components/ui/Calendar';
@@ -180,6 +174,12 @@ const CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
   updatedAt: 170,
   createdAt: 170,
   action: 120,
+} as const;
+const PROMOTION_CODE_DIALOG_COLUMN_COUNT = 4;
+const PROMOTION_REDEMPTION_DIALOG_COLUMN_COUNT = 4;
+const PROMOTION_USAGE_DIALOG_COLUMN_COUNT = {
+  default: 4,
+  withCourse: 5,
 } as const;
 const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
@@ -656,29 +656,6 @@ const FormField = ({
   </div>
 );
 
-const StickyActionTableEmptyRow = ({
-  content,
-  contentColSpan,
-  actionStyle,
-}: {
-  content: React.ReactNode;
-  contentColSpan: number;
-  actionStyle?: React.CSSProperties;
-}) => (
-  <TableRow className='hover:bg-transparent'>
-    <TableCell
-      colSpan={contentColSpan}
-      className='px-4 py-10 text-center text-sm text-muted-foreground'
-    >
-      {content}
-    </TableCell>
-    <TableCell
-      className={TABLE_ACTION_CELL_CLASS}
-      style={actionStyle}
-    />
-  </TableRow>
-);
-
 const PromotionStatusConfirmDialog = ({
   changeTarget,
   submitting,
@@ -1080,7 +1057,7 @@ const PromotionCouponCodesDialog = ({
             loading={loading}
             isEmpty={codes.length === 0}
             emptyContent={tPromotion('messages.emptyCodes')}
-            emptyColSpan={4}
+            emptyColSpan={PROMOTION_CODE_DIALOG_COLUMN_COUNT}
             withTooltipProvider
             containerClassName='min-h-0 flex-1'
             tableWrapperClassName='min-h-0 flex-1 overflow-auto'
@@ -1125,25 +1102,22 @@ const PromotionCouponCodesDialog = ({
                 </TableBody>
               </Table>
             )}
-            footer={
-              <AdminPagination
-                pageIndex={pageIndex}
-                pageCount={pageCount}
-                onPageChange={page => void fetchCodes(page, appliedKeyword)}
-                prevLabel={t('module.order.paginationPrev', 'Previous')}
-                nextLabel={t('module.order.paginationNext', 'Next')}
-                prevAriaLabel={t(
-                  'module.order.paginationPrevAriaLabel',
-                  'Go to previous page',
-                )}
-                nextAriaLabel={t(
-                  'module.order.paginationNextAriaLabel',
-                  'Go to next page',
-                )}
-                className='mx-0 w-auto justify-end'
-                hideWhenSinglePage
-              />
-            }
+            pagination={{
+              pageIndex,
+              pageCount,
+              onPageChange: page => void fetchCodes(page, appliedKeyword),
+              prevLabel: t('module.order.paginationPrev', 'Previous'),
+              nextLabel: t('module.order.paginationNext', 'Next'),
+              prevAriaLabel: t(
+                'module.order.paginationPrevAriaLabel',
+                'Go to previous page',
+              ),
+              nextAriaLabel: t(
+                'module.order.paginationNextAriaLabel',
+                'Go to next page',
+              ),
+              hideWhenSinglePage: true,
+            }}
             footerClassName='mt-3'
           />
         </div>
@@ -1227,7 +1201,7 @@ const PromotionCampaignRedemptionsDialog = ({
             loading={loading}
             isEmpty={redemptions.length === 0}
             emptyContent={tPromotion('messages.emptyRedemptions')}
-            emptyColSpan={4}
+            emptyColSpan={PROMOTION_REDEMPTION_DIALOG_COLUMN_COUNT}
             withTooltipProvider
             containerClassName='min-h-0 flex-1'
             tableWrapperClassName='min-h-0 flex-1 overflow-auto'
@@ -1272,25 +1246,22 @@ const PromotionCampaignRedemptionsDialog = ({
                 </TableBody>
               </Table>
             )}
-            footer={
-              <AdminPagination
-                pageIndex={pageIndex}
-                pageCount={pageCount}
-                onPageChange={page => void fetchRedemptions(page)}
-                prevLabel={t('module.order.paginationPrev', 'Previous')}
-                nextLabel={t('module.order.paginationNext', 'Next')}
-                prevAriaLabel={t(
-                  'module.order.paginationPrevAriaLabel',
-                  'Go to previous page',
-                )}
-                nextAriaLabel={t(
-                  'module.order.paginationNextAriaLabel',
-                  'Go to next page',
-                )}
-                className='mx-0 w-auto justify-end'
-                hideWhenSinglePage
-              />
-            }
+            pagination={{
+              pageIndex,
+              pageCount,
+              onPageChange: page => void fetchRedemptions(page),
+              prevLabel: t('module.order.paginationPrev', 'Previous'),
+              nextLabel: t('module.order.paginationNext', 'Next'),
+              prevAriaLabel: t(
+                'module.order.paginationPrevAriaLabel',
+                'Go to previous page',
+              ),
+              nextAriaLabel: t(
+                'module.order.paginationNextAriaLabel',
+                'Go to next page',
+              ),
+              hideWhenSinglePage: true,
+            }}
             footerClassName='mt-3'
           />
         </div>
@@ -1372,7 +1343,11 @@ const PromotionCouponUsageDialog = ({
             loading={loading}
             isEmpty={usages.length === 0}
             emptyContent={tPromotion('messages.emptyUsages')}
-            emptyColSpan={showCourseColumn ? 5 : 4}
+            emptyColSpan={
+              showCourseColumn
+                ? PROMOTION_USAGE_DIALOG_COLUMN_COUNT.withCourse
+                : PROMOTION_USAGE_DIALOG_COLUMN_COUNT.default
+            }
             withTooltipProvider
             containerClassName='min-h-0 flex-1'
             tableWrapperClassName='min-h-0 flex-1 overflow-auto'
@@ -1429,25 +1404,22 @@ const PromotionCouponUsageDialog = ({
                 </TableBody>
               </Table>
             )}
-            footer={
-              <AdminPagination
-                pageIndex={pageIndex}
-                pageCount={pageCount}
-                onPageChange={page => void fetchUsages(page)}
-                prevLabel={t('module.order.paginationPrev', 'Previous')}
-                nextLabel={t('module.order.paginationNext', 'Next')}
-                prevAriaLabel={t(
-                  'module.order.paginationPrevAriaLabel',
-                  'Go to previous page',
-                )}
-                nextAriaLabel={t(
-                  'module.order.paginationNextAriaLabel',
-                  'Go to next page',
-                )}
-                className='mx-0 w-auto justify-end'
-                hideWhenSinglePage
-              />
-            }
+            pagination={{
+              pageIndex,
+              pageCount,
+              onPageChange: page => void fetchUsages(page),
+              prevLabel: t('module.order.paginationPrev', 'Previous'),
+              nextLabel: t('module.order.paginationNext', 'Next'),
+              prevAriaLabel: t(
+                'module.order.paginationPrevAriaLabel',
+                'Go to previous page',
+              ),
+              nextAriaLabel: t(
+                'module.order.paginationNextAriaLabel',
+                'Go to next page',
+              ),
+              hideWhenSinglePage: true,
+            }}
             footerClassName='mt-3'
           />
         </div>
@@ -3042,10 +3014,17 @@ export default function AdminOperationPromotionsPage() {
           ) : null}
           <AdminTableShell
             loading={couponLoading}
-            isEmpty={false}
+            isEmpty={!coupons.length}
+            emptyContent={tPromotion('messages.emptyCoupons')}
+            stickyActionEmpty={{
+              contentColSpan:
+                Object.keys(COUPON_DEFAULT_COLUMN_WIDTHS).length - 1,
+              actionClassName: TABLE_ACTION_CELL_CLASS,
+              actionStyle: getCouponColumnStyle('action'),
+            }}
             withTooltipProvider
             tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
-            table={() => (
+            table={emptyRow => (
               <Table containerClassName='overflow-visible max-h-none'>
                 <TableHeader>
                   <TableRow>
@@ -3150,15 +3129,7 @@ export default function AdminOperationPromotionsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {!coupons.length ? (
-                    <StickyActionTableEmptyRow
-                      content={tPromotion('messages.emptyCoupons')}
-                      contentColSpan={
-                        Object.keys(COUPON_DEFAULT_COLUMN_WIDTHS).length - 1
-                      }
-                      actionStyle={getCouponColumnStyle('action')}
-                    />
-                  ) : null}
+                  {emptyRow}
                   {coupons.map(item => (
                     <TableRow key={item.coupon_bid}>
                       <TableCell
@@ -3302,44 +3273,33 @@ export default function AdminOperationPromotionsPage() {
                         style={getCouponColumnStyle('action')}
                       >
                         <div className='flex justify-center'>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type='button'
-                                className='inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none'
-                              >
-                                {t('common.core.more')}
-                                <ChevronDown className='h-3.5 w-3.5' />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align='center'>
-                              <DropdownMenuItem
-                                onClick={() => void handleStartCouponEdit(item)}
-                              >
-                                {tPromotion('actions.edit')}
-                              </DropdownMenuItem>
-                              {Number(item.usage_type) === 802 ? (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    void handleCouponCodeExport(item)
-                                  }
-                                >
-                                  {tPromotion('actions.exportCodes')}
-                                </DropdownMenuItem>
-                              ) : null}
-                              {shouldShowCouponStatusToggle(item) ? (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    void handleCouponStatusToggle(item)
-                                  }
-                                >
-                                  {item.computed_status === 'inactive'
+                          <AdminRowActions
+                            label={t('common.core.more')}
+                            actions={[
+                              {
+                                key: 'edit',
+                                label: tPromotion('actions.edit'),
+                                onClick: () => void handleStartCouponEdit(item),
+                              },
+                              {
+                                key: 'export-codes',
+                                label: tPromotion('actions.exportCodes'),
+                                hidden: Number(item.usage_type) !== 802,
+                                onClick: () =>
+                                  void handleCouponCodeExport(item),
+                              },
+                              {
+                                key: 'toggle-status',
+                                label:
+                                  item.computed_status === 'inactive'
                                     ? tPromotion('actions.enable')
-                                    : tPromotion('actions.disable')}
-                                </DropdownMenuItem>
-                              ) : null}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                    : tPromotion('actions.disable'),
+                                hidden: !shouldShowCouponStatusToggle(item),
+                                onClick: () =>
+                                  void handleCouponStatusToggle(item),
+                              },
+                            ]}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -3347,25 +3307,21 @@ export default function AdminOperationPromotionsPage() {
                 </TableBody>
               </Table>
             )}
-            footer={
-              <AdminPagination
-                pageIndex={couponPage}
-                pageCount={couponPageCount}
-                onPageChange={page => void fetchCoupons(page, couponFilters)}
-                prevLabel={t('module.order.paginationPrev', 'Previous')}
-                nextLabel={t('module.order.paginationNext', 'Next')}
-                prevAriaLabel={t(
-                  'module.order.paginationPrevAriaLabel',
-                  'Go to previous page',
-                )}
-                nextAriaLabel={t(
-                  'module.order.paginationNextAriaLabel',
-                  'Go to next page',
-                )}
-                className='mx-0 w-auto justify-end'
-                hideWhenSinglePage
-              />
-            }
+            pagination={{
+              pageIndex: couponPage,
+              pageCount: couponPageCount,
+              onPageChange: page => void fetchCoupons(page, couponFilters),
+              prevLabel: t('module.order.paginationPrev', 'Previous'),
+              nextLabel: t('module.order.paginationNext', 'Next'),
+              prevAriaLabel: t(
+                'module.order.paginationPrevAriaLabel',
+                'Go to previous page',
+              ),
+              nextAriaLabel: t(
+                'module.order.paginationNextAriaLabel',
+                'Go to next page',
+              ),
+            }}
             footerClassName='mt-3'
           />
         </TabsContent>
@@ -3414,10 +3370,17 @@ export default function AdminOperationPromotionsPage() {
           ) : null}
           <AdminTableShell
             loading={campaignLoading}
-            isEmpty={false}
+            isEmpty={!campaigns.length}
+            emptyContent={tPromotion('messages.emptyCampaigns')}
+            stickyActionEmpty={{
+              contentColSpan:
+                Object.keys(CAMPAIGN_DEFAULT_COLUMN_WIDTHS).length - 1,
+              actionClassName: TABLE_ACTION_CELL_CLASS,
+              actionStyle: getCampaignColumnStyle('action'),
+            }}
             withTooltipProvider
             tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
-            table={() => (
+            table={emptyRow => (
               <Table containerClassName='overflow-visible max-h-none'>
                 <TableHeader>
                   <TableRow>
@@ -3508,15 +3471,7 @@ export default function AdminOperationPromotionsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {!campaigns.length ? (
-                    <StickyActionTableEmptyRow
-                      content={tPromotion('messages.emptyCampaigns')}
-                      contentColSpan={
-                        Object.keys(CAMPAIGN_DEFAULT_COLUMN_WIDTHS).length - 1
-                      }
-                      actionStyle={getCampaignColumnStyle('action')}
-                    />
-                  ) : null}
+                  {emptyRow}
                   {campaigns.map(item => (
                     <TableRow key={item.promo_bid}>
                       <TableCell
@@ -3621,37 +3576,27 @@ export default function AdminOperationPromotionsPage() {
                         style={getCampaignColumnStyle('action')}
                       >
                         <div className='flex justify-center'>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type='button'
-                                className='inline-flex h-8 items-center justify-center gap-1 rounded-md px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none'
-                              >
-                                {t('common.core.more')}
-                                <ChevronDown className='h-3.5 w-3.5' />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align='center'>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  void handleStartCampaignEdit(item)
-                                }
-                              >
-                                {tPromotion('actions.edit')}
-                              </DropdownMenuItem>
-                              {shouldShowCampaignStatusToggle(item) ? (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    void handleCampaignStatusToggle(item)
-                                  }
-                                >
-                                  {item.computed_status === 'inactive'
+                          <AdminRowActions
+                            label={t('common.core.more')}
+                            actions={[
+                              {
+                                key: 'edit',
+                                label: tPromotion('actions.edit'),
+                                onClick: () =>
+                                  void handleStartCampaignEdit(item),
+                              },
+                              {
+                                key: 'toggle-status',
+                                label:
+                                  item.computed_status === 'inactive'
                                     ? tPromotion('actions.enable')
-                                    : tPromotion('actions.disable')}
-                                </DropdownMenuItem>
-                              ) : null}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                    : tPromotion('actions.disable'),
+                                hidden: !shouldShowCampaignStatusToggle(item),
+                                onClick: () =>
+                                  void handleCampaignStatusToggle(item),
+                              },
+                            ]}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -3659,27 +3604,21 @@ export default function AdminOperationPromotionsPage() {
                 </TableBody>
               </Table>
             )}
-            footer={
-              <AdminPagination
-                pageIndex={campaignPage}
-                pageCount={campaignPageCount}
-                onPageChange={page =>
-                  void fetchCampaigns(page, campaignFilters)
-                }
-                prevLabel={t('module.order.paginationPrev', 'Previous')}
-                nextLabel={t('module.order.paginationNext', 'Next')}
-                prevAriaLabel={t(
-                  'module.order.paginationPrevAriaLabel',
-                  'Go to previous page',
-                )}
-                nextAriaLabel={t(
-                  'module.order.paginationNextAriaLabel',
-                  'Go to next page',
-                )}
-                className='mx-0 w-auto justify-end'
-                hideWhenSinglePage
-              />
-            }
+            pagination={{
+              pageIndex: campaignPage,
+              pageCount: campaignPageCount,
+              onPageChange: page => void fetchCampaigns(page, campaignFilters),
+              prevLabel: t('module.order.paginationPrev', 'Previous'),
+              nextLabel: t('module.order.paginationNext', 'Next'),
+              prevAriaLabel: t(
+                'module.order.paginationPrevAriaLabel',
+                'Go to previous page',
+              ),
+              nextAriaLabel: t(
+                'module.order.paginationNextAriaLabel',
+                'Go to next page',
+              ),
+            }}
             footerClassName='mt-3'
           />
         </TabsContent>

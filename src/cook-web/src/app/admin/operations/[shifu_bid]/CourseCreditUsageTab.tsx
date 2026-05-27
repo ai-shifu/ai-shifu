@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
@@ -84,6 +83,10 @@ const CREDIT_USAGE_COLUMN_DEFAULT_WIDTHS = {
 const CREDIT_USAGE_COLUMN_KEYS = Object.keys(
   CREDIT_USAGE_COLUMN_DEFAULT_WIDTHS,
 ) as CreditUsageColumnKey[];
+const CREDIT_USAGE_DETAIL_TABLE_COLUMN_COUNT = {
+  read: 5,
+  listen: 6,
+} as const;
 const FILTER_ALL_OPTION = 'all';
 const EMPTY_CREDIT_USAGE_DETAIL_RESPONSE: AdminOperationCourseCreditUsageDetailListResponse =
   {
@@ -637,24 +640,21 @@ export default function CourseCreditUsageTab({
             loading={loading}
             isEmpty={!error && rows.length === 0}
             emptyContent={tOperations('detail.creditUsage.table.empty')}
-            emptyColSpan={9}
+            emptyColSpan={
+              Object.keys(CREDIT_USAGE_COLUMN_DEFAULT_WIDTHS).length
+            }
             withTooltipProvider={!error}
             tableWrapperClassName='overflow-auto'
             loadingClassName='min-h-[240px]'
-            footer={
-              pageCount > 1 ? (
-                <AdminPagination
-                  pageIndex={currentPage}
-                  pageCount={pageCount}
-                  onPageChange={onPageChange}
-                  prevLabel={t('module.order.paginationPrev')}
-                  nextLabel={t('module.order.paginationNext')}
-                  prevAriaLabel={t('module.order.paginationPrevAriaLabel')}
-                  nextAriaLabel={t('module.order.paginationNextAriaLabel')}
-                  className='mx-0 w-auto justify-end'
-                />
-              ) : null
-            }
+            pagination={{
+              pageIndex: currentPage,
+              pageCount,
+              onPageChange,
+              prevLabel: t('module.order.paginationPrev'),
+              nextLabel: t('module.order.paginationNext'),
+              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+            }}
             table={
               error ? (
                 <div className='flex min-h-[240px] items-center justify-center p-6 text-center'>
@@ -913,24 +913,23 @@ export default function CourseCreditUsageTab({
               loading={detailLoading}
               isEmpty={!detailError && detailData.items.length === 0}
               emptyContent={tOperations('detail.creditUsage.details.empty')}
-              emptyColSpan={isListenDetail ? 6 : 5}
+              emptyColSpan={
+                isListenDetail
+                  ? CREDIT_USAGE_DETAIL_TABLE_COLUMN_COUNT.listen
+                  : CREDIT_USAGE_DETAIL_TABLE_COLUMN_COUNT.read
+              }
               withTooltipProvider={false}
               tableWrapperClassName='max-h-[52vh] overflow-auto'
               loadingClassName='min-h-[220px]'
-              footer={
-                Math.max(detailData.page_count || 0, 1) > 1 ? (
-                  <AdminPagination
-                    pageIndex={detailData.page || 1}
-                    pageCount={Math.max(detailData.page_count || 0, 1)}
-                    onPageChange={setDetailPage}
-                    prevLabel={t('module.order.paginationPrev')}
-                    nextLabel={t('module.order.paginationNext')}
-                    prevAriaLabel={t('module.order.paginationPrevAriaLabel')}
-                    nextAriaLabel={t('module.order.paginationNextAriaLabel')}
-                    className='mx-0 w-auto justify-end'
-                  />
-                ) : null
-              }
+              pagination={{
+                pageIndex: detailData.page || 1,
+                pageCount: Math.max(detailData.page_count || 0, 1),
+                onPageChange: setDetailPage,
+                prevLabel: t('module.order.paginationPrev'),
+                nextLabel: t('module.order.paginationNext'),
+                prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+                nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+              }}
               table={
                 detailError ? (
                   <div className='flex min-h-[220px] items-center justify-center p-6 text-center'>

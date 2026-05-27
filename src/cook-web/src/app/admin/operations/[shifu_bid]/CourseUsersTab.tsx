@@ -2,7 +2,6 @@
 
 import { useTranslation } from 'react-i18next';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
@@ -41,6 +40,7 @@ import type {
   CourseUserPaymentStatus,
   UserColumnKey,
 } from './courseUsersTabConfig';
+import { USER_COLUMN_DEFAULT_WIDTHS } from './courseUsersTabConfig';
 
 type ErrorState = { message: string; code?: number };
 
@@ -269,24 +269,19 @@ export default function CourseUsersTab({
           loading={loading}
           isEmpty={!error && rows.length === 0}
           emptyContent={tOperations('detail.usersTable.empty')}
-          emptyColSpan={11}
+          emptyColSpan={Object.keys(USER_COLUMN_DEFAULT_WIDTHS).length}
           withTooltipProvider={!error}
           tableWrapperClassName='overflow-auto'
           loadingClassName='min-h-[240px]'
-          footer={
-            pageCount > 1 ? (
-              <AdminPagination
-                pageIndex={pageIndex}
-                pageCount={pageCount}
-                onPageChange={onPageChange}
-                prevLabel={t('module.order.paginationPrev')}
-                nextLabel={t('module.order.paginationNext')}
-                prevAriaLabel={t('module.order.paginationPrevAriaLabel')}
-                nextAriaLabel={t('module.order.paginationNextAriaLabel')}
-                className='mx-0 w-auto justify-end'
-              />
-            ) : null
-          }
+          pagination={{
+            pageIndex,
+            pageCount,
+            onPageChange,
+            prevLabel: t('module.order.paginationPrev'),
+            nextLabel: t('module.order.paginationNext'),
+            prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+            nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+          }}
           table={
             error ? (
               <div className='flex min-h-[240px] items-center justify-center p-6 text-center'>

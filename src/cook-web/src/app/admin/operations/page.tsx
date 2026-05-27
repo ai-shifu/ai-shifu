@@ -11,7 +11,7 @@ import React, {
 } from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { Trans, useTranslation } from 'react-i18next';
-import { ChevronDown, Copy, X } from 'lucide-react';
+import { Copy, X } from 'lucide-react';
 import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
@@ -20,7 +20,7 @@ import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
@@ -69,12 +69,6 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/DropdownMenu';
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -86,7 +80,6 @@ import { useToast } from '@/hooks/useToast';
 import { copyText } from '@/c-utils/textutils';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { cn } from '@/lib/utils';
 import { isValidEmail } from '@/lib/validators';
 import { buildAdminOperationsCourseDetailUrl } from './operation-course-routes';
 import type {
@@ -1569,7 +1562,7 @@ const OperationsPage = () => {
           loading={loading}
           isEmpty={courses.length === 0}
           emptyContent={tOperations('emptyList')}
-          emptyColSpan={11}
+          emptyColSpan={Object.keys(DEFAULT_COLUMN_WIDTHS).length}
           withTooltipProvider
           tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
           table={emptyRow => (
@@ -1797,34 +1790,23 @@ const OperationsPage = () => {
                         style={getColumnStyle('action')}
                       >
                         <div className='flex justify-center'>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type='button'
-                                className={cn(
-                                  TABLE_INLINE_ACTION_BUTTON_CLASS,
-                                  'gap-1',
-                                )}
-                              >
-                                {t('common.core.more')}
-                                <ChevronDown className='h-3.5 w-3.5' />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align='center'>
-                              <DropdownMenuItem
-                                onClick={() => handleCopyCourseClick(course)}
-                              >
-                                {tOperations('actions.copyCourse')}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleTransferCreatorClick(course)
-                                }
-                              >
-                                {tOperations('actions.transferCreator')}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <AdminRowActions
+                            label={t('common.core.more')}
+                            className={TABLE_INLINE_ACTION_BUTTON_CLASS}
+                            actions={[
+                              {
+                                key: 'copy',
+                                label: tOperations('actions.copyCourse'),
+                                onClick: () => handleCopyCourseClick(course),
+                              },
+                              {
+                                key: 'transfer',
+                                label: tOperations('actions.transferCreator'),
+                                onClick: () =>
+                                  handleTransferCreatorClick(course),
+                              },
+                            ]}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1833,24 +1815,21 @@ const OperationsPage = () => {
               </TableBody>
             </Table>
           )}
-          footer={
-            <AdminPagination
-              pageIndex={pageIndex}
-              pageCount={pageCount}
-              onPageChange={handlePageChange}
-              prevLabel={t('module.order.paginationPrev', 'Previous')}
-              nextLabel={t('module.order.paginationNext', 'Next')}
-              prevAriaLabel={t(
-                'module.order.paginationPrevAriaLabel',
-                'Go to previous page',
-              )}
-              nextAriaLabel={t(
-                'module.order.paginationNextAriaLabel',
-                'Go to next page',
-              )}
-              className='justify-end w-auto mx-0'
-            />
-          }
+          pagination={{
+            pageIndex,
+            pageCount,
+            onPageChange: handlePageChange,
+            prevLabel: t('module.order.paginationPrev', 'Previous'),
+            nextLabel: t('module.order.paginationNext', 'Next'),
+            prevAriaLabel: t(
+              'module.order.paginationPrevAriaLabel',
+              'Go to previous page',
+            ),
+            nextAriaLabel: t(
+              'module.order.paginationNextAriaLabel',
+              'Go to next page',
+            ),
+          }}
         />
         <Dialog
           open={Boolean(promptDetailCourse)}

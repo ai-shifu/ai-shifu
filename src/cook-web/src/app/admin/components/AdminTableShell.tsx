@@ -2,7 +2,7 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import Loading from '@/components/loading';
-import { TableEmpty } from '@/components/ui/Table';
+import { TableCell, TableEmpty, TableRow } from '@/components/ui/Table';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { AdminPagination, type AdminPaginationProps } from './AdminPagination';
@@ -13,11 +13,20 @@ import {
 
 type AdminTableRenderer = (emptyRow: ReactNode | null) => ReactNode;
 
+type AdminStickyActionEmptyConfig = {
+  contentColSpan: number;
+  actionClassName?: string;
+  actionStyle?: CSSProperties;
+  contentClassName?: string;
+  rowClassName?: string;
+};
+
 type AdminTableShellProps = {
   loading: boolean;
   isEmpty: boolean;
   emptyContent?: ReactNode;
   emptyColSpan?: number;
+  stickyActionEmpty?: AdminStickyActionEmptyConfig;
   table: ReactNode | AdminTableRenderer;
   header?: ReactNode;
   footnote?: ReactNode;
@@ -51,11 +60,54 @@ const renderTableContent = (
   return table;
 };
 
+const renderEmptyRow = ({
+  emptyContent,
+  emptyColSpan,
+  stickyActionEmpty,
+}: {
+  emptyContent?: ReactNode;
+  emptyColSpan?: number;
+  stickyActionEmpty?: AdminStickyActionEmptyConfig;
+}) => {
+  if (!emptyContent) {
+    return null;
+  }
+
+  if (stickyActionEmpty) {
+    return (
+      <TableRow
+        className={cn('hover:bg-transparent', stickyActionEmpty.rowClassName)}
+      >
+        <TableCell
+          colSpan={stickyActionEmpty.contentColSpan}
+          className={cn(
+            'px-4 py-10 text-center text-sm text-muted-foreground',
+            stickyActionEmpty.contentClassName,
+          )}
+        >
+          {emptyContent}
+        </TableCell>
+        <TableCell
+          className={stickyActionEmpty.actionClassName}
+          style={stickyActionEmpty.actionStyle}
+        />
+      </TableRow>
+    );
+  }
+
+  if (!emptyColSpan) {
+    return null;
+  }
+
+  return <TableEmpty colSpan={emptyColSpan}>{emptyContent}</TableEmpty>;
+};
+
 export default function AdminTableShell({
   loading,
   isEmpty,
   emptyContent,
   emptyColSpan,
+  stickyActionEmpty,
   table,
   header,
   footnote,
@@ -73,10 +125,9 @@ export default function AdminTableShell({
   showFooterWhenLoading = false,
   tableWrapperStyle,
 }: AdminTableShellProps) {
-  const emptyRow =
-    isEmpty && emptyContent && emptyColSpan ? (
-      <TableEmpty colSpan={emptyColSpan}>{emptyContent}</TableEmpty>
-    ) : null;
+  const emptyRow = isEmpty
+    ? renderEmptyRow({ emptyContent, emptyColSpan, stickyActionEmpty })
+    : null;
 
   const tableContent = renderTableContent(table, emptyRow);
   const wrappedTableContent = withTooltipProvider ? (

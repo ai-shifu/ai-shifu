@@ -4,7 +4,6 @@ import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
@@ -35,7 +34,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type {
   AdminOperationUserCreditFilters,
@@ -53,6 +51,11 @@ import {
 import { formatOperatorUtcDateTime } from '../dateTime';
 
 type ErrorState = { message: string; code?: number };
+
+const CREDIT_USAGE_DETAIL_COLUMN_COUNT = {
+  read: 5,
+  listen: 6,
+} as const;
 
 type OperatorUsersTranslator = (
   key: string,
@@ -391,7 +394,11 @@ const CreditUsageDetailDialog = ({
               loading={false}
               isEmpty={items.length === 0}
               emptyContent={tOperationsUsers('detail.creditUsageDetail.empty')}
-              emptyColSpan={isListenDetail ? 6 : 5}
+              emptyColSpan={
+                isListenDetail
+                  ? CREDIT_USAGE_DETAIL_COLUMN_COUNT.listen
+                  : CREDIT_USAGE_DETAIL_COLUMN_COUNT.read
+              }
               withTooltipProvider={false}
               tableWrapperClassName='max-h-[52vh] overflow-auto'
               loadingClassName='min-h-[220px]'
@@ -1164,11 +1171,27 @@ export default function UserCreditLedgerTab({
           onSearch={onSearch}
           onReset={onReset}
         />
-        <TooltipProvider delayDuration={150}>
-          <div
-            className='min-h-0 flex-1 overflow-auto'
-            data-testid='admin-operation-user-credit-ledger-scroll'
-          >
+        <AdminTableShell
+          loading={loading}
+          isEmpty={!items.length}
+          emptyContent={tOperationsUsers('detail.emptyCredits')}
+          emptyColSpan={tableColumnCount}
+          withTooltipProvider
+          containerClassName='min-h-0 flex-1'
+          tableWrapperClassName='min-h-0 flex-1 overflow-auto'
+          tableWrapperTestId='admin-operation-user-credit-ledger-scroll'
+          loadingClassName='min-h-[220px]'
+          pagination={{
+            pageIndex,
+            pageCount,
+            onPageChange,
+            prevLabel: t('module.order.paginationPrev'),
+            nextLabel: t('module.order.paginationNext'),
+            prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+            nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+          }}
+          footerClassName='mt-0'
+          table={emptyRow => (
             <Table className='table-fixed'>
               <colgroup>
                 {isConsumeView ? (
@@ -1334,23 +1357,10 @@ export default function UserCreditLedgerTab({
                   </TableRow>
                 )}
               </TableHeader>
-              <TableBody>{renderRows()}</TableBody>
+              <TableBody>{emptyRow ?? renderRows()}</TableBody>
             </Table>
-          </div>
-        </TooltipProvider>
-
-        {pageCount > 1 ? (
-          <AdminPagination
-            pageIndex={pageIndex}
-            pageCount={pageCount}
-            onPageChange={onPageChange}
-            prevLabel={t('module.order.paginationPrev')}
-            nextLabel={t('module.order.paginationNext')}
-            prevAriaLabel={t('module.order.paginationPrevAriaLabel')}
-            nextAriaLabel={t('module.order.paginationNextAriaLabel')}
-            className='justify-end w-auto mx-0'
-          />
-        ) : null}
+          )}
+        />
       </CardContent>
       <CreditUsageDetailDialog
         open={usageDetailOpen}
