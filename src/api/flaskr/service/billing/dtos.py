@@ -77,6 +77,7 @@ class BillingPlanDTO(BillingBaseDTO):
     billing_interval: str
     billing_interval_count: int
     auto_renew_enabled: bool
+    plan_tier: int | None = None
 
 
 @register_schema_to_swagger

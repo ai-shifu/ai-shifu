@@ -179,6 +179,7 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 990,
       credit_amount: 5,
+      plan_tier: 10,
       auto_renew_enabled: true,
       highlights: [
         'module.billing.package.features.monthly.publish',
@@ -196,6 +197,7 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 19900,
       credit_amount: 100,
+      plan_tier: 20,
       auto_renew_enabled: true,
       highlights: [
         'module.billing.package.features.monthly.publish',
@@ -214,6 +216,7 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 800000,
       credit_amount: 5000,
+      plan_tier: 30,
       auto_renew_enabled: true,
       highlights: [
         'module.billing.package.features.yearly.lite.ops',
@@ -231,6 +234,7 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 1500000,
       credit_amount: 10000,
+      plan_tier: 40,
       auto_renew_enabled: true,
       highlights: [
         'module.billing.package.features.yearly.pro.branding',
@@ -252,6 +256,7 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 3000000,
       credit_amount: 22000,
+      plan_tier: 50,
       auto_renew_enabled: true,
       highlights: [
         'module.billing.package.features.yearly.premium.branding',
@@ -319,6 +324,7 @@ const DAILY_PLAN = {
   currency: 'CNY',
   price_amount: 390,
   credit_amount: 21,
+  plan_tier: 5,
   auto_renew_enabled: true,
   highlights: [
     'module.billing.package.features.daily.publish',
@@ -648,7 +654,7 @@ describe('BillingOverviewTab', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('disables lower-tier monthly plans while a higher-tier monthly subscription is active', async () => {
+  test('blocks lower-tier preorder when the current subscription is Stripe-managed', async () => {
     const user = userEvent.setup();
 
     mockUseBillingOverview.mockReturnValue({
@@ -689,7 +695,7 @@ describe('BillingOverviewTab', () => {
     ).toBeDisabled();
     expect(
       screen.getByTestId('billing-plan-card-bill-product-plan-monthly-action'),
-    ).toHaveTextContent('module.billing.package.actions.downgradeDisabled');
+    ).toHaveTextContent('module.billing.package.actions.preorderDowngrade');
 
     await act(async () => {
       await user.hover(
@@ -700,8 +706,198 @@ describe('BillingOverviewTab', () => {
     });
 
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'module.billing.package.actions.upgradeOnlyTooltip',
+      'module.billing.package.actions.preorderProviderUnsupportedTooltip',
     );
+  });
+
+  test('passes preorder action for self-managed same-tier renewal', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-preorder-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      checkout_type: 'subscription_preorder',
+      effective_mode: 'cycle_end',
+      payable_amount: 990,
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/preorder-wechat-qr',
+        },
+      },
+    });
+
+    renderOverviewTab();
+
+    const currentPlanAction = screen.getByTestId(
+      'billing-plan-card-bill-product-plan-monthly-action',
+    );
+    expect(currentPlanAction).toBeEnabled();
+    expect(currentPlanAction).toHaveTextContent(
+      'module.billing.package.actions.preorderRenewal',
+    );
+
+    await act(async () => {
+      await user.click(currentPlanAction);
+    });
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'preorder',
+          channel: 'wx_pub_qr',
+          payment_provider: 'pingxx',
+          product_bid: 'bill-product-plan-monthly',
+        }),
+      );
+    });
+  });
+
+  test('shows pending preorder and only lets higher-tier checkout use offset', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: 'bill-product-plan-monthly-pro',
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-upgrade-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      checkout_type: 'subscription_upgrade',
+      effective_mode: 'immediate',
+      prepaid_offset_amount: 40000,
+      payable_amount: 760000,
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/upgrade-wechat-qr',
+        },
+      },
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByTestId('billing-pending-preorder-banner'),
+    ).toHaveTextContent('module.billing.package.preorder.pending');
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-monthly-pro-action',
+      ),
+    ).toHaveTextContent('module.billing.package.actions.preorderScheduled');
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-monthly-pro-action',
+      ),
+    ).toBeDisabled();
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId(
+          'billing-plan-card-bill-product-plan-yearly-lite-action',
+        ),
+      );
+    });
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'upgrade_immediate',
+          channel: 'wx_pub_qr',
+          payment_provider: 'pingxx',
+          product_bid: 'bill-product-plan-yearly-lite',
+        }),
+      );
+    });
+    expect(
+      screen.getByText('module.billing.checkout.upgradeDescription'),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('billing-pingxx-qr-code'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/7,600/)).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.checkout.prepaidOffsetLabel'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/400/)).toBeInTheDocument();
   });
 
   test('renders the redesigned low balance alert card', () => {

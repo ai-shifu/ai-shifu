@@ -31,6 +31,7 @@ type BillingPingxxQrDialogProps = {
   description: string;
   isLoading?: boolean;
   open: boolean;
+  prepaidOffsetAmount?: number;
   productName: string;
   provider?: BillingProvider;
   qrUrl: string;
@@ -47,6 +48,7 @@ export function BillingPingxxQrDialog({
   description,
   isLoading = false,
   open,
+  prepaidOffsetAmount = 0,
   productName,
   provider = 'pingxx',
   qrUrl,
@@ -89,6 +91,18 @@ export function BillingPingxxQrDialog({
               {formatBillingPrice(amountInMinor, currency, i18n.language)}
             </span>
           </div>
+          {prepaidOffsetAmount > 0 ? (
+            <div className='flex items-center justify-between gap-3'>
+              <span>{t('module.billing.checkout.prepaidOffsetLabel')}</span>
+              <span className='text-right font-semibold text-emerald-700'>
+                {formatBillingPrice(
+                  prepaidOffsetAmount,
+                  currency,
+                  i18n.language,
+                )}
+              </span>
+            </div>
+          ) : null}
         </div>
 
         <div className='grid gap-3'>

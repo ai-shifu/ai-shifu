@@ -152,7 +152,24 @@ export function AdminBillingSubscriptionsTable() {
                         </div>
                       </TableCell>
                       <TableCell className='min-w-[180px] text-slate-700'>
-                        {item.product_code || item.product_bid}
+                        <div className='space-y-2'>
+                          <div>{item.product_code || item.product_bid}</div>
+                          {item.next_product_bid ? (
+                            <Badge
+                              variant='outline'
+                              className='border-sky-200 bg-sky-50 text-sky-700'
+                            >
+                              {t(
+                                'module.billing.admin.subscriptions.preorderTarget',
+                                {
+                                  product:
+                                    item.next_product_code ||
+                                    item.next_product_bid,
+                                },
+                              )}
+                            </Badge>
+                          ) : null}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge

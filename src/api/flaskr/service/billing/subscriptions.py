@@ -1232,10 +1232,6 @@ def _void_reserved_subscription_grant_for_order(
         wallet,
         available_credits=wallet.available_credits,
         reserved_credits=wallet.reserved_credits,
-        lifetime_granted_credits=max(
-            Decimal("0"),
-            _to_decimal(wallet.lifetime_granted_credits) - release_amount,
-        ),
         updated_at=now,
     )
     grant_entry.balance_after = _quantize_credit_amount(wallet.available_credits)

@@ -70,6 +70,11 @@ from .dtos import (
     BillingRefundResultDTO,
 )
 from .models import BillingOrder, BillingProduct, BillingSubscription
+from .paid_side_effects import (
+    BillingPaidOrderSideEffects,
+    dispatch_billing_paid_order_side_effects as _dispatch_billing_paid_order_side_effects,
+    stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
+)
 from .provider_state import (
     BillingOrderProviderUpdateResult,
     apply_billing_order_provider_update as _apply_billing_order_provider_update,
@@ -99,7 +104,6 @@ from .preorders import (
     resolve_plan_tier as _resolve_plan_tier,
 )
 from .subscriptions import (
-    grant_paid_order_credits as _grant_paid_order_credits,
     load_billing_product_by_bid as _load_billing_product_by_bid,
     load_effective_topup_subscription as _load_effective_topup_subscription,
     load_subscription_by_bid as _load_subscription_by_bid,
@@ -107,6 +111,8 @@ from .subscriptions import (
     void_reserved_preorder_grant as _void_reserved_preorder_grant,
 )
 from .wallets import grant_refund_return_credits
+
+_SELF_MANAGED_PREORDER_PROVIDERS = {"pingxx", "alipay", "wechatpay"}
 
 _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS = {
     BILLING_ORDER_STATUS_INIT: 0,
@@ -328,8 +334,11 @@ def create_billing_subscription_checkout(
             db.session.add(absorbed_preorder_order)
             db.session.add(subscription)
 
+        paid_order_side_effects = BillingPaidOrderSideEffects()
         if payable_amount == 0:
-            checkout_result = _complete_zero_amount_subscription_checkout(app, order)
+            checkout_result, paid_order_side_effects = (
+                _complete_zero_amount_subscription_checkout(app, order)
+            )
         else:
             checkout_result = _create_provider_checkout(
                 app,
@@ -341,6 +350,7 @@ def create_billing_subscription_checkout(
                 channel=channel,
             )
         db.session.commit()
+        _dispatch_billing_paid_order_side_effects(app, paid_order_side_effects)
         return checkout_result
 
 
@@ -792,6 +802,12 @@ def _prepare_subscription_preorder_checkout_metadata(
 ) -> dict[str, Any]:
     if payment_provider == "stripe":
         raise_error("server.billing.subscriptionPreorderProviderUnsupported")
+    subscription_provider = str(subscription.billing_provider or "").strip().lower()
+    if (
+        subscription_provider not in _SELF_MANAGED_PREORDER_PROVIDERS
+        or payment_provider != subscription_provider
+    ):
+        raise_error("server.billing.subscriptionPreorderProviderUnsupported")
     if active_preorder_order is not None:
         raise_error("server.billing.subscriptionPreorderAlreadyExists")
     if current_product is None or _is_trial_product(current_product):
@@ -1003,8 +1019,9 @@ def _create_provider_checkout(
 def _complete_zero_amount_subscription_checkout(
     app: Flask,
     order: BillingOrder,
-) -> BillingCheckoutResultDTO:
+) -> tuple[BillingCheckoutResultDTO, BillingPaidOrderSideEffects]:
     now = datetime.now()
+    previous_status = int(order.status or 0)
     metadata = (
         dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
     )
@@ -1027,15 +1044,22 @@ def _complete_zero_amount_subscription_checkout(
     order.metadata_json = _normalize_json_object(metadata).to_metadata_json()
     order.updated_at = now
     db.session.add(order)
-    _grant_paid_order_credits(app, order)
+    side_effects = _stage_billing_paid_order_side_effects(
+        app,
+        order,
+        previous_status=previous_status,
+    )
 
-    return BillingCheckoutResultDTO(
-        **_build_checkout_response_payload(
-            order,
-            payment_provider=order.payment_provider,
-            payment_mode="subscription",
-            status="paid",
-        )
+    return (
+        BillingCheckoutResultDTO(
+            **_build_checkout_response_payload(
+                order,
+                payment_provider=order.payment_provider,
+                payment_mode="subscription",
+                status="paid",
+            )
+        ),
+        side_effects,
     )
 
 

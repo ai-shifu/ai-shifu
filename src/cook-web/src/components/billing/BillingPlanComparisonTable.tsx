@@ -17,6 +17,8 @@ import {
 import type {
   BillingPlan,
   BillingProvider,
+  BillingSubscription,
+  BillingSubscriptionCheckoutAction,
   BillingTrialOffer,
 } from '@/types/billing';
 import { cn } from '@/lib/utils';
@@ -66,6 +68,13 @@ function planRankIn(ordered: BillingPlan[], productBid: string | null): number {
   return ordered.findIndex(plan => plan.product_bid === productBid);
 }
 
+function planTierIn(ordered: BillingPlan[], plan: BillingPlan | null): number {
+  if (!plan) return Number.NaN;
+  if (typeof plan.plan_tier === 'number') return plan.plan_tier;
+  const rank = planRankIn(ordered, plan.product_bid);
+  return rank >= 0 ? rank : Number.NaN;
+}
+
 function shortenIntervalLabel(label: string): string {
   if (!label) return '';
   return label
@@ -85,6 +94,28 @@ function resolveCheckoutProvider(
   if (wechatpayAvailable) return 'wechatpay';
   if (pingxxAvailable) return 'pingxx';
   return null;
+}
+
+function isProviderAvailable(
+  provider: BillingProvider | null | undefined,
+  stripeAvailable: boolean,
+  pingxxAvailable: boolean,
+  alipayAvailable: boolean,
+  wechatpayAvailable: boolean,
+): provider is BillingProvider {
+  if (provider === 'stripe') return stripeAvailable;
+  if (provider === 'pingxx') return pingxxAvailable;
+  if (provider === 'alipay') return alipayAvailable;
+  if (provider === 'wechatpay') return wechatpayAvailable;
+  return false;
+}
+
+function isSelfManagedPreorderProvider(
+  provider: BillingProvider | null | undefined,
+): provider is BillingProvider {
+  return (
+    provider === 'pingxx' || provider === 'alipay' || provider === 'wechatpay'
+  );
 }
 
 type ActionTone = 'primary' | 'current' | 'muted';
@@ -149,6 +180,7 @@ export type BillingPlanComparisonTableProps = {
   paidPlans: BillingPlan[];
   orderedPlans: BillingPlan[];
   currentPlan: BillingPlan | null;
+  currentSubscription: BillingSubscription | null;
   hasActiveSubscription: boolean;
   isTrialCurrentPlan: boolean;
   renderFreeColumn: boolean;
@@ -157,7 +189,11 @@ export type BillingPlanComparisonTableProps = {
   pingxxAvailable: boolean;
   alipayAvailable: boolean;
   wechatpayAvailable: boolean;
-  onSelectPlanCheckout: (plan: BillingPlan, provider: BillingProvider) => void;
+  onSelectPlanCheckout: (
+    plan: BillingPlan,
+    provider: BillingProvider,
+    action?: BillingSubscriptionCheckoutAction,
+  ) => void;
 };
 
 export function BillingPlanComparisonTable({
@@ -165,6 +201,7 @@ export function BillingPlanComparisonTable({
   paidPlans,
   orderedPlans,
   currentPlan,
+  currentSubscription,
   hasActiveSubscription,
   isTrialCurrentPlan,
   renderFreeColumn,
@@ -186,9 +223,12 @@ export function BillingPlanComparisonTable({
     alipayAvailable,
     wechatpayAvailable,
   );
-  const currentRank = planRankIn(
-    orderedPlans,
-    currentPlan?.product_bid || null,
+  const currentTier = planTierIn(orderedPlans, currentPlan);
+  const currentProvider = currentSubscription?.billing_provider || null;
+  const pendingPreorderProductBid =
+    currentSubscription?.next_product_bid || null;
+  const hasPendingPreorder = Boolean(
+    hasActiveSubscription && pendingPreorderProductBid,
   );
 
   const columns: ColumnDescriptor[] = [];
@@ -253,15 +293,95 @@ export function BillingPlanComparisonTable({
 
   paidPlans.forEach((plan, idx) => {
     const isCurrentPlan = currentPlan?.product_bid === plan.product_bid;
-    const planRank = planRankIn(orderedPlans, plan.product_bid);
-    const isDowngradeLocked =
-      hasActiveSubscription &&
-      !isCurrentPlan &&
-      currentRank >= 0 &&
-      planRank >= 0 &&
-      planRank < currentRank;
-    const checkoutKey = provider
-      ? `plan:${provider}:${plan.product_bid}`
+    const targetTier = planTierIn(orderedPlans, plan);
+    const hasComparableTier =
+      Number.isFinite(currentTier) && Number.isFinite(targetTier);
+    const isHigherTier =
+      hasActiveSubscription && (!hasComparableTier || targetTier > currentTier);
+    const isSameOrLowerTier =
+      hasActiveSubscription && hasComparableTier && targetTier <= currentTier;
+    const isPendingPreorderTarget =
+      pendingPreorderProductBid === plan.product_bid;
+    let action: BillingSubscriptionCheckoutAction | undefined;
+    let actionProvider = provider;
+    let actionLabelKey = 'module.billing.package.actions.subscribeNow';
+    let actionDisabled = !actionProvider;
+    let actionTone: ActionTone = 'primary';
+    let actionTooltipKey: string | undefined;
+
+    if (hasActiveSubscription) {
+      if (hasPendingPreorder) {
+        if (isPendingPreorderTarget) {
+          actionLabelKey = 'module.billing.package.actions.preorderScheduled';
+          actionDisabled = true;
+          actionTone = 'muted';
+          actionTooltipKey =
+            'module.billing.package.actions.preorderLockedTooltip';
+        } else if (isHigherTier) {
+          action = 'upgrade_immediate';
+          actionLabelKey = 'module.billing.package.actions.upgradeNow';
+          if (
+            isProviderAvailable(
+              currentProvider,
+              stripeAvailable,
+              pingxxAvailable,
+              alipayAvailable,
+              wechatpayAvailable,
+            )
+          ) {
+            actionProvider = currentProvider;
+          }
+          actionDisabled = !actionProvider;
+        } else {
+          actionLabelKey = isCurrentPlan
+            ? 'module.billing.package.actions.currentSubscription'
+            : 'module.billing.package.actions.preorderLocked';
+          actionDisabled = true;
+          actionTone = isCurrentPlan ? 'current' : 'muted';
+          actionTooltipKey = isCurrentPlan
+            ? undefined
+            : 'module.billing.package.actions.preorderLockedTooltip';
+        }
+      } else if (isSameOrLowerTier) {
+        const canPreorder =
+          isSelfManagedPreorderProvider(currentProvider) &&
+          isProviderAvailable(
+            currentProvider,
+            stripeAvailable,
+            pingxxAvailable,
+            alipayAvailable,
+            wechatpayAvailable,
+          );
+        action = 'preorder';
+        actionProvider = canPreorder ? currentProvider : null;
+        actionLabelKey = isCurrentPlan
+          ? 'module.billing.package.actions.preorderRenewal'
+          : 'module.billing.package.actions.preorderDowngrade';
+        actionDisabled = !canPreorder;
+        actionTone = canPreorder ? 'primary' : 'muted';
+        actionTooltipKey = canPreorder
+          ? undefined
+          : 'module.billing.package.actions.preorderProviderUnsupportedTooltip';
+      } else {
+        action = 'upgrade_immediate';
+        actionLabelKey = 'module.billing.package.actions.upgradeNow';
+        if (
+          isProviderAvailable(
+            currentProvider,
+            stripeAvailable,
+            pingxxAvailable,
+            alipayAvailable,
+            wechatpayAvailable,
+          )
+        ) {
+          actionProvider = currentProvider;
+        }
+        actionDisabled = !actionProvider;
+      }
+    }
+
+    const checkoutKey = actionProvider
+      ? `plan:${actionProvider}:${plan.product_bid}:${action || 'subscription'}`
       : null;
     const planScale = getPlanScaleKeys(plan.product_code);
     const badgeKey = plan.status_badge_key;
@@ -288,24 +408,21 @@ export function BillingPlanComparisonTable({
         row => row.unlockIndex === -1 || idx >= row.unlockIndex,
       ),
       action: {
-        label: isCurrentPlan
-          ? t('module.billing.package.actions.currentSubscription')
-          : isDowngradeLocked
-            ? t('module.billing.package.actions.downgradeDisabled')
-            : hasActiveSubscription
-              ? t('module.billing.package.actions.upgradeNow')
-              : t('module.billing.package.actions.subscribeNow'),
+        label: t(
+          hasActiveSubscription && !action && isCurrentPlan
+            ? 'module.billing.package.actions.currentSubscription'
+            : actionLabelKey,
+        ),
         loading: checkoutKey !== null && checkoutLoadingKey === checkoutKey,
-        disabled: !provider || isCurrentPlan || isDowngradeLocked,
-        tone: isCurrentPlan
-          ? 'current'
-          : isDowngradeLocked
-            ? 'muted'
-            : 'primary',
-        tooltip: isDowngradeLocked
-          ? t('module.billing.package.actions.upgradeOnlyTooltip')
-          : undefined,
-        onClick: () => provider && onSelectPlanCheckout(plan, provider),
+        disabled:
+          actionDisabled || (hasActiveSubscription && !action && isCurrentPlan),
+        tone:
+          hasActiveSubscription && !action && isCurrentPlan
+            ? 'current'
+            : actionTone,
+        tooltip: actionTooltipKey ? t(actionTooltipKey) : undefined,
+        onClick: () =>
+          actionProvider && onSelectPlanCheckout(plan, actionProvider, action),
         testId: `billing-plan-card-${plan.product_bid}-action`,
       },
     });

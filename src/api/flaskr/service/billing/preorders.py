@@ -206,7 +206,8 @@ def mark_preorder_effective_applied(order: BillingOrder) -> None:
     metadata = (
         dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
     )
-    if metadata.get("preorder_state") == PREORDER_STATE_EFFECTIVE_APPLIED:
+    current_state = str(metadata.get("preorder_state") or "").strip()
+    if current_state != PREORDER_STATE_PENDING_EFFECTIVE:
         return
     metadata.update(
         _normalize_json_object(
