@@ -28,6 +28,9 @@ type AdminFilterProps = {
   labelClassName?: string;
   collapsedLabelClassName?: string;
   expandedLabelClassName?: string;
+  collapsedGridClassName?: string;
+  expandedGridClassName?: string;
+  labelColon?: boolean;
   showToggle?: boolean;
 };
 
@@ -38,10 +41,12 @@ const AdminFilterField = ({
   item,
   contentClassName,
   labelClassName,
+  labelColon,
 }: {
   item: AdminFilterItem;
   contentClassName?: string;
   labelClassName?: string;
+  labelColon?: boolean;
 }) => (
   <div
     className={cn(
@@ -52,6 +57,7 @@ const AdminFilterField = ({
     <span
       className={cn(
         ADMIN_FILTER_LABEL_CLASS,
+        labelColon && "after:ml-0.5 after:content-[':']",
         labelClassName,
         item.labelClassName,
       )}
@@ -85,6 +91,9 @@ const AdminFilterActions = ({
   | 'labelClassName'
   | 'collapsedLabelClassName'
   | 'expandedLabelClassName'
+  | 'collapsedGridClassName'
+  | 'expandedGridClassName'
+  | 'labelColon'
 >) => (
   <div className='flex shrink-0 items-center justify-end'>
     <Button
@@ -139,6 +148,9 @@ export default function AdminFilter({
   labelClassName,
   collapsedLabelClassName,
   expandedLabelClassName,
+  collapsedGridClassName,
+  expandedGridClassName,
+  labelColon = false,
   showToggle,
 }: AdminFilterProps) {
   const canToggle = showToggle ?? items.length > collapsedCount;
@@ -152,13 +164,19 @@ export default function AdminFilter({
     <div className={cn('w-full bg-white', className)}>
       {!expanded ? (
         <div className='flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between'>
-          <div className='grid min-w-0 flex-1 grid-cols-1 gap-x-7 gap-y-4 xl:grid-cols-[repeat(3,minmax(0,245px))]'>
+          <div
+            className={cn(
+              'grid min-w-0 flex-1 grid-cols-1 gap-x-7 gap-y-4 xl:grid-cols-[repeat(3,minmax(0,245px))]',
+              collapsedGridClassName,
+            )}
+          >
             {collapsedItems.map(item => (
               <AdminFilterField
                 key={item.key}
                 item={item}
                 contentClassName={contentClassName}
                 labelClassName={resolvedCollapsedLabelClassName}
+                labelColon={labelColon}
               />
             ))}
           </div>
@@ -176,13 +194,19 @@ export default function AdminFilter({
         </div>
       ) : (
         <div className='space-y-4'>
-          <div className='grid min-w-0 grid-cols-1 gap-x-7 gap-y-4 xl:grid-cols-3'>
+          <div
+            className={cn(
+              'grid min-w-0 grid-cols-1 gap-x-7 gap-y-4 xl:grid-cols-3',
+              expandedGridClassName,
+            )}
+          >
             {items.map(item => (
               <AdminFilterField
                 key={item.key}
                 item={item}
                 contentClassName={contentClassName}
                 labelClassName={resolvedExpandedLabelClassName}
+                labelColon={labelColon}
               />
             ))}
           </div>

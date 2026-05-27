@@ -2,9 +2,11 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { CalendarIcon, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { CalendarIcon, ChevronDown, Plus, X } from 'lucide-react';
 import api from '@/api';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
@@ -181,13 +183,6 @@ const CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
 } as const;
 const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
-const SEARCH_LABEL_CLASS =
-  "shrink-0 mr-2 w-[5.5rem] 2xl:w-24 text-right text-sm font-medium whitespace-nowrap text-foreground after:ml-0.5 after:content-[':']";
-const SEARCH_FILTER_GRID_CLASS = 'grid gap-x-5 gap-y-4 xl:grid-cols-4';
-const COUPON_COLLAPSED_FILTER_GRID_CLASS =
-  'grid gap-x-5 gap-y-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(220px,0.88fr)_minmax(0,1.18fr)]';
-const CAMPAIGN_COLLAPSED_FILTER_GRID_CLASS =
-  'grid gap-x-5 gap-y-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.18fr)_minmax(220px,0.88fr)_minmax(220px,0.95fr)]';
 const TABLE_HEAD_CLASS = ADMIN_TABLE_HEADER_CELL_CENTER_CLASS;
 const TABLE_ACTION_HEAD_CLASS = getAdminStickyRightHeaderClass('text-center');
 const TABLE_CELL_CLASS =
@@ -651,38 +646,6 @@ const renderTooltipText = (text?: string, className?: string) => (
   />
 );
 
-const ClearableInput = ({
-  value,
-  onChange,
-  placeholder,
-  clearLabel,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  clearLabel: string;
-}) => (
-  <div className='relative'>
-    <Input
-      value={value}
-      onChange={event => onChange(event.target.value)}
-      placeholder={placeholder}
-      className={cn('h-9', value.trim() ? 'pr-9' : undefined)}
-    />
-    {value.trim() ? (
-      <button
-        type='button'
-        aria-label={clearLabel}
-        className='absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground'
-        onMouseDown={event => event.preventDefault()}
-        onClick={() => onChange('')}
-      >
-        <X className='h-3.5 w-3.5' />
-      </button>
-    ) : null}
-  </div>
-);
-
 const FormField = ({
   label,
   children,
@@ -714,69 +677,6 @@ const StickyActionTableEmptyRow = ({
       style={actionStyle}
     />
   </TableRow>
-);
-
-const SearchField = ({
-  label,
-  children,
-  contentClassName,
-}: React.PropsWithChildren<{
-  label: string;
-  contentClassName?: string;
-}>) => (
-  <div className='flex items-center'>
-    <span className={SEARCH_LABEL_CLASS}>{label}</span>
-    <div className={cn('min-w-0 flex-1', contentClassName)}>{children}</div>
-  </div>
-);
-
-const SearchActions = ({
-  expanded,
-  onReset,
-  onSearch,
-  onToggle,
-  resetLabel,
-  searchLabel,
-  expandLabel,
-  collapseLabel,
-}: {
-  expanded: boolean;
-  onReset: () => void;
-  onSearch: () => void;
-  onToggle: () => void;
-  resetLabel: string;
-  searchLabel: string;
-  expandLabel: string;
-  collapseLabel: string;
-}) => (
-  <div className='flex items-center justify-end gap-2'>
-    <Button
-      size='sm'
-      variant='outline'
-      onClick={onReset}
-    >
-      {resetLabel}
-    </Button>
-    <Button
-      size='sm'
-      onClick={onSearch}
-    >
-      {searchLabel}
-    </Button>
-    <Button
-      size='sm'
-      variant='ghost'
-      className='px-2 text-primary'
-      onClick={onToggle}
-    >
-      {expanded ? collapseLabel : expandLabel}
-      {expanded ? (
-        <ChevronUp className='ml-1 h-4 w-4' />
-      ) : (
-        <ChevronDown className='ml-1 h-4 w-4' />
-      )}
-    </Button>
-  </div>
 );
 
 const PromotionStatusConfirmDialog = ({
@@ -1161,7 +1061,7 @@ const PromotionCouponCodesDialog = ({
           </div>
           <div className='mb-4 flex items-center gap-3'>
             <div className='w-full max-w-sm'>
-              <ClearableInput
+              <AdminClearableInput
                 value={keyword}
                 onChange={setKeyword}
                 placeholder={tPromotion('coupon.subCodePlaceholder')}
@@ -2638,6 +2538,441 @@ export default function AdminOperationPromotionsPage() {
     [tPromotion],
   );
 
+  const couponFilterItems = [
+    {
+      key: 'keyword',
+      label: tPromotion('filters.keyword'),
+      component: (
+        <AdminClearableInput
+          value={couponFilters.keyword}
+          onChange={value =>
+            setCouponFilters(current => ({ ...current, keyword: value }))
+          }
+          placeholder={tPromotion('filters.keywordPlaceholder')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+    {
+      key: 'name',
+      label: tPromotion('filters.name'),
+      component: (
+        <AdminClearableInput
+          value={couponFilters.name}
+          onChange={value =>
+            setCouponFilters(current => ({ ...current, name: value }))
+          }
+          placeholder={tPromotion('filters.namePlaceholder')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+    {
+      key: 'status',
+      label: tPromotion('filters.status'),
+      component: (
+        <Select
+          value={couponFilters.status || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setCouponFilters(current => ({
+              ...current,
+              status: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue placeholder={tPromotion('filters.status')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            <SelectItem
+              value='not_started'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.notStarted')}
+            </SelectItem>
+            <SelectItem
+              value='active'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.active')}
+            </SelectItem>
+            <SelectItem
+              value='expired'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.expired')}
+            </SelectItem>
+            <SelectItem
+              value='inactive'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.inactive')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'course_query',
+      label: tPromotion('filters.courseId'),
+      component: (
+        <AdminClearableInput
+          value={couponFilters.course_query}
+          onChange={value =>
+            setCouponFilters(current => ({ ...current, course_query: value }))
+          }
+          placeholder={tPromotion('filters.courseIdPlaceholder')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+    {
+      key: 'usage_type',
+      label: tPromotion('filters.usageType'),
+      component: (
+        <Select
+          value={couponFilters.usage_type || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setCouponFilters(current => ({
+              ...current,
+              usage_type: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue placeholder={tPromotion('filters.usageType')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            <SelectItem
+              value='801'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('usageType.generic')}
+            </SelectItem>
+            <SelectItem
+              value='802'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('usageType.singleUse')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'ops_state',
+      label: tPromotion('filters.opsState'),
+      component: (
+        <Select
+          value={couponFilters.ops_state || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setCouponFilters(current => ({
+              ...current,
+              ops_state: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue placeholder={tPromotion('filters.opsState')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            <SelectItem
+              value='expiring_soon'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('opsState.expiringSoon')}
+            </SelectItem>
+            <SelectItem
+              value='used_up'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('opsState.usedUp')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'discount_type',
+      label: tPromotion('filters.discountType'),
+      component: (
+        <Select
+          value={couponFilters.discount_type || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setCouponFilters(current => ({
+              ...current,
+              discount_type: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue placeholder={tPromotion('filters.discountType')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            <SelectItem
+              value='701'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('discountType.fixed')}
+            </SelectItem>
+            <SelectItem
+              value='702'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('discountType.percent')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'active_time',
+      label: tPromotion('filters.activeTime'),
+      component: (
+        <AdminDateRangeFilter
+          startValue={couponFilters.start_time}
+          endValue={couponFilters.end_time}
+          onChange={range =>
+            setCouponFilters(current => ({
+              ...current,
+              start_time: range.start,
+              end_time: range.end,
+            }))
+          }
+          placeholder={tPromotion('filters.activeTime')}
+          resetLabel={t('module.order.filters.reset')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+  ];
+
+  const campaignFilterItems = [
+    {
+      key: 'keyword',
+      label: tPromotion('filters.campaignName'),
+      component: (
+        <AdminClearableInput
+          value={campaignFilters.keyword}
+          onChange={value =>
+            setCampaignFilters(current => ({ ...current, keyword: value }))
+          }
+          placeholder={tPromotion('filters.campaignNamePlaceholder')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+    {
+      key: 'course_query',
+      label: tPromotion('filters.courseId'),
+      component: (
+        <AdminClearableInput
+          value={campaignFilters.course_query}
+          onChange={value =>
+            setCampaignFilters(current => ({ ...current, course_query: value }))
+          }
+          placeholder={tPromotion('filters.courseIdPlaceholder')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+    {
+      key: 'status',
+      label: tPromotion('filters.status'),
+      component: (
+        <Select
+          value={campaignFilters.status || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setCampaignFilters(current => ({
+              ...current,
+              status: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue placeholder={tPromotion('filters.status')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            <SelectItem
+              value='not_started'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.notStarted')}
+            </SelectItem>
+            <SelectItem
+              value='active'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.active')}
+            </SelectItem>
+            <SelectItem
+              value='ended'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.ended')}
+            </SelectItem>
+            <SelectItem
+              value='inactive'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.inactive')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'apply_type',
+      label: tPromotion('campaign.applyType'),
+      component: (
+        <Select
+          value={campaignFilters.apply_type || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setCampaignFilters(current => ({
+              ...current,
+              apply_type: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue
+              placeholder={tPromotion('campaign.applyTypePlaceholder')}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            <SelectItem
+              value='2101'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('campaign.applyTypeAuto')}
+            </SelectItem>
+            <SelectItem
+              value='2102'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('campaign.applyTypeEvent')}
+            </SelectItem>
+            <SelectItem
+              value='2103'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('campaign.applyTypeManual')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'channel',
+      label: tPromotion('campaign.channel'),
+      component: (
+        <AdminClearableInput
+          value={campaignFilters.channel}
+          onChange={value =>
+            setCampaignFilters(current => ({ ...current, channel: value }))
+          }
+          placeholder={tPromotion('campaign.channelPlaceholder')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+    {
+      key: 'discount_type',
+      label: tPromotion('filters.discountType'),
+      component: (
+        <Select
+          value={campaignFilters.discount_type || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setCampaignFilters(current => ({
+              ...current,
+              discount_type: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue placeholder={tPromotion('filters.discountType')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            <SelectItem
+              value='701'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('discountType.fixed')}
+            </SelectItem>
+            <SelectItem
+              value='702'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('discountType.percent')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'campaign_time',
+      label: tPromotion('filters.campaignTime'),
+      component: (
+        <AdminDateRangeFilter
+          startValue={campaignFilters.start_time}
+          endValue={campaignFilters.end_time}
+          onChange={range =>
+            setCampaignFilters(current => ({
+              ...current,
+              start_time: range.start,
+              end_time: range.end,
+            }))
+          }
+          placeholder={tPromotion('filters.campaignTime')}
+          resetLabel={t('module.order.filters.reset')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+  ];
+
   if (!isReady) {
     return null;
   }
@@ -2680,255 +3015,24 @@ export default function AdminOperationPromotionsPage() {
               </Button>
             }
           >
-            <div className='space-y-4'>
-              <div className={COUPON_COLLAPSED_FILTER_GRID_CLASS}>
-                <SearchField label={tPromotion('filters.keyword')}>
-                  <ClearableInput
-                    value={couponFilters.keyword}
-                    onChange={value =>
-                      setCouponFilters(current => ({
-                        ...current,
-                        keyword: value,
-                      }))
-                    }
-                    placeholder={tPromotion('filters.keywordPlaceholder')}
-                    clearLabel={clearLabel}
-                  />
-                </SearchField>
-                <SearchField label={tPromotion('filters.name')}>
-                  <ClearableInput
-                    value={couponFilters.name}
-                    onChange={value =>
-                      setCouponFilters(current => ({ ...current, name: value }))
-                    }
-                    placeholder={tPromotion('filters.namePlaceholder')}
-                    clearLabel={clearLabel}
-                  />
-                </SearchField>
-                <SearchField label={tPromotion('filters.status')}>
-                  <Select
-                    value={couponFilters.status || ALL_OPTION_VALUE}
-                    onValueChange={value =>
-                      setCouponFilters(current => ({
-                        ...current,
-                        status: value === ALL_OPTION_VALUE ? '' : value,
-                      }))
-                    }
-                  >
-                    <SelectTrigger className='h-9'>
-                      <SelectValue placeholder={tPromotion('filters.status')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        value={ALL_OPTION_VALUE}
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {t('common.core.all')}
-                      </SelectItem>
-                      <SelectItem
-                        value='not_started'
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {tPromotion('status.notStarted')}
-                      </SelectItem>
-                      <SelectItem
-                        value='active'
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {tPromotion('status.active')}
-                      </SelectItem>
-                      <SelectItem
-                        value='expired'
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {tPromotion('status.expired')}
-                      </SelectItem>
-                      <SelectItem
-                        value='inactive'
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {tPromotion('status.inactive')}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </SearchField>
-                <SearchField label={tPromotion('filters.courseId')}>
-                  <ClearableInput
-                    value={couponFilters.course_query}
-                    onChange={value =>
-                      setCouponFilters(current => ({
-                        ...current,
-                        course_query: value,
-                      }))
-                    }
-                    placeholder={tPromotion('filters.courseIdPlaceholder')}
-                    clearLabel={clearLabel}
-                  />
-                </SearchField>
-              </div>
-
-              {!couponFiltersExpanded ? (
-                <SearchActions
-                  expanded={false}
-                  onReset={handleCouponReset}
-                  onSearch={handleCouponSearch}
-                  onToggle={() => setCouponFiltersExpanded(true)}
-                  resetLabel={t('module.order.filters.reset')}
-                  searchLabel={t('module.order.filters.search')}
-                  expandLabel={t('common.core.expand')}
-                  collapseLabel={t('common.core.collapse')}
-                />
-              ) : null}
-
-              {couponFiltersExpanded ? (
-                <div className='space-y-4'>
-                  <div className={SEARCH_FILTER_GRID_CLASS}>
-                    <SearchField label={tPromotion('filters.usageType')}>
-                      <Select
-                        value={couponFilters.usage_type || ALL_OPTION_VALUE}
-                        onValueChange={value =>
-                          setCouponFilters(current => ({
-                            ...current,
-                            usage_type: value === ALL_OPTION_VALUE ? '' : value,
-                          }))
-                        }
-                      >
-                        <SelectTrigger className='h-9'>
-                          <SelectValue
-                            placeholder={tPromotion('filters.usageType')}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem
-                            value={ALL_OPTION_VALUE}
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {t('common.core.all')}
-                          </SelectItem>
-                          <SelectItem
-                            value='801'
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {tPromotion('usageType.generic')}
-                          </SelectItem>
-                          <SelectItem
-                            value='802'
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {tPromotion('usageType.singleUse')}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </SearchField>
-                    <SearchField label={tPromotion('filters.opsState')}>
-                      <Select
-                        value={couponFilters.ops_state || ALL_OPTION_VALUE}
-                        onValueChange={value =>
-                          setCouponFilters(current => ({
-                            ...current,
-                            ops_state: value === ALL_OPTION_VALUE ? '' : value,
-                          }))
-                        }
-                      >
-                        <SelectTrigger className='h-9'>
-                          <SelectValue
-                            placeholder={tPromotion('filters.opsState')}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem
-                            value={ALL_OPTION_VALUE}
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {t('common.core.all')}
-                          </SelectItem>
-                          <SelectItem
-                            value='expiring_soon'
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {tPromotion('opsState.expiringSoon')}
-                          </SelectItem>
-                          <SelectItem
-                            value='used_up'
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {tPromotion('opsState.usedUp')}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </SearchField>
-                    <SearchField label={tPromotion('filters.discountType')}>
-                      <Select
-                        value={couponFilters.discount_type || ALL_OPTION_VALUE}
-                        onValueChange={value =>
-                          setCouponFilters(current => ({
-                            ...current,
-                            discount_type:
-                              value === ALL_OPTION_VALUE ? '' : value,
-                          }))
-                        }
-                      >
-                        <SelectTrigger className='h-9'>
-                          <SelectValue
-                            placeholder={tPromotion('filters.discountType')}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem
-                            value={ALL_OPTION_VALUE}
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {t('common.core.all')}
-                          </SelectItem>
-                          <SelectItem
-                            value='701'
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {tPromotion('discountType.fixed')}
-                          </SelectItem>
-                          <SelectItem
-                            value='702'
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {tPromotion('discountType.percent')}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </SearchField>
-                    <SearchField
-                      label={tPromotion('filters.activeTime')}
-                      contentClassName='min-w-0'
-                    >
-                      <AdminDateRangeFilter
-                        startValue={couponFilters.start_time}
-                        endValue={couponFilters.end_time}
-                        onChange={range =>
-                          setCouponFilters(current => ({
-                            ...current,
-                            start_time: range.start,
-                            end_time: range.end,
-                          }))
-                        }
-                        placeholder={tPromotion('filters.activeTime')}
-                        resetLabel={t('module.order.filters.reset')}
-                        clearLabel={clearLabel}
-                      />
-                    </SearchField>
-                  </div>
-
-                  <SearchActions
-                    expanded
-                    onReset={handleCouponReset}
-                    onSearch={handleCouponSearch}
-                    onToggle={() => setCouponFiltersExpanded(false)}
-                    resetLabel={t('module.order.filters.reset')}
-                    searchLabel={t('module.order.filters.search')}
-                    expandLabel={t('common.core.expand')}
-                    collapseLabel={t('common.core.collapse')}
-                  />
-                </div>
-              ) : null}
-            </div>
+            <AdminFilter
+              items={couponFilterItems}
+              expanded={couponFiltersExpanded}
+              onExpandedChange={setCouponFiltersExpanded}
+              onReset={handleCouponReset}
+              onSearch={handleCouponSearch}
+              resetLabel={t('module.order.filters.reset')}
+              searchLabel={t('module.order.filters.search')}
+              expandLabel={t('common.core.expand')}
+              collapseLabel={t('common.core.collapse')}
+              collapsedCount={4}
+              className='bg-transparent'
+              contentClassName='min-w-0'
+              labelClassName='w-24 text-right'
+              collapsedGridClassName='gap-x-5 xl:grid-cols-4'
+              expandedGridClassName='gap-x-5 xl:grid-cols-3'
+              labelColon
+            />
           </SectionCard>
           {couponError ? (
             <ErrorDisplay
@@ -3283,231 +3387,24 @@ export default function AdminOperationPromotionsPage() {
               </Button>
             }
           >
-            <div className='space-y-4'>
-              <div className={CAMPAIGN_COLLAPSED_FILTER_GRID_CLASS}>
-                <SearchField label={tPromotion('filters.campaignName')}>
-                  <ClearableInput
-                    value={campaignFilters.keyword}
-                    onChange={value =>
-                      setCampaignFilters(current => ({
-                        ...current,
-                        keyword: value,
-                      }))
-                    }
-                    placeholder={tPromotion('filters.campaignNamePlaceholder')}
-                    clearLabel={clearLabel}
-                  />
-                </SearchField>
-                <SearchField label={tPromotion('filters.courseId')}>
-                  <ClearableInput
-                    value={campaignFilters.course_query}
-                    onChange={value =>
-                      setCampaignFilters(current => ({
-                        ...current,
-                        course_query: value,
-                      }))
-                    }
-                    placeholder={tPromotion('filters.courseIdPlaceholder')}
-                    clearLabel={clearLabel}
-                  />
-                </SearchField>
-                <SearchField label={tPromotion('filters.status')}>
-                  <Select
-                    value={campaignFilters.status || ALL_OPTION_VALUE}
-                    onValueChange={value =>
-                      setCampaignFilters(current => ({
-                        ...current,
-                        status: value === ALL_OPTION_VALUE ? '' : value,
-                      }))
-                    }
-                  >
-                    <SelectTrigger className='h-9'>
-                      <SelectValue placeholder={tPromotion('filters.status')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        value={ALL_OPTION_VALUE}
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {t('common.core.all')}
-                      </SelectItem>
-                      <SelectItem
-                        value='not_started'
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {tPromotion('status.notStarted')}
-                      </SelectItem>
-                      <SelectItem
-                        value='active'
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {tPromotion('status.active')}
-                      </SelectItem>
-                      <SelectItem
-                        value='ended'
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {tPromotion('status.ended')}
-                      </SelectItem>
-                      <SelectItem
-                        value='inactive'
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {tPromotion('status.inactive')}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </SearchField>
-                <SearchField label={tPromotion('campaign.applyType')}>
-                  <Select
-                    value={campaignFilters.apply_type || ALL_OPTION_VALUE}
-                    onValueChange={value =>
-                      setCampaignFilters(current => ({
-                        ...current,
-                        apply_type: value === ALL_OPTION_VALUE ? '' : value,
-                      }))
-                    }
-                  >
-                    <SelectTrigger className='h-9'>
-                      <SelectValue
-                        placeholder={tPromotion(
-                          'campaign.applyTypePlaceholder',
-                        )}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        value={ALL_OPTION_VALUE}
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {t('common.core.all')}
-                      </SelectItem>
-                      <SelectItem
-                        value='2101'
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {tPromotion('campaign.applyTypeAuto')}
-                      </SelectItem>
-                      <SelectItem
-                        value='2102'
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {tPromotion('campaign.applyTypeEvent')}
-                      </SelectItem>
-                      <SelectItem
-                        value='2103'
-                        className={SINGLE_SELECT_ITEM_CLASS}
-                      >
-                        {tPromotion('campaign.applyTypeManual')}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </SearchField>
-              </div>
-
-              {!campaignFiltersExpanded ? (
-                <SearchActions
-                  expanded={false}
-                  onReset={handleCampaignReset}
-                  onSearch={handleCampaignSearch}
-                  onToggle={() => setCampaignFiltersExpanded(true)}
-                  resetLabel={t('module.order.filters.reset')}
-                  searchLabel={t('module.order.filters.search')}
-                  expandLabel={t('common.core.expand')}
-                  collapseLabel={t('common.core.collapse')}
-                />
-              ) : null}
-
-              {campaignFiltersExpanded ? (
-                <div className='space-y-4'>
-                  <div className={SEARCH_FILTER_GRID_CLASS}>
-                    <SearchField label={tPromotion('campaign.channel')}>
-                      <ClearableInput
-                        value={campaignFilters.channel}
-                        onChange={value =>
-                          setCampaignFilters(current => ({
-                            ...current,
-                            channel: value,
-                          }))
-                        }
-                        placeholder={tPromotion('campaign.channelPlaceholder')}
-                        clearLabel={clearLabel}
-                      />
-                    </SearchField>
-                    <SearchField label={tPromotion('filters.discountType')}>
-                      <Select
-                        value={
-                          campaignFilters.discount_type || ALL_OPTION_VALUE
-                        }
-                        onValueChange={value =>
-                          setCampaignFilters(current => ({
-                            ...current,
-                            discount_type:
-                              value === ALL_OPTION_VALUE ? '' : value,
-                          }))
-                        }
-                      >
-                        <SelectTrigger className='h-9'>
-                          <SelectValue
-                            placeholder={tPromotion('filters.discountType')}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem
-                            value={ALL_OPTION_VALUE}
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {t('common.core.all')}
-                          </SelectItem>
-                          <SelectItem
-                            value='701'
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {tPromotion('discountType.fixed')}
-                          </SelectItem>
-                          <SelectItem
-                            value='702'
-                            className={SINGLE_SELECT_ITEM_CLASS}
-                          >
-                            {tPromotion('discountType.percent')}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </SearchField>
-                    <SearchField
-                      label={tPromotion('filters.campaignTime')}
-                      contentClassName='min-w-0'
-                    >
-                      <AdminDateRangeFilter
-                        startValue={campaignFilters.start_time}
-                        endValue={campaignFilters.end_time}
-                        onChange={range =>
-                          setCampaignFilters(current => ({
-                            ...current,
-                            start_time: range.start,
-                            end_time: range.end,
-                          }))
-                        }
-                        placeholder={tPromotion('filters.campaignTime')}
-                        resetLabel={t('module.order.filters.reset')}
-                        clearLabel={clearLabel}
-                      />
-                    </SearchField>
-                  </div>
-
-                  <SearchActions
-                    expanded
-                    onReset={handleCampaignReset}
-                    onSearch={handleCampaignSearch}
-                    onToggle={() => setCampaignFiltersExpanded(false)}
-                    resetLabel={t('module.order.filters.reset')}
-                    searchLabel={t('module.order.filters.search')}
-                    expandLabel={t('common.core.expand')}
-                    collapseLabel={t('common.core.collapse')}
-                  />
-                </div>
-              ) : null}
-            </div>
+            <AdminFilter
+              items={campaignFilterItems}
+              expanded={campaignFiltersExpanded}
+              onExpandedChange={setCampaignFiltersExpanded}
+              onReset={handleCampaignReset}
+              onSearch={handleCampaignSearch}
+              resetLabel={t('module.order.filters.reset')}
+              searchLabel={t('module.order.filters.search')}
+              expandLabel={t('common.core.expand')}
+              collapseLabel={t('common.core.collapse')}
+              collapsedCount={4}
+              className='bg-transparent'
+              contentClassName='min-w-0'
+              labelClassName='w-24 text-right'
+              collapsedGridClassName='gap-x-5 xl:grid-cols-4'
+              expandedGridClassName='gap-x-5 xl:grid-cols-3'
+              labelColon
+            />
           </SectionCard>
           {campaignError ? (
             <ErrorDisplay

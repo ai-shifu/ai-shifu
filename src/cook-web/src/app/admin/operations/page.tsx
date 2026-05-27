@@ -11,9 +11,11 @@ import React, {
 } from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { Trans, useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, Copy, X } from 'lucide-react';
+import { ChevronDown, Copy, X } from 'lucide-react';
 import api from '@/api';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
@@ -242,44 +244,6 @@ const renderTooltipText = (text?: string, className?: string) => {
 
 const formatCount = (value: number, locale: string): string =>
   formatAdminCount(value, locale, EMPTY_STATE_LABEL);
-
-type ClearableTextInputProps = {
-  value: string;
-  placeholder: string;
-  clearLabel: string;
-  onChange: (value: string) => void;
-};
-
-const ClearableTextInput = ({
-  value,
-  placeholder,
-  clearLabel,
-  onChange,
-}: ClearableTextInputProps) => {
-  const hasValue = value.trim().length > 0;
-
-  return (
-    <div className='relative'>
-      <Input
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        placeholder={placeholder}
-        className={cn('h-9', hasValue && 'pr-9')}
-      />
-      {hasValue ? (
-        <button
-          type='button'
-          aria-label={clearLabel}
-          className='absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground'
-          onMouseDown={event => event.preventDefault()}
-          onClick={() => onChange('')}
-        >
-          <X className='h-3.5 w-3.5' />
-        </button>
-      ) : null}
-    </div>
-  );
-};
 
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
@@ -1240,7 +1204,7 @@ const OperationsPage = () => {
       key: 'shifu_bid',
       label: tOperations('filters.courseId'),
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           value={filters.shifu_bid}
           onChange={value => handleFilterChange('shifu_bid', value)}
           placeholder={tOperations('filters.courseId')}
@@ -1252,7 +1216,7 @@ const OperationsPage = () => {
       key: 'course_name',
       label: tOperations('filters.courseName'),
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           value={filters.course_name}
           onChange={value => handleFilterChange('course_name', value)}
           placeholder={tOperations('filters.courseName')}
@@ -1268,7 +1232,7 @@ const OperationsPage = () => {
       key: 'creator_keyword',
       label: tOperations('filters.creator'),
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           value={filters.creator_keyword}
           onChange={value => handleFilterChange('creator_keyword', value)}
           placeholder={creatorPlaceholder}
@@ -1577,109 +1541,27 @@ const OperationsPage = () => {
                 </button>
               </div>
             ) : null}
-            <div
-              className={cn(
-                'grid gap-4',
-                expanded
-                  ? 'grid-cols-1 xl:grid-cols-3'
-                  : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]',
-              )}
-            >
-              {(expanded
-                ? expandedPrimaryFilterItems
-                : collapsedFilterItems
-              ).map(item => (
-                <div
-                  key={item.key}
-                  className='flex items-center'
-                >
-                  <span
-                    className={cn(
-                      "shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right after:ml-0.5 after:content-[':']",
-                      'w-20',
-                    )}
-                  >
-                    {item.label}
-                  </span>
-                  <div className='flex-1 min-w-0'>{item.component}</div>
-                </div>
-              ))}
-
-              {!expanded ? (
-                <div className='flex items-center justify-end gap-2'>
-                  <Button
-                    size='sm'
-                    variant='outline'
-                    onClick={handleReset}
-                  >
-                    {t('module.order.filters.reset')}
-                  </Button>
-                  <Button
-                    size='sm'
-                    onClick={handleSearch}
-                  >
-                    {t('module.order.filters.search')}
-                  </Button>
-                  <Button
-                    size='sm'
-                    variant='ghost'
-                    className='px-2 text-primary'
-                    onClick={() => setExpanded(true)}
-                  >
-                    {t('common.core.expand')}
-                    <ChevronDown className='ml-1 h-4 w-4' />
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-
-            {expanded ? (
-              <div className='space-y-4'>
-                <div className='grid gap-4 xl:grid-cols-3'>
-                  {expandedSecondaryFilterItems.map(item => (
-                    <div
-                      key={item.key}
-                      className='flex items-center'
-                    >
-                      <span
-                        className={cn(
-                          "shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right after:ml-0.5 after:content-[':']",
-                          'w-20',
-                        )}
-                      >
-                        {item.label}
-                      </span>
-                      <div className='flex-1 min-w-0'>{item.component}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className='flex items-center justify-end gap-2'>
-                  <Button
-                    size='sm'
-                    variant='outline'
-                    onClick={handleReset}
-                  >
-                    {t('module.order.filters.reset')}
-                  </Button>
-                  <Button
-                    size='sm'
-                    onClick={handleSearch}
-                  >
-                    {t('module.order.filters.search')}
-                  </Button>
-                  <Button
-                    size='sm'
-                    variant='ghost'
-                    className='px-2 text-primary'
-                    onClick={() => setExpanded(false)}
-                  >
-                    {t('common.core.collapse')}
-                    <ChevronUp className='ml-1 h-4 w-4' />
-                  </Button>
-                </div>
-              </div>
-            ) : null}
+            <AdminFilter
+              items={[
+                ...expandedPrimaryFilterItems,
+                ...expandedSecondaryFilterItems,
+              ]}
+              expanded={expanded}
+              onExpandedChange={setExpanded}
+              onReset={handleReset}
+              onSearch={handleSearch}
+              resetLabel={t('module.order.filters.reset')}
+              searchLabel={t('module.order.filters.search')}
+              expandLabel={t('common.core.expand')}
+              collapseLabel={t('common.core.collapse')}
+              collapsedCount={2}
+              className='bg-transparent'
+              contentClassName='min-w-0'
+              labelClassName='w-20 text-right'
+              collapsedGridClassName='gap-x-5 xl:grid-cols-3'
+              expandedGridClassName='gap-x-5 xl:grid-cols-3'
+              labelColon
+            />
           </div>
         </div>
 

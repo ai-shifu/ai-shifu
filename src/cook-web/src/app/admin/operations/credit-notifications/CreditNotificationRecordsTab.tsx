@@ -2,7 +2,9 @@ import React from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { ChevronDown, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminFilter from '@/app/admin/components/AdminFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
@@ -15,14 +17,12 @@ import {
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
-import { Button } from '@/components/ui/Button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/DropdownMenu';
-import { Input } from '@/components/ui/Input';
 import {
   Select,
   SelectContent,
@@ -78,63 +78,10 @@ const TABLE_CELL_CLASS =
   'border-r border-border px-3 py-2 align-middle last:border-r-0';
 const TABLE_TEXT_CELL_CLASS =
   'overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis last:border-r-0';
-const SEARCH_LABEL_CLASS =
-  "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']";
 const SELECT_ITEM_CLASS = 'pl-3 pr-8';
 const SELECT_ITEM_INDICATOR_CLASS = 'left-auto right-2';
 const TABLE_INLINE_ACTION_BUTTON_CLASS =
   'inline-flex h-8 items-center justify-center rounded-md px-2.5 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
-
-const SearchField = ({
-  label,
-  children,
-  className,
-}: {
-  label: React.ReactNode;
-  children: React.ReactNode;
-  className?: string;
-}) => (
-  <div className={cn('flex items-center', className)}>
-    <span className={cn(SEARCH_LABEL_CLASS, 'w-20')}>{label}</span>
-    <div className='min-w-0 flex-1'>{children}</div>
-  </div>
-);
-
-const ClearableTextInput = ({
-  value,
-  placeholder,
-  clearLabel,
-  onChange,
-}: {
-  value: string;
-  placeholder: string;
-  clearLabel: string;
-  onChange: (value: string) => void;
-}) => {
-  const hasValue = value.trim().length > 0;
-
-  return (
-    <div className='relative'>
-      <Input
-        className={cn('h-9', hasValue && 'pr-9')}
-        value={value}
-        placeholder={placeholder}
-        onChange={event => onChange(event.target.value)}
-      />
-      {hasValue ? (
-        <button
-          type='button'
-          aria-label={clearLabel}
-          className='absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground'
-          onMouseDown={event => event.preventDefault()}
-          onClick={() => onChange('')}
-        >
-          <X className='h-3.5 w-3.5' />
-        </button>
-      ) : null}
-    </div>
-  );
-};
 
 export function CreditNotificationRecordsTab({
   items,
@@ -406,7 +353,7 @@ export function CreditNotificationRecordsTab({
   );
 
   const renderCreatorInput = () => (
-    <ClearableTextInput
+    <AdminClearableInput
       value={draftFilters.creator_keyword}
       placeholder={t(
         'module.operationsCreditNotifications.filters.creatorPlaceholder',
@@ -415,6 +362,34 @@ export function CreditNotificationRecordsTab({
       onChange={value => updateDraftFilter('creator_keyword', value)}
     />
   );
+
+  const filterItems = [
+    {
+      key: 'notification_type',
+      label: t('module.operationsCreditNotifications.filters.notificationType'),
+      component: renderTypeSelect(),
+    },
+    {
+      key: 'status',
+      label: t('module.operationsCreditNotifications.filters.status'),
+      component: renderStatusSelect(),
+    },
+    {
+      key: 'creator_keyword',
+      label: t('module.operationsCreditNotifications.filters.creator'),
+      component: renderCreatorInput(),
+    },
+    {
+      key: 'source_type',
+      label: t('module.operationsCreditNotifications.filters.sourceType'),
+      component: renderSourceTypeSelect(),
+    },
+    {
+      key: 'created_at',
+      label: t('module.operationsCreditNotifications.filters.createdTime'),
+      component: renderCreatedAtRange(),
+    },
+  ];
 
   return (
     <div className='flex min-h-0 flex-col gap-4'>
@@ -479,107 +454,26 @@ export function CreditNotificationRecordsTab({
               </button>
             </div>
           ) : null}
-          <div
-            className={cn(
-              'grid gap-4',
-              filtersExpanded
-                ? 'grid-cols-1 xl:grid-cols-3'
-                : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
+          <AdminFilter
+            items={filterItems}
+            expanded={filtersExpanded}
+            onExpandedChange={setFiltersExpanded}
+            onReset={resetRecords}
+            onSearch={searchRecords}
+            resetLabel={t('module.operationsCreditNotifications.actions.reset')}
+            searchLabel={t(
+              'module.operationsCreditNotifications.actions.search',
             )}
-          >
-            <SearchField
-              label={t(
-                'module.operationsCreditNotifications.filters.notificationType',
-              )}
-            >
-              {renderTypeSelect()}
-            </SearchField>
-            <SearchField
-              label={t('module.operationsCreditNotifications.filters.status')}
-            >
-              {renderStatusSelect()}
-            </SearchField>
-            <SearchField
-              label={t('module.operationsCreditNotifications.filters.creator')}
-            >
-              {renderCreatorInput()}
-            </SearchField>
-            {!filtersExpanded ? (
-              <div className='flex items-center justify-end gap-2'>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  onClick={resetRecords}
-                >
-                  {t('module.operationsCreditNotifications.actions.reset')}
-                </Button>
-                <Button
-                  type='button'
-                  size='sm'
-                  onClick={searchRecords}
-                >
-                  {t('module.operationsCreditNotifications.actions.search')}
-                </Button>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='sm'
-                  className='px-2 text-primary'
-                  onClick={() => setFiltersExpanded(true)}
-                >
-                  {t('common.core.expand')}
-                </Button>
-              </div>
-            ) : null}
-          </div>
-
-          {filtersExpanded ? (
-            <div className='space-y-4'>
-              <div className='grid gap-4 xl:grid-cols-3'>
-                <SearchField
-                  label={t(
-                    'module.operationsCreditNotifications.filters.sourceType',
-                  )}
-                >
-                  {renderSourceTypeSelect()}
-                </SearchField>
-                <SearchField
-                  label={t(
-                    'module.operationsCreditNotifications.filters.createdTime',
-                  )}
-                >
-                  {renderCreatedAtRange()}
-                </SearchField>
-                <div className='flex items-center justify-end gap-2'>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='sm'
-                    onClick={resetRecords}
-                  >
-                    {t('module.operationsCreditNotifications.actions.reset')}
-                  </Button>
-                  <Button
-                    type='button'
-                    size='sm'
-                    onClick={searchRecords}
-                  >
-                    {t('module.operationsCreditNotifications.actions.search')}
-                  </Button>
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    size='sm'
-                    className='px-2 text-primary'
-                    onClick={() => setFiltersExpanded(false)}
-                  >
-                    {t('common.core.collapse')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : null}
+            expandLabel={t('common.core.expand')}
+            collapseLabel={t('common.core.collapse')}
+            collapsedCount={3}
+            className='bg-transparent'
+            contentClassName='min-w-0'
+            labelClassName='w-20 text-right'
+            collapsedGridClassName='gap-x-5 xl:grid-cols-3'
+            expandedGridClassName='gap-x-5 xl:grid-cols-3'
+            labelColon
+          />
         </div>
       </div>
 

@@ -1,10 +1,10 @@
 'use client';
 
-import { X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTitle from '@/app/admin/components/AdminTitle';
@@ -25,7 +25,6 @@ import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
 import {
   Table,
   TableBody,
@@ -224,53 +223,6 @@ const resolvePrimaryAccount = ({
   const alternate = contactMode === 'email' ? mobile : email;
   return formatValue(preferred || alternate || userBid, emptyValue);
 };
-
-function ClearableTextInput({
-  id,
-  value,
-  placeholder,
-  clearLabel,
-  onChange,
-  onSubmit,
-}: {
-  id?: string;
-  value: string;
-  placeholder: string;
-  clearLabel: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
-}) {
-  const hasValue = value.trim().length > 0;
-
-  return (
-    <div className='relative'>
-      <Input
-        id={id}
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        onKeyDown={event => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            onSubmit();
-          }
-        }}
-        placeholder={placeholder}
-        className={cn('h-9', hasValue && 'pr-9')}
-      />
-      {hasValue ? (
-        <button
-          type='button'
-          aria-label={clearLabel}
-          className='absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground'
-          onMouseDown={event => event.preventDefault()}
-          onClick={() => onChange('')}
-        >
-          <X className='h-3.5 w-3.5' />
-        </button>
-      ) : null}
-    </div>
-  );
-}
 
 /**
  * t('module.operationsCourse.detail.followUps.title')
@@ -745,7 +697,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                       >
                         {tOperations('detail.followUps.filters.userKeyword')}
                       </label>
-                      <ClearableTextInput
+                      <AdminClearableInput
                         id={userKeywordInputId}
                         value={filtersDraft.keyword}
                         placeholder={userKeywordPlaceholder}
@@ -766,7 +718,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                       >
                         {outlineFilterLabel}
                       </label>
-                      <ClearableTextInput
+                      <AdminClearableInput
                         id={outlineKeywordInputId}
                         value={filtersDraft.chapterKeyword}
                         placeholder={outlineFilterPlaceholder}

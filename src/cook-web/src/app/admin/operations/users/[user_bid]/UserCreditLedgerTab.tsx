@@ -2,12 +2,12 @@
 
 import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import { formatAdminCredits } from '@/app/admin/lib/numberFormat';
-import { ClearableTextInput } from '@/app/admin/operations/orders/orderUiShared';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -612,7 +612,7 @@ const CreditLedgerFilters = ({
             <Label className='text-xs font-medium text-muted-foreground'>
               {tOperationsUsers('detail.creditLedgerFilters.course')}
             </Label>
-            <ClearableTextInput
+            <AdminClearableInput
               value={filtersDraft.courseQuery}
               placeholder={tOperationsUsers(
                 'detail.creditLedgerFilters.coursePlaceholder',

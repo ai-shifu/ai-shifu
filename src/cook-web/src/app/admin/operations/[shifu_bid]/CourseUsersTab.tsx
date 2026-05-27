@@ -1,7 +1,7 @@
 'use client';
 
-import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
@@ -41,42 +41,6 @@ import type {
   CourseUserPaymentStatus,
   UserColumnKey,
 } from './courseUsersTabConfig';
-
-function ClearableTextInput({
-  value,
-  placeholder,
-  clearLabel,
-  onChange,
-}: {
-  value: string;
-  placeholder: string;
-  clearLabel: string;
-  onChange: (value: string) => void;
-}) {
-  const hasValue = value.trim().length > 0;
-
-  return (
-    <div className='flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-within:outline-none'>
-      <input
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        placeholder={placeholder}
-        className='h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-sm leading-none text-foreground placeholder:text-muted-foreground focus:outline-none'
-      />
-      {hasValue ? (
-        <button
-          type='button'
-          aria-label={clearLabel}
-          className='ml-2 shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground'
-          onMouseDown={event => event.preventDefault()}
-          onClick={() => onChange('')}
-        >
-          <X className='h-3.5 w-3.5' />
-        </button>
-      ) : null}
-    </div>
-  );
-}
 
 type ErrorState = { message: string; code?: number };
 
@@ -181,7 +145,7 @@ export default function CourseUsersTab({
               <Label className='text-xs font-medium text-muted-foreground'>
                 {tOperations('detail.usersFilters.userKeyword')}
               </Label>
-              <ClearableTextInput
+              <AdminClearableInput
                 value={filtersDraft.keyword}
                 placeholder={contactKeywordPlaceholder}
                 clearLabel={t('module.chat.lessonFeedbackClearInput')}

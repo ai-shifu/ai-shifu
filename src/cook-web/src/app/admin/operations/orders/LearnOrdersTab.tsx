@@ -3,10 +3,11 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
@@ -56,7 +57,6 @@ import OrderOverviewSection from './OrderOverviewSection';
 import OperatorOrderDetailSheet from './OperatorOrderDetailSheet';
 import {
   ALL_OPTION_VALUE,
-  ClearableTextInput,
   EMPTY_STATE_LABEL,
   renderTooltipText,
 } from './orderUiShared';
@@ -467,7 +467,7 @@ export default function LearnOrdersTab() {
       key: 'user_keyword',
       label: tOperationsOrder('filters.userKeyword'),
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           value={draftFilters.user_keyword}
           placeholder={userKeywordPlaceholder}
           clearLabel={t('common.core.close')}
@@ -484,7 +484,7 @@ export default function LearnOrdersTab() {
       key: 'shifu_bid',
       label: tOperationsOrder('filters.courseId'),
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           value={draftFilters.shifu_bid}
           placeholder={tOperationsOrder('filters.courseIdPlaceholder')}
           clearLabel={t('common.core.close')}
@@ -534,7 +534,7 @@ export default function LearnOrdersTab() {
       key: 'course_name',
       label: tOperationsOrder('filters.courseName'),
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           value={draftFilters.course_name}
           placeholder={tOperationsOrder('filters.courseNamePlaceholder')}
           clearLabel={t('common.core.close')}
@@ -551,7 +551,7 @@ export default function LearnOrdersTab() {
       key: 'order_bid',
       label: tOperationsOrder('filters.orderId'),
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           value={draftFilters.order_bid}
           placeholder={tOperationsOrder('filters.orderIdPlaceholder')}
           clearLabel={t('common.core.close')}
@@ -687,115 +687,24 @@ export default function LearnOrdersTab() {
           />
 
           <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm transition-all'>
-            <div className='space-y-4'>
-              <div
-                className={cn(
-                  'grid gap-4',
-                  expanded
-                    ? 'grid-cols-1 xl:grid-cols-3'
-                    : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
-                )}
-              >
-                {(expanded
-                  ? expandedFilterItems.slice(0, 3)
-                  : primaryFilterItems
-                ).map(item => (
-                  <div
-                    key={item.key}
-                    className='flex items-center'
-                  >
-                    <span
-                      className={cn(
-                        "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']",
-                        'w-24',
-                      )}
-                    >
-                      {item.label}
-                    </span>
-                    <div className={filterControlClassName}>
-                      {item.component}
-                    </div>
-                  </div>
-                ))}
-
-                {!expanded ? (
-                  <div className='flex items-center justify-end gap-2'>
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={handleReset}
-                    >
-                      {tOperationsOrder('filters.reset')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      onClick={handleSearch}
-                    >
-                      {tOperationsOrder('filters.search')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      variant='ghost'
-                      className='px-2 text-primary'
-                      onClick={() => setExpanded(true)}
-                    >
-                      {t('common.core.expand')}
-                      <ChevronDown className='ml-1 h-4 w-4' />
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-
-              {expanded ? (
-                <div className='space-y-4'>
-                  <div className='grid gap-4 xl:grid-cols-3'>
-                    {expandedFilterItems.slice(3).map(item => (
-                      <div
-                        key={item.key}
-                        className='flex items-center'
-                      >
-                        <span
-                          className={cn(
-                            "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']",
-                            'w-24',
-                          )}
-                        >
-                          {item.label}
-                        </span>
-                        <div className={filterControlClassName}>
-                          {item.component}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className='flex items-center justify-end gap-2'>
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={handleReset}
-                    >
-                      {tOperationsOrder('filters.reset')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      onClick={handleSearch}
-                    >
-                      {tOperationsOrder('filters.search')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      variant='ghost'
-                      className='px-2 text-primary'
-                      onClick={() => setExpanded(false)}
-                    >
-                      {t('common.core.collapse')}
-                      <ChevronUp className='ml-1 h-4 w-4' />
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <AdminFilter
+              items={expandedFilterItems}
+              expanded={expanded}
+              onExpandedChange={setExpanded}
+              onReset={handleReset}
+              onSearch={handleSearch}
+              resetLabel={tOperationsOrder('filters.reset')}
+              searchLabel={tOperationsOrder('filters.search')}
+              expandLabel={t('common.core.expand')}
+              collapseLabel={t('common.core.collapse')}
+              collapsedCount={3}
+              className='bg-transparent'
+              contentClassName={filterControlClassName}
+              labelClassName='w-24 text-right'
+              collapsedGridClassName='gap-x-5 xl:grid-cols-3'
+              expandedGridClassName='gap-x-5 xl:grid-cols-3'
+              labelColon
+            />
           </div>
 
           <div className='mb-3 text-sm text-muted-foreground'>
