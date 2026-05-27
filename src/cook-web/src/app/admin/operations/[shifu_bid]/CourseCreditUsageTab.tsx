@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
@@ -13,7 +14,6 @@ import {
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
-import { ClearableTextInput } from '@/app/admin/operations/orders/orderUiShared';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -491,7 +491,7 @@ export default function CourseCreditUsageTab({
                 <Label className='text-xs font-medium text-muted-foreground'>
                   {tOperations('detail.creditUsage.filters.userKeyword')}
                 </Label>
-                <ClearableTextInput
+                <AdminClearableInput
                   value={filtersDraft.keyword}
                   placeholder={keywordPlaceholder}
                   clearLabel={t('module.chat.lessonFeedbackClearInput')}
