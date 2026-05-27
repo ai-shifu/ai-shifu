@@ -110,11 +110,10 @@ export function useAuth(options: UseAuthOptions = {}) {
         description = t('module.auth.credentialError');
         break;
       case 1003:
-        // For SMS context, 1003 means OTP expired; for email context, it means wrong credentials
         description =
-          context === 'sms'
-            ? t('module.auth.otpExpired')
-            : t('module.auth.credentialError');
+          context === 'email'
+            ? t('module.auth.emailCodeExpired')
+            : t('module.auth.otpExpired');
         break;
       case 1013:
         description = t('module.auth.otpExpired');
@@ -219,9 +218,74 @@ export function useAuth(options: UseAuthOptions = {}) {
     }
   };
 
+  // Email verification login with automatic retry on token expiration
+  const loginWithEmailCode = async (
+    email: string,
+    code: string,
+    language: string,
+  ) => {
+    try {
+      const response = await callWithTokenRefresh(() =>
+        apiService.emailLogin({
+          email,
+          code,
+          language,
+          login_context: options.loginContext,
+          course_id: options.courseId,
+        }),
+      );
+
+      const success = await processLoginResponse(response, 'email');
+      if (!success) {
+        handleLoginError(
+          response.code,
+          response.message || response.msg,
+          'email',
+        );
+      }
+
+      return response;
+    } catch (error: any) {
+      toast({
+        title: t('module.auth.failed'),
+        description: error.message || t('common.core.networkError'),
+        variant: 'destructive',
+      });
+      options.onError?.(error);
+      throw error;
+    }
+  };
+
+  // Send email verification code with automatic token refresh
+  const sendEmailCode = async (email: string) => {
+    try {
+      const response = await callWithTokenRefresh(() =>
+        apiService.sendEmailCode({
+          email,
+          language: i18n.language,
+        }),
+      );
+
+      if (response.code !== 0) {
+        throw buildApiError(response);
+      }
+
+      return response;
+    } catch (error: any) {
+      toast({
+        title: t('module.auth.sendFailed'),
+        description: error.message || t('common.core.networkError'),
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
   return {
     loginWithSmsCode,
     sendSmsCode,
+    loginWithEmailCode,
+    sendEmailCode,
     callWithTokenRefresh,
   };
 }

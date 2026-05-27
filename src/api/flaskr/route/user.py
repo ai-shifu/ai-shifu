@@ -504,6 +504,53 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             resp = make_response(make_common_response(auth_result.token))
             return resp
 
+    def _handle_email_login():
+        with app.app_context():
+            payload = request.get_json(silent=True)
+            payload = payload if isinstance(payload, dict) else {}
+            email = (payload.get("email", None) or "").strip().lower()
+            email_code = payload.get("code", None)
+            course_id = payload.get("course_id", None)
+            language = payload.get("language", None)
+            login_context = payload.get("login_context", None)
+            user_id = (
+                None if getattr(request, "user", None) is None else request.user.user_id
+            )
+            if not email:
+                raise_param_error("email")
+            if not email_code:
+                raise_param_error("code")
+            provider = get_provider("email")
+            auth_result = provider.verify(
+                app,
+                VerificationRequest(
+                    identifier=email,
+                    code=email_code,
+                    metadata={
+                        "user_id": user_id,
+                        "course_id": course_id,
+                        "language": language,
+                        "login_context": login_context,
+                    },
+                ),
+            )
+            db.session.commit()
+            run_post_auth_extensions(
+                app,
+                PostAuthContext(
+                    user_id=auth_result.user.user_id,
+                    source="email",
+                    login_context=login_context,
+                    created_new_user=bool(auth_result.is_new_user),
+                    creator_granted_now=bool(
+                        auth_result.metadata.get("creator_granted_now")
+                    ),
+                    language=language or getattr(auth_result.user, "language", None),
+                ),
+            )
+            resp = make_response(make_common_response(auth_result.token))
+            return resp
+
     @app.route(path_prefix + "/login_sms", methods=["POST"])
     @bypass_token_validation
     @optional_token_validation
@@ -515,6 +562,18 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
            - user
         """
         return _handle_sms_login()
+
+    @app.route(path_prefix + "/login_email", methods=["POST"])
+    @bypass_token_validation
+    @optional_token_validation
+    def login_email_api():
+        """
+        Login through email verification code for web clients
+        ---
+        tags:
+           - user
+        """
+        return _handle_email_login()
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     def get_profile():

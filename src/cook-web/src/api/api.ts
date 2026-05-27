@@ -20,6 +20,7 @@ const api = {
   verifyCaptcha: 'POST /user/captcha/verify',
   sendSmsCode: 'POST /user/send_sms_code',
   sendEmailCode: 'POST /user/send_email_code',
+  emailLogin: 'POST /user/login_email',
   requireTmp: 'POST /user/require_tmp',
   smsLogin: 'POST /user/login_sms',
   submitFeedback: 'POST /user/submit-feedback',

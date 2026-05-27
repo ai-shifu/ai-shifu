@@ -294,13 +294,22 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
         )
 
         try:
-            # Connect to the SMTP server
-            server = smtplib.SMTP(app.config["SMTP_SERVER"], app.config["SMTP_PORT"])
-            server.starttls()
-            server.login(app.config["SMTP_USERNAME"], app.config["SMTP_PASSWORD"])
+            smtp_port = app.config["SMTP_PORT"]
+            smtp_server = app.config["SMTP_SERVER"]
+            smtp_username = app.config["SMTP_USERNAME"]
+            smtp_password = app.config["SMTP_PASSWORD"]
+            smtp_sender = app.config["SMTP_SENDER"]
+
+            # Port 465 uses implicit SSL; 587 uses STARTTLS
+            if smtp_port == 465:
+                server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+            else:
+                server = smtplib.SMTP(smtp_server, smtp_port)
+                server.starttls()
+            server.login(smtp_username, smtp_password)
 
             # Send the email
-            server.sendmail(app.config["SMTP_SENDER"], email, msg.as_string())
+            server.sendmail(smtp_sender, email, msg.as_string())
             server.quit()
 
             app.logger.info(f"Verification code sent to {email}")
