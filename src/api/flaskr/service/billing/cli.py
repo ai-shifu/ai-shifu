@@ -84,6 +84,7 @@ from .renewal import retry_billing_renewal_event, run_billing_renewal_event
 from .settlement import backfill_bill_usage_settlement
 from .subscriptions import (
     grant_paid_order_credits,
+    is_self_managed_billing_provider,
     repair_subscription_cycle_mismatches,
     repair_topup_grant_expiries,
 )
@@ -1141,9 +1142,8 @@ def grant_billing_plan_by_identify(
             current_product = _load_plan_product_by_bid(
                 existing_subscription.product_bid
             )
-            if (
-                str(existing_subscription.billing_provider or "").strip().lower()
-                != "manual"
+            if not is_self_managed_billing_provider(
+                existing_subscription.billing_provider
             ):
                 raise click.ClickException(
                     "User already has an active provider-managed subscription. "

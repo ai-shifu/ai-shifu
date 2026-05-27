@@ -1416,6 +1416,86 @@ def test_billing_grant_plan_cli_rejects_when_provider_managed_subscription_exist
         )
 
 
+def test_billing_grant_plan_cli_upgrades_active_pingxx_subscription(
+    billing_cli_db_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
+        lambda app, *, bill_order_bid: {
+            "status": "enqueued",
+            "bill_order_bid": bill_order_bid,
+            "enqueued": True,
+        },
+    )
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(
+                product_bids=[
+                    "bill-product-plan-monthly",
+                    "bill-product-plan-yearly",
+                ]
+            )
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-pingxx-upgrade",
+            identify="creator-cli-pingxx-upgrade@example.com",
+            email="creator-cli-pingxx-upgrade@example.com",
+            is_creator=True,
+        )
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-cli-pingxx-upgrade",
+                creator_bid="creator-cli-pingxx-upgrade",
+                product_bid="bill-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="pingxx",
+                provider_subscription_id="",
+                provider_customer_id="pingxx-customer-cli-upgrade",
+                current_period_start_at=datetime.now() - timedelta(days=1),
+                current_period_end_at=datetime.now() + timedelta(days=30),
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+            )
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "grant-plan",
+            "--identify",
+            "creator-cli-pingxx-upgrade@example.com",
+            "--product-bid",
+            "bill-product-plan-yearly",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "granted"
+    assert payload["product_bid"] == "bill-product-plan-yearly"
+
+    with billing_cli_db_app.app_context():
+        order = BillingOrder.query.filter_by(
+            creator_bid="creator-cli-pingxx-upgrade"
+        ).one()
+        subscription = BillingSubscription.query.filter_by(
+            creator_bid="creator-cli-pingxx-upgrade"
+        ).one()
+
+        assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+        assert order.payment_provider == "manual"
+        assert subscription.product_bid == "bill-product-plan-yearly"
+        assert subscription.billing_provider == "pingxx"
+
+
 def test_billing_seed_bootstrap_data_cli_is_idempotent(
     billing_cli_db_app: Flask,
 ) -> None:

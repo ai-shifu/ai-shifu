@@ -32,7 +32,7 @@ from .queries import (
     calculate_self_managed_billing_cycle_end as _calculate_self_managed_billing_cycle_end,
     load_primary_active_subscription as _load_primary_active_subscription,
 )
-from .subscriptions import grant_paid_order_credits
+from .subscriptions import grant_paid_order_credits, is_self_managed_billing_provider
 
 _NOTIFICATION_EXTENSION_KEY = "admin_manual_plan_grant"
 _NOTIFICATION_STATUS_TEMPLATE_PENDING = "template_pending"
@@ -289,9 +289,8 @@ def grant_manual_plan_to_user(
                 existing_product_bid = _normalize_bid(existing_subscription.product_bid)
                 if existing_product_bid == product.product_bid:
                     raise_error("server.billing.adminPlanGrantAlreadyActive")
-                if (
-                    _normalize_bid(existing_subscription.billing_provider)
-                    != _MANUAL_PROVIDER_NAME
+                if not is_self_managed_billing_provider(
+                    existing_subscription.billing_provider
                 ):
                     raise_error("server.billing.adminPlanGrantProviderManagedConflict")
                 current_product = _load_plan_product_by_bid(existing_product_bid)
