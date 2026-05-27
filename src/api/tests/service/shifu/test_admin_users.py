@@ -19,6 +19,7 @@ from flaskr.service.metering.consts import (
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -353,15 +354,18 @@ def _seed_billing_subscription(
     current_period_end_at: datetime,
     product_bid: str = "product-1",
     status: int = BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    billing_provider: str = "manual",
+    provider_subscription_id: str = "",
+    provider_customer_id: str = "",
 ):
     subscription = BillingSubscription(
         subscription_bid=subscription_bid,
         creator_bid=creator_bid,
         product_bid=product_bid,
         status=status,
-        billing_provider="manual",
-        provider_subscription_id="",
-        provider_customer_id="",
+        billing_provider=billing_provider,
+        provider_subscription_id=provider_subscription_id,
+        provider_customer_id=provider_customer_id,
         current_period_start_at=current_period_start_at,
         current_period_end_at=current_period_end_at,
         cancel_at_period_end=0,
@@ -2965,6 +2969,123 @@ def test_grant_operator_user_package_is_idempotent_for_repeated_request_id(app):
     assert second_result.bill_order_bid == first_result.bill_order_bid
     assert second_result.subscription_bid == first_result.subscription_bid
     assert len(orders) == 1
+
+
+def test_grant_operator_user_package_upgrades_active_pingxx_subscription(app):
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(
+                product_bids=[
+                    "bill-product-plan-monthly",
+                    "bill-product-plan-yearly",
+                ]
+            )
+        )
+        _seed_user(
+            app,
+            user_bid="package-grant-pingxx-upgrade",
+            identify="package-grant-pingxx-upgrade@example.com",
+            nickname="Package Grant Pingxx Upgrade",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "package-grant-pingxx-upgrade@example.com")],
+        )
+        _seed_billing_subscription(
+            creator_bid="package-grant-pingxx-upgrade",
+            subscription_bid="sub-package-grant-pingxx-upgrade",
+            product_bid="bill-product-plan-monthly",
+            billing_provider="pingxx",
+            current_period_start_at=datetime.now() - timedelta(days=1),
+            current_period_end_at=datetime.now() + timedelta(days=29),
+        )
+
+        result = grant_operator_user_package(
+            app,
+            user_bid="package-grant-pingxx-upgrade",
+            operator_user_bid="operator-1",
+            payload=AdminOperationUserPackageGrantRequestDTO(
+                request_id="package-grant-pingxx-upgrade-request",
+                product_bid="bill-product-plan-yearly",
+                note="ops package upgrade",
+            ),
+        )
+
+        order = (
+            BillingOrder.query.filter_by(
+                creator_bid="package-grant-pingxx-upgrade",
+                bill_order_bid=result.bill_order_bid,
+            )
+            .order_by(BillingOrder.id.desc())
+            .first()
+        )
+        subscription = (
+            BillingSubscription.query.filter_by(
+                creator_bid="package-grant-pingxx-upgrade",
+                subscription_bid=result.subscription_bid,
+            )
+            .order_by(BillingSubscription.id.desc())
+            .first()
+        )
+
+    assert result.product_bid == "bill-product-plan-yearly"
+    assert order is not None
+    assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+    assert order.payment_provider == "manual"
+    assert subscription is not None
+    assert subscription.product_bid == "bill-product-plan-yearly"
+    assert subscription.billing_provider == "pingxx"
+
+
+def test_grant_operator_user_package_rejects_active_stripe_subscription(app):
+    with app.app_context():
+        db.session.add_all(
+            build_bill_products(
+                product_bids=[
+                    "bill-product-plan-monthly",
+                    "bill-product-plan-yearly",
+                ]
+            )
+        )
+        _seed_user(
+            app,
+            user_bid="package-grant-stripe-conflict",
+            identify="package-grant-stripe-conflict@example.com",
+            nickname="Package Grant Stripe Conflict",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "package-grant-stripe-conflict@example.com")],
+        )
+        _seed_billing_subscription(
+            creator_bid="package-grant-stripe-conflict",
+            subscription_bid="sub-package-grant-stripe-conflict",
+            product_bid="bill-product-plan-monthly",
+            billing_provider="stripe",
+            provider_subscription_id="sub_provider_package_grant_stripe_conflict",
+            provider_customer_id="cus_package_grant_stripe_conflict",
+            current_period_start_at=datetime.now() - timedelta(days=1),
+            current_period_end_at=datetime.now() + timedelta(days=29),
+        )
+
+        with pytest.raises(AppException) as exc_info:
+            grant_operator_user_package(
+                app,
+                user_bid="package-grant-stripe-conflict",
+                operator_user_bid="operator-1",
+                payload=AdminOperationUserPackageGrantRequestDTO(
+                    request_id="package-grant-stripe-conflict-request",
+                    product_bid="bill-product-plan-yearly",
+                    note="ops package conflict",
+                ),
+            )
+
+    assert (
+        exc_info.value.code
+        == ERROR_CODE["server.billing.adminPlanGrantProviderManagedConflict"]
+    )
 
 
 def test_list_operator_users_counts_redeem_orders_in_total_paid_amount(app):

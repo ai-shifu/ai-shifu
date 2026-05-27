@@ -106,7 +106,11 @@ _PENDING_RENEWAL_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
 )
 
-_SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
+SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
+
+
+def is_self_managed_billing_provider(provider: str | None) -> bool:
+    return _normalize_bid(provider).lower() in SELF_MANAGED_BILLING_PROVIDERS
 
 
 @dataclass(slots=True, frozen=True)
@@ -584,7 +588,7 @@ def _calculate_billing_cycle_end(
     payment_provider: str = "",
 ) -> datetime | None:
     provider = _normalize_bid(payment_provider)
-    if provider in _SELF_MANAGED_BILLING_PROVIDERS:
+    if is_self_managed_billing_provider(provider):
         return _calc_self_managed_cycle_end(
             product,
             cycle_start_at=cycle_start_at,
@@ -1361,7 +1365,7 @@ def _resolve_credit_bucket_effective_to(
 
 
 def _is_self_managed_billing_order(order: BillingOrder) -> bool:
-    return _normalize_bid(order.payment_provider) in _SELF_MANAGED_BILLING_PROVIDERS
+    return is_self_managed_billing_provider(order.payment_provider)
 
 
 def _resolve_topup_bucket_effective_to(
