@@ -24,9 +24,7 @@ function MockClientErrorTrigger() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setShouldThrow(
-      params.get(MOCK_ERROR_QUERY_KEY) === MOCK_ERROR_QUERY_VALUE,
-    );
+    setShouldThrow(params.get(MOCK_ERROR_QUERY_KEY) === MOCK_ERROR_QUERY_VALUE);
   }, []);
 
   if (shouldThrow) {

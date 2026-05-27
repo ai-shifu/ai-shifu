@@ -194,9 +194,7 @@ const reloadPage = () => {
   window.location.reload();
 };
 
-export default function AppErrorFallback({
-  error,
-}: AppErrorFallbackProps) {
+export default function AppErrorFallback({ error }: AppErrorFallbackProps) {
   const [canCopy, setCanCopy] = useState(false);
   const [browserDetails, setBrowserDetails] = useState<BrowserDetails>();
   const [copied, setCopied] = useState(false);
@@ -229,9 +227,7 @@ export default function AppErrorFallback({
     <main className='flex min-h-dvh items-center justify-center bg-background px-4 py-10 text-foreground sm:px-6'>
       <section className='w-full max-w-3xl rounded-2xl border border-border bg-card p-6 shadow-lg sm:p-8'>
         <div className='space-y-2'>
-          <p className='text-sm font-medium text-destructive'>
-            {ERROR_BADGE}
-          </p>
+          <p className='text-sm font-medium text-destructive'>{ERROR_BADGE}</p>
           <h1 className='text-2xl font-semibold tracking-tight text-card-foreground'>
             {ERROR_TITLE}
           </h1>
