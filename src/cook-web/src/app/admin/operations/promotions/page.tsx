@@ -1106,16 +1106,10 @@ const PromotionCouponCodesDialog = ({
               pageIndex,
               pageCount,
               onPageChange: page => void fetchCodes(page, appliedKeyword),
-              prevLabel: t('module.order.paginationPrev', 'Previous'),
-              nextLabel: t('module.order.paginationNext', 'Next'),
-              prevAriaLabel: t(
-                'module.order.paginationPrevAriaLabel',
-                'Go to previous page',
-              ),
-              nextAriaLabel: t(
-                'module.order.paginationNextAriaLabel',
-                'Go to next page',
-              ),
+              prevLabel: t('module.order.paginationPrev'),
+              nextLabel: t('module.order.paginationNext'),
+              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
               hideWhenSinglePage: true,
             }}
             footerClassName='mt-3'
@@ -1250,16 +1244,10 @@ const PromotionCampaignRedemptionsDialog = ({
               pageIndex,
               pageCount,
               onPageChange: page => void fetchRedemptions(page),
-              prevLabel: t('module.order.paginationPrev', 'Previous'),
-              nextLabel: t('module.order.paginationNext', 'Next'),
-              prevAriaLabel: t(
-                'module.order.paginationPrevAriaLabel',
-                'Go to previous page',
-              ),
-              nextAriaLabel: t(
-                'module.order.paginationNextAriaLabel',
-                'Go to next page',
-              ),
+              prevLabel: t('module.order.paginationPrev'),
+              nextLabel: t('module.order.paginationNext'),
+              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
               hideWhenSinglePage: true,
             }}
             footerClassName='mt-3'
@@ -1408,16 +1396,10 @@ const PromotionCouponUsageDialog = ({
               pageIndex,
               pageCount,
               onPageChange: page => void fetchUsages(page),
-              prevLabel: t('module.order.paginationPrev', 'Previous'),
-              nextLabel: t('module.order.paginationNext', 'Next'),
-              prevAriaLabel: t(
-                'module.order.paginationPrevAriaLabel',
-                'Go to previous page',
-              ),
-              nextAriaLabel: t(
-                'module.order.paginationNextAriaLabel',
-                'Go to next page',
-              ),
+              prevLabel: t('module.order.paginationPrev'),
+              nextLabel: t('module.order.paginationNext'),
+              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
               hideWhenSinglePage: true,
             }}
             footerClassName='mt-3'
@@ -3311,16 +3293,10 @@ export default function AdminOperationPromotionsPage() {
               pageIndex: couponPage,
               pageCount: couponPageCount,
               onPageChange: page => void fetchCoupons(page, couponFilters),
-              prevLabel: t('module.order.paginationPrev', 'Previous'),
-              nextLabel: t('module.order.paginationNext', 'Next'),
-              prevAriaLabel: t(
-                'module.order.paginationPrevAriaLabel',
-                'Go to previous page',
-              ),
-              nextAriaLabel: t(
-                'module.order.paginationNextAriaLabel',
-                'Go to next page',
-              ),
+              prevLabel: t('module.order.paginationPrev'),
+              nextLabel: t('module.order.paginationNext'),
+              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
               hideWhenSinglePage: true,
             }}
             footerClassName='mt-3'
@@ -3609,16 +3585,10 @@ export default function AdminOperationPromotionsPage() {
               pageIndex: campaignPage,
               pageCount: campaignPageCount,
               onPageChange: page => void fetchCampaigns(page, campaignFilters),
-              prevLabel: t('module.order.paginationPrev', 'Previous'),
-              nextLabel: t('module.order.paginationNext', 'Next'),
-              prevAriaLabel: t(
-                'module.order.paginationPrevAriaLabel',
-                'Go to previous page',
-              ),
-              nextAriaLabel: t(
-                'module.order.paginationNextAriaLabel',
-                'Go to next page',
-              ),
+              prevLabel: t('module.order.paginationPrev'),
+              nextLabel: t('module.order.paginationNext'),
+              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
               hideWhenSinglePage: true,
             }}
             footerClassName='mt-3'

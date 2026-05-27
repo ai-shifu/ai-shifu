@@ -1017,16 +1017,10 @@ export default function AdminOperationCourseFollowUpsPage() {
                       pageIndex: currentPage,
                       pageCount,
                       onPageChange: handlePageChange,
-                      prevLabel: t('module.order.paginationPrev', 'Previous'),
-                      nextLabel: t('module.order.paginationNext', 'Next'),
-                      prevAriaLabel: t(
-                        'module.order.paginationPrevAriaLabel',
-                        'Go to previous page',
-                      ),
-                      nextAriaLabel: t(
-                        'module.order.paginationNextAriaLabel',
-                        'Go to next page',
-                      ),
+                      prevLabel: t('module.order.paginationPrev'),
+                      nextLabel: t('module.order.paginationNext'),
+                      prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+                      nextAriaLabel: t('module.order.paginationNextAriaLabel'),
                       hideWhenSinglePage: true,
                     }}
                   />
