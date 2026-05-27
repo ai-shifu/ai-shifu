@@ -448,6 +448,9 @@ const ListenModeSlideRenderer = ({
   const [hasSettledTailInteraction, setHasSettledTailInteraction] =
     useState(false);
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
+  const [isMobileAskPanelMounted, setIsMobileAskPanelMounted] =
+    useState(false);
+  const [mobileAskPanelElementBid, setMobileAskPanelElementBid] = useState('');
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
   const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
     DEFAULT_LISTEN_MOBILE_VIEW_MODE,
@@ -460,6 +463,10 @@ const ListenModeSlideRenderer = ({
       currentElement: undefined,
       isActive: false,
     });
+  const [isDesktopAskPanelMounted, setIsDesktopAskPanelMounted] =
+    useState(false);
+  const [desktopAskPanelElementBid, setDesktopAskPanelElementBid] =
+    useState('');
   const mobileAskActionRef = useRef<HTMLButtonElement | null>(null);
   const desktopAskActionRef = useRef<HTMLButtonElement | null>(null);
   const playerCustomActionSetActiveRef = useRef<(active: boolean) => void>(
@@ -653,31 +660,45 @@ const ListenModeSlideRenderer = ({
   }, [playerCustomActionState.currentElement]);
   const resolvedAskElementBid =
     currentPlayerElementBid || currentStepBlockBid || fallbackAskElementBid;
+  const resolvePlayerAskElementBid = useCallback(
+    (element?: ListenSlideElement) => {
+      const blockBid = element?.blockBid;
+      if (blockBid && blockBid !== 'empty-ppt') {
+        return blockBid;
+      }
+
+      return fallbackAskElementBid;
+    },
+    [fallbackAskElementBid],
+  );
   const playerCustomAskElementBid = useMemo(() => {
-    if (currentPlayerElementBid) {
-      return currentPlayerElementBid;
-    }
+    return resolvePlayerAskElementBid(playerCustomActionState.currentElement);
+  }, [playerCustomActionState.currentElement, resolvePlayerAskElementBid]);
+  const renderedPlayerCustomAskElementBid =
+    playerCustomActionState.isActive || !desktopAskPanelElementBid
+      ? playerCustomAskElementBid
+      : desktopAskPanelElementBid;
+  const renderedMobileAskElementBid =
+    isMobileAskOpen || !mobileAskPanelElementBid
+      ? resolvedAskElementBid
+      : mobileAskPanelElementBid;
+  const resolveAskListByElementBid = useCallback(
+    (elementBid: string) => {
+      if (!elementBid) {
+        return [];
+      }
 
-    return fallbackAskElementBid;
-  }, [currentPlayerElementBid, fallbackAskElementBid]);
+      return (elementList.find(element => element.blockBid === elementBid)
+        ?.ask_list ?? []) as AskMessage[];
+    },
+    [elementList],
+  );
   const playerCustomAskList = useMemo<AskMessage[]>(() => {
-    if (!playerCustomAskElementBid) {
-      return [];
-    }
-
-    return (elementList.find(
-      element => element.blockBid === playerCustomAskElementBid,
-    )?.ask_list ?? []) as AskMessage[];
-  }, [elementList, playerCustomAskElementBid]);
+    return resolveAskListByElementBid(renderedPlayerCustomAskElementBid);
+  }, [renderedPlayerCustomAskElementBid, resolveAskListByElementBid]);
   const currentAskList = useMemo<AskMessage[]>(() => {
-    if (!resolvedAskElementBid) {
-      return [];
-    }
-
-    return (elementList.find(
-      element => element.blockBid === resolvedAskElementBid,
-    )?.ask_list ?? []) as AskMessage[];
-  }, [elementList, resolvedAskElementBid]);
+    return resolveAskListByElementBid(renderedMobileAskElementBid);
+  }, [renderedMobileAskElementBid, resolveAskListByElementBid]);
   const currentAskTargetElement = useMemo(() => {
     if (playerCustomActionState.currentElement) {
       return playerCustomActionState.currentElement;
@@ -754,9 +775,16 @@ const ListenModeSlideRenderer = ({
     }
 
     closeInteractionOverlayIfOpen();
+    setMobileAskPanelElementBid(resolvedAskElementBid);
+    setIsMobileAskPanelMounted(true);
     setIsMobileAskOpen(true);
     playerCustomActionSetActiveRef.current(true);
-  }, [closeInteractionOverlayIfOpen, isAskActionDisabled, isMobileAskOpen]);
+  }, [
+    closeInteractionOverlayIfOpen,
+    isAskActionDisabled,
+    isMobileAskOpen,
+    resolvedAskElementBid,
+  ]);
 
   const handleMobileAskClose = useCallback(() => {
     setIsMobileAskOpen(false);
@@ -770,6 +798,12 @@ const ListenModeSlideRenderer = ({
       setActive,
     }: PlayerCustomActionContextSnapshot) => {
       playerCustomActionSetActiveRef.current = setActive;
+      if (isActive) {
+        setDesktopAskPanelElementBid(
+          resolvePlayerAskElementBid(currentElement),
+        );
+        setIsDesktopAskPanelMounted(true);
+      }
       setPlayerCustomActionState(prevState => {
         if (
           prevState.currentElement === currentElement &&
@@ -784,7 +818,7 @@ const ListenModeSlideRenderer = ({
         };
       });
     },
-    [],
+    [resolvePlayerAskElementBid],
   );
 
   const handlePlayerCustomActionClose = useCallback(() => {
@@ -1011,6 +1045,7 @@ const ListenModeSlideRenderer = ({
       return;
     }
     setIsMobileAskOpen(false);
+    setIsMobileAskPanelMounted(false);
   }, [mobileStyle]);
 
   useEffect(() => {
@@ -1388,36 +1423,40 @@ const ListenModeSlideRenderer = ({
 
   // console.log('elementlist', elementList);
 
-  const desktopAskOverlay =
-    playerCustomActionState.isActive &&
-    !mobileStyle &&
-    !shouldRenderEmptyPpt ? (
-      <div
-        className={cn(
-          'slide-ask-overlay',
-          isPlayerVisible
-            ? 'slide-ask-overlay--with-player'
-            : 'slide-ask-overlay--standalone',
-        )}
-        ref={customAskOverlayRef}
-      >
-        <div className='slide-player__ask-card'>
-          <div className='slide-player__ask-body'>
-            <AskBlock
-              askList={playerCustomAskList}
-              className='listen-slide-ask-block'
-              element_bid={playerCustomAskElementBid}
-              isExpanded={true}
-              onToggleAskExpanded={handlePlayerCustomActionClose}
-              outline_bid={lessonId}
-              preview_mode={previewMode}
-              shifu_bid={shifuBid}
-            />
-          </div>
+  const shouldRenderDesktopAskOverlay =
+    isDesktopAskPanelMounted && !mobileStyle && !shouldRenderEmptyPpt;
+  const shouldRenderMobileAskPanel =
+    isMobileAskPanelMounted && !shouldRenderEmptyPpt;
+
+  const desktopAskOverlay = shouldRenderDesktopAskOverlay ? (
+    <div
+      className={cn(
+        'slide-ask-overlay',
+        isPlayerVisible
+          ? 'slide-ask-overlay--with-player'
+          : 'slide-ask-overlay--standalone',
+      )}
+      aria-hidden={!playerCustomActionState.isActive}
+      ref={customAskOverlayRef}
+      style={playerCustomActionState.isActive ? undefined : { display: 'none' }}
+    >
+      <div className='slide-player__ask-card'>
+        <div className='slide-player__ask-body'>
+          <AskBlock
+            askList={playerCustomAskList}
+            className='listen-slide-ask-block'
+            element_bid={renderedPlayerCustomAskElementBid}
+            isExpanded={playerCustomActionState.isActive}
+            onToggleAskExpanded={handlePlayerCustomActionClose}
+            outline_bid={lessonId}
+            preview_mode={previewMode}
+            shifu_bid={shifuBid}
+          />
         </div>
-        <div className='slide-player__ask-arrow' />
       </div>
-    ) : null;
+      <div className='slide-player__ask-arrow' />
+    </div>
+  ) : null;
 
   return (
     <div
@@ -1438,20 +1477,22 @@ const ListenModeSlideRenderer = ({
             : mobileAskEntryButton
           : null}
         {!isMobileFullscreen ? mobileAskEntryButton : null}
-        {isMobileAskOpen && !shouldRenderEmptyPpt ? (
+        {shouldRenderMobileAskPanel ? (
           mobileStyle ? (
             isMobileFullscreen && fullscreenPortalContainer ? (
               createPortal(
                 <div
                   className='listen-slide-mobile-ask-panel listen-slide-mobile-ask-panel--landscape'
+                  aria-hidden={!isMobileAskOpen}
                   ref={customAskOverlayRef}
+                  style={isMobileAskOpen ? undefined : { display: 'none' }}
                 >
                   <AskBlock
                     askList={currentAskList}
                     className='listen-slide-ask-block'
-                    element_bid={resolvedAskElementBid}
+                    element_bid={renderedMobileAskElementBid}
                     forceDesktopSlidePanel={true}
-                    isExpanded={true}
+                    isExpanded={isMobileAskOpen}
                     onToggleAskExpanded={handleMobileAskClose}
                     outline_bid={lessonId}
                     preview_mode={previewMode}
@@ -1463,13 +1504,15 @@ const ListenModeSlideRenderer = ({
             ) : (
               <div
                 className='listen-slide-mobile-ask-panel'
+                aria-hidden={!isMobileAskOpen}
                 ref={customAskOverlayRef}
+                style={isMobileAskOpen ? undefined : { display: 'none' }}
               >
                 <AskBlock
                   askList={currentAskList}
                   className='listen-slide-ask-block'
-                  element_bid={resolvedAskElementBid}
-                  isExpanded={true}
+                  element_bid={renderedMobileAskElementBid}
+                  isExpanded={isMobileAskOpen}
                   onToggleAskExpanded={handleMobileAskClose}
                   outline_bid={lessonId}
                   preview_mode={previewMode}
