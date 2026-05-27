@@ -39,7 +39,10 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
-import { formatOperatorUtcDateTime } from './dateTime';
+import {
+  formatOperatorUtcDateTime,
+  parseOperatorUtcDateTime,
+} from './dateTime';
 import type {
   AdminOperationUserBenefitGrantResponse,
   AdminOperationUserCreditGrantRequest,
@@ -58,7 +61,7 @@ type UserCreditGrantDialogProps = {
   onGranted: (result: AdminOperationUserBenefitGrantResponse) => void;
 };
 
-type GrantMode = 'credits' | 'package';
+type GrantMode = 'credits' | 'package' | 'referralReward';
 
 type CreditFormState = {
   source: string;
@@ -69,6 +72,11 @@ type CreditFormState = {
 
 type PackageFormState = {
   productBid: string;
+  note: string;
+};
+
+type ReferralRewardFormState = {
+  amount: string;
   note: string;
 };
 
@@ -92,6 +100,11 @@ const BASE_CREDIT_FORM_STATE: Omit<CreditFormState, 'validityPreset'> = {
 
 const BASE_PACKAGE_FORM_STATE: PackageFormState = {
   productBid: '',
+  note: '',
+};
+
+const BASE_REFERRAL_REWARD_FORM_STATE: ReferralRewardFormState = {
+  amount: '1000',
   note: '',
 };
 
@@ -141,6 +154,55 @@ const sanitizePositiveDecimalInput = (value: string): string => {
   return `${integerPart}.${decimalParts.join('')}`;
 };
 
+const validatePositiveIntegerAmount = (value: string): boolean => {
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    return false;
+  }
+  return Number(normalized) > 0;
+};
+
+const normalizeNumericText = (value: string): string =>
+  value
+    .replace(/[０-９]/g, char =>
+      String.fromCharCode(char.charCodeAt(0) - 0xfee0),
+    )
+    .replace(/[，．]/g, char => (char === '，' ? ',' : '.'))
+    .replace(/[\s,]/g, '');
+
+const sanitizePositiveIntegerInput = (
+  value: string,
+  fallbackValue = '',
+): string => {
+  const normalized = normalizeNumericText(value);
+  if (!normalized) {
+    return '';
+  }
+  const decimalMatch = normalized.match(/^(\d+)\.(\d*)$/);
+  if (decimalMatch) {
+    return /^0*$/.test(decimalMatch[2]) ? decimalMatch[1] : fallbackValue;
+  }
+  return /^\d+$/.test(normalized) ? normalized : fallbackValue;
+};
+
+const addMonths = (value: Date, months: number): Date => {
+  const monthIndex = value.getUTCMonth() + months;
+  const year = value.getUTCFullYear() + Math.floor(monthIndex / 12);
+  const month = ((monthIndex % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(
+    Date.UTC(
+      year,
+      month,
+      Math.min(value.getUTCDate(), lastDay),
+      value.getUTCHours(),
+      value.getUTCMinutes(),
+      value.getUTCSeconds(),
+      value.getUTCMilliseconds(),
+    ),
+  );
+};
+
 const addSelfManagedYears = (value: Date, years: number): Date => {
   const next = new Date(value.getTime());
   next.setFullYear(value.getFullYear() + years);
@@ -187,14 +249,18 @@ const SummaryField = ({
   label,
   value,
   className = '',
+  valueClassName = 'text-foreground',
 }: {
   label: string;
   value: string;
   className?: string;
+  valueClassName?: string;
 }) => (
   <div className={className}>
     <div className='text-[11px] font-medium text-muted-foreground'>{label}</div>
-    <div className='mt-1 break-all text-sm font-medium leading-5 text-foreground'>
+    <div
+      className={`mt-1 break-all text-sm font-medium leading-5 ${valueClassName}`}
+    >
       {value || '--'}
     </div>
   </div>
@@ -207,9 +273,9 @@ const ConfirmSummaryItem = ({
   label: string;
   value: string;
 }) => (
-  <div className='grid grid-cols-[96px_minmax(0,1fr)] gap-2'>
-    <span className='text-muted-foreground'>{label}</span>
-    <span className='break-all text-foreground'>{value}</span>
+  <div className='grid grid-cols-[132px_minmax(0,1fr)] items-start gap-3'>
+    <span className='whitespace-nowrap text-muted-foreground'>{label}</span>
+    <span className='min-w-0 break-words text-foreground'>{value}</span>
   </div>
 );
 
@@ -282,6 +348,8 @@ export default function UserCreditGrantDialog({
   const [packageFormState, setPackageFormState] = useState<PackageFormState>(
     BASE_PACKAGE_FORM_STATE,
   );
+  const [referralRewardFormState, setReferralRewardFormState] =
+    useState<ReferralRewardFormState>(BASE_REFERRAL_REWARD_FORM_STATE);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [requestId, setRequestId] = useState('');
@@ -297,6 +365,7 @@ export default function UserCreditGrantDialog({
     setGrantMode('credits');
     setCreditFormState(defaultCreditFormState);
     setPackageFormState(BASE_PACKAGE_FORM_STATE);
+    setReferralRewardFormState(BASE_REFERRAL_REWARD_FORM_STATE);
     setFormErrors({});
     setConfirmOpen(false);
     setRequestId(open ? uuidv4().replace(/-/g, '') : '');
@@ -455,6 +524,44 @@ export default function UserCreditGrantDialog({
         ),
       })
     : tOperationsUsers('grantDialog.packageFields.expiryHintPending');
+  const referralRewardSummary = bootstrapPayload?.referral_reward_summary;
+  const referralCurrentCredits = Number(
+    referralRewardSummary?.available_credits || 0,
+  );
+  const referralCurrentCreditsLabel = formatAdminCredits(
+    referralCurrentCredits,
+    i18n.language,
+  );
+  const referralCurrentExpiryLabel = referralRewardSummary?.expires_at
+    ? formatOperatorUtcDateTime(referralRewardSummary.expires_at)
+    : tOperationsUsers('grantDialog.referralReward.noActiveReward');
+  const referralRewardAmount = validatePositiveIntegerAmount(
+    referralRewardFormState.amount,
+  )
+    ? Number(referralRewardFormState.amount)
+    : 0;
+  const referralEstimatedCreditsLabel = formatAdminCredits(
+    referralCurrentCredits + referralRewardAmount,
+    i18n.language,
+  );
+  const referralPreviewBaseDate =
+    parseOperatorUtcDateTime(referralRewardSummary?.expires_at || '') ||
+    parseOperatorUtcDateTime(bootstrapPayload?.server_time || '') ||
+    grantedAt ||
+    new Date();
+  const referralPreviewNow =
+    parseOperatorUtcDateTime(bootstrapPayload?.server_time || '') ||
+    grantedAt ||
+    new Date();
+  const referralEstimatedExpiry = addMonths(
+    referralPreviewBaseDate > referralPreviewNow
+      ? referralPreviewBaseDate
+      : referralPreviewNow,
+    1,
+  ).toISOString();
+  const referralEstimatedExpiryLabel = formatOperatorUtcDateTime(
+    referralEstimatedExpiry,
+  );
 
   const updateCreditField = <K extends keyof CreditFormState>(
     key: K,
@@ -476,6 +583,19 @@ export default function UserCreditGrantDialog({
     setFormErrors(current => ({
       ...current,
       productBid: key === 'productBid' ? undefined : current.productBid,
+      submit: undefined,
+    }));
+  };
+
+  const updateReferralRewardField = <K extends keyof ReferralRewardFormState>(
+    key: K,
+    value: ReferralRewardFormState[K],
+  ) => {
+    setReferralRewardFormState(current => ({ ...current, [key]: value }));
+    setFormErrors(current => ({
+      ...current,
+      amount: key === 'amount' ? undefined : current.amount,
+      bootstrap: undefined,
       submit: undefined,
     }));
   };
@@ -506,7 +626,7 @@ export default function UserCreditGrantDialog({
           'grantDialog.validityHint',
         );
       }
-    } else {
+    } else if (grantMode === 'package') {
       if (!packageFormState.productBid) {
         nextErrors.productBid = tOperationsUsers(
           'grantDialog.validation.productRequired',
@@ -514,6 +634,19 @@ export default function UserCreditGrantDialog({
       }
       if (!bootstrapPayload?.plans.length && !bootstrapLoading) {
         nextErrors.bootstrap = tOperationsUsers('grantDialog.bootstrapError');
+      }
+    } else {
+      if (!validatePositiveIntegerAmount(referralRewardFormState.amount)) {
+        nextErrors.amount = tOperationsUsers(
+          'grantDialog.validation.referralRewardAmountRequired',
+        );
+      }
+      if (!bootstrapPayload) {
+        nextErrors.bootstrap = tOperationsUsers(
+          bootstrapLoading
+            ? 'grantDialog.placeholders.productLoading'
+            : 'grantDialog.bootstrapError',
+        );
       }
     }
 
@@ -552,7 +685,7 @@ export default function UserCreditGrantDialog({
           user_bid: user.user_bid,
           ...payload,
         })) as AdminOperationUserCreditGrantResponse;
-      } else {
+      } else if (grantMode === 'package') {
         const payload: AdminOperationUserPackageGrantRequest = {
           request_id: requestId,
           product_bid: packageFormState.productBid,
@@ -562,6 +695,19 @@ export default function UserCreditGrantDialog({
           user_bid: user.user_bid,
           ...payload,
         })) as AdminOperationUserPackageGrantResponse;
+      } else {
+        const payload: AdminOperationUserCreditGrantRequest = {
+          request_id: requestId,
+          amount: referralRewardFormState.amount.trim(),
+          grant_type: 'referral_reward',
+          grant_source: 'reward',
+          validity_preset: '1m',
+          note: referralRewardFormState.note.trim(),
+        };
+        result = (await api.grantAdminOperationUserCredits({
+          user_bid: user.user_bid,
+          ...payload,
+        })) as AdminOperationUserCreditGrantResponse;
       }
 
       toast({
@@ -619,48 +765,94 @@ export default function UserCreditGrantDialog({
             value: creditFormState.note.trim() || '--',
           },
         ]
-      : [
-          {
-            id: 'mode',
-            label: tOperationsUsers('grantDialog.confirmSummary.mode'),
-            value: tOperationsUsers('grantDialog.modeOptions.package'),
-          },
-          {
-            id: 'package',
-            label: tOperationsUsers('grantDialog.confirmSummary.package'),
-            value: packageName,
-          },
-          {
-            id: 'packageCredits',
-            label: tOperationsUsers(
-              'grantDialog.confirmSummary.packageCredits',
-            ),
-            value: packageCreditsLabel,
-          },
-          {
-            id: 'packageValidity',
-            label: tOperationsUsers(
-              'grantDialog.confirmSummary.packageValidity',
-            ),
-            value: packageValidityLabel,
-          },
-          {
-            id: 'packageExpireAt',
-            label: tOperationsUsers(
-              'grantDialog.confirmSummary.packageExpireAt',
-            ),
-            value:
-              formatBillingCompactDateTime(
-                estimatedPlanExpiry,
-                i18n.language,
-              ) || '--',
-          },
-          {
-            id: 'note',
-            label: tOperationsUsers('grantDialog.confirmSummary.note'),
-            value: packageFormState.note.trim() || '--',
-          },
-        ];
+      : grantMode === 'package'
+        ? [
+            {
+              id: 'mode',
+              label: tOperationsUsers('grantDialog.confirmSummary.mode'),
+              value: tOperationsUsers('grantDialog.modeOptions.package'),
+            },
+            {
+              id: 'package',
+              label: tOperationsUsers('grantDialog.confirmSummary.package'),
+              value: packageName,
+            },
+            {
+              id: 'packageCredits',
+              label: tOperationsUsers(
+                'grantDialog.confirmSummary.packageCredits',
+              ),
+              value: packageCreditsLabel,
+            },
+            {
+              id: 'packageValidity',
+              label: tOperationsUsers(
+                'grantDialog.confirmSummary.packageValidity',
+              ),
+              value: packageValidityLabel,
+            },
+            {
+              id: 'packageExpireAt',
+              label: tOperationsUsers(
+                'grantDialog.confirmSummary.packageExpireAt',
+              ),
+              value:
+                formatBillingCompactDateTime(
+                  estimatedPlanExpiry,
+                  i18n.language,
+                ) || '--',
+            },
+            {
+              id: 'note',
+              label: tOperationsUsers('grantDialog.confirmSummary.note'),
+              value: packageFormState.note.trim() || '--',
+            },
+          ]
+        : [
+            {
+              id: 'mode',
+              label: tOperationsUsers('grantDialog.confirmSummary.mode'),
+              value: tOperationsUsers('grantDialog.modeOptions.referralReward'),
+            },
+            {
+              id: 'referralCurrentCredits',
+              label: tOperationsUsers(
+                'grantDialog.confirmSummary.referralCurrentCredits',
+              ),
+              value: referralCurrentCreditsLabel,
+            },
+            {
+              id: 'referralCurrentExpireAt',
+              label: tOperationsUsers(
+                'grantDialog.confirmSummary.referralCurrentExpireAt',
+              ),
+              value: referralCurrentExpiryLabel,
+            },
+            {
+              id: 'amount',
+              label: tOperationsUsers('grantDialog.confirmSummary.amount'),
+              value: referralRewardFormState.amount.trim() || '--',
+            },
+            {
+              id: 'referralEstimatedCredits',
+              label: tOperationsUsers(
+                'grantDialog.confirmSummary.referralEstimatedCredits',
+              ),
+              value: referralEstimatedCreditsLabel,
+            },
+            {
+              id: 'referralEstimatedExpireAt',
+              label: tOperationsUsers(
+                'grantDialog.confirmSummary.referralEstimatedExpireAt',
+              ),
+              value: referralEstimatedExpiryLabel,
+            },
+            {
+              id: 'note',
+              label: tOperationsUsers('grantDialog.confirmSummary.note'),
+              value: referralRewardFormState.note.trim() || '--',
+            },
+          ];
 
   return (
     <>
@@ -725,12 +917,17 @@ export default function UserCreditGrantDialog({
                       setGrantMode(value as GrantMode);
                       setFormErrors(current => ({
                         ...current,
+                        amount: undefined,
                         bootstrap: undefined,
                         productBid: undefined,
+                        source: undefined,
+                        validityPreset: undefined,
                         submit: undefined,
                       }));
                     }}
-                    options={(['credits', 'package'] as const).map(option => ({
+                    options={(
+                      ['credits', 'package', 'referralReward'] as const
+                    ).map(option => ({
                       value: option,
                       label: tOperationsUsers(
                         `grantDialog.modeOptions.${option}`,
@@ -852,7 +1049,7 @@ export default function UserCreditGrantDialog({
                     </div>
                   </div>
                 </>
-              ) : (
+              ) : grantMode === 'package' ? (
                 <>
                   <div className='space-y-2'>
                     <div className='grid gap-2 sm:grid-cols-[80px_minmax(0,1fr)] sm:items-center'>
@@ -957,6 +1154,106 @@ export default function UserCreditGrantDialog({
                     </div>
                   </div>
                 </>
+              ) : (
+                <>
+                  <div className='rounded-xl border border-border/70 bg-muted/[0.12] px-4 py-3'>
+                    <div className='grid gap-x-5 gap-y-3 sm:grid-cols-2'>
+                      <SummaryField
+                        label={tOperationsUsers(
+                          'grantDialog.referralReward.currentCredits',
+                        )}
+                        value={referralCurrentCreditsLabel}
+                      />
+                      <SummaryField
+                        label={tOperationsUsers(
+                          'grantDialog.referralReward.currentExpireAt',
+                        )}
+                        value={referralCurrentExpiryLabel}
+                        valueClassName={
+                          referralRewardSummary?.expires_at
+                            ? 'text-foreground'
+                            : 'text-muted-foreground'
+                        }
+                      />
+                      <SummaryField
+                        label={tOperationsUsers(
+                          'grantDialog.referralReward.validity',
+                        )}
+                        value={tOperationsUsers(
+                          'grantDialog.referralReward.oneMonth',
+                        )}
+                      />
+                    </div>
+                    <div className='mt-3 space-y-1 text-xs leading-5 text-muted-foreground'>
+                      <p>
+                        {tOperationsUsers(
+                          'grantDialog.referralReward.description',
+                        )}
+                      </p>
+                      <p>
+                        {tOperationsUsers(
+                          'grantDialog.referralReward.emptyDescription',
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className='space-y-2'>
+                    <div className='grid gap-2 sm:grid-cols-[80px_minmax(0,1fr)] sm:items-center'>
+                      <div className='text-sm font-semibold leading-10 text-foreground/90'>
+                        {tOperationsUsers('grantDialog.fields.amount')}
+                      </div>
+                      <Input
+                        type='text'
+                        inputMode='numeric'
+                        autoComplete='off'
+                        value={referralRewardFormState.amount}
+                        onChange={event =>
+                          updateReferralRewardField(
+                            'amount',
+                            sanitizePositiveIntegerInput(
+                              event.target.value,
+                              referralRewardFormState.amount,
+                            ),
+                          )
+                        }
+                        placeholder={tOperationsUsers(
+                          'grantDialog.placeholders.referralRewardAmount',
+                        )}
+                        className='h-10'
+                      />
+                    </div>
+                    {formErrors.amount ? (
+                      <div className='text-xs text-destructive'>
+                        {formErrors.amount}
+                      </div>
+                    ) : null}
+                    {formErrors.bootstrap ? (
+                      <div className='text-xs text-destructive'>
+                        {formErrors.bootstrap}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className='space-y-2'>
+                    <div className='grid gap-2 sm:grid-cols-[80px_minmax(0,1fr)] sm:items-start'>
+                      <div className='pt-2 text-sm font-semibold leading-none text-foreground/90'>
+                        {tOperationsUsers('grantDialog.fields.note')}
+                      </div>
+                      <Textarea
+                        value={referralRewardFormState.note}
+                        onChange={event =>
+                          updateReferralRewardField('note', event.target.value)
+                        }
+                        placeholder={tOperationsUsers(
+                          'grantDialog.placeholders.note',
+                        )}
+                        rows={1}
+                        className='min-h-[40px] resize-y'
+                      />
+                    </div>
+                  </div>
+                </>
               )}
 
               {formErrors.submit ? (
@@ -993,21 +1290,27 @@ export default function UserCreditGrantDialog({
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className='sm:max-w-[720px]'>
           <AlertDialogHeader>
             <AlertDialogTitle>
               {grantMode === 'credits'
                 ? tOperationsUsers('grantDialog.confirmTitle')
-                : tOperationsUsers('grantDialog.packageConfirmTitle')}
+                : grantMode === 'package'
+                  ? tOperationsUsers('grantDialog.packageConfirmTitle')
+                  : tOperationsUsers('grantDialog.referralRewardConfirmTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {grantMode === 'credits'
                 ? tOperationsUsers('grantDialog.confirmDescription')
-                : tOperationsUsers('grantDialog.packageConfirmDescription')}
+                : grantMode === 'package'
+                  ? tOperationsUsers('grantDialog.packageConfirmDescription')
+                  : tOperationsUsers(
+                      'grantDialog.referralRewardConfirmDescription',
+                    )}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className='space-y-3 text-sm'>
+          <div className='grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2'>
             <ConfirmSummaryItem
               label={tOperationsUsers('grantDialog.summary.account')}
               value={accountLabel}

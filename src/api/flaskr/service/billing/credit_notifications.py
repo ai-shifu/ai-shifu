@@ -1599,6 +1599,51 @@ def _suppressed_duplicate_result(
     )
 
 
+def suppress_pending_expiring_notifications_for_bucket(
+    app: Flask,
+    *,
+    wallet_bucket_bid: str,
+    effective_to: datetime | None = None,
+) -> int:
+    """Skip stale unsent expiry reminders after a bucket expiry is extended."""
+
+    normalized_wallet_bucket_bid = _normalize_bid(wallet_bucket_bid)
+    if not normalized_wallet_bucket_bid:
+        return 0
+
+    with _maybe_app_context(app):
+        now = datetime.now()
+        rows = (
+            NotificationRecord.query.filter(
+                NotificationRecord.deleted == 0,
+                NotificationRecord.notification_type
+                == CREDIT_NOTIFICATION_TYPE_EXPIRING,
+                NotificationRecord.source_type == SOURCE_TYPE_WALLET_BUCKET,
+                NotificationRecord.source_bid == normalized_wallet_bucket_bid,
+                NotificationRecord.status.in_(CREDIT_NOTIFICATION_PROCESSABLE_STATUSES),
+            )
+            .order_by(NotificationRecord.id.asc())
+            .all()
+        )
+        for row in rows:
+            metadata = dict(row.metadata_json or {})
+            metadata["superseded_by_effective_to"] = (
+                _serialize_dt(app, effective_to) if effective_to is not None else ""
+            )
+            row.metadata_json = metadata
+            _finalize_notification(
+                row,
+                status="skipped",
+                now=now,
+                error_code="expiry_extended",
+                error_message="Credit expiry was extended before delivery.",
+            )
+            db.session.add(row)
+        if rows:
+            db.session.flush()
+        return len(rows)
+
+
 def _find_credit_expiring_creator_window_record(
     *,
     creator_bid: str,

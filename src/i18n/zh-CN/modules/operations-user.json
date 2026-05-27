@@ -206,6 +206,10 @@
       "packageCredits": "积分数",
       "packageExpireAt": "预计截止日期",
       "packageValidity": "有效期",
+      "referralCurrentCredits": "当前拉新奖励积分",
+      "referralCurrentExpireAt": "当前拉新奖励有效期",
+      "referralEstimatedCredits": "发放后预计积分",
+      "referralEstimatedExpireAt": "发放后预计有效期",
       "source": "来源",
       "validityPreset": "有效期"
     },
@@ -220,7 +224,8 @@
     },
     "modeOptions": {
       "credits": "发放积分",
-      "package": "发放套餐"
+      "package": "发放套餐",
+      "referralReward": "拉新奖励"
     },
     "packageConfirmDescription": "请确认本次套餐发放信息，确认后将立即生效。",
     "packageConfirmTitle": "确认发放套餐",
@@ -237,9 +242,21 @@
       "note": "可选，记录本次发放说明",
       "product": "请选择套餐",
       "productLoading": "套餐加载中...",
+      "referralRewardAmount": "请输入奖励积分",
       "source": "请选择来源",
       "validityPreset": "请选择有效期"
     },
+    "referralReward": {
+      "currentCredits": "当前拉新奖励积分",
+      "currentExpireAt": "当前拉新奖励有效期",
+      "description": "每次发放拉新奖励后，积分会增加本次填写的奖励积分；有效期会在当前拉新奖励有效期基础上顺延 1 个月。",
+      "emptyDescription": "当前无有效拉新奖励时，有效期从发放时间起计算 1 个月。",
+      "noActiveReward": "暂无有效拉新奖励",
+      "oneMonth": "1个月",
+      "validity": "有效期"
+    },
+    "referralRewardConfirmDescription": "请确认本次拉新奖励发放信息，确认后将立即生效。",
+    "referralRewardConfirmTitle": "确认发放拉新奖励",
     "sourceOptions": {
       "compensation": "补偿",
       "reward": "奖励"
@@ -258,6 +275,7 @@
     "validation": {
       "amountRequired": "请输入大于 0 的积分数值",
       "productRequired": "请选择套餐",
+      "referralRewardAmountRequired": "请输入大于 0 的整数积分",
       "sourceRequired": "请选择来源",
       "validityPresetRequired": "请选择有效期"
     },

@@ -175,6 +175,7 @@ export type AdminOperationUserCreditUsageDetailResponse = {
 export type AdminOperationUserCreditGrantRequest = {
   request_id: string;
   amount: string;
+  grant_type?: string;
   grant_source: string;
   validity_preset: string;
   note?: string;
@@ -183,6 +184,7 @@ export type AdminOperationUserCreditGrantRequest = {
 export type AdminOperationUserCreditGrantResponse = {
   user_bid: string;
   amount: string;
+  grant_type: string;
   grant_source: string;
   validity_preset: string;
   expires_at: string;
@@ -191,10 +193,18 @@ export type AdminOperationUserCreditGrantResponse = {
   summary: AdminOperationUserCreditSummary;
 };
 
+export type AdminOperationUserReferralRewardSummary = {
+  available_credits: string;
+  expires_at: string;
+  wallet_bucket_bid: string;
+};
+
 export type AdminOperationUserGrantBootstrapResponse = {
   plans: BillingPlan[];
   current_subscription_product_display_name_i18n_key: string;
   notification_status: string;
+  server_time: string;
+  referral_reward_summary: AdminOperationUserReferralRewardSummary;
 };
 
 export type AdminOperationUserPackageGrantRequest = {
