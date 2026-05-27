@@ -37,6 +37,8 @@ type ChapterColumnKey =
   | 'ratingScore'
   | 'ratingCount';
 
+const CHAPTER_TABLE_COLUMN_COUNT = 11;
+
 type CourseChaptersTabProps = {
   rows: FlattenedChapterRow[];
   emptyValue: string;
@@ -92,7 +94,7 @@ export default function CourseChaptersTab({
           loading={false}
           isEmpty={rows.length === 0}
           emptyContent={tOperations('detail.chaptersTable.empty')}
-          emptyColSpan={11}
+          emptyColSpan={CHAPTER_TABLE_COLUMN_COUNT}
           withTooltipProvider
           tableWrapperClassName='overflow-auto'
           table={emptyRow => (

@@ -1,13 +1,13 @@
 import React from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
-import { ChevronDown, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -17,12 +17,6 @@ import {
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/DropdownMenu';
 import {
   Select,
   SelectContent,
@@ -44,7 +38,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 import type {
   AdminOperationCreditNotificationItem,
   AdminOperationCreditNotificationOverview,
@@ -494,7 +487,7 @@ export function CreditNotificationRecordsTab({
         loading={loading}
         isEmpty={items.length === 0}
         emptyContent={t('module.operationsCreditNotifications.empty')}
-        emptyColSpan={7}
+        emptyColSpan={Object.keys(DEFAULT_COLUMN_WIDTHS).length}
         withTooltipProvider
         tableWrapperClassName='max-h-[calc(100vh-22rem)] overflow-auto'
         table={emptyRow => (
@@ -631,42 +624,30 @@ export function CreditNotificationRecordsTab({
                     style={getColumnStyle('action')}
                   >
                     <div className='flex justify-center'>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type='button'
-                            className={cn(
-                              TABLE_INLINE_ACTION_BUTTON_CLASS,
-                              'gap-1',
-                            )}
-                          >
-                            {t(
-                              'module.operationsCreditNotifications.actions.more',
-                            )}
-                            <ChevronDown className='h-3.5 w-3.5' />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align='center'>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              setDetailNotificationBid(item.notification_bid)
-                            }
-                          >
-                            {t(
+                      <AdminRowActions
+                        label={t(
+                          'module.operationsCreditNotifications.actions.more',
+                        )}
+                        className={TABLE_INLINE_ACTION_BUTTON_CLASS}
+                        actions={[
+                          {
+                            key: 'detail',
+                            label: t(
                               'module.operationsCreditNotifications.actions.detail',
-                            )}
-                          </DropdownMenuItem>
-                          {item.status === 'failed_provider' ? (
-                            <DropdownMenuItem
-                              onClick={() => requeue(item.notification_bid)}
-                            >
-                              {t(
-                                'module.operationsCreditNotifications.actions.requeue',
-                              )}
-                            </DropdownMenuItem>
-                          ) : null}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            ),
+                            onClick: () =>
+                              setDetailNotificationBid(item.notification_bid),
+                          },
+                          {
+                            key: 'requeue',
+                            label: t(
+                              'module.operationsCreditNotifications.actions.requeue',
+                            ),
+                            hidden: item.status !== 'failed_provider',
+                            onClick: () => requeue(item.notification_bid),
+                          },
+                        ]}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -674,21 +655,16 @@ export function CreditNotificationRecordsTab({
             </TableBody>
           </Table>
         )}
-        footer={
-          pageCount > 1 ? (
-            <AdminPagination
-              className='mx-0 w-auto justify-end'
-              pageIndex={pageIndex}
-              pageCount={pageCount}
-              onPageChange={handlePageChange}
-              prevLabel={t('module.order.paginationPrev')}
-              nextLabel={t('module.order.paginationNext')}
-              prevAriaLabel={t('module.order.paginationPrev')}
-              nextAriaLabel={t('module.order.paginationNext')}
-              hideWhenSinglePage
-            />
-          ) : null
-        }
+        pagination={{
+          pageIndex,
+          pageCount,
+          onPageChange: handlePageChange,
+          prevLabel: t('module.order.paginationPrev'),
+          nextLabel: t('module.order.paginationNext'),
+          prevAriaLabel: t('module.order.paginationPrev'),
+          nextAriaLabel: t('module.order.paginationNext'),
+          hideWhenSinglePage: true,
+        }}
         footerClassName='mt-3'
       />
       <CreditNotificationDetailSheet

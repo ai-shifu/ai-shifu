@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
@@ -799,7 +798,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                     loading={loading}
                     isEmpty={rows.length === 0}
                     emptyContent={tOperations('detail.followUps.table.empty')}
-                    emptyColSpan={6}
+                    emptyColSpan={Object.keys(COLUMN_DEFAULT_WIDTHS).length}
                     withTooltipProvider
                     tableWrapperClassName='overflow-auto'
                     loadingClassName='min-h-[240px]'
@@ -1014,25 +1013,16 @@ export default function AdminOperationCourseFollowUpsPage() {
                         </TableBody>
                       </Table>
                     )}
-                    footer={
-                      <AdminPagination
-                        pageIndex={currentPage}
-                        pageCount={pageCount}
-                        onPageChange={handlePageChange}
-                        prevLabel={t('module.order.paginationPrev', 'Previous')}
-                        nextLabel={t('module.order.paginationNext', 'Next')}
-                        prevAriaLabel={t(
-                          'module.order.paginationPrevAriaLabel',
-                          'Go to previous page',
-                        )}
-                        nextAriaLabel={t(
-                          'module.order.paginationNextAriaLabel',
-                          'Go to next page',
-                        )}
-                        className='mx-0 w-auto justify-end'
-                        hideWhenSinglePage
-                      />
-                    }
+                    pagination={{
+                      pageIndex: currentPage,
+                      pageCount,
+                      onPageChange: handlePageChange,
+                      prevLabel: t('module.order.paginationPrev'),
+                      nextLabel: t('module.order.paginationNext'),
+                      prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+                      nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+                      hideWhenSinglePage: true,
+                    }}
                   />
                 )}
               </CardContent>

@@ -8,7 +8,6 @@ import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
@@ -747,7 +746,7 @@ export default function CreditOrdersTab() {
             loading={loading}
             isEmpty={orders.length === 0}
             emptyContent={tOperationsOrder('creditOrders.emptyList')}
-            emptyColSpan={11}
+            emptyColSpan={Object.keys(DEFAULT_COLUMN_WIDTHS).length}
             withTooltipProvider
             tableWrapperClassName='max-h-[calc(100vh-21rem)] overflow-auto'
             table={emptyRow => (
@@ -997,21 +996,16 @@ export default function CreditOrdersTab() {
                 </TableBody>
               </Table>
             )}
-            footer={
-              pageCount > 1 ? (
-                <AdminPagination
-                  pageIndex={pageIndex}
-                  pageCount={pageCount}
-                  onPageChange={handlePageChange}
-                  prevLabel={t('module.order.paginationPrev')}
-                  nextLabel={t('module.order.paginationNext')}
-                  prevAriaLabel={t('module.order.paginationPrevAriaLabel')}
-                  nextAriaLabel={t('module.order.paginationNextAriaLabel')}
-                  className='mx-0 w-auto justify-end'
-                  hideWhenSinglePage
-                />
-              ) : null
-            }
+            pagination={{
+              pageIndex,
+              pageCount,
+              onPageChange: handlePageChange,
+              prevLabel: t('module.order.paginationPrev'),
+              nextLabel: t('module.order.paginationNext'),
+              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+              hideWhenSinglePage: true,
+            }}
             footerClassName='mt-3'
           />
         </div>
