@@ -693,6 +693,29 @@ const FormField = ({
   </div>
 );
 
+const StickyActionTableEmptyRow = ({
+  content,
+  contentColSpan,
+  actionStyle,
+}: {
+  content: React.ReactNode;
+  contentColSpan: number;
+  actionStyle?: React.CSSProperties;
+}) => (
+  <TableRow className='hover:bg-transparent'>
+    <TableCell
+      colSpan={contentColSpan}
+      className='px-4 py-10 text-center text-sm text-muted-foreground'
+    >
+      {content}
+    </TableCell>
+    <TableCell
+      className={TABLE_ACTION_CELL_CLASS}
+      style={actionStyle}
+    />
+  </TableRow>
+);
+
 const SearchField = ({
   label,
   children,
@@ -2915,12 +2938,10 @@ export default function AdminOperationPromotionsPage() {
           ) : null}
           <AdminTableShell
             loading={couponLoading}
-            isEmpty={!coupons.length}
-            emptyContent={tPromotion('messages.emptyCoupons')}
-            emptyColSpan={14}
+            isEmpty={false}
             withTooltipProvider
             tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
-            table={emptyRow => (
+            table={() => (
               <Table containerClassName='overflow-visible max-h-none'>
                 <TableHeader>
                   <TableRow>
@@ -3025,7 +3046,15 @@ export default function AdminOperationPromotionsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {emptyRow}
+                  {!coupons.length ? (
+                    <StickyActionTableEmptyRow
+                      content={tPromotion('messages.emptyCoupons')}
+                      contentColSpan={
+                        Object.keys(COUPON_DEFAULT_COLUMN_WIDTHS).length - 1
+                      }
+                      actionStyle={getCouponColumnStyle('action')}
+                    />
+                  ) : null}
                   {coupons.map(item => (
                     <TableRow key={item.coupon_bid}>
                       <TableCell
@@ -3488,12 +3517,10 @@ export default function AdminOperationPromotionsPage() {
           ) : null}
           <AdminTableShell
             loading={campaignLoading}
-            isEmpty={!campaigns.length}
-            emptyContent={tPromotion('messages.emptyCampaigns')}
-            emptyColSpan={12}
+            isEmpty={false}
             withTooltipProvider
             tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
-            table={emptyRow => (
+            table={() => (
               <Table containerClassName='overflow-visible max-h-none'>
                 <TableHeader>
                   <TableRow>
@@ -3584,7 +3611,15 @@ export default function AdminOperationPromotionsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {emptyRow}
+                  {!campaigns.length ? (
+                    <StickyActionTableEmptyRow
+                      content={tPromotion('messages.emptyCampaigns')}
+                      contentColSpan={
+                        Object.keys(CAMPAIGN_DEFAULT_COLUMN_WIDTHS).length - 1
+                      }
+                      actionStyle={getCampaignColumnStyle('action')}
+                    />
+                  ) : null}
                   {campaigns.map(item => (
                     <TableRow key={item.promo_bid}>
                       <TableCell
