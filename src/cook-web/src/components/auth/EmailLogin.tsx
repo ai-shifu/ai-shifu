@@ -258,12 +258,7 @@ export function EmailLogin({ onLoginSuccess }: EmailLoginProps) {
             </div>
             <Button
               onClick={handleSendCode}
-              disabled={
-                isLoading ||
-                countdown > 0 ||
-                !email ||
-                !!emailError
-              }
+              disabled={isLoading || countdown > 0 || !email || !!emailError}
               className='h-8 min-w-[100px] px-2 whitespace-nowrap'
             >
               {isLoading && !showCodeInput ? (
