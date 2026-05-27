@@ -556,10 +556,9 @@ describe('AdminLayout', () => {
     expect(screen.getByTestId('admin-layout-content')).toHaveClass(
       'overflow-y-auto',
     );
-    expect(screen.getByTestId('admin-layout-content').parentElement).toHaveClass(
-      'h-dvh',
-      'overflow-hidden',
-    );
+    expect(
+      screen.getByTestId('admin-layout-content').parentElement,
+    ).toHaveClass('h-dvh', 'overflow-hidden');
     expect(
       screen.getByTestId('admin-layout-content').firstElementChild,
     ).toHaveClass('box-border');
