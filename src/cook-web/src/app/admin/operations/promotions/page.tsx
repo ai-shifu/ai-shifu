@@ -12,6 +12,7 @@ import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
+import AdminTimeSelect from '@/app/admin/components/AdminTimeSelect';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -919,14 +920,10 @@ const PromotionDateTimePicker = ({
             />
             <div className='border-t border-border px-4 py-3'>
               <FormField label={timeLabel}>
-                <Input
-                  type='time'
-                  step={60}
-                  className='h-9'
+                <AdminTimeSelect
                   value={draftTime}
-                  min={minTime}
-                  max={maxTime}
-                  onChange={event => setDraftTime(event.target.value)}
+                  onChange={setDraftTime}
+                  dropdownClassName='bottom-full top-auto mb-1 mt-0'
                 />
               </FormField>
             </div>
