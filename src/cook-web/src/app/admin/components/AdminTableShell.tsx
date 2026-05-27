@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import Loading from '@/components/loading';
 import { TableEmpty } from '@/components/ui/Table';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -26,6 +26,7 @@ type AdminTableShellProps = {
   withTooltipProvider?: boolean;
   containerClassName?: string;
   tableWrapperClassName?: string;
+  tableWrapperStyle?: CSSProperties;
   tableWrapperTestId?: string;
   headerClassName?: string;
   loadingClassName?: string;
@@ -70,6 +71,7 @@ export default function AdminTableShell({
   footerClassName,
   footerTestId,
   showFooterWhenLoading = false,
+  tableWrapperStyle,
 }: AdminTableShellProps) {
   const emptyRow =
     isEmpty && emptyContent && emptyColSpan ? (
@@ -95,6 +97,7 @@ export default function AdminTableShell({
           ADMIN_TABLE_DESCENDANT_CLASS,
           tableWrapperClassName,
         )}
+        style={tableWrapperStyle}
       >
         {header ? (
           <div className={cn(ADMIN_TABLE_HEADER_CLASS, headerClassName)}>

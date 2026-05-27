@@ -109,7 +109,7 @@ const MainInterface = ({
         />
       ) : null}
       <ContactSideRail />
-      <div className='flex h-screen bg-stone-50'>
+      <div className='flex h-dvh overflow-hidden bg-stone-50'>
         <div className='w-[280px] shrink-0'>
           <SidebarContent
             menuItems={menuItems}
