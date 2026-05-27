@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/api';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
@@ -60,7 +61,6 @@ import type { EnvStoreState } from '@/c-types/store';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import { ClearableTextInput } from '@/app/admin/operations/orders/orderUiShared';
 
 type OrderListResponse = {
   items: OrderSummary[];
@@ -698,7 +698,7 @@ const OrdersPage = () => {
       key: 'user_bid',
       label: userBidPlaceholder,
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           value={filters.user_bid}
           onChange={value => handleFilterChange('user_bid', value)}
           placeholder={userBidPlaceholder}
@@ -740,7 +740,7 @@ const OrdersPage = () => {
               maxWidth: 'var(--radix-popover-trigger-width)',
             }}
           >
-            <ClearableTextInput
+            <AdminClearableInput
               value={courseSearch}
               onChange={setCourseSearch}
               placeholder={t('module.order.filters.searchCourseOrId')}
@@ -880,7 +880,7 @@ const OrdersPage = () => {
       key: 'order_bid',
       label: t('module.order.filters.orderBid'),
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           value={filters.order_bid}
           onChange={value => handleFilterChange('order_bid', value)}
           placeholder={t('module.order.filters.orderBid')}

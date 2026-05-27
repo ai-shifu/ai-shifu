@@ -3002,11 +3002,11 @@ export default function AdminOperationPromotionsPage() {
               searchLabel={t('module.order.filters.search')}
               expandLabel={t('common.core.expand')}
               collapseLabel={t('common.core.collapse')}
-              collapsedCount={3}
+              collapsedCount={4}
               className='bg-transparent'
               contentClassName='min-w-0'
               labelClassName='w-24 text-right'
-              collapsedGridClassName='gap-x-5 xl:grid-cols-3'
+              collapsedGridClassName='gap-x-5 xl:grid-cols-4'
               expandedGridClassName='gap-x-5 xl:grid-cols-3'
               labelColon
             />
@@ -3368,11 +3368,11 @@ export default function AdminOperationPromotionsPage() {
               searchLabel={t('module.order.filters.search')}
               expandLabel={t('common.core.expand')}
               collapseLabel={t('common.core.collapse')}
-              collapsedCount={3}
+              collapsedCount={4}
               className='bg-transparent'
               contentClassName='min-w-0'
               labelClassName='w-24 text-right'
-              collapsedGridClassName='gap-x-5 xl:grid-cols-3'
+              collapsedGridClassName='gap-x-5 xl:grid-cols-4'
               expandedGridClassName='gap-x-5 xl:grid-cols-3'
               labelColon
             />

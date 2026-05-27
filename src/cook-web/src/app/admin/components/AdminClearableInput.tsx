@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 type AdminClearableInputProps = {
   id?: string;
-  value: string;
+  value?: string | null;
   placeholder: string;
   clearLabel: string;
   onChange: (value: string) => void;
@@ -21,16 +21,20 @@ export default function AdminClearableInput({
   onSubmit,
   className,
 }: AdminClearableInputProps) {
-  const hasValue = value.trim().length > 0;
+  const normalizedValue = value ?? '';
+  const hasValue = normalizedValue.trim().length > 0;
 
   return (
     <div className='relative'>
       <Input
         id={id}
-        value={value}
+        value={normalizedValue}
         onChange={event => onChange(event.target.value)}
         onKeyDown={event => {
-          if (event.key === 'Enter' && onSubmit) {
+          const isComposing =
+            event.nativeEvent.isComposing ||
+            (event as unknown as { isComposing?: boolean }).isComposing;
+          if (event.key === 'Enter' && !isComposing && onSubmit) {
             event.preventDefault();
             onSubmit();
           }
