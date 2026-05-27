@@ -102,6 +102,19 @@ const renderEmptyRow = ({
   return <TableEmpty colSpan={emptyColSpan}>{emptyContent}</TableEmpty>;
 };
 
+const shouldRenderPagination = (pagination?: AdminPaginationProps) => {
+  if (!pagination) {
+    return false;
+  }
+
+  const safePageCount = Number.isFinite(pagination.pageCount)
+    ? pagination.pageCount
+    : 1;
+  const normalizedPageCount = Math.max(safePageCount, 1);
+
+  return !pagination.hideWhenSinglePage || normalizedPageCount > 1;
+};
+
 export default function AdminTableShell({
   loading,
   isEmpty,
@@ -135,9 +148,10 @@ export default function AdminTableShell({
   ) : (
     tableContent
   );
+  const hasVisiblePagination = shouldRenderPagination(pagination);
   const shouldRenderFooter =
     (showFooterWhenLoading || !loading) &&
-    Boolean(footnote || footer || pagination);
+    Boolean(footnote || footer || hasVisiblePagination);
 
   return (
     <div className={cn('flex min-h-0 flex-col', containerClassName)}>
@@ -183,7 +197,7 @@ export default function AdminTableShell({
           ) : (
             <div />
           )}
-          {pagination ? (
+          {hasVisiblePagination && pagination ? (
             <AdminPagination
               {...pagination}
               className={cn('mx-0 w-auto justify-end', pagination.className)}

@@ -70,4 +70,63 @@ describe('AdminTableShell', () => {
     expect(contentCell).toHaveAttribute('colspan', '3');
     expect(document.querySelector('.sticky-action-cell')).toBeInTheDocument();
   });
+
+  test('does not render an empty footer when single-page pagination is hidden', () => {
+    render(
+      <AdminTableShell
+        loading={false}
+        isEmpty={false}
+        footerTestId='admin-table-footer'
+        pagination={{
+          pageIndex: 1,
+          pageCount: 1,
+          onPageChange: jest.fn(),
+          prevLabel: 'Previous',
+          nextLabel: 'Next',
+          prevAriaLabel: 'Go to previous page',
+          nextAriaLabel: 'Go to next page',
+          hideWhenSinglePage: true,
+        }}
+        table={
+          <Table>
+            <TableBody />
+          </Table>
+        }
+      />,
+    );
+
+    expect(screen.queryByTestId('admin-table-footer')).not.toBeInTheDocument();
+  });
+
+  test('keeps the footer visible for footnotes when single-page pagination is hidden', () => {
+    render(
+      <AdminTableShell
+        loading={false}
+        isEmpty={false}
+        footnote='Only finished records are included.'
+        footerTestId='admin-table-footer'
+        pagination={{
+          pageIndex: 1,
+          pageCount: 1,
+          onPageChange: jest.fn(),
+          prevLabel: 'Previous',
+          nextLabel: 'Next',
+          prevAriaLabel: 'Go to previous page',
+          nextAriaLabel: 'Go to next page',
+          hideWhenSinglePage: true,
+        }}
+        table={
+          <Table>
+            <TableBody />
+          </Table>
+        }
+      />,
+    );
+
+    expect(screen.getByTestId('admin-table-footer')).toBeInTheDocument();
+    expect(
+      screen.getByText('Only finished records are included.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Previous')).not.toBeInTheDocument();
+  });
 });
