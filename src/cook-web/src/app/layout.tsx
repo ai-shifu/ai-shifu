@@ -4,7 +4,7 @@ import './globals.css';
 import { ConfigProvider } from '@/components/config-provider';
 import UmamiLoader from '@/components/analytics/UmamiLoader';
 import RuntimeConfigInitializer from '@/components/RuntimeConfigInitializer';
-import { UserProvider } from '@/store';
+import { UserProvider } from '@/store/userProvider';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';

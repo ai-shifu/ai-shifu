@@ -27,7 +27,8 @@ import {
 } from '@/c-types/store';
 
 import { useEnvStore, useCourseStore } from '@/c-store';
-import { UserProvider, useUserStore } from '@/store';
+import { UserProvider } from '@/store/userProvider';
+import { useUserStore } from '@/store/useUserStore';
 import {
   readLearningModeFromStorage,
   writeLearningModeToStorage,
