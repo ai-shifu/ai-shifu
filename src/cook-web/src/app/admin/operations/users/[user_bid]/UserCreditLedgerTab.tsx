@@ -1159,10 +1159,10 @@ export default function UserCreditLedgerTab({
 
   return (
     <Card
-      className='flex min-h-[360px] flex-1 flex-col shadow-sm'
+      className='flex h-fit flex-none flex-col shadow-sm'
       data-testid='admin-operation-user-credit-ledger-card'
     >
-      <CardContent className='flex min-h-0 flex-1 flex-col gap-4 pt-6'>
+      <CardContent className='flex flex-none flex-col gap-4 pt-6'>
         <CreditLedgerFilters
           filtersDraft={filtersDraft}
           loading={loading}
@@ -1177,8 +1177,8 @@ export default function UserCreditLedgerTab({
           emptyContent={tOperationsUsers('detail.emptyCredits')}
           emptyColSpan={tableColumnCount}
           withTooltipProvider
-          containerClassName='min-h-0 flex-1'
-          tableWrapperClassName='min-h-0 flex-1 overflow-auto'
+          containerClassName='h-fit flex-none'
+          tableWrapperClassName='h-fit max-h-[calc(100vh-22rem)] overflow-auto'
           tableWrapperTestId='admin-operation-user-credit-ledger-scroll'
           loadingClassName='min-h-[220px]'
           pagination={{

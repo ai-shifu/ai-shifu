@@ -811,7 +811,7 @@ export default function AdminOperationUserDetailPage() {
   return (
     <TooltipProvider delayDuration={150}>
       <div
-        className='h-full min-h-0 bg-stone-50 p-0 overscroll-none'
+        className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'
         data-testid='admin-operation-user-detail-page'
       >
         <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
@@ -828,7 +828,10 @@ export default function AdminOperationUserDetailPage() {
             <AdminTitle title={tOperationsUsers('detail.title')} />
           </div>
 
-          <div className='flex min-h-0 flex-1 flex-col pr-1'>
+          <div
+            className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain bg-stone-50 pr-1'
+            data-testid='admin-operation-user-detail-scroll'
+          >
             <div className='flex min-h-0 flex-1 flex-col gap-5 px-1 pb-6'>
               <UserDetailSummarySection
                 emptyValue={EMPTY_VALUE}
