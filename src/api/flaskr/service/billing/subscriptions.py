@@ -109,8 +109,8 @@ _PENDING_RENEWAL_EVENT_STATUSES = (
 SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
 
 
-def is_self_managed_billing_provider(provider: str) -> bool:
-    return _normalize_bid(provider) in SELF_MANAGED_BILLING_PROVIDERS
+def is_self_managed_billing_provider(provider: str | None) -> bool:
+    return _normalize_bid(provider).lower() in SELF_MANAGED_BILLING_PROVIDERS
 
 
 @dataclass(slots=True, frozen=True)

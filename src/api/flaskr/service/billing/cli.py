@@ -1155,8 +1155,8 @@ def grant_billing_plan_by_identify(
                 )
             if int(product.sort_order or 0) <= int(current_product.sort_order or 0):
                 raise click.ClickException(
-                    "The current manual subscription is still active. "
-                    "Manual grant only supports upgrades to a higher-tier plan."
+                    "The current subscription is still active. "
+                    "Operator grant only supports upgrades to a higher-tier plan."
                 )
             order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
 

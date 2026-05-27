@@ -1453,7 +1453,7 @@ def test_billing_grant_plan_cli_upgrades_active_pingxx_subscription(
                 creator_bid="creator-cli-pingxx-upgrade",
                 product_bid="bill-product-plan-monthly",
                 status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-                billing_provider="pingxx",
+                billing_provider="Pingxx",
                 provider_subscription_id="",
                 provider_customer_id="pingxx-customer-cli-upgrade",
                 current_period_start_at=datetime.now() - timedelta(days=1),
@@ -1493,7 +1493,7 @@ def test_billing_grant_plan_cli_upgrades_active_pingxx_subscription(
         assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
         assert order.payment_provider == "manual"
         assert subscription.product_bid == "bill-product-plan-yearly"
-        assert subscription.billing_provider == "pingxx"
+        assert subscription.billing_provider == "Pingxx"
 
 
 def test_billing_seed_bootstrap_data_cli_is_idempotent(
