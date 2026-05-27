@@ -923,6 +923,8 @@ const PromotionDateTimePicker = ({
                 <AdminTimeSelect
                   value={draftTime}
                   onChange={setDraftTime}
+                  minTime={minTime}
+                  maxTime={maxTime}
                   dropdownClassName='bottom-full top-auto mb-1 mt-0'
                 />
               </FormField>

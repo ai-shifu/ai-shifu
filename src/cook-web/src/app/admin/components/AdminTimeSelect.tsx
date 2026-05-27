@@ -26,17 +26,28 @@ type AdminTimeSelectProps = {
   id?: string;
   value: string;
   onChange: (value: string) => void;
+  minTime?: string;
+  maxTime?: string;
   className?: string;
   triggerClassName?: string;
   dropdownClassName?: string;
 };
 
-const renderTimeOptionClassName = (selected: boolean) =>
+const parseTimeBoundary = (value?: string) => {
+  const trimmedValue = String(value || '').trim();
+  const parsed = parseAdminTimeValue(trimmedValue);
+  const normalized = `${parsed.hour}:${parsed.minute}`;
+  return normalized === trimmedValue ? normalized : undefined;
+};
+
+const renderTimeOptionClassName = (selected: boolean, disabled: boolean) =>
   cn(
     'flex h-8 w-full items-center justify-center rounded-sm text-sm transition-colors',
-    selected
-      ? 'bg-primary text-primary-foreground'
-      : 'text-foreground hover:bg-accent hover:text-accent-foreground',
+    disabled
+      ? 'cursor-not-allowed text-muted-foreground/40'
+      : selected
+        ? 'bg-primary text-primary-foreground'
+        : 'text-foreground hover:bg-accent hover:text-accent-foreground',
   );
 
 const scrollTimeOptionIntoView = (
@@ -53,6 +64,8 @@ export default function AdminTimeSelect({
   id,
   value,
   onChange,
+  minTime,
+  maxTime,
   className,
   triggerClassName,
   dropdownClassName,
@@ -63,8 +76,32 @@ export default function AdminTimeSelect({
   const minuteListRef = useRef<HTMLDivElement>(null);
   const { hour, minute } = parseAdminTimeValue(value || DEFAULT_TIME);
   const displayTime = [hour, minute].join(':');
+  const normalizedMinTime = parseTimeBoundary(minTime);
+  const normalizedMaxTime = parseTimeBoundary(maxTime);
+  const isTimeDisabled = (nextHour: string, nextMinute: string) => {
+    const nextTime = `${nextHour}:${nextMinute}`;
+    if (normalizedMinTime && nextTime < normalizedMinTime) {
+      return true;
+    }
+    if (normalizedMaxTime && nextTime > normalizedMaxTime) {
+      return true;
+    }
+    return false;
+  };
+  const getFirstEnabledMinute = (nextHour: string) =>
+    TIME_MINUTES.find(nextMinute => !isTimeDisabled(nextHour, nextMinute));
+  const hasEnabledMinute = (nextHour: string) =>
+    Boolean(getFirstEnabledMinute(nextHour));
   const updateTime = (next: { hour?: string; minute?: string }) => {
-    onChange(`${next.hour ?? hour}:${next.minute ?? minute}`);
+    const nextHour = next.hour ?? hour;
+    let nextMinute = next.minute ?? minute;
+    if (next.hour && !next.minute && isTimeDisabled(nextHour, nextMinute)) {
+      nextMinute = getFirstEnabledMinute(nextHour) || nextMinute;
+    }
+    if (isTimeDisabled(nextHour, nextMinute)) {
+      return;
+    }
+    onChange(`${nextHour}:${nextMinute}`);
   };
 
   useEffect(() => {
@@ -123,35 +160,50 @@ export default function AdminTimeSelect({
         >
           <div
             ref={hourListRef}
+            role='group'
+            aria-label='Hour'
             className='max-h-56 overflow-y-auto border-r border-border p-1'
           >
-            {TIME_HOURS.map(item => (
-              <button
-                key={item}
-                type='button'
-                data-time-value={item}
-                className={renderTimeOptionClassName(item === hour)}
-                onClick={() => updateTime({ hour: item })}
-              >
-                {item}
-              </button>
-            ))}
+            {TIME_HOURS.map(item => {
+              const disabled = !hasEnabledMinute(item);
+              return (
+                <button
+                  key={item}
+                  type='button'
+                  data-time-value={item}
+                  disabled={disabled}
+                  className={renderTimeOptionClassName(item === hour, disabled)}
+                  onClick={() => updateTime({ hour: item })}
+                >
+                  {item}
+                </button>
+              );
+            })}
           </div>
           <div
             ref={minuteListRef}
+            role='group'
+            aria-label='Minute'
             className='max-h-56 overflow-y-auto p-1'
           >
-            {TIME_MINUTES.map(item => (
-              <button
-                key={item}
-                type='button'
-                data-time-value={item}
-                className={renderTimeOptionClassName(item === minute)}
-                onClick={() => updateTime({ minute: item })}
-              >
-                {item}
-              </button>
-            ))}
+            {TIME_MINUTES.map(item => {
+              const disabled = isTimeDisabled(hour, item);
+              return (
+                <button
+                  key={item}
+                  type='button'
+                  data-time-value={item}
+                  disabled={disabled}
+                  className={renderTimeOptionClassName(
+                    item === minute,
+                    disabled,
+                  )}
+                  onClick={() => updateTime({ minute: item })}
+                >
+                  {item}
+                </button>
+              );
+            })}
           </div>
         </div>
       ) : null}
