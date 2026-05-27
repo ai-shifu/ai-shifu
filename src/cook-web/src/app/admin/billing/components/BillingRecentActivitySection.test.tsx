@@ -28,14 +28,31 @@ jest.mock('@/api', () => ({
 
 const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
 
-function renderSection() {
+const createLedgerItem = (index: number) => ({
+  ledger_bid: `ledger-${index}`,
+  wallet_bucket_bid: 'bucket-topup',
+  entry_type: 'grant',
+  source_type: 'topup',
+  source_bid: `topup-${index}`,
+  idempotency_key: `topup-${index}-bucket-topup`,
+  amount: index,
+  balance_after: 100 + index,
+  expires_at: null,
+  consumable_from: null,
+  metadata: {},
+  created_at: '2026-04-07T10:00:00Z',
+});
+
+function renderSection(
+  props?: React.ComponentProps<typeof BillingRecentActivitySection>,
+) {
   return render(
     <SWRConfig
       value={{
         provider: () => new Map(),
       }}
     >
-      <BillingRecentActivitySection />
+      <BillingRecentActivitySection {...props} />
     </SWRConfig>,
   );
 }
@@ -227,6 +244,28 @@ describe('BillingRecentActivitySection', () => {
     expect(await screen.findByText('+5.00')).toBeInTheDocument();
   });
 
+  test('keeps one full page height when a full usage page is available', async () => {
+    mockGetBillingLedger.mockResolvedValueOnce({
+      items: Array.from({ length: 10 }, (_, index) =>
+        createLedgerItem(index + 1),
+      ),
+      page: 1,
+      page_count: 3,
+      page_size: 10,
+      total: 30,
+    });
+
+    renderSection({ stretchToFill: true });
+
+    expect(await screen.findByText('+1.00')).toBeInTheDocument();
+    const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
+    expect(scrollContainer).toHaveClass('flex-1');
+    expect(scrollContainer.style.minHeight).toBe('570px');
+    expect(scrollContainer.parentElement).toHaveStyle({
+      minHeight: '570px',
+    });
+  });
+
   test('does not render an empty pagination footer for a single page result', async () => {
     mockGetBillingLedger.mockResolvedValueOnce({
       items: [
@@ -257,6 +296,9 @@ describe('BillingRecentActivitySection', () => {
     renderSection();
 
     expect(await screen.findByText('-2.50')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('billing-usage-table-scroll').style.minHeight,
+    ).toBe('');
     expect(
       screen.queryByRole('navigation', { name: 'pagination' }),
     ).not.toBeInTheDocument();
