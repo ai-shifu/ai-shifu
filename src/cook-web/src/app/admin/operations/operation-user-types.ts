@@ -197,6 +197,7 @@ export type AdminOperationUserReferralRewardSummary = {
   available_credits: string;
   expires_at: string;
   wallet_bucket_bid: string;
+  grant_count: number;
 };
 
 export type AdminOperationUserGrantBootstrapResponse = {

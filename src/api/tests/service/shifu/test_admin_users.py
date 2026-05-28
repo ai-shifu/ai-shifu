@@ -2810,6 +2810,7 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(app, monke
     assert ledgers[1].metadata_json["new_effective_to"]
     assert bootstrap.referral_reward_summary.available_credits == "1800"
     assert bootstrap.referral_reward_summary.expires_at == second_result.expires_at
+    assert bootstrap.referral_reward_summary.grant_count == 2
 
 
 def test_grant_operator_user_referral_reward_extends_empty_active_bucket(

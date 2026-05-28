@@ -7473,6 +7473,7 @@ def get_operator_user_grant_bootstrap(
                 ),
                 expires_at=_format_operator_datetime(referral_summary.expires_at),
                 wallet_bucket_bid=str(referral_summary.wallet_bucket_bid or ""),
+                grant_count=int(referral_summary.grant_count or 0),
             ),
         )
 

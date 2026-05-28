@@ -210,6 +210,7 @@
       "referralCurrentExpireAt": "Validité actuelle de la récompense de parrainage",
       "referralEstimatedCredits": "Crédits estimés après attribution",
       "referralEstimatedExpireAt": "Validité estimée après attribution",
+      "referralGrantCount": "Nombre de parrainages récompensés",
       "source": "Source",
       "validityPreset": "Validité"
     },
@@ -253,6 +254,8 @@
       "currentExpireAt": "Validité actuelle de la récompense de parrainage",
       "description": "Chaque attribution de récompense de parrainage ajoute les crédits saisis et prolonge la validité actuelle de 1 mois.",
       "emptyDescription": "S’il n’existe aucune récompense de parrainage active, la validité commence à l’heure d’attribution et dure 1 mois.",
+      "grantCount": "Nombre de parrainages récompensés",
+      "grantCountTooltip": "La source des données est temporairement basée sur le nombre d’attributions de récompense de parrainage.",
       "noActiveReward": "Aucune récompense de parrainage active",
       "oneMonth": "1 mois",
       "validity": "Validité"

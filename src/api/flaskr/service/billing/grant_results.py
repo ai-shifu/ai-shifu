@@ -47,10 +47,12 @@ class ReferralRewardSummary:
     available_credits: int | float
     expires_at: datetime | None
     wallet_bucket_bid: str = ""
+    grant_count: int = 0
 
     def to_payload(self) -> dict[str, Any]:
         return {
             "available_credits": self.available_credits,
             "expires_at": self.expires_at,
             "wallet_bucket_bid": self.wallet_bucket_bid,
+            "grant_count": self.grant_count,
         }

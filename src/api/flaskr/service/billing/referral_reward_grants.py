@@ -108,6 +108,19 @@ def _load_active_referral_reward_buckets(
     ]
 
 
+def _count_referral_reward_grants(creator_bid: str) -> int:
+    return int(
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == _normalize_bid(creator_bid),
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL,
+            CreditLedgerEntry.source_bid == REFERRAL_REWARD_PROGRAM,
+        ).count()
+        or 0
+    )
+
+
 def load_referral_reward_summary(
     app: Flask,
     *,
@@ -130,6 +143,7 @@ def load_referral_reward_summary(
             available_credits=_credit_decimal_to_number(available),
             expires_at=expires_at,
             wallet_bucket_bid=wallet_bucket_bid,
+            grant_count=_count_referral_reward_grants(creator_bid),
         )
 
 

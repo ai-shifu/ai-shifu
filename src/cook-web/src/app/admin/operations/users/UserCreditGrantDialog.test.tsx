@@ -515,6 +515,7 @@ describe('UserCreditGrantDialog', () => {
         available_credits: '1000',
         expires_at: '2026-05-21T00:00:00Z',
         wallet_bucket_bid: 'bucket-referral',
+        grant_count: 2,
       },
     });
     mockGrantAdminOperationUserCredits.mockResolvedValueOnce({
@@ -560,6 +561,12 @@ describe('UserCreditGrantDialog', () => {
         'module.operationsUser.grantDialog.referralReward.currentExpireAt',
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsUser.grantDialog.referralReward.grantCount',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByDisplayValue('1000')).toBeInTheDocument();
 
     const referralRewardAmountInput = screen.getByPlaceholderText(
@@ -616,6 +623,11 @@ describe('UserCreditGrantDialog', () => {
     expect(
       screen.getByText(
         'module.operationsUser.grantDialog.confirmSummary.referralEstimatedCredits',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsUser.grantDialog.confirmSummary.referralGrantCount',
       ),
     ).toBeInTheDocument();
 

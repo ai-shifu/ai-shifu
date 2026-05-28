@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import api from '@/api';
@@ -39,6 +40,12 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   formatOperatorUtcDateTime,
   parseOperatorUtcDateTime,
@@ -160,7 +167,7 @@ const validatePositiveIntegerAmount = (value: string): boolean => {
     return false;
   }
   const parsed = BigInt(normalized);
-  return parsed > 0n && parsed <= BigInt(Number.MAX_SAFE_INTEGER);
+  return parsed > BigInt(0) && parsed <= BigInt(Number.MAX_SAFE_INTEGER);
 };
 
 const normalizeNumericText = (value: string): string =>
@@ -252,13 +259,15 @@ const SummaryField = ({
   className = '',
   valueClassName = 'text-foreground',
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
   className?: string;
   valueClassName?: string;
 }) => (
   <div className={className}>
-    <div className='text-[11px] font-medium text-muted-foreground'>{label}</div>
+    <div className='flex items-center gap-1 text-[11px] font-medium text-muted-foreground'>
+      {label}
+    </div>
     <div
       className={`mt-1 break-all text-sm font-medium leading-5 ${valueClassName}`}
     >
@@ -271,13 +280,43 @@ const ConfirmSummaryItem = ({
   label,
   value,
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
 }) => (
   <div className='grid grid-cols-[132px_minmax(0,1fr)] items-start gap-3'>
-    <span className='whitespace-nowrap text-muted-foreground'>{label}</span>
+    <div className='flex items-center gap-1 whitespace-nowrap text-muted-foreground'>
+      {label}
+    </div>
     <span className='min-w-0 break-words text-foreground'>{value}</span>
   </div>
+);
+
+const ReferralGrantCountLabel = ({
+  label,
+  tooltip,
+}: {
+  label: string;
+  tooltip: string;
+}) => (
+  <>
+    <span>{label}</span>
+    <TooltipProvider delayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type='button'
+            aria-label={tooltip}
+            className='inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
+          >
+            <CircleHelp className='h-3.5 w-3.5' />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className='z-[112] max-w-56 text-left text-xs leading-5'>
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  </>
 );
 
 const ChoiceChipGroup = ({
@@ -536,6 +575,9 @@ export default function UserCreditGrantDialog({
   const referralCurrentExpiryLabel = referralRewardSummary?.expires_at
     ? formatOperatorUtcDateTime(referralRewardSummary.expires_at)
     : tOperationsUsers('grantDialog.referralReward.noActiveReward');
+  const referralGrantCountLabel = String(
+    Number(referralRewardSummary?.grant_count || 0),
+  );
   const referralRewardAmount = validatePositiveIntegerAmount(
     referralRewardFormState.amount,
   )
@@ -826,6 +868,20 @@ export default function UserCreditGrantDialog({
                 'grantDialog.confirmSummary.referralCurrentExpireAt',
               ),
               value: referralCurrentExpiryLabel,
+            },
+            {
+              id: 'referralGrantCount',
+              label: (
+                <ReferralGrantCountLabel
+                  label={tOperationsUsers(
+                    'grantDialog.confirmSummary.referralGrantCount',
+                  )}
+                  tooltip={tOperationsUsers(
+                    'grantDialog.referralReward.grantCountTooltip',
+                  )}
+                />
+              ),
+              value: referralGrantCountLabel,
             },
             {
               id: 'amount',
@@ -1181,6 +1237,19 @@ export default function UserCreditGrantDialog({
                         value={tOperationsUsers(
                           'grantDialog.referralReward.oneMonth',
                         )}
+                      />
+                      <SummaryField
+                        label={
+                          <ReferralGrantCountLabel
+                            label={tOperationsUsers(
+                              'grantDialog.referralReward.grantCount',
+                            )}
+                            tooltip={tOperationsUsers(
+                              'grantDialog.referralReward.grantCountTooltip',
+                            )}
+                          />
+                        }
+                        value={referralGrantCountLabel}
                       />
                     </div>
                     <div className='mt-3 space-y-1 text-xs leading-5 text-muted-foreground'>

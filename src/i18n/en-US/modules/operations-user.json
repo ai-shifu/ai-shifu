@@ -210,6 +210,7 @@
       "referralCurrentExpireAt": "Current Referral Reward Valid Until",
       "referralEstimatedCredits": "Estimated Credits After Grant",
       "referralEstimatedExpireAt": "Estimated Valid Until After Grant",
+      "referralGrantCount": "Rewarded Referral Count",
       "source": "Source",
       "validityPreset": "Validity"
     },
@@ -253,6 +254,8 @@
       "currentExpireAt": "Current Referral Reward Valid Until",
       "description": "Each referral reward grant adds the entered credits and extends the current referral reward validity by 1 month.",
       "emptyDescription": "If there is no active referral reward, validity starts from the grant time and lasts 1 month.",
+      "grantCount": "Rewarded Referral Count",
+      "grantCountTooltip": "The data source is temporarily based on the number of referral reward grants.",
       "noActiveReward": "No active referral reward",
       "oneMonth": "1 month",
       "validity": "Validity"

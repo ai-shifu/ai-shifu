@@ -496,6 +496,11 @@ class AdminOperationUserReferralRewardSummaryDTO(BaseModel):
         description="Current active referral reward wallet bucket identifier",
         required=False,
     )
+    grant_count: int = Field(
+        default=0,
+        description="Successful referral reward grant count",
+        required=False,
+    )
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()

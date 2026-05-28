@@ -210,6 +210,7 @@
       "referralCurrentExpireAt": "当前拉新奖励有效期",
       "referralEstimatedCredits": "发放后预计积分",
       "referralEstimatedExpireAt": "发放后预计有效期",
+      "referralGrantCount": "已奖励拉新次数",
       "source": "来源",
       "validityPreset": "有效期"
     },
@@ -253,6 +254,8 @@
       "currentExpireAt": "当前拉新奖励有效期",
       "description": "每次发放拉新奖励后，积分会增加本次填写的奖励积分；有效期会在当前拉新奖励有效期基础上顺延 1 个月。",
       "emptyDescription": "当前无有效拉新奖励时，有效期从发放时间起计算 1 个月。",
+      "grantCount": "已奖励拉新次数",
+      "grantCountTooltip": "数据来源暂定为发放拉新奖励次数。",
       "noActiveReward": "暂无有效拉新奖励",
       "oneMonth": "1个月",
       "validity": "有效期"
