@@ -1351,6 +1351,65 @@ class TestBillingWriteRoutes:
         assert upgrade_checkout["data"]["payable_amount"] == 19900
         assert upgrade_checkout["data"]["preorder_order_bid"] is None
 
+    def test_subscription_checkout_rejects_stacked_same_plan_preorder_after_cycle_extended(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+        current_period_start = now - timedelta(days=5)
+
+        with app.app_context():
+            product = BillingProduct.query.filter_by(
+                product_bid="bill-product-plan-monthly",
+            ).one()
+            max_single_prepaid_end = calculate_self_managed_billing_cycle_end(
+                product,
+                cycle_start_at=now,
+            )
+            assert max_single_prepaid_end is not None
+            current_period_end = max_single_prepaid_end + timedelta(days=30)
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-preorder-stacked-same-plan",
+                    creator_bid="creator-1",
+                    product_bid=product.product_bid,
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="pingxx",
+                    provider_subscription_id="",
+                    provider_customer_id="",
+                    current_period_start_at=current_period_start,
+                    current_period_end_at=current_period_end,
+                    cancel_at_period_end=0,
+                    next_product_bid="",
+                    metadata_json={},
+                    created_at=current_period_start,
+                    updated_at=current_period_start,
+                )
+            )
+            dao.db.session.commit()
+
+        payload = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "pingxx",
+                "action": "preorder",
+            },
+        ).get_json(force=True)
+
+        assert (
+            payload["code"]
+            == ERROR_CODE["server.billing.subscriptionPreorderAlreadyExists"]
+        )
+
+        with app.app_context():
+            renewal_orders = BillingOrder.query.filter_by(
+                subscription_bid="sub-preorder-stacked-same-plan",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            ).all()
+            assert renewal_orders == []
+
     def test_subscription_checkout_immediate_upgrade_absorbs_paid_preorder_after_paid(
         self, billing_write_client
     ) -> None:

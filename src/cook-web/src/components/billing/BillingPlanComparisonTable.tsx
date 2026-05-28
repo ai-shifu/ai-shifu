@@ -175,6 +175,56 @@ function resolvePlanValidityShort(
   return '';
 }
 
+function endOfLocalDay(value: Date): Date {
+  const end = new Date(value.getTime());
+  end.setHours(23, 59, 59, 0);
+  return end;
+}
+
+function calculateSelfManagedCycleEndFromNow(
+  plan: BillingPlan,
+  now = new Date(),
+): Date | null {
+  const intervalCount = Math.max(plan.billing_interval_count || 0, 0);
+  if (intervalCount <= 0) return null;
+
+  if (plan.billing_interval === 'day') {
+    return endOfLocalDay(
+      new Date(now.getTime() + (intervalCount - 1) * 24 * 60 * 60 * 1000),
+    );
+  }
+
+  if (plan.billing_interval === 'month') {
+    return endOfLocalDay(
+      new Date(now.getTime() + (30 * intervalCount - 1) * 24 * 60 * 60 * 1000),
+    );
+  }
+
+  if (plan.billing_interval === 'year') {
+    const end = new Date(now.getTime());
+    end.setFullYear(end.getFullYear() + intervalCount);
+    return endOfLocalDay(end);
+  }
+
+  return null;
+}
+
+function isSamePlanRenewalLimitReached(
+  currentSubscription: BillingSubscription | null,
+  plan: BillingPlan,
+): boolean {
+  const currentPeriodEndAt = currentSubscription?.current_period_end_at;
+  if (!currentPeriodEndAt) return false;
+
+  const currentPeriodEnd = new Date(currentPeriodEndAt);
+  if (Number.isNaN(currentPeriodEnd.getTime())) return false;
+
+  const maxSinglePrepaidEnd = calculateSelfManagedCycleEndFromNow(plan);
+  if (!maxSinglePrepaidEnd) return false;
+
+  return currentPeriodEnd.getTime() > maxSinglePrepaidEnd.getTime();
+}
+
 export type BillingPlanComparisonTableProps = {
   trialOffer: BillingTrialOffer | null | undefined;
   paidPlans: BillingPlan[];
@@ -302,6 +352,8 @@ export function BillingPlanComparisonTable({
       hasActiveSubscription && hasComparableTier && targetTier <= currentTier;
     const isPendingPreorderTarget =
       pendingPreorderProductBid === plan.product_bid;
+    const samePlanRenewalLimitReached =
+      isCurrentPlan && isSamePlanRenewalLimitReached(currentSubscription, plan);
     let action: BillingSubscriptionCheckoutAction | undefined;
     let actionProvider = provider;
     let actionLabelKey = 'module.billing.package.actions.subscribeNow';
@@ -352,16 +404,26 @@ export function BillingPlanComparisonTable({
             alipayAvailable,
             wechatpayAvailable,
           );
-        action = 'preorder';
-        actionProvider = canPreorder ? currentProvider : null;
-        actionLabelKey = isCurrentPlan
-          ? 'module.billing.package.actions.preorderRenewal'
-          : 'module.billing.package.actions.preorderDowngrade';
-        actionDisabled = !canPreorder;
-        actionTone = canPreorder ? 'primary' : 'muted';
-        actionTooltipKey = canPreorder
-          ? undefined
-          : 'module.billing.package.actions.preorderProviderUnsupportedTooltip';
+        if (samePlanRenewalLimitReached) {
+          action = 'preorder';
+          actionProvider = null;
+          actionLabelKey = 'module.billing.package.actions.preorderScheduled';
+          actionDisabled = true;
+          actionTone = 'muted';
+          actionTooltipKey =
+            'module.billing.package.actions.preorderLockedTooltip';
+        } else {
+          action = 'preorder';
+          actionProvider = canPreorder ? currentProvider : null;
+          actionLabelKey = isCurrentPlan
+            ? 'module.billing.package.actions.preorderRenewal'
+            : 'module.billing.package.actions.preorderDowngrade';
+          actionDisabled = !canPreorder;
+          actionTone = canPreorder ? 'primary' : 'muted';
+          actionTooltipKey = canPreorder
+            ? undefined
+            : 'module.billing.package.actions.preorderProviderUnsupportedTooltip';
+        }
       } else {
         action = 'upgrade_immediate';
         actionLabelKey = 'module.billing.package.actions.upgradeNow';

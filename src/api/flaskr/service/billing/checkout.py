@@ -85,6 +85,7 @@ from .provider_state import (
     resolve_stripe_subscription_order_status as _resolve_stripe_subscription_order_status,
 )
 from .queries import (
+    calculate_self_managed_billing_cycle_end as _calculate_self_managed_billing_cycle_end,
     calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
     load_primary_active_subscription as _load_primary_active_subscription,
 )
@@ -779,6 +780,33 @@ def _validate_immediate_upgrade_checkout(
     return prepaid_amount
 
 
+def _assert_same_plan_preorder_within_single_cycle(
+    *,
+    subscription: BillingSubscription,
+    current_product: BillingProduct | None,
+    target_product: BillingProduct,
+) -> None:
+    if current_product is None:
+        return
+    if _normalize_bid(current_product.product_bid) != _normalize_bid(
+        target_product.product_bid
+    ):
+        return
+    current_period_end_at = subscription.current_period_end_at
+    if current_period_end_at is None:
+        return
+
+    max_single_prepaid_end = _calculate_self_managed_billing_cycle_end(
+        target_product,
+        cycle_start_at=datetime.now(),
+    )
+    if (
+        max_single_prepaid_end is not None
+        and current_period_end_at > max_single_prepaid_end
+    ):
+        raise_error("server.billing.subscriptionPreorderAlreadyExists")
+
+
 def _prepare_subscription_preorder_checkout_metadata(
     *,
     subscription: BillingSubscription,
@@ -799,6 +827,11 @@ def _prepare_subscription_preorder_checkout_metadata(
         raise_error("server.billing.subscriptionPreorderAlreadyExists")
     if current_product is None or _is_trial_product(current_product):
         raise_error("server.billing.subscriptionPreorderUnavailable")
+    _assert_same_plan_preorder_within_single_cycle(
+        subscription=subscription,
+        current_product=current_product,
+        target_product=target_product,
+    )
 
     current_tier = _resolve_plan_tier(current_product)
     target_tier = _resolve_plan_tier(target_product)
