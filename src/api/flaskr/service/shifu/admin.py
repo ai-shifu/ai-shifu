@@ -5951,6 +5951,7 @@ def get_operator_course_credit_usages(
             )
             .select_from(usage_rows)
             .group_by(
+                group_key_expr,
                 usage_rows.c.user_bid,
                 usage_rows.c.outline_item_bid,
                 usage_scene_expr,
