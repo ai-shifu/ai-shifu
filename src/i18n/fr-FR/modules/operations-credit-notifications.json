@@ -279,6 +279,7 @@
   "errorReason": {
     "blacklisted": "Le créateur est dans la liste de non-envoi, non envoyé.",
     "budget_daily_sms_limit": "Le budget SMS quotidien est atteint.",
+    "expiry_extended": "L’expiration des crédits a été prolongée avant l’envoi.",
     "frequency_creator_type_daily": "La limite quotidienne de ce créateur et de ce type est atteinte.",
     "frequency_mobile_daily": "La limite quotidienne de ce téléphone est atteinte.",
     "invalid_mobile": "Le téléphone du créateur est invalide, non envoyé.",
@@ -286,6 +287,7 @@
     "missing_template_code": "Le modèle SMS n’est pas configuré.",
     "missing_template_params": "Les paramètres du modèle SMS sont incomplets.",
     "opt_out": "Le créateur s’est désinscrit, non envoyé.",
+    "policy_disabled": "La stratégie de notification est désactivée, non envoyé.",
     "provider_exception": "L’appel au fournisseur SMS a échoué.",
     "provider_failed": "Le fournisseur SMS n’a pas renvoyé de réponse acceptée.",
     "quiet_hours": "La période de silence est active, non envoyé.",

@@ -178,10 +178,12 @@ const ERROR_REASON_FALLBACKS: Record<string, string> = {
   opt_out: 'Creator has opted out, not sent.',
   blacklisted: 'Creator is in the do-not-send list, not sent.',
   quiet_hours: 'Quiet hours are active, not sent.',
+  policy_disabled: 'Notification policy is disabled, not sent.',
   frequency_mobile_daily: 'Daily limit for this mobile has been reached.',
   frequency_creator_type_daily:
     'Daily limit for this creator and notification type has been reached.',
   budget_daily_sms_limit: 'Daily SMS budget has been reached.',
+  expiry_extended: 'Credit expiry was extended before delivery.',
   zero_balance_missing_estimated_remaining_days:
     'Zero balance reminder lacks estimated remaining days, not sent.',
   provider_failed: 'SMS provider did not return an accepted response.',
@@ -224,10 +226,13 @@ export const resolveCreditNotificationErrorText = (
   errorMessage?: string | null,
 ) => {
   const reasonCode = resolveErrorReasonCode(errorCode, errorMessage);
-  if (reasonCode && ERROR_REASON_FALLBACKS[reasonCode]) {
+  if (reasonCode) {
+    const fallback =
+      ERROR_REASON_FALLBACKS[reasonCode] ||
+      String(errorMessage || errorCode || '').trim();
     return String(
       t(`module.operationsCreditNotifications.errorReason.${reasonCode}`, {
-        defaultValue: ERROR_REASON_FALLBACKS[reasonCode],
+        defaultValue: fallback,
       }),
     );
   }

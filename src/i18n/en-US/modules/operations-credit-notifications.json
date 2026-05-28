@@ -279,6 +279,7 @@
   "errorReason": {
     "blacklisted": "Creator is in the do-not-send list, not sent.",
     "budget_daily_sms_limit": "Daily SMS budget has been reached.",
+    "expiry_extended": "Credit expiry was extended before delivery.",
     "frequency_creator_type_daily": "Daily limit for this creator and notification type has been reached.",
     "frequency_mobile_daily": "Daily limit for this mobile has been reached.",
     "invalid_mobile": "Creator mobile is invalid, not sent.",
@@ -286,6 +287,7 @@
     "missing_template_code": "SMS template is not configured.",
     "missing_template_params": "SMS template parameters are incomplete.",
     "opt_out": "Creator has opted out, not sent.",
+    "policy_disabled": "Notification policy is disabled, not sent.",
     "provider_exception": "SMS provider call failed.",
     "provider_failed": "SMS provider did not return an accepted response.",
     "quiet_hours": "Quiet hours are active, not sent.",
