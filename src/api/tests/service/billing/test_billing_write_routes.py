@@ -59,6 +59,7 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.provider_state import (
     apply_billing_subscription_provider_update,
 )
+import flaskr.service.billing.checkout as billing_checkout_module
 from flaskr.service.billing.preorders import mark_preorder_effective_applied
 from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end,
@@ -1080,6 +1081,87 @@ class TestBillingWriteRoutes:
             == ERROR_CODE["server.billing.subscriptionPreorderAlreadyExists"]
         )
 
+    def test_subscription_checkout_rechecks_preorder_after_subscription_lock(
+        self,
+        billing_write_client,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+        current_period_start = now - timedelta(days=5)
+        current_period_end = now + timedelta(days=25)
+
+        with app.app_context():
+            subscription = BillingSubscription(
+                subscription_bid="sub-preorder-lock-race",
+                creator_bid="creator-1",
+                product_bid="bill-product-plan-monthly-pro",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="pingxx",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=current_period_start,
+                current_period_end_at=current_period_end,
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+                created_at=current_period_start,
+                updated_at=current_period_start,
+            )
+            dao.db.session.add(subscription)
+            dao.db.session.commit()
+
+        def fake_lock_subscription_for_checkout(
+            subscription: BillingSubscription,
+        ) -> BillingSubscription:
+            dao.db.session.add(
+                BillingOrder(
+                    bill_order_bid="bill-preorder-lock-race",
+                    creator_bid=subscription.creator_bid,
+                    order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                    product_bid="bill-product-plan-monthly",
+                    subscription_bid=subscription.subscription_bid,
+                    currency="CNY",
+                    payable_amount=990,
+                    paid_amount=990,
+                    payment_provider="pingxx",
+                    channel="alipay_qr",
+                    provider_reference_id="ch_preorder_lock_race",
+                    status=BILLING_ORDER_STATUS_PAID,
+                    paid_at=now - timedelta(minutes=1),
+                    metadata_json={
+                        "checkout_type": "subscription_preorder",
+                        "preorder_state": "pending_effective",
+                    },
+                    created_at=now - timedelta(minutes=1),
+                    updated_at=now - timedelta(minutes=1),
+                )
+            )
+            dao.db.session.flush()
+            return subscription
+
+        monkeypatch.setattr(
+            billing_checkout_module,
+            "_lock_subscription_for_checkout",
+            fake_lock_subscription_for_checkout,
+            raising=False,
+        )
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "pingxx",
+                "action": "preorder",
+            },
+        ).get_json(force=True)
+
+        assert (
+            response["code"]
+            == ERROR_CODE["server.billing.subscriptionPreorderAlreadyExists"]
+        )
+
     def test_paid_preorder_sync_reserves_credits_and_sets_next_product(
         self, billing_write_client
     ) -> None:
@@ -1206,7 +1288,7 @@ class TestBillingWriteRoutes:
             )
             assert downgrade_event.scheduled_at == current_period_end
 
-    def test_paid_same_plan_preorder_sync_applies_immediately_without_upgrade_offset(
+    def test_paid_same_plan_preorder_sync_reserves_until_cycle_boundary(
         self, billing_write_client
     ) -> None:
         client = billing_write_client["client"]
@@ -1318,24 +1400,25 @@ class TestBillingWriteRoutes:
             )
 
             assert order.status == BILLING_ORDER_STATUS_PAID
-            assert order.metadata_json["preorder_state"] == "effective_applied"
+            assert order.metadata_json["preorder_state"] == "pending_effective"
             assert subscription.product_bid == "bill-product-plan-monthly"
-            assert subscription.next_product_bid == ""
-            assert "preorder_order_bid" not in subscription.metadata_json
+            assert subscription.next_product_bid == "bill-product-plan-monthly"
+            assert subscription.metadata_json["preorder_order_bid"] == bill_order_bid
             assert subscription.current_period_start_at == current_period_start
-            assert subscription.current_period_end_at == expected_cycle_end
+            assert subscription.current_period_end_at == current_period_end
             assert bucket.source_bid == bill_order_bid
-            assert bucket.available_credits == Decimal("110.0000000000")
-            assert bucket.reserved_credits == Decimal("0E-10")
+            assert bucket.available_credits == Decimal("105.0000000000")
+            assert bucket.reserved_credits == Decimal("5.0000000000")
             assert bucket.effective_from == current_period_start
-            assert bucket.effective_to == expected_cycle_end
-            assert wallet.available_credits == Decimal("110.0000000000")
-            assert wallet.reserved_credits == Decimal("0E-10")
+            assert bucket.effective_to == current_period_end
+            assert wallet.available_credits == Decimal("105.0000000000")
+            assert wallet.reserved_credits == Decimal("5.0000000000")
             assert wallet.lifetime_granted_credits == Decimal("110.0000000000")
-            assert grant_ledger.metadata_json["bucket_credit_state"] == "available"
-            assert grant_ledger.consumable_from == order.paid_at
+            assert grant_ledger.metadata_json["bucket_credit_state"] == "reserved"
+            assert grant_ledger.consumable_from == current_period_end
             assert grant_ledger.expires_at == expected_cycle_end
-            assert downgrade_event is None
+            assert downgrade_event is not None
+            assert downgrade_event.scheduled_at == current_period_end
 
         upgrade_checkout = client.post(
             "/api/billing/subscriptions/checkout",
@@ -1347,9 +1430,59 @@ class TestBillingWriteRoutes:
         ).get_json(force=True)
         assert upgrade_checkout["code"] == 0
         assert upgrade_checkout["data"]["status"] == "pending"
-        assert upgrade_checkout["data"]["prepaid_offset_amount"] == 0
-        assert upgrade_checkout["data"]["payable_amount"] == 19900
-        assert upgrade_checkout["data"]["preorder_order_bid"] is None
+        assert upgrade_checkout["data"]["prepaid_offset_amount"] == 990
+        assert upgrade_checkout["data"]["payable_amount"] == 18910
+        assert upgrade_checkout["data"]["preorder_order_bid"] == bill_order_bid
+
+    def test_subscription_checkout_rejects_preorder_when_plan_tier_missing(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+        current_period_start = now - timedelta(days=5)
+        current_period_end = now + timedelta(days=25)
+
+        with app.app_context():
+            target_product = BillingProduct.query.filter_by(
+                product_bid="bill-product-plan-monthly",
+            ).one()
+            target_metadata = (
+                dict(target_product.metadata_json)
+                if isinstance(target_product.metadata_json, dict)
+                else {}
+            )
+            target_metadata.pop("plan_tier", None)
+            target_product.metadata_json = target_metadata
+            subscription = BillingSubscription(
+                subscription_bid="sub-preorder-missing-target-tier",
+                creator_bid="creator-1",
+                product_bid="bill-product-plan-monthly-pro",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="pingxx",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=current_period_start,
+                current_period_end_at=current_period_end,
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+                created_at=current_period_start,
+                updated_at=current_period_start,
+            )
+            dao.db.session.add(subscription)
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "pingxx",
+                "action": "preorder",
+            },
+        ).get_json(force=True)
+
+        assert response["code"] == ERROR_CODE["server.order.orderStatusError"]
 
     def test_subscription_checkout_rejects_stacked_same_plan_preorder_after_cycle_extended(
         self, billing_write_client
@@ -1697,9 +1830,7 @@ class TestBillingWriteRoutes:
                 bill_order_bid=payload["data"]["bill_order_bid"],
             ).one()
 
-            assert upgrade_order.metadata_json["preorder_order_bid"] == (
-                "bill-preorder-pending"
-            )
+            assert upgrade_order.metadata_json["preorder_order_bid"] is None
             assert preorder_order.status == BILLING_ORDER_STATUS_PENDING
             assert preorder_order.metadata_json["preorder_state"] == (
                 "pending_effective"
@@ -1723,13 +1854,12 @@ class TestBillingWriteRoutes:
             ).one()
 
             assert subscription.product_bid == "bill-product-plan-yearly-lite"
-            assert preorder_order.status != BILLING_ORDER_STATUS_PENDING
+            assert preorder_order.status == BILLING_ORDER_STATUS_PENDING
             assert preorder_order.metadata_json["preorder_state"] == (
-                "absorbed_by_upgrade"
+                "pending_effective"
             )
-            assert preorder_order.metadata_json["absorbed_by_bill_order_bid"] == (
-                upgrade_order.bill_order_bid
-            )
+            assert not preorder_order.metadata_json.get("absorbed_by_bill_order_bid")
+            assert upgrade_order.metadata_json["preorder_order_bid"] is None
 
     def test_subscription_checkout_rejects_zero_payable_upgrade_with_paid_preorder(
         self, billing_write_client

@@ -10,6 +10,10 @@ from flask import Flask
 
 from flaskr.dao import db
 
+from .credit_notifications import (
+    enqueue_credit_notification as _enqueue_credit_notification,
+    stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
+)
 from .consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_FAILED,
@@ -30,6 +34,7 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
+    CREDIT_NOTIFICATION_STATUS_PENDING,
 )
 from .checkout import sync_billing_order
 from .preorders import (
@@ -356,8 +361,13 @@ def _execute_expire_subscription(
                 event,
                 bill_order_bid=paid_renewal_order.bill_order_bid,
             )
+        notification_bid = _stage_preorder_credit_release_notification(
+            app,
+            paid_renewal_order,
+        )
         _complete_renewal_event(event, now=now)
         db.session.commit()
+        _enqueue_credit_release_notification(app, notification_bid)
         return _result_from_event(
             "applied",
             event,
@@ -432,8 +442,13 @@ def _execute_downgrade_effective(
                 event,
                 bill_order_bid=paid_renewal_order.bill_order_bid,
             )
+        notification_bid = _stage_preorder_credit_release_notification(
+            app,
+            paid_renewal_order,
+        )
         _complete_renewal_event(event, now=now)
         db.session.commit()
+        _enqueue_credit_release_notification(app, notification_bid)
         return _result_from_event(
             "applied",
             event,
@@ -453,6 +468,31 @@ def _execute_downgrade_effective(
     _complete_renewal_event(event, now=now)
     db.session.commit()
     return _result_from_event("applied", event, product_bid=subscription.product_bid)
+
+
+def _stage_preorder_credit_release_notification(
+    app: Flask,
+    order: BillingOrder,
+) -> str:
+    if not _is_preorder_order(order):
+        return ""
+    stage_result = _stage_credit_granted_notification_for_order(
+        app,
+        creator_bid=order.creator_bid,
+        bill_order_bid=order.bill_order_bid,
+        commit=False,
+        enqueue=False,
+    )
+    if stage_result.get("status") != CREDIT_NOTIFICATION_STATUS_PENDING:
+        return ""
+    return str(stage_result.get("notification_bid") or "").strip()
+
+
+def _enqueue_credit_release_notification(app: Flask, notification_bid: str) -> None:
+    normalized_notification_bid = str(notification_bid or "").strip()
+    if not normalized_notification_bid:
+        return
+    _enqueue_credit_notification(app, notification_bid=normalized_notification_bid)
 
 
 def _load_paid_renewal_order_for_cycle(

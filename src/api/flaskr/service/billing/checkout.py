@@ -222,6 +222,8 @@ def create_billing_subscription_checkout(
             normalized_creator_bid,
             as_of=datetime.now(),
         )
+        if current_subscription is not None:
+            current_subscription = _lock_subscription_for_checkout(current_subscription)
         prepaid_offset_amount = 0
         replaced_preorder_order = None
         if current_subscription is None:
@@ -255,12 +257,19 @@ def create_billing_subscription_checkout(
                     payment_provider=payment_provider,
                 )
             elif checkout_action == CHECKOUT_ACTION_UPGRADE_IMMEDIATE:
+                paid_preorder_order = (
+                    active_preorder_order
+                    if active_preorder_order is not None
+                    and int(active_preorder_order.status or 0)
+                    == BILLING_ORDER_STATUS_PAID
+                    else None
+                )
                 prepaid_offset_amount = _validate_immediate_upgrade_checkout(
                     current_product=current_product,
                     target_product=product,
-                    active_preorder_order=active_preorder_order,
+                    active_preorder_order=paid_preorder_order,
                 )
-                replaced_preorder_order = active_preorder_order
+                replaced_preorder_order = paid_preorder_order
                 subscription.metadata_json = _normalize_json_object(
                     {
                         **(
@@ -754,6 +763,24 @@ def _validate_plan_checkout_upgrade_only(
     target_sort_order = int(target_product.sort_order or 0)
     if target_sort_order <= current_sort_order:
         raise_error("server.billing.subscriptionUpgradeOnly")
+
+
+def _lock_subscription_for_checkout(
+    subscription: BillingSubscription,
+) -> BillingSubscription:
+    normalized_subscription_bid = _normalize_bid(subscription.subscription_bid)
+    if not normalized_subscription_bid:
+        return subscription
+    locked_subscription = (
+        BillingSubscription.query.filter(
+            BillingSubscription.deleted == 0,
+            BillingSubscription.subscription_bid == normalized_subscription_bid,
+        )
+        .with_for_update()
+        .order_by(BillingSubscription.id.desc())
+        .first()
+    )
+    return locked_subscription or subscription
 
 
 def _validate_immediate_upgrade_checkout(

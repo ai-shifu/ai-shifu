@@ -447,6 +447,8 @@ export function BillingPlanComparisonTable({
       : null;
     const planScale = getPlanScaleKeys(plan.product_code);
     const badgeKey = plan.status_badge_key;
+    const showCurrentSubscriptionState =
+      hasActiveSubscription && !hasPendingPreorder && !action && isCurrentPlan;
 
     columns.push({
       key: plan.product_bid,
@@ -471,17 +473,13 @@ export function BillingPlanComparisonTable({
       ),
       action: {
         label: t(
-          hasActiveSubscription && !action && isCurrentPlan
+          showCurrentSubscriptionState
             ? 'module.billing.package.actions.currentSubscription'
             : actionLabelKey,
         ),
         loading: checkoutKey !== null && checkoutLoadingKey === checkoutKey,
-        disabled:
-          actionDisabled || (hasActiveSubscription && !action && isCurrentPlan),
-        tone:
-          hasActiveSubscription && !action && isCurrentPlan
-            ? 'current'
-            : actionTone,
+        disabled: actionDisabled || showCurrentSubscriptionState,
+        tone: showCurrentSubscriptionState ? 'current' : actionTone,
         tooltip: actionTooltipKey ? t(actionTooltipKey) : undefined,
         onClick: () =>
           actionProvider && onSelectPlanCheckout(plan, actionProvider, action),

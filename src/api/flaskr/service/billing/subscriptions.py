@@ -661,8 +661,6 @@ def _should_defer_subscription_renewal_activation(
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
     if _extract_order_metadata_datetime(metadata, "applied_cycle_start_at") is not None:
         return False
-    if _is_same_product_preorder_renewal(order):
-        return False
     if effective_from <= datetime.now():
         return False
     return _should_defer_pingxx_renewal_activation(order) or _is_preorder_order(order)
@@ -743,7 +741,6 @@ def _activate_subscription_for_paid_order(
         BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
         BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     }:
-        same_product_preorder_renewal = _is_same_product_preorder_renewal(order)
         if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
             _activate_reserved_subscription_grant_for_order(
                 app,
@@ -764,13 +761,7 @@ def _activate_subscription_for_paid_order(
             if subscription.cancel_at_period_end
             else BILLING_SUBSCRIPTION_STATUS_ACTIVE
         )
-        period_start_at = effective_from
-        if (
-            same_product_preorder_renewal
-            and subscription.current_period_start_at is not None
-        ):
-            period_start_at = subscription.current_period_start_at
-        subscription.current_period_start_at = period_start_at
+        subscription.current_period_start_at = effective_from
         subscription.current_period_end_at = effective_to
         subscription.last_renewed_at = effective_from
         _realign_active_topup_bucket_effective_to(
@@ -963,8 +954,6 @@ def _should_reserve_subscription_renewal_grant(
     *,
     effective_from: datetime,
 ) -> bool:
-    if _is_same_product_preorder_renewal(order):
-        return False
     return (
         order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
         and effective_from > datetime.now()
@@ -1344,10 +1333,7 @@ def _load_preorder_replaced_by_paid_upgrade(
         PREORDER_STATE_ABSORBED_BY_UPGRADE,
     }:
         return None
-    if int(preorder_order.status or 0) not in {
-        BILLING_ORDER_STATUS_PENDING,
-        BILLING_ORDER_STATUS_PAID,
-    }:
+    if int(preorder_order.status or 0) != BILLING_ORDER_STATUS_PAID:
         return None
     return preorder_order
 
@@ -2004,8 +1990,6 @@ def _resolve_credit_bucket_effective_from(
     default_effective_from: datetime,
 ) -> datetime:
     if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
-        return default_effective_from
-    if _is_same_product_preorder_renewal(order):
         return default_effective_from
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
     renewal_cycle_start_at = _extract_resolved_order_cycle_start_at(metadata)

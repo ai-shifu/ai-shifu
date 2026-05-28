@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Any
 
 from .consts import (
-    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -47,10 +46,6 @@ def resolve_plan_tier(product: BillingProduct | None) -> int | None:
     raw_tier = metadata.get(PLAN_TIER_METADATA_KEY)
     try:
         return int(raw_tier)
-    except (TypeError, ValueError):
-        pass
-    try:
-        return int(product.sort_order or 0)
     except (TypeError, ValueError):
         return None
 
@@ -194,9 +189,6 @@ def mark_preorder_absorbed_by_upgrade(
         )
     )
     preorder_order.metadata_json = metadata
-    if int(preorder_order.status or 0) == BILLING_ORDER_STATUS_PENDING:
-        preorder_order.status = BILLING_ORDER_STATUS_CANCELED
-        preorder_order.failed_at = preorder_order.failed_at or now
     preorder_order.updated_at = datetime.now()
 
 
