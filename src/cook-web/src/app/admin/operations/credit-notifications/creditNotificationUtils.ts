@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import type {
   AdminOperationCreditNotificationPolicy,
   CreditNotificationEstimatedDaysThreshold,
@@ -170,6 +171,69 @@ export const clonePolicy = (
   policy: AdminOperationCreditNotificationPolicy,
 ): AdminOperationCreditNotificationPolicy =>
   JSON.parse(JSON.stringify(policy)) as AdminOperationCreditNotificationPolicy;
+
+const ERROR_REASON_FALLBACKS: Record<string, string> = {
+  missing_mobile: 'Creator mobile is empty, not sent.',
+  invalid_mobile: 'Creator mobile is invalid, not sent.',
+  opt_out: 'Creator has opted out, not sent.',
+  blacklisted: 'Creator is in the do-not-send list, not sent.',
+  quiet_hours: 'Quiet hours are active, not sent.',
+  frequency_mobile_daily: 'Daily limit for this mobile has been reached.',
+  frequency_creator_type_daily:
+    'Daily limit for this creator and notification type has been reached.',
+  budget_daily_sms_limit: 'Daily SMS budget has been reached.',
+  zero_balance_missing_estimated_remaining_days:
+    'Zero balance reminder lacks estimated remaining days, not sent.',
+  provider_failed: 'SMS provider did not return an accepted response.',
+  provider_exception: 'SMS provider call failed.',
+  missing_template_code: 'SMS template is not configured.',
+  missing_template_params: 'SMS template parameters are incomplete.',
+};
+
+const resolveErrorReasonCode = (
+  errorCode?: string | null,
+  errorMessage?: string | null,
+) => {
+  const normalizedCode = String(errorCode || '').trim();
+  if (normalizedCode) {
+    return normalizedCode;
+  }
+
+  const normalizedMessage = String(errorMessage || '').trim();
+  const blockedMatch = normalizedMessage.match(
+    /^Notification blocked by policy:\s*([A-Za-z0-9_]+)\.?$/i,
+  );
+  if (blockedMatch?.[1]) {
+    return blockedMatch[1];
+  }
+  if (/SMS provider returned no accepted response/i.test(normalizedMessage)) {
+    return 'provider_failed';
+  }
+  if (/Creator mobile is empty/i.test(normalizedMessage)) {
+    return 'missing_mobile';
+  }
+  if (/Creator mobile is invalid/i.test(normalizedMessage)) {
+    return 'invalid_mobile';
+  }
+  return '';
+};
+
+export const resolveCreditNotificationErrorText = (
+  t: TFunction,
+  errorCode?: string | null,
+  errorMessage?: string | null,
+) => {
+  const reasonCode = resolveErrorReasonCode(errorCode, errorMessage);
+  if (reasonCode && ERROR_REASON_FALLBACKS[reasonCode]) {
+    return String(
+      t(`module.operationsCreditNotifications.errorReason.${reasonCode}`, {
+        defaultValue: ERROR_REASON_FALLBACKS[reasonCode],
+      }),
+    );
+  }
+
+  return String(errorMessage || '').trim();
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);

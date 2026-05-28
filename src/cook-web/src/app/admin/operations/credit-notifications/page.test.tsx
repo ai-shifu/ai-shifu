@@ -55,8 +55,23 @@ jest.mock('@/c-store', () => ({
     }),
 }));
 
-const mockT = (key: string, fallback?: string | Record<string, unknown>) =>
-  typeof fallback === 'string' ? fallback : key;
+const mockT = (
+  key: string,
+  fallback?: string | { defaultValue?: string } | Record<string, unknown>,
+) => {
+  if (typeof fallback === 'string') {
+    return fallback;
+  }
+  if (
+    fallback &&
+    typeof fallback === 'object' &&
+    'defaultValue' in fallback &&
+    typeof fallback.defaultValue === 'string'
+  ) {
+    return fallback.defaultValue;
+  }
+  return key;
+};
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -381,6 +396,9 @@ describe('AdminOperationCreditNotificationsPage', () => {
       expect(screen.getByText('Creator One')).toBeInTheDocument();
     });
     expect(screen.getByText('ledger')).toBeInTheDocument();
+    expect(
+      screen.getByText('SMS provider did not return an accepted response.'),
+    ).toBeInTheDocument();
 
     openRecordMoreMenu();
     fireEvent.click(
@@ -449,6 +467,10 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(
       screen.getByText('module.operationsCreditNotifications.detail.title'),
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText('SMS provider did not return an accepted response.')
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText('notification-1')).toBeInTheDocument();
     expect(screen.getByText('credit_granted:ledger-1')).toBeInTheDocument();
   });

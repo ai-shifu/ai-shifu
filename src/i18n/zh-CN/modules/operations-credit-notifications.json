@@ -276,6 +276,21 @@
     "title": "试算通知"
   },
   "empty": "暂无积分通知记录。",
+  "errorReason": {
+    "blacklisted": "创作者在不发送名单中，未发送。",
+    "budget_daily_sms_limit": "当日短信发送量已达上限，未发送。",
+    "frequency_creator_type_daily": "同创作者同类型当日发送次数已达上限，未发送。",
+    "frequency_mobile_daily": "同手机号当日发送次数已达上限，未发送。",
+    "invalid_mobile": "创作者手机号格式无效，未发送。",
+    "missing_mobile": "创作者手机号为空，未发送。",
+    "missing_template_code": "短信模板未配置。",
+    "missing_template_params": "短信模板参数不完整。",
+    "opt_out": "创作者已退订，未发送。",
+    "provider_exception": "短信供应商调用异常。",
+    "provider_failed": "短信供应商未返回成功结果。",
+    "quiet_hours": "命中免打扰时段，未发送。",
+    "zero_balance_missing_estimated_remaining_days": "零余额提醒缺少预计剩余天数，未发送。"
+  },
   "filters": {
     "all": "全部",
     "createdTime": "创建时间",
@@ -284,6 +299,7 @@
     "creatorPlaceholder": "手机号/昵称",
     "mobile": "手机号",
     "notificationType": "通知类型",
+    "skippedAll": "全部跳过",
     "sourceBid": "触发业务ID",
     "sourceType": "触发场景",
     "status": "投递状态",
@@ -322,7 +338,7 @@
     "sent": "已发送",
     "skipped": "已跳过",
     "skipped_no_mobile": "无手机号",
-    "skipped_opt_out": "已退订",
+    "skipped_opt_out": "策略跳过",
     "suppressed_duplicate": "重复抑制"
   },
   "subtitle": "查看积分到账、到期和低余额提醒的投递状态，并配置短信策略。",
