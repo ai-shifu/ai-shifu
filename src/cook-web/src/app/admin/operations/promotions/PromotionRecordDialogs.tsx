@@ -93,8 +93,8 @@ export const PromotionCouponCodesDialog = ({
     if (!open || !couponBid) {
       return;
     }
-    setKeyword('');
-    setAppliedKeyword('');
+    setKeyword(current => (current ? '' : current));
+    setAppliedKeyword(current => (current ? '' : current));
     void fetchCodes(1, '');
   }, [couponBid, fetchCodes, open]);
 

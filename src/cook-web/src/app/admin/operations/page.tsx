@@ -270,6 +270,7 @@ const OperationsPage = () => {
   const [transferConfirmOpen, setTransferConfirmOpen] = useState(false);
   const requestedPageRef = useRef(1);
   const requestIdRef = useRef(0);
+  const transferRequestIdRef = useRef(0);
   const copyRequestIdRef = useRef(0);
   const promptRequestIdRef = useRef(0);
   const promptDetailContentRef = useRef<HTMLDivElement | null>(null);
@@ -577,6 +578,7 @@ const OperationsPage = () => {
       if (nextOpen) {
         return;
       }
+      transferRequestIdRef.current += 1;
       setTransferTargetCourse(null);
       setTransferContactType(defaultTransferContactType);
       setTransferIdentifier('');
@@ -870,6 +872,8 @@ const OperationsPage = () => {
       return;
     }
 
+    const requestId = transferRequestIdRef.current + 1;
+    transferRequestIdRef.current = requestId;
     setTransferConfirmOpen(false);
     setTransferError('');
     setTransferLoading(true);
@@ -879,17 +883,26 @@ const OperationsPage = () => {
         contact_type: transferContactType,
         identifier: normalizedTransferIdentifier,
       });
+      if (requestId !== transferRequestIdRef.current) {
+        return;
+      }
       toast({
         title: tOperations('transferCreatorDialog.submitSuccess'),
       });
       handleTransferDialogOpenChange(false);
       await fetchCourses(requestedPageRef.current, filters, quickFilter);
     } catch (error) {
+      if (requestId !== transferRequestIdRef.current) {
+        return;
+      }
       setTransferError(
         error instanceof Error ? error.message : t('common.core.unknownError'),
       );
-    } finally {
       setTransferLoading(false);
+    } finally {
+      if (requestId === transferRequestIdRef.current) {
+        setTransferLoading(false);
+      }
     }
   }, [
     fetchCourses,

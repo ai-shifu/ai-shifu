@@ -32,6 +32,7 @@ export type AdminPromotionCouponItem = {
   end_at: string;
   total_count: number;
   used_count: number;
+  enabled?: boolean;
   computed_status: string;
   computed_status_key: string;
   created_at: string;
@@ -100,6 +101,7 @@ export type AdminPromotionCampaignItem = {
   applied_order_count: number;
   has_redemptions: boolean;
   total_discount_amount: string;
+  enabled?: boolean;
   created_at: string;
   updated_at: string;
 };

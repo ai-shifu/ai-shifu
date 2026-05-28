@@ -180,6 +180,16 @@ export const createDefaultCouponForm = (): CouponFormState => ({
   enabled: 'true',
 });
 
+export const resolvePromotionEnabledFormValue = (item: {
+  computed_status?: string;
+  enabled?: boolean;
+}) => {
+  if (typeof item.enabled === 'boolean') {
+    return String(item.enabled);
+  }
+  return item.computed_status === 'inactive' ? 'false' : 'true';
+};
+
 export function normalizePromotionFormDateTimeValue(value?: string) {
   const formatted = formatAdminUtcDateTime(value || '');
   return formatted || value || '';
@@ -198,7 +208,7 @@ export const createCouponFormFromItem = (
   shifu_bid: item.shifu_bid || '',
   start_at: normalizePromotionFormDateTimeValue(item.start_at),
   end_at: normalizePromotionFormDateTimeValue(item.end_at),
-  enabled: 'true',
+  enabled: resolvePromotionEnabledFormValue(item),
 });
 
 export const createDefaultCampaignForm = (): CampaignFormState => ({
@@ -227,7 +237,7 @@ export const createCampaignFormFromItem = (
   end_at: normalizePromotionFormDateTimeValue(item.end_at),
   description: description || '',
   channel: item.channel || '',
-  enabled: 'true',
+  enabled: resolvePromotionEnabledFormValue(item),
 });
 
 export const SectionCard = ({
@@ -304,11 +314,15 @@ export const downloadExcelCompatibleCodesFile = (
   window.URL.revokeObjectURL(url);
 };
 
-export const renderRuleLabel = (discountTypeKey: string, value: string) => {
+export const renderRuleLabel = (
+  discountTypeKey: string,
+  value: string,
+  currencySymbol = '',
+) => {
   if (discountTypeKey.endsWith('percent')) {
     return `${value}%`;
   }
-  return `- ¥${value}`;
+  return `- ${currencySymbol}${value}`;
 };
 
 export const toPromotionRelativeKey = (key?: string) => {

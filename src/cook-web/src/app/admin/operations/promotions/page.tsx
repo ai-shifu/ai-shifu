@@ -23,6 +23,8 @@ import type {
 import useOperatorGuard from '@/app/admin/operations/useOperatorGuard';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { Button } from '@/components/ui/Button';
+import { useEnvStore } from '@/c-store';
+import type { EnvStoreState } from '@/c-types/store';
 import {
   Select,
   SelectContent,
@@ -97,6 +99,9 @@ export default function AdminOperationPromotionsPage() {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
   const { isReady } = useOperatorGuard();
+  const currencySymbol = useEnvStore(
+    (state: EnvStoreState) => state.currencySymbol || '',
+  );
   const clearLabel = t('common.core.close');
   const [tab, setTab] = useState<PromotionTab>('coupons');
   const [couponLoading, setCouponLoading] = useState(true);
@@ -1191,7 +1196,11 @@ export default function AdminOperationPromotionsPage() {
                         style={getCouponColumnStyle('discountRule')}
                       >
                         {renderTooltipText(
-                          renderRuleLabel(item.discount_type_key, item.value),
+                          renderRuleLabel(
+                            item.discount_type_key,
+                            item.value,
+                            currencySymbol,
+                          ),
                         )}
                       </TableCell>
                       <TableCell
@@ -1538,7 +1547,11 @@ export default function AdminOperationPromotionsPage() {
                         style={getCampaignColumnStyle('discountRule')}
                       >
                         {renderTooltipText(
-                          renderRuleLabel(item.discount_type_key, item.value),
+                          renderRuleLabel(
+                            item.discount_type_key,
+                            item.value,
+                            currencySymbol,
+                          ),
                         )}
                       </TableCell>
                       <TableCell

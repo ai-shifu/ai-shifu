@@ -40,13 +40,13 @@ export default function CourseOverviewSection({
         {cards.map(card => (
           <div
             key={card.key}
-            className='rounded-lg border border-border/70 bg-muted/20 p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
+            className='rounded-lg border border-border/70 bg-muted/20 p-4'
           >
             <div className='flex items-start justify-between gap-2'>
               <button
                 type='button'
                 aria-label={card.label}
-                className='group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
+                className='group -m-2 min-w-0 flex-1 rounded-md border border-transparent p-2 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
                 onClick={() => onQuickFilter(card.quickFilterKey)}
               >
                 <div className='text-sm text-muted-foreground'>

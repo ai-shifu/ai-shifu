@@ -5,6 +5,9 @@ import AdminOperationPromotionsPage from './page';
 
 const mockToast = jest.fn();
 const MOCK_DIALOG_CLOSE_LABEL = 'mock-dialog-close';
+const mockEnvState = {
+  currencySymbol: '¥',
+};
 const translationCache = new Map<string, { t: (key: string) => string }>();
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -60,6 +63,12 @@ jest.mock('@/hooks/useToast', () => ({
     mockToast({ ...options, description }),
   showErrorToast: (description: unknown, options?: Record<string, unknown>) =>
     mockToast({ ...options, description, variant: 'destructive' }),
+}));
+
+jest.mock('@/c-store', () => ({
+  __esModule: true,
+  useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
+    selector(mockEnvState),
 }));
 
 jest.mock('@/components/loading', () => ({
