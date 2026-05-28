@@ -155,7 +155,8 @@ def _normalize_contact_type(raw_type: str) -> str:
 
 
 def _require_operator() -> None:
-    if not getattr(request.user, "is_operator", False):
+    user = getattr(request, "user", None)
+    if not getattr(user, "is_operator", False):
         raise_error("server.shifu.noPermission")
 
 
@@ -268,15 +269,16 @@ def register_admin_operations_routes(
                                     $ref: "#/components/schemas/AdminOperationCourseListDTO"
         """
         _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
 
         filters = {
             "shifu_bid": request.args.get("shifu_bid", ""),
@@ -392,15 +394,16 @@ def register_admin_operations_routes(
                                     $ref: "#/components/schemas/AdminOperationUserListDTO"
         """
         _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
 
         filters = {
             "user_bid": request.args.get("user_bid", ""),
@@ -497,15 +500,16 @@ def register_admin_operations_routes(
                 description: List global operator-visible orders
         """
         _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
         page_size = min(page_size, OPERATOR_ORDER_LIST_MAX_PAGE_SIZE)
 
         filters = {
@@ -569,15 +573,16 @@ def register_admin_operations_routes(
     def admin_operation_credit_notifications():
         """List operator credit notification records."""
         _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
         filters = {
             "creator_bid": request.args.get("creator_bid", ""),
             "creator_keyword": request.args.get("creator_keyword", ""),
@@ -1220,15 +1225,16 @@ def register_admin_operations_routes(
                 description: Operator user credits detail
         """
         _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
 
         filters = {
             "credit_type": request.args.get("credit_type", ""),
@@ -1962,7 +1968,7 @@ def register_admin_operations_routes(
     )
     def admin_copy_course(shifu_bid: str):
         _require_operator()
-        payload = request.get_json() or {}
+        payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict):
             raise_param_error("payload")
         contact_type = _normalize_contact_type(payload.get("contact_type", ""))
@@ -1996,7 +2002,9 @@ def register_admin_operations_routes(
     )
     def admin_transfer_course_creator(shifu_bid: str):
         _require_operator()
-        payload = request.get_json() or {}
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
         contact_type = _normalize_contact_type(payload.get("contact_type", ""))
         allowed_methods = _get_login_methods_enabled()
         if contact_type not in {"phone", "email"}:
