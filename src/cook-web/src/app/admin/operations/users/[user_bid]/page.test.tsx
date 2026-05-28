@@ -448,8 +448,11 @@ describe('AdminOperationUserDetailPage', () => {
     );
     expect(pageContainer).toHaveClass('h-full');
     expect(pageContainer).toHaveClass('overscroll-none');
-    expect(pageContainer).not.toHaveClass('overflow-hidden');
+    expect(pageContainer).toHaveClass('overflow-hidden');
     expect(pageContainer).not.toHaveClass('overflow-auto');
+    expect(
+      screen.getByTestId('admin-operation-user-detail-scroll'),
+    ).toHaveClass('overflow-y-auto');
     expect(
       screen.getByTestId('admin-operation-user-credit-ledger-scroll'),
     ).toHaveClass('overflow-auto');
