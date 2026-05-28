@@ -59,7 +59,6 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.provider_state import (
     apply_billing_subscription_provider_update,
 )
-from flaskr.service.billing.paid_side_effects import BillingPaidOrderSideEffects
 from flaskr.service.billing.preorders import mark_preorder_effective_applied
 from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end,
@@ -1673,45 +1672,13 @@ class TestBillingWriteRoutes:
                 upgrade_order.bill_order_bid
             )
 
-    def test_subscription_checkout_zero_amount_upgrade_applies_without_provider_charge(
-        self, billing_write_client, monkeypatch
+    def test_subscription_checkout_rejects_zero_payable_upgrade_with_paid_preorder(
+        self, billing_write_client
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
         now = datetime.now()
         current_period_end = now + timedelta(days=25)
-        staged_side_effects: list[tuple[str, int | None, int]] = []
-        dispatched_side_effects: list[BillingPaidOrderSideEffects] = []
-
-        def _fake_stage_paid_side_effects(
-            stage_app: Flask,
-            order: BillingOrder,
-            *,
-            previous_status: int | None,
-        ) -> BillingPaidOrderSideEffects:
-            staged_side_effects.append(
-                (order.bill_order_bid, previous_status, int(order.status or 0))
-            )
-            grant_paid_order_credits(stage_app, order)
-            return BillingPaidOrderSideEffects(
-                bill_order_bid=order.bill_order_bid,
-                should_enqueue_billing_paid_feishu=True,
-            )
-
-        def _fake_dispatch_paid_side_effects(
-            _dispatch_app: Flask,
-            side_effects: BillingPaidOrderSideEffects,
-        ) -> None:
-            dispatched_side_effects.append(side_effects)
-
-        monkeypatch.setattr(
-            "flaskr.service.billing.checkout._stage_billing_paid_order_side_effects",
-            _fake_stage_paid_side_effects,
-        )
-        monkeypatch.setattr(
-            "flaskr.service.billing.checkout._dispatch_billing_paid_order_side_effects",
-            _fake_dispatch_paid_side_effects,
-        )
 
         with app.app_context():
             dao.db.session.add(
@@ -1767,44 +1734,31 @@ class TestBillingWriteRoutes:
             },
         ).get_json(force=True)
 
-        assert payload["code"] == 0
-        assert payload["data"]["status"] == "paid"
-        assert payload["data"]["prepaid_offset_amount"] == 800000
-        assert payload["data"]["payable_amount"] == 0
-        assert payload["data"]["payment_payload"] is None
+        assert (
+            payload["code"]
+            == ERROR_CODE["server.billing.subscriptionUpgradeAmountInvalid"]
+        )
         assert billing_write_client["pingxx_requests"] == []
 
         with app.app_context():
             subscription = BillingSubscription.query.filter_by(
                 subscription_bid="sub-preorder-zero-upgrade",
             ).one()
-            upgrade_order = BillingOrder.query.filter_by(
-                bill_order_bid=payload["data"]["bill_order_bid"],
-            ).one()
             preorder_order = BillingOrder.query.filter_by(
                 bill_order_bid="bill-preorder-zero-paid",
             ).one()
-            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            upgrade_order = BillingOrder.query.filter_by(
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                product_bid="bill-product-plan-yearly-lite",
+            ).first()
 
-            assert subscription.product_bid == "bill-product-plan-yearly-lite"
-            assert subscription.next_product_bid == ""
-            assert upgrade_order.status == BILLING_ORDER_STATUS_PAID
-            assert upgrade_order.provider_reference_id.startswith("zero_amount:")
-            assert upgrade_order.metadata_json["zero_amount_offset"] is True
+            assert subscription.product_bid == "bill-product-plan-monthly-pro"
+            assert subscription.next_product_bid == "bill-product-plan-monthly"
             assert preorder_order.metadata_json["preorder_state"] == (
-                "absorbed_by_upgrade"
+                "pending_effective"
             )
-            assert wallet.available_credits == Decimal("5000.0000000000")
-            assert staged_side_effects == [
-                (
-                    upgrade_order.bill_order_bid,
-                    BILLING_ORDER_STATUS_PENDING,
-                    BILLING_ORDER_STATUS_PAID,
-                )
-            ]
-            assert [
-                side_effects.bill_order_bid for side_effects in dispatched_side_effects
-            ] == [upgrade_order.bill_order_bid]
+            assert upgrade_order is None
 
     def test_pingxx_subscription_checkout_and_sync_grant_initial_credits(
         self, billing_write_client

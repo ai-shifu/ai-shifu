@@ -2491,6 +2491,7 @@ export type I18nKey =
   | 'server.billing.subscriptionPreorderProviderUnsupported'
   | 'server.billing.subscriptionPreorderTargetInvalid'
   | 'server.billing.subscriptionPreorderUnavailable'
+  | 'server.billing.subscriptionUpgradeAmountInvalid'
   | 'server.billing.subscriptionUpgradeOnly'
   | 'server.check.checkRiskControlReject'
   | 'server.common.backgroundNotAllowed'

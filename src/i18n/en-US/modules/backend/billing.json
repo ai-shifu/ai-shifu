@@ -15,6 +15,7 @@
     "subscriptionPreorderProviderUnsupported": "Package preorder is currently supported only for self-managed payment channels.",
     "subscriptionPreorderTargetInvalid": "Package preorder only supports renewing the same package or switching to a lower-tier package at the cycle boundary.",
     "subscriptionPreorderUnavailable": "Package preorder is unavailable for the current subscription.",
+    "subscriptionUpgradeAmountInvalid": "This upgrade cannot be completed because the payable amount is not positive after preorder offset. Please contact support to adjust the package pricing.",
     "subscriptionUpgradeOnly": "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
   }
 }

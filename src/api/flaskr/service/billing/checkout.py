@@ -771,7 +771,12 @@ def _validate_immediate_upgrade_checkout(
         return 0
     if int(active_preorder_order.status or 0) != BILLING_ORDER_STATUS_PAID:
         return 0
-    return int(active_preorder_order.paid_amount or 0)
+    prepaid_amount = int(active_preorder_order.paid_amount or 0)
+    if prepaid_amount <= 0:
+        return 0
+    if int(target_product.price_amount or 0) <= prepaid_amount:
+        raise_error("server.billing.subscriptionUpgradeAmountInvalid")
+    return prepaid_amount
 
 
 def _prepare_subscription_preorder_checkout_metadata(

@@ -97,13 +97,14 @@ creator_bid + active subscription -> at most one preorder order in pending_effec
 - If there is an active preorder, user pays:
 
 ```text
-payable_amount = max(0, target_plan.price_amount - preorder_order.paid_amount)
+payable_amount = target_plan.price_amount - preorder_order.paid_amount
 ```
 
 - The absorbed preorder is no longer eligible for next-cycle activation.
-- If the offset covers the full target price, the upgrade is completed as a
-  zero-amount internal checkout; no payment provider charge or refund is
-  created.
+- The payable amount must remain positive. If catalog pricing would make the
+  preorder offset cover the full target price, checkout is rejected as a
+  pricing configuration error instead of granting an upgrade without a provider
+  charge.
 - The new plan starts immediately.
 - The new cycle length is calculated from the target plan itself.
 - Available subscription credits become current remaining subscription credits
@@ -324,7 +325,8 @@ When payment succeeds:
 
 1. Load the active preorder order.
 2. Set upgrade order amount to
-   `max(0, target price - preorder paid amount)`.
+   `target price - preorder paid amount`; reject checkout if that value is not
+   positive.
 3. Mark the preorder order metadata as `absorbed_by_upgrade`.
 4. Void any reserved credit grant created by the preorder so it cannot be
    released at the original cycle boundary.

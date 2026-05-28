@@ -69,6 +69,7 @@
   "server.billing.subscriptionPreorderProviderUnsupported": 7112,
   "server.billing.subscriptionPreorderTargetInvalid": 7113,
   "server.billing.subscriptionPreorderUnavailable": 7114,
+  "server.billing.subscriptionUpgradeAmountInvalid": 7115,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,
