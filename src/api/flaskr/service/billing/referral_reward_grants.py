@@ -93,7 +93,6 @@ def _load_active_referral_reward_buckets(
         CreditWalletBucket.creator_bid == _normalize_bid(creator_bid),
         CreditWalletBucket.source_type == CREDIT_SOURCE_TYPE_MANUAL,
         CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
-        CreditWalletBucket.available_credits > Decimal("0"),
         CreditWalletBucket.effective_to.isnot(None),
         CreditWalletBucket.effective_to > as_of,
     ).order_by(
@@ -162,6 +161,7 @@ def _load_existing_referral_reward_result(
         expires_at=existing_entry.expires_at,
         wallet_bucket_bid=str(existing_entry.wallet_bucket_bid or "").strip(),
         ledger_bid=str(existing_entry.ledger_bid or "").strip(),
+        note=str((existing_entry.metadata_json or {}).get("note") or "").strip(),
         metadata_json=dict(existing_entry.metadata_json or {}),
     )
 
@@ -352,5 +352,6 @@ def grant_referral_reward_credits_to_user(
             expires_at=new_effective_to,
             wallet_bucket_bid=str(bucket.wallet_bucket_bid or "").strip(),
             ledger_bid=str(ledger_entry.ledger_bid or "").strip(),
+            note=normalized_note,
             metadata_json=ledger_metadata,
         )

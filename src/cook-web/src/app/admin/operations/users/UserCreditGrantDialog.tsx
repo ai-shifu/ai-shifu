@@ -159,7 +159,8 @@ const validatePositiveIntegerAmount = (value: string): boolean => {
   if (!/^\d+$/.test(normalized)) {
     return false;
   }
-  return Number(normalized) > 0;
+  const parsed = BigInt(normalized);
+  return parsed > 0n && parsed <= BigInt(Number.MAX_SAFE_INTEGER);
 };
 
 const normalizeNumericText = (value: string): string =>
@@ -642,11 +643,9 @@ export default function UserCreditGrantDialog({
         );
       }
       if (!bootstrapPayload) {
-        nextErrors.bootstrap = tOperationsUsers(
-          bootstrapLoading
-            ? 'grantDialog.placeholders.productLoading'
-            : 'grantDialog.bootstrapError',
-        );
+        nextErrors.bootstrap = bootstrapLoading
+          ? tOperationsUsers('grantDialog.referralReward.bootstrapLoading')
+          : tOperationsUsers('grantDialog.referralReward.bootstrapError');
       }
     }
 

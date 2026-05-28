@@ -1622,6 +1622,7 @@ def suppress_pending_expiring_notifications_for_bucket(
                 NotificationRecord.source_bid == normalized_wallet_bucket_bid,
                 NotificationRecord.status.in_(CREDIT_NOTIFICATION_PROCESSABLE_STATUSES),
             )
+            .with_for_update()
             .order_by(NotificationRecord.id.asc())
             .all()
         )

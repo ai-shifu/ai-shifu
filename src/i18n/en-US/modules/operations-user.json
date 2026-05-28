@@ -247,6 +247,8 @@
       "validityPreset": "Select validity"
     },
     "referralReward": {
+      "bootstrapError": "Failed to load referral reward data. Please try again later.",
+      "bootstrapLoading": "Loading referral reward data...",
       "currentCredits": "Current Referral Reward Credits",
       "currentExpireAt": "Current Referral Reward Valid Until",
       "description": "Each referral reward grant adds the entered credits and extends the current referral reward validity by 1 month.",

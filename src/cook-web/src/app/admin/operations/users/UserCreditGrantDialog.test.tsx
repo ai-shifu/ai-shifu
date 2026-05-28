@@ -573,6 +573,12 @@ describe('UserCreditGrantDialog', () => {
       target: { value: '1200.50' },
     });
     expect(referralRewardAmountInput).toHaveValue('1200');
+    fireEvent.change(referralRewardAmountInput, {
+      target: { value: String(Number.MAX_SAFE_INTEGER + 1) },
+    });
+    expect(referralRewardAmountInput).toHaveValue(
+      String(Number.MAX_SAFE_INTEGER + 1),
+    );
     fireEvent.change(
       screen.getByPlaceholderText(
         'module.operationsUser.grantDialog.placeholders.note',
@@ -582,6 +588,20 @@ describe('UserCreditGrantDialog', () => {
       },
     );
 
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.grantDialog.confirmButton',
+      }),
+    );
+    expect(
+      screen.getByText(
+        'module.operationsUser.grantDialog.validation.referralRewardAmountRequired',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.change(referralRewardAmountInput, {
+      target: { value: '1200' },
+    });
     fireEvent.click(
       screen.getByRole('button', {
         name: 'module.operationsUser.grantDialog.confirmButton',
