@@ -142,9 +142,7 @@ export default function CourseCopyDialog({
                     {tOperations('copyCourseDialog.currentCreator')}
                   </div>
                   <div className='text-[15px] font-medium leading-5 text-foreground'>
-                    {creatorDisplay.secondary ||
-                      creatorDisplay.primary ||
-                      '--'}
+                    {creatorDisplay.secondary || creatorDisplay.primary || '--'}
                   </div>
                   {creatorDisplay.primary && creatorDisplay.secondary ? (
                     <div className='text-sm text-muted-foreground'>
@@ -201,7 +199,9 @@ export default function CourseCopyDialog({
                 onChange={event => onIdentifierChange(event.target.value)}
                 autoComplete='off'
               />
-              {error ? <p className='text-sm text-destructive'>{error}</p> : null}
+              {error ? (
+                <p className='text-sm text-destructive'>{error}</p>
+              ) : null}
             </div>
           </div>
 

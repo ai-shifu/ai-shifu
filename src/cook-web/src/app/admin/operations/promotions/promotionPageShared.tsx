@@ -88,8 +88,10 @@ export const ALL_OPTION_VALUE = '__all__';
 export const PROMOTION_EXPIRING_SOON_DAYS = 7;
 export const COLUMN_MIN_WIDTH = 90;
 export const COLUMN_MAX_WIDTH = 420;
-export const COUPON_COLUMN_WIDTH_STORAGE_KEY = 'adminPromotionCouponsColumnWidths';
-export const CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY = 'adminPromotionCampaignsColumnWidths';
+export const COUPON_COLUMN_WIDTH_STORAGE_KEY =
+  'adminPromotionCouponsColumnWidths';
+export const CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY =
+  'adminPromotionCampaignsColumnWidths';
 export const COUPON_DEFAULT_COLUMN_WIDTHS = {
   name: 200,
   status: 110,
@@ -129,7 +131,8 @@ export const PROMOTION_USAGE_DIALOG_COLUMN_COUNT = {
 export const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
 export const TABLE_HEAD_CLASS = ADMIN_TABLE_HEADER_CELL_CENTER_CLASS;
-export const TABLE_ACTION_HEAD_CLASS = getAdminStickyRightHeaderClass('text-center');
+export const TABLE_ACTION_HEAD_CLASS =
+  getAdminStickyRightHeaderClass('text-center');
 export const TABLE_CELL_CLASS =
   'border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center';
 export const TABLE_LAST_CELL_CLASS =
@@ -427,7 +430,9 @@ export const resolveCampaignApplyTypeLabel = (
   return EMPTY_VALUE;
 };
 
-export const canEditCampaignStrategyFields = (item: AdminPromotionCampaignItem) => {
+export const canEditCampaignStrategyFields = (
+  item: AdminPromotionCampaignItem,
+) => {
   const startAt = parseLocalDateTimeInput(item.start_at || '');
   if (!startAt) {
     return false;
@@ -451,8 +456,9 @@ export const canEnableCampaignItem = (item: AdminPromotionCampaignItem) => {
 export const shouldShowCouponStatusToggle = (item: AdminPromotionCouponItem) =>
   item.computed_status !== 'inactive' || canEnableCouponItem(item);
 
-export const shouldShowCampaignStatusToggle = (item: AdminPromotionCampaignItem) =>
-  item.computed_status !== 'inactive' || canEnableCampaignItem(item);
+export const shouldShowCampaignStatusToggle = (
+  item: AdminPromotionCampaignItem,
+) => item.computed_status !== 'inactive' || canEnableCampaignItem(item);
 
 export const renderUserLabel = (
   item:
@@ -581,7 +587,8 @@ export const combineDateAndTime = (dateValue: string, timeValue: string) => {
   return `${normalizedDate} ${normalizedTime}:00`;
 };
 
-export const isPositiveIntegerString = (value: string) => /^\d+$/.test(value.trim());
+export const isPositiveIntegerString = (value: string) =>
+  /^\d+$/.test(value.trim());
 
 export const renderTooltipText = (text?: string, className?: string) => (
   <AdminTooltipText
