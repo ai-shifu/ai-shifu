@@ -322,7 +322,7 @@
     "sent": "Sent",
     "sentTooltip": "All notifications marked as sent after provider submission.",
     "skipped": "Skipped",
-    "skippedTooltip": "All notifications not sent because of missing mobile, opt-out, or duplicate suppression.",
+    "skippedTooltip": "All notifications not sent because of missing recipient data, policy limits, frequency or budget limits, or duplicate suppression.",
     "total": "All notification records",
     "totalTooltip": "Total number of all notification records."
   },

@@ -322,7 +322,7 @@
     "sent": "Envoyée",
     "sentTooltip": "Toutes les notifications marquées comme envoyées après soumission au fournisseur.",
     "skipped": "Ignorées",
-    "skippedTooltip": "Toutes les notifications non envoyées à cause du téléphone manquant, du désabonnement ou de la suppression des doublons.",
+    "skippedTooltip": "Toutes les notifications non envoyées à cause de données destinataire manquantes, de limites de stratégie, de fréquence ou de budget, ou de la suppression des doublons.",
     "total": "Tous les enregistrements de notification",
     "totalTooltip": "Nombre total de tous les enregistrements de notification."
   },
