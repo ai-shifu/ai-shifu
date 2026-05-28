@@ -1,58 +1,22 @@
 'use client';
 
-import Link from 'next/link';
 import React, {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
 } from 'react';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
-import { Trans, useTranslation } from 'react-i18next';
-import { Copy, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
-import AdminRowActions from '@/app/admin/components/AdminRowActions';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
-import { formatAdminCount } from '@/app/admin/lib/numberFormat';
-import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
-import {
-  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
-  ADMIN_TABLE_RESIZE_HANDLE_CLASS,
-  getAdminStickyRightCellClass,
-  getAdminStickyRightHeaderClass,
-} from '@/app/admin/components/adminTableStyles';
+import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/AlertDialog';
-import { Button } from '@/components/ui/Button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/Dialog';
-import { Input } from '@/components/ui/Input';
-import { Label } from '@/components/ui/Label';
 import {
   Select,
   SelectContent,
@@ -60,28 +24,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/Table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { useToast } from '@/hooks/useToast';
 import { copyText } from '@/c-utils/textutils';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { isValidEmail } from '@/lib/validators';
-import { buildAdminOperationsCourseDetailUrl } from './operation-course-routes';
+import CourseCopyDialog from './CourseCopyDialog';
+import CourseFiltersSection from './CourseFiltersSection';
+import CourseOverviewSection from './CourseOverviewSection';
+import CourseTransferCreatorDialog from './CourseTransferCreatorDialog';
+import CoursePromptDialog from './CoursePromptDialog';
+import CourseTableSection from './CourseTableSection';
 import type {
   AdminOperationCourseItem,
   AdminOperationCourseListResponse,
@@ -89,154 +43,36 @@ import type {
   AdminOperationCoursePromptResponse,
 } from './operation-course-types';
 import useOperatorGuard from './useOperatorGuard';
-
-type CourseFilters = {
-  shifu_bid: string;
-  course_name: string;
-  creator_keyword: string;
-  course_status: string;
-  start_time: string;
-  end_time: string;
-  updated_start_time: string;
-  updated_end_time: string;
-};
-
-type CourseQuickFilterKey =
-  | ''
-  | 'draft'
-  | 'published'
-  | 'created_last_7d'
-  | 'learning_active_30d'
-  | 'paid_order_30d';
-
-type ErrorState = { message: string; code?: number };
-
-const PAGE_SIZE = 20;
-const ALL_OPTION_VALUE = '__all__';
-const COURSE_STATUS_PUBLISHED = 'published';
-const COURSE_STATUS_UNPUBLISHED = 'unpublished';
-const COURSE_QUICK_FILTER_DRAFT = 'draft';
-const COURSE_QUICK_FILTER_PUBLISHED = 'published';
-const COURSE_QUICK_FILTER_CREATED_LAST_7D = 'created_last_7d';
-const COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D = 'learning_active_30d';
-const COURSE_QUICK_FILTER_PAID_ORDER_30D = 'paid_order_30d';
-const COLUMN_MIN_WIDTH = 80;
-const COLUMN_MAX_WIDTH = 360;
-const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationsColumnWidths';
-const DEFAULT_COLUMN_WIDTHS = {
-  courseId: 260,
-  courseName: 220,
-  status: 110,
-  price: 90,
-  model: 170,
-  coursePrompt: 120,
-  creator: 170,
-  modifier: 170,
-  updatedAt: 170,
-  createdAt: 170,
-  action: 115,
-} as const;
-type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
-const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
-const SINGLE_SELECT_ITEM_CLASS =
-  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
-const TRANSFER_PHONE_PATTERN = /^\d{11}$/;
-const EMPTY_STATE_LABEL = '--';
-const EMPTY_COURSE_OVERVIEW: AdminOperationCourseOverview = {
-  total_course_count: 0,
-  draft_course_count: 0,
-  published_course_count: 0,
-  created_last_7d_course_count: 0,
-  learning_active_30d_course_count: 0,
-  paid_order_30d_course_count: 0,
-};
-const TABLE_INLINE_ACTION_BUTTON_CLASS =
-  'inline-flex h-8 items-center justify-center rounded-md px-2.5 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
-const COLLAPSED_TEXT_STYLE: CSSProperties = {
-  display: '-webkit-box',
-  WebkitBoxOrient: 'vertical',
-  WebkitLineClamp: 6,
-  overflow: 'hidden',
-};
-
-type TransferContactType = 'email' | 'phone';
-
-const createDefaultFilters = (): CourseFilters => ({
-  shifu_bid: '',
-  course_name: '',
-  creator_keyword: '',
-  course_status: '',
-  start_time: '',
-  end_time: '',
-  updated_start_time: '',
-  updated_end_time: '',
-});
-
-const formatLocalDate = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const buildCreatedLast7DaysFilters = (): Pick<
-  CourseFilters,
-  'start_time' | 'end_time'
-> => {
-  const endDate = new Date();
-  const startDate = new Date(endDate);
-  startDate.setDate(endDate.getDate() - 6);
-  return {
-    start_time: formatLocalDate(startDate),
-    end_time: formatLocalDate(endDate),
-  };
-};
-
-const buildCopyCourseName = (
-  courseName: string | undefined,
-  fallbackName: string,
-  suffix: string,
-): string => {
-  const normalizedCourseName = courseName?.trim() || fallbackName;
-  if (normalizedCourseName.length + suffix.length <= TITLE_MAX_LENGTH) {
-    return `${normalizedCourseName}${suffix}`;
-  }
-  return `${normalizedCourseName.slice(0, TITLE_MAX_LENGTH - suffix.length)}${suffix}`;
-};
-
-const normalizeTransferIdentifier = (
-  contactType: TransferContactType,
-  value: string,
-): string => {
-  const trimmed = value.trim();
-  return contactType === 'email' ? trimmed.toLowerCase() : trimmed;
-};
-
-const isValidTransferIdentifier = (
-  contactType: TransferContactType,
-  value: string,
-): boolean => {
-  if (!value) {
-    return false;
-  }
-  if (contactType === 'email') {
-    return isValidEmail(value);
-  }
-  return TRANSFER_PHONE_PATTERN.test(value);
-};
-
-const renderTooltipText = (text?: string, className?: string) => {
-  return (
-    <AdminTooltipText
-      text={text}
-      emptyValue={EMPTY_STATE_LABEL}
-      className={className}
-    />
-  );
-};
-
-const formatCount = (value: number, locale: string): string =>
-  formatAdminCount(value, locale, EMPTY_STATE_LABEL);
+import {
+  ALL_OPTION_VALUE,
+  buildCopyCourseName,
+  buildCreatedLast7DaysFilters,
+  COLLAPSED_TEXT_STYLE,
+  COLUMN_KEYS,
+  COLUMN_MAX_WIDTH,
+  COLUMN_MIN_WIDTH,
+  COLUMN_WIDTH_STORAGE_KEY,
+  COURSE_QUICK_FILTER_CREATED_LAST_7D,
+  COURSE_QUICK_FILTER_DRAFT,
+  COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D,
+  COURSE_QUICK_FILTER_PAID_ORDER_30D,
+  COURSE_QUICK_FILTER_PUBLISHED,
+  COURSE_STATUS_PUBLISHED,
+  COURSE_STATUS_UNPUBLISHED,
+  createDefaultFilters,
+  DEFAULT_COLUMN_WIDTHS,
+  EMPTY_COURSE_OVERVIEW,
+  EMPTY_STATE_LABEL,
+  type ColumnKey,
+  type CourseFilters,
+  type CourseQuickFilterKey,
+  type ErrorState,
+  isValidTransferIdentifier,
+  normalizeTransferIdentifier,
+  PAGE_SIZE,
+  SINGLE_SELECT_ITEM_CLASS,
+  type TransferContactType,
+} from './operationCoursePageShared';
 
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
@@ -434,6 +270,7 @@ const OperationsPage = () => {
   const [transferConfirmOpen, setTransferConfirmOpen] = useState(false);
   const requestedPageRef = useRef(1);
   const requestIdRef = useRef(0);
+  const transferRequestIdRef = useRef(0);
   const copyRequestIdRef = useRef(0);
   const promptRequestIdRef = useRef(0);
   const promptDetailContentRef = useRef<HTMLDivElement | null>(null);
@@ -741,6 +578,7 @@ const OperationsPage = () => {
       if (nextOpen) {
         return;
       }
+      transferRequestIdRef.current += 1;
       setTransferTargetCourse(null);
       setTransferContactType(defaultTransferContactType);
       setTransferIdentifier('');
@@ -1034,6 +872,8 @@ const OperationsPage = () => {
       return;
     }
 
+    const requestId = transferRequestIdRef.current + 1;
+    transferRequestIdRef.current = requestId;
     setTransferConfirmOpen(false);
     setTransferError('');
     setTransferLoading(true);
@@ -1043,17 +883,26 @@ const OperationsPage = () => {
         contact_type: transferContactType,
         identifier: normalizedTransferIdentifier,
       });
+      if (requestId !== transferRequestIdRef.current) {
+        return;
+      }
       toast({
         title: tOperations('transferCreatorDialog.submitSuccess'),
       });
       handleTransferDialogOpenChange(false);
       await fetchCourses(requestedPageRef.current, filters, quickFilter);
     } catch (error) {
+      if (requestId !== transferRequestIdRef.current) {
+        return;
+      }
       setTransferError(
         error instanceof Error ? error.message : t('common.core.unknownError'),
       );
-    } finally {
       setTransferLoading(false);
+    } finally {
+      if (requestId === transferRequestIdRef.current) {
+        setTransferLoading(false);
+      }
     }
   }, [
     fetchCourses,
@@ -1463,806 +1312,119 @@ const OperationsPage = () => {
           title={tOperations('title')}
         />
 
-        <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm'>
-          <div className='mb-3'>
-            <h2 className='text-base font-semibold text-foreground'>
-              {tOperations('overview.title')}
-            </h2>
-          </div>
-          <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3 min-[1680px]:grid-cols-6'>
-            {overviewCards.map(card => {
-              return (
-                <div
-                  key={card.key}
-                  className='rounded-lg border border-border/70 bg-muted/20 p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
-                >
-                  <div className='flex items-start justify-between gap-2'>
-                    <button
-                      type='button'
-                      aria-label={card.label}
-                      className='group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
-                      onClick={() => applyQuickFilter(card.quickFilterKey)}
-                    >
-                      <div className='text-sm text-muted-foreground'>
-                        {card.label}
-                      </div>
-                      <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
-                        {formatCount(card.value, i18n.language)}
-                      </div>
-                    </button>
-                    <TooltipProvider delayDuration={0}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type='button'
-                            aria-label={card.tooltip}
-                            className='inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
-                          >
-                            <QuestionMarkCircleIcon className='h-4 w-4' />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent className='max-w-56 text-left leading-5'>
-                          {card.tooltip}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div
-          className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'
-          data-testid='admin-operations-filters'
-        >
-          <div className='space-y-4'>
-            {activeQuickFilterCard ? (
-              <div className='flex flex-wrap items-center gap-2'>
-                <span className='text-sm text-muted-foreground'>
-                  {tOperations('overview.activeFilter')}
-                </span>
-                <button
-                  type='button'
-                  aria-label={`${activeQuickFilterCard.label} ${clearLabel}`}
-                  className='inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground transition-colors hover:bg-muted'
-                  onClick={() => applyQuickFilter('')}
-                >
-                  <span>{activeQuickFilterCard.label}</span>
-                  <X className='h-3.5 w-3.5' />
-                </button>
-              </div>
-            ) : null}
-            <AdminFilter
-              items={[
-                ...expandedPrimaryFilterItems,
-                ...expandedSecondaryFilterItems,
-              ]}
-              expanded={expanded}
-              onExpandedChange={setExpanded}
-              onReset={handleReset}
-              onSearch={handleSearch}
-              resetLabel={t('module.order.filters.reset')}
-              searchLabel={t('module.order.filters.search')}
-              expandLabel={t('common.core.expand')}
-              collapseLabel={t('common.core.collapse')}
-              collapsedCount={2}
-              className='bg-transparent'
-              contentClassName='min-w-0'
-              labelClassName='w-20 text-right'
-              collapsedGridClassName='gap-x-5 xl:grid-cols-3'
-              expandedGridClassName='gap-x-5 xl:grid-cols-3'
-              labelColon
-            />
-          </div>
-        </div>
-
-        <AdminTableShell
-          loading={loading}
-          isEmpty={courses.length === 0}
-          emptyContent={tOperations('emptyList')}
-          emptyColSpan={Object.keys(DEFAULT_COLUMN_WIDTHS).length}
-          withTooltipProvider
-          tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
-          table={emptyRow => (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('courseId')}
-                  >
-                    {tOperations('table.courseId')}
-                    {renderResizeHandle('courseId')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('courseName')}
-                  >
-                    {tOperations('table.courseName')}
-                    {renderResizeHandle('courseName')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('status')}
-                  >
-                    {tOperations('table.status')}
-                    {renderResizeHandle('status')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('price')}
-                  >
-                    {tOperations('table.price')}
-                    {renderResizeHandle('price')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('model')}
-                  >
-                    {tOperations('table.model')}
-                    {renderResizeHandle('model')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('coursePrompt')}
-                  >
-                    {tOperations('table.coursePrompt')}
-                    {renderResizeHandle('coursePrompt')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('creator')}
-                  >
-                    {tOperations('table.creator')}
-                    {renderResizeHandle('creator')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('modifier')}
-                  >
-                    {tOperations('table.modifier')}
-                    {renderResizeHandle('modifier')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('updatedAt')}
-                  >
-                    {tOperations('table.updatedAt')}
-                    {renderResizeHandle('updatedAt')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
-                    style={getColumnStyle('createdAt')}
-                  >
-                    {tOperations('table.createdAt')}
-                    {renderResizeHandle('createdAt')}
-                  </TableHead>
-                  <TableHead
-                    className={getAdminStickyRightHeaderClass('text-center')}
-                    style={getColumnStyle('action')}
-                  >
-                    {tOperations('table.action')}
-                    {renderResizeHandle('action')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {emptyRow}
-                {courses.map(course => {
-                  const creatorDisplay = resolveActorDisplay(course, 'creator');
-                  const updaterDisplay = resolveActorDisplay(course, 'updater');
-                  const detailUrl = buildAdminOperationsCourseDetailUrl(
-                    course.shifu_bid,
-                  );
-
-                  return (
-                    <TableRow key={course.shifu_bid}>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
-                        style={getColumnStyle('courseId')}
-                      >
-                        {renderTooltipText(course.shifu_bid, 'mx-auto block')}
-                      </TableCell>
-                      <TableCell
-                        className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-center text-ellipsis'
-                        style={getColumnStyle('courseName')}
-                      >
-                        {detailUrl ? (
-                          <Link
-                            href={detailUrl}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                            className='mx-auto block max-w-full text-center text-primary transition-colors hover:text-primary/80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
-                          >
-                            {renderTooltipText(
-                              course.course_name,
-                              'truncate text-center',
-                            )}
-                          </Link>
-                        ) : (
-                          renderTooltipText(
-                            course.course_name,
-                            'truncate text-center',
-                          )
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
-                        style={getColumnStyle('status')}
-                      >
-                        {renderTooltipText(
-                          resolveCourseStatusLabel(course.course_status),
-                          'mx-auto block text-foreground',
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
-                        style={getColumnStyle('price')}
-                      >
-                        {renderTooltipText(
-                          formatMoney(course.price),
-                          'mx-auto block text-foreground',
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
-                        style={getColumnStyle('model')}
-                      >
-                        {renderTooltipText(
-                          course.course_model,
-                          'mx-auto block text-foreground',
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
-                        style={getColumnStyle('coursePrompt')}
-                      >
-                        {course.has_course_prompt ? (
-                          <button
-                            type='button'
-                            className='text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
-                            onClick={() => handlePromptDetailClick(course)}
-                          >
-                            {tOperations('table.detailAction')}
-                          </button>
-                        ) : (
-                          renderTooltipText(undefined, 'text-foreground')
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
-                        style={getColumnStyle('creator')}
-                      >
-                        <div className='flex flex-col items-center gap-0.5 leading-tight'>
-                          {renderTooltipText(
-                            creatorDisplay.primary,
-                            'mx-auto block text-foreground whitespace-nowrap text-center',
-                          )}
-                          {creatorDisplay.secondary
-                            ? renderTooltipText(
-                                creatorDisplay.secondary,
-                                'mx-auto block text-xs text-muted-foreground text-center',
-                              )
-                            : null}
-                        </div>
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
-                        style={getColumnStyle('modifier')}
-                      >
-                        <div className='flex flex-col items-center gap-0.5 leading-tight'>
-                          {renderTooltipText(
-                            updaterDisplay.primary,
-                            'mx-auto block text-foreground whitespace-nowrap text-center',
-                          )}
-                          {updaterDisplay.secondary
-                            ? renderTooltipText(
-                                updaterDisplay.secondary,
-                                'mx-auto block text-xs text-muted-foreground text-center',
-                              )
-                            : null}
-                        </div>
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
-                        style={getColumnStyle('updatedAt')}
-                      >
-                        {renderTooltipText(
-                          formatAdminUtcDateTime(course.updated_at),
-                          'mx-auto block',
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-center text-ellipsis'
-                        style={getColumnStyle('createdAt')}
-                      >
-                        {renderTooltipText(
-                          formatAdminUtcDateTime(course.created_at),
-                          'mx-auto block',
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={getAdminStickyRightCellClass(
-                          'whitespace-nowrap text-center',
-                        )}
-                        style={getColumnStyle('action')}
-                      >
-                        <div className='flex justify-center'>
-                          <AdminRowActions
-                            label={t('common.core.more')}
-                            className={TABLE_INLINE_ACTION_BUTTON_CLASS}
-                            actions={[
-                              {
-                                key: 'copy',
-                                label: tOperations('actions.copyCourse'),
-                                onClick: () => handleCopyCourseClick(course),
-                              },
-                              {
-                                key: 'transfer',
-                                label: tOperations('actions.transferCreator'),
-                                onClick: () =>
-                                  handleTransferCreatorClick(course),
-                              },
-                            ]}
-                          />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-          pagination={{
-            pageIndex,
-            pageCount,
-            onPageChange: handlePageChange,
-            prevLabel: t('module.order.paginationPrev'),
-            nextLabel: t('module.order.paginationNext'),
-            prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
-            nextAriaLabel: t('module.order.paginationNextAriaLabel'),
-          }}
+        <CourseOverviewSection
+          title={tOperations('overview.title')}
+          cards={overviewCards}
+          locale={i18n.language}
+          onQuickFilter={applyQuickFilter}
         />
-        <Dialog
-          open={Boolean(promptDetailCourse)}
+
+        <CourseFiltersSection
+          items={[
+            ...expandedPrimaryFilterItems,
+            ...expandedSecondaryFilterItems,
+          ]}
+          expanded={expanded}
+          activeQuickFilterCard={activeQuickFilterCard}
+          clearLabel={clearLabel}
+          activeFilterLabel={tOperations('overview.activeFilter')}
+          resetLabel={t('module.order.filters.reset')}
+          searchLabel={t('module.order.filters.search')}
+          expandLabel={t('common.core.expand')}
+          collapseLabel={t('common.core.collapse')}
+          onExpandedChange={setExpanded}
+          onReset={handleReset}
+          onSearch={handleSearch}
+          onQuickFilter={applyQuickFilter}
+        />
+
+        <CourseTableSection
+          loading={loading}
+          courses={courses}
+          pageIndex={pageIndex}
+          pageCount={pageCount}
+          getColumnStyle={getColumnStyle}
+          renderResizeHandle={renderResizeHandle}
+          resolveActorDisplay={resolveActorDisplay}
+          resolveCourseStatusLabel={resolveCourseStatusLabel}
+          formatMoney={formatMoney}
+          onPageChange={handlePageChange}
+          onPromptDetailClick={handlePromptDetailClick}
+          onCopyCourseClick={handleCopyCourseClick}
+          onTransferCreatorClick={handleTransferCreatorClick}
+        />
+        <CoursePromptDialog
+          course={promptDetailCourse}
+          text={promptDetailText}
+          loading={promptDetailLoading}
+          error={promptDetailError}
+          expanded={coursePromptExpanded}
+          canToggle={canTogglePromptDetail}
+          hasText={hasPromptDetailText}
+          collapsedStyle={COLLAPSED_TEXT_STYLE}
+          contentRef={promptDetailContentRef}
           onOpenChange={handlePromptDetailOpenChange}
-        >
-          <DialogContent className='w-[min(88vw,760px)] max-w-[760px] p-0'>
-            <DialogHeader className='border-b border-border px-6 py-4 pr-12'>
-              <div className='flex items-center justify-between gap-4'>
-                <DialogTitle>
-                  {tOperations('coursePromptDialog.title')}
-                </DialogTitle>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  className='gap-2'
-                  onClick={handleCopyCoursePrompt}
-                  disabled={
-                    !hasPromptDetailText ||
-                    promptDetailLoading ||
-                    Boolean(promptDetailError)
-                  }
-                >
-                  <Copy className='h-4 w-4' />
-                  {tOperations('coursePromptDialog.copy')}
-                </Button>
-              </div>
-            </DialogHeader>
-            <div className='min-h-[240px] max-h-[460px] overflow-auto px-6 py-5'>
-              <section>
-                <div className='rounded-lg border border-border bg-muted/20 p-4'>
-                  {promptDetailLoading ? (
-                    <div className='flex min-h-[180px] items-center justify-center'>
-                      <Loading />
-                    </div>
-                  ) : null}
-                  {!promptDetailLoading && promptDetailError ? (
-                    <div className='flex min-h-[180px] flex-col items-center justify-center gap-3 text-center'>
-                      <p className='text-sm leading-6 text-destructive'>
-                        {promptDetailError}
-                      </p>
-                      <button
-                        type='button'
-                        className='text-sm font-medium text-primary transition-colors hover:text-primary/80'
-                        onClick={() => {
-                          if (promptDetailCourse) {
-                            void handlePromptDetailClick(promptDetailCourse);
-                          }
-                        }}
-                      >
-                        {t('common.core.retry')}
-                      </button>
-                    </div>
-                  ) : null}
-                  {!promptDetailLoading && !promptDetailError ? (
-                    <>
-                      <div
-                        ref={promptDetailContentRef}
-                        className='break-words whitespace-pre-wrap text-sm leading-6 text-foreground'
-                        style={
-                          coursePromptExpanded || !canTogglePromptDetail
-                            ? undefined
-                            : COLLAPSED_TEXT_STYLE
-                        }
-                      >
-                        {hasPromptDetailText
-                          ? promptDetailText
-                          : tOperations('coursePromptDialog.empty')}
-                      </div>
-                      {canTogglePromptDetail ? (
-                        <div className='mt-3 flex justify-end'>
-                          <button
-                            type='button'
-                            className='text-sm font-medium text-primary transition-colors hover:text-primary/80'
-                            onClick={() =>
-                              setCoursePromptExpanded(previous => !previous)
-                            }
-                          >
-                            {coursePromptExpanded
-                              ? t('common.core.collapse')
-                              : t('common.core.expand')}
-                          </button>
-                        </div>
-                      ) : null}
-                    </>
-                  ) : null}
-                </div>
-              </section>
-            </div>
-          </DialogContent>
-        </Dialog>
-        <Dialog
+          onCopy={handleCopyCoursePrompt}
+          onRetry={course => void handlePromptDetailClick(course)}
+          onToggleExpanded={() =>
+            setCoursePromptExpanded(previous => !previous)
+          }
+        />
+        <CourseCopyDialog
           open={copyDialogOpen}
+          confirmOpen={copyConfirmOpen}
+          loading={copyLoading}
+          targetCourse={copyTargetCourse}
+          courseName={copyCourseName}
+          newCourseName={copyNewCourseName}
+          creatorDisplay={copyCreatorDisplay}
+          contactOptions={transferContactOptions}
+          contactType={copyContactType}
+          identifier={copyIdentifier}
+          identifierPlaceholder={copyIdentifierPlaceholder}
+          error={copyError}
+          targetCreatorText={copyTargetCreatorText}
+          hintText={copyHintText}
           onOpenChange={handleCopyDialogOpenChange}
-        >
-          <DialogContent
-            className='overflow-hidden p-0 gap-0 sm:max-w-[440px]'
-            showClose={!copyLoading}
-            onEscapeKeyDown={event => {
-              if (copyLoading) {
-                event.preventDefault();
-              }
-            }}
-            onInteractOutside={event => {
-              if (copyLoading) {
-                event.preventDefault();
-              }
-            }}
-          >
-            <DialogHeader className='border-b border-border px-6 pb-4 pt-6'>
-              <DialogTitle>{tOperations('copyCourseDialog.title')}</DialogTitle>
-              <p className='mt-2 text-sm leading-6 text-muted-foreground'>
-                {copyHintText}
-              </p>
-            </DialogHeader>
+          onConfirmOpenChange={setCopyConfirmOpen}
+          onContactTypeChange={setCopyContactType}
+          onIdentifierChange={value => {
+            setCopyIdentifier(value);
+            if (copyError) {
+              setCopyError('');
+            }
+          }}
+          onSubmit={handleCopySubmit}
+          onConfirm={handleCopyConfirm}
+        />
 
-            <div className='space-y-5 px-6 py-5'>
-              <div className='rounded-xl border border-border bg-muted/[0.18] p-3.5'>
-                <div className='space-y-3'>
-                  <div className='space-y-1'>
-                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
-                      {tOperations('table.courseName')}
-                    </div>
-                    <div className='text-[15px] font-medium leading-5 text-foreground'>
-                      {copyCourseName}
-                    </div>
-                  </div>
-
-                  <div className='h-px bg-border/80' />
-
-                  <div className='space-y-1'>
-                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
-                      {tOperations('copyCourseDialog.newCourseName')}
-                    </div>
-                    <div className='text-[15px] font-medium leading-5 text-foreground'>
-                      {copyNewCourseName}
-                    </div>
-                  </div>
-
-                  <div className='h-px bg-border/80' />
-
-                  <div className='space-y-1'>
-                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
-                      {tOperations('copyCourseDialog.currentCreator')}
-                    </div>
-                    <div className='text-[15px] font-medium leading-5 text-foreground'>
-                      {copyCreatorDisplay.secondary ||
-                        copyCreatorDisplay.primary ||
-                        '--'}
-                    </div>
-                    {copyCreatorDisplay.primary &&
-                    copyCreatorDisplay.secondary ? (
-                      <div className='text-sm text-muted-foreground'>
-                        {copyCreatorDisplay.primary}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              <div className='space-y-2.5'>
-                {transferContactOptions.length > 1 ? (
-                  <div className='space-y-2.5'>
-                    <Label className='text-sm font-medium text-foreground'>
-                      {tOperations('copyCourseDialog.contactType')}
-                    </Label>
-                    <Select
-                      value={copyContactType}
-                      onValueChange={value =>
-                        setCopyContactType(value as TransferContactType)
-                      }
-                    >
-                      <SelectTrigger className='h-11 rounded-lg'>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem
-                          value='email'
-                          className={SINGLE_SELECT_ITEM_CLASS}
-                        >
-                          {tOperations('copyCourseDialog.contactTypeEmail')}
-                        </SelectItem>
-                        <SelectItem
-                          value='phone'
-                          className={SINGLE_SELECT_ITEM_CLASS}
-                        >
-                          {tOperations('copyCourseDialog.contactTypePhone')}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null}
-                <Label
-                  htmlFor='copy-course-identifier'
-                  className='text-sm font-medium text-foreground'
-                >
-                  {tOperations('copyCourseDialog.identifier')}
-                </Label>
-                <Input
-                  id='copy-course-identifier'
-                  value={copyIdentifier}
-                  placeholder={copyIdentifierPlaceholder}
-                  className='h-11 rounded-lg'
-                  onChange={event => {
-                    setCopyIdentifier(event.target.value);
-                    if (copyError) {
-                      setCopyError('');
-                    }
-                  }}
-                  autoComplete='off'
-                />
-                {copyError ? (
-                  <p className='text-sm text-destructive'>{copyError}</p>
-                ) : null}
-              </div>
-            </div>
-
-            <DialogFooter className='gap-2 border-t border-border bg-background px-6 py-4'>
-              <Button
-                variant='outline'
-                onClick={() => handleCopyDialogOpenChange(false)}
-                disabled={copyLoading}
-                className='min-w-24'
-              >
-                {t('common.core.cancel')}
-              </Button>
-              <Button
-                onClick={handleCopySubmit}
-                disabled={copyLoading || !copyTargetCourse}
-                className='min-w-28'
-              >
-                {tOperations('copyCourseDialog.confirm')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <AlertDialog
-          open={copyConfirmOpen}
-          onOpenChange={setCopyConfirmOpen}
-        >
-          <AlertDialogContent className='sm:max-w-[420px]'>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {tOperations('copyCourseDialog.confirmTitle')}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                <span className='leading-8 text-muted-foreground'>
-                  <Trans
-                    ns='module.operationsCourse'
-                    i18nKey='copyCourseDialog.confirmDescription'
-                    values={{
-                      courseName: copyCourseName,
-                      targetCreator: copyTargetCreatorText,
-                      newCourseName: copyNewCourseName,
-                    }}
-                    components={{
-                      strong: (
-                        <span className='font-semibold text-foreground' />
-                      ),
-                    }}
-                  />
-                </span>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={copyLoading}>
-                {t('common.core.cancel')}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleCopyConfirm}
-                disabled={copyLoading}
-              >
-                {tOperations('copyCourseDialog.confirm')}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        <Dialog
+        <CourseTransferCreatorDialog
           open={transferDialogOpen}
+          confirmOpen={transferConfirmOpen}
+          loading={transferLoading}
+          targetCourse={transferTargetCourse}
+          courseName={transferCourseName}
+          creatorDisplay={transferCreatorDisplay}
+          contactOptions={transferContactOptions}
+          contactType={transferContactType}
+          identifier={transferIdentifier}
+          identifierPlaceholder={transferIdentifierPlaceholder}
+          error={transferError}
+          currentCreatorText={transferCurrentCreatorText}
+          targetCreatorText={transferTargetCreatorText}
+          hintText={transferHintText}
           onOpenChange={handleTransferDialogOpenChange}
-        >
-          <DialogContent className='overflow-hidden p-0 gap-0 sm:max-w-[440px]'>
-            <DialogHeader className='border-b border-border px-6 pb-4 pt-6'>
-              <DialogTitle>
-                {tOperations('transferCreatorDialog.title')}
-              </DialogTitle>
-              <p className='mt-2 text-sm leading-6 text-muted-foreground'>
-                {transferHintText}
-              </p>
-            </DialogHeader>
-
-            <div className='space-y-5 px-6 py-5'>
-              <div className='rounded-xl border border-border bg-muted/[0.18] p-3.5'>
-                <div className='space-y-3'>
-                  <div className='space-y-1'>
-                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
-                      {tOperations('table.courseName')}
-                    </div>
-                    <div className='text-[15px] font-medium leading-5 text-foreground'>
-                      {transferCourseName}
-                    </div>
-                  </div>
-
-                  <div className='h-px bg-border/80' />
-
-                  <div className='space-y-1'>
-                    <div className='text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/90'>
-                      {tOperations('transferCreatorDialog.currentCreator')}
-                    </div>
-                    <div className='text-[15px] font-medium leading-5 text-foreground'>
-                      {transferCreatorDisplay.secondary ||
-                        transferCreatorDisplay.primary ||
-                        '--'}
-                    </div>
-                    {transferCreatorDisplay.primary &&
-                    transferCreatorDisplay.secondary ? (
-                      <div className='text-sm text-muted-foreground'>
-                        {transferCreatorDisplay.primary}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              <div className='space-y-2.5'>
-                {transferContactOptions.length > 1 ? (
-                  <div className='space-y-2.5'>
-                    <Label className='text-sm font-medium text-foreground'>
-                      {tOperations('transferCreatorDialog.contactType')}
-                    </Label>
-                    <Select
-                      value={transferContactType}
-                      onValueChange={value =>
-                        setTransferContactType(value as TransferContactType)
-                      }
-                    >
-                      <SelectTrigger className='h-11 rounded-lg'>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem
-                          value='email'
-                          className={SINGLE_SELECT_ITEM_CLASS}
-                        >
-                          {tOperations(
-                            'transferCreatorDialog.contactTypeEmail',
-                          )}
-                        </SelectItem>
-                        <SelectItem
-                          value='phone'
-                          className={SINGLE_SELECT_ITEM_CLASS}
-                        >
-                          {tOperations(
-                            'transferCreatorDialog.contactTypePhone',
-                          )}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null}
-                <Label
-                  htmlFor='transfer-identifier'
-                  className='text-sm font-medium text-foreground'
-                >
-                  {tOperations('transferCreatorDialog.identifier')}
-                </Label>
-                <Input
-                  id='transfer-identifier'
-                  value={transferIdentifier}
-                  placeholder={transferIdentifierPlaceholder}
-                  className='h-11 rounded-lg'
-                  onChange={event => {
-                    setTransferIdentifier(event.target.value);
-                    if (transferError) {
-                      setTransferError('');
-                    }
-                  }}
-                  autoComplete='off'
-                />
-                {transferError ? (
-                  <p className='text-sm text-destructive'>{transferError}</p>
-                ) : null}
-              </div>
-            </div>
-
-            <DialogFooter className='gap-2 border-t border-border bg-background px-6 py-4'>
-              <Button
-                variant='outline'
-                onClick={() => handleTransferDialogOpenChange(false)}
-                disabled={transferLoading}
-                className='min-w-24'
-              >
-                {t('common.core.cancel')}
-              </Button>
-              <Button
-                onClick={handleTransferSubmit}
-                disabled={transferLoading || !transferTargetCourse}
-                className='min-w-28'
-              >
-                {tOperations('transferCreatorDialog.confirm')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <AlertDialog
-          open={transferConfirmOpen}
-          onOpenChange={setTransferConfirmOpen}
-        >
-          <AlertDialogContent className='sm:max-w-[420px]'>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {tOperations('transferCreatorDialog.confirmTitle')}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                <span className='leading-8 text-muted-foreground'>
-                  {tOperations('transferCreatorDialog.confirmDescription', {
-                    courseName: transferCourseName,
-                    currentCreator: transferCurrentCreatorText,
-                    targetCreator: transferTargetCreatorText,
-                  })}
-                </span>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={transferLoading}>
-                {t('common.core.cancel')}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleTransferConfirm}
-                disabled={transferLoading}
-              >
-                {tOperations('transferCreatorDialog.confirm')}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          onConfirmOpenChange={setTransferConfirmOpen}
+          onContactTypeChange={setTransferContactType}
+          onIdentifierChange={value => {
+            setTransferIdentifier(value);
+            if (transferError) {
+              setTransferError('');
+            }
+          }}
+          onSubmit={handleTransferSubmit}
+          onConfirm={handleTransferConfirm}
+        />
       </div>
     </div>
   );
