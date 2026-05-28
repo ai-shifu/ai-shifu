@@ -206,6 +206,11 @@
       "packageCredits": "Crédits",
       "packageExpireAt": "Date de fin estimée",
       "packageValidity": "Validité",
+      "referralCurrentCredits": "Crédits de récompense de parrainage actuels",
+      "referralCurrentExpireAt": "Validité actuelle de la récompense de parrainage",
+      "referralEstimatedCredits": "Crédits estimés après attribution",
+      "referralEstimatedExpireAt": "Validité estimée après attribution",
+      "referralGrantCount": "Nombre de parrainages récompensés",
       "source": "Source",
       "validityPreset": "Validité"
     },
@@ -220,7 +225,8 @@
     },
     "modeOptions": {
       "credits": "Attribuer des crédits",
-      "package": "Attribuer un forfait"
+      "package": "Attribuer un forfait",
+      "referralReward": "Récompense de parrainage"
     },
     "packageConfirmDescription": "Veuillez confirmer les détails de l’attribution du forfait. Une fois confirmée, elle prend effet immédiatement.",
     "packageConfirmTitle": "Confirmer l’attribution du forfait",
@@ -237,9 +243,25 @@
       "note": "Optionnel. Indiquez la raison de cette attribution",
       "product": "Sélectionnez un forfait",
       "productLoading": "Chargement des forfaits...",
+      "referralRewardAmount": "Saisir les crédits de récompense",
       "source": "Sélectionnez une source",
       "validityPreset": "Sélectionnez une validité"
     },
+    "referralReward": {
+      "bootstrapError": "Impossible de charger les données de récompense de parrainage. Veuillez réessayer plus tard.",
+      "bootstrapLoading": "Chargement des données de récompense de parrainage...",
+      "currentCredits": "Crédits de récompense de parrainage actuels",
+      "currentExpireAt": "Validité actuelle de la récompense de parrainage",
+      "description": "Chaque attribution de récompense de parrainage ajoute les crédits saisis et prolonge la validité actuelle de 1 mois.",
+      "emptyDescription": "S’il n’existe aucune récompense de parrainage active, la validité commence à l’heure d’attribution et dure 1 mois.",
+      "grantCount": "Nombre de parrainages récompensés",
+      "grantCountTooltip": "La source des données est temporairement basée sur le nombre d’attributions de récompense de parrainage.",
+      "noActiveReward": "Aucune récompense de parrainage active",
+      "oneMonth": "1 mois",
+      "validity": "Validité"
+    },
+    "referralRewardConfirmDescription": "Veuillez confirmer les détails de la récompense de parrainage. Une fois confirmée, elle prend effet immédiatement.",
+    "referralRewardConfirmTitle": "Confirmer la récompense de parrainage",
     "sourceOptions": {
       "compensation": "Compensation",
       "reward": "Récompense"
@@ -258,6 +280,7 @@
     "validation": {
       "amountRequired": "Saisissez un montant de crédits supérieur à 0",
       "productRequired": "Sélectionnez un forfait",
+      "referralRewardAmountRequired": "Saisissez un nombre entier positif de crédits",
       "sourceRequired": "Sélectionnez une source",
       "validityPresetRequired": "Sélectionnez une validité"
     },

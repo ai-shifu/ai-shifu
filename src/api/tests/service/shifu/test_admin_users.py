@@ -34,6 +34,10 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_TOPUP,
     CREDIT_SOURCE_TYPE_USAGE,
 )
+from flaskr.service.billing import (
+    referral_reward_grants as referral_reward_grants_module,
+)
+from flaskr.service.billing.bucket_categories import resolve_credit_bucket_priority
 from flaskr.service.billing.models import CreditWallet, CreditWalletBucket
 from flaskr.service.billing.models import (
     BillingOrder,
@@ -2653,6 +2657,7 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app
 
     assert result.user_bid == "credits-grant-target"
     assert result.amount == "5"
+    assert result.grant_type == "manual_credit"
     assert result.grant_source == "compensation"
     assert result.validity_preset == "7d"
     assert result.expires_at.endswith("Z")
@@ -2720,6 +2725,327 @@ def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(app):
     assert second_result.ledger_bid == first_result.ledger_bid
     assert second_result.wallet_bucket_bid == first_result.wallet_bucket_bid
     assert len(ledger_entries) == 1
+
+
+def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(app, monkeypatch):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
+
+    monkeypatch.setattr(referral_reward_grants_module, "datetime", FixedDateTime)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="referral-reward-target",
+            identify="referral-reward-target@example.com",
+            nickname="Referral Reward Target",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "referral-reward-target@example.com")],
+        )
+
+        first_result = grant_operator_user_credits(
+            app,
+            user_bid="referral-reward-target",
+            operator_user_bid="operator-1",
+            payload=AdminOperationUserCreditGrantRequestDTO(
+                request_id="referral-reward-request-1",
+                amount="1000",
+                grant_type="referral_reward",
+                grant_source="reward",
+                validity_preset="1m",
+                note="first referral",
+            ),
+        )
+        second_result = grant_operator_user_credits(
+            app,
+            user_bid="referral-reward-target",
+            operator_user_bid="operator-1",
+            payload=AdminOperationUserCreditGrantRequestDTO(
+                request_id="referral-reward-request-2",
+                amount="800",
+                grant_type="referral_reward",
+                grant_source="reward",
+                validity_preset="1m",
+                note="second referral",
+            ),
+        )
+
+        buckets = CreditWalletBucket.query.filter_by(
+            creator_bid="referral-reward-target",
+            deleted=0,
+        ).all()
+        ledgers = (
+            CreditLedgerEntry.query.filter_by(
+                creator_bid="referral-reward-target",
+                deleted=0,
+            )
+            .order_by(CreditLedgerEntry.id.asc())
+            .all()
+        )
+        bootstrap = get_operator_user_grant_bootstrap(
+            app,
+            user_bid="referral-reward-target",
+        )
+
+    assert first_result.grant_type == "referral_reward"
+    assert first_result.expires_at == "2026-05-21T00:00:00Z"
+    assert second_result.grant_type == "referral_reward"
+    assert second_result.expires_at == "2026-06-21T00:00:00Z"
+    assert second_result.wallet_bucket_bid == first_result.wallet_bucket_bid
+    assert second_result.amount == "800"
+    assert second_result.summary.available_credits == "1800"
+    assert len(buckets) == 1
+    assert buckets[0].metadata_json["grant_type"] == "referral_reward"
+    assert buckets[0].metadata_json["validity_strategy"] == "stack_by_reward_scene"
+    assert Decimal(str(buckets[0].available_credits)) == Decimal("1800")
+    assert len(ledgers) == 2
+    assert ledgers[0].expires_at == ledgers[1].expires_at == buckets[0].effective_to
+    assert Decimal(ledgers[1].metadata_json["reward_credits"]) == Decimal("800")
+    assert ledgers[1].metadata_json["previous_effective_to"]
+    assert ledgers[1].metadata_json["new_effective_to"]
+    assert bootstrap.referral_reward_summary.available_credits == "1800"
+    assert bootstrap.referral_reward_summary.expires_at == second_result.expires_at
+    assert bootstrap.referral_reward_summary.grant_count == 2
+
+
+def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
+    app, monkeypatch
+):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
+
+    monkeypatch.setattr(referral_reward_grants_module, "datetime", FixedDateTime)
+
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="referral-reward-empty-active",
+            identify="referral-reward-empty-active@example.com",
+            nickname="Referral Reward Empty Active",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "referral-reward-empty-active@example.com")],
+        )
+        _seed_credit_wallet(
+            creator_bid="referral-reward-empty-active",
+            wallet_bid="wallet-referral-reward-empty-active",
+            available_credits="0",
+        )
+        db.session.add(
+            CreditWalletBucket(
+                wallet_bucket_bid="bucket-referral-reward-empty-active",
+                wallet_bid="wallet-referral-reward-empty-active",
+                creator_bid="referral-reward-empty-active",
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid="referral_reward",
+                priority=resolve_credit_bucket_priority(
+                    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+                ),
+                original_credits=Decimal("1000"),
+                available_credits=Decimal("0"),
+                reserved_credits=Decimal("0"),
+                consumed_credits=Decimal("1000"),
+                expired_credits=Decimal("0"),
+                effective_from=datetime(2026, 4, 1, 0, 0, 0),
+                effective_to=datetime(2026, 5, 21, 0, 0, 0),
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                metadata_json={
+                    "grant_type": "referral_reward",
+                    "validity_strategy": "stack_by_reward_scene",
+                },
+            )
+        )
+        db.session.commit()
+
+        result = grant_operator_user_credits(
+            app,
+            user_bid="referral-reward-empty-active",
+            operator_user_bid="operator-1",
+            payload=AdminOperationUserCreditGrantRequestDTO(
+                request_id="referral-reward-empty-active-request",
+                amount="1000",
+                grant_type="referral_reward",
+                grant_source="reward",
+                validity_preset="1m",
+                note="extend empty active bucket",
+            ),
+        )
+
+        buckets = CreditWalletBucket.query.filter_by(
+            creator_bid="referral-reward-empty-active",
+            deleted=0,
+        ).all()
+
+    assert result.wallet_bucket_bid == "bucket-referral-reward-empty-active"
+    assert result.expires_at == "2026-06-21T00:00:00Z"
+    assert result.note == "extend empty active bucket"
+    assert len(buckets) == 1
+    assert buckets[0].effective_to == datetime(2026, 6, 21, 0, 0, 0)
+    assert Decimal(str(buckets[0].available_credits)) == Decimal("1000")
+
+
+def test_grant_operator_user_referral_reward_is_idempotent_for_repeated_request_id(
+    app,
+):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="referral-reward-idempotent",
+            identify="referral-reward-idempotent@example.com",
+            nickname="Referral Reward Idempotent",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "referral-reward-idempotent@example.com")],
+        )
+
+        payload = AdminOperationUserCreditGrantRequestDTO(
+            request_id="referral-reward-idempotent-request",
+            amount="1000",
+            grant_type="referral_reward",
+            grant_source="reward",
+            validity_preset="1m",
+            note="retry-safe referral",
+        )
+        first_result = grant_operator_user_credits(
+            app,
+            user_bid="referral-reward-idempotent",
+            operator_user_bid="operator-1",
+            payload=payload,
+        )
+        second_result = grant_operator_user_credits(
+            app,
+            user_bid="referral-reward-idempotent",
+            operator_user_bid="operator-1",
+            payload=payload,
+        )
+
+        buckets = CreditWalletBucket.query.filter_by(
+            creator_bid="referral-reward-idempotent",
+            deleted=0,
+        ).all()
+        ledger_entries = CreditLedgerEntry.query.filter_by(
+            creator_bid="referral-reward-idempotent",
+            deleted=0,
+        ).all()
+
+    assert first_result.ledger_bid
+    assert second_result.ledger_bid == first_result.ledger_bid
+    assert second_result.wallet_bucket_bid == first_result.wallet_bucket_bid
+    assert second_result.summary.available_credits == "1000"
+    assert second_result.note == "retry-safe referral"
+    assert len(buckets) == 1
+    assert len(ledger_entries) == 1
+
+
+def test_grant_operator_user_referral_reward_rejects_non_integer_amount(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="referral-reward-invalid-amount",
+            identify="referral-reward-invalid-amount@example.com",
+            nickname="Referral Reward Invalid Amount",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "referral-reward-invalid-amount@example.com")],
+        )
+
+        with pytest.raises(AppException):
+            grant_operator_user_credits(
+                app,
+                user_bid="referral-reward-invalid-amount",
+                operator_user_bid="operator-1",
+                payload=AdminOperationUserCreditGrantRequestDTO(
+                    request_id="referral-reward-invalid-amount-request",
+                    amount="1000.5",
+                    grant_type="referral_reward",
+                    grant_source="reward",
+                    validity_preset="1m",
+                ),
+            )
+
+
+def test_grant_operator_user_credits_accepts_legacy_manual_grant_type(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-grant-legacy-manual-type",
+            identify="credits-grant-legacy-manual-type@example.com",
+            nickname="Credits Grant Legacy Manual Type",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "credits-grant-legacy-manual-type@example.com")],
+        )
+
+        result = grant_operator_user_credits(
+            app,
+            user_bid="credits-grant-legacy-manual-type",
+            operator_user_bid="operator-1",
+            payload=AdminOperationUserCreditGrantRequestDTO(
+                request_id="grant-request-legacy-manual-type",
+                amount="5",
+                grant_type="manual_grant",
+                grant_source="reward",
+                validity_preset="1d",
+                note="legacy type",
+            ),
+        )
+
+    assert result.grant_type == "manual_credit"
+    assert result.note == "legacy type"
+
+
+def test_grant_operator_user_credits_rejects_unknown_grant_type(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-grant-unknown-type",
+            identify="credits-grant-unknown-type@example.com",
+            nickname="Credits Grant Unknown Type",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "credits-grant-unknown-type@example.com")],
+        )
+
+        with pytest.raises(AppException) as exc_info:
+            grant_operator_user_credits(
+                app,
+                user_bid="credits-grant-unknown-type",
+                operator_user_bid="operator-1",
+                payload=AdminOperationUserCreditGrantRequestDTO(
+                    request_id="grant-request-unknown-type",
+                    amount="5",
+                    grant_type="unknown_type",
+                    grant_source="reward",
+                    validity_preset="1d",
+                    note="invalid type",
+                ),
+            )
+        ledger_count = CreditLedgerEntry.query.filter_by(
+            creator_bid="credits-grant-unknown-type",
+            deleted=0,
+        ).count()
+
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+    assert "grant_type" in exc_info.value.message
+    assert ledger_count == 0
 
 
 def test_grant_operator_user_credits_returns_persisted_payload_for_reused_request_id(

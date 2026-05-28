@@ -50,10 +50,12 @@ from flaskr.service.billing.api import (
     dry_run_credit_notifications,
     get_credit_notification_detail,
     get_operator_credit_notification_overview as build_credit_notification_overview,
+    grant_referral_reward_credits_to_user,
     grant_manual_credits_to_user,
     grant_manual_plan_to_user,
     list_credit_notification_templates,
     list_credit_notifications,
+    load_referral_reward_summary,
     load_credit_notification_policy_for_operator,
     requeue_credit_notification,
     save_credit_notification_policy,
@@ -125,6 +127,7 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditGrantResultDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserGrantBootstrapDTO,
+    AdminOperationUserReferralRewardSummaryDTO,
     AdminOperationUserPackageGrantRequestDTO,
     AdminOperationUserPackageGrantResultDTO,
     AdminOperationCourseSummaryDTO,
@@ -290,6 +293,8 @@ COURSE_CREDIT_USAGE_SCENE_PREVIEW = "preview"
 COURSE_CREDIT_USAGE_SCENE_DEBUG = "debug"
 OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD = "reward"
 OPERATOR_USER_CREDIT_GRANT_SOURCE_COMPENSATION = "compensation"
+OPERATOR_USER_CREDIT_GRANT_TYPE_MANUAL = "manual_credit"
+OPERATOR_USER_CREDIT_GRANT_TYPE_REFERRAL_REWARD = "referral_reward"
 OPERATOR_USER_CREDIT_TYPE_ALL = "all"
 OPERATOR_USER_CREDIT_TYPE_CONSUME = "consume"
 OPERATOR_USER_CREDIT_TYPE_GRANT = "grant"
@@ -310,12 +315,31 @@ OPERATOR_USER_CREDIT_GRANT_SOURCES = {
     OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD,
     OPERATOR_USER_CREDIT_GRANT_SOURCE_COMPENSATION,
 }
+OPERATOR_USER_CREDIT_GRANT_TYPES = {
+    OPERATOR_USER_CREDIT_GRANT_TYPE_MANUAL,
+    OPERATOR_USER_CREDIT_GRANT_TYPE_REFERRAL_REWARD,
+}
 OPERATOR_USER_CREDIT_FILTER_TYPES = {
     OPERATOR_USER_CREDIT_TYPE_ALL,
     OPERATOR_USER_CREDIT_TYPE_CONSUME,
     OPERATOR_USER_CREDIT_TYPE_GRANT,
     OPERATOR_USER_CREDIT_TYPE_OTHER,
 }
+
+
+def _resolve_operator_credit_grant_type(
+    grant_type: str,
+    *,
+    fallback: str = OPERATOR_USER_CREDIT_GRANT_TYPE_MANUAL,
+) -> str:
+    normalized_grant_type = str(grant_type or "").strip().lower()
+    if normalized_grant_type == "manual_grant":
+        return OPERATOR_USER_CREDIT_GRANT_TYPE_MANUAL
+    if normalized_grant_type in OPERATOR_USER_CREDIT_GRANT_TYPES:
+        return normalized_grant_type
+    return fallback
+
+
 OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCES = {
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL,
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_SUBSCRIPTION,
@@ -7135,6 +7159,14 @@ def grant_operator_user_credits(
 
         user = _load_operator_user_or_raise(normalized_user_bid)
         _assert_operator_user_grant_target_supported(user)
+        raw_grant_type = str(payload.grant_type or "").strip()
+        normalized_grant_type = (
+            OPERATOR_USER_CREDIT_GRANT_TYPE_MANUAL
+            if not raw_grant_type
+            else _resolve_operator_credit_grant_type(raw_grant_type, fallback="")
+        )
+        if normalized_grant_type not in OPERATOR_USER_CREDIT_GRANT_TYPES:
+            raise_param_error("grant_type")
         normalized_grant_source = str(payload.grant_source or "").strip().lower()
         if normalized_grant_source not in OPERATOR_USER_CREDIT_GRANT_SOURCES:
             raise_param_error("grant_source")
@@ -7148,19 +7180,37 @@ def grant_operator_user_credits(
             raise_param_error("request_id")
         normalized_display_name = str(payload.display_name or "").strip()
         normalized_note = str(payload.note or "").strip()
-        grant_result = grant_manual_credits_to_user(
-            app,
-            user_bid=normalized_user_bid,
-            operator_user_bid=normalized_operator_user_bid,
-            request_id=normalized_request_id,
-            amount=payload.amount,
-            grant_source=normalized_grant_source,
-            validity_preset=normalized_validity_preset,
-            display_name=normalized_display_name,
-            note=normalized_note,
-        )
+        if normalized_grant_type == OPERATOR_USER_CREDIT_GRANT_TYPE_REFERRAL_REWARD:
+            if normalized_grant_source != OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD:
+                raise_param_error("grant_source")
+            if normalized_validity_preset != OPERATOR_USER_CREDIT_VALIDITY_1M:
+                raise_param_error("validity_preset")
+            grant_result = grant_referral_reward_credits_to_user(
+                app,
+                user_bid=normalized_user_bid,
+                operator_user_bid=normalized_operator_user_bid,
+                request_id=normalized_request_id,
+                amount=payload.amount,
+                note=normalized_note,
+            )
+        else:
+            grant_result = grant_manual_credits_to_user(
+                app,
+                user_bid=normalized_user_bid,
+                operator_user_bid=normalized_operator_user_bid,
+                request_id=normalized_request_id,
+                amount=payload.amount,
+                grant_source=normalized_grant_source,
+                validity_preset=normalized_validity_preset,
+                display_name=normalized_display_name,
+                note=normalized_note,
+            )
 
         persisted_metadata = _normalize_metadata_json(grant_result.metadata_json)
+        resolved_grant_type = _resolve_operator_credit_grant_type(
+            str(persisted_metadata.get("grant_type") or "").strip(),
+            fallback=normalized_grant_type,
+        )
         resolved_grant_source = str(
             persisted_metadata.get("grant_source") or normalized_grant_source
         ).strip()
@@ -7181,6 +7231,7 @@ def grant_operator_user_credits(
             status=str(grant_result.status or "granted"),
             user_bid=normalized_user_bid,
             amount=resolved_amount,
+            grant_type=resolved_grant_type,
             grant_source=resolved_grant_source,
             validity_preset=resolved_validity_preset,
             expires_at=_format_operator_datetime(grant_result.expires_at),
@@ -7399,11 +7450,17 @@ def get_operator_user_grant_bootstrap(
         user = _load_operator_user_or_raise(normalized_user_bid)
         _assert_operator_user_grant_target_supported(user)
         catalog = build_billing_catalog(app)
+        server_time = datetime.now()
         current_subscription_product_display_name_i18n_key = (
             _load_active_subscription_product_display_name_i18n_key(
                 normalized_user_bid,
-                as_of=datetime.now(),
+                as_of=server_time,
             )
+        )
+        referral_summary = load_referral_reward_summary(
+            app,
+            creator_bid=normalized_user_bid,
+            as_of=server_time,
         )
         return AdminOperationUserGrantBootstrapDTO(
             plans=catalog.plans,
@@ -7411,6 +7468,17 @@ def get_operator_user_grant_bootstrap(
                 current_subscription_product_display_name_i18n_key
             ),
             notification_status="template_pending",
+            server_time=_format_operator_datetime(server_time),
+            referral_reward_summary=AdminOperationUserReferralRewardSummaryDTO(
+                available_credits=_format_decimal(
+                    _quantize_credit_amount(
+                        Decimal(str(referral_summary.available_credits or 0))
+                    )
+                ),
+                expires_at=_format_operator_datetime(referral_summary.expires_at),
+                wallet_bucket_bid=str(referral_summary.wallet_bucket_bid or ""),
+                grant_count=int(referral_summary.grant_count or 0),
+            ),
         )
 
 

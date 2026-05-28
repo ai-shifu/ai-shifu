@@ -410,6 +410,11 @@ class AdminOperationUserCreditGrantRequestDTO(BaseModel):
         required=True,
     )
     amount: str = Field(..., description="Granted credits amount", required=True)
+    grant_type: str = Field(
+        default="manual_credit",
+        description="Grant type: manual_credit or referral_reward",
+        required=False,
+    )
     grant_source: str = Field(
         ..., description="Grant source: reward or compensation", required=True
     )
@@ -434,6 +439,11 @@ class AdminOperationUserCreditGrantResultDTO(BaseModel):
     status: str = Field(default="granted", description="Grant result status")
     user_bid: str = Field(..., description="Target user business identifier")
     amount: str = Field(..., description="Granted credits amount", required=False)
+    grant_type: str = Field(
+        default="manual_credit",
+        description="Grant type: manual_credit or referral_reward",
+        required=False,
+    )
     grant_source: str = Field(
         ..., description="Grant source: reward or compensation", required=False
     )
@@ -468,6 +478,35 @@ class AdminOperationUserCreditGrantResultDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AdminOperationUserReferralRewardSummaryDTO(BaseModel):
+    """Current referral reward pool shown in the operator grant dialog."""
+
+    available_credits: str = Field(
+        default="0",
+        description="Current active referral reward credits",
+        required=False,
+    )
+    expires_at: str = Field(
+        default="",
+        description="Current active referral reward expiry timestamp",
+        required=False,
+    )
+    wallet_bucket_bid: str = Field(
+        default="",
+        description="Current active referral reward wallet bucket identifier",
+        required=False,
+    )
+    grant_count: int = Field(
+        default=0,
+        description="Successful referral reward grant count",
+        required=False,
+    )
+
+    def __json__(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+@register_schema_to_swagger
 class AdminOperationUserGrantBootstrapDTO(BaseModel):
     """Operator grant dialog bootstrap payload."""
 
@@ -486,6 +525,16 @@ class AdminOperationUserGrantBootstrapDTO(BaseModel):
         description="Current admin package notification template status",
         required=False,
     )
+    server_time: str = Field(
+        default="",
+        description="Server timestamp used for grant previews",
+        required=False,
+    )
+    referral_reward_summary: AdminOperationUserReferralRewardSummaryDTO = Field(
+        default_factory=AdminOperationUserReferralRewardSummaryDTO,
+        description="Current referral reward pool summary",
+        required=False,
+    )
 
     def __json__(self) -> dict[str, Any]:
         return {
@@ -494,6 +543,8 @@ class AdminOperationUserGrantBootstrapDTO(BaseModel):
                 self.current_subscription_product_display_name_i18n_key
             ),
             "notification_status": self.notification_status,
+            "server_time": self.server_time,
+            "referral_reward_summary": self.referral_reward_summary.__json__(),
         }
 
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -13,6 +12,7 @@ from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.uuid import generate_id
 
 from .credit_notifications import stage_credit_granted_notification
+from .grant_results import ManualCreditGrantResult
 from .primitives import (
     credit_decimal_to_number as _credit_decimal_to_number,
     normalize_bid as _normalize_bid,
@@ -44,41 +44,6 @@ MANUAL_CREDIT_VALIDITY_PRESETS = (
     MANUAL_CREDIT_VALIDITY_3M,
     MANUAL_CREDIT_VALIDITY_1Y,
 )
-
-
-@dataclass(slots=True, frozen=True)
-class ManualCreditGrantResult:
-    """Resolved state for one manual credit grant request."""
-
-    status: str
-    user_bid: str
-    amount: int | float
-    grant_source: str
-    validity_preset: str
-    expires_at: datetime | None
-    wallet_bucket_bid: str
-    ledger_bid: str
-    display_name: str = ""
-    note: str = ""
-    metadata_json: dict[str, Any] = field(default_factory=dict)
-
-    def to_payload(self) -> dict[str, Any]:
-        return {
-            "status": self.status,
-            "user_bid": self.user_bid,
-            "amount": self.amount,
-            "grant_source": self.grant_source,
-            "validity_preset": self.validity_preset,
-            "expires_at": self.expires_at,
-            "display_name": self.display_name,
-            "note": self.note,
-            "wallet_bucket_bid": self.wallet_bucket_bid,
-            "ledger_bid": self.ledger_bid,
-            "metadata_json": self.metadata_json,
-        }
-
-    def __getitem__(self, key: str) -> Any:
-        return self.to_payload()[key]
 
 
 def _normalize_credit_amount(value: Any) -> Decimal:
