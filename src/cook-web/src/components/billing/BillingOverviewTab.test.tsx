@@ -945,6 +945,92 @@ describe('BillingOverviewTab', () => {
     expect(screen.getByText(/400/)).toBeInTheDocument();
   });
 
+  test('disables pending-preorder upgrades when the current provider is unavailable', async () => {
+    mockEnvState.paymentChannels = ['stripe'];
+    mockEnvState.stripeEnabled = 'true';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: 'bill-product-plan-monthly-pro',
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-yearly-lite-action',
+      ),
+    ).toBeDisabled();
+  });
+
+  test('disables active-subscription upgrades when the current provider is unavailable', async () => {
+    mockEnvState.paymentChannels = ['stripe'];
+    mockEnvState.stripeEnabled = 'true';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-monthly-pro-action',
+      ),
+    ).toBeDisabled();
+  });
+
   test('shows same-plan pending preorder and keeps higher-tier upgrade available', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];
@@ -1417,6 +1503,36 @@ describe('BillingOverviewTab', () => {
     });
     mockEnvState.paymentChannels = ['pingxx'];
     mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
     mockCheckoutBillingSubscription.mockResolvedValue({
       bill_order_bid: 'order-plan-pingxx-1',
       provider: 'pingxx',
@@ -1478,6 +1594,36 @@ describe('BillingOverviewTab', () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];
     mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
     mockCheckoutBillingSubscription.mockResolvedValue({
       bill_order_bid: 'order-plan-pingxx-1',
       provider: 'pingxx',

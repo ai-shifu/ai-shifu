@@ -355,7 +355,7 @@ export function BillingPlanComparisonTable({
     const samePlanRenewalLimitReached =
       isCurrentPlan && isSamePlanRenewalLimitReached(currentSubscription, plan);
     let action: BillingSubscriptionCheckoutAction | undefined;
-    let actionProvider = provider;
+    let actionProvider = hasActiveSubscription ? null : provider;
     let actionLabelKey = 'module.billing.package.actions.subscribeNow';
     let actionDisabled = !actionProvider;
     let actionTone: ActionTone = 'primary';

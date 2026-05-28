@@ -1755,6 +1755,83 @@ class TestBillingWriteRoutes:
             assert wallet.reserved_credits == Decimal("0E-10")
             assert wallet.lifetime_granted_credits == Decimal("5105.0000000000")
 
+    def test_subscription_checkout_rejects_paid_preorder_offset_provider_mismatch(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+        current_period_start = now - timedelta(days=5)
+        current_period_end = now + timedelta(days=25)
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-preorder-upgrade-provider-mismatch",
+                    creator_bid="creator-1",
+                    product_bid="bill-product-plan-monthly-pro",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="pingxx",
+                    provider_subscription_id="",
+                    provider_customer_id="",
+                    current_period_start_at=current_period_start,
+                    current_period_end_at=current_period_end,
+                    cancel_at_period_end=0,
+                    next_product_bid="bill-product-plan-monthly",
+                    metadata_json={
+                        "preorder_order_bid": "bill-preorder-paid-provider-mismatch"
+                    },
+                    created_at=current_period_start,
+                    updated_at=current_period_start,
+                )
+            )
+            dao.db.session.add(
+                BillingOrder(
+                    bill_order_bid="bill-preorder-paid-provider-mismatch",
+                    creator_bid="creator-1",
+                    order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                    product_bid="bill-product-plan-monthly",
+                    subscription_bid="sub-preorder-upgrade-provider-mismatch",
+                    currency="CNY",
+                    payable_amount=990,
+                    paid_amount=990,
+                    payment_provider="pingxx",
+                    channel="alipay_qr",
+                    provider_reference_id="ch_preorder_paid_provider_mismatch",
+                    status=BILLING_ORDER_STATUS_PAID,
+                    paid_at=now - timedelta(minutes=5),
+                    metadata_json={
+                        "checkout_type": "subscription_preorder",
+                        "preorder_state": "pending_effective",
+                        "renewal_cycle_start_at": current_period_end.isoformat(),
+                    },
+                    created_at=now - timedelta(minutes=5),
+                    updated_at=now - timedelta(minutes=5),
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-yearly-lite",
+                "payment_provider": "stripe",
+                "action": "upgrade_immediate",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert (
+            payload["code"]
+            == ERROR_CODE["server.billing.subscriptionPreorderProviderUnsupported"]
+        )
+        with app.app_context():
+            upgrade_order = BillingOrder.query.filter_by(
+                subscription_bid="sub-preorder-upgrade-provider-mismatch",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+            ).first()
+            assert upgrade_order is None
+
     def test_subscription_checkout_immediate_upgrade_preserves_pending_preorder_until_paid(
         self, billing_write_client
     ) -> None:

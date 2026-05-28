@@ -264,6 +264,21 @@ def create_billing_subscription_checkout(
                     == BILLING_ORDER_STATUS_PAID
                     else None
                 )
+                if paid_preorder_order is not None:
+                    subscription_provider = (
+                        str(subscription.billing_provider or "").strip().lower()
+                    )
+                    preorder_provider = (
+                        str(paid_preorder_order.payment_provider or "").strip().lower()
+                    )
+                    if (
+                        subscription_provider not in _SELF_MANAGED_PREORDER_PROVIDERS
+                        or payment_provider != subscription_provider
+                        or preorder_provider != subscription_provider
+                    ):
+                        raise_error(
+                            "server.billing.subscriptionPreorderProviderUnsupported"
+                        )
                 prepaid_offset_amount = _validate_immediate_upgrade_checkout(
                     current_product=current_product,
                     target_product=product,
