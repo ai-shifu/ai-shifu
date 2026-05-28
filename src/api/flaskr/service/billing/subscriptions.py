@@ -79,6 +79,7 @@ from .queries import (
     extract_resolved_order_cycle_end_at as _extract_resolved_order_cycle_end_at,
     extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
     calculate_billing_cycle_end as _calc_provider_cycle_end,
+    calculate_self_managed_billing_cycle_end_after_boundary as _calc_self_managed_cycle_end_after_boundary,
     calculate_self_managed_billing_cycle_end as _calc_self_managed_cycle_end,
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
     load_primary_active_subscription as _load_primary_active_subscription,
@@ -460,11 +461,17 @@ def ensure_subscription_renewal_order(
     if product is None:
         return None
 
-    cycle_end_at = _calculate_billing_cycle_end(
-        product,
-        cycle_start_at=cycle_start_at,
-        payment_provider=provider_name,
-    )
+    if is_self_managed_billing_provider(provider_name):
+        cycle_end_at = _calc_self_managed_cycle_end_after_boundary(
+            product,
+            cycle_boundary_at=cycle_start_at,
+        )
+    else:
+        cycle_end_at = _calculate_billing_cycle_end(
+            product,
+            cycle_start_at=cycle_start_at,
+            payment_provider=provider_name,
+        )
     if cycle_end_at is None:
         return None
 

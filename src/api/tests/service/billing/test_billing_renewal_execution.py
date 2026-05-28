@@ -51,7 +51,10 @@ from flaskr.service.billing.renewal import (
     claim_billing_renewal_event,
     run_billing_renewal_event,
 )
-from flaskr.service.billing.queries import calculate_self_managed_billing_cycle_end
+from flaskr.service.billing.queries import (
+    calculate_self_managed_billing_cycle_end,
+    calculate_self_managed_billing_cycle_end_after_boundary,
+)
 from flaskr.service.billing.subscriptions import (
     ensure_subscription_renewal_order,
     sync_subscription_lifecycle_events,
@@ -71,6 +74,23 @@ def _self_managed_cycle_end(
             billing_interval_count=interval_count,
         ),
         cycle_start_at=cycle_start_at,
+    )
+    assert cycle_end_at is not None
+    return cycle_end_at
+
+
+def _self_managed_cycle_end_after_boundary(
+    cycle_boundary_at: datetime,
+    *,
+    interval: int = BILLING_INTERVAL_MONTH,
+    interval_count: int = 1,
+) -> datetime:
+    cycle_end_at = calculate_self_managed_billing_cycle_end_after_boundary(
+        BillingProduct(
+            billing_interval=interval,
+            billing_interval_count=interval_count,
+        ),
+        cycle_boundary_at=cycle_boundary_at,
     )
     assert cycle_end_at is not None
     return cycle_end_at
@@ -553,10 +573,10 @@ def test_run_billing_downgrade_event_applies_paid_preorder(
     current_cycle_start = datetime.now() - timedelta(days=35)
     preorder_snapshot_cycle_end = datetime.now() - timedelta(days=5)
     current_cycle_end = datetime.now() - timedelta(minutes=1)
-    preorder_snapshot_next_cycle_end = _self_managed_cycle_end(
+    preorder_snapshot_next_cycle_end = _self_managed_cycle_end_after_boundary(
         preorder_snapshot_cycle_end
     )
-    next_cycle_end = _self_managed_cycle_end(current_cycle_end)
+    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(
@@ -727,7 +747,7 @@ def test_ensure_subscription_renewal_order_preserves_preorder_metadata(
 ) -> None:
     current_cycle_start = datetime.now() - timedelta(days=30)
     current_cycle_end = datetime.now() + timedelta(days=1)
-    next_cycle_end = _self_managed_cycle_end(current_cycle_end)
+    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(
@@ -918,7 +938,7 @@ def test_run_billing_renewal_event_writes_daily_cycle_metadata(
     billing_renewal_app: Flask,
 ) -> None:
     cycle_end = datetime.now() - timedelta(hours=1)
-    expected_cycle_end = _self_managed_cycle_end(
+    expected_cycle_end = _self_managed_cycle_end_after_boundary(
         cycle_end,
         interval=BILLING_INTERVAL_DAY,
         interval_count=7,
@@ -991,7 +1011,7 @@ def test_expire_event_activates_paid_pingxx_renewal_instead_of_expiring(
 ) -> None:
     current_cycle_start = datetime.now() - timedelta(days=30)
     current_cycle_end = datetime.now() - timedelta(minutes=1)
-    next_cycle_end = _self_managed_cycle_end(current_cycle_end)
+    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(
@@ -1118,7 +1138,7 @@ def test_expire_event_releases_reserved_subscription_renewal_on_same_bucket(
 ) -> None:
     current_cycle_start = datetime.now() - timedelta(days=30)
     current_cycle_end = datetime.now() - timedelta(minutes=1)
-    next_cycle_end = _self_managed_cycle_end(current_cycle_end)
+    next_cycle_end = _self_managed_cycle_end_after_boundary(current_cycle_end)
 
     with billing_renewal_app.app_context():
         subscription = BillingSubscription(

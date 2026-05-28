@@ -37,7 +37,7 @@ from .preorders import (
     load_active_preorder_order as _load_active_preorder_order,
 )
 from .queries import (
-    calculate_self_managed_billing_cycle_end as _calculate_self_managed_billing_cycle_end,
+    calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
 )
 from .subscriptions import (
     activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
@@ -489,9 +489,9 @@ def _align_preorder_cycle_to_boundary(
     product = _load_billing_product_by_bid(order.product_bid)
     if product is None:
         return
-    cycle_end_at = _calculate_self_managed_billing_cycle_end(
+    cycle_end_at = _calculate_self_managed_billing_cycle_end_after_boundary(
         product,
-        cycle_start_at=boundary_at,
+        cycle_boundary_at=boundary_at,
     )
     if cycle_end_at is None:
         return

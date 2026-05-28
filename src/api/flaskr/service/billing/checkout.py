@@ -85,7 +85,7 @@ from .provider_state import (
     resolve_stripe_subscription_order_status as _resolve_stripe_subscription_order_status,
 )
 from .queries import (
-    calculate_self_managed_billing_cycle_end as _calculate_self_managed_billing_cycle_end,
+    calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
     load_primary_active_subscription as _load_primary_active_subscription,
 )
 from .queries import normalize_payment_provider_hint as _normalize_payment_provider_hint
@@ -805,9 +805,9 @@ def _prepare_subscription_preorder_checkout_metadata(
     cycle_start_at = subscription.current_period_end_at
     if cycle_start_at is None:
         raise_error("server.order.orderStatusError")
-    cycle_end_at = _calculate_self_managed_billing_cycle_end(
+    cycle_end_at = _calculate_self_managed_billing_cycle_end_after_boundary(
         target_product,
-        cycle_start_at=cycle_start_at,
+        cycle_boundary_at=cycle_start_at,
     )
     if cycle_end_at is None:
         raise_error("server.order.orderStatusError")

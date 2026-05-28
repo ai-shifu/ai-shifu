@@ -61,7 +61,10 @@ from flaskr.service.billing.provider_state import (
 )
 from flaskr.service.billing.paid_side_effects import BillingPaidOrderSideEffects
 from flaskr.service.billing.preorders import mark_preorder_effective_applied
-from flaskr.service.billing.queries import calculate_self_managed_billing_cycle_end
+from flaskr.service.billing.queries import (
+    calculate_self_managed_billing_cycle_end,
+    calculate_self_managed_billing_cycle_end_after_boundary,
+)
 import flaskr.service.billing.subscriptions as billing_subscriptions_module
 from flaskr.service.billing.subscriptions import (
     grant_paid_order_credits,
@@ -86,6 +89,18 @@ from tests.service.billing.route_loader import (
 
 register_billing_routes = load_register_billing_routes()
 billing_write_routes_module = load_billing_routes_module()
+
+
+def _self_managed_cycle_end_after_boundary(
+    product: BillingProduct,
+    boundary_at: datetime,
+) -> datetime:
+    cycle_end_at = calculate_self_managed_billing_cycle_end_after_boundary(
+        product,
+        cycle_boundary_at=boundary_at,
+    )
+    assert cycle_end_at is not None
+    return cycle_end_at
 
 
 def _reset_config_cache(*keys: str) -> None:
@@ -1186,9 +1201,9 @@ class TestBillingWriteRoutes:
             assert wallet.reserved_credits == Decimal("5.0000000000")
             assert grant_ledger.metadata_json["bucket_credit_state"] == "reserved"
             assert grant_ledger.consumable_from == current_period_end
-            assert grant_ledger.expires_at == calculate_self_managed_billing_cycle_end(
+            assert grant_ledger.expires_at == _self_managed_cycle_end_after_boundary(
                 product,
-                cycle_start_at=current_period_end,
+                current_period_end,
             )
             assert downgrade_event.scheduled_at == current_period_end
 
@@ -1298,9 +1313,9 @@ class TestBillingWriteRoutes:
                 subscription_bid="sub-preorder-same-plan-sync",
                 event_type=BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
             ).first()
-            expected_cycle_end = calculate_self_managed_billing_cycle_end(
+            expected_cycle_end = _self_managed_cycle_end_after_boundary(
                 product,
-                cycle_start_at=current_period_end,
+                current_period_end,
             )
 
             assert order.status == BILLING_ORDER_STATUS_PAID
