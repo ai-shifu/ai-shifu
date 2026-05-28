@@ -1192,7 +1192,7 @@ class TestBillingWriteRoutes:
             )
             assert downgrade_event.scheduled_at == current_period_end
 
-    def test_subscription_checkout_immediate_upgrade_absorbs_paid_preorder(
+    def test_subscription_checkout_immediate_upgrade_absorbs_paid_preorder_after_paid(
         self, billing_write_client
     ) -> None:
         client = billing_write_client["client"]
@@ -1319,6 +1319,7 @@ class TestBillingWriteRoutes:
         payload = response.get_json(force=True)
 
         assert payload["code"] == 0
+        assert payload["data"]["status"] == "pending"
         assert payload["data"]["prepaid_offset_amount"] == 990
         assert payload["data"]["payable_amount"] == 799010
 
@@ -1342,8 +1343,10 @@ class TestBillingWriteRoutes:
                 ledger_bid="ledger-preorder-upgrade",
             ).one()
 
-            assert subscription.next_product_bid == ""
-            assert "preorder_order_bid" not in subscription.metadata_json
+            assert subscription.next_product_bid == "bill-product-plan-monthly"
+            assert subscription.metadata_json["preorder_order_bid"] == (
+                "bill-preorder-paid"
+            )
             assert upgrade_order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
             assert upgrade_order.payable_amount == 799010
             assert upgrade_order.metadata_json["preorder_order_bid"] == (
@@ -1351,19 +1354,162 @@ class TestBillingWriteRoutes:
             )
             assert preorder_order.status == BILLING_ORDER_STATUS_PAID
             assert preorder_order.metadata_json["preorder_state"] == (
+                "pending_effective"
+            )
+            assert bucket.available_credits == Decimal("3.0000000000")
+            assert bucket.reserved_credits == Decimal("5.0000000000")
+            assert bucket.original_credits == Decimal("105.0000000000")
+            assert wallet.available_credits == Decimal("3.0000000000")
+            assert wallet.reserved_credits == Decimal("5.0000000000")
+            assert wallet.lifetime_granted_credits == Decimal("105.0000000000")
+            assert preorder_ledger.metadata_json["bucket_credit_state"] == "reserved"
+
+        sync = client.post(
+            f"/api/billing/orders/{payload['data']['bill_order_bid']}/sync"
+        ).get_json(force=True)
+        assert sync["code"] == 0
+        assert sync["data"]["status"] == "paid"
+
+        with app.app_context():
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-preorder-upgrade",
+            ).one()
+            preorder_order = BillingOrder.query.filter_by(
+                bill_order_bid="bill-preorder-paid",
+            ).one()
+            upgrade_order = BillingOrder.query.filter_by(
+                bill_order_bid=payload["data"]["bill_order_bid"],
+            ).one()
+            wallet = CreditWallet.query.filter_by(
+                wallet_bid="wallet-preorder-upgrade",
+            ).one()
+            bucket = CreditWalletBucket.query.filter_by(
+                wallet_bucket_bid="bucket-preorder-upgrade",
+            ).one()
+            preorder_ledger = CreditLedgerEntry.query.filter_by(
+                ledger_bid="ledger-preorder-upgrade",
+            ).one()
+
+            assert subscription.product_bid == "bill-product-plan-yearly-lite"
+            assert subscription.next_product_bid == ""
+            assert "preorder_order_bid" not in subscription.metadata_json
+            assert preorder_order.status == BILLING_ORDER_STATUS_PAID
+            assert preorder_order.metadata_json["preorder_state"] == (
+                "absorbed_by_upgrade"
+            )
+            assert preorder_ledger.metadata_json["absorbed_by_bill_order_bid"] == (
+                upgrade_order.bill_order_bid
+            )
+            assert bucket.reserved_credits == Decimal("0E-10")
+            assert wallet.reserved_credits == Decimal("0E-10")
+            assert wallet.lifetime_granted_credits == Decimal("5105.0000000000")
+
+    def test_subscription_checkout_immediate_upgrade_preserves_pending_preorder_until_paid(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+        current_period_start = now - timedelta(days=5)
+        current_period_end = now + timedelta(days=25)
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-preorder-pending-upgrade",
+                    creator_bid="creator-1",
+                    product_bid="bill-product-plan-monthly-pro",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="pingxx",
+                    provider_subscription_id="",
+                    provider_customer_id="",
+                    current_period_start_at=current_period_start,
+                    current_period_end_at=current_period_end,
+                    cancel_at_period_end=0,
+                    next_product_bid="",
+                    metadata_json={},
+                    created_at=current_period_start,
+                    updated_at=current_period_start,
+                )
+            )
+            dao.db.session.add(
+                BillingOrder(
+                    bill_order_bid="bill-preorder-pending",
+                    creator_bid="creator-1",
+                    order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                    product_bid="bill-product-plan-monthly",
+                    subscription_bid="sub-preorder-pending-upgrade",
+                    currency="CNY",
+                    payable_amount=990,
+                    paid_amount=0,
+                    payment_provider="pingxx",
+                    channel="alipay_qr",
+                    provider_reference_id="ch_preorder_pending",
+                    status=BILLING_ORDER_STATUS_PENDING,
+                    metadata_json={
+                        "checkout_type": "subscription_preorder",
+                        "preorder_state": "pending_effective",
+                        "renewal_cycle_start_at": current_period_end.isoformat(),
+                    },
+                    created_at=now - timedelta(minutes=5),
+                    updated_at=now - timedelta(minutes=5),
+                )
+            )
+            dao.db.session.commit()
+
+        payload = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-yearly-lite",
+                "payment_provider": "pingxx",
+                "action": "upgrade_immediate",
+            },
+        ).get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["status"] == "pending"
+        assert payload["data"]["prepaid_offset_amount"] == 0
+        assert payload["data"]["payable_amount"] == 800000
+
+        with app.app_context():
+            preorder_order = BillingOrder.query.filter_by(
+                bill_order_bid="bill-preorder-pending",
+            ).one()
+            upgrade_order = BillingOrder.query.filter_by(
+                bill_order_bid=payload["data"]["bill_order_bid"],
+            ).one()
+
+            assert upgrade_order.metadata_json["preorder_order_bid"] == (
+                "bill-preorder-pending"
+            )
+            assert preorder_order.status == BILLING_ORDER_STATUS_PENDING
+            assert preorder_order.metadata_json["preorder_state"] == (
+                "pending_effective"
+            )
+
+        sync = client.post(
+            f"/api/billing/orders/{payload['data']['bill_order_bid']}/sync"
+        ).get_json(force=True)
+        assert sync["code"] == 0
+        assert sync["data"]["status"] == "paid"
+
+        with app.app_context():
+            preorder_order = BillingOrder.query.filter_by(
+                bill_order_bid="bill-preorder-pending",
+            ).one()
+            upgrade_order = BillingOrder.query.filter_by(
+                bill_order_bid=payload["data"]["bill_order_bid"],
+            ).one()
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-preorder-pending-upgrade",
+            ).one()
+
+            assert subscription.product_bid == "bill-product-plan-yearly-lite"
+            assert preorder_order.status != BILLING_ORDER_STATUS_PENDING
+            assert preorder_order.metadata_json["preorder_state"] == (
                 "absorbed_by_upgrade"
             )
             assert preorder_order.metadata_json["absorbed_by_bill_order_bid"] == (
-                upgrade_order.bill_order_bid
-            )
-            assert bucket.available_credits == Decimal("3.0000000000")
-            assert bucket.reserved_credits == Decimal("0")
-            assert bucket.original_credits == Decimal("100.0000000000")
-            assert wallet.available_credits == Decimal("3.0000000000")
-            assert wallet.reserved_credits == Decimal("0E-10")
-            assert wallet.lifetime_granted_credits == Decimal("105.0000000000")
-            assert preorder_ledger.metadata_json["bucket_credit_state"] == "absorbed"
-            assert preorder_ledger.metadata_json["absorbed_by_bill_order_bid"] == (
                 upgrade_order.bill_order_bid
             )
 

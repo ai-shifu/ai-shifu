@@ -97,9 +97,7 @@ from .preorders import (
     CHECKOUT_ACTION_UPGRADE_IMMEDIATE,
     PREORDER_CHECKOUT_TYPE,
     build_preorder_order_metadata as _build_preorder_order_metadata,
-    clear_subscription_preorder_metadata as _clear_subscription_preorder_metadata,
     load_active_preorder_order as _load_active_preorder_order,
-    mark_preorder_absorbed_by_upgrade as _mark_preorder_absorbed_by_upgrade,
     normalize_checkout_action as _normalize_checkout_action,
     resolve_plan_tier as _resolve_plan_tier,
 )
@@ -108,7 +106,6 @@ from .subscriptions import (
     load_effective_topup_subscription as _load_effective_topup_subscription,
     load_subscription_by_bid as _load_subscription_by_bid,
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
-    void_reserved_preorder_grant as _void_reserved_preorder_grant,
 )
 from .wallets import grant_refund_return_credits
 
@@ -225,7 +222,7 @@ def create_billing_subscription_checkout(
             as_of=datetime.now(),
         )
         prepaid_offset_amount = 0
-        absorbed_preorder_order = None
+        replaced_preorder_order = None
         if current_subscription is None:
             subscription = BillingSubscription(
                 subscription_bid=generate_id(app),
@@ -262,7 +259,7 @@ def create_billing_subscription_checkout(
                     target_product=product,
                     active_preorder_order=active_preorder_order,
                 )
-                absorbed_preorder_order = active_preorder_order
+                replaced_preorder_order = active_preorder_order
                 subscription.metadata_json = _normalize_json_object(
                     {
                         **(
@@ -285,8 +282,8 @@ def create_billing_subscription_checkout(
                     "target_product_bid": product.product_bid,
                     "prepaid_offset_amount": prepaid_offset_amount,
                     "preorder_order_bid": (
-                        absorbed_preorder_order.bill_order_bid
-                        if absorbed_preorder_order is not None
+                        replaced_preorder_order.bill_order_bid
+                        if replaced_preorder_order is not None
                         else None
                     ),
                 }
@@ -318,21 +315,6 @@ def create_billing_subscription_checkout(
         )
         db.session.add(order)
         db.session.flush()
-
-        if absorbed_preorder_order is not None:
-            _mark_preorder_absorbed_by_upgrade(
-                absorbed_preorder_order,
-                upgrade_order_bid=order.bill_order_bid,
-            )
-            _void_reserved_preorder_grant(
-                app,
-                absorbed_preorder_order,
-                absorbed_by_bill_order_bid=order.bill_order_bid,
-            )
-            _clear_subscription_preorder_metadata(subscription)
-            subscription.next_product_bid = ""
-            db.session.add(absorbed_preorder_order)
-            db.session.add(subscription)
 
         paid_order_side_effects = BillingPaidOrderSideEffects()
         if payable_amount == 0:

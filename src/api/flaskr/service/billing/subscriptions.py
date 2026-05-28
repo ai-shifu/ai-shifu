@@ -65,10 +65,14 @@ from .models import (
     CreditWalletBucket,
 )
 from .preorders import (
+    PREORDER_STATE_ABSORBED_BY_UPGRADE,
+    PREORDER_STATE_PENDING_EFFECTIVE,
     clear_subscription_preorder_metadata as _clear_subscription_preorder_metadata,
     is_preorder_order as _is_preorder_order,
+    mark_preorder_absorbed_by_upgrade as _mark_preorder_absorbed_by_upgrade,
     mark_preorder_effective_applied as _mark_preorder_effective_applied,
     mark_subscription_preorder_pending as _mark_subscription_preorder_pending,
+    preorder_state as _preorder_state,
 )
 from .queries import (
     extract_order_metadata_datetime as _extract_order_metadata_datetime,
@@ -1238,6 +1242,99 @@ def _void_reserved_subscription_grant_for_order(
     return True
 
 
+def _load_preorder_replaced_by_paid_upgrade(
+    upgrade_order: BillingOrder,
+) -> BillingOrder | None:
+    if (
+        int(upgrade_order.status or 0) != BILLING_ORDER_STATUS_PAID
+        or int(upgrade_order.order_type or 0) != BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+    ):
+        return None
+
+    metadata = (
+        upgrade_order.metadata_json
+        if isinstance(upgrade_order.metadata_json, dict)
+        else {}
+    )
+    preorder_order_bid = _normalize_bid(metadata.get("preorder_order_bid"))
+    if not preorder_order_bid:
+        return None
+
+    preorder_order = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.creator_bid == upgrade_order.creator_bid,
+            BillingOrder.subscription_bid == upgrade_order.subscription_bid,
+            BillingOrder.bill_order_bid == preorder_order_bid,
+        )
+        .order_by(BillingOrder.id.desc())
+        .first()
+    )
+    if preorder_order is None or not _is_preorder_order(preorder_order):
+        return None
+
+    preorder_metadata = (
+        preorder_order.metadata_json
+        if isinstance(preorder_order.metadata_json, dict)
+        else {}
+    )
+    absorbed_by = _normalize_bid(preorder_metadata.get("absorbed_by_bill_order_bid"))
+    if absorbed_by and absorbed_by != upgrade_order.bill_order_bid:
+        return None
+
+    state = _preorder_state(preorder_order)
+    if state not in {
+        PREORDER_STATE_PENDING_EFFECTIVE,
+        PREORDER_STATE_ABSORBED_BY_UPGRADE,
+    }:
+        return None
+    if int(preorder_order.status or 0) not in {
+        BILLING_ORDER_STATUS_PENDING,
+        BILLING_ORDER_STATUS_PAID,
+    }:
+        return None
+    return preorder_order
+
+
+def _absorb_preorder_replaced_by_paid_upgrade(
+    app: Flask,
+    order: BillingOrder,
+) -> bool:
+    preorder_order = _load_preorder_replaced_by_paid_upgrade(order)
+    if preorder_order is None:
+        return False
+
+    preorder_metadata = (
+        preorder_order.metadata_json
+        if isinstance(preorder_order.metadata_json, dict)
+        else {}
+    )
+    already_absorbed_by_order = (
+        _preorder_state(preorder_order) == PREORDER_STATE_ABSORBED_BY_UPGRADE
+        and _normalize_bid(preorder_metadata.get("absorbed_by_bill_order_bid"))
+        == order.bill_order_bid
+    )
+    if not already_absorbed_by_order:
+        _mark_preorder_absorbed_by_upgrade(
+            preorder_order,
+            upgrade_order_bid=order.bill_order_bid,
+        )
+    _void_reserved_subscription_grant_for_order(
+        app,
+        preorder_order,
+        absorbed_by_bill_order_bid=order.bill_order_bid,
+    )
+
+    subscription = _load_subscription_by_bid(order.subscription_bid)
+    if subscription is not None:
+        _clear_subscription_preorder_metadata(subscription)
+        subscription.next_product_bid = ""
+        subscription.updated_at = datetime.now()
+        db.session.add(subscription)
+    db.session.add(preorder_order)
+    return True
+
+
 def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     grant_context = _resolve_credit_grant_context(order)
     if grant_context is None:
@@ -1251,6 +1348,8 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     amount = _quantize_credit_amount(product.credit_amount)
     if amount <= 0:
         return False
+
+    _absorb_preorder_replaced_by_paid_upgrade(app, order)
 
     idempotency_key = f"grant:{order.bill_order_bid}"
     existing_entry = (
