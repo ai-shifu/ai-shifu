@@ -3010,6 +3010,44 @@ def test_grant_operator_user_credits_accepts_legacy_manual_grant_type(app):
     assert result.note == "legacy type"
 
 
+def test_grant_operator_user_credits_rejects_unknown_grant_type(app):
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-grant-unknown-type",
+            identify="credits-grant-unknown-type@example.com",
+            nickname="Credits Grant Unknown Type",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "credits-grant-unknown-type@example.com")],
+        )
+
+        with pytest.raises(AppException) as exc_info:
+            grant_operator_user_credits(
+                app,
+                user_bid="credits-grant-unknown-type",
+                operator_user_bid="operator-1",
+                payload=AdminOperationUserCreditGrantRequestDTO(
+                    request_id="grant-request-unknown-type",
+                    amount="5",
+                    grant_type="unknown_type",
+                    grant_source="reward",
+                    validity_preset="1d",
+                    note="invalid type",
+                ),
+            )
+        ledger_count = CreditLedgerEntry.query.filter_by(
+            creator_bid="credits-grant-unknown-type",
+            deleted=0,
+        ).count()
+
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+    assert "grant_type" in exc_info.value.message
+    assert ledger_count == 0
+
+
 def test_grant_operator_user_credits_returns_persisted_payload_for_reused_request_id(
     app,
 ):

@@ -7158,8 +7158,11 @@ def grant_operator_user_credits(
 
         user = _load_operator_user_or_raise(normalized_user_bid)
         _assert_operator_user_grant_target_supported(user)
-        normalized_grant_type = _resolve_operator_credit_grant_type(
-            str(payload.grant_type or "").strip(),
+        raw_grant_type = str(payload.grant_type or "").strip()
+        normalized_grant_type = (
+            OPERATOR_USER_CREDIT_GRANT_TYPE_MANUAL
+            if not raw_grant_type
+            else _resolve_operator_credit_grant_type(raw_grant_type, fallback="")
         )
         if normalized_grant_type not in OPERATOR_USER_CREDIT_GRANT_TYPES:
             raise_param_error("grant_type")
