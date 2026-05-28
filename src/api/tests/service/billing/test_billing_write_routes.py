@@ -1192,6 +1192,151 @@ class TestBillingWriteRoutes:
             )
             assert downgrade_event.scheduled_at == current_period_end
 
+    def test_paid_same_plan_preorder_sync_applies_immediately_without_upgrade_offset(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+        current_period_start = now - timedelta(days=5)
+        current_period_end = now + timedelta(days=25)
+
+        with app.app_context():
+            wallet = CreditWallet(
+                wallet_bid="wallet-preorder-same-plan-sync",
+                creator_bid="creator-1",
+                available_credits=Decimal("105.0000000000"),
+                reserved_credits=Decimal("0"),
+                lifetime_granted_credits=Decimal("105.0000000000"),
+                lifetime_consumed_credits=Decimal("0"),
+                last_settled_usage_id=0,
+                version=0,
+                created_at=current_period_start,
+                updated_at=current_period_start,
+            )
+            subscription = BillingSubscription(
+                subscription_bid="sub-preorder-same-plan-sync",
+                creator_bid="creator-1",
+                product_bid="bill-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="pingxx",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=current_period_start,
+                current_period_end_at=current_period_end,
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+                created_at=current_period_start,
+                updated_at=current_period_start,
+            )
+            bucket = CreditWalletBucket(
+                wallet_bucket_bid="bucket-preorder-same-plan-sync",
+                wallet_bid=wallet.wallet_bid,
+                creator_bid="creator-1",
+                bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                source_bid="bill-preorder-same-plan-current",
+                priority=20,
+                original_credits=Decimal("105.0000000000"),
+                available_credits=Decimal("105.0000000000"),
+                reserved_credits=Decimal("0"),
+                consumed_credits=Decimal("0"),
+                expired_credits=Decimal("0"),
+                effective_from=current_period_start,
+                effective_to=current_period_end,
+                status=CREDIT_BUCKET_STATUS_ACTIVE,
+                metadata_json={
+                    "bill_order_bid": "bill-preorder-same-plan-current",
+                    "subscription_bid": "sub-preorder-same-plan-sync",
+                    "product_bid": "bill-product-plan-monthly",
+                    "payment_provider": "pingxx",
+                },
+                created_at=current_period_start,
+                updated_at=current_period_start,
+            )
+            dao.db.session.add(wallet)
+            dao.db.session.add(subscription)
+            dao.db.session.add(bucket)
+            dao.db.session.commit()
+
+        checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "pingxx",
+                "action": "preorder",
+            },
+        ).get_json(force=True)
+        bill_order_bid = checkout["data"]["bill_order_bid"]
+        assert checkout["code"] == 0
+        assert checkout["data"]["checkout_type"] == "subscription_preorder"
+
+        sync = client.post(f"/api/billing/orders/{bill_order_bid}/sync").get_json(
+            force=True
+        )
+        assert sync["code"] == 0
+        assert sync["data"]["status"] == "paid"
+
+        with app.app_context():
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-preorder-same-plan-sync",
+            ).one()
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            product = BillingProduct.query.filter_by(
+                product_bid=order.product_bid,
+            ).one()
+            wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+            bucket = CreditWalletBucket.query.filter_by(
+                wallet_bucket_bid="bucket-preorder-same-plan-sync",
+            ).one()
+            grant_ledger = CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-1",
+                source_bid=bill_order_bid,
+            ).one()
+            downgrade_event = BillingRenewalEvent.query.filter_by(
+                subscription_bid="sub-preorder-same-plan-sync",
+                event_type=BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
+            ).first()
+            expected_cycle_end = calculate_self_managed_billing_cycle_end(
+                product,
+                cycle_start_at=current_period_end,
+            )
+
+            assert order.status == BILLING_ORDER_STATUS_PAID
+            assert order.metadata_json["preorder_state"] == "effective_applied"
+            assert subscription.product_bid == "bill-product-plan-monthly"
+            assert subscription.next_product_bid == ""
+            assert "preorder_order_bid" not in subscription.metadata_json
+            assert subscription.current_period_start_at == current_period_start
+            assert subscription.current_period_end_at == expected_cycle_end
+            assert bucket.source_bid == bill_order_bid
+            assert bucket.available_credits == Decimal("110.0000000000")
+            assert bucket.reserved_credits == Decimal("0E-10")
+            assert bucket.effective_from == current_period_start
+            assert bucket.effective_to == expected_cycle_end
+            assert wallet.available_credits == Decimal("110.0000000000")
+            assert wallet.reserved_credits == Decimal("0E-10")
+            assert wallet.lifetime_granted_credits == Decimal("110.0000000000")
+            assert grant_ledger.metadata_json["bucket_credit_state"] == "available"
+            assert grant_ledger.consumable_from == order.paid_at
+            assert grant_ledger.expires_at == expected_cycle_end
+            assert downgrade_event is None
+
+        upgrade_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly-pro",
+                "payment_provider": "pingxx",
+                "action": "upgrade_immediate",
+            },
+        ).get_json(force=True)
+        assert upgrade_checkout["code"] == 0
+        assert upgrade_checkout["data"]["status"] == "pending"
+        assert upgrade_checkout["data"]["prepaid_offset_amount"] == 0
+        assert upgrade_checkout["data"]["payable_amount"] == 19900
+        assert upgrade_checkout["data"]["preorder_order_bid"] is None
+
     def test_subscription_checkout_immediate_upgrade_absorbs_paid_preorder_after_paid(
         self, billing_write_client
     ) -> None:
