@@ -198,8 +198,11 @@ def _validate_contacts(contact_type: str, contacts: list[str]) -> list[str]:
     return normalized
 
 
-def register_admin_operations_routes(app: Flask, *, path_prefix: str = "/api/shifu") -> None:
+def register_admin_operations_routes(
+    app: Flask, *, path_prefix: str = "/api/shifu"
+) -> None:
     """Register operator admin operation routes."""
+
     @app.route(path_prefix + "/admin/operations/courses", methods=["GET"])
     def admin_operations_courses():
         """
