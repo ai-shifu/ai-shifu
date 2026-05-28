@@ -469,7 +469,7 @@ def test_admin_operation_credit_orders_route_returns_operator_page(
     )
 
     with patch(
-        "flaskr.service.shifu.route.build_operator_credit_orders_page",
+        "flaskr.service.shifu.admin_operations.route.build_operator_credit_orders_page",
         return_value=expected,
     ) as builder_mock:
         response = test_client.get(
@@ -506,7 +506,7 @@ def test_admin_operation_credit_orders_route_forwards_available_credit_filter(
     )
 
     with patch(
-        "flaskr.service.shifu.route.build_operator_credit_orders_page",
+        "flaskr.service.shifu.admin_operations.route.build_operator_credit_orders_page",
         return_value=expected,
     ) as builder_mock:
         response = test_client.get(
@@ -585,7 +585,7 @@ def test_admin_operation_credit_order_detail_route_returns_detail(
     )
 
     with patch(
-        "flaskr.service.shifu.route.get_operator_credit_order_detail",
+        "flaskr.service.shifu.admin_operations.route.get_operator_credit_order_detail",
         return_value=expected,
     ) as detail_mock:
         response = test_client.get(
