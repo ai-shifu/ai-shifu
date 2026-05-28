@@ -1325,4 +1325,68 @@ describe('BillingOverviewTab', () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  test('syncs the Pingxx order before refreshing the QR dialog manually', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-plan-pingxx-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
+        },
+      },
+    });
+    mockSyncBillingOrder.mockResolvedValueOnce({
+      bill_order_bid: 'order-plan-pingxx-1',
+      status: 'paid',
+    });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
+      );
+    });
+
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.pay.clickRefresh',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockSyncBillingOrder).toHaveBeenCalledWith({
+        bill_order_bid: 'order-plan-pingxx-1',
+      });
+      expect(mockCheckoutBillingOrder).not.toHaveBeenCalled();
+      expect(mockMutateOverview).toHaveBeenCalled();
+      expect(mockMutateSWRCache).toHaveBeenCalledWith([
+        'billing-wallet-buckets',
+        'Asia/Shanghai',
+      ]);
+      expect(
+        screen.queryByTestId('billing-pingxx-qr-code'),
+      ).not.toBeInTheDocument();
+    });
+  });
 });

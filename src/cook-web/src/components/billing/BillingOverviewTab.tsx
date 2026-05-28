@@ -19,6 +19,7 @@ import type {
   BillingPingxxChannel,
   BillingPlan,
   BillingProvider,
+  BillingSyncResult,
   BillingSubscription,
   BillingSubscriptionCheckoutAction,
   BillingTopupProduct,
@@ -210,12 +211,7 @@ export function BillingOverviewTab({
     open: Boolean(pingxxCheckout),
     billingOrderBid: pingxxCheckout?.billingOrderBid || '',
     onResolved: async result => {
-      await Promise.all([
-        mutateOverview(),
-        mutateSWRCache(
-          buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY, timezone),
-        ),
-      ]);
+      await refreshBillingData();
       if (result.status !== 'pending') {
         setPingxxCheckout(null);
         setCheckoutAgreed(false);
@@ -270,6 +266,15 @@ export function BillingOverviewTab({
       })()
     : null;
 
+  async function refreshBillingData() {
+    await Promise.all([
+      mutateOverview(),
+      mutateSWRCache(
+        buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY, timezone),
+      ),
+    ]);
+  }
+
   async function handleCheckout() {
     if (!checkoutTarget) {
       return;
@@ -317,12 +322,7 @@ export function BillingOverviewTab({
       }
 
       if (result.status === 'paid') {
-        await Promise.all([
-          mutateOverview(),
-          mutateSWRCache(
-            buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY, timezone),
-          ),
-        ]);
+        await refreshBillingData();
         toast({
           title: t('module.billing.checkout.completed'),
         });
@@ -394,6 +394,21 @@ export function BillingOverviewTab({
       `pingxx:${pingxxCheckout.billingOrderBid}:${channel}`,
     );
     try {
+      const syncResult = (await api.syncBillingOrder({
+        bill_order_bid: pingxxCheckout.billingOrderBid,
+      })) as BillingSyncResult;
+      if (syncResult.status !== 'pending') {
+        await refreshBillingData();
+        if (syncResult.status === 'paid') {
+          toast({
+            title: t('module.billing.checkout.completed'),
+          });
+        }
+        setPingxxCheckout(null);
+        setCheckoutAgreed(false);
+        return;
+      }
+
       const result = (await api.checkoutBillingOrder({
         bill_order_bid: pingxxCheckout.billingOrderBid,
         channel,
@@ -656,6 +671,7 @@ export function BillingOverviewTab({
         onAgreedChange={setCheckoutAgreed}
         onOpenChange={open => {
           if (!open) {
+            void refreshBillingData();
             setPingxxCheckout(null);
             setCheckoutAgreed(false);
           }
