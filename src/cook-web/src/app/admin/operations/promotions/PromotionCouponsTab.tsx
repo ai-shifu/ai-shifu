@@ -40,6 +40,8 @@ import {
 
 type Translation = (key: string) => string;
 
+const USAGE_PROGRESS_SEPARATOR = '/';
+
 type PromotionCouponsTabProps = {
   t: Translation;
   tPromotion: Translation;
@@ -334,9 +336,9 @@ export default function PromotionCouponsTab({
                       className='text-primary transition-colors hover:text-primary/80 hover:underline'
                       onClick={() => onOpenUsage(item)}
                     >
-                      {renderTooltipText(
-                        `${item.used_count}/${item.total_count}`,
-                      )}
+                      {String(item.used_count)}
+                      {USAGE_PROGRESS_SEPARATOR}
+                      {String(item.total_count)}
                     </button>
                   </TableCell>
                   <TableCell
