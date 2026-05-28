@@ -10,6 +10,13 @@ let mockSearchParams = new URLSearchParams();
 let mockLoginMethodsEnabled = ['phone'];
 let mockDefaultLoginMethod = 'phone';
 
+const mockTranslations: Record<string, string> = {
+  'module.operationsCreditNotifications.errorReason.policy_disabled':
+    'Notification policy is disabled, not sent.',
+  'module.operationsCreditNotifications.errorReason.provider_failed':
+    'SMS provider did not return an accepted response.',
+};
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -61,6 +68,9 @@ const mockT = (
 ) => {
   if (typeof fallback === 'string') {
     return fallback;
+  }
+  if (mockTranslations[key]) {
+    return mockTranslations[key];
   }
   if (
     fallback &&
@@ -518,7 +528,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     });
   });
 
-  it('uses i18n fallback for new error codes not in the local fallback map', async () => {
+  it('uses backend fallback for new error codes without locale entries', async () => {
     mockGetRecords.mockResolvedValueOnce({
       page: 1,
       page_size: 20,

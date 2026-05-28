@@ -172,26 +172,6 @@ export const clonePolicy = (
 ): AdminOperationCreditNotificationPolicy =>
   JSON.parse(JSON.stringify(policy)) as AdminOperationCreditNotificationPolicy;
 
-const ERROR_REASON_FALLBACKS: Record<string, string> = {
-  missing_mobile: 'Creator mobile is empty, not sent.',
-  invalid_mobile: 'Creator mobile is invalid, not sent.',
-  opt_out: 'Creator has opted out, not sent.',
-  blacklisted: 'Creator is in the do-not-send list, not sent.',
-  quiet_hours: 'Quiet hours are active, not sent.',
-  policy_disabled: 'Notification policy is disabled, not sent.',
-  frequency_mobile_daily: 'Daily limit for this mobile has been reached.',
-  frequency_creator_type_daily:
-    'Daily limit for this creator and notification type has been reached.',
-  budget_daily_sms_limit: 'Daily SMS budget has been reached.',
-  expiry_extended: 'Credit expiry was extended before delivery.',
-  zero_balance_missing_estimated_remaining_days:
-    'Zero balance reminder lacks estimated remaining days, not sent.',
-  provider_failed: 'SMS provider did not return an accepted response.',
-  provider_exception: 'SMS provider call failed.',
-  missing_template_code: 'SMS template is not configured.',
-  missing_template_params: 'SMS template parameters are incomplete.',
-};
-
 const resolveErrorReasonCode = (
   errorCode?: string | null,
   errorMessage?: string | null,
@@ -227,9 +207,7 @@ export const resolveCreditNotificationErrorText = (
 ) => {
   const reasonCode = resolveErrorReasonCode(errorCode, errorMessage);
   if (reasonCode) {
-    const fallback =
-      ERROR_REASON_FALLBACKS[reasonCode] ||
-      String(errorMessage || errorCode || '').trim();
+    const fallback = String(errorMessage || errorCode || '').trim();
     return String(
       t(`module.operationsCreditNotifications.errorReason.${reasonCode}`, {
         defaultValue: fallback,
