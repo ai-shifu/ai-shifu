@@ -7,7 +7,6 @@ from typing import Any
 
 from .consts import (
     BILLING_ORDER_STATUS_PAID,
-    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
 )
 from .models import BillingOrder, BillingProduct, BillingSubscription
@@ -29,10 +28,7 @@ SUBSCRIPTION_PREORDER_PROVIDER_KEY = "preorder_payment_provider"
 SUBSCRIPTION_PREORDER_CHANNEL_KEY = "preorder_channel"
 
 _ACTIVE_PREORDER_STATES = {PREORDER_STATE_PENDING_EFFECTIVE}
-_ACTIVE_PREORDER_ORDER_STATUSES = {
-    BILLING_ORDER_STATUS_PENDING,
-    BILLING_ORDER_STATUS_PAID,
-}
+_ACTIVE_PREORDER_ORDER_STATUSES = {BILLING_ORDER_STATUS_PAID}
 
 
 def normalize_checkout_action(value: Any) -> str:
@@ -91,16 +87,10 @@ def load_active_preorder_order(subscription_bid: str) -> BillingOrder | None:
         .order_by(BillingOrder.created_at.desc(), BillingOrder.id.desc())
         .all()
     )
-    paid_match = None
-    pending_match = None
     for row in rows:
-        if not is_active_preorder_order(row):
-            continue
-        if int(row.status or 0) == BILLING_ORDER_STATUS_PAID:
-            paid_match = paid_match or row
-        else:
-            pending_match = pending_match or row
-    return paid_match or pending_match
+        if is_active_preorder_order(row):
+            return row
+    return None
 
 
 def build_preorder_order_metadata(

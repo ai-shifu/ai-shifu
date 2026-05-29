@@ -1050,11 +1050,12 @@ class TestBillingWriteRoutes:
                     subscription_bid="sub-preorder-existing",
                     currency="CNY",
                     payable_amount=990,
-                    paid_amount=0,
+                    paid_amount=990,
                     payment_provider="pingxx",
                     channel="alipay_qr",
-                    provider_reference_id="",
-                    status=BILLING_ORDER_STATUS_PENDING,
+                    provider_reference_id="ch_preorder_existing",
+                    status=BILLING_ORDER_STATUS_PAID,
+                    paid_at=now - timedelta(minutes=5),
                     metadata_json={
                         "checkout_type": "subscription_preorder",
                         "preorder_state": "pending_effective",
@@ -1080,6 +1081,85 @@ class TestBillingWriteRoutes:
             payload["code"]
             == ERROR_CODE["server.billing.subscriptionPreorderAlreadyExists"]
         )
+
+    def test_subscription_checkout_ignores_unpaid_preorder_attempt(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+        current_period_end = now + timedelta(days=25)
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-preorder-unpaid-attempt",
+                    creator_bid="creator-1",
+                    product_bid="bill-product-plan-monthly-pro",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="pingxx",
+                    provider_subscription_id="",
+                    provider_customer_id="",
+                    current_period_start_at=now - timedelta(days=5),
+                    current_period_end_at=current_period_end,
+                    cancel_at_period_end=0,
+                    next_product_bid="",
+                    metadata_json={},
+                    created_at=now - timedelta(days=5),
+                    updated_at=now - timedelta(days=5),
+                )
+            )
+            dao.db.session.add(
+                BillingOrder(
+                    bill_order_bid="bill-preorder-unpaid-attempt",
+                    creator_bid="creator-1",
+                    order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                    product_bid="bill-product-plan-monthly",
+                    subscription_bid="sub-preorder-unpaid-attempt",
+                    currency="CNY",
+                    payable_amount=990,
+                    paid_amount=0,
+                    payment_provider="pingxx",
+                    channel="alipay_qr",
+                    provider_reference_id="ch_preorder_unpaid_attempt",
+                    status=BILLING_ORDER_STATUS_PENDING,
+                    metadata_json={
+                        "checkout_type": "subscription_preorder",
+                        "preorder_state": "pending_effective",
+                        "renewal_cycle_start_at": current_period_end.isoformat(),
+                    },
+                    created_at=now - timedelta(minutes=5),
+                    updated_at=now - timedelta(minutes=5),
+                )
+            )
+            dao.db.session.commit()
+
+        payload = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "pingxx",
+                "action": "preorder",
+            },
+        ).get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["checkout_type"] == "subscription_preorder"
+        assert payload["data"]["effective_mode"] == "cycle_end"
+
+        with app.app_context():
+            old_order = BillingOrder.query.filter_by(
+                bill_order_bid="bill-preorder-unpaid-attempt",
+            ).one()
+            new_order = BillingOrder.query.filter_by(
+                bill_order_bid=payload["data"]["bill_order_bid"],
+            ).one()
+
+            assert old_order.status == BILLING_ORDER_STATUS_PENDING
+            assert old_order.metadata_json["preorder_state"] == "pending_effective"
+            assert new_order.status == BILLING_ORDER_STATUS_PENDING
+            assert new_order.metadata_json["checkout_type"] == "subscription_preorder"
+            assert new_order.metadata_json["preorder_state"] == "pending_effective"
 
     def test_subscription_checkout_rechecks_preorder_after_subscription_lock(
         self,
@@ -1908,7 +1988,7 @@ class TestBillingWriteRoutes:
             ).first()
             assert upgrade_order is None
 
-    def test_subscription_checkout_rejects_immediate_upgrade_with_pending_preorder_payment(
+    def test_subscription_checkout_allows_immediate_upgrade_with_unpaid_preorder_attempt(
         self, billing_write_client
     ) -> None:
         client = billing_write_client["client"]
@@ -1970,10 +2050,10 @@ class TestBillingWriteRoutes:
             },
         ).get_json(force=True)
 
-        assert (
-            payload["code"]
-            == ERROR_CODE["server.billing.subscriptionPreorderPaymentPending"]
-        )
+        assert payload["code"] == 0
+        assert payload["data"]["checkout_type"] == "subscription"
+        assert payload["data"]["effective_mode"] == "immediate"
+        assert payload["data"]["prepaid_offset_amount"] == 0
 
         with app.app_context():
             preorder_order = BillingOrder.query.filter_by(
@@ -1984,7 +2064,9 @@ class TestBillingWriteRoutes:
                 order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
             ).first()
 
-            assert upgrade_order is None
+            assert upgrade_order is not None
+            assert upgrade_order.status == BILLING_ORDER_STATUS_PENDING
+            assert upgrade_order.metadata_json["prepaid_offset_amount"] == 0
             assert preorder_order.status == BILLING_ORDER_STATUS_PENDING
             assert preorder_order.metadata_json["preorder_state"] == (
                 "pending_effective"
@@ -1994,10 +2076,6 @@ class TestBillingWriteRoutes:
             ).one()
             assert subscription.product_bid == "bill-product-plan-monthly-pro"
             assert subscription.next_product_bid == ""
-            assert preorder_order.status == BILLING_ORDER_STATUS_PENDING
-            assert preorder_order.metadata_json["preorder_state"] == (
-                "pending_effective"
-            )
             assert not preorder_order.metadata_json.get("absorbed_by_bill_order_bid")
 
     def test_terminal_preorder_order_cannot_reactivate_subscription(

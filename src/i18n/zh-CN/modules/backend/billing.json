@@ -12,7 +12,6 @@
     "domainHostConflict": "该自定义域名已被其他创作者绑定",
     "subscriptionInactive": "需要先拥有有效套餐；积分包只能在套餐有效期内购买和使用",
     "subscriptionPreorderAlreadyExists": "当前套餐已有待生效的预购订单，请先处理后再发起新的预购",
-    "subscriptionPreorderPaymentPending": "当前套餐已有待支付的预购订单，请完成支付或等待该支付失效后再升级",
     "subscriptionPreorderProviderUnsupported": "套餐预购当前仅支持自管支付渠道",
     "subscriptionPreorderTargetInvalid": "套餐预购仅支持续购当前套餐或在周期结束时切换到更低档套餐",
     "subscriptionPreorderUnavailable": "当前套餐状态暂不支持预购",
