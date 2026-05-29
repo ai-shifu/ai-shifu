@@ -926,6 +926,55 @@ describe('BillingOverviewTab', () => {
     );
   });
 
+  test('does not mark the current plan preordered for timezone-shifted single-cycle ends', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-05-29T00:00:00Z'));
+    mockEnvState.paymentChannels = ['wechatpay'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 105,
+          reserved_credits: 0,
+          lifetime_granted_credits: 105,
+          lifetime_consumed_credits: 0,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'wechatpay',
+          current_period_start_at: '2026-05-29T07:13:24+08:00',
+          current_period_end_at: '2026-06-28T07:59:59+08:00',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    const currentPlanAction = screen.getByTestId(
+      'billing-plan-card-bill-product-plan-monthly-action',
+    );
+    expect(currentPlanAction).toBeEnabled();
+    expect(currentPlanAction).toHaveTextContent(
+      'module.billing.package.actions.preorderRenewal',
+    );
+    expect(
+      screen.queryByTestId('billing-pending-preorder-banner'),
+    ).not.toBeInTheDocument();
+  });
+
   test('shows pending preorder and only lets higher-tier checkout use offset', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];

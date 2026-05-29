@@ -34,6 +34,7 @@ import styles from './BillingPlanComparisonTable.module.scss';
 // i18n.
 const ROW_ENUM_LEARNER = '①';
 const ROW_ENUM_VALIDITY = '②';
+const SAME_PLAN_RENEWAL_LIMIT_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 
 type FeatureRow = {
   i18nKey: string;
@@ -222,7 +223,10 @@ function isSamePlanRenewalLimitReached(
   const maxSinglePrepaidEnd = calculateSelfManagedCycleEndFromNow(plan);
   if (!maxSinglePrepaidEnd) return false;
 
-  return currentPeriodEnd.getTime() > maxSinglePrepaidEnd.getTime();
+  return (
+    currentPeriodEnd.getTime() - maxSinglePrepaidEnd.getTime() >
+    SAME_PLAN_RENEWAL_LIMIT_TOLERANCE_MS
+  );
 }
 
 export type BillingPlanComparisonTableProps = {
