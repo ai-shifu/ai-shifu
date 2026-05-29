@@ -17,6 +17,8 @@ import {
 import type {
   BillingPlan,
   BillingProvider,
+  BillingSubscription,
+  BillingSubscriptionCheckoutAction,
   BillingTrialOffer,
 } from '@/types/billing';
 import { cn } from '@/lib/utils';
@@ -32,6 +34,7 @@ import styles from './BillingPlanComparisonTable.module.scss';
 // i18n.
 const ROW_ENUM_LEARNER = '①';
 const ROW_ENUM_VALIDITY = '②';
+const SAME_PLAN_RENEWAL_LIMIT_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 
 type FeatureRow = {
   i18nKey: string;
@@ -66,6 +69,13 @@ function planRankIn(ordered: BillingPlan[], productBid: string | null): number {
   return ordered.findIndex(plan => plan.product_bid === productBid);
 }
 
+function planTierIn(ordered: BillingPlan[], plan: BillingPlan | null): number {
+  if (!plan) return Number.NaN;
+  if (typeof plan.plan_tier === 'number') return plan.plan_tier;
+  const rank = planRankIn(ordered, plan.product_bid);
+  return rank >= 0 ? rank : Number.NaN;
+}
+
 function shortenIntervalLabel(label: string): string {
   if (!label) return '';
   return label
@@ -85,6 +95,43 @@ function resolveCheckoutProvider(
   if (wechatpayAvailable) return 'wechatpay';
   if (pingxxAvailable) return 'pingxx';
   return null;
+}
+
+function isProviderAvailable(
+  provider: BillingProvider | null | undefined,
+  stripeAvailable: boolean,
+  pingxxAvailable: boolean,
+  alipayAvailable: boolean,
+  wechatpayAvailable: boolean,
+): provider is BillingProvider {
+  if (provider === 'stripe') return stripeAvailable;
+  if (provider === 'pingxx') return pingxxAvailable;
+  if (provider === 'alipay') return alipayAvailable;
+  if (provider === 'wechatpay') return wechatpayAvailable;
+  return false;
+}
+
+function isSelfManagedPreorderProvider(
+  provider: BillingProvider | null | undefined,
+): provider is BillingProvider {
+  return (
+    provider === 'pingxx' || provider === 'alipay' || provider === 'wechatpay'
+  );
+}
+
+function resolveImmediateUpgradeProvider(
+  currentProvider: BillingProvider | null,
+  fallbackProvider: BillingProvider | null,
+  options: {
+    isTrialCurrentPlan: boolean;
+    hasPendingPreorder: boolean;
+  },
+): BillingProvider | null {
+  if (options.isTrialCurrentPlan) return fallbackProvider;
+  if (currentProvider === 'manual' && !options.hasPendingPreorder) {
+    return fallbackProvider;
+  }
+  return currentProvider;
 }
 
 type ActionTone = 'primary' | 'current' | 'muted';
@@ -144,11 +191,65 @@ function resolvePlanValidityShort(
   return '';
 }
 
+function endOfLocalDay(value: Date): Date {
+  const end = new Date(value.getTime());
+  end.setHours(23, 59, 59, 0);
+  return end;
+}
+
+function calculateSelfManagedCycleEndFromNow(
+  plan: BillingPlan,
+  now = new Date(),
+): Date | null {
+  const intervalCount = Math.max(plan.billing_interval_count || 0, 0);
+  if (intervalCount <= 0) return null;
+
+  if (plan.billing_interval === 'day') {
+    return endOfLocalDay(
+      new Date(now.getTime() + (intervalCount - 1) * 24 * 60 * 60 * 1000),
+    );
+  }
+
+  if (plan.billing_interval === 'month') {
+    return endOfLocalDay(
+      new Date(now.getTime() + (30 * intervalCount - 1) * 24 * 60 * 60 * 1000),
+    );
+  }
+
+  if (plan.billing_interval === 'year') {
+    const end = new Date(now.getTime());
+    end.setFullYear(end.getFullYear() + intervalCount);
+    return endOfLocalDay(end);
+  }
+
+  return null;
+}
+
+function isSamePlanRenewalLimitReached(
+  currentSubscription: BillingSubscription | null,
+  plan: BillingPlan,
+): boolean {
+  const currentPeriodEndAt = currentSubscription?.current_period_end_at;
+  if (!currentPeriodEndAt) return false;
+
+  const currentPeriodEnd = new Date(currentPeriodEndAt);
+  if (Number.isNaN(currentPeriodEnd.getTime())) return false;
+
+  const maxSinglePrepaidEnd = calculateSelfManagedCycleEndFromNow(plan);
+  if (!maxSinglePrepaidEnd) return false;
+
+  return (
+    currentPeriodEnd.getTime() - maxSinglePrepaidEnd.getTime() >
+    SAME_PLAN_RENEWAL_LIMIT_TOLERANCE_MS
+  );
+}
+
 export type BillingPlanComparisonTableProps = {
   trialOffer: BillingTrialOffer | null | undefined;
   paidPlans: BillingPlan[];
   orderedPlans: BillingPlan[];
   currentPlan: BillingPlan | null;
+  currentSubscription: BillingSubscription | null;
   hasActiveSubscription: boolean;
   isTrialCurrentPlan: boolean;
   renderFreeColumn: boolean;
@@ -157,7 +258,11 @@ export type BillingPlanComparisonTableProps = {
   pingxxAvailable: boolean;
   alipayAvailable: boolean;
   wechatpayAvailable: boolean;
-  onSelectPlanCheckout: (plan: BillingPlan, provider: BillingProvider) => void;
+  onSelectPlanCheckout: (
+    plan: BillingPlan,
+    provider: BillingProvider,
+    action?: BillingSubscriptionCheckoutAction,
+  ) => void;
 };
 
 export function BillingPlanComparisonTable({
@@ -165,6 +270,7 @@ export function BillingPlanComparisonTable({
   paidPlans,
   orderedPlans,
   currentPlan,
+  currentSubscription,
   hasActiveSubscription,
   isTrialCurrentPlan,
   renderFreeColumn,
@@ -186,9 +292,20 @@ export function BillingPlanComparisonTable({
     alipayAvailable,
     wechatpayAvailable,
   );
-  const currentRank = planRankIn(
-    orderedPlans,
-    currentPlan?.product_bid || null,
+  const currentTier = planTierIn(orderedPlans, currentPlan);
+  const currentProvider = currentSubscription?.billing_provider || null;
+  const pendingPreorderProductBid =
+    currentSubscription?.next_product_bid || null;
+  const hasPendingPreorder = Boolean(
+    hasActiveSubscription && pendingPreorderProductBid,
+  );
+  const immediateUpgradeProvider = resolveImmediateUpgradeProvider(
+    currentProvider,
+    provider,
+    {
+      isTrialCurrentPlan,
+      hasPendingPreorder,
+    },
   );
 
   const columns: ColumnDescriptor[] = [];
@@ -253,18 +370,112 @@ export function BillingPlanComparisonTable({
 
   paidPlans.forEach((plan, idx) => {
     const isCurrentPlan = currentPlan?.product_bid === plan.product_bid;
-    const planRank = planRankIn(orderedPlans, plan.product_bid);
-    const isDowngradeLocked =
-      hasActiveSubscription &&
-      !isCurrentPlan &&
-      currentRank >= 0 &&
-      planRank >= 0 &&
-      planRank < currentRank;
-    const checkoutKey = provider
-      ? `plan:${provider}:${plan.product_bid}`
+    const targetTier = planTierIn(orderedPlans, plan);
+    const hasComparableTier =
+      Number.isFinite(currentTier) && Number.isFinite(targetTier);
+    const isHigherTier =
+      hasActiveSubscription && (!hasComparableTier || targetTier > currentTier);
+    const isSameOrLowerTier =
+      hasActiveSubscription && hasComparableTier && targetTier <= currentTier;
+    const isPendingPreorderTarget =
+      pendingPreorderProductBid === plan.product_bid;
+    const samePlanRenewalLimitReached =
+      isCurrentPlan && isSamePlanRenewalLimitReached(currentSubscription, plan);
+    let action: BillingSubscriptionCheckoutAction | undefined;
+    let actionProvider = hasActiveSubscription ? null : provider;
+    let actionLabelKey = 'module.billing.package.actions.subscribeNow';
+    let actionDisabled = !actionProvider;
+    let actionTone: ActionTone = 'primary';
+    let actionTooltipKey: string | undefined;
+
+    if (hasActiveSubscription) {
+      if (hasPendingPreorder) {
+        if (isPendingPreorderTarget) {
+          actionLabelKey = 'module.billing.package.actions.preorderScheduled';
+          actionDisabled = true;
+          actionTone = 'muted';
+          actionTooltipKey =
+            'module.billing.package.actions.preorderLockedTooltip';
+        } else if (isHigherTier) {
+          action = 'upgrade_immediate';
+          actionLabelKey = 'module.billing.package.actions.upgradeNow';
+          if (
+            isProviderAvailable(
+              immediateUpgradeProvider,
+              stripeAvailable,
+              pingxxAvailable,
+              alipayAvailable,
+              wechatpayAvailable,
+            )
+          ) {
+            actionProvider = immediateUpgradeProvider;
+          }
+          actionDisabled = !actionProvider;
+        } else {
+          actionLabelKey = isCurrentPlan
+            ? 'module.billing.package.actions.currentSubscription'
+            : 'module.billing.package.actions.preorderLocked';
+          actionDisabled = true;
+          actionTone = isCurrentPlan ? 'current' : 'muted';
+          actionTooltipKey = isCurrentPlan
+            ? undefined
+            : 'module.billing.package.actions.preorderLockedTooltip';
+        }
+      } else if (isSameOrLowerTier) {
+        const canPreorder =
+          isSelfManagedPreorderProvider(currentProvider) &&
+          isProviderAvailable(
+            currentProvider,
+            stripeAvailable,
+            pingxxAvailable,
+            alipayAvailable,
+            wechatpayAvailable,
+          );
+        if (samePlanRenewalLimitReached) {
+          action = 'preorder';
+          actionProvider = null;
+          actionLabelKey = 'module.billing.package.actions.preorderScheduled';
+          actionDisabled = true;
+          actionTone = 'muted';
+          actionTooltipKey =
+            'module.billing.package.actions.preorderLockedTooltip';
+        } else {
+          action = 'preorder';
+          actionProvider = canPreorder ? currentProvider : null;
+          actionLabelKey = isCurrentPlan
+            ? 'module.billing.package.actions.preorderRenewal'
+            : 'module.billing.package.actions.preorderDowngrade';
+          actionDisabled = !canPreorder;
+          actionTone = canPreorder ? 'primary' : 'muted';
+          actionTooltipKey = canPreorder
+            ? undefined
+            : 'module.billing.package.actions.preorderProviderUnsupportedTooltip';
+        }
+      } else {
+        action = 'upgrade_immediate';
+        actionLabelKey = 'module.billing.package.actions.upgradeNow';
+        if (
+          isProviderAvailable(
+            immediateUpgradeProvider,
+            stripeAvailable,
+            pingxxAvailable,
+            alipayAvailable,
+            wechatpayAvailable,
+          )
+        ) {
+          actionProvider = immediateUpgradeProvider;
+        }
+        actionDisabled = !actionProvider;
+      }
+    }
+
+    const checkoutKey = actionProvider
+      ? `plan:${actionProvider}:${plan.product_bid}:${action || 'subscription'}`
       : null;
     const planScale = getPlanScaleKeys(plan.product_code);
     const badgeKey = plan.status_badge_key;
+    const showCurrentSubscriptionState =
+      hasActiveSubscription && !hasPendingPreorder && !action && isCurrentPlan;
 
     columns.push({
       key: plan.product_bid,
@@ -288,24 +499,17 @@ export function BillingPlanComparisonTable({
         row => row.unlockIndex === -1 || idx >= row.unlockIndex,
       ),
       action: {
-        label: isCurrentPlan
-          ? t('module.billing.package.actions.currentSubscription')
-          : isDowngradeLocked
-            ? t('module.billing.package.actions.downgradeDisabled')
-            : hasActiveSubscription
-              ? t('module.billing.package.actions.upgradeNow')
-              : t('module.billing.package.actions.subscribeNow'),
+        label: t(
+          showCurrentSubscriptionState
+            ? 'module.billing.package.actions.currentSubscription'
+            : actionLabelKey,
+        ),
         loading: checkoutKey !== null && checkoutLoadingKey === checkoutKey,
-        disabled: !provider || isCurrentPlan || isDowngradeLocked,
-        tone: isCurrentPlan
-          ? 'current'
-          : isDowngradeLocked
-            ? 'muted'
-            : 'primary',
-        tooltip: isDowngradeLocked
-          ? t('module.billing.package.actions.upgradeOnlyTooltip')
-          : undefined,
-        onClick: () => provider && onSelectPlanCheckout(plan, provider),
+        disabled: actionDisabled || showCurrentSubscriptionState,
+        tone: showCurrentSubscriptionState ? 'current' : actionTone,
+        tooltip: actionTooltipKey ? t(actionTooltipKey) : undefined,
+        onClick: () =>
+          actionProvider && onSelectPlanCheckout(plan, actionProvider, action),
         testId: `billing-plan-card-${plan.product_bid}-action`,
       },
     });

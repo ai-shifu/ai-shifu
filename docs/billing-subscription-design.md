@@ -74,6 +74,13 @@ v1.1 再补充下列扩展能力：
 | `daily_aggregate_rebuild` | `internal_only` | task/CLI | on | 否 | 日报表聚合重建和 finalize 属于内部修复能力 |
 | `domain_verify_refresh` | `internal_only` | task | on | 否 | 域名验证刷新属于后台任务 |
 
+### 1.6 延伸设计
+
+- 套餐预购与零退款升级抵扣方案见
+  `docs/design-docs/billing-subscription-preorder.md`。该方案描述
+  next-cycle 续订/降级预购、已预购后立即升级抵扣、积分合并/清零边界、
+  以及 `bill_orders` / `bill_subscriptions` / wallet bucket 的落点。
+
 ## 2. 字段类型与编码约定
 
 ### 2.1 公共基础字段

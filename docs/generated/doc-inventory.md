@@ -14,6 +14,7 @@
 | `docs/design-docs/ai-doc-generator-shrink.md` | AI Doc Generator Shrink And Baseline Restoration | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
 | `docs/design-docs/ai-doc-hard-rules-restoration.md` | AI Doc Hard Rules Restoration | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
 | `docs/design-docs/ai-tool-compat.md` | AI Tool Compatibility Layer Design | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
+| `docs/design-docs/billing-subscription-preorder.md` | Billing Subscription Preorder | `design-doc` | `proposed` | `backend` | `2026-05-25` | `true` |
 | `docs/design-docs/langfuse-trace-association.md` | Langfuse Trace Association | `design-doc` | `implemented` | `backend` | `2026-04-17` | `true` |
 | `docs/design-docs/primary-surface-rules.md` | Primary Surface Rules Completion | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |

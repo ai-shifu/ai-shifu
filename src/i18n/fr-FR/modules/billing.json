@@ -125,6 +125,7 @@
       "description": "Inspecter les abonnements créateur, soldes de portefeuille et contexte de renouvellement.",
       "empty": "Aucun abonnement pour le moment.",
       "loadError": "Impossible de charger les données d’abonnement admin.",
+      "preorderTarget": "Précommande : {product}",
       "table": {
         "availableCredits": "Crédits disponibles",
         "creator": "Créateur",
@@ -314,9 +315,12 @@
     "agreementLink": "Contrat d’achat de crédits",
     "agreementPrefix": "J’ai lu et j’accepte les",
     "cancel": "Annuler",
+    "completed": "Paiement terminé.",
     "confirm": "Continuer vers le paiement",
     "creditsLabel": "Crédits",
     "planDescription": "Voici les détails de paiement de votre forfait de crédits.",
+    "preorderDescription": "Ce forfait est prépayé maintenant et prendra effet à la fin du cycle actuel.",
+    "prepaidOffsetLabel": "Compensation prépayée",
     "priceLabel": "Prix",
     "processing": "Traitement...",
     "productLabel": "Produit",
@@ -330,7 +334,9 @@
     },
     "title": "Confirmer l’achat",
     "topupDescription": "Vous allez ouvrir un paiement de recharge de crédits ponctuelle.",
-    "unsupported": "Ce moyen de paiement n’est pas disponible pour le moment."
+    "unsupported": "Ce moyen de paiement n’est pas disponible pour le moment.",
+    "upgradeDescription": "Cette mise à niveau prend effet immédiatement.",
+    "upgradeWithPreorderDescription": "Cette mise à niveau prend effet immédiatement. Tout prépaiement en attente est appliqué en compensation."
   },
   "common": {
     "empty": "Non disponible"
@@ -494,6 +500,12 @@
       "downgradeDisabled": "Rétrogradation indisponible",
       "freeTrial": "Inactif",
       "nonMemberTooltip": "Vous êtes actuellement sur l’offre non membre. Aucune action n’est nécessaire.",
+      "preorderDowngrade": "Précommander une rétrogradation",
+      "preorderLocked": "Précommande verrouillée",
+      "preorderLockedTooltip": "Une précommande de forfait est déjà en attente. Seules les mises à niveau immédiates sont disponibles.",
+      "preorderProviderUnsupportedTooltip": "La précommande de forfait est disponible uniquement via le canal de paiement autogéré actuel.",
+      "preorderRenewal": "Prépayer le renouvellement",
+      "preorderScheduled": "Précommande planifiée",
       "subscribeNow": "S’abonner maintenant",
       "upgradeNow": "Mettre à niveau",
       "upgradeOnlyTooltip": "L’abonnement actuel est encore actif. Seules les mises à niveau vers une offre supérieure sont autorisées."
@@ -590,6 +602,9 @@
       "plans": "Forfaits de crédits",
       "topup": "Packs de crédits",
       "yearly": "Forfaits annuels"
+    },
+    "preorder": {
+      "pending": "Précommande en attente : {plan} prendra effet le {date}."
     },
     "scale": {
       "advanced": {
