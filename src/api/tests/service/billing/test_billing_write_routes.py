@@ -1434,7 +1434,77 @@ class TestBillingWriteRoutes:
         assert upgrade_checkout["data"]["payable_amount"] == 18910
         assert upgrade_checkout["data"]["preorder_order_bid"] == bill_order_bid
 
-    def test_subscription_checkout_rejects_preorder_when_plan_tier_missing(
+    def test_subscription_checkout_allows_trial_upgrade_when_plan_tier_uses_sort_order(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+        current_period_start = now - timedelta(days=1)
+        current_period_end = now + timedelta(days=14)
+
+        with app.app_context():
+            for product_bid in [
+                BILLING_TRIAL_PRODUCT_BID,
+                "bill-product-plan-monthly",
+            ]:
+                product = BillingProduct.query.filter_by(
+                    product_bid=product_bid,
+                ).one()
+                metadata = (
+                    dict(product.metadata_json)
+                    if isinstance(product.metadata_json, dict)
+                    else {}
+                )
+                metadata.pop("plan_tier", None)
+                product.metadata_json = metadata
+            subscription = BillingSubscription(
+                subscription_bid="sub-trial-upgrade-sort-order",
+                creator_bid="creator-1",
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="manual",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=current_period_start,
+                current_period_end_at=current_period_end,
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+                created_at=current_period_start,
+                updated_at=current_period_start,
+            )
+            dao.db.session.add(subscription)
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "pingxx",
+                "action": "upgrade_immediate",
+            },
+        ).get_json(force=True)
+
+        assert response["code"] == 0
+        assert response["data"]["status"] == "pending"
+        assert response["data"]["checkout_type"] == "subscription"
+        assert response["data"]["effective_mode"] == "immediate"
+        assert response["data"]["current_product_bid"] == BILLING_TRIAL_PRODUCT_BID
+        assert response["data"]["target_product_bid"] == "bill-product-plan-monthly"
+        assert response["data"]["payable_amount"] == 990
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=response["data"]["bill_order_bid"],
+            ).one()
+            assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+            assert order.payment_provider == "pingxx"
+            assert order.metadata_json["current_product_bid"] == (
+                BILLING_TRIAL_PRODUCT_BID
+            )
+
+    def test_subscription_checkout_preorder_uses_sort_order_when_plan_tier_missing(
         self, billing_write_client
     ) -> None:
         client = billing_write_client["client"]
@@ -1482,7 +1552,13 @@ class TestBillingWriteRoutes:
             },
         ).get_json(force=True)
 
-        assert response["code"] == ERROR_CODE["server.order.orderStatusError"]
+        assert response["code"] == 0
+        assert response["data"]["status"] == "pending"
+        assert response["data"]["checkout_type"] == "subscription_preorder"
+        assert response["data"]["current_product_bid"] == (
+            "bill-product-plan-monthly-pro"
+        )
+        assert response["data"]["target_product_bid"] == "bill-product-plan-monthly"
 
     def test_subscription_checkout_rejects_stacked_same_plan_preorder_after_cycle_extended(
         self, billing_write_client

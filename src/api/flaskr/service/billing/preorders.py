@@ -47,6 +47,10 @@ def resolve_plan_tier(product: BillingProduct | None) -> int | None:
     try:
         return int(raw_tier)
     except (TypeError, ValueError):
+        pass
+    try:
+        return int(product.sort_order)
+    except (TypeError, ValueError):
         return None
 
 

@@ -275,6 +275,9 @@ export function BillingPlanComparisonTable({
   );
   const currentTier = planTierIn(orderedPlans, currentPlan);
   const currentProvider = currentSubscription?.billing_provider || null;
+  const immediateUpgradeProvider = isTrialCurrentPlan
+    ? provider
+    : currentProvider;
   const pendingPreorderProductBid =
     currentSubscription?.next_product_bid || null;
   const hasPendingPreorder = Boolean(
@@ -374,14 +377,14 @@ export function BillingPlanComparisonTable({
           actionLabelKey = 'module.billing.package.actions.upgradeNow';
           if (
             isProviderAvailable(
-              currentProvider,
+              immediateUpgradeProvider,
               stripeAvailable,
               pingxxAvailable,
               alipayAvailable,
               wechatpayAvailable,
             )
           ) {
-            actionProvider = currentProvider;
+            actionProvider = immediateUpgradeProvider;
           }
           actionDisabled = !actionProvider;
         } else {
@@ -429,14 +432,14 @@ export function BillingPlanComparisonTable({
         actionLabelKey = 'module.billing.package.actions.upgradeNow';
         if (
           isProviderAvailable(
-            currentProvider,
+            immediateUpgradeProvider,
             stripeAvailable,
             pingxxAvailable,
             alipayAvailable,
             wechatpayAvailable,
           )
         ) {
-          actionProvider = currentProvider;
+          actionProvider = immediateUpgradeProvider;
         }
         actionDisabled = !actionProvider;
       }
