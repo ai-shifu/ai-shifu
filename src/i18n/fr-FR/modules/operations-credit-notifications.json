@@ -204,6 +204,12 @@
       "title": "Modifications non enregistrées"
     }
   },
+  "deliveryStatus": {
+    "failed": "Échec d’envoi",
+    "not_sent": "Non envoyé",
+    "pending": "En attente",
+    "sent": "Envoyé"
+  },
   "detail": {
     "description": "Consulter le parcours d’envoi, les dates et la réponse fournisseur de cet enregistrement.",
     "fallback": "Aucun enregistrement sélectionné",
@@ -219,14 +225,14 @@
       "providerResponse": "Réponse fournisseur",
       "requestedAt": "Demandé le",
       "sentAt": "Envoyé le",
+      "skipReason": "Raison de non-envoi",
       "sourceBid": "ID objet déclencheur",
       "sourceObject": "Objet déclencheur",
       "template": "Modèle SMS",
       "templateCode": "Code modèle",
       "templateName": "Nom du modèle",
       "templateParams": "Paramètres modèle",
-      "updatedAt": "Mis à jour le",
-      "skipReason": "Raison de non-envoi"
+      "updatedAt": "Mis à jour le"
     },
     "params": {
       "available_credits": "Crédits disponibles",
@@ -302,12 +308,12 @@
     "creatorPlaceholder": "E-mail / pseudonyme",
     "mobile": "Mobile",
     "notificationType": "Type de notification",
+    "skipReason": "Raison de non-envoi",
     "sourceBid": "ID métier déclencheur",
     "sourceType": "Scénario déclencheur",
     "status": "Statut d’envoi",
     "time": "Période",
-    "timeRangePlaceholder": "Date de début ~ Date de fin",
-    "skipReason": "Raison de non-envoi"
+    "timeRangePlaceholder": "Date de début ~ Date de fin"
   },
   "loadError": "Impossible de charger les notifications de crédits. Actualisez puis réessayez.",
   "messages": {
@@ -329,6 +335,13 @@
   },
   "records": {
     "totalCount": "{count} enregistrements de notification"
+  },
+  "skipReason": {
+    "contact": "Coordonnées invalides",
+    "duplicate": "Notification en double",
+    "policy": "Limite de stratégie",
+    "stale": "Condition de déclenchement modifiée",
+    "template_params": "Paramètres modèle incomplets"
   },
   "sourceType": {
     "ledger": "Rappel d’attribution de crédits",
@@ -372,18 +385,5 @@
     "credit_expiring": "Expiration des crédits",
     "credit_granted": "Attribution de crédits",
     "low_balance": "Solde bas"
-  },
-  "deliveryStatus": {
-    "pending": "En attente",
-    "sent": "Envoyé",
-    "failed": "Échec d’envoi",
-    "not_sent": "Non envoyé"
-  },
-  "skipReason": {
-    "contact": "Coordonnées invalides",
-    "policy": "Limite de stratégie",
-    "duplicate": "Notification en double",
-    "stale": "Condition de déclenchement modifiée",
-    "template_params": "Paramètres modèle incomplets"
   }
 }

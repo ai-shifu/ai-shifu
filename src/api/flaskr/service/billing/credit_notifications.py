@@ -3133,9 +3133,9 @@ def list_credit_notifications(
         template_name_map = {}
         if template_codes:
             template_name_map = {
-                str(template.template_code or "")
-                .strip(): str(template.template_name or "")
-                .strip()
+                str(template.template_code or "").strip(): str(
+                    template.template_name or ""
+                ).strip()
                 for template in NotificationTemplate.query.filter(
                     NotificationTemplate.deleted == 0,
                     NotificationTemplate.channel == CREDIT_NOTIFICATION_CHANNEL_SMS,

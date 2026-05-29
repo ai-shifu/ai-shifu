@@ -204,6 +204,12 @@
       "title": "Unsaved changes"
     }
   },
+  "deliveryStatus": {
+    "failed": "Send failed",
+    "not_sent": "Not sent",
+    "pending": "Pending",
+    "sent": "Sent"
+  },
   "detail": {
     "description": "View delivery path, timing, and provider response for this notification record.",
     "fallback": "No record selected",
@@ -219,14 +225,14 @@
       "providerResponse": "Provider response",
       "requestedAt": "Requested at",
       "sentAt": "Sent at",
+      "skipReason": "Not-sent reason",
       "sourceBid": "Trigger object ID",
       "sourceObject": "Trigger object",
       "template": "SMS template",
       "templateCode": "Template code",
       "templateName": "Template name",
       "templateParams": "Template params",
-      "updatedAt": "Updated at",
-      "skipReason": "Not-sent reason"
+      "updatedAt": "Updated at"
     },
     "params": {
       "available_credits": "Available credits",
@@ -302,12 +308,12 @@
     "creatorPlaceholder": "Email / nickname",
     "mobile": "Mobile",
     "notificationType": "Notification type",
+    "skipReason": "Not-sent reason",
     "sourceBid": "Trigger business ID",
     "sourceType": "Trigger scenario",
     "status": "Delivery status",
     "time": "Time",
-    "timeRangePlaceholder": "Start time ~ End time",
-    "skipReason": "Not-sent reason"
+    "timeRangePlaceholder": "Start time ~ End time"
   },
   "loadError": "Credit notification data could not be loaded. Refresh and try again.",
   "messages": {
@@ -329,6 +335,13 @@
   },
   "records": {
     "totalCount": "{count} notification records"
+  },
+  "skipReason": {
+    "contact": "Contact issue",
+    "duplicate": "Duplicate notification",
+    "policy": "Policy limit",
+    "stale": "Trigger condition changed",
+    "template_params": "Incomplete template params"
   },
   "sourceType": {
     "ledger": "Credit grant reminder",
@@ -372,18 +385,5 @@
     "credit_expiring": "Credit expiry",
     "credit_granted": "Credit grant",
     "low_balance": "Low balance"
-  },
-  "deliveryStatus": {
-    "pending": "Pending",
-    "sent": "Sent",
-    "failed": "Send failed",
-    "not_sent": "Not sent"
-  },
-  "skipReason": {
-    "contact": "Contact issue",
-    "policy": "Policy limit",
-    "duplicate": "Duplicate notification",
-    "stale": "Trigger condition changed",
-    "template_params": "Incomplete template params"
   }
 }
