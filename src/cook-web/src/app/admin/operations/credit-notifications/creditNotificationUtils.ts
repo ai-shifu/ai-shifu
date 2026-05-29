@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import type {
   AdminOperationCreditNotificationPolicy,
   CreditNotificationEstimatedDaysThreshold,
@@ -170,6 +171,52 @@ export const clonePolicy = (
   policy: AdminOperationCreditNotificationPolicy,
 ): AdminOperationCreditNotificationPolicy =>
   JSON.parse(JSON.stringify(policy)) as AdminOperationCreditNotificationPolicy;
+
+const resolveErrorReasonCode = (
+  errorCode?: string | null,
+  errorMessage?: string | null,
+) => {
+  const normalizedCode = String(errorCode || '').trim();
+  if (normalizedCode) {
+    return normalizedCode;
+  }
+
+  const normalizedMessage = String(errorMessage || '').trim();
+  const blockedMatch = normalizedMessage.match(
+    /^Notification blocked by policy:\s*([A-Za-z0-9_]+)\.?$/i,
+  );
+  if (blockedMatch?.[1]) {
+    return blockedMatch[1];
+  }
+  if (/SMS provider returned no accepted response/i.test(normalizedMessage)) {
+    return 'provider_failed';
+  }
+  if (/Creator mobile is empty/i.test(normalizedMessage)) {
+    return 'missing_mobile';
+  }
+  if (/Creator mobile is invalid/i.test(normalizedMessage)) {
+    return 'invalid_mobile';
+  }
+  return '';
+};
+
+export const resolveCreditNotificationErrorText = (
+  t: TFunction,
+  errorCode?: string | null,
+  errorMessage?: string | null,
+) => {
+  const reasonCode = resolveErrorReasonCode(errorCode, errorMessage);
+  if (reasonCode) {
+    const fallback = String(errorMessage || errorCode || '').trim();
+    return String(
+      t(`module.operationsCreditNotifications.errorReason.${reasonCode}`, {
+        defaultValue: fallback,
+      }),
+    );
+  }
+
+  return String(errorMessage || '').trim();
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);

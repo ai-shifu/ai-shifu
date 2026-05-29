@@ -276,6 +276,23 @@
     "title": "Estimation d’envoi"
   },
   "empty": "Aucun enregistrement de notification de crédits.",
+  "errorReason": {
+    "blacklisted": "Le créateur est dans la liste de non-envoi, non envoyé.",
+    "budget_daily_sms_limit": "Le budget SMS quotidien est atteint.",
+    "expiry_extended": "L’expiration des crédits a été prolongée avant l’envoi.",
+    "frequency_creator_type_daily": "La limite quotidienne de ce créateur et de ce type est atteinte.",
+    "frequency_mobile_daily": "La limite quotidienne de ce téléphone est atteinte.",
+    "invalid_mobile": "Le téléphone du créateur est invalide, non envoyé.",
+    "missing_mobile": "Le téléphone du créateur est vide, non envoyé.",
+    "missing_template_code": "Le modèle SMS n’est pas configuré.",
+    "missing_template_params": "Les paramètres du modèle SMS sont incomplets.",
+    "opt_out": "Le créateur s’est désinscrit, non envoyé.",
+    "policy_disabled": "La stratégie de notification est désactivée, non envoyé.",
+    "provider_exception": "L’appel au fournisseur SMS a échoué.",
+    "provider_failed": "Le fournisseur SMS n’a pas renvoyé de réponse acceptée.",
+    "quiet_hours": "La période de silence est active, non envoyé.",
+    "zero_balance_missing_estimated_remaining_days": "Le rappel de solde nul manque les jours restants estimés, non envoyé."
+  },
   "filters": {
     "all": "Tous",
     "createdTime": "Date de création",
@@ -284,6 +301,7 @@
     "creatorPlaceholder": "E-mail / pseudonyme",
     "mobile": "Mobile",
     "notificationType": "Type de notification",
+    "skippedAll": "Toutes ignorées",
     "sourceBid": "ID métier déclencheur",
     "sourceType": "Scénario déclencheur",
     "status": "Statut d’envoi",
@@ -304,7 +322,7 @@
     "sent": "Envoyée",
     "sentTooltip": "Toutes les notifications marquées comme envoyées après soumission au fournisseur.",
     "skipped": "Ignorées",
-    "skippedTooltip": "Toutes les notifications non envoyées à cause du téléphone manquant, du désabonnement ou de la suppression des doublons.",
+    "skippedTooltip": "Toutes les notifications non envoyées à cause de données destinataire manquantes, de limites de stratégie, de fréquence ou de budget, ou de la suppression des doublons.",
     "total": "Tous les enregistrements de notification",
     "totalTooltip": "Nombre total de tous les enregistrements de notification."
   },
@@ -322,7 +340,7 @@
     "sent": "Envoyé",
     "skipped": "Ignorée",
     "skipped_no_mobile": "Sans mobile",
-    "skipped_opt_out": "Désinscrit",
+    "skipped_opt_out": "Ignorée par stratégie",
     "suppressed_duplicate": "Doublon"
   },
   "subtitle": "Consultez la livraison des notifications de crédits attribués, expirants ou bas, et configurez la politique SMS.",

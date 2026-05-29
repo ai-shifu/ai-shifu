@@ -276,6 +276,23 @@
     "title": "Estimate Send"
   },
   "empty": "No credit notification records.",
+  "errorReason": {
+    "blacklisted": "Creator is in the do-not-send list, not sent.",
+    "budget_daily_sms_limit": "Daily SMS budget has been reached.",
+    "expiry_extended": "Credit expiry was extended before delivery.",
+    "frequency_creator_type_daily": "Daily limit for this creator and notification type has been reached.",
+    "frequency_mobile_daily": "Daily limit for this mobile has been reached.",
+    "invalid_mobile": "Creator mobile is invalid, not sent.",
+    "missing_mobile": "Creator mobile is empty, not sent.",
+    "missing_template_code": "SMS template is not configured.",
+    "missing_template_params": "SMS template parameters are incomplete.",
+    "opt_out": "Creator has opted out, not sent.",
+    "policy_disabled": "Notification policy is disabled, not sent.",
+    "provider_exception": "SMS provider call failed.",
+    "provider_failed": "SMS provider did not return an accepted response.",
+    "quiet_hours": "Quiet hours are active, not sent.",
+    "zero_balance_missing_estimated_remaining_days": "Zero balance reminder lacks estimated remaining days, not sent."
+  },
   "filters": {
     "all": "All",
     "createdTime": "Created time",
@@ -284,6 +301,7 @@
     "creatorPlaceholder": "Email / nickname",
     "mobile": "Mobile",
     "notificationType": "Notification type",
+    "skippedAll": "All skipped",
     "sourceBid": "Trigger business ID",
     "sourceType": "Trigger scenario",
     "status": "Delivery status",
@@ -304,7 +322,7 @@
     "sent": "Sent",
     "sentTooltip": "All notifications marked as sent after provider submission.",
     "skipped": "Skipped",
-    "skippedTooltip": "All notifications not sent because of missing mobile, opt-out, or duplicate suppression.",
+    "skippedTooltip": "All notifications not sent because of missing recipient data, policy limits, frequency or budget limits, or duplicate suppression.",
     "total": "All notification records",
     "totalTooltip": "Total number of all notification records."
   },
@@ -322,7 +340,7 @@
     "sent": "Sent",
     "skipped": "Skipped",
     "skipped_no_mobile": "No mobile",
-    "skipped_opt_out": "Opted out",
+    "skipped_opt_out": "Policy skipped",
     "suppressed_duplicate": "Duplicate"
   },
   "subtitle": "Inspect credit grant, expiry, and low-balance notification delivery, and configure SMS policy.",

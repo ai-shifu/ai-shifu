@@ -10,6 +10,13 @@ let mockSearchParams = new URLSearchParams();
 let mockLoginMethodsEnabled = ['phone'];
 let mockDefaultLoginMethod = 'phone';
 
+const mockTranslations: Record<string, string> = {
+  'module.operationsCreditNotifications.errorReason.policy_disabled':
+    'Notification policy is disabled, not sent.',
+  'module.operationsCreditNotifications.errorReason.provider_failed':
+    'SMS provider did not return an accepted response.',
+};
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -55,8 +62,26 @@ jest.mock('@/c-store', () => ({
     }),
 }));
 
-const mockT = (key: string, fallback?: string | Record<string, unknown>) =>
-  typeof fallback === 'string' ? fallback : key;
+const mockT = (
+  key: string,
+  fallback?: string | { defaultValue?: string } | Record<string, unknown>,
+) => {
+  if (typeof fallback === 'string') {
+    return fallback;
+  }
+  if (mockTranslations[key]) {
+    return mockTranslations[key];
+  }
+  if (
+    fallback &&
+    typeof fallback === 'object' &&
+    'defaultValue' in fallback &&
+    typeof fallback.defaultValue === 'string'
+  ) {
+    return fallback.defaultValue;
+  }
+  return key;
+};
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -381,6 +406,9 @@ describe('AdminOperationCreditNotificationsPage', () => {
       expect(screen.getByText('Creator One')).toBeInTheDocument();
     });
     expect(screen.getByText('ledger')).toBeInTheDocument();
+    expect(
+      screen.getByText('SMS provider did not return an accepted response.'),
+    ).toBeInTheDocument();
 
     openRecordMoreMenu();
     fireEvent.click(
@@ -449,8 +477,96 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(
       screen.getByText('module.operationsCreditNotifications.detail.title'),
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText('SMS provider did not return an accepted response.')
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText('notification-1')).toBeInTheDocument();
     expect(screen.getByText('credit_granted:ledger-1')).toBeInTheDocument();
+  });
+
+  it('localizes policy-disabled notification errors in the records table', async () => {
+    mockGetRecords.mockResolvedValueOnce({
+      page: 1,
+      page_size: 20,
+      page_count: 1,
+      total: 1,
+      items: [
+        {
+          notification_bid: 'notification-policy-disabled',
+          notification_type: 'credit_expiring',
+          channel: 'sms',
+          creator_bid: 'creator-1',
+          creator_nickname: 'Creator One',
+          target_user_bid: 'creator-1',
+          mobile_snapshot: '13800000000',
+          source_type: 'wallet_bucket',
+          source_bid: 'bucket-1',
+          status: 'skipped_opt_out',
+          template_code: 'TPL-EXPIRING',
+          template_name: '',
+          policy_snapshot: {},
+          provider_response: {},
+          error_code: 'policy_disabled',
+          error_message: 'Notification policy is disabled.',
+          requested_at: '',
+          attempted_at: '',
+          sent_at: '',
+          created_at: '2026-05-21T00:00:00',
+          updated_at: '2026-05-21T00:00:00',
+          metadata: {},
+        },
+      ],
+    });
+
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Notification policy is disabled, not sent.'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('uses backend fallback for new error codes without locale entries', async () => {
+    mockGetRecords.mockResolvedValueOnce({
+      page: 1,
+      page_size: 20,
+      page_count: 1,
+      total: 1,
+      items: [
+        {
+          notification_bid: 'notification-future-code',
+          notification_type: 'low_balance',
+          channel: 'sms',
+          creator_bid: 'creator-1',
+          creator_nickname: 'Creator One',
+          target_user_bid: 'creator-1',
+          mobile_snapshot: '13800000000',
+          source_type: 'wallet',
+          source_bid: 'creator-1',
+          status: 'skipped_opt_out',
+          template_code: 'TPL-LOW-BALANCE',
+          template_name: '',
+          policy_snapshot: {},
+          provider_response: {},
+          error_code: 'future_reason',
+          error_message: 'Future backend reason.',
+          requested_at: '',
+          attempted_at: '',
+          sent_at: '',
+          created_at: '2026-05-21T00:00:00',
+          updated_at: '2026-05-21T00:00:00',
+          metadata: {},
+        },
+      ],
+    });
+
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Future backend reason.')).toBeInTheDocument();
+    });
   });
 
   it('blocks config save when policy loading fails', async () => {

@@ -13,7 +13,10 @@ import {
 } from '@/components/ui/Sheet';
 import { ErrorWithCode } from '@/lib/request';
 import type { AdminOperationCreditNotificationItem } from '../operation-credit-notification-types';
-import { EMPTY_LABEL } from './creditNotificationUtils';
+import {
+  EMPTY_LABEL,
+  resolveCreditNotificationErrorText,
+} from './creditNotificationUtils';
 
 type CreditNotificationDetailSheetProps = {
   notificationBid: string;
@@ -307,7 +310,13 @@ export function CreditNotificationDetailSheet({
                   label={t(
                     'module.operationsCreditNotifications.detail.fields.errorMessage',
                   )}
-                  value={formatValue(item.error_message)}
+                  value={formatValue(
+                    resolveCreditNotificationErrorText(
+                      t,
+                      item.error_code,
+                      item.error_message,
+                    ),
+                  )}
                 />
               </Section>
 

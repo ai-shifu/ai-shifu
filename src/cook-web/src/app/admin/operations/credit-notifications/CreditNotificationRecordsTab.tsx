@@ -51,6 +51,7 @@ import {
   NOTIFICATION_SOURCE_TYPES,
   NOTIFICATION_STATUSES,
   NOTIFICATION_TYPES,
+  resolveCreditNotificationErrorText,
 } from './creditNotificationUtils';
 import { CreditNotificationDetailSheet } from './CreditNotificationDetailSheet';
 
@@ -277,7 +278,9 @@ export function CreditNotificationRecordsTab({
             className={SELECT_ITEM_CLASS}
             indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
           >
-            {resolveStatusLabel(status)}
+            {status === 'skipped'
+              ? t('module.operationsCreditNotifications.filters.skippedAll')
+              : resolveStatusLabel(status)}
           </SelectItem>
         ))}
       </SelectContent>
@@ -614,7 +617,14 @@ export function CreditNotificationRecordsTab({
                     style={getColumnStyle('error')}
                   >
                     <div className='text-center'>
-                      {renderTooltipText(item.error_message, 'text-foreground')}
+                      {renderTooltipText(
+                        resolveCreditNotificationErrorText(
+                          t,
+                          item.error_code,
+                          item.error_message,
+                        ),
+                        'text-foreground',
+                      )}
                     </div>
                   </TableCell>
                   <TableCell
