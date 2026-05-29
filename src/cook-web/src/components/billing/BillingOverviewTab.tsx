@@ -150,11 +150,15 @@ function resolveCheckoutChannelLabel(
 
 function resolvePlanCheckoutDescriptionKey(
   action?: BillingSubscriptionCheckoutAction,
+  hasPrepaidOffset = false,
 ): string {
   if (action === 'preorder') {
     return 'module.billing.checkout.preorderDescription';
   }
   if (action === 'upgrade_immediate') {
+    if (hasPrepaidOffset) {
+      return 'module.billing.checkout.upgradeWithPreorderDescription';
+    }
     return 'module.billing.checkout.upgradeDescription';
   }
   return 'module.billing.checkout.planDescription';
@@ -363,7 +367,10 @@ export function BillingOverviewTab({
           currency: checkoutTarget.product.currency,
           description: t(
             checkoutTarget.kind === 'plan'
-              ? resolvePlanCheckoutDescriptionKey(checkoutTarget.action)
+              ? resolvePlanCheckoutDescriptionKey(
+                  checkoutTarget.action,
+                  (result.prepaid_offset_amount || 0) > 0,
+                )
               : 'module.billing.checkout.topupDescription',
           ),
           productName: resolveBillingProductTitle(t, checkoutTarget.product),
@@ -525,10 +532,17 @@ export function BillingOverviewTab({
   const dialogProviderLabel = checkoutTarget
     ? resolveCheckoutChannelLabel(t, checkoutTarget, selectedPingxxChannel)
     : '';
+  const dialogHasPrepaidOffset =
+    checkoutTarget?.kind === 'plan' &&
+    checkoutTarget.action === 'upgrade_immediate' &&
+    Boolean(overview?.subscription?.next_product_bid);
   const dialogDescription = checkoutTarget
     ? t(
         checkoutTarget.kind === 'plan'
-          ? resolvePlanCheckoutDescriptionKey(checkoutTarget.action)
+          ? resolvePlanCheckoutDescriptionKey(
+              checkoutTarget.action,
+              dialogHasPrepaidOffset,
+            )
           : 'module.billing.checkout.topupDescription',
       )
     : '';

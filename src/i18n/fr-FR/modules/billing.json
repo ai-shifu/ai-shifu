@@ -335,7 +335,8 @@
     "title": "Confirmer l’achat",
     "topupDescription": "Vous allez ouvrir un paiement de recharge de crédits ponctuelle.",
     "unsupported": "Ce moyen de paiement n’est pas disponible pour le moment.",
-    "upgradeDescription": "Cette mise à niveau prend effet immédiatement. Tout prépaiement en attente est appliqué en compensation."
+    "upgradeDescription": "Cette mise à niveau prend effet immédiatement.",
+    "upgradeWithPreorderDescription": "Cette mise à niveau prend effet immédiatement. Tout prépaiement en attente est appliqué en compensation."
   },
   "common": {
     "empty": "Non disponible"

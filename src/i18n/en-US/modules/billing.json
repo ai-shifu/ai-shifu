@@ -335,7 +335,8 @@
     "title": "Confirm purchase",
     "topupDescription": "You are about to open a one-time credit top-up checkout.",
     "unsupported": "This payment method is not available right now.",
-    "upgradeDescription": "This upgrade takes effect immediately. Any active preorder payment is applied as an offset."
+    "upgradeDescription": "This upgrade takes effect immediately.",
+    "upgradeWithPreorderDescription": "This upgrade takes effect immediately. Any active preorder payment is applied as an offset."
   },
   "common": {
     "empty": "Not available"

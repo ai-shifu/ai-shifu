@@ -859,6 +859,14 @@ describe('BillingOverviewTab', () => {
     await act(async () => {
       await user.click(proAction);
     });
+    expect(
+      screen.getByText('module.billing.checkout.upgradeDescription'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.billing.checkout.upgradeWithPreorderDescription',
+      ),
+    ).not.toBeInTheDocument();
     await acceptBillingAgreement(user);
 
     await act(async () => {
@@ -882,6 +890,12 @@ describe('BillingOverviewTab', () => {
     expect(
       await screen.findByTestId('billing-pingxx-qr-code'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.checkout.upgradeDescription'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.billing.checkout.prepaidOffsetLabel'),
+    ).not.toBeInTheDocument();
   });
 
   test('passes preorder action for self-managed same-tier renewal', async () => {
@@ -1156,7 +1170,9 @@ describe('BillingOverviewTab', () => {
       );
     });
     expect(
-      screen.getByText('module.billing.checkout.upgradeDescription'),
+      screen.getByText(
+        'module.billing.checkout.upgradeWithPreorderDescription',
+      ),
     ).toBeInTheDocument();
     expect(
       await screen.findByTestId('billing-pingxx-qr-code'),

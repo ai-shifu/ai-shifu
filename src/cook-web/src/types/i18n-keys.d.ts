@@ -408,6 +408,7 @@ export type I18nKey =
   | 'module.billing.checkout.topupDescription'
   | 'module.billing.checkout.unsupported'
   | 'module.billing.checkout.upgradeDescription'
+  | 'module.billing.checkout.upgradeWithPreorderDescription'
   | 'module.billing.common.empty'
   | 'module.billing.details.actions.upgradeNow'
   | 'module.billing.details.subtitle'

@@ -335,7 +335,8 @@
     "title": "确认购买",
     "topupDescription": "你将进入一次性积分充值的支付确认流程。",
     "unsupported": "当前支付方式暂不可用。",
-    "upgradeDescription": "本次升级会立即生效，已存在的预购付款将作为抵扣。"
+    "upgradeDescription": "本次升级会立即生效。",
+    "upgradeWithPreorderDescription": "本次升级会立即生效，已存在的预购付款将作为抵扣。"
   },
   "common": {
     "empty": "暂无"
