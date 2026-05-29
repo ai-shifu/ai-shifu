@@ -178,10 +178,19 @@ export default function AdminOperationCreditNotificationsPage() {
     [t],
   );
 
-  const resolveStatusLabel = React.useCallback(
+  const resolveDeliveryStatusLabel = React.useCallback(
     (value: string) =>
       t(
-        `module.operationsCreditNotifications.status.${value}`,
+        `module.operationsCreditNotifications.deliveryStatus.${value}`,
+        value || EMPTY_LABEL,
+      ),
+    [t],
+  );
+
+  const resolveSkipReasonLabel = React.useCallback(
+    (value: string) =>
+      t(
+        `module.operationsCreditNotifications.skipReason.${value}`,
         value || EMPTY_LABEL,
       ),
     [t],
@@ -252,6 +261,11 @@ export default function AdminOperationCreditNotificationsPage() {
           creator_keyword: nextFilters.creator_keyword.trim(),
           notification_type: nextFilters.notification_type.trim(),
           status: nextFilters.status.trim(),
+          delivery_status: nextFilters.delivery_status.trim(),
+          skip_reason:
+            nextFilters.delivery_status.trim() === 'not_sent'
+              ? nextFilters.skip_reason.trim()
+              : '',
           source_type: nextFilters.source_type.trim(),
           start_time: nextFilters.start_time.trim(),
           end_time: nextFilters.end_time.trim(),
@@ -318,6 +332,9 @@ export default function AdminOperationCreditNotificationsPage() {
       setDraftFilters(current => ({
         ...current,
         [field]: value,
+        ...(field === 'delivery_status' && value !== 'not_sent'
+          ? { skip_reason: '' }
+          : {}),
       }));
     },
     [],
@@ -337,12 +354,14 @@ export default function AdminOperationCreditNotificationsPage() {
         total: '',
         pending: 'pending',
         sent: 'sent',
-        failed: 'failed_provider',
-        skipped: 'skipped',
+        failed: 'failed',
+        skipped: 'not_sent',
       };
       const nextFilters = {
         ...draftFilters,
-        status: statusByCard[cardKey],
+        status: '',
+        delivery_status: statusByCard[cardKey],
+        skip_reason: '',
       };
       setActiveOverviewCardKey(cardKey === 'total' ? null : cardKey);
       setDraftFilters(nextFilters);
@@ -724,8 +743,9 @@ export default function AdminOperationCreditNotificationsPage() {
             clearOverviewFilter={clearOverviewFilter}
             handlePageChange={handlePageChange}
             requeue={requeue}
+            resolveDeliveryStatusLabel={resolveDeliveryStatusLabel}
+            resolveSkipReasonLabel={resolveSkipReasonLabel}
             resolveTypeLabel={resolveTypeLabel}
-            resolveStatusLabel={resolveStatusLabel}
           />
         </TabsContent>
 

@@ -16,6 +16,21 @@ export type CreditNotificationStatus =
   | 'failed_provider'
   | LooseString;
 
+export type CreditNotificationDeliveryStatus =
+  | 'pending'
+  | 'sent'
+  | 'failed'
+  | 'not_sent'
+  | LooseString;
+
+export type CreditNotificationSkipReason =
+  | 'contact'
+  | 'policy'
+  | 'duplicate'
+  | 'stale'
+  | 'template_params'
+  | LooseString;
+
 export type AdminOperationCreditNotificationItem = {
   notification_bid: string;
   notification_type: CreditNotificationType;
@@ -28,6 +43,8 @@ export type AdminOperationCreditNotificationItem = {
   source_bid: string;
   dedupe_key?: string;
   status: CreditNotificationStatus;
+  delivery_status?: CreditNotificationDeliveryStatus;
+  skip_reason?: CreditNotificationSkipReason;
   template_code: string;
   template_name: string;
   template_params?: Record<string, unknown>;

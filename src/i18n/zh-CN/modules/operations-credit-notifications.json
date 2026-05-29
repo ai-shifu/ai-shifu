@@ -204,6 +204,12 @@
       "title": "配置尚未保存"
     }
   },
+  "deliveryStatus": {
+    "failed": "发送失败",
+    "not_sent": "未发送",
+    "pending": "待发送",
+    "sent": "已发送"
+  },
   "detail": {
     "description": "查看通知记录的发送链路、时间和供应商返回信息。",
     "fallback": "未选择记录",
@@ -219,6 +225,7 @@
       "providerResponse": "供应商返回",
       "requestedAt": "请求发送时间",
       "sentAt": "发送成功时间",
+      "skipReason": "未发送原因",
       "sourceBid": "触发对象ID",
       "sourceObject": "触发对象",
       "template": "短信模板",
@@ -301,7 +308,7 @@
     "creatorPlaceholder": "手机号/昵称",
     "mobile": "手机号",
     "notificationType": "通知类型",
-    "skippedAll": "全部跳过",
+    "skipReason": "未发送原因",
     "sourceBid": "触发业务ID",
     "sourceType": "触发场景",
     "status": "投递状态",
@@ -316,18 +323,25 @@
   "overview": {
     "activeFilter": "当前筛选",
     "failed": "发送失败",
-    "failedTooltip": "全部短信供应商发送失败、可在明细中重发的通知数。",
+    "failedTooltip": "短信供应商发送失败，可在明细中重发的通知数。",
     "pending": "待发送",
-    "pendingTooltip": "全部已生成但尚未完成发送的通知数。",
+    "pendingTooltip": "已生成通知记录，等待发送或处理的通知数。",
     "sent": "已发送",
-    "sentTooltip": "全部已成功提交给短信供应商并标记为已发送的通知数。",
-    "skipped": "已跳过",
-    "skippedTooltip": "全部因资料缺失、策略限制、频控、预算限制或重复抑制等原因未发送的通知数。",
+    "sentTooltip": "已成功提交给短信供应商并标记为已发送的通知数。",
+    "skipped": "未发送",
+    "skippedTooltip": "因联系方式异常、策略限制、重复通知或触发条件变化等原因未发送的通知数。",
     "total": "全部通知记录",
-    "totalTooltip": "全部通知记录总数。"
+    "totalTooltip": "系统生成的全部积分短信通知记录。"
   },
   "records": {
     "totalCount": "共 {count} 条通知记录"
+  },
+  "skipReason": {
+    "contact": "联系方式异常",
+    "duplicate": "重复通知",
+    "policy": "策略限制",
+    "stale": "触发条件已变化",
+    "template_params": "模板参数不完整"
   },
   "sourceType": {
     "ledger": "积分到账提醒",
@@ -335,13 +349,13 @@
     "wallet_bucket": "积分到期提醒"
   },
   "status": {
-    "failed_provider": "供应商失败",
+    "failed_provider": "发送失败",
     "pending": "待发送",
     "sent": "已发送",
-    "skipped": "已跳过",
-    "skipped_no_mobile": "无手机号",
-    "skipped_opt_out": "策略跳过",
-    "suppressed_duplicate": "重复抑制"
+    "skipped": "未发送",
+    "skipped_no_mobile": "联系方式异常",
+    "skipped_opt_out": "策略限制",
+    "suppressed_duplicate": "重复通知"
   },
   "subtitle": "查看积分到账、到期和低余额提醒的投递状态，并配置短信策略。",
   "table": {
@@ -349,7 +363,7 @@
     "createdAt": "创建时间",
     "creator": "创作者",
     "dedupeKey": "幂等键",
-    "error": "错误",
+    "error": "原因/错误说明",
     "mobile": "手机号",
     "notification": "通知类型",
     "source": "触发场景",
