@@ -797,6 +797,93 @@ describe('BillingOverviewTab', () => {
     ).toBeInTheDocument();
   });
 
+  test('lets manual paid subscribers upgrade with an available checkout provider', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['wechatpay'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-manual-paid-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'manual',
+          current_period_start_at: '2026-05-01T00:00:00Z',
+          current_period_end_at: '2026-05-30T15:59:59Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-manual-paid-upgrade-1',
+      provider: 'wechatpay',
+      payment_mode: 'subscription',
+      status: 'pending',
+      checkout_type: 'subscription_upgrade',
+      effective_mode: 'immediate',
+      payable_amount: 18910,
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://wechatpay.test/manual-paid-upgrade-qr',
+        },
+      },
+    });
+
+    renderOverviewTab();
+
+    const proAction = screen.getByTestId(
+      'billing-plan-card-bill-product-plan-monthly-pro-action',
+    );
+    expect(proAction).toBeEnabled();
+    expect(proAction).toHaveTextContent(
+      'module.billing.package.actions.upgradeNow',
+    );
+
+    await act(async () => {
+      await user.click(proAction);
+    });
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'upgrade_immediate',
+          channel: 'wx_pub_qr',
+          payment_provider: 'wechatpay',
+          product_bid: 'bill-product-plan-monthly-pro',
+        }),
+      );
+    });
+    expect(
+      await screen.findByTestId('billing-pingxx-qr-code'),
+    ).toBeInTheDocument();
+  });
+
   test('passes preorder action for self-managed same-tier renewal', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];

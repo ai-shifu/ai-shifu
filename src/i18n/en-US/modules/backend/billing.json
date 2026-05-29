@@ -12,6 +12,7 @@
     "domainHostConflict": "This custom domain is already bound by another creator.",
     "subscriptionInactive": "An active subscription is required. Top-up credits can only be purchased or used within the subscription period.",
     "subscriptionPreorderAlreadyExists": "A package preorder is already pending for this subscription.",
+    "subscriptionPreorderPaymentPending": "A package preorder payment is already pending. Complete or let that payment expire before upgrading.",
     "subscriptionPreorderProviderUnsupported": "Package preorder is currently supported only for self-managed payment channels.",
     "subscriptionPreorderTargetInvalid": "Package preorder only supports renewing the same package or switching to a lower-tier package at the cycle boundary.",
     "subscriptionPreorderUnavailable": "Package preorder is unavailable for the current subscription.",

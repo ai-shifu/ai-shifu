@@ -257,6 +257,12 @@ def create_billing_subscription_checkout(
                     payment_provider=payment_provider,
                 )
             elif checkout_action == CHECKOUT_ACTION_UPGRADE_IMMEDIATE:
+                if (
+                    active_preorder_order is not None
+                    and int(active_preorder_order.status or 0)
+                    == BILLING_ORDER_STATUS_PENDING
+                ):
+                    raise_error("server.billing.subscriptionPreorderPaymentPending")
                 paid_preorder_order = (
                     active_preorder_order
                     if active_preorder_order is not None

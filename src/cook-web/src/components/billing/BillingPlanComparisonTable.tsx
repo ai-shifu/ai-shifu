@@ -119,6 +119,21 @@ function isSelfManagedPreorderProvider(
   );
 }
 
+function resolveImmediateUpgradeProvider(
+  currentProvider: BillingProvider | null,
+  fallbackProvider: BillingProvider | null,
+  options: {
+    isTrialCurrentPlan: boolean;
+    hasPendingPreorder: boolean;
+  },
+): BillingProvider | null {
+  if (options.isTrialCurrentPlan) return fallbackProvider;
+  if (currentProvider === 'manual' && !options.hasPendingPreorder) {
+    return fallbackProvider;
+  }
+  return currentProvider;
+}
+
 type ActionTone = 'primary' | 'current' | 'muted';
 
 type ColumnAction = {
@@ -279,13 +294,18 @@ export function BillingPlanComparisonTable({
   );
   const currentTier = planTierIn(orderedPlans, currentPlan);
   const currentProvider = currentSubscription?.billing_provider || null;
-  const immediateUpgradeProvider = isTrialCurrentPlan
-    ? provider
-    : currentProvider;
   const pendingPreorderProductBid =
     currentSubscription?.next_product_bid || null;
   const hasPendingPreorder = Boolean(
     hasActiveSubscription && pendingPreorderProductBid,
+  );
+  const immediateUpgradeProvider = resolveImmediateUpgradeProvider(
+    currentProvider,
+    provider,
+    {
+      isTrialCurrentPlan,
+      hasPendingPreorder,
+    },
   );
 
   const columns: ColumnDescriptor[] = [];

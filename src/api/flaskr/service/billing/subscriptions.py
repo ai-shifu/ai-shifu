@@ -703,6 +703,12 @@ def _activate_subscription_for_paid_order(
     if not order.subscription_bid:
         return False
 
+    if (
+        _is_preorder_order(order)
+        and _preorder_state(order) != PREORDER_STATE_PENDING_EFFECTIVE
+    ):
+        return False
+
     product = _load_billing_product_by_bid(order.product_bid)
     if product is None:
         return False
