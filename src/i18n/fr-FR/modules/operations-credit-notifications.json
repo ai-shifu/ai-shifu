@@ -225,7 +225,8 @@
       "templateCode": "Code modèle",
       "templateName": "Nom du modèle",
       "templateParams": "Paramètres modèle",
-      "updatedAt": "Mis à jour le"
+      "updatedAt": "Mis à jour le",
+      "skipReason": "Raison de non-envoi"
     },
     "params": {
       "available_credits": "Crédits disponibles",
@@ -301,12 +302,12 @@
     "creatorPlaceholder": "E-mail / pseudonyme",
     "mobile": "Mobile",
     "notificationType": "Type de notification",
-    "skippedAll": "Toutes ignorées",
     "sourceBid": "ID métier déclencheur",
     "sourceType": "Scénario déclencheur",
     "status": "Statut d’envoi",
     "time": "Période",
-    "timeRangePlaceholder": "Date de début ~ Date de fin"
+    "timeRangePlaceholder": "Date de début ~ Date de fin",
+    "skipReason": "Raison de non-envoi"
   },
   "loadError": "Impossible de charger les notifications de crédits. Actualisez puis réessayez.",
   "messages": {
@@ -316,15 +317,15 @@
   "overview": {
     "activeFilter": "Filtre actif",
     "failed": "Échecs d’envoi",
-    "failedTooltip": "Tous les échecs fournisseur pouvant être remis en file depuis la liste.",
+    "failedTooltip": "Notifications échouées côté fournisseur SMS et pouvant être relancées depuis la liste.",
     "pending": "En attente",
-    "pendingTooltip": "Toutes les notifications créées mais pas encore terminées.",
+    "pendingTooltip": "Notifications créées et en attente d’envoi ou de traitement.",
     "sent": "Envoyée",
-    "sentTooltip": "Toutes les notifications marquées comme envoyées après soumission au fournisseur.",
-    "skipped": "Ignorées",
-    "skippedTooltip": "Toutes les notifications non envoyées à cause de données destinataire manquantes, de limites de stratégie, de fréquence ou de budget, ou de la suppression des doublons.",
+    "sentTooltip": "Notifications soumises avec succès au fournisseur SMS et marquées comme envoyées.",
+    "skipped": "Non envoyées",
+    "skippedTooltip": "Notifications non envoyées à cause de coordonnées invalides, limites de stratégie, doublons ou conditions de déclenchement modifiées.",
     "total": "Tous les enregistrements de notification",
-    "totalTooltip": "Nombre total de tous les enregistrements de notification."
+    "totalTooltip": "Tous les enregistrements de notification SMS de crédits générés par le système."
   },
   "records": {
     "totalCount": "{count} enregistrements de notification"
@@ -335,13 +336,13 @@
     "wallet_bucket": "Rappel d’expiration des crédits"
   },
   "status": {
-    "failed_provider": "Fournisseur échoué",
+    "failed_provider": "Échec d’envoi",
     "pending": "En attente",
     "sent": "Envoyé",
-    "skipped": "Ignorée",
-    "skipped_no_mobile": "Sans mobile",
-    "skipped_opt_out": "Ignorée par stratégie",
-    "suppressed_duplicate": "Doublon"
+    "skipped": "Non envoyé",
+    "skipped_no_mobile": "Coordonnées invalides",
+    "skipped_opt_out": "Limite de stratégie",
+    "suppressed_duplicate": "Notification en double"
   },
   "subtitle": "Consultez la livraison des notifications de crédits attribués, expirants ou bas, et configurez la politique SMS.",
   "table": {
@@ -349,7 +350,7 @@
     "createdAt": "Créé le",
     "creator": "Créateur",
     "dedupeKey": "Clé d’idempotence",
-    "error": "Erreur",
+    "error": "Raison / détails erreur",
     "mobile": "Téléphone",
     "notification": "Type de notification",
     "source": "Scénario déclencheur",
@@ -371,5 +372,18 @@
     "credit_expiring": "Expiration des crédits",
     "credit_granted": "Attribution de crédits",
     "low_balance": "Solde bas"
+  },
+  "deliveryStatus": {
+    "pending": "En attente",
+    "sent": "Envoyé",
+    "failed": "Échec d’envoi",
+    "not_sent": "Non envoyé"
+  },
+  "skipReason": {
+    "contact": "Coordonnées invalides",
+    "policy": "Limite de stratégie",
+    "duplicate": "Notification en double",
+    "stale": "Condition de déclenchement modifiée",
+    "template_params": "Paramètres modèle incomplets"
   }
 }

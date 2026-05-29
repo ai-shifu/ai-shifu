@@ -23,6 +23,7 @@ from flaskr.service.billing.consts import (
     CREDIT_NOTIFICATION_STATUS_SENT,
     CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE,
     CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+    CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE,
     CREDIT_NOTIFICATION_TYPE_EXPIRING,
     CREDIT_NOTIFICATION_TYPE_GRANTED,
     CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
@@ -1168,6 +1169,112 @@ def test_credit_notification_list_handles_invalid_pagination(
 
     assert payload["page"] == 1
     assert payload["page_size"] == 20
+
+
+def test_credit_notification_list_filters_delivery_status_and_skip_reason(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    records = [
+        (
+            "notification-contact",
+            CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE,
+            "missing_mobile",
+        ),
+        (
+            "notification-policy",
+            CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+            "quiet_hours",
+        ),
+        (
+            "notification-template-params",
+            CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+            "missing_template_params",
+        ),
+        (
+            "notification-duplicate",
+            CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE,
+            "suppressed_duplicate",
+        ),
+        ("notification-stale", "skipped", "expiry_extended"),
+        (
+            "notification-failed",
+            CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+            "provider_failed",
+        ),
+    ]
+    with app.app_context():
+        for index, (notification_bid, status, error_code) in enumerate(records):
+            dao.db.session.add(
+                NotificationRecord(
+                    notification_bid=notification_bid,
+                    notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+                    channel="sms",
+                    creator_bid=f"creator-{index}",
+                    target_user_bid=f"creator-{index}",
+                    mobile_snapshot="13800000000",
+                    source_type="ledger",
+                    source_bid=f"ledger-{index}",
+                    dedupe_key=f"credit_granted:ledger-{index}",
+                    status=status,
+                    template_code="TPL-GRANT",
+                    template_params_json={},
+                    policy_snapshot_json={},
+                    provider_response_json={},
+                    error_code=error_code,
+                    error_message=error_code,
+                    metadata_json={},
+                    deleted=0,
+                    created_at=datetime(2026, 5, 21, 8, index, 0),
+                    updated_at=datetime(2026, 5, 21, 8, index, 0),
+                )
+            )
+        dao.db.session.commit()
+
+    not_sent_payload = list_credit_notifications(
+        app,
+        filters={"delivery_status": "not_sent"},
+    )
+    assert not_sent_payload["total"] == 5
+    assert {item["delivery_status"] for item in not_sent_payload["items"]} == {
+        "not_sent"
+    }
+    assert {item["skip_reason"] for item in not_sent_payload["items"]} == {
+        "contact",
+        "policy",
+        "template_params",
+        "duplicate",
+        "stale",
+    }
+
+    assert (
+        list_credit_notifications(app, filters={"skip_reason": "contact"})["total"] == 1
+    )
+    assert (
+        list_credit_notifications(app, filters={"skip_reason": "policy"})["items"][0][
+            "notification_bid"
+        ]
+        == "notification-policy"
+    )
+    assert (
+        list_credit_notifications(app, filters={"skip_reason": "template_params"})[
+            "items"
+        ][0]["notification_bid"]
+        == "notification-template-params"
+    )
+    assert (
+        list_credit_notifications(app, filters={"skip_reason": "duplicate"})["items"][
+            0
+        ]["notification_bid"]
+        == "notification-duplicate"
+    )
+    assert (
+        list_credit_notifications(app, filters={"skip_reason": "stale"})["items"][0][
+            "notification_bid"
+        ]
+        == "notification-stale"
+    )
+    assert list_credit_notifications(app, filters={"status": "skipped"})["total"] == 5
 
 
 def test_credit_notification_list_matches_google_email_credential(

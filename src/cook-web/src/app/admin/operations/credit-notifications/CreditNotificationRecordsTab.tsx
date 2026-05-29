@@ -48,10 +48,13 @@ import {
   type ErrorState,
   type NotificationFilters,
   type NotificationOverviewCardKey,
+  NOTIFICATION_DELIVERY_STATUSES,
   NOTIFICATION_SOURCE_TYPES,
-  NOTIFICATION_STATUSES,
+  NOTIFICATION_SKIP_REASONS,
   NOTIFICATION_TYPES,
   resolveCreditNotificationErrorText,
+  resolveNotificationDeliveryStatus,
+  resolveNotificationSkipReason,
 } from './creditNotificationUtils';
 import { CreditNotificationDetailSheet } from './CreditNotificationDetailSheet';
 
@@ -94,8 +97,9 @@ export function CreditNotificationRecordsTab({
   clearOverviewFilter,
   handlePageChange,
   requeue,
+  resolveDeliveryStatusLabel,
+  resolveSkipReasonLabel,
   resolveTypeLabel,
-  resolveStatusLabel,
 }: {
   items: AdminOperationCreditNotificationItem[];
   loading: boolean;
@@ -113,8 +117,9 @@ export function CreditNotificationRecordsTab({
   clearOverviewFilter: () => void;
   handlePageChange: (nextPage: number) => void;
   requeue: (notificationBid: string) => void;
+  resolveDeliveryStatusLabel: (value: string) => string;
+  resolveSkipReasonLabel: (value: string) => string;
   resolveTypeLabel: (value: string) => string;
-  resolveStatusLabel: (value: string) => string;
 }) {
   const { t } = useTranslation();
   const { getColumnStyle, getResizeHandleProps } =
@@ -253,10 +258,14 @@ export function CreditNotificationRecordsTab({
 
   const renderStatusSelect = () => (
     <Select
-      value={draftFilters.status || ALL_OPTION_VALUE}
-      onValueChange={value =>
-        updateDraftFilter('status', value === ALL_OPTION_VALUE ? '' : value)
-      }
+      value={draftFilters.delivery_status || ALL_OPTION_VALUE}
+      onValueChange={value => {
+        const nextValue = value === ALL_OPTION_VALUE ? '' : value;
+        updateDraftFilter('delivery_status', nextValue);
+        if (nextValue !== 'not_sent') {
+          updateDraftFilter('skip_reason', '');
+        }
+      }}
     >
       <SelectTrigger className='h-9'>
         <SelectValue
@@ -271,16 +280,53 @@ export function CreditNotificationRecordsTab({
         >
           {t('module.operationsCreditNotifications.filters.all')}
         </SelectItem>
-        {NOTIFICATION_STATUSES.map(status => (
+        {NOTIFICATION_DELIVERY_STATUSES.map(status => (
           <SelectItem
             key={status}
             value={status}
             className={SELECT_ITEM_CLASS}
             indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
           >
-            {status === 'skipped'
-              ? t('module.operationsCreditNotifications.filters.skippedAll')
-              : resolveStatusLabel(status)}
+            {resolveDeliveryStatusLabel(status)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const renderSkipReasonSelect = () => (
+    <Select
+      value={draftFilters.skip_reason || ALL_OPTION_VALUE}
+      onValueChange={value =>
+        updateDraftFilter(
+          'skip_reason',
+          value === ALL_OPTION_VALUE ? '' : value,
+        )
+      }
+    >
+      <SelectTrigger className='h-9'>
+        <SelectValue
+          placeholder={t(
+            'module.operationsCreditNotifications.filters.skipReason',
+          )}
+        />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem
+          value={ALL_OPTION_VALUE}
+          className={SELECT_ITEM_CLASS}
+          indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
+        >
+          {t('module.operationsCreditNotifications.filters.all')}
+        </SelectItem>
+        {NOTIFICATION_SKIP_REASONS.map(reason => (
+          <SelectItem
+            key={reason}
+            value={reason}
+            className={SELECT_ITEM_CLASS}
+            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
+          >
+            {resolveSkipReasonLabel(reason)}
           </SelectItem>
         ))}
       </SelectContent>
@@ -370,6 +416,15 @@ export function CreditNotificationRecordsTab({
       label: t('module.operationsCreditNotifications.filters.status'),
       component: renderStatusSelect(),
     },
+    ...(draftFilters.delivery_status === 'not_sent'
+      ? [
+          {
+            key: 'skip_reason',
+            label: t('module.operationsCreditNotifications.filters.skipReason'),
+            component: renderSkipReasonSelect(),
+          },
+        ]
+      : []),
     {
       key: 'creator_keyword',
       label: t('module.operationsCreditNotifications.filters.creator'),
@@ -386,6 +441,22 @@ export function CreditNotificationRecordsTab({
       component: renderCreatedAtRange(),
     },
   ];
+
+  const resolveReasonDisplay = React.useCallback(
+    (item: AdminOperationCreditNotificationItem) => {
+      const detail = resolveCreditNotificationErrorText(
+        t,
+        item.error_code,
+        item.error_message,
+      );
+      const skipReason = resolveNotificationSkipReason(item);
+      if (detail || !skipReason) {
+        return detail;
+      }
+      return resolveSkipReasonLabel(skipReason);
+    },
+    [resolveSkipReasonLabel, t],
+  );
 
   return (
     <div className='flex min-h-0 flex-col gap-4'>
@@ -575,7 +646,9 @@ export function CreditNotificationRecordsTab({
                   >
                     <div className='text-center'>
                       {renderTooltipText(
-                        resolveStatusLabel(item.status),
+                        resolveDeliveryStatusLabel(
+                          resolveNotificationDeliveryStatus(item),
+                        ),
                         'text-foreground',
                       )}
                     </div>
@@ -618,11 +691,7 @@ export function CreditNotificationRecordsTab({
                   >
                     <div className='text-center'>
                       {renderTooltipText(
-                        resolveCreditNotificationErrorText(
-                          t,
-                          item.error_code,
-                          item.error_message,
-                        ),
+                        resolveReasonDisplay(item),
                         'text-foreground',
                       )}
                     </div>
@@ -686,7 +755,8 @@ export function CreditNotificationRecordsTab({
           }
         }}
         resolveTypeLabel={resolveTypeLabel}
-        resolveStatusLabel={resolveStatusLabel}
+        resolveDeliveryStatusLabel={resolveDeliveryStatusLabel}
+        resolveSkipReasonLabel={resolveSkipReasonLabel}
         resolveSourceTypeLabel={resolveSourceTypeLabel}
       />
     </div>

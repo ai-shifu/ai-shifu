@@ -591,6 +591,8 @@ def register_admin_operations_routes(
             "notification_type": request.args.get("notification_type", ""),
             "channel": request.args.get("channel", ""),
             "status": request.args.get("status", ""),
+            "delivery_status": request.args.get("delivery_status", ""),
+            "skip_reason": request.args.get("skip_reason", ""),
             "source_type": request.args.get("source_type", ""),
             "source_bid": request.args.get("source_bid", ""),
             "start_time": _parse_datetime_filter(

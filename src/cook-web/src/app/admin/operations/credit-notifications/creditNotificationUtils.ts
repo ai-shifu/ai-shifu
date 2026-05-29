@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 import type {
+  AdminOperationCreditNotificationItem,
   AdminOperationCreditNotificationPolicy,
   CreditNotificationEstimatedDaysThreshold,
   CreditNotificationFixedThreshold,
@@ -10,6 +11,8 @@ export type NotificationFilters = {
   creator_keyword: string;
   notification_type: string;
   status: string;
+  delivery_status: string;
+  skip_reason: string;
   source_type: string;
   start_time: string;
   end_time: string;
@@ -38,14 +41,18 @@ export const NOTIFICATION_SOURCE_TYPES = [
   'wallet',
   'wallet_bucket',
 ] as const;
-export const NOTIFICATION_STATUSES = [
+export const NOTIFICATION_DELIVERY_STATUSES = [
   'pending',
   'sent',
-  'failed_provider',
-  'skipped',
-  'skipped_no_mobile',
-  'skipped_opt_out',
-  'suppressed_duplicate',
+  'failed',
+  'not_sent',
+] as const;
+export const NOTIFICATION_SKIP_REASONS = [
+  'contact',
+  'policy',
+  'duplicate',
+  'stale',
+  'template_params',
 ] as const;
 export type KnownNotificationType = (typeof NOTIFICATION_TYPES)[number];
 export type TemplatePlaceholderKey =
@@ -109,6 +116,8 @@ export const createDefaultFilters = (): NotificationFilters => ({
   creator_keyword: '',
   notification_type: '',
   status: '',
+  delivery_status: '',
+  skip_reason: '',
   source_type: '',
   start_time: '',
   end_time: '',
@@ -216,6 +225,65 @@ export const resolveCreditNotificationErrorText = (
   }
 
   return String(errorMessage || '').trim();
+};
+
+export const resolveNotificationDeliveryStatus = (
+  item: Pick<
+    AdminOperationCreditNotificationItem,
+    'status' | 'delivery_status'
+  >,
+) => {
+  const normalizedDeliveryStatus = String(item.delivery_status || '').trim();
+  if (normalizedDeliveryStatus) {
+    return normalizedDeliveryStatus;
+  }
+  const normalizedStatus = String(item.status || '').trim();
+  if (normalizedStatus === 'failed_provider') {
+    return 'failed';
+  }
+  if (
+    normalizedStatus.startsWith('skipped') ||
+    normalizedStatus === 'suppressed_duplicate'
+  ) {
+    return 'not_sent';
+  }
+  return normalizedStatus;
+};
+
+export const resolveNotificationSkipReason = (
+  item: Pick<
+    AdminOperationCreditNotificationItem,
+    'status' | 'skip_reason' | 'error_code'
+  >,
+) => {
+  const normalizedSkipReason = String(item.skip_reason || '').trim();
+  if (normalizedSkipReason) {
+    return normalizedSkipReason;
+  }
+  const normalizedStatus = String(item.status || '').trim();
+  const normalizedErrorCode = String(item.error_code || '').trim();
+  if (normalizedStatus === 'skipped_no_mobile') {
+    return 'contact';
+  }
+  if (normalizedStatus === 'suppressed_duplicate') {
+    return 'duplicate';
+  }
+  if (
+    normalizedStatus === 'skipped' ||
+    normalizedErrorCode === 'expiry_extended'
+  ) {
+    return 'stale';
+  }
+  if (normalizedErrorCode === 'missing_template_params') {
+    return 'template_params';
+  }
+  if (normalizedStatus === 'skipped_opt_out') {
+    return 'policy';
+  }
+  if (normalizedStatus.startsWith('skipped')) {
+    return 'policy';
+  }
+  return '';
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

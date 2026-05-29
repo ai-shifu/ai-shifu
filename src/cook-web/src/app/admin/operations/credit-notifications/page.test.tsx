@@ -656,7 +656,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(mockGetRecords.mock.calls[1][0]).toEqual(
       expect.objectContaining({
         page_index: 1,
-        status: 'pending',
+        delivery_status: 'pending',
       }),
     );
     expect(
@@ -677,7 +677,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(mockGetRecords.mock.calls[2][0]).toEqual(
       expect.objectContaining({
         page_index: 1,
-        status: '',
+        delivery_status: '',
+        skip_reason: '',
       }),
     );
   });
