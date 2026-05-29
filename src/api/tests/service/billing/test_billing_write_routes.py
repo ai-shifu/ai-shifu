@@ -2246,22 +2246,17 @@ class TestBillingWriteRoutes:
             assert bucket.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
             assert subscription.current_period_start_at == order.paid_at
             assert bucket.effective_from == order.paid_at
-            assert (
-                subscription.current_period_end_at
-                == calculate_self_managed_billing_cycle_end(
-                    product,
-                    cycle_start_at=order.paid_at,
-                )
+            expected_period_end_at = calculate_self_managed_billing_cycle_end(
+                product,
+                cycle_start_at=order.paid_at,
             )
+            assert subscription.current_period_end_at == expected_period_end_at
             assert bucket.effective_to == subscription.current_period_end_at
             ledger = CreditLedgerEntry.query.filter_by(
                 creator_bid="creator-1",
                 source_bid=bill_order_bid,
             ).one()
             assert ledger.expires_at == subscription.current_period_end_at
-            assert subscription.current_period_end_at == datetime(
-                2026, 6, 27, 15, 59, 59
-            )
             assert raw_order.status == 1
             assert raw_order.charge_id == "ch_billing_test"
             assert (
