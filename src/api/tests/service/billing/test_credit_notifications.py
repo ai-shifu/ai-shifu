@@ -1192,6 +1192,11 @@ def test_credit_notification_list_filters_delivery_status_and_skip_reason(
             "missing_template_params",
         ),
         (
+            "notification-policy-stale",
+            CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+            "expiry_extended",
+        ),
+        (
             "notification-duplicate",
             CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE,
             "suppressed_duplicate",
@@ -1235,7 +1240,7 @@ def test_credit_notification_list_filters_delivery_status_and_skip_reason(
         app,
         filters={"delivery_status": "not_sent"},
     )
-    assert not_sent_payload["total"] == 5
+    assert not_sent_payload["total"] == 6
     assert {item["delivery_status"] for item in not_sent_payload["items"]} == {
         "not_sent"
     }
@@ -1268,13 +1273,14 @@ def test_credit_notification_list_filters_delivery_status_and_skip_reason(
         ]["notification_bid"]
         == "notification-duplicate"
     )
-    assert (
-        list_credit_notifications(app, filters={"skip_reason": "stale"})["items"][0][
-            "notification_bid"
-        ]
-        == "notification-stale"
-    )
-    assert list_credit_notifications(app, filters={"status": "skipped"})["total"] == 5
+    assert {
+        item["notification_bid"]
+        for item in list_credit_notifications(
+            app,
+            filters={"skip_reason": "stale"},
+        )["items"]
+    } == {"notification-policy-stale", "notification-stale"}
+    assert list_credit_notifications(app, filters={"status": "skipped"})["total"] == 6
 
 
 def test_credit_notification_list_matches_google_email_credential(

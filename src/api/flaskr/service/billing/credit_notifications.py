@@ -2999,26 +2999,34 @@ def _notification_delivery_status_condition(delivery_status: str):
 
 
 def _notification_skip_reason_condition(skip_reason: str):
+    contact_condition = (
+        NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+    )
+    duplicate_condition = (
+        NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE
+    )
+    stale_condition = or_(
+        NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED,
+        NotificationRecord.error_code == "expiry_extended",
+    )
+    template_params_condition = (
+        NotificationRecord.error_code == "missing_template_params"
+    ) & ~or_(contact_condition, duplicate_condition, stale_condition)
+
     if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_CONTACT:
-        return NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+        return contact_condition
     if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE:
-        return (
-            NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE
-        )
+        return duplicate_condition
     if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_STALE:
-        return or_(
-            NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED,
-            NotificationRecord.error_code == "expiry_extended",
-        )
+        return stale_condition
     if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_TEMPLATE_PARAMS:
-        return NotificationRecord.error_code == "missing_template_params"
+        return template_params_condition
     if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_POLICY:
-        return (
-            NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT
-        ) & (
-            (NotificationRecord.error_code.is_(None))
-            | (NotificationRecord.error_code == "")
-            | (NotificationRecord.error_code != "missing_template_params")
+        return _notification_not_sent_condition() & ~or_(
+            contact_condition,
+            duplicate_condition,
+            stale_condition,
+            template_params_condition,
         )
     return None
 
