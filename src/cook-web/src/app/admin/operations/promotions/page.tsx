@@ -2,18 +2,13 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
 import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import type {
   AdminPromotionCampaignItem,
   AdminPromotionCouponCodeItem,
@@ -21,8 +16,6 @@ import type {
   AdminPromotionListResponse,
 } from '@/app/admin/operations/operation-promotion-types';
 import useOperatorGuard from '@/app/admin/operations/useOperatorGuard';
-import ErrorDisplay from '@/components/ErrorDisplay';
-import { Button } from '@/components/ui/Button';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import {
@@ -32,17 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/Table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
-import { cn } from '@/lib/utils';
 import {
   PromotionCampaignDialog,
   PromotionCouponDialog,
@@ -52,6 +36,8 @@ import {
   PromotionCouponCodesDialog,
   PromotionCouponUsageDialog,
 } from './PromotionRecordDialogs';
+import PromotionCampaignsTab from './PromotionCampaignsTab';
+import PromotionCouponsTab from './PromotionCouponsTab';
 import PromotionStatusConfirmDialog from './PromotionStatusConfirmDialog';
 import {
   ALL_OPTION_VALUE,
@@ -69,28 +55,11 @@ import {
   type CouponFormState,
   createDefaultCampaignFilters,
   createDefaultCouponFilters,
-  EMPTY_VALUE,
   type ErrorState,
   PAGE_SIZE,
   type PromotionStatusChangeTarget,
   type PromotionTab,
-  renderCouponAttentionBadges,
-  renderPromotionStatusBadge,
-  renderRuleLabel,
-  renderTimeRange,
-  renderTooltipText,
-  resolveCampaignApplyTypeLabel,
-  resolveCouponScopeLabel,
-  resolveCouponUsageTypeLabel,
-  SectionCard,
-  shouldShowCampaignStatusToggle,
-  shouldShowCouponStatusToggle,
   SINGLE_SELECT_ITEM_CLASS,
-  TABLE_ACTION_CELL_CLASS,
-  TABLE_ACTION_HEAD_CLASS,
-  TABLE_CELL_CLASS,
-  TABLE_HEAD_CLASS,
-  TABLE_LAST_CELL_CLASS,
   downloadExcelCompatibleCodesFile,
   canEditCampaignStrategyFields,
 } from './promotionPageShared';
@@ -1002,354 +971,41 @@ export default function AdminOperationPromotionsPage() {
           value='coupons'
           className='mt-6 space-y-6'
         >
-          <SectionCard
-            title=''
-            action={
-              <Button
-                size='sm'
-                variant='outline'
-                onClick={() => setCouponCreateOpen(true)}
-              >
-                <Plus className='mr-1 h-4 w-4' />
-                {tPromotion('actions.createCoupon')}
-              </Button>
-            }
-          >
-            <AdminFilter
-              items={couponFilterItems}
-              expanded={couponFiltersExpanded}
-              onExpandedChange={setCouponFiltersExpanded}
-              onReset={handleCouponReset}
-              onSearch={handleCouponSearch}
-              resetLabel={t('module.order.filters.reset')}
-              searchLabel={t('module.order.filters.search')}
-              expandLabel={t('common.core.expand')}
-              collapseLabel={t('common.core.collapse')}
-              collapsedCount={4}
-              className='bg-transparent'
-              contentClassName='min-w-0'
-              labelClassName='w-24 text-right'
-              collapsedGridClassName='gap-x-5 xl:grid-cols-4'
-              expandedGridClassName='gap-x-5 xl:grid-cols-3'
-              labelColon
-            />
-          </SectionCard>
-          {couponError ? (
-            <ErrorDisplay
-              errorMessage={couponError.message}
-              errorCode={0}
-            />
-          ) : null}
-          <AdminTableShell
+          <PromotionCouponsTab
+            t={t}
+            tPromotion={tPromotion}
+            currencySymbol={currencySymbol}
+            filterItems={couponFilterItems}
+            filtersExpanded={couponFiltersExpanded}
+            onFiltersExpandedChange={setCouponFiltersExpanded}
+            onReset={handleCouponReset}
+            onSearch={handleCouponSearch}
+            onCreate={() => setCouponCreateOpen(true)}
+            error={couponError}
             loading={couponLoading}
-            isEmpty={!coupons.length}
-            emptyContent={tPromotion('messages.emptyCoupons')}
-            stickyActionEmpty={{
-              contentColSpan:
-                Object.keys(COUPON_DEFAULT_COLUMN_WIDTHS).length - 1,
-              actionClassName: TABLE_ACTION_CELL_CLASS,
-              actionStyle: getCouponColumnStyle('action'),
+            coupons={coupons}
+            page={couponPage}
+            pageCount={couponPageCount}
+            filters={couponFilters}
+            fetchCoupons={fetchCoupons}
+            getColumnStyle={getCouponColumnStyle}
+            renderResizeHandle={renderCouponResizeHandle}
+            onOpenUsage={item => {
+              setSelectedCouponBid(item.coupon_bid);
+              setSelectedCouponName(item.name || item.coupon_bid);
+              setSelectedCouponShowCourseColumn(
+                item.scope_type === 'all_courses',
+              );
+              setCouponUsageOpen(true);
             }}
-            withTooltipProvider
-            tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
-            table={emptyRow => (
-              <Table containerClassName='overflow-visible max-h-none'>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('name')}
-                    >
-                      {tPromotion('table.name')}
-                      {renderCouponResizeHandle('name')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('status')}
-                    >
-                      {tPromotion('table.status')}
-                      {renderCouponResizeHandle('status')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('usageType')}
-                    >
-                      {tPromotion('table.usageType')}
-                      {renderCouponResizeHandle('usageType')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('discountRule')}
-                    >
-                      {tPromotion('table.discountRule')}
-                      {renderCouponResizeHandle('discountRule')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('code')}
-                    >
-                      {tPromotion('coupon.code')}
-                      {renderCouponResizeHandle('code')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('scope')}
-                    >
-                      {tPromotion('table.scope')}
-                      {renderCouponResizeHandle('scope')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('course')}
-                    >
-                      {tPromotion('table.course')}
-                      {renderCouponResizeHandle('course')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('activeTime')}
-                    >
-                      {tPromotion('table.activeTime')}
-                      {renderCouponResizeHandle('activeTime')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('usageProgress')}
-                    >
-                      {tPromotion('table.usageProgress')}
-                      {renderCouponResizeHandle('usageProgress')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('codesEntry')}
-                    >
-                      {tPromotion('table.codesEntry')}
-                      {renderCouponResizeHandle('codesEntry')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('couponBid')}
-                    >
-                      {tPromotion('table.couponBid')}
-                      {renderCouponResizeHandle('couponBid')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('updatedAt')}
-                    >
-                      {tPromotion('table.updatedAt')}
-                      {renderCouponResizeHandle('updatedAt')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCouponColumnStyle('createdAt')}
-                    >
-                      {tPromotion('table.createdAt')}
-                      {renderCouponResizeHandle('createdAt')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_ACTION_HEAD_CLASS}
-                      style={getCouponColumnStyle('action')}
-                    >
-                      {tPromotion('table.actions')}
-                      {renderCouponResizeHandle('action')}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {emptyRow}
-                  {coupons.map(item => (
-                    <TableRow key={item.coupon_bid}>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCouponColumnStyle('name')}
-                      >
-                        {renderTooltipText(item.name)}
-                      </TableCell>
-                      <TableCell
-                        className={cn(TABLE_CELL_CLASS, 'whitespace-normal')}
-                        style={getCouponColumnStyle('status')}
-                      >
-                        <div className='flex flex-wrap items-center justify-center gap-1'>
-                          {renderPromotionStatusBadge({
-                            tPromotion,
-                            statusKey: item.computed_status_key,
-                            status: item.computed_status,
-                          })}
-                          {renderCouponAttentionBadges(item, tPromotion)}
-                        </div>
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCouponColumnStyle('usageType')}
-                      >
-                        {renderTooltipText(
-                          resolveCouponUsageTypeLabel(
-                            tPromotion,
-                            item.usage_type,
-                            item.usage_type_key,
-                          ),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCouponColumnStyle('discountRule')}
-                      >
-                        {renderTooltipText(
-                          renderRuleLabel(
-                            item.discount_type_key,
-                            item.value,
-                            currencySymbol,
-                          ),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCouponColumnStyle('code')}
-                      >
-                        {renderTooltipText(item.code)}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCouponColumnStyle('scope')}
-                      >
-                        {renderTooltipText(
-                          resolveCouponScopeLabel(tPromotion, item.scope_type),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCouponColumnStyle('course')}
-                      >
-                        {renderTooltipText(
-                          item.course_name ||
-                            item.shifu_bid ||
-                            tPromotion('scope.allCourses'),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCouponColumnStyle('activeTime')}
-                      >
-                        {renderTooltipText(
-                          renderTimeRange(item.start_at, item.end_at),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCouponColumnStyle('usageProgress')}
-                      >
-                        <button
-                          type='button'
-                          className='text-primary transition-colors hover:text-primary/80 hover:underline'
-                          onClick={() => {
-                            setSelectedCouponBid(item.coupon_bid);
-                            setSelectedCouponName(item.name || item.coupon_bid);
-                            setSelectedCouponShowCourseColumn(
-                              item.scope_type === 'all_courses',
-                            );
-                            setCouponUsageOpen(true);
-                          }}
-                        >
-                          {renderTooltipText(
-                            `${item.used_count}/${item.total_count}`,
-                          )}
-                        </button>
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCouponColumnStyle('codesEntry')}
-                      >
-                        {Number(item.usage_type) === 802 ? (
-                          <button
-                            type='button'
-                            className='text-primary transition-colors hover:text-primary/80 hover:underline'
-                            onClick={() => {
-                              setSelectedCouponBid(item.coupon_bid);
-                              setSelectedCouponName(
-                                item.name || item.coupon_bid,
-                              );
-                              setCouponCodesOpen(true);
-                            }}
-                          >
-                            {tPromotion('table.codesEntry')}
-                          </button>
-                        ) : (
-                          EMPTY_VALUE
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCouponColumnStyle('couponBid')}
-                      >
-                        {renderTooltipText(item.coupon_bid)}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCouponColumnStyle('updatedAt')}
-                      >
-                        {renderTooltipText(
-                          formatAdminUtcDateTime(item.updated_at),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_LAST_CELL_CLASS}
-                        style={getCouponColumnStyle('createdAt')}
-                      >
-                        {renderTooltipText(
-                          formatAdminUtcDateTime(item.created_at),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_ACTION_CELL_CLASS}
-                        style={getCouponColumnStyle('action')}
-                      >
-                        <div className='flex justify-center'>
-                          <AdminRowActions
-                            label={t('common.core.more')}
-                            actions={[
-                              {
-                                key: 'edit',
-                                label: tPromotion('actions.edit'),
-                                onClick: () => void handleStartCouponEdit(item),
-                              },
-                              {
-                                key: 'export-codes',
-                                label: tPromotion('actions.exportCodes'),
-                                hidden: Number(item.usage_type) !== 802,
-                                onClick: () =>
-                                  void handleCouponCodeExport(item),
-                              },
-                              {
-                                key: 'toggle-status',
-                                label:
-                                  item.computed_status === 'inactive'
-                                    ? tPromotion('actions.enable')
-                                    : tPromotion('actions.disable'),
-                                hidden: !shouldShowCouponStatusToggle(item),
-                                onClick: () =>
-                                  void handleCouponStatusToggle(item),
-                              },
-                            ]}
-                          />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-            pagination={{
-              pageIndex: couponPage,
-              pageCount: couponPageCount,
-              onPageChange: page => void fetchCoupons(page, couponFilters),
-              prevLabel: t('module.order.paginationPrev'),
-              nextLabel: t('module.order.paginationNext'),
-              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
-              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
-              hideWhenSinglePage: true,
+            onOpenCodes={item => {
+              setSelectedCouponBid(item.coupon_bid);
+              setSelectedCouponName(item.name || item.coupon_bid);
+              setCouponCodesOpen(true);
             }}
-            footerClassName='mt-3'
+            onEdit={handleStartCouponEdit}
+            onExportCodes={handleCouponCodeExport}
+            onToggleStatus={handleCouponStatusToggle}
           />
         </TabsContent>
 
@@ -1357,295 +1013,28 @@ export default function AdminOperationPromotionsPage() {
           value='campaigns'
           className='mt-6 space-y-6'
         >
-          <SectionCard
-            title=''
-            action={
-              <Button
-                size='sm'
-                variant='outline'
-                onClick={() => setCampaignCreateOpen(true)}
-              >
-                <Plus className='mr-1 h-4 w-4' />
-                {tPromotion('actions.createCampaign')}
-              </Button>
-            }
-          >
-            <AdminFilter
-              items={campaignFilterItems}
-              expanded={campaignFiltersExpanded}
-              onExpandedChange={setCampaignFiltersExpanded}
-              onReset={handleCampaignReset}
-              onSearch={handleCampaignSearch}
-              resetLabel={t('module.order.filters.reset')}
-              searchLabel={t('module.order.filters.search')}
-              expandLabel={t('common.core.expand')}
-              collapseLabel={t('common.core.collapse')}
-              collapsedCount={4}
-              className='bg-transparent'
-              contentClassName='min-w-0'
-              labelClassName='w-24 text-right'
-              collapsedGridClassName='gap-x-5 xl:grid-cols-4'
-              expandedGridClassName='gap-x-5 xl:grid-cols-3'
-              labelColon
-            />
-          </SectionCard>
-          {campaignError ? (
-            <ErrorDisplay
-              errorMessage={campaignError.message}
-              errorCode={0}
-            />
-          ) : null}
-          <AdminTableShell
+          <PromotionCampaignsTab
+            t={t}
+            tPromotion={tPromotion}
+            currencySymbol={currencySymbol}
+            filterItems={campaignFilterItems}
+            filtersExpanded={campaignFiltersExpanded}
+            onFiltersExpandedChange={setCampaignFiltersExpanded}
+            onReset={handleCampaignReset}
+            onSearch={handleCampaignSearch}
+            onCreate={() => setCampaignCreateOpen(true)}
+            error={campaignError}
             loading={campaignLoading}
-            isEmpty={!campaigns.length}
-            emptyContent={tPromotion('messages.emptyCampaigns')}
-            stickyActionEmpty={{
-              contentColSpan:
-                Object.keys(CAMPAIGN_DEFAULT_COLUMN_WIDTHS).length - 1,
-              actionClassName: TABLE_ACTION_CELL_CLASS,
-              actionStyle: getCampaignColumnStyle('action'),
-            }}
-            withTooltipProvider
-            tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
-            table={emptyRow => (
-              <Table containerClassName='overflow-visible max-h-none'>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCampaignColumnStyle('name')}
-                    >
-                      {tPromotion('table.campaignName')}
-                      {renderCampaignResizeHandle('name')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCampaignColumnStyle('status')}
-                    >
-                      {tPromotion('table.status')}
-                      {renderCampaignResizeHandle('status')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCampaignColumnStyle('applyType')}
-                    >
-                      {tPromotion('table.applyType')}
-                      {renderCampaignResizeHandle('applyType')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCampaignColumnStyle('channel')}
-                    >
-                      {tPromotion('table.channel')}
-                      {renderCampaignResizeHandle('channel')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCampaignColumnStyle('course')}
-                    >
-                      {tPromotion('table.course')}
-                      {renderCampaignResizeHandle('course')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCampaignColumnStyle('discountRule')}
-                    >
-                      {tPromotion('table.discountRule')}
-                      {renderCampaignResizeHandle('discountRule')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCampaignColumnStyle('campaignTime')}
-                    >
-                      {tPromotion('filters.campaignTime')}
-                      {renderCampaignResizeHandle('campaignTime')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCampaignColumnStyle('appliedOrderCount')}
-                    >
-                      {tPromotion('table.appliedOrderCount')}
-                      {renderCampaignResizeHandle('appliedOrderCount')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCampaignColumnStyle('promoBid')}
-                    >
-                      {tPromotion('table.promoBid')}
-                      {renderCampaignResizeHandle('promoBid')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCampaignColumnStyle('updatedAt')}
-                    >
-                      {tPromotion('table.updatedAt')}
-                      {renderCampaignResizeHandle('updatedAt')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_HEAD_CLASS}
-                      style={getCampaignColumnStyle('createdAt')}
-                    >
-                      {tPromotion('table.createdAt')}
-                      {renderCampaignResizeHandle('createdAt')}
-                    </TableHead>
-                    <TableHead
-                      className={TABLE_ACTION_HEAD_CLASS}
-                      style={getCampaignColumnStyle('action')}
-                    >
-                      {tPromotion('table.actions')}
-                      {renderCampaignResizeHandle('action')}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {emptyRow}
-                  {campaigns.map(item => (
-                    <TableRow key={item.promo_bid}>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCampaignColumnStyle('name')}
-                      >
-                        {renderTooltipText(item.name)}
-                      </TableCell>
-                      <TableCell
-                        className={cn(TABLE_CELL_CLASS, 'whitespace-normal')}
-                        style={getCampaignColumnStyle('status')}
-                      >
-                        <div className='flex flex-wrap items-center justify-center gap-1'>
-                          {renderPromotionStatusBadge({
-                            tPromotion,
-                            statusKey: item.computed_status_key,
-                            status: item.computed_status,
-                          })}
-                        </div>
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCampaignColumnStyle('applyType')}
-                      >
-                        {renderTooltipText(
-                          resolveCampaignApplyTypeLabel(
-                            tPromotion,
-                            item.apply_type,
-                          ),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCampaignColumnStyle('channel')}
-                      >
-                        {renderTooltipText(item.channel)}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCampaignColumnStyle('course')}
-                      >
-                        {renderTooltipText(item.course_name || item.shifu_bid)}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCampaignColumnStyle('discountRule')}
-                      >
-                        {renderTooltipText(
-                          renderRuleLabel(
-                            item.discount_type_key,
-                            item.value,
-                            currencySymbol,
-                          ),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCampaignColumnStyle('campaignTime')}
-                      >
-                        {renderTooltipText(
-                          renderTimeRange(item.start_at, item.end_at),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCampaignColumnStyle('appliedOrderCount')}
-                      >
-                        <button
-                          type='button'
-                          className='inline-flex min-w-[2.5rem] items-center justify-center rounded-sm text-sm font-medium text-primary underline-offset-2 transition-colors hover:text-primary/80 hover:underline focus-visible:outline-none'
-                          onClick={() =>
-                            handleOpenCampaignRedemptions(
-                              item.promo_bid,
-                              item.name,
-                            )
-                          }
-                          aria-label={`${tPromotion('actions.viewOrders')}: ${item.name || item.promo_bid}`}
-                        >
-                          {String(item.applied_order_count)}
-                        </button>
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCampaignColumnStyle('promoBid')}
-                      >
-                        {renderTooltipText(item.promo_bid)}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_CELL_CLASS}
-                        style={getCampaignColumnStyle('updatedAt')}
-                      >
-                        {renderTooltipText(
-                          formatAdminUtcDateTime(item.updated_at),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_LAST_CELL_CLASS}
-                        style={getCampaignColumnStyle('createdAt')}
-                      >
-                        {renderTooltipText(
-                          formatAdminUtcDateTime(item.created_at),
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={TABLE_ACTION_CELL_CLASS}
-                        style={getCampaignColumnStyle('action')}
-                      >
-                        <div className='flex justify-center'>
-                          <AdminRowActions
-                            label={t('common.core.more')}
-                            actions={[
-                              {
-                                key: 'edit',
-                                label: tPromotion('actions.edit'),
-                                onClick: () =>
-                                  void handleStartCampaignEdit(item),
-                              },
-                              {
-                                key: 'toggle-status',
-                                label:
-                                  item.computed_status === 'inactive'
-                                    ? tPromotion('actions.enable')
-                                    : tPromotion('actions.disable'),
-                                hidden: !shouldShowCampaignStatusToggle(item),
-                                onClick: () =>
-                                  void handleCampaignStatusToggle(item),
-                              },
-                            ]}
-                          />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-            pagination={{
-              pageIndex: campaignPage,
-              pageCount: campaignPageCount,
-              onPageChange: page => void fetchCampaigns(page, campaignFilters),
-              prevLabel: t('module.order.paginationPrev'),
-              nextLabel: t('module.order.paginationNext'),
-              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
-              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
-              hideWhenSinglePage: true,
-            }}
-            footerClassName='mt-3'
+            campaigns={campaigns}
+            page={campaignPage}
+            pageCount={campaignPageCount}
+            filters={campaignFilters}
+            fetchCampaigns={fetchCampaigns}
+            getColumnStyle={getCampaignColumnStyle}
+            renderResizeHandle={renderCampaignResizeHandle}
+            onOpenRedemptions={handleOpenCampaignRedemptions}
+            onEdit={handleStartCampaignEdit}
+            onToggleStatus={handleCampaignStatusToggle}
           />
         </TabsContent>
       </Tabs>
