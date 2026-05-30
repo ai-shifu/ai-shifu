@@ -132,6 +132,7 @@
     "loadCoursesFailed": "课程列表加载失败，请稍后重试",
     "loadFailed": "兑换码列表加载失败，请刷新后重试",
     "submitting": "创建中...",
+    "tooManyCourses": "当前仅展示前部分已发布课程，如需更多课程请缩小筛选范围。",
     "totalCount": "兑换码数：{count}",
     "updateSuccess": "保存成功",
     "usageTypeHelp": "兑换码类型说明",

@@ -2238,6 +2238,7 @@ export type I18nKey =
   | 'module.order.redemptionCodes.loadCoursesFailed'
   | 'module.order.redemptionCodes.loadFailed'
   | 'module.order.redemptionCodes.submitting'
+  | 'module.order.redemptionCodes.tooManyCourses'
   | 'module.order.redemptionCodes.totalCount'
   | 'module.order.redemptionCodes.updateSuccess'
   | 'module.order.redemptionCodes.usageTypeHelp'

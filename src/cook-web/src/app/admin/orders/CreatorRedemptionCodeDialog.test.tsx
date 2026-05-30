@@ -283,4 +283,27 @@ describe('CreatorRedemptionCodeDialog', () => {
     });
     expect(mockCreateCreatorCourseRedemptionCode).not.toHaveBeenCalled();
   });
+
+  test('stops loading courses when the safety page limit is reached', async () => {
+    mockGetAdminOrderShifus.mockResolvedValue({
+      items: Array.from({ length: 100 }, (_, index) => ({
+        bid: `course-${index}`,
+        name: `Course ${index}`,
+      })),
+    });
+
+    render(
+      <CreatorRedemptionCodeDialog
+        open
+        onOpenChange={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOrderShifus).toHaveBeenCalledTimes(50);
+    });
+    expect(
+      await screen.findByText('module.order.redemptionCodes.tooManyCourses'),
+    ).toBeInTheDocument();
+  });
 });

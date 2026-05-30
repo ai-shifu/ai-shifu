@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import api from '@/api';
 import CreatorRedemptionCodesTab from './CreatorRedemptionCodesTab';
 
@@ -22,12 +28,14 @@ jest.mock('@/c-store', () => ({
     selector({ currencySymbol: '¥' }),
 }));
 
+const mockTranslate = (key: string, options?: Record<string, unknown>) =>
+  options && typeof options.count !== 'undefined'
+    ? `${key}:${String(options.count)}`
+    : key;
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: Record<string, unknown>) =>
-      options && typeof options.count !== 'undefined'
-        ? `${key}:${String(options.count)}`
-        : key,
+    t: mockTranslate,
   }),
   Trans: ({ i18nKey }: { i18nKey: string }) => <span>{i18nKey}</span>,
 }));
@@ -116,6 +124,50 @@ const mockGetCreatorCourseRedemptionCodeUsages =
 const mockGetCreatorCourseRedemptionCodeCodes =
   api.getCreatorCourseRedemptionCodeCodes as jest.Mock;
 const mockGetAdminOrderShifus = api.getAdminOrderShifus as jest.Mock;
+
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+};
+
+const createListResponse = (
+  name: string,
+  total = 1,
+): Record<string, unknown> => ({
+  items: [
+    {
+      coupon_bid: `coupon-${name}`,
+      name,
+      code: 'CODE-A',
+      usage_type: 801,
+      usage_type_key: 'module.operationsPromotion.usageType.generic',
+      discount_type: 701,
+      discount_type_key: 'module.operationsPromotion.discountType.fixed',
+      value: '10',
+      scope_type: 'single_course',
+      shifu_bid: 'course-1',
+      course_name: 'Course A',
+      start_at: '2026-05-01 00:00:00',
+      end_at: '2026-06-01 23:59:59',
+      total_count: 20,
+      used_count: 3,
+      computed_status: 'active',
+      computed_status_key: 'module.operationsPromotion.status.active',
+      created_at: '2026-05-01 12:00:00',
+      updated_at: '2026-05-01 12:00:00',
+    },
+  ],
+  page: 1,
+  page_count: 1,
+  page_size: 20,
+  total,
+  summary: {},
+});
 
 describe('CreatorRedemptionCodesTab', () => {
   beforeEach(() => {
@@ -406,5 +458,50 @@ describe('CreatorRedemptionCodesTab', () => {
     expect(
       mockGetCreatorCourseRedemptionCodes.mock.calls.length,
     ).toBeGreaterThan(1);
+  });
+
+  test('keeps the latest redemption code response when requests finish out of order', async () => {
+    const oldRequest = createDeferred<Record<string, unknown>>();
+    const latestRequest = createDeferred<Record<string, unknown>>();
+    mockGetCreatorCourseRedemptionCodes
+      .mockReturnValueOnce(oldRequest.promise)
+      .mockReturnValueOnce(latestRequest.promise);
+
+    render(<CreatorRedemptionCodesTab />);
+
+    fireEvent.change(screen.getByPlaceholderText('filters.namePlaceholder'), {
+      target: { value: 'Latest Batch' },
+    });
+    fireEvent.click(screen.getByText('module.order.filters.search'));
+    await waitFor(() => {
+      expect(mockGetCreatorCourseRedemptionCodes).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      latestRequest.resolve(createListResponse('Latest Batch'));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      oldRequest.resolve(createListResponse('Old Batch'));
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText('Latest Batch')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('Old Batch')).not.toBeInTheDocument();
+    });
+  });
+
+  test('does not render empty state when loading redemption codes fails', async () => {
+    mockGetCreatorCourseRedemptionCodes.mockRejectedValueOnce(
+      new Error('load failed'),
+    );
+
+    render(<CreatorRedemptionCodesTab />);
+
+    expect(await screen.findByText('load failed')).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.order.redemptionCodes.emptyList'),
+    ).not.toBeInTheDocument();
   });
 });

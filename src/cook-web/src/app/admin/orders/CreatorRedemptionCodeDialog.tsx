@@ -45,6 +45,7 @@ import type { AdminPromotionCouponItem } from '@/app/admin/operations/operation-
 const SELECT_ITEM_CLASS =
   'pl-3 pr-8 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
 const SELECT_ITEM_INDICATOR_CLASS = 'left-auto right-2';
+const MAX_COURSE_PAGES = 50;
 
 const createDefaultCreatorCouponForm = (): CouponFormState => ({
   name: '',
@@ -101,14 +102,15 @@ const CreatorRedemptionCodeDialog = ({
     let canceled = false;
     const loadCourses = async () => {
       setCoursesLoading(true);
-      setCoursesError('');
+      setCoursesError(current => (current ? '' : current));
       try {
         const pageSize = 100;
         let pageIndex = 1;
+        let reachedLimit = false;
         const collected: Shifu[] = [];
         const seen = new Set<string>();
 
-        while (!canceled) {
+        while (!canceled && pageIndex <= MAX_COURSE_PAGES) {
           const response = (await api.getAdminOrderShifus({
             page_index: pageIndex,
             page_size: pageSize,
@@ -126,9 +128,15 @@ const CreatorRedemptionCodeDialog = ({
           }
           pageIndex += 1;
         }
+        if (pageIndex > MAX_COURSE_PAGES) {
+          reachedLimit = true;
+        }
 
         if (!canceled) {
           setCourses(collected);
+          if (reachedLimit) {
+            setCoursesError(t('module.order.redemptionCodes.tooManyCourses'));
+          }
         }
       } catch (error) {
         if (!canceled) {
@@ -165,11 +173,11 @@ const CreatorRedemptionCodeDialog = ({
   );
 
   const handleSubmit = async () => {
-    const normalizedName = form.name.trim();
-    const normalizedCode = form.code.trim();
-    const normalizedQuantity = form.total_count.trim();
-    const normalizedCourseId = form.shifu_bid.trim();
-    const normalizedValue = form.value.trim();
+    const normalizedName = (form.name || '').trim();
+    const normalizedCode = (form.code || '').trim();
+    const normalizedQuantity = (form.total_count || '').trim();
+    const normalizedCourseId = (form.shifu_bid || '').trim();
+    const normalizedValue = (form.value || '').trim();
     const startAtDate = parseLocalDateTimeInput(form.start_at);
     const endAtDate = parseLocalDateTimeInput(form.end_at);
 

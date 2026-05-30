@@ -751,6 +751,26 @@ def test_creator_redemption_code_detail_update_and_status_require_owned_course_c
         assert coupon is not None
         assert coupon.status == 0
 
+    invalid_create_response = test_client.post(
+        "/api/order/admin/orders/redemption-codes",
+        json=[],
+        headers={"Token": "test-token"},
+    )
+    invalid_update_response = test_client.post(
+        f"/api/order/admin/orders/redemption-codes/{coupon_bid}",
+        json=[],
+        headers={"Token": "test-token"},
+    )
+    invalid_status_response = test_client.post(
+        f"/api/order/admin/orders/redemption-codes/{coupon_bid}/status",
+        json={"enabled": "<script>alert(1)</script>"},
+        headers={"Token": "test-token"},
+    )
+
+    assert invalid_create_response.get_json(force=True)["code"] != 0
+    assert invalid_update_response.get_json(force=True)["code"] != 0
+    assert invalid_status_response.get_json(force=True)["code"] != 0
+
     with app.app_context():
         other_coupon = Coupon()
         other_coupon.coupon_bid = "other-coupon"
@@ -1445,6 +1465,7 @@ def test_admin_promotions_campaign_routes_round_trip(app, test_client, monkeypat
     )
     assert detail_payload["data"]["campaign"]["channel"] == "app"
     assert detail_payload["data"]["campaign"]["has_redemptions"] is True
+    assert detail_payload["data"]["campaign"]["created_user_name"] == "Operator"
     assert detail_payload["data"]["description"] == "Launch campaign"
 
     redemption_response = test_client.get(

@@ -136,6 +136,7 @@ export default function CreatorRedemptionCodesTab({
   const [statusTarget, setStatusTarget] =
     useState<AdminPromotionCouponItem | null>(null);
   const [statusSubmitting, setStatusSubmitting] = useState(false);
+  const fetchRequestIdRef = useRef(0);
 
   useEffect(() => {
     filtersRef.current = filters;
@@ -143,9 +144,11 @@ export default function CreatorRedemptionCodesTab({
 
   const fetchCodes = useCallback(
     async (targetPage: number, nextFilters?: RedemptionCodeFilters) => {
+      const requestId = fetchRequestIdRef.current + 1;
+      fetchRequestIdRef.current = requestId;
       const resolvedFilters = nextFilters ?? filtersRef.current;
       setLoading(true);
-      setError(null);
+      setError(current => (current ? null : current));
       try {
         const response = (await api.getCreatorCourseRedemptionCodes({
           page_index: targetPage,
@@ -160,11 +163,17 @@ export default function CreatorRedemptionCodesTab({
           end_time: resolvedFilters.end_time,
         })) as AdminPromotionListResponse<AdminPromotionCouponItem>;
 
+        if (requestId !== fetchRequestIdRef.current) {
+          return;
+        }
         setItems(response.items || []);
         setPageIndex(response.page || targetPage);
         setPageCount(response.page_count || 1);
         setTotal(response.total || 0);
       } catch (err) {
+        if (requestId !== fetchRequestIdRef.current) {
+          return;
+        }
         setError({
           message:
             err instanceof Error
@@ -172,7 +181,9 @@ export default function CreatorRedemptionCodesTab({
               : t('module.order.redemptionCodes.loadFailed'),
         });
       } finally {
-        setLoading(false);
+        if (requestId === fetchRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [t],
@@ -251,7 +262,7 @@ export default function CreatorRedemptionCodesTab({
           ? tPromotion('messages.couponEnabledSuccess')
           : tPromotion('messages.couponDisabledSuccess'),
       );
-      setStatusTarget(null);
+      setStatusTarget(current => (current ? null : current));
       await fetchCodes(pageIndex, filtersRef.current);
     } catch (err) {
       showErrorToast((err as Error).message || t('common.core.submitFailed'));
@@ -561,7 +572,7 @@ export default function CreatorRedemptionCodesTab({
 
       <AdminTableShell
         loading={loading}
-        isEmpty={items.length === 0}
+        isEmpty={!loading && !error && items.length === 0}
         emptyContent={t('module.order.redemptionCodes.emptyList')}
         emptyColSpan={11}
         withTooltipProvider
@@ -778,7 +789,7 @@ export default function CreatorRedemptionCodesTab({
         open={Boolean(editingCoupon)}
         onOpenChange={open => {
           if (!open) {
-            setEditingCoupon(null);
+            setEditingCoupon(current => (current ? null : current));
           }
         }}
         coupon={editingCoupon}
@@ -797,7 +808,7 @@ export default function CreatorRedemptionCodesTab({
         submitting={statusSubmitting}
         onOpenChange={open => {
           if (!open && !statusSubmitting) {
-            setStatusTarget(null);
+            setStatusTarget(current => (current ? null : current));
           }
         }}
         onConfirm={handleConfirmStatusToggle}

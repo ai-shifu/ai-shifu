@@ -1928,6 +1928,7 @@ def get_operator_promotion_campaign_detail(
         int(stats.get("count", 0)),
         stats.get("discount_amount", decimal.Decimal("0")),
         bool(stats.get("redemption_count", 0)),
+        user_name_map,
     )
     return AdminPromotionCampaignDetailDTO(
         campaign=item,

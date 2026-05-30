@@ -26,6 +26,13 @@ def test_legacy_order_route_remains_separate_from_billing_domain() -> None:
     assert routes["/api/admin/orders/redemption-codes"] >= {"GET", "POST"}
     assert routes["/api/admin/orders/redemption-codes/<coupon_bid>/usages"] >= {"GET"}
     assert routes["/api/admin/orders/redemption-codes/<coupon_bid>/codes"] >= {"GET"}
+    assert routes["/api/admin/orders/redemption-codes/<coupon_bid>"] >= {
+        "GET",
+        "POST",
+    }
+    assert routes["/api/admin/orders/redemption-codes/<coupon_bid>/status"] >= {
+        "POST",
+    }
     assert routes["/api/admin/orders/<order_bid>"] >= {"GET"}
 
     for endpoint, view in app.view_functions.items():

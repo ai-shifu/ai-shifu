@@ -42,7 +42,9 @@ def register_order_handler(app: Flask, path_prefix: str):
         if not request.user.is_creator:
             raise_error("server.shifu.noPermission")
 
-    def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | None:
+    def _parse_datetime_filter(
+        value: str, field_name: str, *, is_end: bool = False
+    ) -> datetime | None:
         if not value:
             return None
         normalized = str(value).strip()
@@ -63,19 +65,41 @@ def register_order_handler(app: Flask, path_prefix: str):
                 return parsed
             except ValueError:
                 continue
-        raise_param_error("datetime format invalid")
+        raise_param_error(field_name)
 
     def _parse_admin_pagination():
         page_index = request.args.get("page_index", 1)
         page_size = request.args.get("page_size", 20)
         try:
             page_index = int(page_index)
+        except (TypeError, ValueError):
+            raise_param_error("page_index")
+        try:
             page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
+        except (TypeError, ValueError):
+            raise_param_error("page_size")
+        if page_index < 1:
+            raise_param_error("page_index")
+        if page_size < 1:
+            raise_param_error("page_size")
         return page_index, page_size
+
+    def _parse_required_json_payload() -> dict:
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
+        return payload
+
+    def _parse_bool_payload_field(payload: dict, field_name: str) -> bool:
+        value = payload.get(field_name)
+        if isinstance(value, bool):
+            return value
+        normalized = str(value or "").strip().lower()
+        if normalized in {"true", "1"}:
+            return True
+        if normalized in {"false", "0"}:
+            return False
+        raise_param_error(field_name)
 
     @app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])
     def reqiure_to_pay():
@@ -684,10 +708,12 @@ def register_order_handler(app: Flask, path_prefix: str):
             "status": request.args.get("status", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                "start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                "end_time",
                 is_end=True,
             ),
         }
@@ -701,9 +727,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     def admin_create_creator_redemption_code():
         """Create a course redemption code for the current creator's published course."""
         _require_creator()
-        payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict):
-            raise_param_error("payload")
+        payload = _parse_required_json_payload()
         return make_common_response(
             create_creator_course_redemption_coupon(app, request.user.user_id, payload)
         )
@@ -765,9 +789,7 @@ def register_order_handler(app: Flask, path_prefix: str):
     def admin_update_creator_redemption_code(coupon_bid: str):
         """Update a course redemption code owned by the current creator."""
         _require_creator()
-        payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict):
-            raise_param_error("payload")
+        payload = _parse_required_json_payload()
         return make_common_response(
             update_creator_course_redemption_coupon(
                 app, request.user.user_id, coupon_bid, payload
@@ -781,15 +803,14 @@ def register_order_handler(app: Flask, path_prefix: str):
     def admin_update_creator_redemption_code_status(coupon_bid: str):
         """Update status for a course redemption code owned by the current creator."""
         _require_creator()
-        payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict):
-            raise_param_error("payload")
+        payload = _parse_required_json_payload()
+        enabled = _parse_bool_payload_field(payload, "enabled")
         return make_common_response(
             update_creator_course_redemption_coupon_status(
                 app,
                 request.user.user_id,
                 coupon_bid,
-                payload.get("enabled"),
+                enabled,
             )
         )
 
