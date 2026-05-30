@@ -29,7 +29,7 @@ from flaskr.service.promo.models import (
     PromoCampaign,
     PromoRedemption,
 )
-from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 
 
@@ -41,6 +41,7 @@ def _isolate_tables(app):
         db.session.query(CouponUsage).delete()
         db.session.query(Coupon).delete()
         db.session.query(Order).delete()
+        db.session.query(AiCourseAuth).delete()
         db.session.query(PublishedShifu).delete()
         db.session.query(DraftShifu).delete()
         db.session.query(AuthCredential).delete()
@@ -54,6 +55,7 @@ def _isolate_tables(app):
         db.session.query(CouponUsage).delete()
         db.session.query(Coupon).delete()
         db.session.query(Order).delete()
+        db.session.query(AiCourseAuth).delete()
         db.session.query(PublishedShifu).delete()
         db.session.query(DraftShifu).delete()
         db.session.query(AuthCredential).delete()
@@ -69,6 +71,20 @@ def _mock_operator(
         user_id=user_id,
         is_operator=is_operator,
         is_creator=False,
+        language="en-US",
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: dummy_user,
+        raising=False,
+    )
+
+
+def _mock_creator(monkeypatch, user_id: str = "creator-1") -> None:
+    dummy_user = SimpleNamespace(
+        user_id=user_id,
+        is_operator=False,
+        is_creator=True,
         language="en-US",
     )
     monkeypatch.setattr(
@@ -368,6 +384,422 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
         coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
         assert coupon is not None
         assert coupon.status == 0
+
+
+def test_creator_redemption_code_route_creates_course_scoped_coupon(
+    app, test_client, monkeypatch
+):
+    _mock_creator(monkeypatch, user_id="creator-1")
+
+    with app.app_context():
+        _seed_user("creator-1", "creator@example.com", "Creator")
+        _seed_course("course-1", "Creator Course", creator_user_bid="creator-1")
+        db.session.commit()
+
+    response = test_client.post(
+        "/api/order/admin/orders/redemption-codes",
+        json={
+            "name": "Creator Batch",
+            "code": "",
+            "usage_type": COUPON_APPLY_TYPE_SPECIFIC,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 2,
+            "scope_type": "all_courses",
+            "shifu_bid": "course-1",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    coupon_bid = payload["data"]["coupon_bid"]
+    assert coupon_bid
+
+    with app.app_context():
+        coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
+        assert coupon is not None
+        assert coupon.created_user_bid == "creator-1"
+        assert coupon.filter == '{"course_id": "course-1"}'
+        usages = CouponUsage.query.filter(CouponUsage.coupon_bid == coupon_bid).all()
+        assert len(usages) == 2
+        assert {usage.shifu_bid for usage in usages} == {"course-1"}
+
+
+def test_creator_redemption_code_route_rejects_shared_course(
+    app, test_client, monkeypatch
+):
+    _mock_creator(monkeypatch, user_id="creator-1")
+
+    with app.app_context():
+        _seed_user("creator-1", "creator@example.com", "Creator")
+        _seed_course("course-2", "Shared Course", creator_user_bid="owner-2")
+        auth = AiCourseAuth()
+        auth.course_auth_id = "auth-1"
+        auth.course_id = "course-2"
+        auth.user_id = "creator-1"
+        auth.auth_type = '["1", "2"]'
+        auth.status = 1
+        db.session.add(auth)
+        db.session.commit()
+
+    response = test_client.post(
+        "/api/order/admin/orders/redemption-codes",
+        json={
+            "name": "Shared Batch",
+            "usage_type": COUPON_APPLY_TYPE_SPECIFIC,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 1,
+            "shifu_bid": "course-2",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 401
+
+    with app.app_context():
+        assert Coupon.query.count() == 0
+        assert CouponUsage.query.count() == 0
+
+
+def test_creator_redemption_code_list_shows_only_owned_course_batches(
+    app, test_client, monkeypatch
+):
+    _mock_creator(monkeypatch, user_id="creator-1")
+
+    with app.app_context():
+        _seed_user("creator-1", "creator@example.com", "Creator")
+        _seed_user("owner-2", "owner2@example.com", "Owner 2")
+        _seed_course("course-1", "Creator Course", creator_user_bid="creator-1")
+        _seed_course("course-2", "Other Course", creator_user_bid="owner-2")
+        db.session.commit()
+
+    owned_response = test_client.post(
+        "/api/order/admin/orders/redemption-codes",
+        json={
+            "name": "Owned Batch",
+            "usage_type": COUPON_APPLY_TYPE_ALL,
+            "code": "OWNEDCODE",
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 2,
+            "scope_type": "all_courses",
+            "shifu_bid": "course-1",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    assert owned_response.get_json(force=True)["code"] == 0
+
+    with app.app_context():
+        other_coupon = Coupon()
+        other_coupon.coupon_bid = "other-coupon"
+        other_coupon.name = "Other Batch"
+        other_coupon.code = "OTHERCODE"
+        other_coupon.usage_type = COUPON_APPLY_TYPE_ALL
+        other_coupon.discount_type = COUPON_TYPE_FIXED
+        other_coupon.value = Decimal("20")
+        other_coupon.filter = '{"course_id": "course-2"}'
+        other_coupon.total_count = 1
+        other_coupon.used_count = 0
+        other_coupon.status = 1
+        other_coupon.created_user_bid = "creator-1"
+        other_coupon.updated_user_bid = "creator-1"
+        other_coupon.start = datetime(2026, 4, 24, 10, 0, 0)
+        other_coupon.end = datetime(2026, 5, 24, 10, 0, 0)
+        db.session.add(other_coupon)
+        db.session.commit()
+
+    list_response = test_client.get(
+        "/api/order/admin/orders/redemption-codes",
+        query_string={"page_index": 1, "page_size": 20, "keyword": "OWNED"},
+        headers={"Token": "test-token"},
+    )
+    payload = list_response.get_json(force=True)
+
+    assert list_response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["total"] == 1
+    assert payload["data"]["items"][0]["name"] == "Owned Batch"
+    assert payload["data"]["items"][0]["course_name"] == "Creator Course"
+    assert payload["data"]["items"][0]["created_user_bid"] == "creator-1"
+    assert payload["data"]["items"][0]["created_user_name"] == "Creator"
+
+    all_response = test_client.get(
+        "/api/order/admin/orders/redemption-codes",
+        query_string={"page_index": 1, "page_size": 20},
+        headers={"Token": "test-token"},
+    )
+    all_payload = all_response.get_json(force=True)
+
+    assert all_payload["code"] == 0
+    assert all_payload["data"]["total"] == 1
+    assert all_payload["data"]["items"][0]["coupon_bid"] != "other-coupon"
+
+
+def test_creator_redemption_code_usage_route_requires_owned_course_coupon(
+    app, test_client, monkeypatch
+):
+    _mock_creator(monkeypatch, user_id="creator-1")
+
+    with app.app_context():
+        _seed_user("creator-1", "creator@example.com", "Creator")
+        _seed_user("owner-2", "owner2@example.com", "Owner 2")
+        _seed_user("learner-1", "13812345678", "Learner")
+        _seed_course("course-1", "Creator Course", creator_user_bid="creator-1")
+        _seed_course("course-2", "Other Course", creator_user_bid="owner-2")
+        db.session.commit()
+
+    create_response = test_client.post(
+        "/api/order/admin/orders/redemption-codes",
+        json={
+            "name": "Owned Usage Batch",
+            "usage_type": COUPON_APPLY_TYPE_SPECIFIC,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 2,
+            "shifu_bid": "course-1",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    create_payload = create_response.get_json(force=True)
+    assert create_payload["code"] == 0
+    coupon_bid = create_payload["data"]["coupon_bid"]
+
+    with app.app_context():
+        coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
+        assert coupon is not None
+        usage = CouponUsage.query.filter(CouponUsage.coupon_bid == coupon_bid).first()
+        assert usage is not None
+        usage.user_bid = "learner-1"
+        usage.order_bid = "order-1"
+        usage.shifu_bid = "course-1"
+        usage.status = COUPON_STATUS_USED
+        usage.updated_at = datetime(2026, 5, 1, 12, 0, 0)
+        coupon.used_count = 1
+        _seed_order("order-1", "course-1", "learner-1", paid="79.00")
+
+        other_coupon = Coupon()
+        other_coupon.coupon_bid = "other-coupon"
+        other_coupon.name = "Other Batch"
+        other_coupon.code = "OTHERCODE"
+        other_coupon.usage_type = COUPON_APPLY_TYPE_ALL
+        other_coupon.discount_type = COUPON_TYPE_FIXED
+        other_coupon.value = Decimal("20")
+        other_coupon.filter = '{"course_id": "course-2"}'
+        other_coupon.total_count = 1
+        other_coupon.used_count = 0
+        other_coupon.status = 1
+        other_coupon.created_user_bid = "owner-2"
+        other_coupon.updated_user_bid = "owner-2"
+        other_coupon.start = datetime(2026, 4, 24, 10, 0, 0)
+        other_coupon.end = datetime(2026, 5, 24, 10, 0, 0)
+        db.session.add(other_coupon)
+        db.session.commit()
+
+    usage_response = test_client.get(
+        f"/api/order/admin/orders/redemption-codes/{coupon_bid}/usages",
+        query_string={"page_index": 1, "page_size": 20},
+        headers={"Token": "test-token"},
+    )
+    usage_payload = usage_response.get_json(force=True)
+
+    assert usage_response.status_code == 200
+    assert usage_payload["code"] == 0
+    assert usage_payload["data"]["total"] == 1
+    assert usage_payload["data"]["items"][0]["code"]
+    assert usage_payload["data"]["items"][0]["course_name"] == "Creator Course"
+    assert usage_payload["data"]["items"][0]["user_mobile"] == "13812345678"
+
+    codes_response = test_client.get(
+        f"/api/order/admin/orders/redemption-codes/{coupon_bid}/codes",
+        query_string={"page_index": 1, "page_size": 20},
+        headers={"Token": "test-token"},
+    )
+    codes_payload = codes_response.get_json(force=True)
+
+    assert codes_response.status_code == 200
+    assert codes_payload["code"] == 0
+    assert codes_payload["data"]["total"] == 2
+    assert any(
+        item["user_mobile"] == "13812345678" for item in codes_payload["data"]["items"]
+    )
+
+    forbidden_response = test_client.get(
+        "/api/order/admin/orders/redemption-codes/other-coupon/usages",
+        query_string={"page_index": 1, "page_size": 20},
+        headers={"Token": "test-token"},
+    )
+    forbidden_payload = forbidden_response.get_json(force=True)
+
+    assert forbidden_response.status_code == 200
+    assert forbidden_payload["code"] == 401
+
+    forbidden_codes_response = test_client.get(
+        "/api/order/admin/orders/redemption-codes/other-coupon/codes",
+        query_string={"page_index": 1, "page_size": 20},
+        headers={"Token": "test-token"},
+    )
+    forbidden_codes_payload = forbidden_codes_response.get_json(force=True)
+
+    assert forbidden_codes_response.status_code == 200
+    assert forbidden_codes_payload["code"] == 401
+
+
+def test_creator_redemption_code_detail_update_and_status_require_owned_course_coupon(
+    app, test_client, monkeypatch
+):
+    _mock_creator(monkeypatch, user_id="creator-1")
+
+    with app.app_context():
+        _seed_user("creator-1", "creator@example.com", "Creator")
+        _seed_user("owner-2", "owner2@example.com", "Owner 2")
+        _seed_course("course-1", "Creator Course", creator_user_bid="creator-1")
+        _seed_course("course-2", "Other Course", creator_user_bid="owner-2")
+        db.session.commit()
+
+    create_response = test_client.post(
+        "/api/order/admin/orders/redemption-codes",
+        json={
+            "name": "Editable Batch",
+            "usage_type": COUPON_APPLY_TYPE_SPECIFIC,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 2,
+            "shifu_bid": "course-1",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    create_payload = create_response.get_json(force=True)
+    assert create_payload["code"] == 0
+    coupon_bid = create_payload["data"]["coupon_bid"]
+
+    detail_response = test_client.get(
+        f"/api/order/admin/orders/redemption-codes/{coupon_bid}",
+        headers={"Token": "test-token"},
+    )
+    detail_payload = detail_response.get_json(force=True)
+
+    assert detail_response.status_code == 200
+    assert detail_payload["code"] == 0
+    assert detail_payload["data"]["coupon"]["coupon_bid"] == coupon_bid
+    assert detail_payload["data"]["coupon"]["created_user_name"] == "Creator"
+
+    update_response = test_client.post(
+        f"/api/order/admin/orders/redemption-codes/{coupon_bid}",
+        json={
+            "name": "Updated Batch",
+            "usage_type": COUPON_APPLY_TYPE_SPECIFIC,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 3,
+            "scope_type": "single_course",
+            "shifu_bid": "course-1",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-06-24 10:00:00",
+            "enabled": True,
+        },
+        headers={"Token": "test-token"},
+    )
+    update_payload = update_response.get_json(force=True)
+
+    assert update_response.status_code == 200
+    assert update_payload["code"] == 0
+    with app.app_context():
+        coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
+        assert coupon is not None
+        assert coupon.name == "Updated Batch"
+        assert coupon.total_count == 3
+        assert (
+            CouponUsage.query.filter(
+                CouponUsage.coupon_bid == coupon_bid,
+                CouponUsage.deleted == 0,
+            ).count()
+            == 3
+        )
+
+    status_response = test_client.post(
+        f"/api/order/admin/orders/redemption-codes/{coupon_bid}/status",
+        json={"enabled": False},
+        headers={"Token": "test-token"},
+    )
+    status_payload = status_response.get_json(force=True)
+
+    assert status_response.status_code == 200
+    assert status_payload["code"] == 0
+    assert status_payload["data"]["enabled"] is False
+    with app.app_context():
+        coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
+        assert coupon is not None
+        assert coupon.status == 0
+
+    with app.app_context():
+        other_coupon = Coupon()
+        other_coupon.coupon_bid = "other-coupon"
+        other_coupon.name = "Other Batch"
+        other_coupon.code = "OTHERCODE"
+        other_coupon.usage_type = COUPON_APPLY_TYPE_ALL
+        other_coupon.discount_type = COUPON_TYPE_FIXED
+        other_coupon.value = Decimal("20")
+        other_coupon.filter = '{"course_id": "course-2"}'
+        other_coupon.total_count = 1
+        other_coupon.used_count = 0
+        other_coupon.status = 1
+        other_coupon.created_user_bid = "owner-2"
+        other_coupon.updated_user_bid = "owner-2"
+        other_coupon.start = datetime(2026, 4, 24, 10, 0, 0)
+        other_coupon.end = datetime(2026, 5, 24, 10, 0, 0)
+        db.session.add(other_coupon)
+        db.session.commit()
+
+    forbidden_detail_response = test_client.get(
+        "/api/order/admin/orders/redemption-codes/other-coupon",
+        headers={"Token": "test-token"},
+    )
+    forbidden_update_response = test_client.post(
+        "/api/order/admin/orders/redemption-codes/other-coupon",
+        json={
+            "name": "Forbidden",
+            "usage_type": COUPON_APPLY_TYPE_ALL,
+            "discount_type": COUPON_TYPE_FIXED,
+            "value": "20",
+            "total_count": 1,
+            "scope_type": "single_course",
+            "shifu_bid": "course-2",
+            "start_at": "2026-04-24 10:00:00",
+            "end_at": "2026-05-24 10:00:00",
+            "enabled": True,
+            "code": "OTHERCODE",
+        },
+        headers={"Token": "test-token"},
+    )
+    forbidden_status_response = test_client.post(
+        "/api/order/admin/orders/redemption-codes/other-coupon/status",
+        json={"enabled": False},
+        headers={"Token": "test-token"},
+    )
+
+    assert forbidden_detail_response.get_json(force=True)["code"] == 401
+    assert forbidden_update_response.get_json(force=True)["code"] == 401
+    assert forbidden_status_response.get_json(force=True)["code"] == 401
 
 
 def test_admin_promotions_generic_coupon_requires_code_and_quantity(

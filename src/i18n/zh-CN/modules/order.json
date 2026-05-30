@@ -118,6 +118,26 @@
     "refunded": "已退款",
     "unknown": "未知"
   },
+  "redemptionCodes": {
+    "action": "创建兑换码",
+    "courseLabel": "课程",
+    "coursePlaceholder": "请选择已发布课程",
+    "courseRequired": "请选择课程",
+    "createFailed": "创建兑换码失败",
+    "createSuccess": "创建成功",
+    "dialogTitle": "创建兑换码",
+    "editDialogTitle": "编辑兑换码",
+    "emptyCourses": "暂无已发布课程",
+    "emptyList": "暂无兑换码",
+    "loadCoursesFailed": "课程列表加载失败，请稍后重试",
+    "loadFailed": "兑换码列表加载失败，请刷新后重试",
+    "submitting": "创建中...",
+    "totalCount": "兑换码数：{count}",
+    "updateSuccess": "保存成功",
+    "usageTypeHelp": "兑换码类型说明",
+    "usageTypeHelpGeneric": "通用：同一个兑换码可被多次兑换。",
+    "usageTypeHelpSingleUse": "一单一码：系统为每个名额生成独立子码，每个子码只能兑换一次。"
+  },
   "sections": {
     "activities": "活动",
     "coupons": "优惠券",
@@ -137,6 +157,10 @@
     "status": "状态",
     "user": "用户",
     "view": "查看"
+  },
+  "tabs": {
+    "orders": "订单记录",
+    "redemptionCodes": "兑换码"
   },
   "title": "订单",
   "totalCount": "订单数：{count}"

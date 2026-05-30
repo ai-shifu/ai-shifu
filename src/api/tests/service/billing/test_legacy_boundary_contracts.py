@@ -11,7 +11,9 @@ def test_legacy_order_route_remains_separate_from_billing_domain() -> None:
     app = Flask(__name__)
     register_order_handler(app, "/api")
 
-    routes = {rule.rule: rule.methods for rule in app.url_map.iter_rules()}
+    routes = {}
+    for rule in app.url_map.iter_rules():
+        routes.setdefault(rule.rule, set()).update(rule.methods)
 
     assert routes["/api/reqiure-to-pay"] >= {"POST"}
     assert routes["/api/init-order"] >= {"POST"}
@@ -21,6 +23,9 @@ def test_legacy_order_route_remains_separate_from_billing_domain() -> None:
     assert routes["/api/admin/orders"] >= {"GET"}
     assert routes["/api/admin/orders/shifus"] >= {"GET"}
     assert routes["/api/admin/orders/import-activation"] >= {"POST"}
+    assert routes["/api/admin/orders/redemption-codes"] >= {"GET", "POST"}
+    assert routes["/api/admin/orders/redemption-codes/<coupon_bid>/usages"] >= {"GET"}
+    assert routes["/api/admin/orders/redemption-codes/<coupon_bid>/codes"] >= {"GET"}
     assert routes["/api/admin/orders/<order_bid>"] >= {"GET"}
 
     for endpoint, view in app.view_functions.items():

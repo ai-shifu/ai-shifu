@@ -35,6 +35,8 @@ export type AdminPromotionCouponItem = {
   enabled?: boolean;
   computed_status: string;
   computed_status_key: string;
+  created_user_bid?: string;
+  created_user_name?: string;
   created_at: string;
   updated_at: string;
 };
@@ -102,6 +104,8 @@ export type AdminPromotionCampaignItem = {
   has_redemptions: boolean;
   total_discount_amount: string;
   enabled?: boolean;
+  created_user_bid?: string;
+  created_user_name?: string;
   created_at: string;
   updated_at: string;
 };

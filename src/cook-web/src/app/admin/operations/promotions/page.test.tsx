@@ -162,6 +162,9 @@ jest.mock('@/components/ui/Dialog', () => {
     DialogTitle: ({ children }: React.PropsWithChildren) => (
       <div>{children}</div>
     ),
+    DialogDescription: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
     DialogFooter: ({ children }: React.PropsWithChildren) => (
       <div>{children}</div>
     ),
@@ -511,6 +514,8 @@ describe('AdminOperationPromotionsPage', () => {
           used_count: 3,
           computed_status: 'active',
           computed_status_key: 'module.operationsPromotion.status.active',
+          created_user_bid: 'operator-1',
+          created_user_name: 'Operator',
           created_at: '2026-04-24T10:00:00Z',
           updated_at: '2026-04-24T11:00:00Z',
         },
@@ -547,6 +552,8 @@ describe('AdminOperationPromotionsPage', () => {
           applied_order_count: 2,
           has_redemptions: true,
           total_discount_amount: '30',
+          created_user_bid: 'operator-1',
+          created_user_name: 'Operator',
           created_at: '2026-04-24T10:00:00Z',
           updated_at: '2026-04-24T11:00:00Z',
         },
@@ -588,6 +595,7 @@ describe('AdminOperationPromotionsPage', () => {
     expect(
       screen.getByText('module.operationsPromotion.scope.singleCourse'),
     ).toBeInTheDocument();
+    expect(screen.getByText('Operator')).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
         name: 'module.operationsPromotion.actions.createCoupon',
@@ -721,6 +729,7 @@ describe('AdminOperationPromotionsPage', () => {
     });
 
     expect(await screen.findByText('Early Bird')).toBeInTheDocument();
+    expect(screen.getByText('Operator')).toBeInTheDocument();
   });
 
   test('keeps campaign filter state aligned when switching tabs', async () => {
