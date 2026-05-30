@@ -805,14 +805,13 @@ def register_order_handler(app: Flask, path_prefix: str):
         _require_creator()
         payload = _parse_required_json_payload()
         enabled = _parse_bool_payload_field(payload, "enabled")
-        return make_common_response(
-            update_creator_course_redemption_coupon_status(
-                app,
-                request.user.user_id,
-                coupon_bid,
-                enabled,
-            )
+        result = update_creator_course_redemption_coupon_status(
+            app,
+            request.user.user_id,
+            coupon_bid,
+            enabled,
         )
+        return make_common_response({"enabled": bool(result.get("enabled"))})
 
     @app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])
     def admin_order_detail(order_bid: str):
