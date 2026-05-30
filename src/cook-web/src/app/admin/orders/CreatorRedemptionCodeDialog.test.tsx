@@ -305,5 +305,8 @@ describe('CreatorRedemptionCodeDialog', () => {
     expect(
       await screen.findByText('module.order.redemptionCodes.tooManyCourses'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Course 0' }),
+    ).toBeInTheDocument();
   });
 });

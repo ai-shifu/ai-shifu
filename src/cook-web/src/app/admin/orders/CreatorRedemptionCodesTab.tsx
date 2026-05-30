@@ -174,6 +174,10 @@ export default function CreatorRedemptionCodesTab({
         if (requestId !== fetchRequestIdRef.current) {
           return;
         }
+        setItems([]);
+        setPageIndex(targetPage);
+        setPageCount(1);
+        setTotal(0);
         setError({
           message:
             err instanceof Error

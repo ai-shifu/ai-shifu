@@ -504,4 +504,23 @@ describe('CreatorRedemptionCodesTab', () => {
       screen.queryByText('module.order.redemptionCodes.emptyList'),
     ).not.toBeInTheDocument();
   });
+
+  test('clears stale redemption code rows when a reload fails', async () => {
+    render(<CreatorRedemptionCodesTab />);
+
+    expect(await screen.findByText('Batch A')).toBeInTheDocument();
+
+    mockGetCreatorCourseRedemptionCodes.mockRejectedValueOnce(
+      new Error('reload failed'),
+    );
+    fireEvent.change(screen.getByPlaceholderText('filters.namePlaceholder'), {
+      target: { value: 'Missing Batch' },
+    });
+    fireEvent.click(screen.getByText('module.order.filters.search'));
+
+    expect(await screen.findByText('reload failed')).toBeInTheDocument();
+    expect(screen.queryByText('Batch A')).not.toBeInTheDocument();
+    expect(screen.queryByText('Batch B')).not.toBeInTheDocument();
+    expect(screen.queryByText('3/20')).not.toBeInTheDocument();
+  });
 });

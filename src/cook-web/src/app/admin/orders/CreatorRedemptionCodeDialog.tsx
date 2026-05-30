@@ -80,6 +80,7 @@ const CreatorRedemptionCodeDialog = ({
   const [courses, setCourses] = useState<Shifu[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesError, setCoursesError] = useState('');
+  const [coursesWarning, setCoursesWarning] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const isEditing = Boolean(coupon);
 
@@ -103,6 +104,7 @@ const CreatorRedemptionCodeDialog = ({
     const loadCourses = async () => {
       setCoursesLoading(true);
       setCoursesError(current => (current ? '' : current));
+      setCoursesWarning(current => (current ? '' : current));
       try {
         const pageSize = 100;
         let pageIndex = 1;
@@ -135,11 +137,12 @@ const CreatorRedemptionCodeDialog = ({
         if (!canceled) {
           setCourses(collected);
           if (reachedLimit) {
-            setCoursesError(t('module.order.redemptionCodes.tooManyCourses'));
+            setCoursesWarning(t('module.order.redemptionCodes.tooManyCourses'));
           }
         }
       } catch (error) {
         if (!canceled) {
+          setCourses([]);
           setCoursesError(
             (error as Error).message ||
               t('module.order.redemptionCodes.loadCoursesFailed'),
@@ -481,21 +484,30 @@ const CreatorRedemptionCodeDialog = ({
                   <div className='px-2 py-3 text-xs text-destructive'>
                     {coursesError}
                   </div>
-                ) : courseOptions.length === 0 ? (
-                  <div className='px-2 py-3 text-xs text-muted-foreground'>
-                    {t('module.order.redemptionCodes.emptyCourses')}
-                  </div>
                 ) : (
-                  courseOptions.map(course => (
-                    <SelectItem
-                      key={course.bid}
-                      value={course.bid}
-                      className={SELECT_ITEM_CLASS}
-                      indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
-                    >
-                      {course.name || course.bid}
-                    </SelectItem>
-                  ))
+                  <>
+                    {coursesWarning ? (
+                      <div className='px-2 py-2 text-xs text-muted-foreground'>
+                        {coursesWarning}
+                      </div>
+                    ) : null}
+                    {courseOptions.length === 0 ? (
+                      <div className='px-2 py-3 text-xs text-muted-foreground'>
+                        {t('module.order.redemptionCodes.emptyCourses')}
+                      </div>
+                    ) : (
+                      courseOptions.map(course => (
+                        <SelectItem
+                          key={course.bid}
+                          value={course.bid}
+                          className={SELECT_ITEM_CLASS}
+                          indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
+                        >
+                          {course.name || course.bid}
+                        </SelectItem>
+                      ))
+                    )}
+                  </>
                 )}
               </SelectContent>
             </Select>
