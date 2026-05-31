@@ -310,6 +310,50 @@ def test_save_shifu_mdflow_conflicts_when_outline_deleted(app):
     assert result["meta"]["revision"] == deleted_revision
 
 
+def test_save_shifu_mdflow_normalizes_none_content(app, monkeypatch):
+    shifu_bid = "shifu-mdflow-none-content-1"
+    outline_bid = "outline-mdflow-none-content-1"
+
+    base_id = _add_outline_version(
+        app, shifu_bid, outline_bid, "Original", "user-none-content-1", 0
+    )
+    risk_checked_texts = []
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
+        lambda _app, _check_id, _user_id, text: risk_checked_texts.append(text),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.save_outline_history",
+        lambda *_args, **_kwargs: 999999,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.cleanup_outline_history_versions",
+        lambda *_args, **_kwargs: None,
+    )
+
+    result = save_shifu_mdflow(
+        app,
+        "user-none-content-2",
+        shifu_bid,
+        outline_bid,
+        None,
+        base_revision=base_id,
+    )
+
+    assert result["conflict"] is False
+    assert risk_checked_texts == [""]
+    assert get_shifu_mdflow(app, shifu_bid, outline_bid) == ""
+
+
 def test_save_shifu_mdflow_returns_outline_revision_not_history_log(app, monkeypatch):
     shifu_bid = "shifu-mdflow-revision-1"
     outline_bid = "outline-mdflow-revision-1"

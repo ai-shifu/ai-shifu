@@ -1507,7 +1507,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         user_id = request.user.user_id
         json_data = request.get_json() or {}
-        content = json_data.get("data")
+        content = json_data.get("data") or ""
         base_revision = json_data.get("base_revision")
         if base_revision is not None:
             try:

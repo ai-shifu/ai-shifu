@@ -22,7 +22,7 @@ def add_risk_control_result(
         risk_control_result = RiskControlResult(
             chat_id=chat_id,
             user_id=user_id,
-            text=text,
+            text=text or "",
             check_vendor=check_vendor,
             check_result=check_result,
             check_resp=check_resp,
@@ -35,8 +35,17 @@ def add_risk_control_result(
 
 
 def check_text_with_risk_control(
-    app: Flask, check_id: str, user_id: str, text: str
+    app: Flask, check_id: str, user_id: str, text: str | None
 ) -> CheckResultDTO:
+    if text is None or text == "":
+        return CheckResultDTO(
+            check_result=CHECK_RESULT_PASS,
+            risk_labels=[],
+            risk_label_ids=[],
+            provider="skip_empty",
+            raw_data={"reason": "empty_text"},
+        )
+
     log_id = check_id + datetime.now().strftime("%Y%m%d%H%M%S")
 
     res = check_text(app, log_id, text, user_id)

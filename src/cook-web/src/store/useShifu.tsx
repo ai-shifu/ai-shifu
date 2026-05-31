@@ -1835,9 +1835,12 @@ export const ShifuProvider = ({
     }
     const shifu_bid = payload?.shifu_bid ?? currentShifu?.bid ?? '';
     const outline_bid = payload?.outline_bid ?? (currentNode?.bid || '');
-    const data = payload?.data ?? currentMdflow.current;
+    const data = payload?.data ?? currentMdflow.current ?? '';
     const resolvedBaseRevision =
       payload?.base_revision ?? baseRevision ?? undefined;
+    if (!shifu_bid || !outline_bid) {
+      return;
+    }
     if (saveMdflowLockRef.current.inflight) {
       if (outline_bid && saveMdflowLockRef.current.outlineId !== outline_bid) {
         // When another outline save is in-flight, skip cross-outline saves
