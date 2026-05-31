@@ -51,13 +51,8 @@ from flaskr.service.shifu.admin import (
     get_operator_credit_notification_config,
     get_operator_credit_notification_detail,
     get_operator_credit_notification_overview,
-    get_operator_user_credit_usage_detail,
-    get_operator_user_credits,
     get_operator_user_detail,
-    get_operator_user_grant_bootstrap,
     get_operator_user_overview,
-    grant_operator_user_credits,
-    grant_operator_user_package,
     list_operator_courses,
     list_operator_credit_notification_templates,
     list_operator_credit_notifications,
@@ -66,6 +61,13 @@ from flaskr.service.shifu.admin import (
     sync_operator_credit_notification_template,
     transfer_operator_course_creator,
     update_operator_credit_notification_config,
+)
+from flaskr.service.shifu.admin_operations.user_credits import (
+    get_operator_user_credit_usage_detail,
+    get_operator_user_credits,
+    get_operator_user_grant_bootstrap,
+    grant_operator_user_credits,
+    grant_operator_user_package,
 )
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditGrantRequestDTO,

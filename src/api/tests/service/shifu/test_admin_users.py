@@ -10,6 +10,7 @@ import sys
 from flaskr.dao import db
 from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.shifu import admin as admin_module
+from flaskr.service.shifu.admin_operations import user_credits as user_credits_module
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
@@ -58,14 +59,16 @@ from flaskr.service.order.consts import (
 from flaskr.service.order.models import Order
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.admin import (
+    get_operator_user_detail,
+    get_operator_user_overview,
+    list_operator_users,
+)
+from flaskr.service.shifu.admin_operations.user_credits import (
     get_operator_user_grant_bootstrap,
     grant_operator_user_credits,
     grant_operator_user_package,
     get_operator_user_credit_usage_detail,
-    get_operator_user_overview,
     get_operator_user_credits,
-    get_operator_user_detail,
-    list_operator_users,
 )
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditGrantRequestDTO,
@@ -1741,14 +1744,14 @@ def test_get_operator_user_credits_loads_order_metadata_only_for_order_sources(
     monkeypatch,
 ):
     captured_source_bids: list[str] = []
-    original_load_billing_order_map = admin_module._load_billing_order_map
+    original_load_billing_order_map = user_credits_module._load_billing_order_map
 
     def capture_order_source_bids(source_bids):
         captured_source_bids.extend(list(source_bids))
         return original_load_billing_order_map(source_bids)
 
     monkeypatch.setattr(
-        admin_module,
+        user_credits_module,
         "_load_billing_order_map",
         capture_order_source_bids,
     )
