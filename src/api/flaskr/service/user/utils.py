@@ -293,6 +293,7 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
             ip=ip,
         )
 
+        server = None
         try:
             smtp_port = app.config["SMTP_PORT"]
             smtp_server = app.config["SMTP_SERVER"]
@@ -310,7 +311,6 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
 
             # Send the email
             server.sendmail(smtp_sender, email, msg.as_string())
-            server.quit()
 
             app.logger.info(f"Verification code sent to {email}")
             user_verify_code.verify_code_send = 1
@@ -318,6 +318,12 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
         except Exception as e:
             app.logger.error(f"Failed to send verification code to {email}: {str(e)}")
             raise_error("server.user.emailSendFailed")
+        finally:
+            if server:
+                try:
+                    server.quit()
+                except Exception:
+                    pass
         return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
 
 
