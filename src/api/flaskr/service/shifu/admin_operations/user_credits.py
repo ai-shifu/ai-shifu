@@ -404,7 +404,7 @@ def get_operator_user_credits(
                 for row in query.with_entities(CreditLedgerEntry.source_bid)
                 .filter(CreditLedgerEntry.source_bid != "")
                 .distinct()
-                .all()
+                .yield_per(100)
                 if str(row[0] or "").strip()
             ]
 
