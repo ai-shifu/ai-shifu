@@ -1,6 +1,5 @@
 import React from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
-import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
@@ -498,48 +497,32 @@ export function CreditNotificationRecordsTab({
         </div>
       </TooltipProvider>
 
-      <div className='rounded-xl border border-border bg-white p-4 shadow-sm transition-all'>
-        <div className='space-y-4'>
-          {activeOverviewItem ? (
-            <div className='flex flex-wrap items-center gap-2'>
-              <span className='text-sm text-muted-foreground'>
-                {t(
+      <AdminFilter
+        items={filterItems}
+        expanded={filtersExpanded}
+        onExpandedChange={setFiltersExpanded}
+        onReset={resetRecords}
+        onSearch={searchRecords}
+        resetLabel={t('module.operationsCreditNotifications.actions.reset')}
+        searchLabel={t('module.operationsCreditNotifications.actions.search')}
+        expandLabel={t('common.core.expand')}
+        collapseLabel={t('common.core.collapse')}
+        collapsedCount={3}
+        surface='card'
+        layoutPreset='operations'
+        activeFilter={
+          activeOverviewItem
+            ? {
+                label: t(
                   'module.operationsCreditNotifications.overview.activeFilter',
-                )}
-              </span>
-              <button
-                type='button'
-                aria-label={`${activeOverviewItem.label} ${clearLabel}`}
-                className='inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground transition-colors hover:bg-muted'
-                onClick={clearOverviewFilter}
-              >
-                <span>{activeOverviewItem.label}</span>
-                <X className='h-3.5 w-3.5' />
-              </button>
-            </div>
-          ) : null}
-          <AdminFilter
-            items={filterItems}
-            expanded={filtersExpanded}
-            onExpandedChange={setFiltersExpanded}
-            onReset={resetRecords}
-            onSearch={searchRecords}
-            resetLabel={t('module.operationsCreditNotifications.actions.reset')}
-            searchLabel={t(
-              'module.operationsCreditNotifications.actions.search',
-            )}
-            expandLabel={t('common.core.expand')}
-            collapseLabel={t('common.core.collapse')}
-            collapsedCount={3}
-            className='bg-transparent'
-            contentClassName='min-w-0'
-            labelClassName='w-20 text-right'
-            collapsedGridClassName='gap-x-5 xl:grid-cols-3'
-            expandedGridClassName='gap-x-5 xl:grid-cols-3'
-            labelColon
-          />
-        </div>
-      </div>
+                ),
+                value: activeOverviewItem.label,
+                clearAriaLabel: `${activeOverviewItem.label} ${clearLabel}`,
+                onClear: clearOverviewFilter,
+              }
+            : null
+        }
+      />
 
       {error ? (
         <ErrorDisplay

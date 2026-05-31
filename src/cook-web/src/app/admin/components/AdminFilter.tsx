@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +10,13 @@ export type AdminFilterItem = {
   contentClassName?: string;
   itemClassName?: string;
   labelClassName?: string;
+};
+
+export type AdminFilterActiveFilter = {
+  label: ReactNode;
+  value: ReactNode;
+  clearAriaLabel: string;
+  onClear: () => void;
 };
 
 type AdminFilterProps = {
@@ -32,10 +39,18 @@ type AdminFilterProps = {
   expandedGridClassName?: string;
   labelColon?: boolean;
   showToggle?: boolean;
+  surface?: 'plain' | 'card';
+  layoutPreset?: 'default' | 'operations';
+  activeFilter?: AdminFilterActiveFilter | null;
+  testId?: string;
 };
 
 const ADMIN_FILTER_LABEL_CLASS =
   'shrink-0 whitespace-nowrap text-[length:var(--text-sm-font-size,14px)] not-italic font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]';
+const ADMIN_FILTER_CARD_CLASS =
+  'rounded-xl border border-border bg-white p-4 shadow-sm transition-all';
+const ADMIN_FILTER_ACTIVE_CHIP_CLASS =
+  'inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground transition-colors hover:bg-muted';
 
 const AdminFilterField = ({
   item,
@@ -94,6 +109,10 @@ const AdminFilterActions = ({
   | 'collapsedGridClassName'
   | 'expandedGridClassName'
   | 'labelColon'
+  | 'surface'
+  | 'layoutPreset'
+  | 'activeFilter'
+  | 'testId'
 >) => (
   <div className='flex shrink-0 items-center justify-end'>
     <Button
@@ -150,33 +169,75 @@ export default function AdminFilter({
   expandedLabelClassName,
   collapsedGridClassName,
   expandedGridClassName,
-  labelColon = false,
+  labelColon,
   showToggle,
+  surface = 'plain',
+  layoutPreset = 'default',
+  activeFilter,
+  testId,
 }: AdminFilterProps) {
   const canToggle = showToggle ?? items.length > collapsedCount;
   const collapsedItems = items.slice(0, collapsedCount);
+  const isOperationsPreset = layoutPreset === 'operations';
   const resolvedCollapsedLabelClassName =
-    collapsedLabelClassName ?? labelClassName;
+    collapsedLabelClassName ??
+    labelClassName ??
+    (isOperationsPreset ? 'w-20 text-right' : undefined);
   const resolvedExpandedLabelClassName =
-    expandedLabelClassName ?? labelClassName;
+    expandedLabelClassName ??
+    labelClassName ??
+    (isOperationsPreset ? 'w-20 text-right' : undefined);
+  const resolvedContentClassName =
+    contentClassName ?? (isOperationsPreset ? 'min-w-0' : undefined);
+  const resolvedCollapsedGridClassName =
+    collapsedGridClassName ??
+    (isOperationsPreset ? 'gap-x-5 xl:grid-cols-3' : undefined);
+  const resolvedExpandedGridClassName =
+    expandedGridClassName ??
+    (isOperationsPreset ? 'gap-x-5 xl:grid-cols-3' : undefined);
+  const resolvedLabelColon = labelColon ?? isOperationsPreset;
 
   return (
-    <div className={cn('w-full bg-white', className)}>
+    <div
+      data-testid={testId}
+      className={cn(
+        'w-full',
+        surface === 'card' ? ADMIN_FILTER_CARD_CLASS : 'bg-white',
+        activeFilter && 'space-y-4',
+        className,
+      )}
+    >
+      {activeFilter ? (
+        <div className='flex flex-wrap items-center gap-2'>
+          <span className='text-sm text-muted-foreground'>
+            {activeFilter.label}
+          </span>
+          <button
+            type='button'
+            aria-label={activeFilter.clearAriaLabel}
+            className={ADMIN_FILTER_ACTIVE_CHIP_CLASS}
+            onClick={activeFilter.onClear}
+          >
+            <span>{activeFilter.value}</span>
+            <X className='h-3.5 w-3.5' />
+          </button>
+        </div>
+      ) : null}
       {!expanded ? (
         <div className='flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between'>
           <div
             className={cn(
               'grid min-w-0 flex-1 grid-cols-1 gap-x-7 gap-y-4 xl:grid-cols-[repeat(3,minmax(0,245px))]',
-              collapsedGridClassName,
+              resolvedCollapsedGridClassName,
             )}
           >
             {collapsedItems.map(item => (
               <AdminFilterField
                 key={item.key}
                 item={item}
-                contentClassName={contentClassName}
+                contentClassName={resolvedContentClassName}
                 labelClassName={resolvedCollapsedLabelClassName}
-                labelColon={labelColon}
+                labelColon={resolvedLabelColon}
               />
             ))}
           </div>
@@ -197,16 +258,16 @@ export default function AdminFilter({
           <div
             className={cn(
               'grid min-w-0 grid-cols-1 gap-x-7 gap-y-4 xl:grid-cols-3',
-              expandedGridClassName,
+              resolvedExpandedGridClassName,
             )}
           >
             {items.map(item => (
               <AdminFilterField
                 key={item.key}
                 item={item}
-                contentClassName={contentClassName}
+                contentClassName={resolvedContentClassName}
                 labelClassName={resolvedExpandedLabelClassName}
-                labelColon={labelColon}
+                labelColon={resolvedLabelColon}
               />
             ))}
           </div>
