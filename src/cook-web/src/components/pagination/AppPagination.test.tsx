@@ -149,4 +149,49 @@ describe('AppPagination', () => {
     expect(currentPageLink).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByRole('link', { name: 'NaN' })).not.toBeInTheDocument();
   });
+
+  test('keeps jump input hidden below its threshold', () => {
+    render(
+      <AppPagination
+        pageIndex={5}
+        pageCount={9}
+        onPageChange={jest.fn()}
+        prevLabel='Previous'
+        nextLabel='Next'
+        prevAriaLabel='Go to previous page'
+        nextAriaLabel='Go to next page'
+      />,
+    );
+
+    expect(
+      screen.queryByRole('textbox', { name: 'Jump to page' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('shows jump input for large page sets and clamps out-of-range values', () => {
+    const onPageChange = jest.fn();
+
+    render(
+      <AppPagination
+        pageIndex={5}
+        pageCount={30}
+        onPageChange={onPageChange}
+        prevLabel='Previous'
+        nextLabel='Next'
+        prevAriaLabel='Go to previous page'
+        nextAriaLabel='Go to next page'
+      />,
+    );
+
+    const jumpInput = screen.getByRole('textbox', { name: 'Jump to page' });
+    fireEvent.change(jumpInput, { target: { value: '18abc' } });
+    expect(jumpInput).toHaveValue('18');
+
+    fireEvent.keyDown(jumpInput, { key: 'Enter' });
+    expect(onPageChange).toHaveBeenCalledWith(18);
+
+    fireEvent.change(jumpInput, { target: { value: '999' } });
+    fireEvent.blur(jumpInput);
+    expect(onPageChange).toHaveBeenLastCalledWith(30);
+  });
 });
