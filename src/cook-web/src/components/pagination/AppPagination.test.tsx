@@ -13,6 +13,7 @@ describe('AppPagination', () => {
         nextLabel='Next'
         prevAriaLabel='Go to previous page'
         nextAriaLabel='Go to next page'
+        jumpInputAriaLabel='Jump to page'
         hideWhenSinglePage
       />,
     );
@@ -34,6 +35,7 @@ describe('AppPagination', () => {
         nextLabel='Next'
         prevAriaLabel='Go to previous page'
         nextAriaLabel='Go to next page'
+        jumpInputAriaLabel='Jump to page'
       />,
     );
 
@@ -61,6 +63,7 @@ describe('AppPagination', () => {
         nextLabel='Next'
         prevAriaLabel='Go to previous page'
         nextAriaLabel='Go to next page'
+        jumpInputAriaLabel='Jump to page'
       />,
     );
 
@@ -88,6 +91,7 @@ describe('AppPagination', () => {
         nextLabel='Next'
         prevAriaLabel='Go to previous page'
         nextAriaLabel='Go to next page'
+        jumpInputAriaLabel='Jump to page'
       />,
     );
 
@@ -116,6 +120,7 @@ describe('AppPagination', () => {
         nextLabel='Next'
         prevAriaLabel='Go to previous page'
         nextAriaLabel='Go to next page'
+        jumpInputAriaLabel='Jump to page'
       />,
     );
 
@@ -142,6 +147,7 @@ describe('AppPagination', () => {
         nextLabel='Next'
         prevAriaLabel='Go to previous page'
         nextAriaLabel='Go to next page'
+        jumpInputAriaLabel='Jump to page'
       />,
     );
 
@@ -160,6 +166,7 @@ describe('AppPagination', () => {
         nextLabel='Next'
         prevAriaLabel='Go to previous page'
         nextAriaLabel='Go to next page'
+        jumpInputAriaLabel='Jump to page'
       />,
     );
 
@@ -180,6 +187,7 @@ describe('AppPagination', () => {
         nextLabel='Next'
         prevAriaLabel='Go to previous page'
         nextAriaLabel='Go to next page'
+        jumpInputAriaLabel='Jump to page'
       />,
     );
 
@@ -187,8 +195,10 @@ describe('AppPagination', () => {
     fireEvent.change(jumpInput, { target: { value: '18abc' } });
     expect(jumpInput).toHaveValue('18');
 
+    jumpInput.focus();
     fireEvent.keyDown(jumpInput, { key: 'Enter' });
     expect(onPageChange).toHaveBeenCalledWith(18);
+    expect(onPageChange).toHaveBeenCalledTimes(1);
 
     fireEvent.change(jumpInput, { target: { value: '999' } });
     fireEvent.blur(jumpInput);

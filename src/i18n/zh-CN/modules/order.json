@@ -101,6 +101,7 @@
   "paginationNextAriaLabel": "前往下一页",
   "paginationPrev": "上一页",
   "paginationPrevAriaLabel": "前往上一页",
+  "paginationJumpInputAriaLabel": "跳转到指定页",
   "paymentChannel": {
     "alipay": "支付宝",
     "manual": "人工",

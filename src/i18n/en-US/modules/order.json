@@ -101,6 +101,7 @@
   "paginationNextAriaLabel": "Go to next page",
   "paginationPrev": "Previous",
   "paginationPrevAriaLabel": "Go to previous page",
+  "paginationJumpInputAriaLabel": "Jump to page",
   "paymentChannel": {
     "alipay": "Alipay",
     "manual": "Manual",

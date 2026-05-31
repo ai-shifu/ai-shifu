@@ -23,7 +23,7 @@ export type AppPaginationProps = {
   className?: string;
   hideWhenSinglePage?: boolean;
   jumpInputThreshold?: number;
-  jumpInputAriaLabel?: string;
+  jumpInputAriaLabel: string;
 };
 
 const MAX_VISIBLE_PAGES = 5;
@@ -148,7 +148,7 @@ export function AppPagination({
       return;
     }
     event.preventDefault();
-    commitJumpInput();
+    event.currentTarget.blur();
   };
 
   return (
@@ -226,7 +226,7 @@ export function AppPagination({
               onChange={handleJumpInputChange}
               onBlur={handleJumpInputBlur}
               onKeyDown={handleJumpInputKeyDown}
-              aria-label={jumpInputAriaLabel || 'Jump to page'}
+              aria-label={jumpInputAriaLabel}
               className='h-9 w-14 rounded-md border border-input bg-background px-2 text-center text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20'
             />
             <span aria-hidden>{JUMP_INPUT_SEPARATOR}</span>
