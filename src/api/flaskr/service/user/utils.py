@@ -524,7 +524,7 @@ def send_email_code(
 
         server = None
         try:
-            smtp_port = app.config["SMTP_PORT"]
+            smtp_port = int(app.config["SMTP_PORT"])
             smtp_server = app.config["SMTP_SERVER"]
             smtp_username = app.config["SMTP_USERNAME"]
             smtp_password = app.config["SMTP_PASSWORD"]
