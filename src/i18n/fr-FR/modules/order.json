@@ -97,11 +97,11 @@
     "successSummary": "{count} numéros mobiles importés avec succès",
     "title": "Importer une activation"
   },
+  "paginationJumpInputAriaLabel": "Aller à la page",
   "paginationNext": "Suivant",
   "paginationNextAriaLabel": "Aller à la page suivante",
   "paginationPrev": "Précédent",
   "paginationPrevAriaLabel": "Aller à la page précédente",
-  "paginationJumpInputAriaLabel": "Aller à la page",
   "paymentChannel": {
     "alipay": "Alipay",
     "manual": "Manuel",

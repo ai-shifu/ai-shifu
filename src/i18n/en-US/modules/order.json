@@ -97,11 +97,11 @@
     "successSummary": "{count} mobile numbers imported successfully",
     "title": "Import Activation"
   },
+  "paginationJumpInputAriaLabel": "Jump to page",
   "paginationNext": "Next",
   "paginationNextAriaLabel": "Go to next page",
   "paginationPrev": "Previous",
   "paginationPrevAriaLabel": "Go to previous page",
-  "paginationJumpInputAriaLabel": "Jump to page",
   "paymentChannel": {
     "alipay": "Alipay",
     "manual": "Manual",
