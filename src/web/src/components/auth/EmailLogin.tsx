@@ -83,6 +83,10 @@ export function EmailLogin({ onLoginSuccess }: EmailLoginProps) {
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setEmail(value);
+    // Reset code input state when user changes email after countdown
+    if (showCodeInput && countdown === 0) {
+      setShowCodeInput(false);
+    }
     if (value) {
       validateEmail(value);
     } else {
@@ -223,7 +227,7 @@ export function EmailLogin({ onLoginSuccess }: EmailLoginProps) {
             placeholder={t('module.auth.emailPlaceholder')}
             value={email}
             onChange={handleEmailChange}
-            disabled={isLoading || showCodeInput}
+            disabled={isLoading || (showCodeInput && countdown > 0)}
             autoComplete='email'
             className={cn(
               'text-base sm:text-sm',

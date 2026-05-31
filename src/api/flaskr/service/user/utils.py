@@ -522,6 +522,7 @@ def send_email_code(
             ip=ip,
         )
 
+        server = None
         try:
             smtp_port = app.config["SMTP_PORT"]
             smtp_server = app.config["SMTP_SERVER"]
@@ -539,7 +540,6 @@ def send_email_code(
 
             # Send the email
             server.sendmail(smtp_sender, email, msg.as_string())
-            server.quit()
 
             app.logger.info("Verification code sent to %s", email)
             user_verify_code.verify_code_send = 1
@@ -547,6 +547,12 @@ def send_email_code(
         except Exception:
             app.logger.exception("Failed to send verification code to %s", email)
             raise_error("server.user.emailSendFailed")
+        finally:
+            if server:
+                try:
+                    server.quit()
+                except Exception:
+                    pass
         return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
 
 
