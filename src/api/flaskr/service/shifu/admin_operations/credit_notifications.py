@@ -54,8 +54,8 @@ def update_operator_credit_notification_config(
     *,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    save_credit_notification_policy(app, payload, preserve_opt_out=True)
     with app.app_context():
+        save_credit_notification_policy(app, payload, preserve_opt_out=True)
         return load_credit_notification_policy_for_operator()
 
 
