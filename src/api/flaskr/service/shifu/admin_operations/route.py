@@ -37,7 +37,6 @@ from flaskr.service.promo.api import (
 from flaskr.service.shifu.admin import (
     OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
     copy_operator_course,
-    dry_run_operator_credit_notifications,
     get_operator_course_chapter_detail,
     get_operator_course_credit_usage_details,
     get_operator_course_credit_usages,
@@ -48,18 +47,21 @@ from flaskr.service.shifu.admin import (
     get_operator_course_prompt,
     get_operator_course_ratings,
     get_operator_course_users,
-    get_operator_credit_notification_config,
-    get_operator_credit_notification_detail,
-    get_operator_credit_notification_overview,
     get_operator_user_detail,
     get_operator_user_overview,
     list_operator_courses,
+    list_operator_users,
+    transfer_operator_course_creator,
+)
+from flaskr.service.shifu.admin_operations.credit_notifications import (
+    dry_run_operator_credit_notifications,
+    get_operator_credit_notification_config,
+    get_operator_credit_notification_detail,
+    get_operator_credit_notification_overview,
     list_operator_credit_notification_templates,
     list_operator_credit_notifications,
-    list_operator_users,
     requeue_operator_credit_notification,
     sync_operator_credit_notification_template,
-    transfer_operator_course_creator,
     update_operator_credit_notification_config,
 )
 from flaskr.service.shifu.admin_operations.user_credits import (
