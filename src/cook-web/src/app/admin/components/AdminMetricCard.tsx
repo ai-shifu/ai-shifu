@@ -35,7 +35,10 @@ type AdminMetricCardGroupProps = {
 };
 
 const CARD_CLASS = 'rounded-lg border border-border/70 bg-muted/20 p-4';
-const CARD_HOVER_CLASS =
+const CONTROL_TARGET_CLASS = 'metric-control';
+const CLICKABLE_CARD_HOVER_CLASS =
+  'transition-colors has-[.metric-control:hover]:border-primary/30 has-[.metric-control:hover]:bg-primary/[0.04]';
+const STATIC_CARD_HOVER_CLASS =
   'transition-colors hover:border-primary/30 hover:bg-primary/[0.04]';
 const CONTROL_CLASS =
   'group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
@@ -71,7 +74,8 @@ export function AdminMetricCard({
     <div
       className={cn(
         CARD_CLASS,
-        onClick && hoverMode === 'card' && CARD_HOVER_CLASS,
+        hoverMode === 'card' &&
+          (onClick ? CLICKABLE_CARD_HOVER_CLASS : STATIC_CARD_HOVER_CLASS),
         className,
       )}
     >
@@ -82,6 +86,7 @@ export function AdminMetricCard({
             aria-label={label}
             className={cn(
               CONTROL_CLASS,
+              hoverMode === 'card' && CONTROL_TARGET_CLASS,
               hoverMode === 'control' && INSET_CONTROL_CLASS,
             )}
             onClick={onClick}
@@ -138,7 +143,7 @@ export function AdminMetricCardGroup({
   );
 
   if (!title) {
-    return grid;
+    return className ? <div className={className}>{grid}</div> : grid;
   }
 
   return (
