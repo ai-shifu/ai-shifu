@@ -139,6 +139,7 @@ export default function AdminOperationCreditNotificationsPage() {
     { type: 'tab'; tab: PageTab } | { type: 'href'; href: string } | null
   >(null);
   const requestIdRef = React.useRef(0);
+  const configLoadStartedRef = React.useRef(false);
   const isConfigDirty = React.useMemo(
     () => JSON.stringify(policy) !== JSON.stringify(savedPolicy),
     [policy, savedPolicy],
@@ -300,32 +301,43 @@ export default function AdminOperationCreditNotificationsPage() {
     [t],
   );
 
-  React.useEffect(() => {
-    if (!isReady) {
+  const loadConfigResources = React.useCallback(async () => {
+    if (configLoaded || configLoadStartedRef.current) {
       return;
     }
-    const initialFilters = createDefaultFilters();
-    fetchConfig().catch(requestError => {
+    configLoadStartedRef.current = true;
+    setConfigError('');
+    try {
+      await fetchConfig();
+      void fetchTemplateOptions();
+    } catch (requestError) {
+      configLoadStartedRef.current = false;
       const resolvedError = requestError as ErrorWithCode;
       setConfigLoaded(false);
       setConfigError(
         resolvedError.message ||
           t('module.operationsCreditNotifications.config.loadFailed'),
       );
-    });
-    void fetchTemplateOptions();
+    }
+  }, [configLoaded, fetchConfig, fetchTemplateOptions, t]);
+
+  React.useEffect(() => {
+    if (!isReady) {
+      return;
+    }
+    const initialFilters = createDefaultFilters();
     fetchOverview().catch(() => {
       setOverview({ total: 0, pending: 0, sent: 0, failed: 0, skipped: 0 });
     });
     void fetchRecords(1, initialFilters);
-  }, [
-    fetchConfig,
-    fetchOverview,
-    fetchRecords,
-    fetchTemplateOptions,
-    isReady,
-    t,
-  ]);
+  }, [fetchOverview, fetchRecords, isReady]);
+
+  React.useEffect(() => {
+    if (!isReady || activeTab !== 'config') {
+      return;
+    }
+    void loadConfigResources();
+  }, [activeTab, isReady, loadConfigResources]);
 
   const updateDraftFilter = React.useCallback(
     (field: keyof NotificationFilters, value: string) => {

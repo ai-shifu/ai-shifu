@@ -199,6 +199,9 @@ const openConfigTab = async () => {
       }),
     ).toHaveAttribute('data-state', 'active');
   });
+  await waitFor(() => {
+    expect(mockGetConfig).toHaveBeenCalled();
+  });
 };
 
 const openRecordMoreMenu = () => {
@@ -365,6 +368,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Creator One')).toBeInTheDocument();
     });
+    expect(mockGetConfig).not.toHaveBeenCalled();
+    expect(mockGetTemplates).not.toHaveBeenCalled();
     expect(
       screen.getByRole('tab', {
         name: 'module.operationsCreditNotifications.tabs.records',
@@ -686,9 +691,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
   it('saves structured config changes without exposing a raw JSON editor', async () => {
     const { container } = render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     expect(container.querySelector('textarea')).toBeNull();
@@ -823,9 +825,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     expect(
@@ -843,9 +842,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
   it('shows recommended templates without marking config dirty before saving', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     expect(screen.getByText('Grant')).toBeInTheDocument();
@@ -868,9 +864,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
   it('writes recommended templates when saving config', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     fireEvent.click(
@@ -895,9 +888,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
   it('extracts blocked creators from spreadsheet-style pasted contacts and rejects invalid rows', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     const blockedCreatorsInput = screen.getByLabelText(
@@ -947,9 +937,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     const blockedCreatorsInput = screen.getByLabelText(
@@ -1010,9 +997,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
 
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     expect(screen.getByText(/13800000000/)).toBeInTheDocument();
@@ -1071,9 +1055,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
   it('asks before leaving config tab with unsaved changes and restores discarded edits', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     const blockedCreatorsInput = screen.getByLabelText(
@@ -1134,9 +1115,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
   it('shows dynamic template placeholders and tolerance copy', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     expect(
@@ -1174,9 +1152,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
   it('shows estimated-days and fallback placeholders when the low-balance mode is enabled', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     fireEvent.click(
@@ -1204,9 +1179,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
   it('syncs and displays Aliyun template variables without saving them into policy', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     const templateInputs = screen.getAllByLabelText(
@@ -1255,9 +1227,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
   it('keeps dry-run in the policy config tab', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     fireEvent.click(
@@ -1280,9 +1249,6 @@ describe('AdminOperationCreditNotificationsPage', () => {
   it('saves estimated-days low balance thresholds from the structured form', async () => {
     render(<AdminOperationCreditNotificationsPage />);
 
-    await waitFor(() => {
-      expect(mockGetConfig).toHaveBeenCalled();
-    });
     await openConfigTab();
 
     fireEvent.click(
