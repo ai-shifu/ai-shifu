@@ -308,7 +308,7 @@ export default function AdminOperationCreditNotificationsPage() {
     }
     configLoadStartedRef.current = true;
     setConfigLoading(true);
-    setConfigError(current => (current ? '' : current));
+    setConfigError('');
     try {
       await fetchConfig();
       void fetchTemplateOptions();

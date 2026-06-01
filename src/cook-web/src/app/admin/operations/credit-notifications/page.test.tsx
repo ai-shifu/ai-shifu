@@ -206,9 +206,7 @@ const openConfigTab = async ({
   await waitFor(() => {
     expect(mockGetConfig).toHaveBeenCalled();
   });
-  await waitFor(() => {
-    expect(screen.queryByTestId('loading-indicator')).not.toBeInTheDocument();
-  });
+  await screen.findByText('module.operationsCreditNotifications.config.title');
   if (waitForTemplates) {
     await waitFor(() => {
       expect(mockGetTemplates).toHaveBeenCalled();
