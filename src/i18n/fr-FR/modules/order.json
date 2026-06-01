@@ -97,6 +97,7 @@
     "successSummary": "{count} numéros mobiles importés avec succès",
     "title": "Importer une activation"
   },
+  "paginationJumpInputAriaLabel": "Aller à la page",
   "paginationNext": "Suivant",
   "paginationNextAriaLabel": "Aller à la page suivante",
   "paginationPrev": "Précédent",

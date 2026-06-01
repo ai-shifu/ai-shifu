@@ -97,6 +97,7 @@
     "successSummary": "成功导入 {count} 个手机号",
     "title": "导入开通"
   },
+  "paginationJumpInputAriaLabel": "跳转到指定页",
   "paginationNext": "下一页",
   "paginationNextAriaLabel": "前往下一页",
   "paginationPrev": "上一页",

@@ -2208,6 +2208,7 @@ export type I18nKey =
   | 'module.order.importActivation.success'
   | 'module.order.importActivation.successSummary'
   | 'module.order.importActivation.title'
+  | 'module.order.paginationJumpInputAriaLabel'
   | 'module.order.paginationNext'
   | 'module.order.paginationNextAriaLabel'
   | 'module.order.paginationPrev'
