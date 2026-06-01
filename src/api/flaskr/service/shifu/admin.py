@@ -4500,6 +4500,33 @@ def _load_operator_user_course_count_maps(
     return created_course_count_map, learning_course_count_map
 
 
+# Public compatibility exports for split admin operation modules. Keep these
+# aliases until the remaining legacy helpers are moved out of this module.
+build_learner_user_bid_subquery = _build_learner_user_bid_subquery
+build_operator_user_summary = _build_operator_user_summary
+build_recent_learning_active_user_bid_subquery = (
+    _build_recent_learning_active_user_bid_subquery
+)
+build_recent_paid_user_bid_subquery = _build_recent_paid_user_bid_subquery
+build_registered_user_timestamp_subquery = _build_registered_user_timestamp_subquery
+find_matching_user_bids_by_identifier = _find_matching_user_bids_by_identifier
+load_learner_user_bids = _load_learner_user_bids
+load_operator_user_auth_credentials = _load_operator_user_auth_credentials
+load_operator_user_contact_map = _load_operator_user_contact_map
+load_operator_user_course_count_maps = _load_operator_user_course_count_maps
+load_operator_user_course_maps = _load_operator_user_course_maps
+load_operator_user_credit_summary_map = _load_operator_user_credit_summary_map
+load_operator_user_last_learning_map = _load_operator_user_last_learning_map
+load_operator_user_last_login_map = _load_operator_user_last_login_map
+load_operator_user_or_raise = _load_operator_user_or_raise
+load_operator_user_registration_source_map = (
+    _load_operator_user_registration_source_map
+)
+load_operator_user_total_paid_amount_map = _load_operator_user_total_paid_amount_map
+resolve_operator_user_quick_filter = _resolve_operator_user_quick_filter
+resolve_recent_days_window = _resolve_recent_days_window
+
+
 def _load_operator_course_detail_source(shifu_bid: str):
     draft, published = _load_latest_course_versions(shifu_bid)
     visible_draft = draft if draft and _is_operator_visible_course(draft) else None

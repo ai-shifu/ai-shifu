@@ -6,7 +6,12 @@ from flask import Flask
 from sqlalchemy import and_, case
 
 from flaskr.dao import db
-from flaskr.service.shifu.admin import (
+from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserListDTO,
+    AdminOperationUserOverviewDTO,
+    AdminOperationUserSummaryDTO,
+)
+from flaskr.service.shifu.admin_operations.user_support import (
     OPERATOR_USER_LIST_MAX_PAGE_SIZE,
     OPERATOR_USER_QUICK_FILTER_CREATED_LAST_30D,
     OPERATOR_USER_QUICK_FILTER_CREATOR,
@@ -25,30 +30,25 @@ from flaskr.service.shifu.admin import (
     OPERATOR_USER_STATUS_REGISTERED,
     OPERATOR_USER_STATUS_TRIAL,
     OPERATOR_USER_STATUS_UNREGISTERED,
-    _build_learner_user_bid_subquery,
-    _build_operator_user_summary,
-    _build_recent_learning_active_user_bid_subquery,
-    _build_recent_paid_user_bid_subquery,
-    _build_registered_user_timestamp_subquery,
-    _find_matching_user_bids_by_identifier,
-    _load_learner_user_bids,
-    _load_operator_user_auth_credentials,
-    _load_operator_user_contact_map,
-    _load_operator_user_course_count_maps,
-    _load_operator_user_course_maps,
-    _load_operator_user_credit_summary_map,
-    _load_operator_user_last_learning_map,
-    _load_operator_user_last_login_map,
-    _load_operator_user_or_raise,
-    _load_operator_user_registration_source_map,
-    _load_operator_user_total_paid_amount_map,
-    _resolve_operator_user_quick_filter,
-    _resolve_recent_days_window,
-)
-from flaskr.service.shifu.admin_dtos import (
-    AdminOperationUserListDTO,
-    AdminOperationUserOverviewDTO,
-    AdminOperationUserSummaryDTO,
+    build_learner_user_bid_subquery,
+    build_operator_user_summary,
+    build_recent_learning_active_user_bid_subquery,
+    build_recent_paid_user_bid_subquery,
+    build_registered_user_timestamp_subquery,
+    find_matching_user_bids_by_identifier,
+    load_learner_user_bids,
+    load_operator_user_auth_credentials,
+    load_operator_user_contact_map,
+    load_operator_user_course_count_maps,
+    load_operator_user_course_maps,
+    load_operator_user_credit_summary_map,
+    load_operator_user_last_learning_map,
+    load_operator_user_last_login_map,
+    load_operator_user_or_raise,
+    load_operator_user_registration_source_map,
+    load_operator_user_total_paid_amount_map,
+    resolve_operator_user_quick_filter,
+    resolve_recent_days_window,
 )
 from flaskr.service.user.consts import (
     USER_STATE_PAID,
@@ -61,14 +61,14 @@ from flaskr.service.user.models import UserInfo as UserEntity
 
 def _build_operator_user_overview() -> AdminOperationUserOverviewDTO:
     registered_states = [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID]
-    learner_subquery = _build_learner_user_bid_subquery()
-    registered_timestamp_subquery = _build_registered_user_timestamp_subquery()
-    recent_window_start, recent_window_end = _resolve_recent_days_window(30)
-    recent_learning_subquery = _build_recent_learning_active_user_bid_subquery(
+    learner_subquery = build_learner_user_bid_subquery()
+    registered_timestamp_subquery = build_registered_user_timestamp_subquery()
+    recent_window_start, recent_window_end = resolve_recent_days_window(30)
+    recent_learning_subquery = build_recent_learning_active_user_bid_subquery(
         since=recent_window_start,
         until=recent_window_end,
     )
-    recent_paid_subquery = _build_recent_paid_user_bid_subquery(
+    recent_paid_subquery = build_recent_paid_user_bid_subquery(
         since=recent_window_start,
         until=recent_window_end,
     )
@@ -197,7 +197,7 @@ def list_operator_users(
         nickname = str(filters.get("nickname", "") or "").strip()
         user_status = str(filters.get("user_status", "") or "").strip().lower()
         user_role = str(filters.get("user_role", "") or "").strip().lower()
-        quick_filter = _resolve_operator_user_quick_filter(
+        quick_filter = resolve_operator_user_quick_filter(
             filters.get("quick_filter", "")
         )
         start_time = filters.get("start_time")
@@ -226,14 +226,14 @@ def list_operator_users(
         elif user_role == OPERATOR_USER_ROLE_CREATOR:
             query = query.filter(UserEntity.is_creator == 1)
         elif user_role == OPERATOR_USER_ROLE_LEARNER:
-            learner_subquery = _build_learner_user_bid_subquery()
+            learner_subquery = build_learner_user_bid_subquery()
             query = query.filter(
                 UserEntity.is_operator == 0,
                 UserEntity.is_creator == 0,
                 UserEntity.user_bid.in_(db.session.query(learner_subquery.c.user_bid)),
             )
         elif user_role == OPERATOR_USER_ROLE_REGULAR:
-            learner_subquery = _build_learner_user_bid_subquery()
+            learner_subquery = build_learner_user_bid_subquery()
             query = query.filter(
                 UserEntity.is_operator == 0,
                 UserEntity.is_creator == 0,
@@ -244,7 +244,7 @@ def list_operator_users(
         if end_time:
             query = query.filter(UserEntity.created_at <= end_time)
         if identifier:
-            matching_user_bids = _find_matching_user_bids_by_identifier(identifier)
+            matching_user_bids = find_matching_user_bids_by_identifier(identifier)
             if not matching_user_bids:
                 return AdminOperationUserListDTO(
                     safe_page_index,
@@ -254,11 +254,11 @@ def list_operator_users(
                 )
             query = query.filter(UserEntity.user_bid.in_(list(matching_user_bids)))
         if quick_filter:
-            recent_window_start, recent_window_end = _resolve_recent_days_window(30)
+            recent_window_start, recent_window_end = resolve_recent_days_window(30)
             if quick_filter == OPERATOR_USER_QUICK_FILTER_CREATOR:
                 query = query.filter(UserEntity.is_creator == 1)
             elif quick_filter == OPERATOR_USER_QUICK_FILTER_LEARNER:
-                learner_subquery = _build_learner_user_bid_subquery()
+                learner_subquery = build_learner_user_bid_subquery()
                 query = query.filter(
                     UserEntity.user_bid.in_(
                         db.session.query(learner_subquery.c.user_bid)
@@ -279,7 +279,7 @@ def list_operator_users(
                 )
             elif quick_filter == OPERATOR_USER_QUICK_FILTER_REGISTERED_LAST_30D:
                 registered_timestamp_subquery = (
-                    _build_registered_user_timestamp_subquery()
+                    build_registered_user_timestamp_subquery()
                 )
                 query = query.filter(
                     UserEntity.user_bid.in_(
@@ -295,7 +295,7 @@ def list_operator_users(
                 )
             elif quick_filter == OPERATOR_USER_QUICK_FILTER_LEARNING_ACTIVE_30D:
                 recent_learning_subquery = (
-                    _build_recent_learning_active_user_bid_subquery(
+                    build_recent_learning_active_user_bid_subquery(
                         since=recent_window_start,
                         until=recent_window_end,
                     )
@@ -306,7 +306,7 @@ def list_operator_users(
                     )
                 )
             elif quick_filter == OPERATOR_USER_QUICK_FILTER_PAID_LAST_30D:
-                recent_paid_subquery = _build_recent_paid_user_bid_subquery(
+                recent_paid_subquery = build_recent_paid_user_bid_subquery(
                     since=recent_window_start,
                     until=recent_window_end,
                 )
@@ -329,27 +329,27 @@ def list_operator_users(
         user_bids = [
             str(user.user_bid or "").strip() for user in page_items if user.user_bid
         ]
-        credential_rows = _load_operator_user_auth_credentials(user_bids)
-        contact_map = _load_operator_user_contact_map(
+        credential_rows = load_operator_user_auth_credentials(user_bids)
+        contact_map = load_operator_user_contact_map(
             user_bids,
             users=page_items,
             credential_rows=credential_rows,
         )
         created_course_count_map, learning_course_count_map = (
-            _load_operator_user_course_count_maps(user_bids)
+            load_operator_user_course_count_maps(user_bids)
         )
-        learner_user_bids = _load_learner_user_bids(user_bids)
-        registration_source_map = _load_operator_user_registration_source_map(
+        learner_user_bids = load_learner_user_bids(user_bids)
+        registration_source_map = load_operator_user_registration_source_map(
             user_bids,
             users=page_items,
             credential_rows=credential_rows,
         )
-        last_login_map = _load_operator_user_last_login_map(user_bids)
-        total_paid_amount_map = _load_operator_user_total_paid_amount_map(user_bids)
-        last_learning_map = _load_operator_user_last_learning_map(user_bids)
-        credit_summary_map = _load_operator_user_credit_summary_map(user_bids)
+        last_login_map = load_operator_user_last_login_map(user_bids)
+        total_paid_amount_map = load_operator_user_total_paid_amount_map(user_bids)
+        last_learning_map = load_operator_user_last_learning_map(user_bids)
+        credit_summary_map = load_operator_user_credit_summary_map(user_bids)
         items = [
-            _build_operator_user_summary(
+            build_operator_user_summary(
                 user,
                 contact_map,
                 learner_user_bids,
@@ -377,32 +377,32 @@ def get_operator_user_detail(
 ) -> AdminOperationUserSummaryDTO:
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
-        user = _load_operator_user_or_raise(normalized_user_bid)
+        user = load_operator_user_or_raise(normalized_user_bid)
 
-        credential_rows = _load_operator_user_auth_credentials([normalized_user_bid])
-        contact_map = _load_operator_user_contact_map(
+        credential_rows = load_operator_user_auth_credentials([normalized_user_bid])
+        contact_map = load_operator_user_contact_map(
             [normalized_user_bid],
             users=[user],
             credential_rows=credential_rows,
         )
-        created_courses_map, learning_courses_map = _load_operator_user_course_maps(
+        created_courses_map, learning_courses_map = load_operator_user_course_maps(
             [normalized_user_bid]
         )
-        learner_user_bids = _load_learner_user_bids([normalized_user_bid])
-        registration_source_map = _load_operator_user_registration_source_map(
+        learner_user_bids = load_learner_user_bids([normalized_user_bid])
+        registration_source_map = load_operator_user_registration_source_map(
             [normalized_user_bid],
             users=[user],
             credential_rows=credential_rows,
         )
-        last_login_map = _load_operator_user_last_login_map([normalized_user_bid])
-        total_paid_amount_map = _load_operator_user_total_paid_amount_map(
+        last_login_map = load_operator_user_last_login_map([normalized_user_bid])
+        total_paid_amount_map = load_operator_user_total_paid_amount_map(
             [normalized_user_bid]
         )
-        last_learning_map = _load_operator_user_last_learning_map([normalized_user_bid])
-        credit_summary_map = _load_operator_user_credit_summary_map(
+        last_learning_map = load_operator_user_last_learning_map([normalized_user_bid])
+        credit_summary_map = load_operator_user_credit_summary_map(
             [normalized_user_bid]
         )
-        return _build_operator_user_summary(
+        return build_operator_user_summary(
             user,
             contact_map,
             learner_user_bids,
