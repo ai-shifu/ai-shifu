@@ -11,5 +11,7 @@
   "login": "Connexion",
   "loginMainButton": "Connexion / Inscription",
   "logout": "Déconnexion",
-  "notLogin": "Non connecté"
+  "myCourses": "Mes cours",
+  "notLogin": "Non connecté",
+  "owned": "possédé"
 }
