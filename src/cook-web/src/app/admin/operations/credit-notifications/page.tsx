@@ -302,11 +302,11 @@ export default function AdminOperationCreditNotificationsPage() {
   );
 
   const loadConfigResources = React.useCallback(async () => {
-    if (configLoaded || configLoadStartedRef.current) {
+    if (configLoadStartedRef.current) {
       return;
     }
     configLoadStartedRef.current = true;
-    setConfigError('');
+    setConfigError(current => (current ? '' : current));
     try {
       await fetchConfig();
       void fetchTemplateOptions();
@@ -319,7 +319,7 @@ export default function AdminOperationCreditNotificationsPage() {
           t('module.operationsCreditNotifications.config.loadFailed'),
       );
     }
-  }, [configLoaded, fetchConfig, fetchTemplateOptions, t]);
+  }, [fetchConfig, fetchTemplateOptions, t]);
 
   React.useEffect(() => {
     if (!isReady) {
