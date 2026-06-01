@@ -1,13 +1,22 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import AdminFilter, { type AdminFilterItem } from './AdminFilter';
+import { fireEvent, render, screen } from '@testing-library/react';
+import AdminFilter, {
+  type AdminFilterActiveFilter,
+  type AdminFilterItem,
+} from './AdminFilter';
 
 const renderFilter = ({
   expanded = false,
   items,
+  activeFilter,
+  layoutPreset,
+  surface,
 }: {
   expanded?: boolean;
   items?: AdminFilterItem[];
+  activeFilter?: AdminFilterActiveFilter | null;
+  layoutPreset?: 'default' | 'operations';
+  surface?: 'plain' | 'card';
 } = {}) =>
   render(
     <AdminFilter
@@ -42,6 +51,9 @@ const renderFilter = ({
       collapsedGridClassName='collapsed-grid-test'
       expandedGridClassName='expanded-grid-test'
       labelColon
+      activeFilter={activeFilter}
+      layoutPreset={layoutPreset}
+      surface={surface}
     />,
   );
 
@@ -74,5 +86,53 @@ describe('AdminFilter', () => {
     expect(screen.getByLabelText('Type filter')).toBeInTheDocument();
     expect(screen.getByLabelText('Course filter')).toBeInTheDocument();
     expect(screen.getByLabelText('Status filter')).toBeInTheDocument();
+  });
+
+  test('renders the card surface and active filter chip', () => {
+    const onClear = jest.fn();
+    const { container } = renderFilter({
+      surface: 'card',
+      activeFilter: {
+        label: 'Active filter',
+        value: 'Recent courses',
+        clearAriaLabel: 'Clear recent courses',
+        onClear,
+      },
+    });
+
+    expect(container.firstChild).toHaveClass('rounded-xl');
+    expect(screen.getByText('Active filter')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Clear recent courses' }),
+    );
+
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  test('applies operations preset defaults when custom classes are not provided', () => {
+    const { container } = render(
+      <AdminFilter
+        items={[
+          {
+            key: 'type',
+            label: 'Type',
+            component: <input aria-label='Type filter' />,
+          },
+        ]}
+        expanded={false}
+        onExpandedChange={() => undefined}
+        onReset={() => undefined}
+        onSearch={() => undefined}
+        resetLabel='Reset'
+        searchLabel='Search'
+        expandLabel='Expand'
+        collapseLabel='Collapse'
+        layoutPreset='operations'
+      />,
+    );
+
+    expect(screen.getByText('Type')).toHaveClass("after:content-[':']");
+    expect(screen.getByText('Type')).toHaveClass('w-20');
+    expect(container.querySelector('.xl\\:grid-cols-3')).toBeInTheDocument();
   });
 });
