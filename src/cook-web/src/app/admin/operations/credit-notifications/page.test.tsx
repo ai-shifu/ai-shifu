@@ -185,7 +185,11 @@ const mockUpdateConfig =
 const mockDryRun = api.dryRunAdminOperationCreditNotifications as jest.Mock;
 const mockToast = toast as jest.Mock;
 
-const openConfigTab = async () => {
+const openConfigTab = async ({
+  waitForTemplates = true,
+}: {
+  waitForTemplates?: boolean;
+} = {}) => {
   const configTab = screen.getByRole('tab', {
     name: 'module.operationsCreditNotifications.tabs.config',
   });
@@ -202,6 +206,15 @@ const openConfigTab = async () => {
   await waitFor(() => {
     expect(mockGetConfig).toHaveBeenCalled();
   });
+  await waitFor(() => {
+    expect(screen.queryByTestId('loading-indicator')).not.toBeInTheDocument();
+  });
+  if (waitForTemplates) {
+    await waitFor(() => {
+      expect(mockGetTemplates).toHaveBeenCalled();
+    });
+    await screen.findByText('Grant');
+  }
 };
 
 const openRecordMoreMenu = () => {
@@ -578,7 +591,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     mockGetConfig.mockRejectedValueOnce(new Error('config unavailable'));
     render(<AdminOperationCreditNotificationsPage />);
 
-    await openConfigTab();
+    await openConfigTab({ waitForTemplates: false });
 
     expect(screen.getByText('config unavailable')).toBeInTheDocument();
     expect(

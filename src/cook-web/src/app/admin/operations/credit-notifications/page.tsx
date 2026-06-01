@@ -111,6 +111,7 @@ export default function AdminOperationCreditNotificationsPage() {
     React.useState<AdminOperationCreditNotificationPolicy>(createDefaultPolicy);
   const [configError, setConfigError] = React.useState('');
   const [configLoaded, setConfigLoaded] = React.useState(false);
+  const [configLoading, setConfigLoading] = React.useState(false);
   const [dryRunResult, setDryRunResult] =
     React.useState<AdminOperationCreditNotificationDryRunResponse | null>(null);
   const [templateSyncResults, setTemplateSyncResults] = React.useState<
@@ -306,6 +307,7 @@ export default function AdminOperationCreditNotificationsPage() {
       return;
     }
     configLoadStartedRef.current = true;
+    setConfigLoading(true);
     setConfigError(current => (current ? '' : current));
     try {
       await fetchConfig();
@@ -318,6 +320,8 @@ export default function AdminOperationCreditNotificationsPage() {
         resolvedError.message ||
           t('module.operationsCreditNotifications.config.loadFailed'),
       );
+    } finally {
+      setConfigLoading(false);
     }
   }, [fetchConfig, fetchTemplateOptions, t]);
 
@@ -768,6 +772,7 @@ export default function AdminOperationCreditNotificationsPage() {
           <CreditNotificationConfigTab
             policy={policy}
             configLoaded={configLoaded}
+            configLoading={configLoading}
             configError={configError}
             dryRunResult={dryRunResult}
             templateSyncResults={templateSyncResults}
