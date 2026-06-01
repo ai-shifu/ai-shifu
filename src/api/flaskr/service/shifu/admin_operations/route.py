@@ -47,10 +47,7 @@ from flaskr.service.shifu.admin import (
     get_operator_course_prompt,
     get_operator_course_ratings,
     get_operator_course_users,
-    get_operator_user_detail,
-    get_operator_user_overview,
     list_operator_courses,
-    list_operator_users,
     transfer_operator_course_creator,
 )
 from flaskr.service.shifu.admin_operations.credit_notifications import (
@@ -70,6 +67,11 @@ from flaskr.service.shifu.admin_operations.user_credits import (
     get_operator_user_grant_bootstrap,
     grant_operator_user_credits,
     grant_operator_user_package,
+)
+from flaskr.service.shifu.admin_operations.users import (
+    get_operator_user_detail,
+    get_operator_user_overview,
+    list_operator_users,
 )
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditGrantRequestDTO,
