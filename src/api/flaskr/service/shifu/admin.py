@@ -2973,7 +2973,7 @@ def _build_latest_operator_course_rows_subquery(
     )
     if base_query is None:
         return None
-    return base_query.subquery(alias_name)
+    return base_query.cte(alias_name)
 
 
 def _build_operator_course_candidate_query(
@@ -2983,6 +2983,7 @@ def _build_operator_course_candidate_query(
     creator_bids: Optional[Set[str]],
     start_time: Optional[datetime],
     end_time: Optional[datetime],
+    include_activity: bool = False,
 ):
     draft_rows_subquery = _build_latest_operator_course_rows_subquery(
         DraftShifu,
@@ -3014,7 +3015,7 @@ def _build_operator_course_candidate_query(
                 draft_rows_subquery.c.created_user_bid,
             )
         )
-        .subquery("operator_course_draft_visible")
+        .cte("operator_course_draft_visible")
     )
     published_visible_subquery = (
         db.session.query(published_rows_subquery)
@@ -3025,7 +3026,7 @@ def _build_operator_course_candidate_query(
                 published_rows_subquery.c.created_user_bid,
             )
         )
-        .subquery("operator_course_published_visible")
+        .cte("operator_course_published_visible")
     )
 
     candidate_bids_subquery = (
@@ -3033,7 +3034,16 @@ def _build_operator_course_candidate_query(
         .union(
             db.session.query(published_visible_subquery.c.shifu_bid.label("shifu_bid"))
         )
-        .subquery("operator_course_candidate_bids")
+        .cte("operator_course_candidate_bids")
+    )
+    latest_activity_subquery = (
+        _build_operator_course_latest_activity_subquery(
+            candidate_bids_subquery,
+            draft_visible_subquery,
+            published_visible_subquery,
+        )
+        if include_activity
+        else None
     )
 
     selected_source_expr = case(
@@ -3044,62 +3054,72 @@ def _build_operator_course_candidate_query(
         (published_visible_subquery.c.id.isnot(None), literal(COURSE_STATUS_PUBLISHED)),
         else_=literal(COURSE_STATUS_UNPUBLISHED),
     )
-    candidate_query = (
-        db.session.query(
-            case(
-                (draft_visible_subquery.c.id.isnot(None), draft_visible_subquery.c.id),
-                else_=published_visible_subquery.c.id,
-            ).label("id"),
-            candidate_bids_subquery.c.shifu_bid.label("shifu_bid"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.title,
+    selected_columns = [
+        case(
+            (draft_visible_subquery.c.id.isnot(None), draft_visible_subquery.c.id),
+            else_=published_visible_subquery.c.id,
+        ).label("id"),
+        candidate_bids_subquery.c.shifu_bid.label("shifu_bid"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.title,
+            ),
+            else_=published_visible_subquery.c.title,
+        ).label("title"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.price,
+            ),
+            else_=published_visible_subquery.c.price,
+        ).label("price"),
+        case(
+            (draft_visible_subquery.c.id.isnot(None), draft_visible_subquery.c.llm),
+            else_=published_visible_subquery.c.llm,
+        ).label("llm"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.created_user_bid,
+            ),
+            else_=published_visible_subquery.c.created_user_bid,
+        ).label("created_user_bid"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.updated_user_bid,
+            ),
+            else_=published_visible_subquery.c.updated_user_bid,
+        ).label("updated_user_bid"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.created_at,
+            ),
+            else_=published_visible_subquery.c.created_at,
+        ).label("created_at"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.updated_at,
+            ),
+            else_=published_visible_subquery.c.updated_at,
+        ).label("updated_at"),
+        selected_source_expr.label("selected_source"),
+        course_status_expr.label("course_status"),
+    ]
+    if latest_activity_subquery is not None:
+        selected_columns.extend(
+            [
+                latest_activity_subquery.c.updated_at.label("activity_updated_at"),
+                latest_activity_subquery.c.updated_user_bid.label(
+                    "activity_updated_user_bid"
                 ),
-                else_=published_visible_subquery.c.title,
-            ).label("title"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.price,
-                ),
-                else_=published_visible_subquery.c.price,
-            ).label("price"),
-            case(
-                (draft_visible_subquery.c.id.isnot(None), draft_visible_subquery.c.llm),
-                else_=published_visible_subquery.c.llm,
-            ).label("llm"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.created_user_bid,
-                ),
-                else_=published_visible_subquery.c.created_user_bid,
-            ).label("created_user_bid"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.updated_user_bid,
-                ),
-                else_=published_visible_subquery.c.updated_user_bid,
-            ).label("updated_user_bid"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.created_at,
-                ),
-                else_=published_visible_subquery.c.created_at,
-            ).label("created_at"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.updated_at,
-                ),
-                else_=published_visible_subquery.c.updated_at,
-            ).label("updated_at"),
-            selected_source_expr.label("selected_source"),
-            course_status_expr.label("course_status"),
+            ]
         )
+    candidate_query = (
+        db.session.query(*selected_columns)
         .select_from(candidate_bids_subquery)
         .outerjoin(
             draft_visible_subquery,
@@ -3111,7 +3131,146 @@ def _build_operator_course_candidate_query(
             == candidate_bids_subquery.c.shifu_bid,
         )
     )
+    if latest_activity_subquery is not None:
+        candidate_query = candidate_query.outerjoin(
+            latest_activity_subquery,
+            latest_activity_subquery.c.shifu_bid == candidate_bids_subquery.c.shifu_bid,
+        )
     return candidate_query
+
+
+def _build_latest_outline_activity_subquery(
+    model,
+    candidate_bids_subquery,
+    *,
+    alias_name: str,
+):
+    latest_outline_rows_subquery = (
+        db.session.query(
+            model.shifu_bid.label("shifu_bid"),
+            model.outline_item_bid.label("outline_item_bid"),
+            db.func.max(model.id).label("max_id"),
+        )
+        .join(
+            candidate_bids_subquery,
+            model.shifu_bid == candidate_bids_subquery.c.shifu_bid,
+        )
+        .group_by(model.shifu_bid, model.outline_item_bid)
+        .cte(f"{alias_name}_latest_rows")
+    )
+    current_outline_rows_subquery = (
+        db.session.query(
+            model.shifu_bid.label("shifu_bid"),
+            model.updated_at.label("updated_at"),
+            model.updated_user_bid.label("updated_user_bid"),
+            model.id.label("id"),
+        )
+        .join(
+            latest_outline_rows_subquery,
+            model.id == latest_outline_rows_subquery.c.max_id,
+        )
+        .filter(model.deleted == 0)
+        .cte(f"{alias_name}_current_rows")
+    )
+    ranked_outline_activity_subquery = db.session.query(
+        current_outline_rows_subquery.c.shifu_bid.label("shifu_bid"),
+        current_outline_rows_subquery.c.updated_at.label("updated_at"),
+        current_outline_rows_subquery.c.updated_user_bid.label("updated_user_bid"),
+        db.func.row_number()
+        .over(
+            partition_by=current_outline_rows_subquery.c.shifu_bid,
+            order_by=[
+                current_outline_rows_subquery.c.updated_at.desc(),
+                current_outline_rows_subquery.c.id.desc(),
+            ],
+        )
+        .label("row_num"),
+    ).cte(f"{alias_name}_ranked")
+    return (
+        db.session.query(
+            ranked_outline_activity_subquery.c.shifu_bid.label("shifu_bid"),
+            ranked_outline_activity_subquery.c.updated_at.label("updated_at"),
+            ranked_outline_activity_subquery.c.updated_user_bid.label(
+                "updated_user_bid"
+            ),
+        )
+        .filter(ranked_outline_activity_subquery.c.row_num == 1)
+        .cte(alias_name)
+    )
+
+
+def _build_operator_course_latest_activity_subquery(
+    candidate_bids_subquery,
+    draft_visible_subquery,
+    published_visible_subquery,
+):
+    draft_outline_activity_subquery = _build_latest_outline_activity_subquery(
+        DraftOutlineItem,
+        candidate_bids_subquery,
+        alias_name="operator_course_draft_outline_activity",
+    )
+    published_outline_activity_subquery = _build_latest_outline_activity_subquery(
+        PublishedOutlineItem,
+        candidate_bids_subquery,
+        alias_name="operator_course_published_outline_activity",
+    )
+
+    activity_sources_subquery = (
+        db.session.query(
+            draft_visible_subquery.c.shifu_bid.label("shifu_bid"),
+            draft_visible_subquery.c.updated_at.label("updated_at"),
+            draft_visible_subquery.c.updated_user_bid.label("updated_user_bid"),
+            literal(2).label("priority"),
+        )
+        .union_all(
+            db.session.query(
+                published_visible_subquery.c.shifu_bid.label("shifu_bid"),
+                published_visible_subquery.c.updated_at.label("updated_at"),
+                published_visible_subquery.c.updated_user_bid.label("updated_user_bid"),
+                literal(1).label("priority"),
+            ),
+            db.session.query(
+                draft_outline_activity_subquery.c.shifu_bid.label("shifu_bid"),
+                draft_outline_activity_subquery.c.updated_at.label("updated_at"),
+                draft_outline_activity_subquery.c.updated_user_bid.label(
+                    "updated_user_bid"
+                ),
+                literal(3).label("priority"),
+            ),
+            db.session.query(
+                published_outline_activity_subquery.c.shifu_bid.label("shifu_bid"),
+                published_outline_activity_subquery.c.updated_at.label("updated_at"),
+                published_outline_activity_subquery.c.updated_user_bid.label(
+                    "updated_user_bid"
+                ),
+                literal(4).label("priority"),
+            ),
+        )
+        .cte("operator_course_activity_sources")
+    )
+    ranked_activity_subquery = db.session.query(
+        activity_sources_subquery.c.shifu_bid.label("shifu_bid"),
+        activity_sources_subquery.c.updated_at.label("updated_at"),
+        activity_sources_subquery.c.updated_user_bid.label("updated_user_bid"),
+        db.func.row_number()
+        .over(
+            partition_by=activity_sources_subquery.c.shifu_bid,
+            order_by=[
+                activity_sources_subquery.c.updated_at.desc(),
+                activity_sources_subquery.c.priority.desc(),
+            ],
+        )
+        .label("row_num"),
+    ).cte("operator_course_ranked_activity")
+    return (
+        db.session.query(
+            ranked_activity_subquery.c.shifu_bid.label("shifu_bid"),
+            ranked_activity_subquery.c.updated_at.label("updated_at"),
+            ranked_activity_subquery.c.updated_user_bid.label("updated_user_bid"),
+        )
+        .filter(ranked_activity_subquery.c.row_num == 1)
+        .cte("operator_course_latest_activity")
+    )
 
 
 def _build_latest_shifus_query(
@@ -7279,6 +7438,7 @@ def list_operator_courses(
             creator_bids=creator_bids,
             start_time=start_time,
             end_time=end_time,
+            include_activity=True,
         )
         if candidate_query is None:
             return AdminOperationCourseListDTO(
@@ -7333,62 +7493,32 @@ def list_operator_courses(
                         candidate_subquery.c.shifu_bid.in_(paid_course_query)
                     )
 
-        candidate_rows = [
-            _build_operator_course_list_candidate(row) for row in query.all()
-        ]
-
-        candidate_shifu_bids = [
-            str(course.shifu_bid or "").strip()
-            for course in candidate_rows
-            if str(course.shifu_bid or "").strip()
-        ]
-        draft_activity_rows = _load_latest_courses_by_shifu_bids(
-            DraftShifu,
-            candidate_shifu_bids,
-            lightweight=True,
-        )
-        published_activity_rows = _load_latest_courses_by_shifu_bids(
-            PublishedShifu,
-            candidate_shifu_bids,
-            lightweight=True,
-        )
-        activity_map = _load_course_activity_map(
-            draft_activity_rows,
-            published_activity_rows,
-        )
-
-        def resolve_activity(course) -> Dict[str, Any]:
-            return activity_map.get(str(course.shifu_bid or "").strip(), {})
-
-        def resolve_updated_at(course) -> Optional[datetime]:
-            activity = resolve_activity(course)
-            return activity.get("updated_at") or course.updated_at
-
         if updated_start_time:
-            candidate_rows = [
-                course
-                for course in candidate_rows
-                if (resolve_updated_at(course) or datetime.min) >= updated_start_time
-            ]
+            query = query.filter(
+                candidate_subquery.c.activity_updated_at >= updated_start_time
+            )
         if updated_end_time:
-            candidate_rows = [
-                course
-                for course in candidate_rows
-                if (resolve_updated_at(course) or datetime.min) <= updated_end_time
-            ]
+            query = query.filter(
+                or_(
+                    candidate_subquery.c.activity_updated_at.is_(None),
+                    candidate_subquery.c.activity_updated_at <= updated_end_time,
+                )
+            )
 
-        candidate_rows = sorted(
-            candidate_rows,
-            key=lambda item: (
-                resolve_updated_at(item) or datetime.min,
-                item.created_at or datetime.min,
-                item.shifu_bid or "",
-            ),
-            reverse=True,
-        )
-        total = len(candidate_rows)
+        total = int(query.count() or 0)
         page_offset = (safe_page_index - 1) * safe_page_size
-        page_items = candidate_rows[page_offset : page_offset + safe_page_size]
+        page_rows = (
+            query.order_by(
+                candidate_subquery.c.activity_updated_at.desc(),
+                candidate_subquery.c.created_at.desc(),
+                candidate_subquery.c.shifu_bid.desc(),
+            )
+            .offset(page_offset)
+            .limit(safe_page_size)
+            .all()
+        )
+        page_items = [_build_operator_course_list_candidate(row) for row in page_rows]
+
         draft_page_items = [
             course for course in page_items if course.selected_source == "draft"
         ]
@@ -7397,6 +7527,13 @@ def list_operator_courses(
         ]
         _attach_course_prompt_flags(DraftShifu, draft_page_items)
         _attach_course_prompt_flags(PublishedShifu, published_page_items)
+
+        def resolve_activity(course) -> Dict[str, Any]:
+            return {
+                "updated_at": course.activity_updated_at or course.updated_at,
+                "updated_user_bid": course.activity_updated_user_bid
+                or course.updated_user_bid,
+            }
 
         user_bids = {
             user_bid
