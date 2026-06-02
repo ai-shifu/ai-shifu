@@ -1184,6 +1184,48 @@ def test_list_operator_users_returns_learning_and_created_courses(app):
     ]
 
 
+def test_user_course_count_maps_use_lightweight_course_rows(app, monkeypatch):
+    load_calls = []
+
+    def fake_load_latest_shifus(model, **kwargs):
+        load_calls.append(("latest", model.__name__, kwargs.get("lightweight")))
+        return []
+
+    def fake_load_latest_courses_by_shifu_bids(
+        model,
+        shifu_bids,
+        *,
+        lightweight=False,
+    ):
+        load_calls.append(("by_bids", model.__name__, tuple(shifu_bids), lightweight))
+        return []
+
+    monkeypatch.setattr(
+        admin_module,
+        "_load_latest_shifus",
+        fake_load_latest_shifus,
+    )
+    monkeypatch.setattr(
+        admin_module,
+        "_load_latest_courses_by_shifu_bids",
+        fake_load_latest_courses_by_shifu_bids,
+    )
+
+    with app.app_context():
+        created_count_map, learning_count_map = (
+            admin_module._load_operator_user_course_count_maps(["user-no-activity"])
+        )
+
+    assert created_count_map == {"user-no-activity": 0}
+    assert learning_count_map == {"user-no-activity": 0}
+    assert load_calls == [
+        ("latest", "DraftShifu", True),
+        ("latest", "PublishedShifu", True),
+        ("by_bids", "DraftShifu", (), True),
+        ("by_bids", "PublishedShifu", (), True),
+    ]
+
+
 def test_list_operator_users_includes_creator_credit_summaries(app):
     with app.app_context():
         active_start_at, active_end_at = _build_active_window()
