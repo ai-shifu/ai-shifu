@@ -1222,14 +1222,6 @@ def stream_generated_block_audio(
                 )
                 return
 
-        provider, tts_model, voice_settings, _audio_settings = (
-            _resolve_shifu_tts_settings(
-                app,
-                shifu_bid=shifu_bid,
-                preview_mode=preview_mode,
-            )
-        )
-
         if listen:
             from flaskr.service.learn.listen_element_history import (
                 get_final_elements_for_generated_block,
@@ -1245,10 +1237,26 @@ def stream_generated_block_audio(
                 str(element.content_text or "") for element in speakable_elements
             ]
             if not speakable_segments:
-                raise_error_with_args(
-                    "server.common.paramsError",
-                    param_message="No speakable text elements available for TTS synthesis",
+                app.logger.info(
+                    "skip listen-mode generated block TTS: no speakable elements, "
+                    "shifu_bid=%s, generated_block_bid=%s, user_bid=%s",
+                    shifu_bid,
+                    generated_block_bid,
+                    user_bid,
                 )
+                yield _build_tts_done_message(
+                    outline_bid=generated_block.outline_item_bid or "",
+                    generated_block_bid=generated_block_bid,
+                )
+                return
+
+            provider, tts_model, voice_settings, _audio_settings = (
+                _resolve_shifu_tts_settings(
+                    app,
+                    shifu_bid=shifu_bid,
+                    preview_mode=preview_mode,
+                )
+            )
 
             expected_segment_count = len(speakable_segments)
             existing_by_position: dict[int, LearnGeneratedAudio] = {}
@@ -1351,6 +1359,14 @@ def stream_generated_block_audio(
             )
 
             return
+
+        provider, tts_model, voice_settings, _audio_settings = (
+            _resolve_shifu_tts_settings(
+                app,
+                shifu_bid=shifu_bid,
+                preview_mode=preview_mode,
+            )
+        )
 
         cleaned_text = preprocess_for_tts(raw_text)
         if not cleaned_text or len(cleaned_text.strip()) < 2:
