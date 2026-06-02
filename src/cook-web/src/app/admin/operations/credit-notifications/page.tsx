@@ -111,6 +111,7 @@ export default function AdminOperationCreditNotificationsPage() {
     React.useState<AdminOperationCreditNotificationPolicy>(createDefaultPolicy);
   const [configError, setConfigError] = React.useState('');
   const [configLoaded, setConfigLoaded] = React.useState(false);
+  const [configLoading, setConfigLoading] = React.useState(false);
   const [dryRunResult, setDryRunResult] =
     React.useState<AdminOperationCreditNotificationDryRunResponse | null>(null);
   const [templateSyncResults, setTemplateSyncResults] = React.useState<
@@ -139,6 +140,7 @@ export default function AdminOperationCreditNotificationsPage() {
     { type: 'tab'; tab: PageTab } | { type: 'href'; href: string } | null
   >(null);
   const requestIdRef = React.useRef(0);
+  const configLoadStartedRef = React.useRef(false);
   const isConfigDirty = React.useMemo(
     () => JSON.stringify(policy) !== JSON.stringify(savedPolicy),
     [policy, savedPolicy],
@@ -300,32 +302,46 @@ export default function AdminOperationCreditNotificationsPage() {
     [t],
   );
 
-  React.useEffect(() => {
-    if (!isReady) {
+  const loadConfigResources = React.useCallback(async () => {
+    if (configLoadStartedRef.current) {
       return;
     }
-    const initialFilters = createDefaultFilters();
-    fetchConfig().catch(requestError => {
+    configLoadStartedRef.current = true;
+    setConfigLoading(true);
+    setConfigError('');
+    try {
+      await fetchConfig();
+      void fetchTemplateOptions();
+    } catch (requestError) {
+      configLoadStartedRef.current = false;
       const resolvedError = requestError as ErrorWithCode;
       setConfigLoaded(false);
       setConfigError(
         resolvedError.message ||
           t('module.operationsCreditNotifications.config.loadFailed'),
       );
-    });
-    void fetchTemplateOptions();
+    } finally {
+      setConfigLoading(false);
+    }
+  }, [fetchConfig, fetchTemplateOptions, t]);
+
+  React.useEffect(() => {
+    if (!isReady) {
+      return;
+    }
+    const initialFilters = createDefaultFilters();
     fetchOverview().catch(() => {
       setOverview({ total: 0, pending: 0, sent: 0, failed: 0, skipped: 0 });
     });
     void fetchRecords(1, initialFilters);
-  }, [
-    fetchConfig,
-    fetchOverview,
-    fetchRecords,
-    fetchTemplateOptions,
-    isReady,
-    t,
-  ]);
+  }, [fetchOverview, fetchRecords, isReady]);
+
+  React.useEffect(() => {
+    if (!isReady || activeTab !== 'config') {
+      return;
+    }
+    void loadConfigResources();
+  }, [activeTab, isReady, loadConfigResources]);
 
   const updateDraftFilter = React.useCallback(
     (field: keyof NotificationFilters, value: string) => {
@@ -756,6 +772,7 @@ export default function AdminOperationCreditNotificationsPage() {
           <CreditNotificationConfigTab
             policy={policy}
             configLoaded={configLoaded}
+            configLoading={configLoading}
             configError={configError}
             dryRunResult={dryRunResult}
             templateSyncResults={templateSyncResults}

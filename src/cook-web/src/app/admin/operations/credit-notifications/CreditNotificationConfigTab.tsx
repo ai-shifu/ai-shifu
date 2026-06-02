@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
+import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/hooks/useToast';
 import { Input } from '@/components/ui/Input';
@@ -235,6 +236,7 @@ function ConfigCard({
 export function CreditNotificationConfigTab({
   policy,
   configLoaded,
+  configLoading,
   configError,
   dryRunResult,
   templateSyncResults,
@@ -252,6 +254,7 @@ export function CreditNotificationConfigTab({
 }: {
   policy: AdminOperationCreditNotificationPolicy;
   configLoaded: boolean;
+  configLoading: boolean;
   configError: string;
   dryRunResult: AdminOperationCreditNotificationDryRunResponse | null;
   templateSyncResults: Partial<
@@ -478,6 +481,14 @@ export function CreditNotificationConfigTab({
           'module.operationsCreditNotifications.config.fields.optedOutCreators',
         );
   const managedListCanDelete = managedListDialog === 'blocked';
+
+  if (configLoading && !configLoaded) {
+    return (
+      <div className='flex h-full min-h-0 items-center justify-center'>
+        <Loading />
+      </div>
+    );
+  }
 
   return (
     <div className='flex h-full min-h-0 flex-col'>
