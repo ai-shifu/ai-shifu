@@ -58,7 +58,7 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.order.models import Order
 from flaskr.service.metering.models import BillUsageRecord
-from flaskr.service.shifu.admin import (
+from flaskr.service.shifu.admin_operations.users import (
     get_operator_user_detail,
     get_operator_user_overview,
     list_operator_users,
