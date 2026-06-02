@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
@@ -39,16 +40,36 @@ import {
   TABLE_LAST_CELL_CLASS,
 } from './promotionPageShared';
 
+type CouponUsageFetchParams = {
+  coupon_bid: string;
+  page_index: number;
+  page_size: number;
+};
+
+type CouponUsageFetch = (
+  params: CouponUsageFetchParams,
+) => Promise<AdminPromotionListResponse<AdminPromotionCouponUsageItem>>;
+
+type CouponCodesFetchParams = CouponUsageFetchParams & {
+  keyword?: string;
+};
+
+type CouponCodesFetch = (
+  params: CouponCodesFetchParams,
+) => Promise<AdminPromotionListResponse<AdminPromotionCouponCodeItem>>;
+
 export const PromotionCouponCodesDialog = ({
   open,
   onOpenChange,
   couponBid,
   couponName,
+  fetchCodesApi = api.getAdminOperationPromotionCouponCodes as CouponCodesFetch,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   couponBid: string;
   couponName: string;
+  fetchCodesApi?: CouponCodesFetch;
 }) => {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
@@ -66,12 +87,12 @@ export const PromotionCouponCodesDialog = ({
       }
       setLoading(true);
       try {
-        const response = (await api.getAdminOperationPromotionCouponCodes({
+        const response = await fetchCodesApi({
           coupon_bid: couponBid,
           page_index: nextPage,
           page_size: PAGE_SIZE,
           keyword: nextKeyword,
-        })) as AdminPromotionListResponse<AdminPromotionCouponCodeItem>;
+        });
         setCodes(response.items || []);
         setPageIndex(response.page || nextPage);
         setPageCount(response.page_count || 0);
@@ -86,7 +107,7 @@ export const PromotionCouponCodesDialog = ({
         setLoading(false);
       }
     },
-    [couponBid, tPromotion],
+    [couponBid, fetchCodesApi, tPromotion],
   );
 
   useEffect(() => {
@@ -112,6 +133,9 @@ export const PromotionCouponCodesDialog = ({
       <DialogContent className='sm:max-w-4xl'>
         <DialogHeader>
           <DialogTitle>{tPromotion('coupon.codes')}</DialogTitle>
+          <DialogDescription className='sr-only'>
+            {couponName || couponBid || tPromotion('coupon.codes')}
+          </DialogDescription>
         </DialogHeader>
         <div className='flex max-h-[70vh] min-h-0 flex-col overflow-hidden'>
           <div className='mb-4 text-sm text-muted-foreground'>
@@ -267,6 +291,9 @@ export const PromotionCampaignRedemptionsDialog = ({
       <DialogContent className='sm:max-w-5xl'>
         <DialogHeader>
           <DialogTitle>{tPromotion('campaign.redemptions')}</DialogTitle>
+          <DialogDescription className='sr-only'>
+            {campaignName || promoBid || tPromotion('campaign.redemptions')}
+          </DialogDescription>
         </DialogHeader>
         <div className='flex max-h-[70vh] min-h-0 flex-col overflow-hidden'>
           <div className='mb-4 text-sm text-muted-foreground'>
@@ -345,12 +372,14 @@ export const PromotionCouponUsageDialog = ({
   couponBid,
   couponName,
   showCourseColumn,
+  fetchUsagesApi = api.getAdminOperationPromotionCouponUsages as CouponUsageFetch,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   couponBid: string;
   couponName: string;
   showCourseColumn: boolean;
+  fetchUsagesApi?: CouponUsageFetch;
 }) => {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
@@ -366,11 +395,11 @@ export const PromotionCouponUsageDialog = ({
       }
       setLoading(true);
       try {
-        const response = (await api.getAdminOperationPromotionCouponUsages({
+        const response = await fetchUsagesApi({
           coupon_bid: couponBid,
           page_index: nextPage,
           page_size: PAGE_SIZE,
-        })) as AdminPromotionListResponse<AdminPromotionCouponUsageItem>;
+        });
         setUsages(response.items || []);
         setPageIndex(response.page || nextPage);
         setPageCount(response.page_count || 0);
@@ -385,7 +414,7 @@ export const PromotionCouponUsageDialog = ({
         setLoading(false);
       }
     },
-    [couponBid, tPromotion],
+    [couponBid, fetchUsagesApi, tPromotion],
   );
 
   useEffect(() => {
@@ -403,6 +432,9 @@ export const PromotionCouponUsageDialog = ({
       <DialogContent className='sm:max-w-4xl'>
         <DialogHeader>
           <DialogTitle>{tPromotion('coupon.usages')}</DialogTitle>
+          <DialogDescription className='sr-only'>
+            {couponName || couponBid || tPromotion('coupon.usages')}
+          </DialogDescription>
         </DialogHeader>
         <div className='flex max-h-[70vh] min-h-0 flex-col overflow-hidden'>
           <div className='mb-4 text-sm text-muted-foreground'>

@@ -102,6 +102,19 @@ const api = {
   getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',
   getAdminOrderShifus: 'GET /order/admin/orders/shifus',
   importActivationOrder: 'POST /order/admin/orders/import-activation',
+  getCreatorCourseRedemptionCodes: 'GET /order/admin/orders/redemption-codes',
+  createCreatorCourseRedemptionCode:
+    'POST /order/admin/orders/redemption-codes',
+  getCreatorCourseRedemptionCodeDetail:
+    'GET /order/admin/orders/redemption-codes/{coupon_bid}',
+  updateCreatorCourseRedemptionCode:
+    'POST /order/admin/orders/redemption-codes/{coupon_bid}',
+  updateCreatorCourseRedemptionCodeStatus:
+    'POST /order/admin/orders/redemption-codes/{coupon_bid}/status',
+  getCreatorCourseRedemptionCodeUsages:
+    'GET /order/admin/orders/redemption-codes/{coupon_bid}/usages',
+  getCreatorCourseRedemptionCodeCodes:
+    'GET /order/admin/orders/redemption-codes/{coupon_bid}/codes',
   getAdminOperationUsersOverview: 'GET /shifu/admin/operations/users/overview',
   getAdminOperationUsers: 'GET /shifu/admin/operations/users',
   getAdminOperationOrdersOverview:

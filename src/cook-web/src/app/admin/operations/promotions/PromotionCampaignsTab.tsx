@@ -208,6 +208,13 @@ export default function PromotionCampaignsTab({
                 </TableHead>
                 <TableHead
                   className={TABLE_HEAD_CLASS}
+                  style={getColumnStyle('creator')}
+                >
+                  {tPromotion('coupon.creator')}
+                  {renderResizeHandle('creator')}
+                </TableHead>
+                <TableHead
+                  className={TABLE_HEAD_CLASS}
                   style={getColumnStyle('updatedAt')}
                 >
                   {tPromotion('table.updatedAt')}
@@ -314,6 +321,14 @@ export default function PromotionCampaignsTab({
                     style={getColumnStyle('promoBid')}
                   >
                     {renderTooltipText(item.promo_bid)}
+                  </TableCell>
+                  <TableCell
+                    className={TABLE_CELL_CLASS}
+                    style={getColumnStyle('creator')}
+                  >
+                    {renderTooltipText(
+                      item.created_user_name || item.created_user_bid,
+                    )}
                   </TableCell>
                   <TableCell
                     className={TABLE_CELL_CLASS}

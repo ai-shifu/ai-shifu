@@ -119,6 +119,27 @@
     "refunded": "Remboursé",
     "unknown": "Inconnu"
   },
+  "redemptionCodes": {
+    "action": "Créer un code",
+    "courseLabel": "Cours",
+    "coursePlaceholder": "Sélectionner un cours publié",
+    "courseRequired": "Le cours est requis",
+    "createFailed": "Échec de la création du code",
+    "createSuccess": "Créé avec succès",
+    "dialogTitle": "Créer un code de réduction",
+    "editDialogTitle": "Modifier le code de réduction",
+    "emptyCourses": "Aucun cours publié",
+    "emptyList": "Aucun code",
+    "loadCoursesFailed": "Échec du chargement des cours. Veuillez réessayer plus tard.",
+    "loadFailed": "Échec du chargement des codes. Veuillez actualiser et réessayer.",
+    "submitting": "Création...",
+    "tooManyCourses": "Seuls les premiers cours publiés sont affichés. Veuillez affiner la liste des cours si nécessaire.",
+    "totalCount": "Codes: {count}",
+    "updateSuccess": "Enregistré avec succès",
+    "usageTypeHelp": "Aide sur le type de code",
+    "usageTypeHelpGeneric": "Générique : un même code peut être utilisé plusieurs fois.",
+    "usageTypeHelpSingleUse": "Un code par commande : le système génère un sous-code unique pour chaque quota, utilisable une seule fois."
+  },
   "sections": {
     "activities": "Activités",
     "coupons": "Coupons",
@@ -138,6 +159,10 @@
     "status": "Statut",
     "user": "Utilisateur",
     "view": "Voir"
+  },
+  "tabs": {
+    "orders": "Commandes",
+    "redemptionCodes": "Codes"
   },
   "title": "Commandes",
   "totalCount": "Commandes: {count}"

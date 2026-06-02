@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Flask, request
 from flaskr.service.common.models import raise_param_error, raise_error
 from flaskr.service.order.coupon_funcs import use_coupon_code
@@ -18,6 +20,15 @@ from flaskr.service.order.admin import (
     parse_import_activation_entries,
     list_orders,
 )
+from flaskr.service.promo.api import (
+    create_creator_course_redemption_coupon,
+    get_creator_course_redemption_coupon_detail,
+    list_creator_course_redemption_coupons,
+    list_creator_course_redemption_coupon_codes,
+    list_creator_course_redemption_coupon_usages,
+    update_creator_course_redemption_coupon,
+    update_creator_course_redemption_coupon_status,
+)
 from flaskr.service.learn.learn_funcs import get_shifu_info
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.service.shifu.shifu_draft_funcs import (
@@ -30,6 +41,65 @@ def register_order_handler(app: Flask, path_prefix: str):
     def _require_creator():
         if not request.user.is_creator:
             raise_error("server.shifu.noPermission")
+
+    def _parse_datetime_filter(
+        value: str, field_name: str, *, is_end: bool = False
+    ) -> datetime | None:
+        if not value:
+            return None
+        normalized = str(value).strip()
+        if not normalized:
+            return None
+        for datetime_format in (
+            "%Y-%m-%d",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S",
+        ):
+            try:
+                parsed = datetime.strptime(normalized, datetime_format)
+                if datetime_format == "%Y-%m-%d":
+                    if is_end:
+                        parsed = parsed.replace(hour=23, minute=59, second=59)
+                    else:
+                        parsed = parsed.replace(hour=0, minute=0, second=0)
+                return parsed
+            except ValueError:
+                continue
+        raise_param_error(field_name)
+
+    def _parse_admin_pagination():
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+        except (TypeError, ValueError):
+            raise_param_error("page_index")
+        try:
+            page_size = int(page_size)
+        except (TypeError, ValueError):
+            raise_param_error("page_size")
+        if page_index < 1:
+            raise_param_error("page_index")
+        if page_size < 1:
+            raise_param_error("page_size")
+        return page_index, page_size
+
+    def _parse_required_json_payload() -> dict:
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
+        return payload
+
+    def _parse_bool_payload_field(payload: dict, field_name: str) -> bool:
+        value = payload.get(field_name)
+        if isinstance(value, bool):
+            return value
+        normalized = str(value or "").strip().lower()
+        if normalized in {"true", "1"}:
+            return True
+        if normalized in {"false", "0"}:
+            return False
+        raise_param_error(field_name)
 
     @app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])
     def reqiure_to_pay():
@@ -621,6 +691,127 @@ def register_order_handler(app: Flask, path_prefix: str):
                 app, mobiles, course_id, user_nick_name, contact_type=contact_type
             )
         )
+
+    @app.route(path_prefix + "/admin/orders/redemption-codes", methods=["GET"])
+    def admin_creator_redemption_code_list():
+        """List course redemption code batches created by the current creator."""
+        _require_creator()
+        page_index, page_size = _parse_admin_pagination()
+
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "name": request.args.get("name", ""),
+            "course_query": request.args.get("course_query", ""),
+            "usage_type": request.args.get("usage_type", ""),
+            "ops_state": request.args.get("ops_state", ""),
+            "discount_type": request.args.get("discount_type", ""),
+            "status": request.args.get("status", ""),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                "start_time",
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                "end_time",
+                is_end=True,
+            ),
+        }
+        return make_common_response(
+            list_creator_course_redemption_coupons(
+                app, request.user.user_id, page_index, page_size, filters
+            )
+        )
+
+    @app.route(path_prefix + "/admin/orders/redemption-codes", methods=["POST"])
+    def admin_create_creator_redemption_code():
+        """Create a course redemption code for the current creator's published course."""
+        _require_creator()
+        payload = _parse_required_json_payload()
+        return make_common_response(
+            create_creator_course_redemption_coupon(app, request.user.user_id, payload)
+        )
+
+    @app.route(
+        path_prefix + "/admin/orders/redemption-codes/<coupon_bid>/usages",
+        methods=["GET"],
+    )
+    def admin_creator_redemption_code_usage_list(coupon_bid: str):
+        """List usage records for a course redemption code owned by the current creator."""
+        _require_creator()
+        page_index, page_size = _parse_admin_pagination()
+
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+            "status": request.args.get("status", ""),
+        }
+        return make_common_response(
+            list_creator_course_redemption_coupon_usages(
+                app, request.user.user_id, coupon_bid, page_index, page_size, filters
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/orders/redemption-codes/<coupon_bid>/codes",
+        methods=["GET"],
+    )
+    def admin_creator_redemption_code_code_list(coupon_bid: str):
+        """List generated sub-codes for a course redemption code owned by the current creator."""
+        _require_creator()
+        page_index, page_size = _parse_admin_pagination()
+
+        filters = {
+            "keyword": request.args.get("keyword", ""),
+        }
+        return make_common_response(
+            list_creator_course_redemption_coupon_codes(
+                app, request.user.user_id, coupon_bid, page_index, page_size, filters
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/orders/redemption-codes/<coupon_bid>",
+        methods=["GET"],
+    )
+    def admin_creator_redemption_code_detail(coupon_bid: str):
+        """Get detail for a course redemption code owned by the current creator."""
+        _require_creator()
+        return make_common_response(
+            get_creator_course_redemption_coupon_detail(
+                app, request.user.user_id, coupon_bid
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/orders/redemption-codes/<coupon_bid>",
+        methods=["POST"],
+    )
+    def admin_update_creator_redemption_code(coupon_bid: str):
+        """Update a course redemption code owned by the current creator."""
+        _require_creator()
+        payload = _parse_required_json_payload()
+        return make_common_response(
+            update_creator_course_redemption_coupon(
+                app, request.user.user_id, coupon_bid, payload
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/orders/redemption-codes/<coupon_bid>/status",
+        methods=["POST"],
+    )
+    def admin_update_creator_redemption_code_status(coupon_bid: str):
+        """Update status for a course redemption code owned by the current creator."""
+        _require_creator()
+        payload = _parse_required_json_payload()
+        enabled = _parse_bool_payload_field(payload, "enabled")
+        result = update_creator_course_redemption_coupon_status(
+            app,
+            request.user.user_id,
+            coupon_bid,
+            enabled,
+        )
+        return make_common_response({"enabled": bool(result.get("enabled"))})
 
     @app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])
     def admin_order_detail(order_bid: str):
