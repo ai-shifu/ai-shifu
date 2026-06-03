@@ -234,6 +234,53 @@ describe('LessonPreview billing action', () => {
     expect(onRefresh).toHaveBeenCalledWith('text-1');
   });
 
+  test('prefers a text parent when generated block items include mixed element types', () => {
+    const onRefresh = jest.fn();
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'text-1',
+        generated_block_bid: '0',
+        content: '第一段内容',
+        type: ChatContentItemType.CONTENT,
+        element_type: 'text',
+        is_final: true,
+      },
+      {
+        element_bid: 'html-1',
+        generated_block_bid: '0',
+        content: '<div>rich block</div>',
+        type: ChatContentItemType.CONTENT,
+        element_type: 'html',
+        is_final: true,
+      },
+      {
+        element_bid: 'feedback-1',
+        generated_block_bid: 'feedback-1',
+        parent_element_bid: '',
+        parent_block_bid: '0',
+        type: ChatContentItemType.LIKE_STATUS,
+      },
+    ];
+
+    render(
+      <LessonPreview
+        loading={false}
+        items={items}
+        shifuBid='shifu-1'
+        onRefresh={onRefresh}
+        onSend={jest.fn()}
+        showGenerateBtn
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'regenerate-text-1' }));
+
+    expect(onRefresh).toHaveBeenCalledWith('text-1');
+    expect(
+      screen.queryByRole('button', { name: 'regenerate-html-1' }),
+    ).not.toBeInTheDocument();
+  });
+
   test('does not expose regenerate when the preview generate action is disabled', () => {
     const items: ChatContentItem[] = [
       {

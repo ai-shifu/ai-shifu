@@ -31,6 +31,20 @@ export const resolvePreviewRegenerateStartIndex = (
   return firstBlockIndex === -1 ? targetIndex : firstBlockIndex;
 };
 
+export const resolvePreviewRegenerateFallbackBlockIndex = (
+  items: Pick<ChatContentItem, 'type' | 'element_index'>[],
+  blockStartIndex: number,
+): number => {
+  const targetItem = items[blockStartIndex];
+  if (typeof targetItem?.element_index === 'number') {
+    return targetItem.element_index;
+  }
+
+  return items.slice(0, blockStartIndex).filter(item => {
+    return item.type === 'content' || item.type === 'interaction';
+  }).length;
+};
+
 export const buildPreviewInteractionUserInput = (
   variableName: string,
   values: string[],

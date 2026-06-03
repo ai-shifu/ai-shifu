@@ -546,6 +546,25 @@ describe('ShifuEdit draft conflict checks', () => {
     );
   });
 
+  test('does not enable regenerate actions before shifu data is ready', async () => {
+    setLessonNode();
+    mockShifuState.currentShifu =
+      null as unknown as typeof mockShifuState.currentShifu;
+
+    render(<ScriptEditor id='shifu-1' />);
+    fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
+
+    await waitFor(() => {
+      expect(mockLessonPreview).toHaveBeenCalled();
+    });
+
+    expect(mockLessonPreview.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        showGenerateBtn: false,
+      }),
+    );
+  });
+
   test('renders the dedicated history layout in history mode', async () => {
     setLessonNode();
     baseActions.loadMdflowHistory.mockResolvedValue([

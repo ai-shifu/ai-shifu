@@ -40,6 +40,7 @@ import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
 import {
   buildPreviewInteractionUserInput,
   resolvePreviewGeneratedBlockBid,
+  resolvePreviewRegenerateFallbackBlockIndex,
   resolvePreviewRegenerateStartIndex,
   resolvePreviewRequestBlockIndex,
 } from './preview-submission';
@@ -1705,10 +1706,14 @@ export function usePreviewChat() {
         getPreviewItemGeneratedBlockBid(targetItem) ||
         getPreviewItemGeneratedBlockBid(newList[needChangeItemIndex]) ||
         elementBid;
+      const fallbackBlockIndex = resolvePreviewRegenerateFallbackBlockIndex(
+        newList,
+        blockStartIndex,
+      );
 
       const nextBlockIndex = resolvePreviewRequestBlockIndex(
         targetGeneratedBlockBid,
-        blockStartIndex,
+        fallbackBlockIndex,
       );
 
       const removedBlockIds = originalList

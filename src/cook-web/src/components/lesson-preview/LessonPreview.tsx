@@ -94,6 +94,19 @@ const isRegeneratablePreviewParent = (
   );
 };
 
+const shouldPreferGeneratedBlockItem = (
+  currentItem: ChatContentItem,
+  nextItem: ChatContentItem,
+): boolean => {
+  if (isRegeneratablePreviewParent(currentItem)) {
+    return false;
+  }
+  if (isRegeneratablePreviewParent(nextItem)) {
+    return true;
+  }
+  return false;
+};
+
 const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
   items = [],
@@ -166,7 +179,10 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     const map = new Map<string, ChatContentItem>();
     items.forEach(item => {
       if (item.generated_block_bid) {
-        map.set(item.generated_block_bid, item);
+        const existing = map.get(item.generated_block_bid);
+        if (!existing || shouldPreferGeneratedBlockItem(existing, item)) {
+          map.set(item.generated_block_bid, item);
+        }
       }
     });
     return map;
