@@ -91,4 +91,30 @@ describe('preview submission helpers', () => {
       ),
     ).toBe(2);
   });
+
+  it('returns 0 when resolving regenerate fallback block index with empty items', () => {
+    expect(resolvePreviewRegenerateFallbackBlockIndex([], 0)).toBe(0);
+  });
+
+  it('clamps out-of-range block indexes before resolving regenerate fallback block index', () => {
+    expect(
+      resolvePreviewRegenerateFallbackBlockIndex(
+        [
+          { type: ChatContentItemType.CONTENT, element_index: 0 },
+          { type: ChatContentItemType.INTERACTION, element_index: 1 },
+        ],
+        99,
+      ),
+    ).toBe(1);
+
+    expect(
+      resolvePreviewRegenerateFallbackBlockIndex(
+        [
+          { type: ChatContentItemType.LIKE_STATUS },
+          { type: ChatContentItemType.CONTENT, element_index: 4 },
+        ],
+        -2,
+      ),
+    ).toBe(0);
+  });
 });
