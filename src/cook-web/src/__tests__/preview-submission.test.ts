@@ -1,6 +1,7 @@
 import {
   buildPreviewInteractionUserInput,
   resolvePreviewGeneratedBlockBid,
+  resolvePreviewRegenerateStartIndex,
   resolvePreviewRequestBlockIndex,
 } from '@/components/lesson-preview/preview-submission';
 
@@ -36,5 +37,28 @@ describe('preview submission helpers', () => {
         fallbackBid: 'preview-element-1',
       }),
     ).toBe('7');
+  });
+
+  it('resolves regenerate truncation to the first item of the same block', () => {
+    expect(
+      resolvePreviewRegenerateStartIndex(
+        [
+          { element_bid: 'block-0-a', generated_block_bid: '0' },
+          { element_bid: 'block-1-a', generated_block_bid: '1' },
+          { element_bid: 'block-1-b', generated_block_bid: '1' },
+          { element_bid: 'block-2-a', generated_block_bid: '2' },
+        ],
+        2,
+      ),
+    ).toBe(1);
+  });
+
+  it('falls back to the target index when the block bid is missing', () => {
+    expect(
+      resolvePreviewRegenerateStartIndex(
+        [{ element_bid: 'preview-runtime-1', generated_block_bid: '' }],
+        0,
+      ),
+    ).toBe(0);
   });
 });

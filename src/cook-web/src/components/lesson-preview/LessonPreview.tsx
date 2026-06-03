@@ -71,6 +71,29 @@ interface LessonPreviewProps {
 const noop = () => {};
 const ENABLE_PREVIEW_TYPEWRITER = false;
 
+const isRegeneratablePreviewParent = (
+  item?: ChatContentItem,
+): item is ChatContentItem => {
+  if (!item) {
+    return false;
+  }
+
+  const itemBid = item.element_bid || item.generated_block_bid || '';
+  const generatedBlockBid = item.generated_block_bid || '';
+  if (
+    !itemBid ||
+    !generatedBlockBid ||
+    itemBid === 'loading' ||
+    generatedBlockBid === 'loading'
+  ) {
+    return false;
+  }
+
+  return (
+    item.type === ChatContentItemType.CONTENT && item.element_type === 'text'
+  );
+};
+
 const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
   items = [],
@@ -134,6 +157,16 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     items.forEach(item => {
       if (item.element_bid) {
         map.set(item.element_bid, item);
+      }
+    });
+    return map;
+  }, [items]);
+
+  const itemByGeneratedBlockBid = React.useMemo(() => {
+    const map = new Map<string, ChatContentItem>();
+    items.forEach(item => {
+      if (item.generated_block_bid) {
+        map.set(item.generated_block_bid, item);
       }
     });
     return map;
@@ -229,8 +262,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     );
   }, [items]);
 
-  // console.log('visibleItems', visibleItems, items);
-
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
       <div className='flex items-baseline gap-2 pt-[4px]'>
@@ -287,11 +318,20 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {!showEmpty &&
             visibleItems.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
-                const parentBlockBid =
-                  item.parent_block_bid || item.parent_element_bid || '';
-                const parentContentItem = parentBlockBid
-                  ? itemByElementBid.get(parentBlockBid)
-                  : undefined;
+                const parentElementBid = item.parent_element_bid || '';
+                const parentBlockBid = item.parent_block_bid || '';
+                const parentContentItem =
+                  (parentElementBid
+                    ? itemByElementBid.get(parentElementBid)
+                    : undefined) ||
+                  (parentBlockBid
+                    ? itemByElementBid.get(parentBlockBid) ||
+                      itemByGeneratedBlockBid.get(parentBlockBid)
+                    : undefined);
+                const parentActionBid =
+                  parentContentItem?.element_bid ||
+                  parentElementBid ||
+                  parentBlockBid;
                 const isTextParent =
                   parentContentItem?.type === ChatContentItemType.CONTENT &&
                   parentContentItem?.element_type === 'text';
@@ -301,11 +341,18 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                 const parentPrimaryTrack = getAudioTrackByPosition(
                   parentContentItem?.audioTracks ?? [],
                 );
-                const hasPreviewAudioCapability = Boolean(
-                  onRequestAudioForBlock &&
-                  (parentContentItem?.element_bid || parentBlockBid),
+                const shouldRenderGenerateAction = Boolean(
+                  showGenerateBtn &&
+                  isRegeneratablePreviewParent(parentContentItem) &&
+                  parentActionBid,
                 );
-                if (!shouldRenderAudioAction || !hasPreviewAudioCapability) {
+                const hasPreviewAudioCapability = Boolean(
+                  onRequestAudioForBlock && parentActionBid,
+                );
+                if (
+                  !shouldRenderGenerateAction &&
+                  (!shouldRenderAudioAction || !hasPreviewAudioCapability)
+                ) {
                   return null;
                 }
                 return (
@@ -316,11 +363,12 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   >
                     <InteractionBlock
                       shifu_bid={shifuBid}
-                      element_bid={parentBlockBid}
+                      element_bid={parentActionBid}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={noop}
                       disableAskButton
                       disableInteractionButtons
+                      showGenerateBtn={shouldRenderGenerateAction}
                       extraActions={
                         onRequestAudioForBlock && shouldRenderAudioAction ? (
                           <AudioPlayer
@@ -335,7 +383,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                             onRequestAudio={() =>
                               onRequestAudioForBlock({
                                 shifuBid,
-                                blockId: parentBlockBid,
+                                blockId: parentActionBid,
                                 text: parentContentItem?.content || '',
                               })
                             }

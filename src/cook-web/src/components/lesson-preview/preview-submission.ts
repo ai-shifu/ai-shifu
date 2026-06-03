@@ -1,9 +1,34 @@
+import type { ChatContentItem } from '@/c-types/chatUi';
+
 export const resolvePreviewRequestBlockIndex = (
   generatedBlockBid: string,
   fallbackBlockIndex = 0,
 ): number => {
   const parsedValue = Number.parseInt(generatedBlockBid, 10);
   return Number.isNaN(parsedValue) ? fallbackBlockIndex : parsedValue;
+};
+
+export const resolvePreviewRegenerateStartIndex = (
+  items: Pick<ChatContentItem, 'generated_block_bid' | 'element_bid'>[],
+  targetIndex: number,
+): number => {
+  if (targetIndex < 0 || targetIndex >= items.length) {
+    return -1;
+  }
+
+  const targetItem = items[targetIndex];
+  const targetGeneratedBlockBid =
+    targetItem.generated_block_bid || targetItem.element_bid || '';
+  if (!targetGeneratedBlockBid) {
+    return targetIndex;
+  }
+
+  const firstBlockIndex = items.findIndex(
+    item =>
+      (item.generated_block_bid || item.element_bid || '') ===
+      targetGeneratedBlockBid,
+  );
+  return firstBlockIndex === -1 ? targetIndex : firstBlockIndex;
 };
 
 export const buildPreviewInteractionUserInput = (

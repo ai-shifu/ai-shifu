@@ -40,6 +40,7 @@ import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
 import {
   buildPreviewInteractionUserInput,
   resolvePreviewGeneratedBlockBid,
+  resolvePreviewRegenerateStartIndex,
   resolvePreviewRequestBlockIndex,
 } from './preview-submission';
 
@@ -235,6 +236,17 @@ const resolveElementType = (
     return null;
   }
   return rawElementType.toLowerCase() as ElementType;
+};
+
+const resolveElementIndex = (
+  elementRecord: Partial<StudyRecordItem> | null,
+): number | undefined => {
+  if (!elementRecord) {
+    return undefined;
+  }
+  return typeof elementRecord.element_index === 'number'
+    ? elementRecord.element_index
+    : undefined;
 };
 
 const buildVariablesSnapshot = (
@@ -875,6 +887,7 @@ export function usePreviewChat() {
         responseGeneratedBlockBid: response.generated_block_bid,
         fallbackBid: itemBid,
       });
+      const elementIndex = resolveElementIndex(elementRecord);
       const elementContent =
         typeof elementRecord?.content === 'string' ? elementRecord.content : '';
       const isInteractionElement = elementType === ELEMENT_TYPE.INTERACTION;
@@ -946,6 +959,7 @@ export function usePreviewChat() {
           readonly: false,
           type: nextItemType,
           element_type: elementType || undefined,
+          element_index: elementIndex,
           is_final: Boolean(elementRecord?.is_final),
           sequence_number:
             typeof elementRecord?.sequence_number === 'number'
@@ -1678,24 +1692,34 @@ export function usePreviewChat() {
         return;
       }
 
-      const targetItem = newList[needChangeItemIndex];
+      const blockStartIndex = resolvePreviewRegenerateStartIndex(
+        newList,
+        needChangeItemIndex,
+      );
+      if (blockStartIndex === -1) {
+        return;
+      }
+
+      const targetItem = newList[blockStartIndex];
       const targetGeneratedBlockBid =
-        getPreviewItemGeneratedBlockBid(targetItem) || elementBid;
+        getPreviewItemGeneratedBlockBid(targetItem) ||
+        getPreviewItemGeneratedBlockBid(newList[needChangeItemIndex]) ||
+        elementBid;
 
       const nextBlockIndex = resolvePreviewRequestBlockIndex(
         targetGeneratedBlockBid,
-        needChangeItemIndex,
+        blockStartIndex,
       );
 
       const removedBlockIds = originalList
-        .slice(needChangeItemIndex)
+        .slice(blockStartIndex)
         .map(item => resolvePreviewItemBid(item))
         .filter((item): item is string => Boolean(item));
       if (removedBlockIds.length) {
         removeAutoSubmittedBlocks(removedBlockIds);
       }
 
-      newList.length = needChangeItemIndex;
+      newList.length = blockStartIndex;
       setTrackedContentList(newList);
       const latestMdflow = resolveLatestMdflow();
       startPreview({

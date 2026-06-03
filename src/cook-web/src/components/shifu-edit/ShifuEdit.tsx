@@ -1706,7 +1706,7 @@ const ScriptEditor = ({
                   }
                   actionType={hideRestoreActionType}
                   actionDisabled={hideRestoreActionDisabled}
-                  showGenerateBtn={false}
+                  showGenerateBtn={!currentShifu?.readonly}
                 />
               </div>
             </div>
