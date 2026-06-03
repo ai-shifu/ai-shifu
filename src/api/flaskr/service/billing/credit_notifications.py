@@ -993,7 +993,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
             }
 
         now = datetime.now()
-        response = query_sms_template_list_ali(app, page_index=1, page_size=100)
+        response = query_sms_template_list_ali(app, page_index=1, page_size=50)
         body = getattr(response, "body", None)
         response_code = _template_body_value(body, "code") if body is not None else ""
         if body is None or (response_code and response_code != "OK"):
