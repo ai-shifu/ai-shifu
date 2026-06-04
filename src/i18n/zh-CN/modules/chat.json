@@ -19,6 +19,8 @@
   "listenAudioBackfillFailed": "音频生成失败，请重试或继续阅读",
   "listenInteractionHint": "提交以下内容后继续学习",
   "listenModeTtsDisabled": "当前课程未开启听课模式，无法使用该模式",
+  "listenPlaybackSpeedAriaLabel": "播放倍速：{speed}",
+  "listenPlaybackSpeedLabel": "播放倍速",
   "listenPlayerBack": "返回非全屏",
   "listenPlayerFullscreenHint": "请旋转屏幕以获得最佳体验",
   "listenPlayerLandscapeLabel": "全屏",

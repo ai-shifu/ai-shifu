@@ -1,6 +1,16 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import type React from 'react';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
+import {
+  readListenPlaybackSpeedFromStorage,
+  writeListenPlaybackSpeedToStorage,
+} from './listenPlaybackSpeed';
 import {
   isListenLessonFeedbackPromptReady,
   shouldDelayListenFeedbackPromptForTailInteraction,
@@ -42,9 +52,37 @@ jest.mock('next/image', () => ({
   ),
 }));
 
-jest.mock('markdown-flow-ui/slide', () => ({
-  Slide: jest.fn(() => null),
-}));
+jest.mock('markdown-flow-ui/slide', () => {
+  const slideCustomActionContext = {
+    currentElement: {
+      blockBid: 'content-1',
+      type: 'content',
+    },
+    currentIndex: 0,
+    isActive: false,
+    setActive: jest.fn(),
+    toggleActive: jest.fn(),
+  };
+
+  return {
+    Slide: jest.fn(
+      (props: {
+        playerCustomActions?:
+          | React.ReactNode
+          | ((context: typeof slideCustomActionContext) => React.ReactNode);
+      }) => (
+        <div data-testid='mock-slide'>
+          <audio data-testid='slide-audio' />
+          <div data-testid='slide-custom-actions'>
+            {typeof props.playerCustomActions === 'function'
+              ? props.playerCustomActions(slideCustomActionContext)
+              : props.playerCustomActions}
+          </div>
+        </div>
+      ),
+    ),
+  };
+});
 
 jest.mock('./useChatLogicHook', () => ({
   ChatContentItemType: {
@@ -89,9 +127,14 @@ const getMockSlide = () =>
 
 describe('ListenModeSlideRenderer', () => {
   beforeEach(() => {
+    window.localStorage.clear();
     getMockSlide().mockClear();
     mockAskBlock.mockClear();
     mockIsLessonFeedbackInteractionContent.mockClear();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('does not show the audio preparation text for normal loading', () => {
@@ -244,6 +287,155 @@ describe('ListenModeSlideRenderer', () => {
       'data-element-bid',
       'content-1',
     );
+  });
+
+  it('applies the stored course playback speed to slide audio', async () => {
+    writeListenPlaybackSpeedToStorage('course-1', 1.5);
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+
+    await waitFor(() => {
+      expect(audioElement.defaultPlaybackRate).toBe(1.5);
+      expect(audioElement.playbackRate).toBe(1.5);
+    });
+  });
+
+  it('uses an icon-only control for opening playback speed options', () => {
+    writeListenPlaybackSpeedToStorage('course-1', 2);
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+      />,
+    );
+
+    const speedButton = screen.getByRole('button', {
+      name: 'module.chat.listenPlaybackSpeedAriaLabel',
+    });
+
+    expect(speedButton.querySelector('img')).toBeInTheDocument();
+    expect(speedButton.querySelector('svg')).not.toBeInTheDocument();
+    expect(speedButton).not.toHaveTextContent(/x/i);
+  });
+
+  it('uses fixed SVG icons instead of text nodes for playback speed options', async () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.chat.listenPlaybackSpeedAriaLabel',
+      }),
+    );
+
+    for (const label of ['0.75x', '1x', '1.25x', '1.5x', '2x']) {
+      const option = await screen.findByRole('radio', { name: label });
+
+      expect(option.querySelector('img')).toBeInTheDocument();
+      expect(option).not.toHaveTextContent(/x/i);
+    }
+  });
+
+  it('updates current audio and local storage when selecting another playback speed', async () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+      />,
+    );
+
+    const audioElement = screen.getByTestId('slide-audio') as HTMLAudioElement;
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.chat.listenPlaybackSpeedAriaLabel',
+      }),
+    );
+    fireEvent.click(await screen.findByRole('radio', { name: '2x' }));
+
+    await waitFor(() => {
+      expect(audioElement.defaultPlaybackRate).toBe(2);
+      expect(audioElement.playbackRate).toBe(2);
+      expect(readListenPlaybackSpeedFromStorage('course-1')).toBe(2);
+    });
+  });
+
+  it('keeps the current course playback speed for audio created after slide changes', async () => {
+    writeListenPlaybackSpeedToStorage('course-1', 1.25);
+
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+      />,
+    );
+
+    const newAudioElement = document.createElement('audio');
+    await act(async () => {
+      screen.getByTestId('mock-slide').appendChild(newAudioElement);
+    });
+
+    await waitFor(() => {
+      expect(newAudioElement.defaultPlaybackRate).toBe(1.25);
+      expect(newAudioElement.playbackRate).toBe(1.25);
+    });
   });
 
   it('keeps lesson feedback pending until the trailing visible interaction settles', () => {
