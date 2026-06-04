@@ -125,6 +125,7 @@
       "description": "查看创作者订阅状态、钱包余额和最近一次续费上下文。",
       "empty": "当前还没有订阅记录。",
       "loadError": "后台订阅数据读取失败，请刷新后重试。",
+      "preorderTarget": "预购：{product}",
       "table": {
         "availableCredits": "可用积分",
         "creator": "创作者",
@@ -314,9 +315,12 @@
     "agreementLink": "积分购买协议",
     "agreementPrefix": "我已阅读并同意",
     "cancel": "取消",
+    "completed": "支付已完成。",
     "confirm": "继续支付",
     "creditsLabel": "积分",
     "planDescription": "以下是积分订阅套餐的支付环节。",
+    "preorderDescription": "该套餐将现在预付，并在当前周期结束后生效。",
+    "prepaidOffsetLabel": "预购抵扣",
     "priceLabel": "价格",
     "processing": "处理中...",
     "productLabel": "商品",
@@ -330,7 +334,9 @@
     },
     "title": "确认购买",
     "topupDescription": "你将进入一次性积分充值的支付确认流程。",
-    "unsupported": "当前支付方式暂不可用。"
+    "unsupported": "当前支付方式暂不可用。",
+    "upgradeDescription": "本次升级会立即生效。",
+    "upgradeWithPreorderDescription": "本次升级会立即生效，已存在的预购付款将作为抵扣。"
   },
   "common": {
     "empty": "暂无"
@@ -494,6 +500,12 @@
       "downgradeDisabled": "不支持降级",
       "freeTrial": "已失效",
       "nonMemberTooltip": "当前为非会员状态，无需操作",
+      "preorderDowngrade": "预购降级",
+      "preorderLocked": "预购锁定",
+      "preorderLockedTooltip": "已有套餐预购待生效，当前仅支持立即升级。",
+      "preorderProviderUnsupportedTooltip": "套餐预购仅支持当前自管理支付通道。",
+      "preorderRenewal": "预付续费",
+      "preorderScheduled": "已预购",
       "subscribeNow": "立即订阅",
       "upgradeNow": "立即升级",
       "upgradeOnlyTooltip": "当前套餐在有效期内仅支持升级，不能购买同级或更低档套餐"
@@ -590,6 +602,9 @@
       "plans": "积分套餐",
       "topup": "积分包",
       "yearly": "年度套餐"
+    },
+    "preorder": {
+      "pending": "待生效预购：{plan} 将于 {date} 生效。"
     },
     "scale": {
       "advanced": {

@@ -112,9 +112,17 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
         isUpdate = False
         if resource_id == "":
             file_id = str(uuid.uuid4()).replace("-", "")
+            resource = None
         else:
-            isUpdate = True
             file_id = resource_id
+            resource = Resource.query.filter_by(resource_id=file_id).first()
+            if resource is not None:
+                isUpdate = True
+            else:
+                app.logger.warning(
+                    "upload_file received missing resource_id=%s; creating a new resource",
+                    file_id,
+                )
 
         content_type = get_image_content_type(file.filename)
         result = upload_to_storage(
@@ -126,7 +134,6 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
         )
 
         if isUpdate:
-            resource = Resource.query.filter_by(resource_id=file_id).first()
             resource.name = file.filename
             resource.oss_bucket = result.bucket
             resource.oss_name = result.object_key

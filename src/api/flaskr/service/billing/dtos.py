@@ -77,6 +77,7 @@ class BillingPlanDTO(BillingBaseDTO):
     billing_interval: str
     billing_interval_count: int
     auto_renew_enabled: bool
+    plan_tier: int | None = None
 
 
 @register_schema_to_swagger
@@ -368,6 +369,13 @@ class BillingCheckoutResultDTO(BillingBaseDTO):
     provider: str
     payment_mode: str
     status: str
+    checkout_type: str | None = None
+    effective_mode: str | None = None
+    current_product_bid: str | None = None
+    target_product_bid: str | None = None
+    preorder_order_bid: str | None = None
+    prepaid_offset_amount: int = 0
+    payable_amount: int | None = None
     redirect_url: str | None = None
     checkout_session_id: str | None = None
     payment_payload: dict[str, Any] | None = None

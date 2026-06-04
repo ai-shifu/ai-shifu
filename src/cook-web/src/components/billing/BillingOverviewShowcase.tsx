@@ -5,6 +5,8 @@ import { formatBillingCreditAmount, formatBillingPrice } from '@/lib/billing';
 import type {
   BillingPlan,
   BillingProvider,
+  BillingSubscription,
+  BillingSubscriptionCheckoutAction,
   BillingTopupProduct,
   BillingTrialOffer,
 } from '@/types/billing';
@@ -16,6 +18,7 @@ import { BillingPlanComparisonTable } from './BillingPlanComparisonTable';
 type BillingOverviewShowcaseProps = {
   checkoutLoadingKey: string;
   currentPlan: BillingPlan | null;
+  currentSubscription: BillingSubscription | null;
   hasActiveSubscription: boolean;
   isTrialCurrentPlan: boolean;
   isLoading: boolean;
@@ -30,7 +33,11 @@ type BillingOverviewShowcaseProps = {
   trialOffer: BillingTrialOffer | null | undefined;
   wechatpayAvailable: boolean;
   yearlyPlans: BillingPlan[];
-  onSelectPlanCheckout: (plan: BillingPlan, provider: BillingProvider) => void;
+  onSelectPlanCheckout: (
+    plan: BillingPlan,
+    provider: BillingProvider,
+    action?: BillingSubscriptionCheckoutAction,
+  ) => void;
   onSelectTopupCheckout: (
     product: BillingTopupProduct,
     provider: BillingProvider,
@@ -75,6 +82,7 @@ function resolveCheckoutProvider(
 export function BillingOverviewShowcase({
   checkoutLoadingKey,
   currentPlan,
+  currentSubscription,
   hasActiveSubscription,
   isTrialCurrentPlan,
   isLoading,
@@ -186,6 +194,7 @@ export function BillingOverviewShowcase({
           <BillingPlanComparisonTable
             checkoutLoadingKey={checkoutLoadingKey}
             currentPlan={currentPlan}
+            currentSubscription={currentSubscription}
             alipayAvailable={alipayAvailable}
             hasActiveSubscription={hasActiveSubscription}
             isTrialCurrentPlan={isTrialCurrentPlan}

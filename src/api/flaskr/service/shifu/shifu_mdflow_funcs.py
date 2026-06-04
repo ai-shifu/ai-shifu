@@ -152,6 +152,7 @@ def save_shifu_mdflow(
     """
     Save shifu mdflow
     """
+    content = content or ""
     with app.app_context():
         lock_latest = isinstance(base_revision, int) and base_revision >= 0
         outline_query = DraftOutlineItem.query.filter(

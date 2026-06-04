@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import calendar
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import case
 
@@ -47,6 +48,7 @@ from .value_objects import PageWindow
 DEFAULT_PAGE_INDEX = 1
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
+_SELF_MANAGED_CYCLE_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 _ACTIVE_SUBSCRIPTION_STATUSES = (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -248,13 +250,60 @@ def calculate_self_managed_billing_cycle_end(
     interval_count = max(int(product.billing_interval_count or 0), 0)
     if interval_count <= 0:
         return None
+    local_start_at = to_self_managed_cycle_local_time(cycle_start_at)
     if interval == BILLING_INTERVAL_DAY:
-        return end_of_day(cycle_start_at + timedelta(days=interval_count - 1))
+        return self_managed_local_day_end_to_utc_naive(
+            local_start_at + timedelta(days=interval_count - 1)
+        )
     if interval == BILLING_INTERVAL_MONTH:
-        return end_of_day(cycle_start_at + timedelta(days=(30 * interval_count) - 1))
+        return self_managed_local_day_end_to_utc_naive(
+            local_start_at + timedelta(days=(30 * interval_count) - 1)
+        )
     if interval == BILLING_INTERVAL_YEAR:
-        return end_of_day(add_self_managed_years(cycle_start_at, interval_count))
+        return self_managed_local_day_end_to_utc_naive(
+            add_self_managed_years(local_start_at, interval_count)
+        )
     return None
+
+
+def calculate_self_managed_billing_cycle_end_after_boundary(
+    product: BillingProduct,
+    *,
+    cycle_boundary_at: datetime,
+) -> datetime | None:
+    interval = int(product.billing_interval or 0)
+    interval_count = max(int(product.billing_interval_count or 0), 0)
+    if interval_count <= 0:
+        return None
+    local_boundary_at = to_self_managed_cycle_local_time(cycle_boundary_at)
+    if interval == BILLING_INTERVAL_DAY:
+        return self_managed_local_day_end_to_utc_naive(
+            local_boundary_at + timedelta(days=interval_count)
+        )
+    if interval == BILLING_INTERVAL_MONTH:
+        return self_managed_local_day_end_to_utc_naive(
+            local_boundary_at + timedelta(days=30 * interval_count)
+        )
+    if interval == BILLING_INTERVAL_YEAR:
+        return self_managed_local_day_end_to_utc_naive(
+            add_self_managed_years(local_boundary_at, interval_count)
+        )
+    return None
+
+
+def to_self_managed_cycle_local_time(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    return value.astimezone(_SELF_MANAGED_CYCLE_TIMEZONE)
+
+
+def self_managed_local_day_end_to_utc_naive(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=_SELF_MANAGED_CYCLE_TIMEZONE)
+    local_day_end = end_of_day(value).astimezone(_SELF_MANAGED_CYCLE_TIMEZONE)
+    return local_day_end.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def end_of_day(value: datetime) -> datetime:

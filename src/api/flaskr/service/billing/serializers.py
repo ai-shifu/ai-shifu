@@ -158,6 +158,10 @@ def serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProdu
         )
         payload["billing_interval_count"] = int(row.billing_interval_count or 0)
         payload["auto_renew_enabled"] = bool(row.auto_renew_enabled)
+        try:
+            payload["plan_tier"] = int(metadata.get("plan_tier"))
+        except (TypeError, ValueError):
+            payload["plan_tier"] = None
         return BillingPlanDTO(**payload)
     return BillingTopupProductDTO(**payload)
 

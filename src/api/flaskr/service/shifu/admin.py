@@ -11,7 +11,7 @@ from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
 from flask import Flask, current_app
 from sqlalchemy import and_, case, false, literal, not_, or_
-from sqlalchemy.orm import aliased, defer
+from sqlalchemy.orm import defer
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_config
@@ -44,22 +44,6 @@ from flaskr.service.billing.models import (
     BillingProduct,
     CreditLedgerEntry,
     CreditWalletBucket,
-)
-from flaskr.service.billing.api import (
-    build_billing_catalog,
-    dry_run_credit_notifications,
-    get_credit_notification_detail,
-    get_operator_credit_notification_overview as build_credit_notification_overview,
-    grant_referral_reward_credits_to_user,
-    grant_manual_credits_to_user,
-    grant_manual_plan_to_user,
-    list_credit_notification_templates,
-    list_credit_notifications,
-    load_referral_reward_summary,
-    load_credit_notification_policy_for_operator,
-    requeue_credit_notification,
-    save_credit_notification_policy,
-    sync_credit_notification_template,
 )
 from flaskr.service.billing.primitives import (
     credit_decimal_to_number,
@@ -122,20 +106,9 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseRatingSummaryDTO,
     AdminOperationCourseOverviewDTO,
     AdminOperationCourseUserDTO,
-    AdminOperationUserListDTO,
-    AdminOperationUserOverviewDTO,
-    AdminOperationUserCreditGrantResultDTO,
-    AdminOperationUserCreditGrantRequestDTO,
-    AdminOperationUserGrantBootstrapDTO,
-    AdminOperationUserReferralRewardSummaryDTO,
-    AdminOperationUserPackageGrantRequestDTO,
-    AdminOperationUserPackageGrantResultDTO,
     AdminOperationCourseSummaryDTO,
     AdminOperationUserCreditLedgerItemDTO,
-    AdminOperationUserCreditLedgerPageDTO,
     AdminOperationUserCreditSummaryDTO,
-    AdminOperationUserCreditUsageDetailDTO,
-    AdminOperationUserCreditUsageDetailItemDTO,
     AdminOperationUserCourseSummaryDTO,
     AdminOperationUserSummaryDTO,
 )
@@ -3000,7 +2973,7 @@ def _build_latest_operator_course_rows_subquery(
     )
     if base_query is None:
         return None
-    return base_query.subquery(alias_name)
+    return base_query.cte(alias_name)
 
 
 def _build_operator_course_candidate_query(
@@ -3010,6 +2983,7 @@ def _build_operator_course_candidate_query(
     creator_bids: Optional[Set[str]],
     start_time: Optional[datetime],
     end_time: Optional[datetime],
+    include_activity: bool = False,
 ):
     draft_rows_subquery = _build_latest_operator_course_rows_subquery(
         DraftShifu,
@@ -3041,7 +3015,7 @@ def _build_operator_course_candidate_query(
                 draft_rows_subquery.c.created_user_bid,
             )
         )
-        .subquery("operator_course_draft_visible")
+        .cte("operator_course_draft_visible")
     )
     published_visible_subquery = (
         db.session.query(published_rows_subquery)
@@ -3052,7 +3026,7 @@ def _build_operator_course_candidate_query(
                 published_rows_subquery.c.created_user_bid,
             )
         )
-        .subquery("operator_course_published_visible")
+        .cte("operator_course_published_visible")
     )
 
     candidate_bids_subquery = (
@@ -3060,7 +3034,16 @@ def _build_operator_course_candidate_query(
         .union(
             db.session.query(published_visible_subquery.c.shifu_bid.label("shifu_bid"))
         )
-        .subquery("operator_course_candidate_bids")
+        .cte("operator_course_candidate_bids")
+    )
+    latest_activity_subquery = (
+        _build_operator_course_latest_activity_subquery(
+            candidate_bids_subquery,
+            draft_visible_subquery,
+            published_visible_subquery,
+        )
+        if include_activity
+        else None
     )
 
     selected_source_expr = case(
@@ -3071,62 +3054,72 @@ def _build_operator_course_candidate_query(
         (published_visible_subquery.c.id.isnot(None), literal(COURSE_STATUS_PUBLISHED)),
         else_=literal(COURSE_STATUS_UNPUBLISHED),
     )
-    candidate_query = (
-        db.session.query(
-            case(
-                (draft_visible_subquery.c.id.isnot(None), draft_visible_subquery.c.id),
-                else_=published_visible_subquery.c.id,
-            ).label("id"),
-            candidate_bids_subquery.c.shifu_bid.label("shifu_bid"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.title,
+    selected_columns = [
+        case(
+            (draft_visible_subquery.c.id.isnot(None), draft_visible_subquery.c.id),
+            else_=published_visible_subquery.c.id,
+        ).label("id"),
+        candidate_bids_subquery.c.shifu_bid.label("shifu_bid"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.title,
+            ),
+            else_=published_visible_subquery.c.title,
+        ).label("title"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.price,
+            ),
+            else_=published_visible_subquery.c.price,
+        ).label("price"),
+        case(
+            (draft_visible_subquery.c.id.isnot(None), draft_visible_subquery.c.llm),
+            else_=published_visible_subquery.c.llm,
+        ).label("llm"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.created_user_bid,
+            ),
+            else_=published_visible_subquery.c.created_user_bid,
+        ).label("created_user_bid"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.updated_user_bid,
+            ),
+            else_=published_visible_subquery.c.updated_user_bid,
+        ).label("updated_user_bid"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.created_at,
+            ),
+            else_=published_visible_subquery.c.created_at,
+        ).label("created_at"),
+        case(
+            (
+                draft_visible_subquery.c.id.isnot(None),
+                draft_visible_subquery.c.updated_at,
+            ),
+            else_=published_visible_subquery.c.updated_at,
+        ).label("updated_at"),
+        selected_source_expr.label("selected_source"),
+        course_status_expr.label("course_status"),
+    ]
+    if latest_activity_subquery is not None:
+        selected_columns.extend(
+            [
+                latest_activity_subquery.c.updated_at.label("activity_updated_at"),
+                latest_activity_subquery.c.updated_user_bid.label(
+                    "activity_updated_user_bid"
                 ),
-                else_=published_visible_subquery.c.title,
-            ).label("title"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.price,
-                ),
-                else_=published_visible_subquery.c.price,
-            ).label("price"),
-            case(
-                (draft_visible_subquery.c.id.isnot(None), draft_visible_subquery.c.llm),
-                else_=published_visible_subquery.c.llm,
-            ).label("llm"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.created_user_bid,
-                ),
-                else_=published_visible_subquery.c.created_user_bid,
-            ).label("created_user_bid"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.updated_user_bid,
-                ),
-                else_=published_visible_subquery.c.updated_user_bid,
-            ).label("updated_user_bid"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.created_at,
-                ),
-                else_=published_visible_subquery.c.created_at,
-            ).label("created_at"),
-            case(
-                (
-                    draft_visible_subquery.c.id.isnot(None),
-                    draft_visible_subquery.c.updated_at,
-                ),
-                else_=published_visible_subquery.c.updated_at,
-            ).label("updated_at"),
-            selected_source_expr.label("selected_source"),
-            course_status_expr.label("course_status"),
+            ]
         )
+    candidate_query = (
+        db.session.query(*selected_columns)
         .select_from(candidate_bids_subquery)
         .outerjoin(
             draft_visible_subquery,
@@ -3138,7 +3131,146 @@ def _build_operator_course_candidate_query(
             == candidate_bids_subquery.c.shifu_bid,
         )
     )
+    if latest_activity_subquery is not None:
+        candidate_query = candidate_query.outerjoin(
+            latest_activity_subquery,
+            latest_activity_subquery.c.shifu_bid == candidate_bids_subquery.c.shifu_bid,
+        )
     return candidate_query
+
+
+def _build_latest_outline_activity_subquery(
+    model,
+    candidate_bids_subquery,
+    *,
+    alias_name: str,
+):
+    latest_outline_rows_subquery = (
+        db.session.query(
+            model.shifu_bid.label("shifu_bid"),
+            model.outline_item_bid.label("outline_item_bid"),
+            db.func.max(model.id).label("max_id"),
+        )
+        .join(
+            candidate_bids_subquery,
+            model.shifu_bid == candidate_bids_subquery.c.shifu_bid,
+        )
+        .group_by(model.shifu_bid, model.outline_item_bid)
+        .cte(f"{alias_name}_latest_rows")
+    )
+    current_outline_rows_subquery = (
+        db.session.query(
+            model.shifu_bid.label("shifu_bid"),
+            model.updated_at.label("updated_at"),
+            model.updated_user_bid.label("updated_user_bid"),
+            model.id.label("id"),
+        )
+        .join(
+            latest_outline_rows_subquery,
+            model.id == latest_outline_rows_subquery.c.max_id,
+        )
+        .filter(model.deleted == 0)
+        .cte(f"{alias_name}_current_rows")
+    )
+    ranked_outline_activity_subquery = db.session.query(
+        current_outline_rows_subquery.c.shifu_bid.label("shifu_bid"),
+        current_outline_rows_subquery.c.updated_at.label("updated_at"),
+        current_outline_rows_subquery.c.updated_user_bid.label("updated_user_bid"),
+        db.func.row_number()
+        .over(
+            partition_by=current_outline_rows_subquery.c.shifu_bid,
+            order_by=[
+                current_outline_rows_subquery.c.updated_at.desc(),
+                current_outline_rows_subquery.c.id.desc(),
+            ],
+        )
+        .label("row_num"),
+    ).cte(f"{alias_name}_ranked")
+    return (
+        db.session.query(
+            ranked_outline_activity_subquery.c.shifu_bid.label("shifu_bid"),
+            ranked_outline_activity_subquery.c.updated_at.label("updated_at"),
+            ranked_outline_activity_subquery.c.updated_user_bid.label(
+                "updated_user_bid"
+            ),
+        )
+        .filter(ranked_outline_activity_subquery.c.row_num == 1)
+        .cte(alias_name)
+    )
+
+
+def _build_operator_course_latest_activity_subquery(
+    candidate_bids_subquery,
+    draft_visible_subquery,
+    published_visible_subquery,
+):
+    draft_outline_activity_subquery = _build_latest_outline_activity_subquery(
+        DraftOutlineItem,
+        candidate_bids_subquery,
+        alias_name="operator_course_draft_outline_activity",
+    )
+    published_outline_activity_subquery = _build_latest_outline_activity_subquery(
+        PublishedOutlineItem,
+        candidate_bids_subquery,
+        alias_name="operator_course_published_outline_activity",
+    )
+
+    activity_sources_subquery = (
+        db.session.query(
+            draft_visible_subquery.c.shifu_bid.label("shifu_bid"),
+            draft_visible_subquery.c.updated_at.label("updated_at"),
+            draft_visible_subquery.c.updated_user_bid.label("updated_user_bid"),
+            literal(2).label("priority"),
+        )
+        .union_all(
+            db.session.query(
+                published_visible_subquery.c.shifu_bid.label("shifu_bid"),
+                published_visible_subquery.c.updated_at.label("updated_at"),
+                published_visible_subquery.c.updated_user_bid.label("updated_user_bid"),
+                literal(1).label("priority"),
+            ),
+            db.session.query(
+                draft_outline_activity_subquery.c.shifu_bid.label("shifu_bid"),
+                draft_outline_activity_subquery.c.updated_at.label("updated_at"),
+                draft_outline_activity_subquery.c.updated_user_bid.label(
+                    "updated_user_bid"
+                ),
+                literal(3).label("priority"),
+            ),
+            db.session.query(
+                published_outline_activity_subquery.c.shifu_bid.label("shifu_bid"),
+                published_outline_activity_subquery.c.updated_at.label("updated_at"),
+                published_outline_activity_subquery.c.updated_user_bid.label(
+                    "updated_user_bid"
+                ),
+                literal(4).label("priority"),
+            ),
+        )
+        .cte("operator_course_activity_sources")
+    )
+    ranked_activity_subquery = db.session.query(
+        activity_sources_subquery.c.shifu_bid.label("shifu_bid"),
+        activity_sources_subquery.c.updated_at.label("updated_at"),
+        activity_sources_subquery.c.updated_user_bid.label("updated_user_bid"),
+        db.func.row_number()
+        .over(
+            partition_by=activity_sources_subquery.c.shifu_bid,
+            order_by=[
+                activity_sources_subquery.c.updated_at.desc(),
+                activity_sources_subquery.c.priority.desc(),
+            ],
+        )
+        .label("row_num"),
+    ).cte("operator_course_ranked_activity")
+    return (
+        db.session.query(
+            ranked_activity_subquery.c.shifu_bid.label("shifu_bid"),
+            ranked_activity_subquery.c.updated_at.label("updated_at"),
+            ranked_activity_subquery.c.updated_user_bid.label("updated_user_bid"),
+        )
+        .filter(ranked_activity_subquery.c.row_num == 1)
+        .cte("operator_course_latest_activity")
+    )
 
 
 def _build_latest_shifus_query(
@@ -4430,6 +4562,7 @@ def _load_operator_user_course_count_maps(
         end_time=None,
         updated_start_time=None,
         updated_end_time=None,
+        lightweight=True,
     )
     created_published = _load_latest_shifus(
         PublishedShifu,
@@ -4440,6 +4573,7 @@ def _load_operator_user_course_count_maps(
         end_time=None,
         updated_start_time=None,
         updated_end_time=None,
+        lightweight=True,
     )
     merged_created_courses, _, _ = _merge_courses(created_drafts, created_published)
     for course in merged_created_courses:
@@ -4504,9 +4638,15 @@ def _load_operator_user_course_count_maps(
             if str(row.shifu_bid or "").strip()
         }
     )
-    learned_drafts = _load_latest_courses_by_shifu_bids(DraftShifu, learned_shifu_bids)
+    learned_drafts = _load_latest_courses_by_shifu_bids(
+        DraftShifu,
+        learned_shifu_bids,
+        lightweight=True,
+    )
     learned_published = _load_latest_courses_by_shifu_bids(
-        PublishedShifu, learned_shifu_bids
+        PublishedShifu,
+        learned_shifu_bids,
+        lightweight=True,
     )
     merged_learned_courses, _, _ = _merge_courses(learned_drafts, learned_published)
     visible_learned_shifu_bids = {
@@ -4525,6 +4665,31 @@ def _load_operator_user_course_count_maps(
         learning_course_count_map[resolved_user_bid] += 1
 
     return created_course_count_map, learning_course_count_map
+
+
+# Public compatibility exports for split admin operation modules. Keep these
+# aliases until the remaining legacy helpers are moved out of this module.
+build_learner_user_bid_subquery = _build_learner_user_bid_subquery
+build_operator_user_summary = _build_operator_user_summary
+build_recent_learning_active_user_bid_subquery = (
+    _build_recent_learning_active_user_bid_subquery
+)
+build_recent_paid_user_bid_subquery = _build_recent_paid_user_bid_subquery
+build_registered_user_timestamp_subquery = _build_registered_user_timestamp_subquery
+find_matching_user_bids_by_identifier = _find_matching_user_bids_by_identifier
+load_learner_user_bids = _load_learner_user_bids
+load_operator_user_auth_credentials = _load_operator_user_auth_credentials
+load_operator_user_contact_map = _load_operator_user_contact_map
+load_operator_user_course_count_maps = _load_operator_user_course_count_maps
+load_operator_user_course_maps = _load_operator_user_course_maps
+load_operator_user_credit_summary_map = _load_operator_user_credit_summary_map
+load_operator_user_last_learning_map = _load_operator_user_last_learning_map
+load_operator_user_last_login_map = _load_operator_user_last_login_map
+load_operator_user_or_raise = _load_operator_user_or_raise
+load_operator_user_registration_source_map = _load_operator_user_registration_source_map
+load_operator_user_total_paid_amount_map = _load_operator_user_total_paid_amount_map
+resolve_operator_user_quick_filter = _resolve_operator_user_quick_filter
+resolve_recent_days_window = _resolve_recent_days_window
 
 
 def _load_operator_course_detail_source(shifu_bid: str):
@@ -6787,542 +6952,6 @@ def get_operator_course_chapter_detail(
         )
 
 
-def _build_operator_user_overview() -> AdminOperationUserOverviewDTO:
-    registered_states = [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID]
-    learner_subquery = _build_learner_user_bid_subquery()
-    registered_timestamp_subquery = _build_registered_user_timestamp_subquery()
-    recent_window_start, recent_window_end = _resolve_recent_days_window(30)
-    recent_learning_subquery = _build_recent_learning_active_user_bid_subquery(
-        since=recent_window_start,
-        until=recent_window_end,
-    )
-    recent_paid_subquery = _build_recent_paid_user_bid_subquery(
-        since=recent_window_start,
-        until=recent_window_end,
-    )
-    learner_user_count_subquery = (
-        db.session.query(db.func.count(db.distinct(learner_subquery.c.user_bid)))
-        .join(UserEntity, UserEntity.user_bid == learner_subquery.c.user_bid)
-        .filter(UserEntity.deleted == 0)
-        .scalar_subquery()
-    )
-    learning_active_30d_user_count_subquery = (
-        db.session.query(
-            db.func.count(db.distinct(recent_learning_subquery.c.user_bid))
-        )
-        .join(UserEntity, UserEntity.user_bid == recent_learning_subquery.c.user_bid)
-        .filter(UserEntity.deleted == 0)
-        .scalar_subquery()
-    )
-    registered_last_30d_user_count_subquery = (
-        db.session.query(
-            db.func.count(db.distinct(registered_timestamp_subquery.c.user_bid))
-        )
-        .filter(
-            registered_timestamp_subquery.c.registered_at >= recent_window_start,
-            registered_timestamp_subquery.c.registered_at <= recent_window_end,
-        )
-        .scalar_subquery()
-    )
-    paid_last_30d_user_count_subquery = (
-        db.session.query(db.func.count(db.distinct(recent_paid_subquery.c.user_bid)))
-        .join(UserEntity, UserEntity.user_bid == recent_paid_subquery.c.user_bid)
-        .filter(UserEntity.deleted == 0)
-        .scalar_subquery()
-    )
-    summary = (
-        db.session.query(
-            db.func.count(UserEntity.user_bid).label("total_user_count"),
-            db.func.coalesce(
-                db.func.sum(
-                    case((UserEntity.state.in_(registered_states), 1), else_=0)
-                ),
-                0,
-            ).label("registered_user_count"),
-            db.func.coalesce(
-                db.func.sum(case((UserEntity.is_creator == 1, 1), else_=0)),
-                0,
-            ).label("creator_user_count"),
-            db.func.coalesce(learner_user_count_subquery, 0).label(
-                "learner_user_count"
-            ),
-            db.func.coalesce(
-                db.func.sum(case((UserEntity.state == USER_STATE_PAID, 1), else_=0)),
-                0,
-            ).label("paid_user_count"),
-            db.func.coalesce(
-                db.func.sum(
-                    case(
-                        (
-                            and_(
-                                UserEntity.created_at >= recent_window_start,
-                                UserEntity.created_at <= recent_window_end,
-                            ),
-                            1,
-                        ),
-                        else_=0,
-                    )
-                ),
-                0,
-            ).label("created_last_30d_user_count"),
-            db.func.coalesce(registered_last_30d_user_count_subquery, 0).label(
-                "registered_last_30d_user_count"
-            ),
-            db.func.coalesce(learning_active_30d_user_count_subquery, 0).label(
-                "learning_active_30d_user_count"
-            ),
-            db.func.coalesce(paid_last_30d_user_count_subquery, 0).label(
-                "paid_last_30d_user_count"
-            ),
-            db.func.coalesce(
-                db.func.sum(
-                    case((UserEntity.state == USER_STATE_UNREGISTERED, 1), else_=0)
-                ),
-                0,
-            ).label("guest_user_count"),
-        )
-        .filter(UserEntity.deleted == 0)
-        .one()
-    )
-
-    return AdminOperationUserOverviewDTO(
-        total_user_count=int(summary.total_user_count or 0),
-        registered_user_count=int(summary.registered_user_count or 0),
-        creator_user_count=int(summary.creator_user_count or 0),
-        learner_user_count=int(summary.learner_user_count or 0),
-        paid_user_count=int(summary.paid_user_count or 0),
-        created_last_30d_user_count=int(summary.created_last_30d_user_count or 0),
-        registered_last_30d_user_count=int(summary.registered_last_30d_user_count or 0),
-        learning_active_30d_user_count=int(summary.learning_active_30d_user_count or 0),
-        paid_last_30d_user_count=int(summary.paid_last_30d_user_count or 0),
-        guest_user_count=int(summary.guest_user_count or 0),
-    )
-
-
-def get_operator_user_overview(app: Flask) -> AdminOperationUserOverviewDTO:
-    with app.app_context():
-        return _build_operator_user_overview()
-
-
-def list_operator_users(
-    app: Flask,
-    page_index: int,
-    page_size: int,
-    filters: Optional[dict] = None,
-) -> AdminOperationUserListDTO:
-    with app.app_context():
-        safe_page_index = max(int(page_index or 1), 1)
-        safe_page_size = min(
-            max(int(page_size or 20), 1),
-            OPERATOR_USER_LIST_MAX_PAGE_SIZE,
-        )
-        filters = filters or {}
-
-        user_bid = str(filters.get("user_bid", "") or "").strip()
-        identifier = str(
-            filters.get("identifier", "") or filters.get("mobile", "") or ""
-        ).strip()
-        nickname = str(filters.get("nickname", "") or "").strip()
-        user_status = str(filters.get("user_status", "") or "").strip().lower()
-        user_role = str(filters.get("user_role", "") or "").strip().lower()
-        quick_filter = _resolve_operator_user_quick_filter(
-            filters.get("quick_filter", "")
-        )
-        start_time = filters.get("start_time")
-        end_time = filters.get("end_time")
-
-        query = UserEntity.query.filter(UserEntity.deleted == 0)
-        if user_bid:
-            query = query.filter(UserEntity.user_bid == user_bid)
-        if nickname:
-            query = query.filter(UserEntity.nickname.ilike(f"%{nickname}%"))
-        if user_status:
-            if user_status == OPERATOR_USER_STATUS_UNREGISTERED:
-                query = query.filter(UserEntity.state == USER_STATE_UNREGISTERED)
-            elif user_status == OPERATOR_USER_STATUS_REGISTERED:
-                query = query.filter(
-                    UserEntity.state.in_([USER_STATE_REGISTERED, USER_STATE_TRAIL])
-                )
-            elif user_status == OPERATOR_USER_STATUS_TRIAL:
-                query = query.filter(UserEntity.state == USER_STATE_TRAIL)
-            elif user_status == OPERATOR_USER_STATUS_PAID:
-                query = query.filter(UserEntity.state == USER_STATE_PAID)
-            else:
-                query = query.filter(db.text("1 = 0"))
-        if user_role == OPERATOR_USER_ROLE_OPERATOR:
-            query = query.filter(UserEntity.is_operator == 1)
-        elif user_role == OPERATOR_USER_ROLE_CREATOR:
-            query = query.filter(UserEntity.is_creator == 1)
-        elif user_role == OPERATOR_USER_ROLE_LEARNER:
-            learner_subquery = _build_learner_user_bid_subquery()
-            query = query.filter(
-                UserEntity.is_operator == 0,
-                UserEntity.is_creator == 0,
-                UserEntity.user_bid.in_(db.session.query(learner_subquery.c.user_bid)),
-            )
-        elif user_role == OPERATOR_USER_ROLE_REGULAR:
-            learner_subquery = _build_learner_user_bid_subquery()
-            query = query.filter(
-                UserEntity.is_operator == 0,
-                UserEntity.is_creator == 0,
-                ~UserEntity.user_bid.in_(db.session.query(learner_subquery.c.user_bid)),
-            )
-        if start_time:
-            query = query.filter(UserEntity.created_at >= start_time)
-        if end_time:
-            query = query.filter(UserEntity.created_at <= end_time)
-        if identifier:
-            matching_user_bids = _find_matching_user_bids_by_identifier(identifier)
-            if not matching_user_bids:
-                return AdminOperationUserListDTO(
-                    safe_page_index,
-                    safe_page_size,
-                    0,
-                    [],
-                )
-            query = query.filter(UserEntity.user_bid.in_(list(matching_user_bids)))
-        if quick_filter:
-            recent_window_start, recent_window_end = _resolve_recent_days_window(30)
-            if quick_filter == OPERATOR_USER_QUICK_FILTER_CREATOR:
-                query = query.filter(UserEntity.is_creator == 1)
-            elif quick_filter == OPERATOR_USER_QUICK_FILTER_LEARNER:
-                learner_subquery = _build_learner_user_bid_subquery()
-                query = query.filter(
-                    UserEntity.user_bid.in_(
-                        db.session.query(learner_subquery.c.user_bid)
-                    )
-                )
-            elif quick_filter == OPERATOR_USER_QUICK_FILTER_REGISTERED:
-                query = query.filter(
-                    UserEntity.state.in_(
-                        [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID]
-                    )
-                )
-            elif quick_filter == OPERATOR_USER_QUICK_FILTER_PAID:
-                query = query.filter(UserEntity.state == USER_STATE_PAID)
-            elif quick_filter == OPERATOR_USER_QUICK_FILTER_CREATED_LAST_30D:
-                query = query.filter(
-                    UserEntity.created_at >= recent_window_start,
-                    UserEntity.created_at <= recent_window_end,
-                )
-            elif quick_filter == OPERATOR_USER_QUICK_FILTER_REGISTERED_LAST_30D:
-                registered_timestamp_subquery = (
-                    _build_registered_user_timestamp_subquery()
-                )
-                query = query.filter(
-                    UserEntity.user_bid.in_(
-                        db.session.query(
-                            registered_timestamp_subquery.c.user_bid
-                        ).filter(
-                            registered_timestamp_subquery.c.registered_at
-                            >= recent_window_start,
-                            registered_timestamp_subquery.c.registered_at
-                            <= recent_window_end,
-                        )
-                    )
-                )
-            elif quick_filter == OPERATOR_USER_QUICK_FILTER_LEARNING_ACTIVE_30D:
-                recent_learning_subquery = (
-                    _build_recent_learning_active_user_bid_subquery(
-                        since=recent_window_start,
-                        until=recent_window_end,
-                    )
-                )
-                query = query.filter(
-                    UserEntity.user_bid.in_(
-                        db.session.query(recent_learning_subquery.c.user_bid)
-                    )
-                )
-            elif quick_filter == OPERATOR_USER_QUICK_FILTER_PAID_LAST_30D:
-                recent_paid_subquery = _build_recent_paid_user_bid_subquery(
-                    since=recent_window_start,
-                    until=recent_window_end,
-                )
-                query = query.filter(
-                    UserEntity.user_bid.in_(
-                        db.session.query(recent_paid_subquery.c.user_bid)
-                    )
-                )
-            elif quick_filter == OPERATOR_USER_QUICK_FILTER_GUEST:
-                query = query.filter(UserEntity.state == USER_STATE_UNREGISTERED)
-
-        total = query.count()
-        page_offset = (safe_page_index - 1) * safe_page_size
-        page_items = (
-            query.order_by(UserEntity.created_at.desc(), UserEntity.id.desc())
-            .offset(page_offset)
-            .limit(safe_page_size)
-            .all()
-        )
-        user_bids = [
-            str(user.user_bid or "").strip() for user in page_items if user.user_bid
-        ]
-        credential_rows = _load_operator_user_auth_credentials(user_bids)
-        contact_map = _load_operator_user_contact_map(
-            user_bids,
-            users=page_items,
-            credential_rows=credential_rows,
-        )
-        created_course_count_map, learning_course_count_map = (
-            _load_operator_user_course_count_maps(user_bids)
-        )
-        learner_user_bids = _load_learner_user_bids(user_bids)
-        registration_source_map = _load_operator_user_registration_source_map(
-            user_bids,
-            users=page_items,
-            credential_rows=credential_rows,
-        )
-        last_login_map = _load_operator_user_last_login_map(user_bids)
-        total_paid_amount_map = _load_operator_user_total_paid_amount_map(user_bids)
-        last_learning_map = _load_operator_user_last_learning_map(user_bids)
-        credit_summary_map = _load_operator_user_credit_summary_map(user_bids)
-        items = [
-            _build_operator_user_summary(
-                user,
-                contact_map,
-                learner_user_bids,
-                registration_source_map,
-                last_login_map,
-                total_paid_amount_map,
-                last_learning_map,
-                credit_summary_map,
-                learning_course_count_map=learning_course_count_map,
-                created_course_count_map=created_course_count_map,
-            )
-            for user in page_items
-        ]
-        return AdminOperationUserListDTO(
-            safe_page_index,
-            safe_page_size,
-            total,
-            items,
-        )
-
-
-def get_operator_user_detail(
-    app: Flask,
-    user_bid: str,
-) -> AdminOperationUserSummaryDTO:
-    with app.app_context():
-        normalized_user_bid = str(user_bid or "").strip()
-        user = _load_operator_user_or_raise(normalized_user_bid)
-
-        credential_rows = _load_operator_user_auth_credentials([normalized_user_bid])
-        contact_map = _load_operator_user_contact_map(
-            [normalized_user_bid],
-            users=[user],
-            credential_rows=credential_rows,
-        )
-        created_courses_map, learning_courses_map = _load_operator_user_course_maps(
-            [normalized_user_bid]
-        )
-        learner_user_bids = _load_learner_user_bids([normalized_user_bid])
-        registration_source_map = _load_operator_user_registration_source_map(
-            [normalized_user_bid],
-            users=[user],
-            credential_rows=credential_rows,
-        )
-        last_login_map = _load_operator_user_last_login_map([normalized_user_bid])
-        total_paid_amount_map = _load_operator_user_total_paid_amount_map(
-            [normalized_user_bid]
-        )
-        last_learning_map = _load_operator_user_last_learning_map([normalized_user_bid])
-        credit_summary_map = _load_operator_user_credit_summary_map(
-            [normalized_user_bid]
-        )
-        return _build_operator_user_summary(
-            user,
-            contact_map,
-            learner_user_bids,
-            registration_source_map,
-            last_login_map,
-            total_paid_amount_map,
-            last_learning_map,
-            credit_summary_map,
-            learning_courses_map=learning_courses_map,
-            created_courses_map=created_courses_map,
-        )
-
-
-def grant_operator_user_credits(
-    app: Flask,
-    *,
-    user_bid: str,
-    operator_user_bid: str,
-    payload: AdminOperationUserCreditGrantRequestDTO,
-) -> AdminOperationUserCreditGrantResultDTO:
-    with app.app_context():
-        normalized_user_bid = str(user_bid or "").strip()
-        normalized_operator_user_bid = str(operator_user_bid or "").strip()
-        if not normalized_operator_user_bid:
-            raise_param_error("operator_user_bid")
-
-        user = _load_operator_user_or_raise(normalized_user_bid)
-        _assert_operator_user_grant_target_supported(user)
-        raw_grant_type = str(payload.grant_type or "").strip()
-        normalized_grant_type = (
-            OPERATOR_USER_CREDIT_GRANT_TYPE_MANUAL
-            if not raw_grant_type
-            else _resolve_operator_credit_grant_type(raw_grant_type, fallback="")
-        )
-        if normalized_grant_type not in OPERATOR_USER_CREDIT_GRANT_TYPES:
-            raise_param_error("grant_type")
-        normalized_grant_source = str(payload.grant_source or "").strip().lower()
-        if normalized_grant_source not in OPERATOR_USER_CREDIT_GRANT_SOURCES:
-            raise_param_error("grant_source")
-
-        normalized_validity_preset = str(payload.validity_preset or "").strip().lower()
-        if normalized_validity_preset not in OPERATOR_USER_CREDIT_VALIDITY_PRESETS:
-            raise_param_error("validity_preset")
-
-        normalized_request_id = str(payload.request_id or "").strip()
-        if not normalized_request_id:
-            raise_param_error("request_id")
-        normalized_display_name = str(payload.display_name or "").strip()
-        normalized_note = str(payload.note or "").strip()
-        if normalized_grant_type == OPERATOR_USER_CREDIT_GRANT_TYPE_REFERRAL_REWARD:
-            if normalized_grant_source != OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD:
-                raise_param_error("grant_source")
-            if normalized_validity_preset != OPERATOR_USER_CREDIT_VALIDITY_1M:
-                raise_param_error("validity_preset")
-            grant_result = grant_referral_reward_credits_to_user(
-                app,
-                user_bid=normalized_user_bid,
-                operator_user_bid=normalized_operator_user_bid,
-                request_id=normalized_request_id,
-                amount=payload.amount,
-                note=normalized_note,
-            )
-        else:
-            grant_result = grant_manual_credits_to_user(
-                app,
-                user_bid=normalized_user_bid,
-                operator_user_bid=normalized_operator_user_bid,
-                request_id=normalized_request_id,
-                amount=payload.amount,
-                grant_source=normalized_grant_source,
-                validity_preset=normalized_validity_preset,
-                display_name=normalized_display_name,
-                note=normalized_note,
-            )
-
-        persisted_metadata = _normalize_metadata_json(grant_result.metadata_json)
-        resolved_grant_type = _resolve_operator_credit_grant_type(
-            str(persisted_metadata.get("grant_type") or "").strip(),
-            fallback=normalized_grant_type,
-        )
-        resolved_grant_source = str(
-            persisted_metadata.get("grant_source") or normalized_grant_source
-        ).strip()
-        resolved_validity_preset = str(
-            persisted_metadata.get("validity_preset") or normalized_validity_preset
-        ).strip()
-        resolved_amount = _format_decimal(
-            _quantize_credit_amount(Decimal(str(grant_result.amount or 0)))
-        )
-        credit_summary_map = _load_operator_user_credit_summary_map(
-            [normalized_user_bid]
-        )
-        summary = _build_operator_user_credit_summary(
-            user=user,
-            credit_summary_map=credit_summary_map,
-        )
-        return AdminOperationUserCreditGrantResultDTO(
-            status=str(grant_result.status or "granted"),
-            user_bid=normalized_user_bid,
-            amount=resolved_amount,
-            grant_type=resolved_grant_type,
-            grant_source=resolved_grant_source,
-            validity_preset=resolved_validity_preset,
-            expires_at=_format_operator_datetime(grant_result.expires_at),
-            display_name=str(persisted_metadata.get("display_name") or "").strip(),
-            note=str(persisted_metadata.get("note") or "").strip(),
-            wallet_bucket_bid=str(grant_result.wallet_bucket_bid or "").strip(),
-            ledger_bid=str(grant_result.ledger_bid or "").strip(),
-            summary=summary,
-        )
-
-
-def get_operator_credit_notification_overview(app: Flask) -> dict[str, Any]:
-    return build_credit_notification_overview(app)
-
-
-def list_operator_credit_notifications(
-    app: Flask,
-    *,
-    page_index: int = 1,
-    page_size: int = 20,
-    filters: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    return list_credit_notifications(
-        app,
-        page_index=page_index,
-        page_size=page_size,
-        filters=filters,
-    )
-
-
-def get_operator_credit_notification_detail(
-    app: Flask,
-    *,
-    notification_bid: str,
-) -> dict[str, Any]:
-    return get_credit_notification_detail(app, notification_bid=notification_bid)
-
-
-def get_operator_credit_notification_config(app: Flask) -> dict[str, Any]:
-    with app.app_context():
-        return load_credit_notification_policy_for_operator()
-
-
-def update_operator_credit_notification_config(
-    app: Flask,
-    *,
-    payload: dict[str, Any],
-) -> dict[str, Any]:
-    save_credit_notification_policy(app, payload, preserve_opt_out=True)
-    with app.app_context():
-        return load_credit_notification_policy_for_operator()
-
-
-def sync_operator_credit_notification_template(
-    app: Flask,
-    *,
-    notification_type: str,
-    template_code: str,
-) -> dict[str, Any]:
-    return sync_credit_notification_template(
-        app,
-        notification_type=notification_type,
-        template_code=template_code,
-    )
-
-
-def list_operator_credit_notification_templates(app: Flask) -> dict[str, Any]:
-    return list_credit_notification_templates(app)
-
-
-def dry_run_operator_credit_notifications(
-    app: Flask,
-    *,
-    notification_type: str = "",
-    creator_bid: str = "",
-) -> dict[str, Any]:
-    return dry_run_credit_notifications(
-        app,
-        notification_type=notification_type,
-        creator_bid=creator_bid,
-    )
-
-
-def requeue_operator_credit_notification(
-    app: Flask,
-    *,
-    notification_bid: str,
-) -> dict[str, Any]:
-    return requeue_credit_notification(app, notification_bid=notification_bid)
-
-
 def _load_bill_usage_record_map(
     usage_bids: Sequence[str],
 ) -> Dict[str, BillUsageRecord]:
@@ -7438,431 +7067,6 @@ def _build_operator_course_query_filter(
     if matching_course_bids:
         course_filters.append(shifu_bid_column.in_(sorted(matching_course_bids)))
     return or_(*course_filters)
-
-
-def get_operator_user_grant_bootstrap(
-    app: Flask,
-    *,
-    user_bid: str,
-) -> AdminOperationUserGrantBootstrapDTO:
-    with app.app_context():
-        normalized_user_bid = str(user_bid or "").strip()
-        user = _load_operator_user_or_raise(normalized_user_bid)
-        _assert_operator_user_grant_target_supported(user)
-        catalog = build_billing_catalog(app)
-        server_time = datetime.now()
-        current_subscription_product_display_name_i18n_key = (
-            _load_active_subscription_product_display_name_i18n_key(
-                normalized_user_bid,
-                as_of=server_time,
-            )
-        )
-        referral_summary = load_referral_reward_summary(
-            app,
-            creator_bid=normalized_user_bid,
-            as_of=server_time,
-        )
-        return AdminOperationUserGrantBootstrapDTO(
-            plans=catalog.plans,
-            current_subscription_product_display_name_i18n_key=(
-                current_subscription_product_display_name_i18n_key
-            ),
-            notification_status="template_pending",
-            server_time=_format_operator_datetime(server_time),
-            referral_reward_summary=AdminOperationUserReferralRewardSummaryDTO(
-                available_credits=_format_decimal(
-                    _quantize_credit_amount(
-                        Decimal(str(referral_summary.available_credits or 0))
-                    )
-                ),
-                expires_at=_format_operator_datetime(referral_summary.expires_at),
-                wallet_bucket_bid=str(referral_summary.wallet_bucket_bid or ""),
-                grant_count=int(referral_summary.grant_count or 0),
-            ),
-        )
-
-
-def grant_operator_user_package(
-    app: Flask,
-    *,
-    user_bid: str,
-    operator_user_bid: str,
-    payload: AdminOperationUserPackageGrantRequestDTO,
-) -> AdminOperationUserPackageGrantResultDTO:
-    with app.app_context():
-        normalized_user_bid = str(user_bid or "").strip()
-        normalized_operator_user_bid = str(operator_user_bid or "").strip()
-        if not normalized_operator_user_bid:
-            raise_param_error("operator_user_bid")
-
-        user = _load_operator_user_or_raise(normalized_user_bid)
-        _assert_operator_user_grant_target_supported(user)
-
-        grant_result = grant_manual_plan_to_user(
-            app,
-            user_bid=normalized_user_bid,
-            product_bid=str(payload.product_bid or "").strip(),
-            operator_user_bid=normalized_operator_user_bid,
-            request_id=str(payload.request_id or "").strip(),
-            note=str(payload.note or "").strip(),
-            grant_channel="operator_user_management",
-        )
-
-        credit_summary_map = _load_operator_user_credit_summary_map(
-            [normalized_user_bid]
-        )
-        summary = _build_operator_user_credit_summary(
-            user=user,
-            credit_summary_map=credit_summary_map,
-        )
-        return AdminOperationUserPackageGrantResultDTO(
-            user_bid=normalized_user_bid,
-            product_bid=grant_result.product_bid,
-            subscription_bid=grant_result.subscription_bid,
-            bill_order_bid=grant_result.bill_order_bid,
-            current_period_start_at=_format_operator_datetime(
-                grant_result.current_period_start_at
-            ),
-            current_period_end_at=_format_operator_datetime(
-                grant_result.current_period_end_at
-            ),
-            notification_status=grant_result.notification_status,
-            summary=summary,
-        )
-
-
-def get_operator_user_credits(
-    app: Flask,
-    *,
-    user_bid: str,
-    page_index: int,
-    page_size: int,
-    filters: Optional[Dict[str, Any]] = None,
-) -> AdminOperationUserCreditLedgerPageDTO:
-    with app.app_context():
-        normalized_user_bid = str(user_bid or "").strip()
-        safe_page_index = max(int(page_index or 1), 1)
-        safe_page_size = min(
-            max(int(page_size or 20), 1),
-            OPERATOR_USER_LIST_MAX_PAGE_SIZE,
-        )
-        filters = filters or {}
-
-        user = _load_operator_user_or_raise(normalized_user_bid)
-        credit_summary_map = _load_operator_user_credit_summary_map(
-            [normalized_user_bid]
-        )
-        summary = _build_operator_user_credit_summary(
-            user=user,
-            credit_summary_map=credit_summary_map,
-        )
-
-        credit_type = _resolve_operator_user_credit_type_filter(
-            str(filters.get("credit_type", "") or "")
-        )
-        grant_source = _resolve_operator_user_credit_grant_source_filter(
-            str(filters.get("grant_source", "") or "")
-        )
-        course_query = str(filters.get("course_query", "") or "").strip()
-        course_id = str(filters.get("course_id", "") or "").strip()
-        course_name = str(filters.get("course_name", "") or "").strip()
-        resolved_course_query = course_query or course_id or course_name
-        usage_mode = _resolve_course_credit_usage_mode_filter(
-            str(filters.get("usage_mode", "") or "")
-        )
-        usage_scene = _resolve_course_credit_usage_scene_filter(
-            str(filters.get("usage_scene", "") or "")
-        )
-        start_time = filters.get("start_time")
-        end_time = filters.get("end_time")
-
-        if str(filters.get("credit_type", "") or "").strip() and not credit_type:
-            raise_param_error("credit_type")
-        if str(filters.get("grant_source", "") or "").strip() and not grant_source:
-            raise_param_error("grant_source")
-        if str(filters.get("usage_scene", "") or "").strip() and not usage_scene:
-            raise_param_error("usage_scene")
-        if str(filters.get("usage_mode", "") or "").strip() and not usage_mode:
-            raise_param_error("usage_mode")
-
-        query = CreditLedgerEntry.query.filter(
-            CreditLedgerEntry.deleted == 0,
-            CreditLedgerEntry.creator_bid == normalized_user_bid,
-        )
-
-        if start_time:
-            query = query.filter(CreditLedgerEntry.created_at >= start_time)
-        if end_time:
-            query = query.filter(CreditLedgerEntry.created_at <= end_time)
-
-        if credit_type == OPERATOR_USER_CREDIT_TYPE_CONSUME:
-            query = query.filter(
-                CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
-                CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
-            )
-        elif credit_type == OPERATOR_USER_CREDIT_TYPE_GRANT:
-            query = query.filter(
-                or_(
-                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-                    and_(
-                        CreditLedgerEntry.entry_type
-                        == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-                        CreditLedgerEntry.amount > 0,
-                    ),
-                )
-            )
-        elif credit_type == OPERATOR_USER_CREDIT_TYPE_OTHER:
-            query = query.filter(
-                or_(
-                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-                    CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_REFUND,
-                    and_(
-                        CreditLedgerEntry.entry_type
-                        == CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
-                        CreditLedgerEntry.amount < 0,
-                    ),
-                )
-            )
-
-        has_grant_source_filter = (
-            credit_type == OPERATOR_USER_CREDIT_TYPE_GRANT
-            and grant_source != OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_ALL
-        )
-        has_consume_scene_filter = usage_scene not in {"", "all"}
-        has_consume_usage_filter = usage_mode not in {"", "all"}
-        has_consume_sub_filter = credit_type == OPERATOR_USER_CREDIT_TYPE_CONSUME and (
-            bool(resolved_course_query)
-            or has_consume_scene_filter
-            or has_consume_usage_filter
-        )
-        consume_source_bids: list[str] = []
-        if has_consume_sub_filter:
-            consume_source_bids = [
-                row[0]
-                for row in query.with_entities(CreditLedgerEntry.source_bid)
-                .filter(CreditLedgerEntry.source_bid != "")
-                .distinct()
-                .all()
-                if str(row[0] or "").strip()
-            ]
-
-        if has_grant_source_filter:
-            if grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP:
-                query = query.filter(
-                    CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_TOPUP
-                )
-            elif grant_source == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL:
-                query = query.filter(
-                    CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_MANUAL
-                )
-            else:
-                latest_order_subquery = _build_latest_billing_order_subquery(
-                    creator_bid=normalized_user_bid
-                )
-                latest_order = aliased(BillingOrder)
-                checkout_type_expr = db.func.lower(
-                    db.func.coalesce(
-                        CreditLedgerEntry.metadata_json["checkout_type"].as_string(),
-                        latest_order.metadata_json["checkout_type"].as_string(),
-                        "",
-                    )
-                )
-                query = (
-                    query.outerjoin(
-                        latest_order_subquery,
-                        latest_order_subquery.c.bill_order_bid
-                        == CreditLedgerEntry.source_bid,
-                    )
-                    .outerjoin(
-                        latest_order,
-                        latest_order.id == latest_order_subquery.c.max_id,
-                    )
-                    .filter(
-                        CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
-                    )
-                )
-                if (
-                    grant_source
-                    == OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TRIAL_SUBSCRIPTION
-                ):
-                    query = query.filter(checkout_type_expr == "trial_bootstrap")
-                else:
-                    query = query.filter(checkout_type_expr != "trial_bootstrap")
-        elif has_consume_sub_filter:
-            latest_usage_subquery = _build_latest_bill_usage_record_subquery(
-                usage_bids=consume_source_bids
-            )
-            usage_row = aliased(BillUsageRecord)
-            query = query.join(
-                latest_usage_subquery,
-                latest_usage_subquery.c.usage_bid == CreditLedgerEntry.source_bid,
-            ).join(usage_row, usage_row.id == latest_usage_subquery.c.max_id)
-            if resolved_course_query:
-                course_query_filter = _build_operator_course_query_filter(
-                    usage_row.shifu_bid,
-                    resolved_course_query,
-                )
-                if course_query_filter is not None:
-                    query = query.filter(course_query_filter)
-
-            if usage_scene == COURSE_CREDIT_USAGE_SCENE_LEARNING:
-                query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_PROD)
-            elif usage_scene == COURSE_CREDIT_USAGE_SCENE_PREVIEW:
-                query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_PREVIEW)
-            elif usage_scene == COURSE_CREDIT_USAGE_SCENE_DEBUG:
-                query = query.filter(usage_row.usage_scene == BILL_USAGE_SCENE_DEBUG)
-
-            generation_name_expr = db.func.lower(
-                usage_row.extra["generation_name"].as_string()
-            )
-            if usage_mode == COURSE_CREDIT_USAGE_MODE_LISTEN:
-                query = query.filter(usage_row.usage_type == BILL_USAGE_TYPE_TTS)
-            elif usage_mode == COURSE_CREDIT_USAGE_MODE_ASK:
-                query = query.filter(
-                    usage_row.usage_type != BILL_USAGE_TYPE_TTS,
-                    _build_course_credit_usage_ask_filter(generation_name_expr),
-                )
-            elif usage_mode == COURSE_CREDIT_USAGE_MODE_LEARN:
-                query = query.filter(
-                    usage_row.usage_type != BILL_USAGE_TYPE_TTS,
-                    _build_course_credit_usage_learn_filter(generation_name_expr),
-                )
-
-        order_by_query = query.order_by(
-            CreditLedgerEntry.created_at.desc(), CreditLedgerEntry.id.desc()
-        )
-        total = query.count()
-        page_offset = (safe_page_index - 1) * safe_page_size
-        paged_rows = order_by_query.offset(page_offset).limit(safe_page_size).all()
-        order_map = _load_billing_order_map(
-            _collect_operator_user_credit_order_source_bids(paged_rows)
-        )
-        usage_context_map = _load_operator_user_credit_usage_context_map(
-            paged_rows,
-        )
-        items = [
-            _build_operator_user_credit_ledger_item(
-                row,
-                order_map=order_map,
-                usage_context_map=usage_context_map,
-            )
-            for row in paged_rows
-        ]
-        return AdminOperationUserCreditLedgerPageDTO(
-            summary=summary,
-            items=items,
-            page=safe_page_index,
-            page_size=safe_page_size,
-            total=total,
-            page_count=((total + safe_page_size - 1) // safe_page_size) if total else 0,
-        )
-
-
-def get_operator_user_credit_usage_detail(
-    app: Flask,
-    *,
-    user_bid: str,
-    usage_bid: str,
-) -> AdminOperationUserCreditUsageDetailDTO:
-    with app.app_context():
-        normalized_user_bid = str(user_bid or "").strip()
-        normalized_usage_bid = str(usage_bid or "").strip()
-        if not normalized_user_bid:
-            raise_param_error("user_bid is required")
-        if not normalized_usage_bid:
-            raise_param_error("usage_bid is required")
-
-        _load_operator_user_or_raise(normalized_user_bid)
-        owner_ledger_rows = _load_operator_user_credit_usage_owner_ledger_rows(
-            user_bid=normalized_user_bid,
-            usage_bid=normalized_usage_bid,
-        )
-        if not owner_ledger_rows:
-            raise_param_error("usage_bid")
-
-        main_usage_row = _load_operator_user_credit_usage_main_row(normalized_usage_bid)
-        if main_usage_row is None:
-            raise_param_error("usage_bid")
-
-        total_consumed_credits = sum(
-            (abs(Decimal(row.amount or 0)) for row in owner_ledger_rows),
-            Decimal("0"),
-        )
-        context = _resolve_operator_user_credit_usage_context(main_usage_row)
-        segment_rows = _load_operator_user_credit_usage_segment_rows(
-            normalized_usage_bid
-        )
-        detail_rows = segment_rows or [main_usage_row]
-        total_segment_count = max(
-            int(getattr(main_usage_row, "segment_count", 0) or 0),
-            len(segment_rows),
-        )
-        generated_block_bids = [
-            str(getattr(row, "generated_block_bid", "") or "").strip()
-            for row in detail_rows + [main_usage_row]
-        ]
-        block_content_map = _load_generated_block_content_map(generated_block_bids)
-        fallback_content = block_content_map.get(
-            str(getattr(main_usage_row, "generated_block_bid", "") or "").strip(),
-            "",
-        )
-        listen_content_map = (
-            _load_listen_segment_content_map(
-                progress_record_bid=str(
-                    getattr(main_usage_row, "progress_record_bid", "") or ""
-                ),
-                generated_block_bid=str(
-                    getattr(main_usage_row, "generated_block_bid", "") or ""
-                ),
-            )
-            if int(getattr(main_usage_row, "usage_type", 0) or 0) == BILL_USAGE_TYPE_TTS
-            else {}
-        )
-        allocated_credit_map = _allocate_usage_detail_credits(
-            rows=detail_rows,
-            total_consumed_credits=total_consumed_credits,
-        )
-        items = [
-            AdminOperationUserCreditUsageDetailItemDTO(
-                usage_bid=str(getattr(row, "usage_bid", "") or "").strip(),
-                created_at=_format_operator_datetime(getattr(row, "created_at", None)),
-                content=_resolve_usage_detail_item_content(
-                    row,
-                    block_content_map=block_content_map,
-                    listen_content_map=listen_content_map,
-                    fallback_content=fallback_content,
-                ),
-                consumed_credits=_format_decimal(
-                    allocated_credit_map.get(
-                        str(getattr(row, "usage_bid", "") or "").strip(),
-                        Decimal("0"),
-                    )
-                ),
-                usage_units=int(getattr(row, "total", 0) or 0),
-                input_tokens=int(getattr(row, "input", 0) or 0),
-                output_tokens=int(getattr(row, "output", 0) or 0),
-                word_count=int(getattr(row, "word_count", 0) or 0),
-                duration_ms=int(getattr(row, "duration_ms", 0) or 0),
-                segment_count=(
-                    total_segment_count
-                    if int(getattr(row, "usage_type", 0) or 0) == BILL_USAGE_TYPE_TTS
-                    else int(getattr(row, "segment_count", 0) or 0)
-                ),
-            )
-            for row in detail_rows
-        ]
-
-        return AdminOperationUserCreditUsageDetailDTO(
-            usage_bid=normalized_usage_bid,
-            course_bid=str(context.get("course_bid", "") or ""),
-            course_name=str(context.get("course_name", "") or ""),
-            chapter_title=str(context.get("chapter_title", "") or ""),
-            lesson_title=str(context.get("lesson_title", "") or ""),
-            usage_scene=str(context.get("usage_scene", "") or ""),
-            usage_mode=str(context.get("usage_mode", "") or ""),
-            total_consumed_credits=_format_decimal(total_consumed_credits),
-            items=items,
-        )
 
 
 def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewDTO:
@@ -8242,6 +7446,7 @@ def list_operator_courses(
             creator_bids=creator_bids,
             start_time=start_time,
             end_time=end_time,
+            include_activity=True,
         )
         if candidate_query is None:
             return AdminOperationCourseListDTO(
@@ -8296,62 +7501,32 @@ def list_operator_courses(
                         candidate_subquery.c.shifu_bid.in_(paid_course_query)
                     )
 
-        candidate_rows = [
-            _build_operator_course_list_candidate(row) for row in query.all()
-        ]
-
-        candidate_shifu_bids = [
-            str(course.shifu_bid or "").strip()
-            for course in candidate_rows
-            if str(course.shifu_bid or "").strip()
-        ]
-        draft_activity_rows = _load_latest_courses_by_shifu_bids(
-            DraftShifu,
-            candidate_shifu_bids,
-            lightweight=True,
-        )
-        published_activity_rows = _load_latest_courses_by_shifu_bids(
-            PublishedShifu,
-            candidate_shifu_bids,
-            lightweight=True,
-        )
-        activity_map = _load_course_activity_map(
-            draft_activity_rows,
-            published_activity_rows,
-        )
-
-        def resolve_activity(course) -> Dict[str, Any]:
-            return activity_map.get(str(course.shifu_bid or "").strip(), {})
-
-        def resolve_updated_at(course) -> Optional[datetime]:
-            activity = resolve_activity(course)
-            return activity.get("updated_at") or course.updated_at
-
         if updated_start_time:
-            candidate_rows = [
-                course
-                for course in candidate_rows
-                if (resolve_updated_at(course) or datetime.min) >= updated_start_time
-            ]
+            query = query.filter(
+                candidate_subquery.c.activity_updated_at >= updated_start_time
+            )
         if updated_end_time:
-            candidate_rows = [
-                course
-                for course in candidate_rows
-                if (resolve_updated_at(course) or datetime.min) <= updated_end_time
-            ]
+            query = query.filter(
+                or_(
+                    candidate_subquery.c.activity_updated_at.is_(None),
+                    candidate_subquery.c.activity_updated_at <= updated_end_time,
+                )
+            )
 
-        candidate_rows = sorted(
-            candidate_rows,
-            key=lambda item: (
-                resolve_updated_at(item) or datetime.min,
-                item.created_at or datetime.min,
-                item.shifu_bid or "",
-            ),
-            reverse=True,
-        )
-        total = len(candidate_rows)
+        total = int(query.count() or 0)
         page_offset = (safe_page_index - 1) * safe_page_size
-        page_items = candidate_rows[page_offset : page_offset + safe_page_size]
+        page_rows = (
+            query.order_by(
+                candidate_subquery.c.activity_updated_at.desc(),
+                candidate_subquery.c.created_at.desc(),
+                candidate_subquery.c.shifu_bid.desc(),
+            )
+            .offset(page_offset)
+            .limit(safe_page_size)
+            .all()
+        )
+        page_items = [_build_operator_course_list_candidate(row) for row in page_rows]
+
         draft_page_items = [
             course for course in page_items if course.selected_source == "draft"
         ]
@@ -8360,6 +7535,13 @@ def list_operator_courses(
         ]
         _attach_course_prompt_flags(DraftShifu, draft_page_items)
         _attach_course_prompt_flags(PublishedShifu, published_page_items)
+
+        def resolve_activity(course) -> Dict[str, Any]:
+            return {
+                "updated_at": course.activity_updated_at or course.updated_at,
+                "updated_user_bid": course.activity_updated_user_bid
+                or course.updated_user_bid,
+            }
 
         user_bids = {
             user_bid

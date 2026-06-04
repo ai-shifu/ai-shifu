@@ -13,14 +13,20 @@ import {
 } from '@/components/ui/Sheet';
 import { ErrorWithCode } from '@/lib/request';
 import type { AdminOperationCreditNotificationItem } from '../operation-credit-notification-types';
-import { EMPTY_LABEL } from './creditNotificationUtils';
+import {
+  EMPTY_LABEL,
+  resolveCreditNotificationErrorText,
+  resolveNotificationDeliveryStatus,
+  resolveNotificationSkipReason,
+} from './creditNotificationUtils';
 
 type CreditNotificationDetailSheetProps = {
   notificationBid: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   resolveTypeLabel: (value: string) => string;
-  resolveStatusLabel: (value: string) => string;
+  resolveDeliveryStatusLabel: (value: string) => string;
+  resolveSkipReasonLabel: (value: string) => string;
   resolveSourceTypeLabel: (value: string) => string;
 };
 
@@ -140,7 +146,8 @@ export function CreditNotificationDetailSheet({
   open,
   onOpenChange,
   resolveTypeLabel,
-  resolveStatusLabel,
+  resolveDeliveryStatusLabel,
+  resolveSkipReasonLabel,
   resolveSourceTypeLabel,
 }: CreditNotificationDetailSheetProps) {
   const { t } = useTranslation();
@@ -216,6 +223,7 @@ export function CreditNotificationDetailSheet({
       t(`module.operationsCreditNotifications.detail.params.${key}`, key),
     [t],
   );
+  const skipReason = item ? resolveNotificationSkipReason(item) : '';
 
   return (
     <Sheet
@@ -270,7 +278,9 @@ export function CreditNotificationDetailSheet({
                     'module.operationsCreditNotifications.detail.summary.status',
                   )}
                 >
-                  {resolveStatusLabel(item.status)}
+                  {resolveDeliveryStatusLabel(
+                    resolveNotificationDeliveryStatus(item),
+                  )}
                 </SummaryCard>
               </div>
 
@@ -303,11 +313,25 @@ export function CreditNotificationDetailSheet({
                   )}
                   value={formatDateTime(item.sent_at)}
                 />
+                {skipReason ? (
+                  <DetailRow
+                    label={t(
+                      'module.operationsCreditNotifications.detail.fields.skipReason',
+                    )}
+                    value={resolveSkipReasonLabel(skipReason)}
+                  />
+                ) : null}
                 <DetailRow
                   label={t(
                     'module.operationsCreditNotifications.detail.fields.errorMessage',
                   )}
-                  value={formatValue(item.error_message)}
+                  value={formatValue(
+                    resolveCreditNotificationErrorText(
+                      t,
+                      item.error_code,
+                      item.error_message,
+                    ),
+                  )}
                 />
               </Section>
 

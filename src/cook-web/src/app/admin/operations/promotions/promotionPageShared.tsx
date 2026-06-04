@@ -104,6 +104,7 @@ export const COUPON_DEFAULT_COLUMN_WIDTHS = {
   usageProgress: 110,
   codesEntry: 110,
   couponBid: 220,
+  creator: 160,
   updatedAt: 170,
   createdAt: 170,
   action: 120,
@@ -118,6 +119,7 @@ export const CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
   campaignTime: 280,
   appliedOrderCount: 130,
   promoBid: 220,
+  creator: 160,
   updatedAt: 170,
   createdAt: 170,
   action: 120,
@@ -615,7 +617,7 @@ export const renderTooltipText = (text?: string, className?: string) => (
 export const FormField = ({
   label,
   children,
-}: React.PropsWithChildren<{ label: string }>) => (
+}: React.PropsWithChildren<{ label: React.ReactNode }>) => (
   <div className='space-y-2'>
     <Label className='text-sm font-medium text-foreground'>{label}</Label>
     {children}

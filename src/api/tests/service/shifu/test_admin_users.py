@@ -10,6 +10,7 @@ import sys
 from flaskr.dao import db
 from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.shifu import admin as admin_module
+from flaskr.service.shifu.admin_operations import user_credits as user_credits_module
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
@@ -57,15 +58,17 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.order.models import Order
 from flaskr.service.metering.models import BillUsageRecord
-from flaskr.service.shifu.admin import (
+from flaskr.service.shifu.admin_operations.users import (
+    get_operator_user_detail,
+    get_operator_user_overview,
+    list_operator_users,
+)
+from flaskr.service.shifu.admin_operations.user_credits import (
     get_operator_user_grant_bootstrap,
     grant_operator_user_credits,
     grant_operator_user_package,
     get_operator_user_credit_usage_detail,
-    get_operator_user_overview,
     get_operator_user_credits,
-    get_operator_user_detail,
-    list_operator_users,
 )
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditGrantRequestDTO,
@@ -1181,6 +1184,48 @@ def test_list_operator_users_returns_learning_and_created_courses(app):
     ]
 
 
+def test_user_course_count_maps_use_lightweight_course_rows(app, monkeypatch):
+    load_calls = []
+
+    def fake_load_latest_shifus(model, **kwargs):
+        load_calls.append(("latest", model.__name__, kwargs.get("lightweight")))
+        return []
+
+    def fake_load_latest_courses_by_shifu_bids(
+        model,
+        shifu_bids,
+        *,
+        lightweight=False,
+    ):
+        load_calls.append(("by_bids", model.__name__, tuple(shifu_bids), lightweight))
+        return []
+
+    monkeypatch.setattr(
+        admin_module,
+        "_load_latest_shifus",
+        fake_load_latest_shifus,
+    )
+    monkeypatch.setattr(
+        admin_module,
+        "_load_latest_courses_by_shifu_bids",
+        fake_load_latest_courses_by_shifu_bids,
+    )
+
+    with app.app_context():
+        created_count_map, learning_count_map = (
+            admin_module._load_operator_user_course_count_maps(["user-no-activity"])
+        )
+
+    assert created_count_map == {"user-no-activity": 0}
+    assert learning_count_map == {"user-no-activity": 0}
+    assert load_calls == [
+        ("latest", "DraftShifu", True),
+        ("latest", "PublishedShifu", True),
+        ("by_bids", "DraftShifu", (), True),
+        ("by_bids", "PublishedShifu", (), True),
+    ]
+
+
 def test_list_operator_users_includes_creator_credit_summaries(app):
     with app.app_context():
         active_start_at, active_end_at = _build_active_window()
@@ -1741,14 +1786,14 @@ def test_get_operator_user_credits_loads_order_metadata_only_for_order_sources(
     monkeypatch,
 ):
     captured_source_bids: list[str] = []
-    original_load_billing_order_map = admin_module._load_billing_order_map
+    original_load_billing_order_map = user_credits_module._load_billing_order_map
 
     def capture_order_source_bids(source_bids):
         captured_source_bids.extend(list(source_bids))
         return original_load_billing_order_map(source_bids)
 
     monkeypatch.setattr(
-        admin_module,
+        user_credits_module,
         "_load_billing_order_map",
         capture_order_source_bids,
     )

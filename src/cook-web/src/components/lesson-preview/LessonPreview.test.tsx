@@ -80,8 +80,25 @@ jest.mock('@/c-components/ChatUi/ContentBlock', () => ({
 
 jest.mock('@/c-components/ChatUi/InteractionBlock', () => ({
   __esModule: true,
-  default: ({ element_bid }: { element_bid?: string }) => (
-    <div data-testid='interaction-block'>{element_bid}</div>
+  default: ({
+    element_bid,
+    showGenerateBtn,
+    onRefresh,
+  }: {
+    element_bid?: string;
+    showGenerateBtn?: boolean;
+    onRefresh?: (elementBid: string) => void;
+  }) => (
+    <div data-testid='interaction-block'>
+      <span>{element_bid}</span>
+      {showGenerateBtn ? (
+        <button
+          type='button'
+          aria-label={`regenerate-${element_bid}`}
+          onClick={() => onRefresh?.(element_bid || '')}
+        />
+      ) : null}
+    </div>
   ),
 }));
 
@@ -177,6 +194,219 @@ describe('LessonPreview billing action', () => {
     expect(screen.queryByText('typing')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'finish-text-1' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('routes preview regenerate from helper row to the parent content item', () => {
+    const onRefresh = jest.fn();
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'text-1',
+        generated_block_bid: '0',
+        content: '第一段内容',
+        type: ChatContentItemType.CONTENT,
+        element_type: 'text',
+        is_final: true,
+        is_speakable: true,
+      },
+      {
+        element_bid: 'text-1-feedback',
+        generated_block_bid: 'text-1-feedback',
+        parent_element_bid: 'text-1',
+        parent_block_bid: '0',
+        type: ChatContentItemType.LIKE_STATUS,
+      },
+    ];
+
+    render(
+      <LessonPreview
+        loading={false}
+        items={items}
+        shifuBid='shifu-1'
+        onRefresh={onRefresh}
+        onSend={jest.fn()}
+        showGenerateBtn
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'regenerate-text-1' }));
+
+    expect(onRefresh).toHaveBeenCalledWith('text-1');
+  });
+
+  test('prefers a text parent when generated block items include mixed element types', () => {
+    const onRefresh = jest.fn();
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'text-1',
+        generated_block_bid: '0',
+        content: '第一段内容',
+        type: ChatContentItemType.CONTENT,
+        element_type: 'text',
+        is_final: true,
+      },
+      {
+        element_bid: 'html-1',
+        generated_block_bid: '0',
+        content: '<div>rich block</div>',
+        type: ChatContentItemType.CONTENT,
+        element_type: 'html',
+        is_final: true,
+      },
+      {
+        element_bid: 'feedback-1',
+        generated_block_bid: 'feedback-1',
+        parent_element_bid: '',
+        parent_block_bid: '0',
+        type: ChatContentItemType.LIKE_STATUS,
+      },
+    ];
+
+    render(
+      <LessonPreview
+        loading={false}
+        items={items}
+        shifuBid='shifu-1'
+        onRefresh={onRefresh}
+        onSend={jest.fn()}
+        showGenerateBtn
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'regenerate-text-1' }));
+
+    expect(onRefresh).toHaveBeenCalledWith('text-1');
+    expect(
+      screen.queryByRole('button', { name: 'regenerate-html-1' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not expose regenerate when the preview generate action is disabled', () => {
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'text-1',
+        generated_block_bid: '0',
+        content: '第一段内容',
+        type: ChatContentItemType.CONTENT,
+        element_type: 'text',
+        is_final: true,
+        is_speakable: true,
+      },
+      {
+        element_bid: 'text-1-feedback',
+        generated_block_bid: 'text-1-feedback',
+        parent_element_bid: 'text-1',
+        parent_block_bid: '0',
+        type: ChatContentItemType.LIKE_STATUS,
+      },
+    ];
+
+    render(
+      <LessonPreview
+        loading={false}
+        items={items}
+        shifuBid='shifu-1'
+        onRefresh={jest.fn()}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'regenerate-text-1' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not expose regenerate for helper rows without a valid parent item', () => {
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'missing-parent-feedback',
+        generated_block_bid: 'missing-parent-feedback',
+        parent_element_bid: 'missing-parent',
+        parent_block_bid: '9',
+        type: ChatContentItemType.LIKE_STATUS,
+      },
+    ];
+
+    render(
+      <LessonPreview
+        loading={false}
+        items={items}
+        shifuBid='shifu-1'
+        onRefresh={jest.fn()}
+        onSend={jest.fn()}
+        showGenerateBtn
+      />,
+    );
+
+    expect(screen.queryByTestId('interaction-block')).not.toBeInTheDocument();
+  });
+
+  test('does not expose regenerate for interaction parent blocks', () => {
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'interaction-1',
+        generated_block_bid: '2',
+        content: '["完全不了解","略知一二"]',
+        type: ChatContentItemType.INTERACTION,
+        is_final: true,
+      },
+      {
+        element_bid: 'interaction-1-feedback',
+        generated_block_bid: 'interaction-1-feedback',
+        parent_element_bid: 'interaction-1',
+        parent_block_bid: '2',
+        type: ChatContentItemType.LIKE_STATUS,
+      },
+    ];
+
+    render(
+      <LessonPreview
+        loading={false}
+        items={items}
+        shifuBid='shifu-1'
+        onRefresh={jest.fn()}
+        onSend={jest.fn()}
+        showGenerateBtn
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'regenerate-interaction-1' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not expose regenerate for non-text content blocks', () => {
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'rich-1',
+        generated_block_bid: '3',
+        content: '<div>rich block</div>',
+        type: ChatContentItemType.CONTENT,
+        element_type: 'html',
+        is_final: true,
+      },
+      {
+        element_bid: 'rich-1-feedback',
+        generated_block_bid: 'rich-1-feedback',
+        parent_element_bid: 'rich-1',
+        parent_block_bid: '3',
+        type: ChatContentItemType.LIKE_STATUS,
+      },
+    ];
+
+    render(
+      <LessonPreview
+        loading={false}
+        items={items}
+        shifuBid='shifu-1'
+        onRefresh={jest.fn()}
+        onSend={jest.fn()}
+        showGenerateBtn
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'regenerate-rich-1' }),
     ).not.toBeInTheDocument();
   });
 });

@@ -27,7 +27,7 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseOverviewDTO,
     AdminOperationCourseSummaryDTO,
 )
-from flaskr.service.shifu.models import PublishedShifu
+from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 
 
@@ -1189,6 +1189,7 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
                 },
             }
             result = list_operator_courses(app, 1, 20, {})
+            second_page_result = list_operator_courses(app, 2, 1, {})
 
     assert result.total == 3
     assert [item.shifu_bid for item in result.items] == [
@@ -1203,6 +1204,83 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
     assert result.items[0].updater_nickname == "Editor One"
     assert result.items[1].course_status == "unpublished"
     assert result.items[2].course_status == "published"
+    assert second_page_result.total == 3
+    assert second_page_result.page == 2
+    assert second_page_result.page_count == 3
+    assert [item.shifu_bid for item in second_page_result.items] == [draft_only_bid]
+
+
+def test_list_operator_courses_sql_path_uses_current_outline_revisions_only(app):
+    creator_bid = uuid.uuid4().hex[:32]
+    shifu_bid = uuid.uuid4().hex[:32]
+    outline_item_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        DraftOutlineItem.query.delete()
+        PublishedOutlineItem.query.delete()
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
+        db.session.add(
+            DraftShifu(
+                shifu_bid=shifu_bid,
+                title="Current Outline Revision Course",
+                description="desc",
+                avatar_res_bid="",
+                keywords="",
+                llm="gpt-test",
+                llm_temperature=Decimal("0"),
+                llm_system_prompt="",
+                price=Decimal("19"),
+                created_user_bid=creator_bid,
+                updated_user_bid=creator_bid,
+                created_at=datetime(2025, 4, 1, 9, 0, 0),
+                updated_at=datetime(2025, 4, 1, 10, 0, 0),
+            )
+        )
+        db.session.flush()
+        db.session.add_all(
+            [
+                DraftOutlineItem(
+                    outline_item_bid=outline_item_bid,
+                    shifu_bid=shifu_bid,
+                    title="Old Active Revision",
+                    parent_bid="",
+                    position="1",
+                    created_user_bid=creator_bid,
+                    updated_user_bid="old-outline-editor",
+                    updated_at=datetime(2025, 5, 5, 10, 0, 0),
+                ),
+                DraftOutlineItem(
+                    outline_item_bid=outline_item_bid,
+                    shifu_bid=shifu_bid,
+                    title="Current Deleted Revision",
+                    parent_bid="",
+                    position="1",
+                    deleted=1,
+                    created_user_bid=creator_bid,
+                    updated_user_bid="deleted-outline-editor",
+                    updated_at=datetime(2025, 5, 6, 10, 0, 0),
+                ),
+            ]
+        )
+        db.session.commit()
+
+        result = list_operator_courses(app, 1, 20, {})
+        filtered_result = list_operator_courses(
+            app,
+            1,
+            20,
+            {"updated_start_time": datetime(2025, 5, 1, 0, 0, 0)},
+        )
+
+    assert result.total == 1
+    assert result.items[0].shifu_bid == shifu_bid
+    assert result.items[0].updated_at == "2025-04-01T10:00:00Z"
+    assert result.items[0].updater_user_bid == creator_bid
+    assert filtered_result.total == 0
+    assert filtered_result.items == []
 
 
 def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(app):

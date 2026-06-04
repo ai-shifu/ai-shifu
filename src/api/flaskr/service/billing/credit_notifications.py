@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask, has_app_context
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import false, func
+from sqlalchemy import false, func, or_
 
 from flaskr.api.sms.aliyun import (
     get_sms_template_ali,
@@ -46,6 +46,7 @@ from .consts import (
     CREDIT_NOTIFICATION_STATUS_SENT,
     CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE,
     CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
+    CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE,
     CREDIT_NOTIFICATION_TYPE_EXPIRING,
     CREDIT_NOTIFICATION_TYPE_GRANTED,
     CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
@@ -81,6 +82,14 @@ LOW_BALANCE_ESTIMATED_DAYS_MAX_LOOKBACK_DAYS = 365
 NOTIFICATION_TEMPLATE_PROVIDER_ALIYUN = "aliyun"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_SYNCED = "synced"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_FAILED_PROVIDER = "failed_provider"
+CREDIT_NOTIFICATION_STATUS_SKIPPED = "skipped"
+CREDIT_NOTIFICATION_DELIVERY_STATUS_FAILED = "failed"
+CREDIT_NOTIFICATION_DELIVERY_STATUS_NOT_SENT = "not_sent"
+CREDIT_NOTIFICATION_SKIP_REASON_CONTACT = "contact"
+CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE = "duplicate"
+CREDIT_NOTIFICATION_SKIP_REASON_POLICY = "policy"
+CREDIT_NOTIFICATION_SKIP_REASON_STALE = "stale"
+CREDIT_NOTIFICATION_SKIP_REASON_TEMPLATE_PARAMS = "template_params"
 NOTIFICATION_TEMPLATE_SYNC_STATUS_MISSING_CREDENTIALS = "missing_credentials"
 _TEMPLATE_PLACEHOLDER_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS: dict[str, tuple[str, ...]] = {
@@ -984,7 +993,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
             }
 
         now = datetime.now()
-        response = query_sms_template_list_ali(app, page_index=1, page_size=100)
+        response = query_sms_template_list_ali(app, page_index=1, page_size=50)
         body = getattr(response, "body", None)
         response_code = _template_body_value(body, "code") if body is not None else ""
         if body is None or (response_code and response_code != "OK"):
@@ -2933,6 +2942,95 @@ def _parse_positive_int(value: Any, default: int) -> int:
     return max(1, parsed)
 
 
+def _is_notification_not_sent_status(status: str) -> bool:
+    normalized_status = str(status or "").strip()
+    return normalized_status.startswith("skipped") or (
+        normalized_status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE
+    )
+
+
+def _notification_not_sent_condition():
+    return or_(
+        NotificationRecord.status.like("skipped%"),
+        NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE,
+    )
+
+
+def _resolve_notification_delivery_status(status: str) -> str:
+    normalized_status = str(status or "").strip()
+    if normalized_status == CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER:
+        return CREDIT_NOTIFICATION_DELIVERY_STATUS_FAILED
+    if _is_notification_not_sent_status(normalized_status):
+        return CREDIT_NOTIFICATION_DELIVERY_STATUS_NOT_SENT
+    return normalized_status
+
+
+def _resolve_notification_skip_reason(status: str, error_code: str = "") -> str:
+    normalized_status = str(status or "").strip()
+    normalized_error_code = str(error_code or "").strip()
+    if normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE:
+        return CREDIT_NOTIFICATION_SKIP_REASON_CONTACT
+    if normalized_status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE:
+        return CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE
+    if (
+        normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED
+        or normalized_error_code == "expiry_extended"
+    ):
+        return CREDIT_NOTIFICATION_SKIP_REASON_STALE
+    if normalized_error_code == "missing_template_params":
+        return CREDIT_NOTIFICATION_SKIP_REASON_TEMPLATE_PARAMS
+    if normalized_status == CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT:
+        return CREDIT_NOTIFICATION_SKIP_REASON_POLICY
+    if _is_notification_not_sent_status(normalized_status):
+        return CREDIT_NOTIFICATION_SKIP_REASON_POLICY
+    return ""
+
+
+def _notification_delivery_status_condition(delivery_status: str):
+    if delivery_status == CREDIT_NOTIFICATION_STATUS_PENDING:
+        return NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_PENDING
+    if delivery_status == CREDIT_NOTIFICATION_STATUS_SENT:
+        return NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SENT
+    if delivery_status == CREDIT_NOTIFICATION_DELIVERY_STATUS_FAILED:
+        return NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER
+    if delivery_status == CREDIT_NOTIFICATION_DELIVERY_STATUS_NOT_SENT:
+        return _notification_not_sent_condition()
+    return None
+
+
+def _notification_skip_reason_condition(skip_reason: str):
+    contact_condition = (
+        NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE
+    )
+    duplicate_condition = (
+        NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE
+    )
+    stale_condition = or_(
+        NotificationRecord.status == CREDIT_NOTIFICATION_STATUS_SKIPPED,
+        NotificationRecord.error_code == "expiry_extended",
+    )
+    template_params_condition = (
+        NotificationRecord.error_code == "missing_template_params"
+    ) & ~or_(contact_condition, duplicate_condition, stale_condition)
+
+    if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_CONTACT:
+        return contact_condition
+    if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_DUPLICATE:
+        return duplicate_condition
+    if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_STALE:
+        return stale_condition
+    if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_TEMPLATE_PARAMS:
+        return template_params_condition
+    if skip_reason == CREDIT_NOTIFICATION_SKIP_REASON_POLICY:
+        return _notification_not_sent_condition() & ~or_(
+            contact_condition,
+            duplicate_condition,
+            stale_condition,
+            template_params_condition,
+        )
+    return None
+
+
 def get_operator_credit_notification_overview(app: Flask) -> dict[str, int]:
     with app.app_context():
         rows = (
@@ -2981,14 +3079,21 @@ def list_credit_notifications(
             value = _normalize_bid(normalized_filters.get(field))
             if value:
                 query = query.filter(getattr(NotificationRecord, field) == value)
+        delivery_status = _normalize_bid(normalized_filters.get("delivery_status"))
+        delivery_status_condition = _notification_delivery_status_condition(
+            delivery_status
+        )
+        if delivery_status_condition is not None:
+            query = query.filter(delivery_status_condition)
         status = _normalize_bid(normalized_filters.get("status"))
-        if status == "skipped":
-            query = query.filter(
-                (NotificationRecord.status.like("skipped%"))
-                | (NotificationRecord.status == "suppressed_duplicate")
-            )
-        elif status:
+        if not delivery_status and status == "skipped":
+            query = query.filter(_notification_not_sent_condition())
+        elif not delivery_status and status:
             query = query.filter(NotificationRecord.status == status)
+        skip_reason = _normalize_bid(normalized_filters.get("skip_reason"))
+        skip_reason_condition = _notification_skip_reason_condition(skip_reason)
+        if skip_reason_condition is not None:
+            query = query.filter(skip_reason_condition)
         mobile = _normalize_bid(normalized_filters.get("mobile"))
         if mobile:
             query = query.filter(NotificationRecord.mobile_snapshot == mobile)
@@ -3134,6 +3239,11 @@ def _serialize_notification_record_summary(
         "source_type": row.source_type,
         "source_bid": row.source_bid,
         "status": row.status,
+        "delivery_status": _resolve_notification_delivery_status(row.status),
+        "skip_reason": _resolve_notification_skip_reason(
+            row.status,
+            row.error_code,
+        ),
         "template_code": row.template_code,
         "template_name": template_name,
         "error_code": row.error_code,
@@ -3165,6 +3275,11 @@ def _serialize_notification_record(
         "source_bid": row.source_bid,
         "dedupe_key": row.dedupe_key,
         "status": row.status,
+        "delivery_status": _resolve_notification_delivery_status(row.status),
+        "skip_reason": _resolve_notification_skip_reason(
+            row.status,
+            row.error_code,
+        ),
         "template_code": row.template_code,
         "template_name": template_name,
         "template_params": row.template_params_json or {},

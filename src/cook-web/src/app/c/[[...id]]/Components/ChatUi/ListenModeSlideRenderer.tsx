@@ -14,6 +14,11 @@ import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { LoadingDots } from '@/components/loading';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/Popover';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
@@ -40,9 +45,22 @@ import {
   resolveCurrentStepAudioCompletion,
   type ListenPlaybackState,
 } from './listenPlaybackState';
+import {
+  applyListenPlaybackSpeedToAudioElement,
+  formatListenPlaybackSpeed,
+  LISTEN_PLAYBACK_SPEED_OPTIONS,
+  readListenPlaybackSpeedFromStorage,
+  type ListenPlaybackSpeed,
+  writeListenPlaybackSpeedToStorage,
+} from './listenPlaybackSpeed';
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
+import ListenSpeed075Icon from '@/c-assets/newchat/light/listen-speed/speed-075.svg';
+import ListenSpeed100Icon from '@/c-assets/newchat/light/listen-speed/speed-100.svg';
+import ListenSpeed125Icon from '@/c-assets/newchat/light/listen-speed/speed-125.svg';
+import ListenSpeed150Icon from '@/c-assets/newchat/light/listen-speed/speed-150.svg';
+import ListenSpeed200Icon from '@/c-assets/newchat/light/listen-speed/speed-200.svg';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
@@ -209,6 +227,112 @@ const ListenSlideAskPlayerAction = memo(
 );
 
 ListenSlideAskPlayerAction.displayName = 'ListenSlideAskPlayerAction';
+
+interface ListenPlaybackSpeedPlayerActionProps {
+  ariaLabel: string;
+  label: string;
+  playbackSpeed: ListenPlaybackSpeed;
+  portalContainer?: HTMLElement | null;
+  onPlaybackSpeedChange: (playbackSpeed: ListenPlaybackSpeed) => void;
+}
+
+const LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE = {
+  [0.75]: ListenSpeed075Icon,
+  [1]: ListenSpeed100Icon,
+  [1.25]: ListenSpeed125Icon,
+  [1.5]: ListenSpeed150Icon,
+  [2]: ListenSpeed200Icon,
+} satisfies Record<ListenPlaybackSpeed, string>;
+
+const ListenPlaybackSpeedPlayerAction = memo(
+  ({
+    ariaLabel,
+    label,
+    playbackSpeed,
+    portalContainer,
+    onPlaybackSpeedChange,
+  }: ListenPlaybackSpeedPlayerActionProps) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const handlePlaybackSpeedChange = useCallback(
+      (nextPlaybackSpeed: ListenPlaybackSpeed) => {
+        onPlaybackSpeedChange(nextPlaybackSpeed);
+        setIsOpen(false);
+      },
+      [onPlaybackSpeedChange],
+    );
+
+    return (
+      <Popover
+        open={isOpen}
+        onOpenChange={setIsOpen}
+      >
+        <PopoverTrigger asChild>
+          <button
+            aria-label={ariaLabel}
+            className='slide-player__action listen-playback-speed-action'
+            title={ariaLabel}
+            type='button'
+          >
+            <Image
+              alt=''
+              aria-hidden='true'
+              height={22}
+              className='slide-player__icon listen-playback-speed-action__icon'
+              src={LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE[playbackSpeed]}
+              width={44}
+            />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align='center'
+          className='listen-playback-speed-popover'
+          container={portalContainer}
+          side='top'
+          sideOffset={8}
+        >
+          <div
+            aria-label={label}
+            className='listen-playback-speed-menu'
+            role='radiogroup'
+          >
+            <div className='listen-playback-speed-menu__title'>{label}</div>
+            {LISTEN_PLAYBACK_SPEED_OPTIONS.map(option => {
+              const isSelected = option === playbackSpeed;
+              const optionLabel = formatListenPlaybackSpeed(option);
+              return (
+                <button
+                  aria-checked={isSelected}
+                  aria-label={optionLabel}
+                  className={cn(
+                    'listen-playback-speed-option',
+                    isSelected && 'listen-playback-speed-option--active',
+                  )}
+                  key={option}
+                  onClick={() => handlePlaybackSpeedChange(option)}
+                  role='radio'
+                  title={optionLabel}
+                  type='button'
+                >
+                  <Image
+                    alt=''
+                    aria-hidden='true'
+                    className='listen-playback-speed-option__icon'
+                    height={22}
+                    src={LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE[option]}
+                    width={44}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  },
+);
+
+ListenPlaybackSpeedPlayerAction.displayName = 'ListenPlaybackSpeedPlayerAction';
 
 const hasListenStepAudio = (element?: SlideElement) => {
   const listenElement = element as ListenSlideElement | undefined;
@@ -433,6 +557,10 @@ const ListenModeSlideRenderer = ({
   const audioWaitingStateMapRef = useRef<Map<HTMLAudioElement, boolean>>(
     new Map(),
   );
+  const [playbackSpeed, setPlaybackSpeed] = useState<ListenPlaybackSpeed>(() =>
+    readListenPlaybackSpeedFromStorage(shifuBid),
+  );
+  const playbackSpeedRef = useRef<ListenPlaybackSpeed>(playbackSpeed);
   const [interactionInputMap, setInteractionInputMap] = useState<
     Record<string, string>
   >({});
@@ -479,6 +607,26 @@ const ListenModeSlideRenderer = ({
   const storedAskListByAnchorElementBid = useAskStateStore(
     state => state.askListByAnchorElementBid,
   );
+
+  useEffect(() => {
+    const storedPlaybackSpeed = readListenPlaybackSpeedFromStorage(shifuBid);
+    playbackSpeedRef.current = storedPlaybackSpeed;
+    setPlaybackSpeed(storedPlaybackSpeed);
+  }, [shifuBid]);
+
+  useEffect(() => {
+    playbackSpeedRef.current = playbackSpeed;
+  }, [playbackSpeed]);
+
+  const handleListenPlaybackSpeedChange = useCallback(
+    (nextPlaybackSpeed: ListenPlaybackSpeed) => {
+      playbackSpeedRef.current = nextPlaybackSpeed;
+      setPlaybackSpeed(nextPlaybackSpeed);
+      writeListenPlaybackSpeedToStorage(shifuBid, nextPlaybackSpeed);
+    },
+    [shifuBid],
+  );
+
   const {
     lastInteractionBid,
     lastItemIsInteraction,
@@ -909,7 +1057,15 @@ const ListenModeSlideRenderer = ({
       return;
     }
 
+    const audioListenerCleanupMap = audioListenerCleanupMapRef.current;
+    const audioWaitingStateMap = audioWaitingStateMapRef.current;
+
     const registerAudioElement = (audioElement: HTMLAudioElement) => {
+      applyListenPlaybackSpeedToAudioElement(
+        audioElement,
+        playbackSpeedRef.current,
+      );
+
       if (audioListenerCleanupMapRef.current.has(audioElement)) {
         return;
       }
@@ -1006,13 +1162,31 @@ const ListenModeSlideRenderer = ({
 
     return () => {
       mutationObserver.disconnect();
-      audioListenerCleanupMapRef.current.forEach(cleanup => {
+      audioListenerCleanupMap.forEach(cleanup => {
         cleanup();
       });
-      audioListenerCleanupMapRef.current.clear();
-      audioWaitingStateMapRef.current.clear();
+      audioListenerCleanupMap.clear();
+      audioWaitingStateMap.clear();
     };
   }, [chatRef, syncMediaPlaybackState]);
+
+  useEffect(() => {
+    const container = chatRef.current;
+    if (!container) {
+      return;
+    }
+
+    const syncPlaybackSpeedToAudio = (audioElement: HTMLAudioElement) => {
+      applyListenPlaybackSpeedToAudioElement(audioElement, playbackSpeed);
+    };
+
+    Array.from(container.querySelectorAll<HTMLAudioElement>('audio')).forEach(
+      syncPlaybackSpeedToAudio,
+    );
+    audioWaitingStateMapRef.current.forEach((_isWaiting, audioElement) => {
+      syncPlaybackSpeedToAudio(audioElement);
+    });
+  }, [chatRef, playbackSpeed]);
 
   const handleStepChange = useCallback(
     (element: SlideElement | undefined, index: number) => {
@@ -1254,35 +1428,57 @@ const ListenModeSlideRenderer = ({
 
   const playerCustomActions = useCallback(
     (context: SlidePlayerCustomActionContext) => {
+      const playbackSpeedLabel = formatListenPlaybackSpeed(playbackSpeed);
+      const playbackSpeedAction = (
+        <ListenPlaybackSpeedPlayerAction
+          ariaLabel={t('module.chat.listenPlaybackSpeedAriaLabel', {
+            speed: playbackSpeedLabel,
+          })}
+          label={t('module.chat.listenPlaybackSpeedLabel')}
+          onPlaybackSpeedChange={handleListenPlaybackSpeedChange}
+          playbackSpeed={playbackSpeed}
+          portalContainer={fullscreenPortalContainer}
+        />
+      );
+
       if (mobileStyle) {
         return (
+          <>
+            {playbackSpeedAction}
+            <ListenSlideAskPlayerAction
+              context={context}
+              label={t('module.chat.ask')}
+              onBeforeOpen={closeInteractionOverlayIfOpen}
+              onContextChange={handlePlayerCustomActionContextChange}
+              disabled={isAskActionDisabled}
+              renderButton={false}
+            />
+          </>
+        );
+      }
+
+      return (
+        <>
+          {playbackSpeedAction}
           <ListenSlideAskPlayerAction
+            actionRef={desktopAskActionRef}
             context={context}
             label={t('module.chat.ask')}
             onBeforeOpen={closeInteractionOverlayIfOpen}
             onContextChange={handlePlayerCustomActionContextChange}
             disabled={isAskActionDisabled}
-            renderButton={false}
           />
-        );
-      }
-
-      return (
-        <ListenSlideAskPlayerAction
-          actionRef={desktopAskActionRef}
-          context={context}
-          label={t('module.chat.ask')}
-          onBeforeOpen={closeInteractionOverlayIfOpen}
-          onContextChange={handlePlayerCustomActionContextChange}
-          disabled={isAskActionDisabled}
-        />
+        </>
       );
     },
     [
       closeInteractionOverlayIfOpen,
+      fullscreenPortalContainer,
+      handleListenPlaybackSpeedChange,
       handlePlayerCustomActionContextChange,
       isAskActionDisabled,
       mobileStyle,
+      playbackSpeed,
       t,
     ],
   );

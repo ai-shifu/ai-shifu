@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
@@ -51,9 +51,11 @@ import {
 } from '@/components/ui/Table';
 import OrderDetailSheet from '@/components/order/OrderDetailSheet';
 import ImportActivationDialog from '@/components/order/ImportActivationDialog';
+import CreatorRedemptionCodeDialog from './CreatorRedemptionCodeDialog';
+import CreatorRedemptionCodesTab from './CreatorRedemptionCodesTab';
 import { cn } from '@/lib/utils';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { ArchiveRestore, Check, ChevronDown } from 'lucide-react';
+import { ArchiveRestore, Check, ChevronDown, Ticket } from 'lucide-react';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
@@ -61,6 +63,11 @@ import type { EnvStoreState } from '@/c-types/store';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import {
+  ORDER_TABS_LIST_CLASSNAME,
+  ORDER_TABS_TRIGGER_CLASSNAME,
+} from '@/app/admin/operations/orders/orderUiShared';
 
 type OrderListResponse = {
   items: OrderSummary[];
@@ -82,6 +89,7 @@ type OrderFilters = {
 
 const PAGE_SIZE = 20;
 const DEFAULT_ORDER_STATUS = '502';
+const QUERY_TAB_KEY = 'tab';
 const QUERY_STATUS_KEY = 'status';
 const QUERY_SHIFU_BID_KEY = 'shifu_bid';
 const COLUMN_MIN_WIDTH = 80;
@@ -107,9 +115,13 @@ type SearchParamsLike = Pick<
   URLSearchParams,
   'get' | 'has' | 'toString'
 > | null;
+type OrdersPageTab = 'orders' | 'redemptionCodes';
 
 const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
+
+const resolveOrdersPageTab = (value: string | null): OrdersPageTab =>
+  value === 'redemptionCodes' ? 'redemptionCodes' : 'orders';
 
 const createDefaultFilters = (): OrderFilters => ({
   order_bid: '',
@@ -148,9 +160,17 @@ const createFiltersFromSearchParams = (
 
 const OrdersPage = () => {
   const { t, i18n } = useTranslation();
+  const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamsString = searchParams?.toString() || '';
+  const activeTabFromUrl = useMemo(
+    () =>
+      resolveOrdersPageTab(
+        new URLSearchParams(searchParamsString).get(QUERY_TAB_KEY),
+      ),
+    [searchParamsString],
+  );
   const hasStatusQuery = useMemo(
     () => new URLSearchParams(searchParamsString).has(QUERY_STATUS_KEY),
     [searchParamsString],
@@ -184,6 +204,8 @@ const OrdersPage = () => {
   const [total, setTotal] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<OrderSummary | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [redemptionOpen, setRedemptionOpen] = useState(false);
+  const [redemptionReloadKey, setRedemptionReloadKey] = useState(0);
   const [importOpen, setImportOpen] = useState(false);
   const [courses, setCourses] = useState<Shifu[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
@@ -192,6 +214,7 @@ const OrdersPage = () => {
   const [filters, setFilters] = useState<OrderFilters>(() => initialFilters);
   const filtersRef = useRef<OrderFilters>(initialFilters);
   const [expanded, setExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<OrdersPageTab>(activeTabFromUrl);
 
   const {
     setColumnWidths,
@@ -332,6 +355,27 @@ const OrdersPage = () => {
       return matchesName || matchesBid;
     });
   }, [courseSearch, courses]);
+
+  useEffect(() => {
+    setActiveTab(activeTabFromUrl);
+  }, [activeTabFromUrl]);
+
+  const updateTab = useCallback(
+    (nextTab: OrdersPageTab) => {
+      setActiveTab(nextTab);
+      const nextSearchParams = new URLSearchParams(searchParamsString);
+      if (nextTab === 'orders') {
+        nextSearchParams.delete(QUERY_TAB_KEY);
+      } else {
+        nextSearchParams.set(QUERY_TAB_KEY, nextTab);
+      }
+      const query = nextSearchParams.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    },
+    [pathname, router, searchParamsString],
+  );
 
   useEffect(() => {
     filtersRef.current = filters;
@@ -624,10 +668,10 @@ const OrdersPage = () => {
   );
 
   useEffect(() => {
-    if (isInitialized && !isGuest) {
+    if (isInitialized && !isGuest && activeTab === 'orders') {
       fetchOrders(1);
     }
-  }, [fetchOrders, i18n.language, isGuest, isInitialized]);
+  }, [activeTab, fetchOrders, i18n.language, isGuest, isInitialized]);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -640,11 +684,12 @@ const OrdersPage = () => {
   }, [isInitialized, isGuest]);
 
   useEffect(() => {
-    if (!isInitialized || isGuest || hasStatusQuery) {
+    if (!isInitialized || isGuest || hasStatusQuery || activeTab !== 'orders') {
       return;
     }
     syncJumpFiltersQuery(initialFilters);
   }, [
+    activeTab,
     hasStatusQuery,
     initialFilters,
     isGuest,
@@ -889,7 +934,7 @@ const OrdersPage = () => {
       ),
     },
   ];
-  if (error) {
+  if (activeTab === 'orders' && error) {
     return (
       <div className='h-full p-0'>
         <ErrorDisplay
@@ -905,266 +950,308 @@ const OrdersPage = () => {
     <div className='h-full p-0'>
       <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden'>
         <AdminBreadcrumb items={[{ label: t('module.order.title') }]} />
-        <AdminTitle
-          title={t('module.order.title')}
-          actions={
-            <div className='flex items-center gap-3 lg:justify-end'>
-              <Button
-                variant='ghost'
-                className='h-9 gap-1.5 px-0 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] hover:bg-transparent hover:text-[var(--base-foreground,#0A0A0A)]'
-                onClick={() => setImportOpen(true)}
+        <Tabs
+          value={activeTab}
+          className='flex min-h-0 flex-1 flex-col'
+          onValueChange={value => updateTab(value as OrdersPageTab)}
+        >
+          <AdminTitle
+            title={t('module.order.title')}
+            tabs={
+              <TabsList
+                className={ORDER_TABS_LIST_CLASSNAME}
+                data-testid='creator-orders-tabs'
               >
-                <ArchiveRestore className='h-4 w-4' />
-                {t('module.order.importActivation.action')}
-              </Button>
-            </div>
-          }
-        />
+                <TabsTrigger
+                  value='orders'
+                  className={ORDER_TABS_TRIGGER_CLASSNAME}
+                >
+                  {t('module.order.tabs.orders')}
+                </TabsTrigger>
+                <TabsTrigger
+                  value='redemptionCodes'
+                  className={ORDER_TABS_TRIGGER_CLASSNAME}
+                >
+                  {t('module.order.tabs.redemptionCodes')}
+                </TabsTrigger>
+              </TabsList>
+            }
+            actions={
+              <div className='flex items-center gap-3 lg:justify-end'>
+                <Button
+                  variant='ghost'
+                  className='h-9 gap-1.5 px-0 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] hover:bg-transparent hover:text-[var(--base-foreground,#0A0A0A)]'
+                  onClick={() => setRedemptionOpen(true)}
+                >
+                  <Ticket className='h-4 w-4' />
+                  {t('module.order.redemptionCodes.action')}
+                </Button>
+                <Button
+                  variant='ghost'
+                  className='h-9 gap-1.5 px-0 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] hover:bg-transparent hover:text-[var(--base-foreground,#0A0A0A)]'
+                  onClick={() => setImportOpen(true)}
+                >
+                  <ArchiveRestore className='h-4 w-4' />
+                  {t('module.order.importActivation.action')}
+                </Button>
+              </div>
+            }
+          />
 
-        <div className='min-h-0 flex-1 overflow-hidden pr-1'>
-          <div className='flex h-full min-h-0 flex-col gap-5 pb-6'>
-            <AdminFilter
-              items={filterItems}
-              expanded={expanded}
-              onExpandedChange={setExpanded}
-              onReset={handleReset}
-              onSearch={handleSearch}
-              resetLabel={t('module.order.filters.reset')}
-              searchLabel={t('module.order.filters.search')}
-              expandLabel={t('common.core.expand')}
-              collapseLabel={t('common.core.collapse')}
-              collapsedCount={3}
-              contentClassName={filterControlClassName}
-              expandedLabelClassName={filterLabelClassName}
-            />
+          <div className='min-h-0 flex-1 overflow-hidden pr-1'>
+            {activeTab === 'orders' ? (
+              <div className='flex h-full min-h-0 flex-col gap-5 pb-6'>
+                <AdminFilter
+                  items={filterItems}
+                  expanded={expanded}
+                  onExpandedChange={setExpanded}
+                  onReset={handleReset}
+                  onSearch={handleSearch}
+                  resetLabel={t('module.order.filters.reset')}
+                  searchLabel={t('module.order.filters.search')}
+                  expandLabel={t('common.core.expand')}
+                  collapseLabel={t('common.core.collapse')}
+                  collapsedCount={3}
+                  contentClassName={filterControlClassName}
+                  expandedLabelClassName={filterLabelClassName}
+                />
 
-            <AdminTableShell
-              loading={loading}
-              isEmpty={orders.length === 0}
-              emptyContent={t('module.order.emptyList')}
-              emptyColSpan={Object.keys(DEFAULT_COLUMN_WIDTHS).length}
-              withTooltipProvider
-              tableWrapperClassName='max-h-[calc(100vh-20rem)] overflow-auto'
-              footnote={t('module.order.totalCount', { count: total })}
-              pagination={{
-                pageIndex,
-                pageCount,
-                onPageChange: handlePageChange,
-                prevLabel: t('module.order.paginationPrev'),
-                nextLabel: t('module.order.paginationNext'),
-                prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
-                nextAriaLabel: t('module.order.paginationNextAriaLabel'),
-              }}
-              table={emptyRow => (
-                <Table className='table-auto'>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CLASS,
-                          'h-10 whitespace-nowrap text-center text-xs',
-                        )}
-                        style={getColumnStyle('shifu')}
-                      >
-                        {t('module.order.table.shifu')}
-                        {renderResizeHandle('shifu')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CLASS,
-                          'h-10 whitespace-nowrap text-center text-xs',
-                        )}
-                        style={getColumnStyle('user')}
-                      >
-                        {t('module.order.table.user')}
-                        {renderResizeHandle('user')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CLASS,
-                          'h-10 whitespace-nowrap text-center text-xs',
-                        )}
-                        style={getColumnStyle('status')}
-                      >
-                        {t('module.order.table.status')}
-                        {renderResizeHandle('status')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CLASS,
-                          'h-10 whitespace-nowrap text-center text-xs',
-                        )}
-                        style={getColumnStyle('paidAmount')}
-                      >
-                        {t('module.order.fields.paid')}
-                        {renderResizeHandle('paidAmount')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CLASS,
-                          'h-10 whitespace-nowrap text-center text-xs',
-                        )}
-                        style={getColumnStyle('discountInfo')}
-                      >
-                        {t('module.order.fields.discount')}
-                        {renderResizeHandle('discountInfo')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CLASS,
-                          'h-10 whitespace-nowrap text-center text-xs',
-                        )}
-                        style={getColumnStyle('payment')}
-                      >
-                        {t('module.order.table.payment')}
-                        {renderResizeHandle('payment')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_CELL_CLASS,
-                          'h-10 whitespace-nowrap text-center text-xs',
-                        )}
-                        style={getColumnStyle('createdAt')}
-                      >
-                        {t('module.order.table.createdAt')}
-                        {renderResizeHandle('createdAt')}
-                      </TableHead>
-                      <TableHead
-                        className={cn(
-                          ADMIN_TABLE_HEADER_LAST_CELL_CLASS,
-                          'h-10 whitespace-nowrap text-center text-xs',
-                        )}
-                        style={getColumnStyle('orderId')}
-                      >
-                        {t('module.order.table.orderId')}
-                        {renderResizeHandle('orderId')}
-                      </TableHead>
-                      <TableHead
-                        className={getAdminStickyRightHeaderClass(
-                          'h-10 whitespace-nowrap text-center text-xs',
-                        )}
-                        style={getColumnStyle('action')}
-                      >
-                        {t('module.order.table.action')}
-                        {renderResizeHandle('action')}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {emptyRow}
-                    {orders.map(order => {
-                      const userContact =
-                        (isEmailMode ? order.user_email : order.user_mobile) ||
-                        order.user_bid ||
-                        '-';
-                      const userName = order.user_nickname || defaultUserName;
-
-                      return (
-                        <TableRow key={order.order_bid}>
-                          <TableCell
-                            className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                <AdminTableShell
+                  loading={loading}
+                  isEmpty={orders.length === 0}
+                  emptyContent={t('module.order.emptyList')}
+                  emptyColSpan={Object.keys(DEFAULT_COLUMN_WIDTHS).length}
+                  withTooltipProvider
+                  tableWrapperClassName='max-h-[calc(100vh-20rem)] overflow-auto'
+                  footnote={t('module.order.totalCount', { count: total })}
+                  pagination={{
+                    pageIndex,
+                    pageCount,
+                    onPageChange: handlePageChange,
+                    prevLabel: t('module.order.paginationPrev'),
+                    nextLabel: t('module.order.paginationNext'),
+                    prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+                    nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+                  }}
+                  table={emptyRow => (
+                    <Table className='table-auto'>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CLASS,
+                              'h-10 whitespace-nowrap text-center text-xs',
+                            )}
                             style={getColumnStyle('shifu')}
                           >
-                            {renderTooltipText(
-                              order.shifu_name || order.shifu_bid,
-                              'text-foreground',
+                            {t('module.order.table.shifu')}
+                            {renderResizeHandle('shifu')}
+                          </TableHead>
+                          <TableHead
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CLASS,
+                              'h-10 whitespace-nowrap text-center text-xs',
                             )}
-                          </TableCell>
-                          <TableCell
-                            className='border-r border-border px-3 py-2 align-middle'
                             style={getColumnStyle('user')}
                           >
-                            <div className='space-y-1'>
-                              {renderTooltipText(
-                                userContact,
-                                'text-sm font-medium text-foreground',
-                              )}
-                              {renderTooltipText(
-                                userName,
-                                'block text-xs text-muted-foreground',
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell
-                            className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                            {t('module.order.table.user')}
+                            {renderResizeHandle('user')}
+                          </TableHead>
+                          <TableHead
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CLASS,
+                              'h-10 whitespace-nowrap text-center text-xs',
+                            )}
                             style={getColumnStyle('status')}
                           >
-                            {renderPlainTableText(resolveStatusLabel(order))}
-                          </TableCell>
-                          <TableCell
-                            className='border-r border-border px-3 py-2 align-middle'
+                            {t('module.order.table.status')}
+                            {renderResizeHandle('status')}
+                          </TableHead>
+                          <TableHead
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CLASS,
+                              'h-10 whitespace-nowrap text-center text-xs',
+                            )}
                             style={getColumnStyle('paidAmount')}
                           >
-                            <div className='text-center'>
-                              {renderPlainTableText(
-                                formatMoney(order.paid_price),
-                                'text-foreground',
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell
-                            className='border-r border-border px-3 py-2 align-middle'
+                            {t('module.order.fields.paid')}
+                            {renderResizeHandle('paidAmount')}
+                          </TableHead>
+                          <TableHead
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CLASS,
+                              'h-10 whitespace-nowrap text-center text-xs',
+                            )}
                             style={getColumnStyle('discountInfo')}
                           >
-                            <div className='text-center'>
-                              {renderPlainTableText(
-                                order.discount_amount &&
-                                  order.discount_amount !== '0'
-                                  ? formatMoney(order.discount_amount)
-                                  : '-',
-                                'text-foreground',
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell
-                            className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                            {t('module.order.fields.discount')}
+                            {renderResizeHandle('discountInfo')}
+                          </TableHead>
+                          <TableHead
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CLASS,
+                              'h-10 whitespace-nowrap text-center text-xs',
+                            )}
                             style={getColumnStyle('payment')}
                           >
-                            <div className='text-sm text-foreground'>
-                              {renderPlainTableText(
-                                t(order.payment_channel_key),
-                                'text-sm',
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell
-                            className='overflow-hidden whitespace-nowrap px-3 py-2 text-center text-ellipsis'
+                            {t('module.order.table.payment')}
+                            {renderResizeHandle('payment')}
+                          </TableHead>
+                          <TableHead
+                            className={cn(
+                              ADMIN_TABLE_HEADER_CELL_CLASS,
+                              'h-10 whitespace-nowrap text-center text-xs',
+                            )}
                             style={getColumnStyle('createdAt')}
                           >
-                            {renderPlainTableText(
-                              formatAdminUtcDateTime(order.created_at),
+                            {t('module.order.table.createdAt')}
+                            {renderResizeHandle('createdAt')}
+                          </TableHead>
+                          <TableHead
+                            className={cn(
+                              ADMIN_TABLE_HEADER_LAST_CELL_CLASS,
+                              'h-10 whitespace-nowrap text-center text-xs',
                             )}
-                          </TableCell>
-                          <TableCell
-                            className='overflow-hidden whitespace-nowrap px-3 py-2 text-center text-ellipsis'
                             style={getColumnStyle('orderId')}
                           >
-                            {renderTooltipText(order.order_bid)}
-                          </TableCell>
-                          <TableCell
-                            className={getAdminStickyRightCellClass(
-                              'whitespace-nowrap px-3 py-2 text-center',
+                            {t('module.order.table.orderId')}
+                            {renderResizeHandle('orderId')}
+                          </TableHead>
+                          <TableHead
+                            className={getAdminStickyRightHeaderClass(
+                              'h-10 whitespace-nowrap text-center text-xs',
                             )}
                             style={getColumnStyle('action')}
                           >
-                            <Button
-                              size='sm'
-                              variant='ghost'
-                              className='h-auto justify-start rounded-none p-0 text-primary hover:bg-transparent hover:text-primary'
-                              onClick={() => handleViewDetail(order)}
-                            >
-                              {t('module.order.table.view')}
-                            </Button>
-                          </TableCell>
+                            {t('module.order.table.action')}
+                            {renderResizeHandle('action')}
+                          </TableHead>
                         </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            />
+                      </TableHeader>
+                      <TableBody>
+                        {emptyRow}
+                        {orders.map(order => {
+                          const userContact =
+                            (isEmailMode
+                              ? order.user_email
+                              : order.user_mobile) ||
+                            order.user_bid ||
+                            '-';
+                          const userName =
+                            order.user_nickname || defaultUserName;
+
+                          return (
+                            <TableRow key={order.order_bid}>
+                              <TableCell
+                                className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                                style={getColumnStyle('shifu')}
+                              >
+                                {renderTooltipText(
+                                  order.shifu_name || order.shifu_bid,
+                                  'text-foreground',
+                                )}
+                              </TableCell>
+                              <TableCell
+                                className='border-r border-border px-3 py-2 align-middle'
+                                style={getColumnStyle('user')}
+                              >
+                                <div className='space-y-1'>
+                                  {renderTooltipText(
+                                    userContact,
+                                    'text-sm font-medium text-foreground',
+                                  )}
+                                  {renderTooltipText(
+                                    userName,
+                                    'block text-xs text-muted-foreground',
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell
+                                className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                                style={getColumnStyle('status')}
+                              >
+                                {renderPlainTableText(
+                                  resolveStatusLabel(order),
+                                )}
+                              </TableCell>
+                              <TableCell
+                                className='border-r border-border px-3 py-2 align-middle'
+                                style={getColumnStyle('paidAmount')}
+                              >
+                                <div className='text-center'>
+                                  {renderPlainTableText(
+                                    formatMoney(order.paid_price),
+                                    'text-foreground',
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell
+                                className='border-r border-border px-3 py-2 align-middle'
+                                style={getColumnStyle('discountInfo')}
+                              >
+                                <div className='text-center'>
+                                  {renderPlainTableText(
+                                    order.discount_amount &&
+                                      order.discount_amount !== '0'
+                                      ? formatMoney(order.discount_amount)
+                                      : '-',
+                                    'text-foreground',
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell
+                                className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                                style={getColumnStyle('payment')}
+                              >
+                                <div className='text-sm text-foreground'>
+                                  {renderPlainTableText(
+                                    t(order.payment_channel_key),
+                                    'text-sm',
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell
+                                className='overflow-hidden whitespace-nowrap px-3 py-2 text-center text-ellipsis'
+                                style={getColumnStyle('createdAt')}
+                              >
+                                {renderPlainTableText(
+                                  formatAdminUtcDateTime(order.created_at),
+                                )}
+                              </TableCell>
+                              <TableCell
+                                className='overflow-hidden whitespace-nowrap px-3 py-2 text-center text-ellipsis'
+                                style={getColumnStyle('orderId')}
+                              >
+                                {renderTooltipText(order.order_bid)}
+                              </TableCell>
+                              <TableCell
+                                className={getAdminStickyRightCellClass(
+                                  'whitespace-nowrap px-3 py-2 text-center',
+                                )}
+                                style={getColumnStyle('action')}
+                              >
+                                <Button
+                                  size='sm'
+                                  variant='ghost'
+                                  className='h-auto justify-start rounded-none p-0 text-primary hover:bg-transparent hover:text-primary'
+                                  onClick={() => handleViewDetail(order)}
+                                >
+                                  {t('module.order.table.view')}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                />
+              </div>
+            ) : (
+              <CreatorRedemptionCodesTab reloadKey={redemptionReloadKey} />
+            )}
           </div>
-        </div>
+        </Tabs>
         <OrderDetailSheet
           open={detailOpen}
           orderBid={selectedOrder?.order_bid}
@@ -1180,6 +1267,14 @@ const OrdersPage = () => {
           open={importOpen}
           onOpenChange={setImportOpen}
           onSuccess={() => fetchOrders(1)}
+        />
+        <CreatorRedemptionCodeDialog
+          open={redemptionOpen}
+          onOpenChange={setRedemptionOpen}
+          onSuccess={() => {
+            setRedemptionReloadKey(current => current + 1);
+            updateTab('redemptionCodes');
+          }}
         />
       </div>
     </div>

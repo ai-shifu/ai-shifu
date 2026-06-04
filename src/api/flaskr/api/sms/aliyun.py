@@ -150,7 +150,8 @@ def query_sms_template_list_ali(
     except (TypeError, ValueError):
         normalized_page_size = 50
     request.page_index = max(normalized_page_index, 1)
-    request.page_size = min(max(normalized_page_size, 1), 100)
+    # Aliyun Dysmsapi rejects PageSize values above 50 with InvalidPageSize.
+    request.page_size = min(max(normalized_page_size, 1), 50)
     runtime = util_models.RuntimeOptions()
     try:
         return client.query_sms_template_list_with_options(request, runtime)
