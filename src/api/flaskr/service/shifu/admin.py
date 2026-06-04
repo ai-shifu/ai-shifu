@@ -3875,8 +3875,11 @@ def _update_course_creator_bid(
     published_values = {PublishedShifu.created_user_bid: creator_user_bid}
     normalized_updated_user_bid = str(updated_user_bid or "").strip()
     if normalized_updated_user_bid:
+        updated_at = datetime.now()
         draft_values[DraftShifu.updated_user_bid] = normalized_updated_user_bid
+        draft_values[DraftShifu.updated_at] = updated_at
         published_values[PublishedShifu.updated_user_bid] = normalized_updated_user_bid
+        published_values[PublishedShifu.updated_at] = updated_at
     DraftShifu.query.filter(DraftShifu.shifu_bid == shifu_bid).update(
         draft_values,
         synchronize_session=False,

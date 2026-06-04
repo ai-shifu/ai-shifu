@@ -1444,6 +1444,11 @@ def register_admin_operations_routes(
                 is_end=True,
             ),
         }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
 
         return make_common_response(
             get_operator_user_credits(
@@ -1860,6 +1865,11 @@ def register_admin_operations_routes(
                 is_end=True,
             ),
         }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
         return make_common_response(
             get_operator_course_credit_usages(
                 app,
@@ -2016,6 +2026,11 @@ def register_admin_operations_routes(
             field_name="include_summary",
             default=True,
         )
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
         return make_common_response(
             get_operator_course_ratings(
                 app,
@@ -2111,6 +2126,11 @@ def register_admin_operations_routes(
             request.args.get("include_summary", None),
             field_name="include_summary",
             default=True,
+        )
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
         )
         return make_common_response(
             get_operator_course_follow_ups(

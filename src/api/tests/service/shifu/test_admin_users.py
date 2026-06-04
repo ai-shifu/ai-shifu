@@ -4186,6 +4186,24 @@ def test_admin_operation_user_credits_route_returns_payload(
     assert scene_payload["data"]["items"][0]["usage_scene"] == "preview"
 
 
+def test_admin_operation_user_credits_route_rejects_inverted_time_range(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/users/user-credits-route/credits"
+        "?page_index=1&page_size=20&start_time=2026-05-02&end_time=2026-05-01",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+    assert payload["message"] == "Params Error start_time"
+
+
 def test_admin_operation_user_credit_grant_route_returns_payload(
     app,
     test_client,

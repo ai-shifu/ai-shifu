@@ -337,11 +337,16 @@ def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
     target_email = f"{uuid.uuid4().hex[:10]}@example.com"
+    old_updated_at = datetime(2026, 1, 1, 0, 0, 0)
 
     with app.app_context():
         _seed_user(app, user_bid=old_creator_bid, email="route-old@example.com")
         _seed_user(app, user_bid=target_user_bid, email=target_email)
         _seed_course(shifu_bid, old_creator_bid)
+        DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).update(
+            {DraftShifu.updated_at: old_updated_at},
+            synchronize_session=False,
+        )
         db.session.commit()
 
     _mock_operator(monkeypatch)
@@ -364,6 +369,7 @@ def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
     with app.app_context():
         latest_draft = DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).one()
         assert latest_draft.updated_user_bid == "operator-1"
+        assert latest_draft.updated_at > old_updated_at
 
 
 def test_transfer_creator_records_operator_history_entry(app):
