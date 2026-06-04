@@ -437,6 +437,10 @@ class TestAddConfig:
                 "test_value" not in str(call_args)
                 for call_args in app.logger.info.call_args_list
             )
+            assert all(
+                "test remark" not in str(call_args)
+                for call_args in app.logger.info.call_args_list
+            )
             mock_config_class.assert_called_once()
             mock_db.session.add.assert_called_once()
             mock_db.session.commit.assert_called_once()
@@ -482,6 +486,10 @@ class TestAddConfig:
             mock_encrypt.assert_called_once_with(app, "plain_value")
             assert all(
                 "plain_value" not in str(call_args)
+                for call_args in app.logger.info.call_args_list
+            )
+            assert all(
+                "secret remark" not in str(call_args)
                 for call_args in app.logger.info.call_args_list
             )
             mock_config_class.assert_called_once()

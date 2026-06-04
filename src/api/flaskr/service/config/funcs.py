@@ -181,11 +181,9 @@ def add_config(
     with app.app_context():
         normalized_updated_by = _normalize_updated_by(updated_by)
         app.logger.info(
-            "Adding config: %s, value: %s, is_secret: %s, remark: %s",
+            "Adding config: %s, is_secret: %s",
             key,
-            "***",
             is_secret,
-            remark,
         )
         env_value = get_config_from_common(key, None)
         if env_value is not None:
