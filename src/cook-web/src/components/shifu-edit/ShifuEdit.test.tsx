@@ -1,9 +1,16 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import ScriptEditor from './ShifuEdit';
 
 const refreshLabel = 'refresh';
 const mockMarkdownFlowEditor = jest.fn();
+const mockLessonPreview = jest.fn();
 const mockTrackEvent = jest.fn();
 
 jest.mock('next/dynamic', () => () => {
@@ -63,7 +70,13 @@ jest.mock('../loading', () => {
   MockLoading.displayName = 'MockLoading';
   return MockLoading;
 });
-jest.mock('@/components/lesson-preview', () => () => null);
+jest.mock('@/components/lesson-preview', () => ({
+  __esModule: true,
+  default: (props: Record<string, unknown>) => {
+    mockLessonPreview(props);
+    return null;
+  },
+}));
 jest.mock('./DraftConflictDialog', () => ({
   __esModule: true,
   default: ({
@@ -271,6 +284,7 @@ describe('ShifuEdit draft conflict checks', () => {
 
   beforeEach(() => {
     mockMarkdownFlowEditor.mockReset();
+    mockLessonPreview.mockReset();
     mockTrackEvent.mockReset();
     mockLoadDraftMeta.mockReset();
     mockLoadModels.mockReset();
@@ -513,6 +527,42 @@ describe('ShifuEdit draft conflict checks', () => {
     historyLink.click();
 
     expect(mockTrackEvent).toHaveBeenCalledWith('creator_lesson_history_click');
+  });
+
+  test('enables regenerate actions for editable lesson preview', async () => {
+    setLessonNode();
+
+    render(<ScriptEditor id='shifu-1' />);
+    fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
+
+    await waitFor(() => {
+      expect(mockLessonPreview).toHaveBeenCalled();
+    });
+
+    expect(mockLessonPreview.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        showGenerateBtn: true,
+      }),
+    );
+  });
+
+  test('does not enable regenerate actions before shifu data is ready', async () => {
+    setLessonNode();
+    mockShifuState.currentShifu =
+      null as unknown as typeof mockShifuState.currentShifu;
+
+    render(<ScriptEditor id='shifu-1' />);
+    fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
+
+    await waitFor(() => {
+      expect(mockLessonPreview).toHaveBeenCalled();
+    });
+
+    expect(mockLessonPreview.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        showGenerateBtn: false,
+      }),
+    );
   });
 
   test('renders the dedicated history layout in history mode', async () => {

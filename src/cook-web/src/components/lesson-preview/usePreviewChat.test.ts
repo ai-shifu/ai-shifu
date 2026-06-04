@@ -4,6 +4,80 @@ import {
   replacePreviewLoadingWithBusinessError,
 } from './usePreviewChat';
 
+jest.mock('sse.js', () => ({
+  SSE: jest.fn(),
+}));
+
+jest.mock('remark-flow', () => ({
+  createInteractionParser: () => ({
+    parseToRemarkFormat: jest.fn(),
+  }),
+}));
+
+jest.mock('@/c-api/studyV2', () => ({
+  ELEMENT_TYPE: {
+    TEXT: 'text',
+    HTML: 'html',
+    INTERACTION: 'interaction',
+  },
+  LIKE_STATUS: {
+    NONE: 'none',
+  },
+}));
+
+jest.mock('@/store', () => {
+  const useUserStore = jest.fn();
+  (
+    useUserStore as typeof useUserStore & {
+      getState: () => { getToken: () => string };
+    }
+  ).getState = () => ({
+    getToken: () => '',
+  });
+
+  return {
+    useShifu: () => ({
+      actions: {},
+    }),
+    useUserStore,
+  };
+});
+
+jest.mock('@/hooks/useToast', () => ({
+  toast: jest.fn(),
+}));
+
+jest.mock('@/lib/request', () => ({
+  attachSseBusinessResponseFallback: jest.fn(),
+}));
+
+jest.mock('@/lib/request-trace', () => ({
+  buildTraceHeaders: jest.fn(() => ({
+    headers: {},
+    requestId: 'request-id',
+    harnessRunId: 'harness-run-id',
+  })),
+}));
+
+jest.mock('@/config/environment', () => ({
+  getDynamicApiBaseUrl: jest.fn(async () => ''),
+}));
+
+jest.mock('@/c-utils/envUtils', () => ({
+  getStringEnv: jest.fn(() => ''),
+}));
+
+jest.mock('@/c-utils/markdownUtils', () => ({
+  mergeStreamingMarkdownText: jest.fn((_prev: string, next: string) => next),
+  maskIncompleteMermaidBlock: jest.fn((content: string) => content),
+}));
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
+}));
+
 describe('usePreviewChat business error rendering', () => {
   test('replaces loading placeholder with backend business error message', () => {
     const items: ChatContentItem[] = [
