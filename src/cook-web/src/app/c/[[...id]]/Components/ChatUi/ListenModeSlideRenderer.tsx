@@ -10,7 +10,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
-import { Gauge } from 'lucide-react';
 import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
@@ -275,9 +274,13 @@ const ListenPlaybackSpeedPlayerAction = memo(
             title={ariaLabel}
             type='button'
           >
-            <Gauge
+            <Image
+              alt=''
               aria-hidden='true'
+              height={25}
               className='slide-player__icon listen-playback-speed-action__icon'
+              src={LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE[playbackSpeed]}
+              width={50}
             />
           </button>
         </PopoverTrigger>
@@ -315,9 +318,9 @@ const ListenPlaybackSpeedPlayerAction = memo(
                     alt=''
                     aria-hidden='true'
                     className='listen-playback-speed-option__icon'
-                    height={20}
+                    height={24}
                     src={LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE[option]}
-                    width={40}
+                    width={48}
                   />
                 </button>
               );

@@ -317,6 +317,8 @@ describe('ListenModeSlideRenderer', () => {
   });
 
   it('uses an icon-only control for opening playback speed options', () => {
+    writeListenPlaybackSpeedToStorage('course-1', 2);
+
     render(
       <ListenModeSlideRenderer
         items={[
@@ -337,7 +339,8 @@ describe('ListenModeSlideRenderer', () => {
       name: 'module.chat.listenPlaybackSpeedAriaLabel',
     });
 
-    expect(speedButton.querySelector('svg')).toBeInTheDocument();
+    expect(speedButton.querySelector('img')).toBeInTheDocument();
+    expect(speedButton.querySelector('svg')).not.toBeInTheDocument();
     expect(speedButton).not.toHaveTextContent(/x/i);
   });
 
