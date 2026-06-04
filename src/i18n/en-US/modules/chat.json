@@ -19,6 +19,8 @@
   "listenAudioBackfillFailed": "Audio generation failed. Please retry or keep reading.",
   "listenInteractionHint": "Submit the following to continue learning",
   "listenModeTtsDisabled": "Listen mode is not enabled for this course.",
+  "listenPlaybackSpeedAriaLabel": "Playback speed: {speed}",
+  "listenPlaybackSpeedLabel": "Playback speed",
   "listenPlayerBack": "Back to non-full screen",
   "listenPlayerFullscreenHint": "Please rotate your screen for the best experience",
   "listenPlayerLandscapeLabel": "Full screen",

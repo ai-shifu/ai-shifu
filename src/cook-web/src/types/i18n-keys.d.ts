@@ -725,6 +725,8 @@ export type I18nKey =
   | 'module.chat.listenAudioBackfillFailed'
   | 'module.chat.listenInteractionHint'
   | 'module.chat.listenModeTtsDisabled'
+  | 'module.chat.listenPlaybackSpeedAriaLabel'
+  | 'module.chat.listenPlaybackSpeedLabel'
   | 'module.chat.listenPlayerBack'
   | 'module.chat.listenPlayerFullscreenHint'
   | 'module.chat.listenPlayerLandscapeLabel'
