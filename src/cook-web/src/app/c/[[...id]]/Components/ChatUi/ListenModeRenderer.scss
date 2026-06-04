@@ -210,18 +210,21 @@
 
 .listen-playback-speed-popover {
   width: auto !important;
-  min-width: 120px;
+  min-width: 240px;
   padding: 8px !important;
   z-index: 120;
 }
 
 .listen-playback-speed-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(5, 40px);
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
 }
 
 .listen-playback-speed-menu__title {
+  grid-column: 1 / -1;
   padding: 0 8px 4px;
   color: var(--muted-foreground);
   font-size: 12px;
@@ -233,29 +236,35 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 96px;
+  width: 40px;
+  min-width: 40px;
+  height: 32px;
   min-height: 32px;
-  padding: 0 10px;
+  padding: 0;
   border: none;
   border-radius: 6px;
-  background: transparent;
-  color: var(--foreground);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1;
-  white-space: nowrap;
+  background: var(--base-primary, #111827);
+  color: var(--base-primary-foreground, #fff);
   cursor: pointer;
 }
 
 .listen-playback-speed-option:hover {
-  background: var(--accent);
-  color: var(--accent-foreground);
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 
 .listen-playback-speed-option--active,
 .listen-playback-speed-option--active:hover {
   background: var(--primary);
   color: var(--primary-foreground);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 32%, transparent);
+}
+
+.listen-playback-speed-option__icon {
+  width: 40px;
+  height: 20px;
+  pointer-events: none;
+  user-select: none;
 }
 
 .slide-ask-overlay {

@@ -341,6 +341,37 @@ describe('ListenModeSlideRenderer', () => {
     expect(speedButton).not.toHaveTextContent(/x/i);
   });
 
+  it('uses fixed SVG icons instead of text nodes for playback speed options', async () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.chat.listenPlaybackSpeedAriaLabel',
+      }),
+    );
+
+    for (const label of ['0.75x', '1x', '1.25x', '1.5x', '2x']) {
+      const option = await screen.findByRole('radio', { name: label });
+
+      expect(option.querySelector('img')).toBeInTheDocument();
+      expect(option).not.toHaveTextContent(/x/i);
+    }
+  });
+
   it('updates current audio and local storage when selecting another playback speed', async () => {
     render(
       <ListenModeSlideRenderer

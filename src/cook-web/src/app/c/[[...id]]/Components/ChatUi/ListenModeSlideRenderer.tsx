@@ -57,6 +57,11 @@ import {
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
+import ListenSpeed075Icon from '@/c-assets/newchat/light/listen-speed/speed-075.svg';
+import ListenSpeed100Icon from '@/c-assets/newchat/light/listen-speed/speed-100.svg';
+import ListenSpeed125Icon from '@/c-assets/newchat/light/listen-speed/speed-125.svg';
+import ListenSpeed150Icon from '@/c-assets/newchat/light/listen-speed/speed-150.svg';
+import ListenSpeed200Icon from '@/c-assets/newchat/light/listen-speed/speed-200.svg';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
@@ -232,6 +237,14 @@ interface ListenPlaybackSpeedPlayerActionProps {
   onPlaybackSpeedChange: (playbackSpeed: ListenPlaybackSpeed) => void;
 }
 
+const LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE = {
+  [0.75]: ListenSpeed075Icon,
+  [1]: ListenSpeed100Icon,
+  [1.25]: ListenSpeed125Icon,
+  [1.5]: ListenSpeed150Icon,
+  [2]: ListenSpeed200Icon,
+} satisfies Record<ListenPlaybackSpeed, string>;
+
 const ListenPlaybackSpeedPlayerAction = memo(
   ({
     ariaLabel,
@@ -283,9 +296,11 @@ const ListenPlaybackSpeedPlayerAction = memo(
             <div className='listen-playback-speed-menu__title'>{label}</div>
             {LISTEN_PLAYBACK_SPEED_OPTIONS.map(option => {
               const isSelected = option === playbackSpeed;
+              const optionLabel = formatListenPlaybackSpeed(option);
               return (
                 <button
                   aria-checked={isSelected}
+                  aria-label={optionLabel}
                   className={cn(
                     'listen-playback-speed-option',
                     isSelected && 'listen-playback-speed-option--active',
@@ -293,9 +308,17 @@ const ListenPlaybackSpeedPlayerAction = memo(
                   key={option}
                   onClick={() => handlePlaybackSpeedChange(option)}
                   role='radio'
+                  title={optionLabel}
                   type='button'
                 >
-                  {formatListenPlaybackSpeed(option)}
+                  <Image
+                    alt=''
+                    aria-hidden='true'
+                    className='listen-playback-speed-option__icon'
+                    height={20}
+                    src={LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE[option]}
+                    width={40}
+                  />
                 </button>
               );
             })}
