@@ -4562,6 +4562,7 @@ def _load_operator_user_course_count_maps(
         end_time=None,
         updated_start_time=None,
         updated_end_time=None,
+        lightweight=True,
     )
     created_published = _load_latest_shifus(
         PublishedShifu,
@@ -4572,6 +4573,7 @@ def _load_operator_user_course_count_maps(
         end_time=None,
         updated_start_time=None,
         updated_end_time=None,
+        lightweight=True,
     )
     merged_created_courses, _, _ = _merge_courses(created_drafts, created_published)
     for course in merged_created_courses:
@@ -4636,9 +4638,15 @@ def _load_operator_user_course_count_maps(
             if str(row.shifu_bid or "").strip()
         }
     )
-    learned_drafts = _load_latest_courses_by_shifu_bids(DraftShifu, learned_shifu_bids)
+    learned_drafts = _load_latest_courses_by_shifu_bids(
+        DraftShifu,
+        learned_shifu_bids,
+        lightweight=True,
+    )
     learned_published = _load_latest_courses_by_shifu_bids(
-        PublishedShifu, learned_shifu_bids
+        PublishedShifu,
+        learned_shifu_bids,
+        lightweight=True,
     )
     merged_learned_courses, _, _ = _merge_courses(learned_drafts, learned_published)
     visible_learned_shifu_bids = {
