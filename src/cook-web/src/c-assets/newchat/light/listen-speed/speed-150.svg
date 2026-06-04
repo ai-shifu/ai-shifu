@@ -2,10 +2,10 @@
   <text
     x="24"
     y="16.75"
-    fill="#2F3542"
-    font-family="Inter, PingFang SC, Helvetica Neue, Arial, sans-serif"
-    font-size="15"
-    font-weight="700"
+    fill="#343946"
+    font-family="Arial Rounded MT Bold, SF Pro Rounded, Nunito, Avenir Next Rounded, Helvetica Neue, Arial, sans-serif"
+    font-size="15.5"
+    font-weight="800"
     letter-spacing="0"
     text-anchor="middle"
   >1.5x</text>
