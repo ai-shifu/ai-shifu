@@ -316,6 +316,31 @@ describe('ListenModeSlideRenderer', () => {
     });
   });
 
+  it('uses an icon-only control for opening playback speed options', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        shifuBid='course-1'
+      />,
+    );
+
+    const speedButton = screen.getByRole('button', {
+      name: 'module.chat.listenPlaybackSpeedAriaLabel',
+    });
+
+    expect(speedButton.querySelector('svg')).toBeInTheDocument();
+    expect(speedButton).not.toHaveTextContent(/x/i);
+  });
+
   it('updates current audio and local storage when selecting another playback speed', async () => {
     render(
       <ListenModeSlideRenderer

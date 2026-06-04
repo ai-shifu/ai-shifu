@@ -197,14 +197,15 @@
 }
 
 .listen-playback-speed-action {
-  width: auto !important;
-  min-width: 48px;
+  width: 32px !important;
+  min-width: 32px;
   height: 32px;
-  padding: 0 8px;
-  white-space: nowrap;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
+  padding: 0;
+}
+
+.listen-playback-speed-action__icon {
+  width: 20px;
+  height: 20px;
 }
 
 .listen-playback-speed-popover {
@@ -482,9 +483,9 @@
   }
 
   .listen-playback-speed-action {
-    min-width: 46px;
-    padding: 0 6px;
-    font-size: 12px;
+    width: 32px !important;
+    min-width: 32px;
+    padding: 0;
   }
 
   .listen-slide-root .slide-ask-overlay--with-player {

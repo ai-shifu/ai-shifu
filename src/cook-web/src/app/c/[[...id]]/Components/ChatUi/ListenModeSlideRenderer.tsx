@@ -10,6 +10,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
+import { Gauge } from 'lucide-react';
 import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
@@ -240,7 +241,6 @@ const ListenPlaybackSpeedPlayerAction = memo(
     onPlaybackSpeedChange,
   }: ListenPlaybackSpeedPlayerActionProps) => {
     const [isOpen, setIsOpen] = useState(false);
-    const playbackSpeedLabel = formatListenPlaybackSpeed(playbackSpeed);
 
     const handlePlaybackSpeedChange = useCallback(
       (nextPlaybackSpeed: ListenPlaybackSpeed) => {
@@ -259,9 +259,13 @@ const ListenPlaybackSpeedPlayerAction = memo(
           <button
             aria-label={ariaLabel}
             className='slide-player__action listen-playback-speed-action'
+            title={ariaLabel}
             type='button'
           >
-            {playbackSpeedLabel}
+            <Gauge
+              aria-hidden='true'
+              className='slide-player__icon listen-playback-speed-action__icon'
+            />
           </button>
         </PopoverTrigger>
         <PopoverContent
