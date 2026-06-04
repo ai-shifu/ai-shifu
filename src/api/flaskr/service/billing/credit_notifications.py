@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask, has_app_context
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import false, func, or_
+from sqlalchemy import func, or_
 
 from flaskr.api.sms.aliyun import (
     get_sms_template_ali,
@@ -583,6 +583,7 @@ def save_credit_notification_policy(
     payload: dict[str, Any],
     *,
     preserve_opt_out: bool = False,
+    updated_by: str = "system",
 ) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise_param_error("policy")
@@ -603,6 +604,7 @@ def save_credit_notification_policy(
         serialized,
         is_secret=False,
         remark="Credit notification SMS policy config",
+        updated_by=updated_by,
     )
     if not ok:
         raise_error("server.common.systemError")
@@ -2863,8 +2865,14 @@ def enqueue_credit_notification(app: Flask, *, notification_bid: str) -> dict[st
         }
 
 
-def requeue_credit_notification(app: Flask, *, notification_bid: str) -> dict[str, Any]:
+def requeue_credit_notification(
+    app: Flask,
+    *,
+    notification_bid: str,
+    operator_user_bid: str = "",
+) -> dict[str, Any]:
     normalized_notification_bid = _normalize_bid(notification_bid)
+    normalized_operator_user_bid = _normalize_bid(operator_user_bid)
     if not normalized_notification_bid:
         return {"status": "invalid_notification_bid", "enqueued": False}
     with app.app_context():
@@ -2911,6 +2919,14 @@ def requeue_credit_notification(app: Flask, *, notification_bid: str) -> dict[st
             notification is not None
             and notification.status == CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER
         ):
+            metadata = (
+                dict(notification.metadata_json)
+                if isinstance(notification.metadata_json, dict)
+                else {}
+            )
+            if normalized_operator_user_bid:
+                metadata["last_requeued_by"] = normalized_operator_user_bid
+            metadata["last_requeued_at"] = datetime.now().isoformat()
             notification.status = CREDIT_NOTIFICATION_STATUS_PENDING
             notification.error_code = ""
             notification.error_message = ""
@@ -2918,6 +2934,7 @@ def requeue_credit_notification(app: Flask, *, notification_bid: str) -> dict[st
             notification.attempted_at = None
             notification.sent_at = None
             notification.updated_at = datetime.now()
+            notification.metadata_json = metadata
             db.session.add(notification)
             db.session.commit()
             record_credit_notification_event(
@@ -3102,12 +3119,17 @@ def list_credit_notifications(
             matched_creator_bids = _load_matching_creator_bids_for_keyword(
                 creator_keyword
             )
-            if matched_creator_bids:
-                query = query.filter(
-                    NotificationRecord.creator_bid.in_(matched_creator_bids)
-                )
-            else:
-                query = query.filter(false())
+            if not matched_creator_bids:
+                return {
+                    "page": safe_page_index,
+                    "page_size": safe_page_size,
+                    "page_count": 0,
+                    "total": 0,
+                    "items": [],
+                }
+            query = query.filter(
+                NotificationRecord.creator_bid.in_(matched_creator_bids)
+            )
         start_time = normalized_filters.get("start_time")
         end_time = normalized_filters.get("end_time")
         if isinstance(start_time, datetime):

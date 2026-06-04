@@ -2722,6 +2722,7 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app
     assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
     assert ledger.source_type == CREDIT_SOURCE_TYPE_MANUAL
     assert ledger.metadata_json["grant_type"] == "manual_grant"
+    assert ledger.metadata_json["operator_user_bid"] == "operator-1"
     assert ledger.metadata_json["grant_channel"] == "operator_user_management"
     assert ledger.metadata_json["display_name"] == "模型扣费补偿"
     assert ledger.metadata_json["note"] == "ops support"
@@ -3283,7 +3284,14 @@ def test_grant_operator_user_package_creates_manual_paid_order_and_summary(app):
     assert order.status == BILLING_ORDER_STATUS_PAID
     assert order.payment_provider == "manual"
     assert order.metadata_json["checkout_type"] == "admin_manual_plan_grant"
+    assert order.metadata_json["operator_user_bid"] == "operator-1"
     assert order.metadata_json["request_id"] == "package-grant-request-1"
+    assert (
+        order.metadata_json["notification_extensions"]["admin_manual_plan_grant"][
+            "operator_user_bid"
+        ]
+        == "operator-1"
+    )
     assert (
         order.metadata_json["notification_extensions"]["admin_manual_plan_grant"][
             "status"
@@ -3292,6 +3300,8 @@ def test_grant_operator_user_package_creates_manual_paid_order_and_summary(app):
     )
     assert subscription is not None
     assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+    assert subscription.metadata_json["operator_user_bid"] == "operator-1"
+    assert subscription.metadata_json["request_id"] == "package-grant-request-1"
     assert ledger is not None
     assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
     assert ledger.source_type == CREDIT_SOURCE_TYPE_SUBSCRIPTION
@@ -3901,6 +3911,36 @@ def test_admin_operation_users_route_returns_filtered_payload(
             "updated_at": _format_operator_datetime(datetime(2026, 4, 6, 12, 0, 0)),
         }
     ]
+
+
+@pytest.mark.parametrize(
+    ("query_string", "expected_param"),
+    [
+        ("page_index=1&page_size=20&user_status=invalid", "user_status"),
+        ("page_index=1&page_size=20&user_role=invalid", "user_role"),
+        (
+            "page_index=1&page_size=20&start_time=2026-05-02&end_time=2026-05-01",
+            "start_time",
+        ),
+    ],
+)
+def test_admin_operation_users_route_rejects_invalid_filter_params(
+    test_client,
+    monkeypatch,
+    query_string,
+    expected_param,
+):
+    _mock_operator(monkeypatch)
+
+    response = test_client.get(
+        f"/api/shifu/admin/operations/users?{query_string}",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+    assert payload["message"] == f"Params Error {expected_param}"
 
 
 def test_admin_operation_user_detail_route_returns_payload(

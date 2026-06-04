@@ -8,6 +8,7 @@ from unittest.mock import Mock
 import pytest
 
 from flaskr.dao import db
+from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.promo.admin import _format_promotion_admin_datetime
@@ -156,6 +157,38 @@ def test_admin_promotions_coupons_route_requires_operator(test_client, monkeypat
 
     assert response.status_code == 200
     assert payload["code"] == 401
+
+
+@pytest.mark.parametrize(
+    ("path", "query_string"),
+    [
+        (
+            "/api/shifu/admin/operations/promotions/coupons",
+            "page_index=1&page_size=20&status=invalid",
+        ),
+        (
+            "/api/shifu/admin/operations/promotions/campaigns",
+            "page_index=1&page_size=20&status=invalid",
+        ),
+    ],
+)
+def test_admin_promotions_routes_reject_invalid_status_filter(
+    test_client,
+    monkeypatch,
+    path,
+    query_string,
+):
+    _mock_operator(monkeypatch)
+
+    response = test_client.get(
+        f"{path}?{query_string}",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+    assert payload["message"] == "Params Error status"
 
 
 def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch):
@@ -1167,6 +1200,43 @@ def test_admin_promotions_coupon_usage_list_supports_keyword_filter(
     assert usage_payload["data"]["summary"]["usage_count"] == 1
     assert usage_payload["data"]["items"][0]["user_bid"] == "learner-2"
     assert usage_payload["data"]["items"][0]["order_bid"] == "order-2"
+
+
+def test_admin_promotions_coupon_usage_list_rejects_invalid_status(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        coupon = Coupon(
+            coupon_bid="coupon-invalid-status",
+            name="Invalid Status Coupon",
+            code="INVALIDSTATUS",
+            usage_type=COUPON_APPLY_TYPE_ALL,
+            discount_type=COUPON_TYPE_FIXED,
+            value=Decimal("10"),
+            total_count=1,
+            used_count=0,
+            filter="{}",
+            start=datetime(2026, 4, 24, 10, 0, 0),
+            end=datetime(2026, 5, 24, 10, 0, 0),
+            status=1,
+            created_user_bid="operator-1",
+            updated_user_bid="operator-1",
+        )
+        db.session.add(coupon)
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons/coupon-invalid-status/usages",
+        query_string={"page_index": 1, "page_size": 20, "status": "999"},
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
 
 
 def test_admin_promotions_coupon_update_keeps_used_records_unchanged(

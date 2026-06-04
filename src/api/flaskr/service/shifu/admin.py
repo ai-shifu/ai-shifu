@@ -2250,30 +2250,26 @@ def _find_matching_user_bids_by_identifier(keyword: str) -> Optional[Set[str]]:
     if not normalized:
         return None
 
-    credential_rows = (
-        db.session.query(AuthCredential.user_bid)
-        .filter(
-            AuthCredential.deleted == 0,
-            AuthCredential.provider_name.in_(["phone", "email", "google"]),
-            AuthCredential.identifier.ilike(f"%{normalized}%"),
-        )
-        .all()
+    like_pattern = f"%{normalized}%"
+    credential_rows = db.session.query(
+        AuthCredential.user_bid.label("user_bid")
+    ).filter(
+        AuthCredential.deleted == 0,
+        AuthCredential.provider_name.in_(["phone", "email", "google"]),
+        AuthCredential.identifier.ilike(like_pattern),
     )
-    user_bids = {row[0] for row in credential_rows if row and row[0]}
-    identify_rows = (
-        db.session.query(UserEntity.user_bid)
-        .filter(
-            UserEntity.deleted == 0,
-            or_(
-                UserEntity.user_bid.ilike(f"%{normalized}%"),
-                UserEntity.user_identify.ilike(f"%{normalized}%"),
-            ),
-        )
-        .all()
+    identify_rows = db.session.query(UserEntity.user_bid.label("user_bid")).filter(
+        UserEntity.deleted == 0,
+        or_(
+            UserEntity.user_bid.ilike(like_pattern),
+            UserEntity.user_identify.ilike(like_pattern),
+        ),
     )
-    for row in identify_rows:
-        if row and row[0]:
-            user_bids.add(row[0])
+    user_bids = {
+        str(row.user_bid or "").strip()
+        for row in credential_rows.union(identify_rows).all()
+        if str(getattr(row, "user_bid", "") or "").strip()
+    }
     return user_bids
 
 
@@ -3871,13 +3867,23 @@ def _clear_shifu_creator_cache(app: Flask, shifu_bid: str) -> None:
         redis.delete(cache_key)
 
 
-def _update_course_creator_bid(shifu_bid: str, creator_user_bid: str) -> None:
+def _update_course_creator_bid(
+    shifu_bid: str,
+    creator_user_bid: str,
+    updated_user_bid: str = "",
+) -> None:
+    draft_values = {DraftShifu.created_user_bid: creator_user_bid}
+    published_values = {PublishedShifu.created_user_bid: creator_user_bid}
+    normalized_updated_user_bid = str(updated_user_bid or "").strip()
+    if normalized_updated_user_bid:
+        draft_values[DraftShifu.updated_user_bid] = normalized_updated_user_bid
+        published_values[PublishedShifu.updated_user_bid] = normalized_updated_user_bid
     DraftShifu.query.filter(DraftShifu.shifu_bid == shifu_bid).update(
-        {DraftShifu.created_user_bid: creator_user_bid},
+        draft_values,
         synchronize_session=False,
     )
     PublishedShifu.query.filter(PublishedShifu.shifu_bid == shifu_bid).update(
-        {PublishedShifu.created_user_bid: creator_user_bid},
+        published_values,
         synchronize_session=False,
     )
 
@@ -3888,11 +3894,13 @@ def transfer_operator_course_creator(
     shifu_bid: str,
     contact_type: str,
     identifier: str,
+    operator_user_bid: str = "",
 ) -> Dict[str, Any]:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_contact_type = str(contact_type or "").strip().lower()
         normalized_identifier = _normalize_identifier(identifier)
+        normalized_operator_user_bid = str(operator_user_bid or "").strip()
 
         latest_course = _load_latest_course_for_transfer(normalized_shifu_bid)
         if not latest_course:
@@ -3912,7 +3920,18 @@ def transfer_operator_course_creator(
         created_new_user = target_creator_result["created_new_user"]
         granted_demo_permissions = target_creator_result["granted_demo_permissions"]
         creator_granted_now = target_creator_result["creator_granted_now"]
-        _update_course_creator_bid(normalized_shifu_bid, target_user_bid)
+        _update_course_creator_bid(
+            normalized_shifu_bid,
+            target_user_bid,
+            updated_user_bid=normalized_operator_user_bid,
+        )
+        if normalized_operator_user_bid and getattr(latest_course, "id", 0):
+            save_shifu_history(
+                app,
+                normalized_operator_user_bid,
+                normalized_shifu_bid,
+                int(latest_course.id),
+            )
 
         db.session.commit()
         if previous_creator_user_bid:

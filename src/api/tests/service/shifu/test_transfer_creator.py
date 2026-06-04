@@ -13,7 +13,12 @@ from flaskr.service.billing.consts import BILLING_TRIAL_PRODUCT_BID
 from flaskr.service.billing.models import BillingOrder, BillingProduct
 from flaskr.service.shifu.admin import transfer_operator_course_creator
 from flaskr.service.shifu.funcs import shifu_permission_verification
-from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+from flaskr.service.shifu.models import (
+    AiCourseAuth,
+    DraftShifu,
+    LogDraftStruct,
+    PublishedShifu,
+)
 from flaskr.service.shifu.permissions import get_user_shifu_permissions
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
@@ -210,6 +215,8 @@ def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
         assert auth is not None
         assert auth.status == 1
         assert get_shifu_creator_bid(app, shifu_bid) == target_user_bid
+        latest_draft = DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).one()
+        assert latest_draft.updated_user_bid == old_creator_bid
         assert (
             shifu_permission_verification(app, old_creator_bid, shifu_bid, "edit")
             is False
@@ -354,6 +361,42 @@ def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["target_creator_user_bid"] == target_user_bid
+    with app.app_context():
+        latest_draft = DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).one()
+        assert latest_draft.updated_user_bid == "operator-1"
+
+
+def test_transfer_creator_records_operator_history_entry(app):
+    shifu_bid = uuid.uuid4().hex[:32]
+    old_creator_bid = uuid.uuid4().hex[:32]
+    target_user_bid = uuid.uuid4().hex[:32]
+    target_email = f"{uuid.uuid4().hex[:10]}@example.com"
+
+    with app.app_context():
+        _seed_user(app, user_bid=old_creator_bid, email="history-old@example.com")
+        _seed_user(app, user_bid=target_user_bid, email=target_email)
+        _seed_course(shifu_bid, old_creator_bid)
+        db.session.commit()
+
+        before_count = LogDraftStruct.query.filter_by(
+            created_user_bid="operator-history-1",
+            shifu_bid=shifu_bid,
+        ).count()
+
+        transfer_operator_course_creator(
+            app,
+            shifu_bid=shifu_bid,
+            contact_type="email",
+            identifier=target_email,
+            operator_user_bid="operator-history-1",
+        )
+
+        after_count = LogDraftStruct.query.filter_by(
+            created_user_bid="operator-history-1",
+            shifu_bid=shifu_bid,
+        ).count()
+
+        assert after_count == before_count + 1
 
 
 def test_transfer_creator_promotes_existing_viewer_to_owner_permissions(

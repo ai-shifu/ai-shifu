@@ -289,6 +289,58 @@ def test_list_operator_orders_applies_order_source_filter():
     assert isinstance(result, PageNationDTO)
 
 
+def test_list_operator_orders_reuses_preparsed_status_and_datetimes():
+    app = Flask(__name__)
+    order = DummyOrder()
+    start_time = datetime(2026, 4, 1, 0, 0, 0)
+    end_time = datetime(2026, 4, 30, 23, 59, 59)
+
+    query_mock = MagicMock()
+    query_mock.filter.return_value = query_mock
+    query_mock.count.return_value = 1
+    query_mock.order_by.return_value = query_mock
+    query_mock.offset.return_value = query_mock
+    query_mock.limit.return_value = query_mock
+    query_mock.all.return_value = [order]
+
+    with patch("flaskr.service.order.admin.Order") as order_model_mock:
+        with patch("flaskr.service.order.admin._parse_datetime") as parse_datetime_mock:
+            with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
+                with patch(
+                    "flaskr.service.order.admin._load_user_map"
+                ) as user_map_mock:
+                    with patch(
+                        "flaskr.service.order.admin._load_coupon_code_map"
+                    ) as coupon_map_mock:
+                        order_model_mock.query = query_mock
+                        order_model_mock.deleted = column("deleted")
+                        order_model_mock.status = column("status")
+                        order_model_mock.created_at = column("created_at")
+                        shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
+                        user_map_mock.return_value = {
+                            "user-1": {
+                                "mobile": "18800001111",
+                                "email": "",
+                                "nickname": "Tester",
+                            }
+                        }
+                        coupon_map_mock.return_value = {}
+
+                        result = list_operator_orders(
+                            app,
+                            1,
+                            20,
+                            {
+                                "status": 502,
+                                "start_time": start_time,
+                                "end_time": end_time,
+                            },
+                        )
+
+    parse_datetime_mock.assert_not_called()
+    assert isinstance(result, PageNationDTO)
+
+
 def test_get_operator_order_overview_returns_aggregates():
     app = Flask(__name__)
     summary = SimpleNamespace(
@@ -633,30 +685,38 @@ def test_resolve_order_source_prefers_manual_open_api_and_coupon():
 
 def test_load_matching_user_bids_for_keyword_ignores_deleted_credentials():
     user_query = MagicMock()
-    (
-        user_query.filter.return_value.yield_per.return_value.enable_eagerloads.return_value
-    ) = []
+    user_filtered_query = MagicMock()
+    user_query.filter.return_value = user_filtered_query
 
     credential_query = MagicMock()
-    (
-        credential_query.filter.return_value.yield_per.return_value.enable_eagerloads.return_value
-    ) = [SimpleNamespace(user_bid="user-2")]
+    credential_filtered_query = MagicMock()
+    credential_query.filter.return_value = credential_filtered_query
+    union_query = MagicMock()
+    user_filtered_query.union.return_value = union_query
+    union_query.all.return_value = [SimpleNamespace(user_bid="user-2")]
 
     fake_user_entity = SimpleNamespace(
-        query=user_query,
         user_bid=column("user_bid"),
+        deleted=column("deleted"),
         user_identify=column("user_identify"),
     )
     fake_auth_credential = SimpleNamespace(
-        query=credential_query,
+        user_bid=column("user_bid"),
         identifier=column("identifier"),
         provider_name=column("provider_name"),
         deleted=column("deleted"),
     )
 
-    with patch("flaskr.service.order.admin.UserEntity", fake_user_entity):
-        with patch("flaskr.service.order.admin.AuthCredential", fake_auth_credential):
-            result = _load_matching_user_bids_for_keyword("Test@Example.com")
+    db_mock = MagicMock()
+    db_mock.or_ = lambda *args: ("or", args)
+    db_mock.session.query.side_effect = [user_query, credential_query]
+
+    with patch("flaskr.service.order.admin.db", db_mock):
+        with patch("flaskr.service.order.admin.UserEntity", fake_user_entity):
+            with patch(
+                "flaskr.service.order.admin.AuthCredential", fake_auth_credential
+            ):
+                result = _load_matching_user_bids_for_keyword("Test@Example.com")
 
     filter_args = credential_query.filter.call_args.args
 

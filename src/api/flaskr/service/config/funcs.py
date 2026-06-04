@@ -162,12 +162,18 @@ def get_config(key: str, default: str = None) -> str:
 
 
 def add_config(
-    app: Flask, key: str, value: str, is_secret: bool = False, remark: str = ""
+    app: Flask,
+    key: str,
+    value: str,
+    is_secret: bool = False,
+    remark: str = "",
+    updated_by: str = "system",
 ) -> None:
     """
     Add config to database.
     """
     with app.app_context():
+        normalized_updated_by = str(updated_by or "").strip() or "system"
         app.logger.info(
             f"Adding config: {key}, value: {value}, is_secret: {is_secret}, remark: {remark}"
         )
@@ -190,7 +196,7 @@ def add_config(
             existing_config.value = value
             existing_config.is_encrypted = is_secret
             existing_config.remark = remark
-            existing_config.updated_by = "system"
+            existing_config.updated_by = normalized_updated_by
             db.session.commit()
             cache_key = _get_config_cache_key(app, key)
             redis.set(
@@ -210,7 +216,7 @@ def add_config(
                 deleted=0,
                 is_encrypted=is_secret,
                 remark=remark,
-                updated_by="",
+                updated_by=normalized_updated_by,
             )
             db.session.add(config)
             db.session.commit()
@@ -225,12 +231,18 @@ def add_config(
 
 
 def update_config(
-    app: Flask, key: str, value: str, is_secret: bool = False, remark: str = ""
+    app: Flask,
+    key: str,
+    value: str,
+    is_secret: bool = False,
+    remark: str = "",
+    updated_by: str = "system",
 ) -> bool:
     """
     Update config in database.
     """
     with app.app_context():
+        normalized_updated_by = str(updated_by or "").strip() or "system"
         env_value = get_config_from_common(key, None)
         if env_value:
             return False
@@ -261,14 +273,14 @@ def update_config(
                     deleted=0,
                     is_encrypted=is_secret,
                     remark=remark,
-                    updated_by="system",
+                    updated_by=normalized_updated_by,
                 )
                 db.session.add(config)
             else:
                 config.value = value
                 config.is_encrypted = is_secret
                 config.remark = remark
-                config.updated_by = "system"
+                config.updated_by = normalized_updated_by
             db.session.commit()
             redis.set(
                 cache_key,
