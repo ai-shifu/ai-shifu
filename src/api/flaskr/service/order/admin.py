@@ -518,13 +518,11 @@ def _load_matching_user_bids_for_keyword(keyword: str) -> List[str]:
         AuthCredential.deleted == 0,
     )
 
-    return sorted(
-        {
-            str(row.user_bid or "").strip()
-            for row in user_rows.union(credential_rows).all()
-            if str(getattr(row, "user_bid", "") or "").strip()
-        }
-    )
+    bids = {
+        str(row.user_bid or "").strip()
+        for row in user_rows.union(credential_rows).all()
+    }
+    return sorted(bid for bid in bids if bid)
 
 
 def _load_matching_shifu_bids_for_course_name(course_name: str) -> List[str]:

@@ -2265,12 +2265,11 @@ def _find_matching_user_bids_by_identifier(keyword: str) -> Optional[Set[str]]:
             UserEntity.user_identify.ilike(like_pattern),
         ),
     )
-    user_bids = {
+    bids = {
         str(row.user_bid or "").strip()
         for row in credential_rows.union(identify_rows).all()
-        if str(getattr(row, "user_bid", "") or "").strip()
     }
-    return user_bids
+    return {bid for bid in bids if bid}
 
 
 def _build_operator_user_summary(

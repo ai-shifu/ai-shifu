@@ -646,6 +646,31 @@ def test_credit_notification_policy_persists_operator_updated_by(
         assert config.updated_by == "operator-audit-1"
 
 
+def test_credit_notification_policy_truncates_operator_updated_by(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    updated_by = "operator-audit-" + ("x" * 40)
+
+    save_credit_notification_policy(
+        app,
+        {"enabled": False},
+        updated_by=updated_by,
+    )
+
+    with app.app_context():
+        config = (
+            Config.query.filter(
+                Config.key == "BILL_CREDIT_NOTIFICATION_SMS_CONFIG",
+                Config.deleted == 0,
+            )
+            .order_by(Config.id.desc())
+            .first()
+        )
+        assert config is not None
+        assert config.updated_by == updated_by[:36]
+
+
 def test_credit_notification_policy_resolves_list_creator_details(
     credit_notifications_app: Flask,
 ) -> None:
@@ -2298,6 +2323,7 @@ def test_requeue_records_operator_audit_metadata(
         ).one()
         assert notification.metadata_json["last_requeued_by"] == "operator-audit-2"
         assert notification.metadata_json["last_requeued_at"]
+        assert notification.metadata_json["last_requeued_at"].endswith("Z")
 
 
 def test_provider_exception_marks_notification_failed(

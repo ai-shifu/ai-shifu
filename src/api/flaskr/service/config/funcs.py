@@ -12,10 +12,16 @@ from flaskr.framework import extensible
 from sqlalchemy.exc import SQLAlchemyError
 import random
 
+MAX_UPDATED_BY_LEN = 36
+
 
 class ConfigCache(BaseModel):
     is_encrypted: bool = Field(default=False)
     value: str = Field(default="")
+
+
+def _normalize_updated_by(value: str) -> str:
+    return (str(value or "").strip() or "system")[:MAX_UPDATED_BY_LEN]
 
 
 def _get_fernet_key(app: Flask) -> bytes:
@@ -168,12 +174,12 @@ def add_config(
     is_secret: bool = False,
     remark: str = "",
     updated_by: str = "system",
-) -> None:
+) -> bool | None:
     """
     Add config to database.
     """
     with app.app_context():
-        normalized_updated_by = str(updated_by or "").strip() or "system"
+        normalized_updated_by = _normalize_updated_by(updated_by)
         app.logger.info(
             f"Adding config: {key}, value: {value}, is_secret: {is_secret}, remark: {remark}"
         )
@@ -242,7 +248,7 @@ def update_config(
     Update config in database.
     """
     with app.app_context():
-        normalized_updated_by = str(updated_by or "").strip() or "system"
+        normalized_updated_by = _normalize_updated_by(updated_by)
         env_value = get_config_from_common(key, None)
         if env_value:
             return False

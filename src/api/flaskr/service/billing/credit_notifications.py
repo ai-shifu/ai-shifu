@@ -2926,7 +2926,9 @@ def requeue_credit_notification(
             )
             if normalized_operator_user_bid:
                 metadata["last_requeued_by"] = normalized_operator_user_bid
-            metadata["last_requeued_at"] = datetime.now().isoformat()
+            metadata["last_requeued_at"] = _format_operator_datetime(
+                app, datetime.now()
+            )
             notification.status = CREDIT_NOTIFICATION_STATUS_PENDING
             notification.error_code = ""
             notification.error_message = ""
