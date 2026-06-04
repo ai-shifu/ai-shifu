@@ -468,12 +468,17 @@ class TestAddConfig:
                 None
             )
             mock_config_class.query = mock_query
+            app.logger.info = MagicMock()
 
             result = add_config(
                 app, "test_key", "plain_value", is_secret=True, remark="secret remark"
             )
             assert result is True
             mock_encrypt.assert_called_once_with(app, "plain_value")
+            assert all(
+                "plain_value" not in str(call_args)
+                for call_args in app.logger.info.call_args_list
+            )
             mock_config_class.assert_called_once()
             mock_db.session.add.assert_called_once()
             mock_db.session.commit.assert_called_once()
@@ -762,6 +767,16 @@ class TestUpdateConfig:
         """Test that update_config returns False if environment config exists."""
         with app.app_context():
             mock_get_config_from_common.return_value = "env-value"
+            result = update_config(app, "test_key", "new_value")
+            assert result is False
+
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    def test_update_config_skips_if_empty_env_exists(
+        self, mock_get_config_from_common, app
+    ):
+        """Test that update_config respects empty string environment overrides."""
+        with app.app_context():
+            mock_get_config_from_common.return_value = ""
             result = update_config(app, "test_key", "new_value")
             assert result is False
 

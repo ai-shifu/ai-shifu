@@ -180,8 +180,13 @@ def add_config(
     """
     with app.app_context():
         normalized_updated_by = _normalize_updated_by(updated_by)
+        safe_value = "***" if is_secret else value
         app.logger.info(
-            f"Adding config: {key}, value: {value}, is_secret: {is_secret}, remark: {remark}"
+            "Adding config: %s, value: %s, is_secret: %s, remark: %s",
+            key,
+            safe_value,
+            is_secret,
+            remark,
         )
         env_value = get_config_from_common(key, None)
         if env_value is not None:
@@ -250,7 +255,7 @@ def update_config(
     with app.app_context():
         normalized_updated_by = _normalize_updated_by(updated_by)
         env_value = get_config_from_common(key, None)
-        if env_value:
+        if env_value is not None:
             return False
         cache_key = _get_config_cache_key(app, key)
         cache = redis.get(cache_key)
