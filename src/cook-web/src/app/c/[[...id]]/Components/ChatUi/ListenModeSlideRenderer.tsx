@@ -277,10 +277,10 @@ const ListenPlaybackSpeedPlayerAction = memo(
             <Image
               alt=''
               aria-hidden='true'
-              height={25}
+              height={22}
               className='slide-player__icon listen-playback-speed-action__icon'
               src={LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE[playbackSpeed]}
-              width={50}
+              width={44}
             />
           </button>
         </PopoverTrigger>
@@ -318,9 +318,9 @@ const ListenPlaybackSpeedPlayerAction = memo(
                     alt=''
                     aria-hidden='true'
                     className='listen-playback-speed-option__icon'
-                    height={24}
+                    height={22}
                     src={LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE[option]}
-                    width={48}
+                    width={44}
                   />
                 </button>
               );

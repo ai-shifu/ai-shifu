@@ -1,6 +1,12 @@
-<svg width="40" height="20" viewBox="0 0 40 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <g stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M17 5V15" />
-    <path d="M22 8.5L28 15M28 8.5L22 15" />
-  </g>
+<svg width="48" height="24" viewBox="0 0 48 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <text
+    x="24"
+    y="17"
+    fill="#2F3542"
+    font-family="Inter, PingFang SC, Helvetica Neue, Arial, sans-serif"
+    font-size="17"
+    font-weight="700"
+    letter-spacing="0"
+    text-anchor="middle"
+  >1x</text>
 </svg>

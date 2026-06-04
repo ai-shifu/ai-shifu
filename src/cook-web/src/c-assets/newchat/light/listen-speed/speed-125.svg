@@ -1,9 +1,12 @@
-<svg width="40" height="20" viewBox="0 0 40 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <g stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M8 5V15" />
-    <path d="M14 5H18M18 5V10M14 10H18M14 10V15M14 15H18" />
-    <path d="M21 5H25M21 5V10M21 10H25M25 10V15M21 15H25" />
-    <path d="M29 8.5L35 15M35 8.5L29 15" />
-  </g>
-  <circle cx="11" cy="15" r="0.8" fill="#FFFFFF" />
+<svg width="48" height="24" viewBox="0 0 48 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <text
+    x="24"
+    y="16.75"
+    fill="#2F3542"
+    font-family="Inter, PingFang SC, Helvetica Neue, Arial, sans-serif"
+    font-size="14"
+    font-weight="700"
+    letter-spacing="0"
+    text-anchor="middle"
+  >1.25x</text>
 </svg>
