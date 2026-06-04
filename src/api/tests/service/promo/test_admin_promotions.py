@@ -1898,7 +1898,7 @@ def test_admin_promotions_coupon_list_compatibly_displays_legacy_status_rows(
 
     active_response = test_client.get(
         "/api/shifu/admin/operations/promotions/coupons",
-        query_string={"page_index": 1, "page_size": 20, "status": "active"},
+        query_string={"page_index": 1, "page_size": 20, "status": "Active"},
         headers={"Token": "test-token"},
     )
     active_payload = active_response.get_json(force=True)
@@ -2017,7 +2017,7 @@ def test_admin_promotions_campaign_list_compatibly_displays_legacy_status_rows(
 
     active_response = test_client.get(
         "/api/shifu/admin/operations/promotions/campaigns",
-        query_string={"page_index": 1, "page_size": 20, "status": "active"},
+        query_string={"page_index": 1, "page_size": 20, "status": "ACTIVE"},
         headers={"Token": "test-token"},
     )
     active_payload = active_response.get_json(force=True)

@@ -327,7 +327,7 @@ def _apply_keyword_filter(query, keyword: str, user_bid_field, *text_fields):
 
 
 def _build_coupon_status_filter(status: str):
-    normalized = str(status or "").strip()
+    normalized = str(status or "").strip().lower()
     if not normalized:
         return None
     now = _now_local_naive()
@@ -354,7 +354,7 @@ def _build_coupon_status_filter(status: str):
 
 
 def _build_campaign_status_filter(status: str):
-    normalized = str(status or "").strip()
+    normalized = str(status or "").strip().lower()
     if not normalized:
         return None
     now = _now_local_naive()
