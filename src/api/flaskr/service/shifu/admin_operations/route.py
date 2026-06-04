@@ -111,7 +111,9 @@ CREDIT_NOTIFICATION_SKIP_REASON_VALUES = {
 }
 
 
-def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | None:
+def _parse_datetime_filter(
+    value: str, *, field_name: str, is_end: bool = False
+) -> datetime | None:
     if not value:
         return None
     normalized = str(value).strip()
@@ -128,7 +130,7 @@ def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | No
             return parsed
         except ValueError:
             continue
-    raise_param_error("datetime format invalid")
+    raise_param_error(field_name)
 
 
 def _normalize_query_text(raw_value: object) -> str:
@@ -360,18 +362,22 @@ def register_admin_operations_routes(
             ),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
             "updated_start_time": _parse_datetime_filter(
                 request.args.get("updated_start_time", ""),
+                field_name="updated_start_time",
                 is_end=False,
             ),
             "updated_end_time": _parse_datetime_filter(
                 request.args.get("updated_end_time", ""),
+                field_name="updated_end_time",
                 is_end=True,
             ),
         }
@@ -505,10 +511,12 @@ def register_admin_operations_routes(
             "quick_filter": _normalize_query_text(request.args.get("quick_filter")),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
@@ -622,10 +630,12 @@ def register_admin_operations_routes(
             ),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
@@ -720,10 +730,12 @@ def register_admin_operations_routes(
             "source_bid": _normalize_query_text(request.args.get("source_bid")),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
@@ -931,10 +943,12 @@ def register_admin_operations_routes(
         page_size = min(page_size, OPERATOR_ORDER_LIST_MAX_PAGE_SIZE)
         start_time = _parse_datetime_filter(
             request.args.get("start_time", ""),
+            field_name="start_time",
             is_end=False,
         )
         end_time = _parse_datetime_filter(
             request.args.get("end_time", ""),
+            field_name="end_time",
             is_end=True,
         )
         _validate_datetime_range(start_time, end_time, field_name="start_time")
@@ -1029,10 +1043,12 @@ def register_admin_operations_routes(
             ),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
@@ -1214,10 +1230,12 @@ def register_admin_operations_routes(
             ),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
@@ -1417,10 +1435,12 @@ def register_admin_operations_routes(
             "usage_mode": request.args.get("usage_mode", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
@@ -1831,10 +1851,12 @@ def register_admin_operations_routes(
             "view": request.args.get("view", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
@@ -1980,10 +2002,12 @@ def register_admin_operations_routes(
             "sort_by": request.args.get("sort_by", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
@@ -2074,10 +2098,12 @@ def register_admin_operations_routes(
             "chapter_keyword": request.args.get("chapter_keyword", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }

@@ -3918,6 +3918,7 @@ def test_admin_operation_users_route_returns_filtered_payload(
     [
         ("page_index=1&page_size=20&user_status=invalid", "user_status"),
         ("page_index=1&page_size=20&user_role=invalid", "user_role"),
+        ("page_index=1&page_size=20&start_time=not-a-date", "start_time"),
         (
             "page_index=1&page_size=20&start_time=2026-05-02&end_time=2026-05-01",
             "start_time",

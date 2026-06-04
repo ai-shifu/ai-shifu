@@ -427,11 +427,16 @@ class TestAddConfig:
                 None
             )
             mock_config_class.query = mock_query
+            app.logger.info = MagicMock()
 
             result = add_config(
                 app, "test_key", "test_value", is_secret=False, remark="test remark"
             )
             assert result is True
+            assert all(
+                "test_value" not in str(call_args)
+                for call_args in app.logger.info.call_args_list
+            )
             mock_config_class.assert_called_once()
             mock_db.session.add.assert_called_once()
             mock_db.session.commit.assert_called_once()

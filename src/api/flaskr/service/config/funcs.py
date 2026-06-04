@@ -180,11 +180,10 @@ def add_config(
     """
     with app.app_context():
         normalized_updated_by = _normalize_updated_by(updated_by)
-        safe_value = "***" if is_secret else value
         app.logger.info(
             "Adding config: %s, value: %s, is_secret: %s, remark: %s",
             key,
-            safe_value,
+            "***",
             is_secret,
             remark,
         )
