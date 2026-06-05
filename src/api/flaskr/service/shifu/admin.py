@@ -4399,7 +4399,7 @@ load_existing_demo_shifu_ids = _operator_courses.load_existing_demo_shifu_ids
 class _AdminCompatibilityModule(type(sys)):
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
-        if hasattr(_operator_courses, name):
+        if name in _OPERATOR_COURSE_COMPAT_EXPORTS and hasattr(_operator_courses, name):
             setattr(_operator_courses, name, value)
 
 
