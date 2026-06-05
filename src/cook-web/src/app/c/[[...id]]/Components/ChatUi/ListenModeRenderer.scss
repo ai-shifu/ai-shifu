@@ -219,6 +219,12 @@
   color: color-mix(in srgb, var(--foreground) 90%, transparent);
 }
 
+.listen-playback-speed-action:focus-visible {
+  background: color-mix(in srgb, var(--foreground) 4%, transparent) !important;
+  color: var(--foreground);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--foreground) 18%, transparent) !important;
+}
+
 .listen-playback-speed-action[data-state='open'] {
   background: color-mix(in srgb, var(--foreground) 4%, transparent) !important;
   color: var(--foreground);
@@ -233,7 +239,7 @@
   font-weight: 500;
   line-height: 1;
   letter-spacing: -0.03em;
-  color: color-mix(in srgb, var(--foreground) 84%, transparent);
+  color: inherit;
 }
 
 .listen-playback-speed-popover {
