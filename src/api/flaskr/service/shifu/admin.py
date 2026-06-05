@@ -4395,11 +4395,15 @@ _list_operator_courses_legacy = _operator_courses._list_operator_courses_legacy
 list_operator_courses = _operator_courses.list_operator_courses
 load_existing_demo_shifu_ids = _operator_courses.load_existing_demo_shifu_ids
 
+_OPERATOR_COURSE_FORWARDABLE_NAMES = _OPERATOR_COURSE_COMPAT_EXPORTS + ("datetime",)
+
 
 class _AdminCompatibilityModule(type(sys)):
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
-        if name in _OPERATOR_COURSE_COMPAT_EXPORTS and hasattr(_operator_courses, name):
+        if name in _OPERATOR_COURSE_FORWARDABLE_NAMES and hasattr(
+            _operator_courses, name
+        ):
             setattr(_operator_courses, name, value)
 
 
