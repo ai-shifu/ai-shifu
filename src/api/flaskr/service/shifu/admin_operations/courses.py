@@ -1120,6 +1120,7 @@ def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
         return value
     return {}
 
+
 def _normalize_identifier(value: str) -> str:
     normalized = str(value or "").strip()
     if "@" in normalized:
@@ -1242,6 +1243,7 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
         }
     return user_map
 
+
 def _resolve_course_user_role(
     *,
     is_creator: bool,
@@ -1311,6 +1313,7 @@ def _find_matching_creator_bids(keyword: str) -> Optional[Set[str]]:
 
     return user_bids
 
+
 def _load_operator_user_last_login_map(
     user_bids: Sequence[str],
 ) -> Dict[str, datetime]:
@@ -1337,6 +1340,7 @@ def _load_operator_user_last_login_map(
         for user_bid, last_login_at in rows
         if str(user_bid or "").strip() and last_login_at
     }
+
 
 @dataclass
 class OperatorCourseListSeed:
@@ -2685,6 +2689,7 @@ def _load_latest_course_versions(
         .first()
     )
     return draft, published
+
 
 def _load_operator_course_detail_source(shifu_bid: str):
     draft, published = _load_latest_course_versions(shifu_bid)
