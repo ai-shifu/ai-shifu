@@ -56,11 +56,6 @@ import {
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
-import ListenSpeed075Icon from '@/c-assets/newchat/light/listen-speed/speed-075.svg';
-import ListenSpeed100Icon from '@/c-assets/newchat/light/listen-speed/speed-100.svg';
-import ListenSpeed125Icon from '@/c-assets/newchat/light/listen-speed/speed-125.svg';
-import ListenSpeed150Icon from '@/c-assets/newchat/light/listen-speed/speed-150.svg';
-import ListenSpeed200Icon from '@/c-assets/newchat/light/listen-speed/speed-200.svg';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
@@ -236,14 +231,6 @@ interface ListenPlaybackSpeedPlayerActionProps {
   onPlaybackSpeedChange: (playbackSpeed: ListenPlaybackSpeed) => void;
 }
 
-const LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE = {
-  [0.75]: ListenSpeed075Icon,
-  [1]: ListenSpeed100Icon,
-  [1.25]: ListenSpeed125Icon,
-  [1.5]: ListenSpeed150Icon,
-  [2]: ListenSpeed200Icon,
-} satisfies Record<ListenPlaybackSpeed, string>;
-
 const ListenPlaybackSpeedPlayerAction = memo(
   ({
     ariaLabel,
@@ -253,6 +240,7 @@ const ListenPlaybackSpeedPlayerAction = memo(
     onPlaybackSpeedChange,
   }: ListenPlaybackSpeedPlayerActionProps) => {
     const [isOpen, setIsOpen] = useState(false);
+    const currentPlaybackSpeedLabel = formatListenPlaybackSpeed(playbackSpeed);
 
     const handlePlaybackSpeedChange = useCallback(
       (nextPlaybackSpeed: ListenPlaybackSpeed) => {
@@ -274,14 +262,9 @@ const ListenPlaybackSpeedPlayerAction = memo(
             title={ariaLabel}
             type='button'
           >
-            <Image
-              alt=''
-              aria-hidden='true'
-              height={22}
-              className='slide-player__icon listen-playback-speed-action__icon'
-              src={LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE[playbackSpeed]}
-              width={44}
-            />
+            <span className='listen-playback-speed-action__label'>
+              {currentPlaybackSpeedLabel}
+            </span>
           </button>
         </PopoverTrigger>
         <PopoverContent
@@ -314,14 +297,9 @@ const ListenPlaybackSpeedPlayerAction = memo(
                   title={optionLabel}
                   type='button'
                 >
-                  <Image
-                    alt=''
-                    aria-hidden='true'
-                    className='listen-playback-speed-option__icon'
-                    height={22}
-                    src={LISTEN_PLAYBACK_SPEED_ICON_BY_VALUE[option]}
-                    width={44}
-                  />
+                  <span className='listen-playback-speed-option__label'>
+                    {optionLabel}
+                  </span>
                 </button>
               );
             })}

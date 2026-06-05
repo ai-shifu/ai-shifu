@@ -316,7 +316,7 @@ describe('ListenModeSlideRenderer', () => {
     });
   });
 
-  it('uses an icon-only control for opening playback speed options', () => {
+  it('renders the current playback speed as text in the trigger control', () => {
     writeListenPlaybackSpeedToStorage('course-1', 2);
 
     render(
@@ -339,12 +339,11 @@ describe('ListenModeSlideRenderer', () => {
       name: 'module.chat.listenPlaybackSpeedAriaLabel',
     });
 
-    expect(speedButton.querySelector('img')).toBeInTheDocument();
-    expect(speedButton.querySelector('svg')).not.toBeInTheDocument();
-    expect(speedButton).not.toHaveTextContent(/x/i);
+    expect(speedButton).toHaveTextContent('2x');
+    expect(speedButton.querySelector('img')).not.toBeInTheDocument();
   });
 
-  it('uses fixed SVG icons instead of text nodes for playback speed options', async () => {
+  it('renders playback speed options as text labels', async () => {
     render(
       <ListenModeSlideRenderer
         items={[
@@ -370,8 +369,8 @@ describe('ListenModeSlideRenderer', () => {
     for (const label of ['0.75x', '1x', '1.25x', '1.5x', '2x']) {
       const option = await screen.findByRole('radio', { name: label });
 
-      expect(option.querySelector('img')).toBeInTheDocument();
-      expect(option).not.toHaveTextContent(/x/i);
+      expect(option).toHaveTextContent(label);
+      expect(option.querySelector('img')).not.toBeInTheDocument();
     }
   });
 
