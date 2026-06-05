@@ -236,6 +236,25 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
     return None
 
 
+def _normalize_order_status_filter(value: Any) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    normalized = str(value or "").strip()
+    if normalized.isdigit():
+        return int(normalized)
+    return None
+
+
+def _normalize_order_datetime_filter(
+    value: Any, *, is_end: bool = False
+) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value
+    return _parse_datetime(str(value or "").strip(), is_end=is_end)
+
+
 def _trim_import_activation_nickname(value: str) -> str:
     """Trim nickname content around non-text separators."""
     text = str(value or "").strip()
@@ -479,40 +498,31 @@ def _load_matching_user_bids_for_keyword(keyword: str) -> List[str]:
     if not normalized_keyword:
         return []
 
-    matched_user_bids = set()
-    for row in (
-        UserEntity.query.filter(
-            db.or_(
-                UserEntity.user_bid == normalized_keyword,
-                UserEntity.user_identify == normalized_keyword,
-            )
-        )
-        .yield_per(200)
-        .enable_eagerloads(False)
-    ):
-        user_bid = str(row.user_bid or "").strip()
-        if user_bid:
-            matched_user_bids.add(user_bid)
-
     normalized_credential_identifier = (
         normalized_keyword.lower()
         if EMAIL_PATTERN.fullmatch(normalized_keyword)
         else normalized_keyword
     )
-    for row in (
-        AuthCredential.query.filter(
-            AuthCredential.identifier == normalized_credential_identifier,
-            AuthCredential.provider_name.in_(["phone", "email", "google"]),
-            AuthCredential.deleted == 0,
-        )
-        .yield_per(200)
-        .enable_eagerloads(False)
-    ):
-        user_bid = str(row.user_bid or "").strip()
-        if user_bid:
-            matched_user_bids.add(user_bid)
+    user_rows = db.session.query(UserEntity.user_bid.label("user_bid")).filter(
+        UserEntity.deleted == 0,
+        db.or_(
+            UserEntity.user_bid == normalized_keyword,
+            UserEntity.user_identify == normalized_keyword,
+        ),
+    )
+    credential_rows = db.session.query(
+        AuthCredential.user_bid.label("user_bid")
+    ).filter(
+        AuthCredential.identifier == normalized_credential_identifier,
+        AuthCredential.provider_name.in_(["phone", "email", "google"]),
+        AuthCredential.deleted == 0,
+    )
 
-    return sorted(matched_user_bids)
+    bids = {
+        str(row.user_bid or "").strip()
+        for row in user_rows.union(credential_rows).all()
+    }
+    return sorted(bid for bid in bids if bid)
 
 
 def _load_matching_shifu_bids_for_course_name(course_name: str) -> List[str]:
@@ -894,19 +904,22 @@ def list_orders(
                     return PageNationDTO(page_index, page_size, 0, [])
                 query = query.filter(Order.shifu_bid.in_(allowed_bids))
 
-        status = filters.get("status")
-        if status is not None and str(status).isdigit():
-            query = query.filter(Order.status == int(status))
+        status = _normalize_order_status_filter(filters.get("status"))
+        if status is not None:
+            query = query.filter(Order.status == status)
 
         payment_channel = filters.get("payment_channel")
         if payment_channel:
             query = query.filter(Order.payment_channel == payment_channel)
 
-        start_time = _parse_datetime(filters.get("start_time", ""))
+        start_time = _normalize_order_datetime_filter(filters.get("start_time"))
         if start_time:
             query = query.filter(Order.created_at >= start_time)
 
-        end_time = _parse_datetime(filters.get("end_time", ""), is_end=True)
+        end_time = _normalize_order_datetime_filter(
+            filters.get("end_time"),
+            is_end=True,
+        )
         if end_time:
             query = query.filter(Order.created_at <= end_time)
 
@@ -966,9 +979,9 @@ def list_operator_orders(
                 return PageNationDTO(page_index, page_size, 0, [])
             query = query.filter(Order.shifu_bid.in_(matched_shifu_bids))
 
-        status = filters.get("status")
-        if status is not None and str(status).isdigit():
-            query = query.filter(Order.status == int(status))
+        status = _normalize_order_status_filter(filters.get("status"))
+        if status is not None:
+            query = query.filter(Order.status == status)
 
         payment_channel = str(filters.get("payment_channel", "") or "").strip()
         if payment_channel:
@@ -978,12 +991,12 @@ def list_operator_orders(
         if order_source:
             query = _apply_order_source_filter(query, order_source)
 
-        start_time = _parse_datetime(str(filters.get("start_time", "") or ""))
+        start_time = _normalize_order_datetime_filter(filters.get("start_time"))
         if start_time:
             query = query.filter(Order.created_at >= start_time)
 
-        end_time = _parse_datetime(
-            str(filters.get("end_time", "") or ""),
+        end_time = _normalize_order_datetime_filter(
+            filters.get("end_time"),
             is_end=True,
         )
         if end_time:

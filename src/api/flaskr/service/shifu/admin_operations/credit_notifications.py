@@ -53,9 +53,15 @@ def update_operator_credit_notification_config(
     app: Flask,
     *,
     payload: dict[str, Any],
+    operator_user_bid: str = "",
 ) -> dict[str, Any]:
     with app.app_context():
-        save_credit_notification_policy(app, payload, preserve_opt_out=True)
+        save_credit_notification_policy(
+            app,
+            payload,
+            preserve_opt_out=True,
+            updated_by=operator_user_bid,
+        )
         return load_credit_notification_policy_for_operator()
 
 
@@ -93,5 +99,10 @@ def requeue_operator_credit_notification(
     app: Flask,
     *,
     notification_bid: str,
+    operator_user_bid: str = "",
 ) -> dict[str, Any]:
-    return requeue_credit_notification(app, notification_bid=notification_bid)
+    return requeue_credit_notification(
+        app,
+        notification_bid=notification_bid,
+        operator_user_bid=operator_user_bid,
+    )

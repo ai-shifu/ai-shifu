@@ -327,7 +327,7 @@ def _apply_keyword_filter(query, keyword: str, user_bid_field, *text_fields):
 
 
 def _build_coupon_status_filter(status: str):
-    normalized = str(status or "").strip()
+    normalized = str(status or "").strip().lower()
     if not normalized:
         return None
     now = _now_local_naive()
@@ -350,11 +350,11 @@ def _build_coupon_status_filter(status: str):
             enabled_filter,
             Coupon.end < now,
         )
-    return None
+    raise_param_error("status")
 
 
 def _build_campaign_status_filter(status: str):
-    normalized = str(status or "").strip()
+    normalized = str(status or "").strip().lower()
     if not normalized:
         return None
     now = _now_local_naive()
@@ -377,7 +377,7 @@ def _build_campaign_status_filter(status: str):
             enabled_filter,
             PromoCampaign.end_at < now,
         )
-    return None
+    raise_param_error("status")
 
 
 def _generate_random_coupon_code(length: int = 12) -> str:
@@ -642,15 +642,22 @@ def _find_course_bids_by_name(keyword: str) -> set[str]:
     normalized = str(keyword or "").strip()
     if not normalized:
         return set()
+    like_pattern = f"%{normalized}%"
     results = set()
     for model in (PublishedShifu, DraftShifu):
-        records = model.query.filter(
-            model.deleted == 0,
-            model.title.like(f"%{normalized}%"),
-        ).all()
-        for record in records:
-            if record.shifu_bid:
-                results.add(record.shifu_bid)
+        rows = (
+            db.session.query(model.shifu_bid)
+            .filter(
+                model.deleted == 0,
+                model.title.like(like_pattern),
+            )
+            .distinct()
+            .all()
+        )
+        for row in rows:
+            shifu_bid = str(row[0] or "").strip()
+            if shifu_bid:
+                results.add(shifu_bid)
     return results
 
 
@@ -709,6 +716,21 @@ def _list_promotion_coupons(
         )
     if course_query:
         course_bids = _resolve_course_query_bids(course_query)
+        if not course_bids:
+            return _build_paged_response(
+                AdminPromotionSummaryDTO(
+                    total=0,
+                    active=0,
+                    usage_count=0,
+                    latest_usage_at="",
+                    covered_courses=0,
+                    discount_amount="0",
+                ),
+                page,
+                page_size,
+                0,
+                [],
+            )
         query = query.filter(
             Coupon.filter.in_(
                 [
@@ -798,11 +820,11 @@ def _list_promotion_coupons(
 
     start = (page - 1) * page_size
     paged = query.order_by(Coupon.id.desc()).offset(start).limit(page_size).all()
-    course_bids = [
-        _parse_coupon_scope(coupon.filter or "{}")[1]
+    coupon_scope_map = {
+        coupon.coupon_bid: _parse_coupon_scope(coupon.filter or "{}")
         for coupon in paged
-        if _parse_coupon_scope(coupon.filter or "{}")[1]
-    ]
+    }
+    course_bids = [scope[1] for scope in coupon_scope_map.values() if scope[1]]
     course_map = _load_shifu_map(course_bids)
     user_name_map = _load_user_name_map(
         [coupon.created_user_bid for coupon in paged if coupon.created_user_bid]
@@ -1624,6 +1646,21 @@ def list_operator_promotion_campaigns(
         )
     if course_query:
         course_bids = _resolve_course_query_bids(course_query)
+        if not course_bids:
+            return _build_paged_response(
+                AdminPromotionSummaryDTO(
+                    total=0,
+                    active=0,
+                    usage_count=0,
+                    latest_usage_at="",
+                    covered_courses=0,
+                    discount_amount="0",
+                ),
+                page,
+                page_size,
+                0,
+                [],
+            )
         query = query.filter(PromoCampaign.shifu_bid.in_(course_bids))
     start_time = filters.get("start_time")
     end_time = filters.get("end_time")

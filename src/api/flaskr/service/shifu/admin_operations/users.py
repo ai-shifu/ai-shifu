@@ -6,6 +6,7 @@ from flask import Flask
 from sqlalchemy import and_, case
 
 from flaskr.dao import db
+from flaskr.service.common.models import raise_param_error
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserListDTO,
     AdminOperationUserOverviewDTO,
@@ -220,7 +221,7 @@ def list_operator_users(
             elif user_status == OPERATOR_USER_STATUS_PAID:
                 query = query.filter(UserEntity.state == USER_STATE_PAID)
             else:
-                query = query.filter(db.text("1 = 0"))
+                raise_param_error("user_status")
         if user_role == OPERATOR_USER_ROLE_OPERATOR:
             query = query.filter(UserEntity.is_operator == 1)
         elif user_role == OPERATOR_USER_ROLE_CREATOR:
@@ -239,6 +240,8 @@ def list_operator_users(
                 UserEntity.is_creator == 0,
                 ~UserEntity.user_bid.in_(db.session.query(learner_subquery.c.user_bid)),
             )
+        elif user_role:
+            raise_param_error("user_role")
         if start_time:
             query = query.filter(UserEntity.created_at >= start_time)
         if end_time:

@@ -82,9 +82,38 @@ from flaskr.service.shifu.admin_dtos import (
 MAX_CONTACT_LENGTH = 320
 PHONE_PATTERN = re.compile(r"^\d{11}$")
 EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+OPERATOR_USER_STATUS_VALUES = {"unregistered", "registered", "trial", "paid"}
+OPERATOR_USER_ROLE_VALUES = {"operator", "creator", "learner", "regular"}
+PROMOTION_COUPON_STATUS_VALUES = {"inactive", "not_started", "active", "expired"}
+PROMOTION_CAMPAIGN_STATUS_VALUES = {"inactive", "not_started", "active", "ended"}
+PROMOTION_COUPON_USAGE_STATUS_VALUES = {"901", "902", "903", "904"}
+CREDIT_NOTIFICATION_STATUS_VALUES = {
+    "pending",
+    "sent",
+    "skipped",
+    "skipped_no_mobile",
+    "skipped_opt_out",
+    "suppressed_duplicate",
+    "failed_provider",
+}
+CREDIT_NOTIFICATION_DELIVERY_STATUS_VALUES = {
+    "pending",
+    "sent",
+    "failed",
+    "not_sent",
+}
+CREDIT_NOTIFICATION_SKIP_REASON_VALUES = {
+    "contact",
+    "duplicate",
+    "policy",
+    "stale",
+    "template_params",
+}
 
 
-def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | None:
+def _parse_datetime_filter(
+    value: str, *, field_name: str, is_end: bool = False
+) -> datetime | None:
     if not value:
         return None
     normalized = str(value).strip()
@@ -101,7 +130,44 @@ def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | No
             return parsed
         except ValueError:
             continue
-    raise_param_error("datetime format invalid")
+    raise_param_error(field_name)
+
+
+def _normalize_query_text(raw_value: object) -> str:
+    return str(raw_value or "").strip()
+
+
+def _parse_choice_query_param(
+    raw_value: object,
+    *,
+    field_name: str,
+    allowed_values: set[str],
+) -> str:
+    normalized = _normalize_query_text(raw_value).lower()
+    if not normalized:
+        return ""
+    if normalized not in allowed_values:
+        raise_param_error(field_name)
+    return normalized
+
+
+def _parse_digit_query_param(raw_value: object, *, field_name: str) -> str:
+    normalized = _normalize_query_text(raw_value)
+    if not normalized:
+        return ""
+    if not normalized.isdigit():
+        raise_param_error(field_name)
+    return normalized
+
+
+def _validate_datetime_range(
+    start_time: datetime | None,
+    end_time: datetime | None,
+    *,
+    field_name: str,
+) -> None:
+    if start_time is not None and end_time is not None and start_time > end_time:
+        raise_param_error(field_name)
 
 
 def _parse_boolean_query_param(
@@ -287,28 +353,44 @@ def register_admin_operations_routes(
         )
 
         filters = {
-            "shifu_bid": request.args.get("shifu_bid", ""),
-            "course_name": request.args.get("course_name", ""),
-            "course_status": request.args.get("course_status", ""),
-            "quick_filter": request.args.get("quick_filter", ""),
-            "creator_keyword": request.args.get("creator_keyword", ""),
+            "shifu_bid": _normalize_query_text(request.args.get("shifu_bid")),
+            "course_name": _normalize_query_text(request.args.get("course_name")),
+            "course_status": _normalize_query_text(request.args.get("course_status")),
+            "quick_filter": _normalize_query_text(request.args.get("quick_filter")),
+            "creator_keyword": _normalize_query_text(
+                request.args.get("creator_keyword")
+            ),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
             "updated_start_time": _parse_datetime_filter(
                 request.args.get("updated_start_time", ""),
+                field_name="updated_start_time",
                 is_end=False,
             ),
             "updated_end_time": _parse_datetime_filter(
                 request.args.get("updated_end_time", ""),
+                field_name="updated_end_time",
                 is_end=True,
             ),
         }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
+        _validate_datetime_range(
+            filters["updated_start_time"],
+            filters["updated_end_time"],
+            field_name="updated_start_time",
+        )
         return make_common_response(
             list_operator_courses(app, page_index, page_size, filters)
         )
@@ -412,22 +494,37 @@ def register_admin_operations_routes(
         )
 
         filters = {
-            "user_bid": request.args.get("user_bid", ""),
-            "identifier": request.args.get("identifier", ""),
-            "mobile": request.args.get("mobile", ""),
-            "nickname": request.args.get("nickname", ""),
-            "user_status": request.args.get("user_status", ""),
-            "user_role": request.args.get("user_role", ""),
-            "quick_filter": request.args.get("quick_filter", ""),
+            "user_bid": _normalize_query_text(request.args.get("user_bid")),
+            "identifier": _normalize_query_text(request.args.get("identifier")),
+            "mobile": _normalize_query_text(request.args.get("mobile")),
+            "nickname": _normalize_query_text(request.args.get("nickname")),
+            "user_status": _parse_choice_query_param(
+                request.args.get("user_status"),
+                field_name="user_status",
+                allowed_values=OPERATOR_USER_STATUS_VALUES,
+            ),
+            "user_role": _parse_choice_query_param(
+                request.args.get("user_role"),
+                field_name="user_role",
+                allowed_values=OPERATOR_USER_ROLE_VALUES,
+            ),
+            "quick_filter": _normalize_query_text(request.args.get("quick_filter")),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
         return make_common_response(
             list_operator_users(app, page_index, page_size, filters)
         )
@@ -519,22 +616,34 @@ def register_admin_operations_routes(
         page_size = min(page_size, OPERATOR_ORDER_LIST_MAX_PAGE_SIZE)
 
         filters = {
-            "user_keyword": request.args.get("user_keyword", ""),
-            "order_bid": request.args.get("order_bid", ""),
-            "shifu_bid": request.args.get("shifu_bid", ""),
-            "course_name": request.args.get("course_name", ""),
-            "status": request.args.get("status", ""),
-            "order_source": request.args.get("order_source", ""),
-            "payment_channel": request.args.get("payment_channel", ""),
+            "user_keyword": _normalize_query_text(request.args.get("user_keyword")),
+            "order_bid": _normalize_query_text(request.args.get("order_bid")),
+            "shifu_bid": _normalize_query_text(request.args.get("shifu_bid")),
+            "course_name": _normalize_query_text(request.args.get("course_name")),
+            "status": _parse_digit_query_param(
+                request.args.get("status"),
+                field_name="status",
+            ),
+            "order_source": _normalize_query_text(request.args.get("order_source")),
+            "payment_channel": _normalize_query_text(
+                request.args.get("payment_channel")
+            ),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
         return make_common_response(
             list_operator_orders(app, page_index, page_size, filters)
         )
@@ -590,26 +699,51 @@ def register_admin_operations_routes(
             default=20,
         )
         filters = {
-            "creator_bid": request.args.get("creator_bid", ""),
-            "creator_keyword": request.args.get("creator_keyword", ""),
-            "target_user_bid": request.args.get("target_user_bid", ""),
-            "mobile": request.args.get("mobile", ""),
-            "notification_type": request.args.get("notification_type", ""),
-            "channel": request.args.get("channel", ""),
-            "status": request.args.get("status", ""),
-            "delivery_status": request.args.get("delivery_status", ""),
-            "skip_reason": request.args.get("skip_reason", ""),
-            "source_type": request.args.get("source_type", ""),
-            "source_bid": request.args.get("source_bid", ""),
+            "creator_bid": _normalize_query_text(request.args.get("creator_bid")),
+            "creator_keyword": _normalize_query_text(
+                request.args.get("creator_keyword")
+            ),
+            "target_user_bid": _normalize_query_text(
+                request.args.get("target_user_bid")
+            ),
+            "mobile": _normalize_query_text(request.args.get("mobile")),
+            "notification_type": _normalize_query_text(
+                request.args.get("notification_type")
+            ),
+            "channel": _normalize_query_text(request.args.get("channel")),
+            "status": _parse_choice_query_param(
+                request.args.get("status"),
+                field_name="status",
+                allowed_values=CREDIT_NOTIFICATION_STATUS_VALUES,
+            ),
+            "delivery_status": _parse_choice_query_param(
+                request.args.get("delivery_status"),
+                field_name="delivery_status",
+                allowed_values=CREDIT_NOTIFICATION_DELIVERY_STATUS_VALUES,
+            ),
+            "skip_reason": _parse_choice_query_param(
+                request.args.get("skip_reason"),
+                field_name="skip_reason",
+                allowed_values=CREDIT_NOTIFICATION_SKIP_REASON_VALUES,
+            ),
+            "source_type": _normalize_query_text(request.args.get("source_type")),
+            "source_bid": _normalize_query_text(request.args.get("source_bid")),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
         return make_common_response(
             list_operator_credit_notifications(
                 app,
@@ -653,7 +787,11 @@ def register_admin_operations_routes(
         if not isinstance(payload, dict):
             raise_param_error("credit_notification_config")
         return make_common_response(
-            update_operator_credit_notification_config(app, payload=payload)
+            update_operator_credit_notification_config(
+                app,
+                payload=payload,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
         )
 
     @app.route(
@@ -713,6 +851,7 @@ def register_admin_operations_routes(
             requeue_operator_credit_notification(
                 app,
                 notification_bid=notification_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
             )
         )
 
@@ -802,29 +941,47 @@ def register_admin_operations_routes(
             default=20,
         )
         page_size = min(page_size, OPERATOR_ORDER_LIST_MAX_PAGE_SIZE)
+        start_time = _parse_datetime_filter(
+            request.args.get("start_time", ""),
+            field_name="start_time",
+            is_end=False,
+        )
+        end_time = _parse_datetime_filter(
+            request.args.get("end_time", ""),
+            field_name="end_time",
+            is_end=True,
+        )
+        _validate_datetime_range(start_time, end_time, field_name="start_time")
         return make_common_response(
             build_operator_credit_orders_page(
                 app,
                 page_index=page_index,
                 page_size=page_size,
-                creator_keyword=request.args.get("creator_keyword", ""),
-                product_keyword=request.args.get("product_keyword", ""),
-                bill_order_bid=request.args.get("bill_order_bid", ""),
-                credit_order_kind=request.args.get("credit_order_kind", ""),
-                status=request.args.get("status", ""),
+                creator_keyword=_normalize_query_text(
+                    request.args.get("creator_keyword")
+                ),
+                product_keyword=_normalize_query_text(
+                    request.args.get("product_keyword")
+                ),
+                bill_order_bid=_normalize_query_text(
+                    request.args.get("bill_order_bid")
+                ),
+                credit_order_kind=_normalize_query_text(
+                    request.args.get("credit_order_kind")
+                ),
+                status=_parse_digit_query_param(
+                    request.args.get("status"),
+                    field_name="status",
+                ),
                 has_available_credits=_parse_boolean_query_param(
                     request.args.get("has_available_credits"),
                     field_name="has_available_credits",
                 ),
-                payment_provider=request.args.get("payment_provider", ""),
-                start_time=_parse_datetime_filter(
-                    request.args.get("start_time", ""),
-                    is_end=False,
+                payment_provider=_normalize_query_text(
+                    request.args.get("payment_provider")
                 ),
-                end_time=_parse_datetime_filter(
-                    request.args.get("end_time", ""),
-                    is_end=True,
-                ),
+                start_time=start_time,
+                end_time=end_time,
             )
         )
 
@@ -871,24 +1028,35 @@ def register_admin_operations_routes(
         )
 
         filters = {
-            "keyword": request.args.get("keyword", ""),
-            "name": request.args.get("name", ""),
-            "course_query": request.args.get("course_query", ""),
-            "shifu_bid": request.args.get("shifu_bid", ""),
-            "course_name": request.args.get("course_name", ""),
-            "usage_type": request.args.get("usage_type", ""),
-            "ops_state": request.args.get("ops_state", ""),
-            "discount_type": request.args.get("discount_type", ""),
-            "status": request.args.get("status", ""),
+            "keyword": _normalize_query_text(request.args.get("keyword")),
+            "name": _normalize_query_text(request.args.get("name")),
+            "course_query": _normalize_query_text(request.args.get("course_query")),
+            "shifu_bid": _normalize_query_text(request.args.get("shifu_bid")),
+            "course_name": _normalize_query_text(request.args.get("course_name")),
+            "usage_type": _normalize_query_text(request.args.get("usage_type")),
+            "ops_state": _normalize_query_text(request.args.get("ops_state")),
+            "discount_type": _normalize_query_text(request.args.get("discount_type")),
+            "status": _parse_choice_query_param(
+                request.args.get("status"),
+                field_name="status",
+                allowed_values=PROMOTION_COUPON_STATUS_VALUES,
+            ),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
         return make_common_response(
             list_operator_promotion_coupons(app, page_index, page_size, filters)
         )
@@ -993,8 +1161,12 @@ def register_admin_operations_routes(
             default=20,
         )
         filters = {
-            "keyword": request.args.get("keyword", ""),
-            "status": request.args.get("status", ""),
+            "keyword": _normalize_query_text(request.args.get("keyword")),
+            "status": _parse_choice_query_param(
+                request.args.get("status"),
+                field_name="status",
+                allowed_values=PROMOTION_COUPON_USAGE_STATUS_VALUES,
+            ),
         }
         return make_common_response(
             list_operator_promotion_coupon_usages(
@@ -1020,7 +1192,7 @@ def register_admin_operations_routes(
             default=20,
         )
         filters = {
-            "keyword": request.args.get("keyword", ""),
+            "keyword": _normalize_query_text(request.args.get("keyword")),
         }
         return make_common_response(
             list_operator_promotion_coupon_codes(
@@ -1044,23 +1216,34 @@ def register_admin_operations_routes(
         )
 
         filters = {
-            "keyword": request.args.get("keyword", ""),
-            "course_query": request.args.get("course_query", ""),
-            "shifu_bid": request.args.get("shifu_bid", ""),
-            "course_name": request.args.get("course_name", ""),
-            "apply_type": request.args.get("apply_type", ""),
-            "channel": request.args.get("channel", ""),
-            "discount_type": request.args.get("discount_type", ""),
-            "status": request.args.get("status", ""),
+            "keyword": _normalize_query_text(request.args.get("keyword")),
+            "course_query": _normalize_query_text(request.args.get("course_query")),
+            "shifu_bid": _normalize_query_text(request.args.get("shifu_bid")),
+            "course_name": _normalize_query_text(request.args.get("course_name")),
+            "apply_type": _normalize_query_text(request.args.get("apply_type")),
+            "channel": _normalize_query_text(request.args.get("channel")),
+            "discount_type": _normalize_query_text(request.args.get("discount_type")),
+            "status": _parse_choice_query_param(
+                request.args.get("status"),
+                field_name="status",
+                allowed_values=PROMOTION_CAMPAIGN_STATUS_VALUES,
+            ),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
         return make_common_response(
             list_operator_promotion_campaigns(app, page_index, page_size, filters)
         )
@@ -1252,13 +1435,20 @@ def register_admin_operations_routes(
             "usage_mode": request.args.get("usage_mode", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
 
         return make_common_response(
             get_operator_user_credits(
@@ -1666,13 +1856,20 @@ def register_admin_operations_routes(
             "view": request.args.get("view", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
         return make_common_response(
             get_operator_course_credit_usages(
                 app,
@@ -1815,10 +2012,12 @@ def register_admin_operations_routes(
             "sort_by": request.args.get("sort_by", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
@@ -1826,6 +2025,11 @@ def register_admin_operations_routes(
             request.args.get("include_summary", None),
             field_name="include_summary",
             default=True,
+        )
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
         )
         return make_common_response(
             get_operator_course_ratings(
@@ -1909,10 +2113,12 @@ def register_admin_operations_routes(
             "chapter_keyword": request.args.get("chapter_keyword", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
+                field_name="start_time",
                 is_end=False,
             ),
             "end_time": _parse_datetime_filter(
                 request.args.get("end_time", ""),
+                field_name="end_time",
                 is_end=True,
             ),
         }
@@ -1920,6 +2126,11 @@ def register_admin_operations_routes(
             request.args.get("include_summary", None),
             field_name="include_summary",
             default=True,
+        )
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
         )
         return make_common_response(
             get_operator_course_follow_ups(
@@ -2033,5 +2244,6 @@ def register_admin_operations_routes(
                 shifu_bid=shifu_bid,
                 contact_type=contact_type,
                 identifier=identifiers[0],
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
             )
         )

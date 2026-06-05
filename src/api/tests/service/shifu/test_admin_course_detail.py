@@ -2276,6 +2276,7 @@ def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
     [
         ("mode=invalid_mode", "mode"),
         ("usage_scene=invalid_scene", "usage_scene"),
+        ("start_time=2026-05-02&end_time=2026-05-01", "start_time"),
     ],
 )
 def test_admin_operation_course_credit_usages_route_rejects_invalid_filters(
@@ -2931,6 +2932,24 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     assert user_bid_filtered_payload["data"]["total"] == 0
 
 
+def test_admin_operation_course_follow_ups_route_rejects_inverted_time_range(
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups"
+        "?page=1&page_size=20&start_time=2026-05-02&end_time=2026-05-01",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+    assert payload["message"] == "Params Error start_time"
+
+
 def test_admin_operation_course_follow_ups_route_supports_google_email_credentials(
     app,
     test_client,
@@ -3250,6 +3269,7 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
         ("mode=invalid_mode", "mode"),
         ("has_comment=not_bool", "has_comment"),
         ("sort_by=bad_sort", "sort_by"),
+        ("start_time=2026-05-02&end_time=2026-05-01", "start_time"),
     ],
 )
 def test_admin_operation_course_ratings_route_rejects_invalid_filters(
