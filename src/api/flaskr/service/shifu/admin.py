@@ -4395,7 +4395,12 @@ _list_operator_courses_legacy = _operator_courses._list_operator_courses_legacy
 list_operator_courses = _operator_courses.list_operator_courses
 load_existing_demo_shifu_ids = _operator_courses.load_existing_demo_shifu_ids
 
-_OPERATOR_COURSE_FORWARDABLE_NAMES = _OPERATOR_COURSE_COMPAT_EXPORTS + ("datetime",)
+_OPERATOR_COURSE_FORWARDABLE_NAMES = _OPERATOR_COURSE_COMPAT_EXPORTS + (
+    "check_text_with_risk_control",
+    "datetime",
+    "get_course_visit_count_30d",
+    "run_creator_granted_post_auth",
+)
 
 
 class _AdminCompatibilityModule(type(sys)):
