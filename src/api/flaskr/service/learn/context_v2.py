@@ -491,7 +491,9 @@ class MdflowContextV2:
         current_app.logger.info(f"build_context_from_blocks variables: {variables}")
 
         for generated_block in blocks:
-            if generated_block.position >= len(block_list):
+            if generated_block.position < 0 or generated_block.position >= len(
+                block_list
+            ):
                 continue
             block = block_list[generated_block.position]
             if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
