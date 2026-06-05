@@ -513,7 +513,9 @@ class TestGeneratedBlockListenTtsElementFirst:
         user_bid = "user-legacy"
         shifu_bid = "shifu-legacy"
         generated_block_bid = "gen-legacy"
-        generated_content = "Hello legacy.\n\n<svg><text>visual only</text></svg>\n\nSpeak this too."
+        generated_content = (
+            "Hello legacy.\n\n<svg><text>visual only</text></svg>\n\nSpeak this too."
+        )
 
         with self.app.app_context():
             db.session.query(self.LearnGeneratedAudio).delete()
