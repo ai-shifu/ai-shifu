@@ -241,7 +241,11 @@
   min-width: 272px;
   padding: 8px !important;
   border-radius: 16px !important;
-  border-color: color-mix(in srgb, var(--foreground) 10%, transparent) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--foreground) 10%,
+    transparent
+  ) !important;
   background: color-mix(in srgb, var(--card) 94%, white 6%) !important;
   box-shadow:
     0 12px 28px rgba(15, 23, 42, 0.11),
