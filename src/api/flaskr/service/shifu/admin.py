@@ -90,10 +90,16 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_NORMAL,
     UNIT_TYPE_VALUE_TRIAL,
 )
-from flaskr.service.shifu.demo_courses import load_demo_shifu_bids
+from flaskr.service.shifu.course_activity import load_course_activity_map
+from flaskr.service.shifu.demo_courses import (
+    BUILTIN_DEMO_TITLES,
+    is_builtin_demo_course,
+    load_demo_shifu_bids,
+)
 from flaskr.service.shifu.shifu_draft_funcs import (
     check_text_with_risk_control,
 )
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.models import (
     AiCourseAuth,
     DraftOutlineItem,
@@ -4155,10 +4161,10 @@ resolve_operator_user_quick_filter = _resolve_operator_user_quick_filter
 resolve_recent_days_window = _resolve_recent_days_window
 
 
-from flaskr.service.shifu.admin_operations import courses as _operator_courses
+from flaskr.service.shifu.admin_operations import courses as _operator_courses  # noqa: E402
 
 # Backward-compatible exports for existing imports from shifu.admin.
-from flaskr.service.shifu.admin_operations.courses import (
+from flaskr.service.shifu.admin_operations.courses import (  # noqa: E402
     _resolve_operator_credit_grant_type,
     _format_decimal,
     _coerce_operator_datetime,
@@ -4195,8 +4201,6 @@ from flaskr.service.shifu.admin_operations.courses import (
     _build_course_order_amount_expr,
     _find_matching_creator_bids,
     _load_operator_user_last_login_map,
-    OperatorCourseListSeed,
-    OperatorCourseListCandidate,
     _build_operator_course_list_seed,
     _build_operator_course_list_candidate,
     _build_operator_visible_course_filter,
@@ -4282,6 +4286,8 @@ from flaskr.service.shifu.admin_operations.courses import (
     list_operator_courses,
 )
 
+load_existing_demo_shifu_ids = _operator_courses.load_existing_demo_shifu_ids
+
 
 class _AdminCompatibilityModule(type(sys)):
     def __setattr__(self, name, value):
@@ -4299,6 +4305,7 @@ __all__ = (
     "UNIT_TYPE_VALUE_NORMAL",
     "UNIT_TYPE_VALUE_TRIAL",
     "check_text_with_risk_control",
+    "load_existing_demo_shifu_ids",
     "run_creator_granted_post_auth",
     "_resolve_operator_credit_grant_type",
     "_format_average_score",

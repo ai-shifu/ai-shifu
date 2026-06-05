@@ -690,14 +690,6 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
-      "key": "backend.cross_service_import|flaskr/service/shifu/admin.py|flaskr.service.billing.wallets",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/shifu/admin.py",
-      "target": "flaskr.service.billing.wallets",
-      "message": "flaskr/service/shifu/admin.py imports cross-service module flaskr.service.billing.wallets outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
       "key": "backend.cross_service_import|flaskr/service/shifu/admin.py|flaskr.service.learn.const",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/shifu/admin.py",
@@ -706,35 +698,59 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
-      "key": "backend.cross_service_import|flaskr/service/shifu/admin.py|flaskr.service.learn.learn_dtos",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/shifu/admin.py",
-      "target": "flaskr.service.learn.learn_dtos",
-      "message": "flaskr/service/shifu/admin.py imports cross-service module flaskr.service.learn.learn_dtos outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/shifu/admin.py|flaskr.service.learn.listen_element_payloads",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/shifu/admin.py",
-      "target": "flaskr.service.learn.listen_element_payloads",
-      "message": "flaskr/service/shifu/admin.py imports cross-service module flaskr.service.learn.listen_element_payloads outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/shifu/admin.py|flaskr.service.user.repository",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/shifu/admin.py",
-      "target": "flaskr.service.user.repository",
-      "message": "flaskr/service/shifu/admin.py imports cross-service module flaskr.service.user.repository outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
       "key": "backend.cross_service_import|flaskr/service/shifu/admin.py|flaskr.service.user.utils",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/shifu/admin.py",
       "target": "flaskr.service.user.utils",
       "message": "flaskr/service/shifu/admin.py imports cross-service module flaskr.service.user.utils outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses.py|flaskr.service.billing.primitives",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/shifu/admin_operations/courses.py",
+      "target": "flaskr.service.billing.primitives",
+      "message": "flaskr/service/shifu/admin_operations/courses.py imports cross-service module flaskr.service.billing.primitives outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses.py|flaskr.service.learn.const",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/shifu/admin_operations/courses.py",
+      "target": "flaskr.service.learn.const",
+      "message": "flaskr/service/shifu/admin_operations/courses.py imports cross-service module flaskr.service.learn.const outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses.py|flaskr.service.learn.learn_dtos",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/shifu/admin_operations/courses.py",
+      "target": "flaskr.service.learn.learn_dtos",
+      "message": "flaskr/service/shifu/admin_operations/courses.py imports cross-service module flaskr.service.learn.learn_dtos outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses.py|flaskr.service.learn.listen_element_payloads",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/shifu/admin_operations/courses.py",
+      "target": "flaskr.service.learn.listen_element_payloads",
+      "message": "flaskr/service/shifu/admin_operations/courses.py imports cross-service module flaskr.service.learn.listen_element_payloads outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses.py|flaskr.service.user.repository",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/shifu/admin_operations/courses.py",
+      "target": "flaskr.service.user.repository",
+      "message": "flaskr/service/shifu/admin_operations/courses.py imports cross-service module flaskr.service.user.repository outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses.py|flaskr.service.user.utils",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/shifu/admin_operations/courses.py",
+      "target": "flaskr.service.user.utils",
+      "message": "flaskr/service/shifu/admin_operations/courses.py imports cross-service module flaskr.service.user.utils outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
