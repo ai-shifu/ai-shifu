@@ -1918,5 +1918,79 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
         self.assertEqual(outputs, ["?[server.order.checkout//_sys_pay]", "feedback"])
 
 
+class BuildContextFromBlocksTests(unittest.TestCase):
+    """build_context_from_blocks should hand interaction blocks to markdown-flow
+    as raw ?[...] assistant messages so its _transform_context_messages can
+    expand them, instead of dropping them or flattening input into a bare user
+    message."""
+
+    DOC = (
+        "Content one.\n"
+        "---\n"
+        "?[%{{nickname}} ...What is your name?]\n"
+        "---\n"
+        "Second content {{nickname}}."
+    )
+
+    def _blocks(self):
+        return [
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                position=0,
+                generated_content="reply zero",
+            ),
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                position=1,
+                generated_content="Alice",
+            ),
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                position=2,
+                generated_content="reply two",
+            ),
+        ]
+
+    def test_interaction_block_kept_as_raw_assistant_message(self):
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks(), self.DOC, {"nickname": "Alice"}
+            )
+
+        # The interaction block survives as a raw ?[...] assistant message.
+        interaction_msgs = [
+            m for m in messages if m["role"] == "assistant" and "?[" in m["content"]
+        ]
+        self.assertEqual(len(interaction_msgs), 1)
+        self.assertIn("%{{nickname}}", interaction_msgs[0]["content"])
+
+    def test_transform_expands_interaction_without_adjacent_users(self):
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks(), self.DOC, {"nickname": "Alice"}
+            )
+
+        # Feed the assembled context through markdown-flow's native transform,
+        # exactly as the content-generation path does.
+        from markdown_flow import MarkdownFlow
+
+        mf = MarkdownFlow(self.DOC, llm_provider=None)
+        transformed = mf._transform_context_messages(messages, {"nickname": "Alice"})
+
+        # Interaction answer becomes user(value)+assistant("ok").
+        self.assertIn({"role": "user", "content": "Alice"}, transformed)
+        # No raw interaction syntax leaks after transform.
+        self.assertTrue(all("?[" not in m["content"] for m in transformed))
+        # Roles strictly alternate: no two adjacent user messages.
+        roles = [m["role"] for m in transformed]
+        for prev, cur in zip(roles, roles[1:]):
+            self.assertFalse(
+                prev == "user" and cur == "user",
+                f"adjacent user messages in {roles}",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
