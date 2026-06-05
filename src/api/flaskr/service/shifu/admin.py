@@ -4164,128 +4164,235 @@ resolve_recent_days_window = _resolve_recent_days_window
 from flaskr.service.shifu.admin_operations import courses as _operator_courses  # noqa: E402
 
 # Backward-compatible exports for existing imports from shifu.admin.
-from flaskr.service.shifu.admin_operations.courses import (  # noqa: E402
-    _resolve_operator_credit_grant_type,
-    _format_decimal,
-    _coerce_operator_datetime,
-    _format_operator_datetime,
-    _format_average_score,
-    _resolve_course_rating_mode,
-    _resolve_course_rating_sort_by,
-    _resolve_course_credit_usage_mode,
-    _resolve_course_credit_usage_mode_filter,
-    _resolve_course_credit_usage_scene,
-    _resolve_course_credit_usage_scene_filter,
-    _build_course_credit_usage_scene_filter,
-    _resolve_course_credit_usage_view,
-    _build_course_credit_usage_model_display,
-    _build_course_credit_usage_group_key,
-    _build_operator_course_credit_usage_item,
-    _build_course_credit_usage_generation_name_expr,
-    _build_course_credit_usage_ask_filter,
-    _build_course_credit_usage_learn_filter,
-    _build_operator_course_credit_usage_ledger_totals_subquery,
-    _build_operator_course_credit_usage_base_query,
-    _resolve_course_credit_usage_output_summary,
-    _load_course_credit_usage_output_summary_map,
-    _build_operator_course_credit_usage_detail_item,
-    _apply_course_credit_usage_filters,
-    _build_course_credit_usage_covered_completed_user_subquery,
-    _build_operator_course_credit_metrics,
-    _normalize_metadata_json,
-    _normalize_identifier,
-    _load_course_user_contact_map,
-    _load_user_map,
-    _resolve_course_user_role,
-    _resolve_course_user_learning_status,
-    _build_course_order_amount_expr,
-    _find_matching_creator_bids,
-    _load_operator_user_last_login_map,
-    _build_operator_course_list_seed,
-    _build_operator_course_list_candidate,
-    _build_operator_visible_course_filter,
-    _build_latest_operator_course_rows_query,
-    _build_latest_operator_course_rows_subquery,
-    _build_operator_course_candidate_query,
-    _build_latest_outline_activity_subquery,
-    _build_operator_course_latest_activity_subquery,
-    _build_latest_shifus_query,
-    _load_latest_shifus,
-    _load_latest_shifu_seeds,
-    _attach_course_prompt_flags,
-    _build_course_summary,
-    _is_operator_visible_course,
-    _resolve_course_status,
-    _resolve_course_quick_filter,
-    _resolve_created_last_7d_window,
-    _load_course_activity_map,
-    _load_latest_course_for_transfer,
-    _load_latest_active_draft_outlines,
-    _build_course_copy_title,
-    _resolve_course_copy_title,
-    _build_outline_history_tree,
-    _copy_course_variable_definitions,
-    _run_course_copy_draft_risk_check,
-    _run_course_copy_outline_risk_check,
-    _validate_operator_target_contact,
-    _prepare_operator_target_creator,
-    _load_recent_learning_active_course_bids,
-    _load_recent_paid_order_course_bids,
-    _clear_shifu_permission_cache,
-    _clear_shifu_creator_cache,
-    _update_course_creator_bid,
-    transfer_operator_course_creator,
-    copy_operator_course,
-    _merge_courses,
-    _load_latest_course_versions,
-    _load_operator_course_detail_source,
-    _load_latest_outline_items,
-    _resolve_learning_permission,
-    _resolve_content_status,
-    _resolve_outline_prompt_source,
-    _resolve_prompt_with_fallback,
-    _build_chapter_tree,
-    _load_outline_learning_stats,
-    _load_operator_course_outline_items,
-    _resolve_visible_leaf_outline_bids,
-    _build_course_outline_context_map,
-    _build_course_follow_up_base_subquery,
-    _build_follow_up_user_keyword_filter,
-    _build_credit_usage_user_keyword_filter,
-    _resolve_follow_up_matching_outline_bids,
-    _resolve_follow_up_answer_block,
-    _resolve_follow_up_answer_content,
-    _load_follow_up_groups_for_progress_record,
-    _resolve_follow_up_source_from_element,
-    _resolve_follow_up_source_from_blocks,
-    _resolve_follow_up_source,
-    _load_course_related_user_bids,
-    _load_course_user_paid_amount_map,
-    _load_course_user_last_learning_map,
-    _load_course_user_joined_at_map,
-    _load_course_user_learned_lesson_count_map,
-    get_operator_course_detail,
-    get_operator_course_prompt,
-    get_operator_course_users,
-    get_operator_course_credit_usages,
-    get_operator_course_credit_usage_details,
-    get_operator_course_follow_ups,
-    get_operator_course_ratings,
-    get_operator_course_follow_up_detail,
-    get_operator_course_chapter_detail,
-    _load_bill_usage_record_map,
-    _build_latest_bill_usage_record_subquery,
-    _build_latest_billing_order_subquery,
-    _find_operator_course_bids_by_name,
-    _build_operator_course_query_filter,
-    _build_operator_course_overview,
-    get_operator_course_overview,
-    _can_use_operator_course_sql_optimization,
-    _build_operator_course_overview_legacy,
-    _list_operator_courses_legacy,
-    list_operator_courses,
+_OPERATOR_COURSE_COMPAT_EXPORTS = (
+    "_resolve_operator_credit_grant_type",
+    "_format_decimal",
+    "_coerce_operator_datetime",
+    "_format_operator_datetime",
+    "_format_average_score",
+    "_resolve_course_rating_mode",
+    "_resolve_course_rating_sort_by",
+    "_resolve_course_credit_usage_mode",
+    "_resolve_course_credit_usage_mode_filter",
+    "_resolve_course_credit_usage_scene",
+    "_resolve_course_credit_usage_scene_filter",
+    "_build_course_credit_usage_scene_filter",
+    "_resolve_course_credit_usage_view",
+    "_build_course_credit_usage_model_display",
+    "_build_course_credit_usage_group_key",
+    "_build_operator_course_credit_usage_item",
+    "_build_course_credit_usage_generation_name_expr",
+    "_build_course_credit_usage_ask_filter",
+    "_build_course_credit_usage_learn_filter",
+    "_build_operator_course_credit_usage_ledger_totals_subquery",
+    "_build_operator_course_credit_usage_base_query",
+    "_resolve_course_credit_usage_output_summary",
+    "_load_course_credit_usage_output_summary_map",
+    "_build_operator_course_credit_usage_detail_item",
+    "_apply_course_credit_usage_filters",
+    "_build_course_credit_usage_covered_completed_user_subquery",
+    "_build_operator_course_credit_metrics",
+    "_normalize_metadata_json",
+    "_normalize_identifier",
+    "_load_course_user_contact_map",
+    "_load_user_map",
+    "_resolve_course_user_role",
+    "_resolve_course_user_learning_status",
+    "_build_course_order_amount_expr",
+    "_find_matching_creator_bids",
+    "_load_operator_user_last_login_map",
+    "_build_operator_course_list_seed",
+    "_build_operator_course_list_candidate",
+    "_build_operator_visible_course_filter",
+    "_build_latest_operator_course_rows_query",
+    "_build_latest_operator_course_rows_subquery",
+    "_build_operator_course_candidate_query",
+    "_build_latest_outline_activity_subquery",
+    "_build_operator_course_latest_activity_subquery",
+    "_build_latest_shifus_query",
+    "_load_latest_shifus",
+    "_load_latest_shifu_seeds",
+    "_attach_course_prompt_flags",
+    "_build_course_summary",
+    "_is_operator_visible_course",
+    "_resolve_course_status",
+    "_resolve_course_quick_filter",
+    "_resolve_created_last_7d_window",
+    "_load_course_activity_map",
+    "_load_latest_course_for_transfer",
+    "_load_latest_active_draft_outlines",
+    "_build_course_copy_title",
+    "_resolve_course_copy_title",
+    "_build_outline_history_tree",
+    "_copy_course_variable_definitions",
+    "_run_course_copy_draft_risk_check",
+    "_run_course_copy_outline_risk_check",
+    "_validate_operator_target_contact",
+    "_prepare_operator_target_creator",
+    "_load_recent_learning_active_course_bids",
+    "_load_recent_paid_order_course_bids",
+    "_clear_shifu_permission_cache",
+    "_clear_shifu_creator_cache",
+    "_update_course_creator_bid",
+    "transfer_operator_course_creator",
+    "copy_operator_course",
+    "_merge_courses",
+    "_load_latest_course_versions",
+    "_load_operator_course_detail_source",
+    "_load_latest_outline_items",
+    "_resolve_learning_permission",
+    "_resolve_content_status",
+    "_resolve_outline_prompt_source",
+    "_resolve_prompt_with_fallback",
+    "_build_chapter_tree",
+    "_load_outline_learning_stats",
+    "_load_operator_course_outline_items",
+    "_resolve_visible_leaf_outline_bids",
+    "_build_course_outline_context_map",
+    "_build_course_follow_up_base_subquery",
+    "_build_follow_up_user_keyword_filter",
+    "_build_credit_usage_user_keyword_filter",
+    "_resolve_follow_up_matching_outline_bids",
+    "_resolve_follow_up_answer_block",
+    "_resolve_follow_up_answer_content",
+    "_load_follow_up_groups_for_progress_record",
+    "_resolve_follow_up_source_from_element",
+    "_resolve_follow_up_source_from_blocks",
+    "_resolve_follow_up_source",
+    "_load_course_related_user_bids",
+    "_load_course_user_paid_amount_map",
+    "_load_course_user_last_learning_map",
+    "_load_course_user_joined_at_map",
+    "_load_course_user_learned_lesson_count_map",
+    "get_operator_course_detail",
+    "get_operator_course_prompt",
+    "get_operator_course_users",
+    "get_operator_course_credit_usages",
+    "get_operator_course_credit_usage_details",
+    "get_operator_course_follow_ups",
+    "get_operator_course_ratings",
+    "get_operator_course_follow_up_detail",
+    "get_operator_course_chapter_detail",
+    "_load_bill_usage_record_map",
+    "_build_latest_bill_usage_record_subquery",
+    "_build_latest_billing_order_subquery",
+    "_find_operator_course_bids_by_name",
+    "_build_operator_course_query_filter",
+    "_build_operator_course_overview",
+    "get_operator_course_overview",
+    "_can_use_operator_course_sql_optimization",
+    "_build_operator_course_overview_legacy",
+    "_list_operator_courses_legacy",
+    "list_operator_courses",
+    "load_existing_demo_shifu_ids",
 )
 
+_copy_course_variable_definitions = _operator_courses._copy_course_variable_definitions
+_run_course_copy_draft_risk_check = _operator_courses._run_course_copy_draft_risk_check
+_run_course_copy_outline_risk_check = (
+    _operator_courses._run_course_copy_outline_risk_check
+)
+_validate_operator_target_contact = _operator_courses._validate_operator_target_contact
+_prepare_operator_target_creator = _operator_courses._prepare_operator_target_creator
+_load_recent_learning_active_course_bids = (
+    _operator_courses._load_recent_learning_active_course_bids
+)
+_load_recent_paid_order_course_bids = (
+    _operator_courses._load_recent_paid_order_course_bids
+)
+_clear_shifu_permission_cache = _operator_courses._clear_shifu_permission_cache
+_clear_shifu_creator_cache = _operator_courses._clear_shifu_creator_cache
+_update_course_creator_bid = _operator_courses._update_course_creator_bid
+transfer_operator_course_creator = _operator_courses.transfer_operator_course_creator
+copy_operator_course = _operator_courses.copy_operator_course
+_load_operator_course_detail_source = (
+    _operator_courses._load_operator_course_detail_source
+)
+_load_latest_outline_items = _operator_courses._load_latest_outline_items
+_resolve_learning_permission = _operator_courses._resolve_learning_permission
+_resolve_content_status = _operator_courses._resolve_content_status
+_resolve_outline_prompt_source = _operator_courses._resolve_outline_prompt_source
+_resolve_prompt_with_fallback = _operator_courses._resolve_prompt_with_fallback
+_build_chapter_tree = _operator_courses._build_chapter_tree
+_load_outline_learning_stats = _operator_courses._load_outline_learning_stats
+_load_operator_course_outline_items = (
+    _operator_courses._load_operator_course_outline_items
+)
+_resolve_visible_leaf_outline_bids = (
+    _operator_courses._resolve_visible_leaf_outline_bids
+)
+_build_course_outline_context_map = _operator_courses._build_course_outline_context_map
+_build_course_follow_up_base_subquery = (
+    _operator_courses._build_course_follow_up_base_subquery
+)
+_build_follow_up_user_keyword_filter = (
+    _operator_courses._build_follow_up_user_keyword_filter
+)
+_build_credit_usage_user_keyword_filter = (
+    _operator_courses._build_credit_usage_user_keyword_filter
+)
+_resolve_follow_up_matching_outline_bids = (
+    _operator_courses._resolve_follow_up_matching_outline_bids
+)
+_resolve_follow_up_answer_block = _operator_courses._resolve_follow_up_answer_block
+_resolve_follow_up_answer_content = _operator_courses._resolve_follow_up_answer_content
+_load_follow_up_groups_for_progress_record = (
+    _operator_courses._load_follow_up_groups_for_progress_record
+)
+_resolve_follow_up_source_from_element = (
+    _operator_courses._resolve_follow_up_source_from_element
+)
+_resolve_follow_up_source_from_blocks = (
+    _operator_courses._resolve_follow_up_source_from_blocks
+)
+_resolve_follow_up_source = _operator_courses._resolve_follow_up_source
+_load_course_related_user_bids = _operator_courses._load_course_related_user_bids
+_load_course_user_paid_amount_map = _operator_courses._load_course_user_paid_amount_map
+_load_course_user_last_learning_map = (
+    _operator_courses._load_course_user_last_learning_map
+)
+_load_course_user_joined_at_map = _operator_courses._load_course_user_joined_at_map
+_load_course_user_learned_lesson_count_map = (
+    _operator_courses._load_course_user_learned_lesson_count_map
+)
+get_operator_course_detail = _operator_courses.get_operator_course_detail
+get_operator_course_prompt = _operator_courses.get_operator_course_prompt
+get_operator_course_users = _operator_courses.get_operator_course_users
+get_operator_course_credit_usages = _operator_courses.get_operator_course_credit_usages
+get_operator_course_credit_usage_details = (
+    _operator_courses.get_operator_course_credit_usage_details
+)
+get_operator_course_follow_ups = _operator_courses.get_operator_course_follow_ups
+get_operator_course_ratings = _operator_courses.get_operator_course_ratings
+get_operator_course_follow_up_detail = (
+    _operator_courses.get_operator_course_follow_up_detail
+)
+get_operator_course_chapter_detail = (
+    _operator_courses.get_operator_course_chapter_detail
+)
+_load_bill_usage_record_map = _operator_courses._load_bill_usage_record_map
+_build_latest_bill_usage_record_subquery = (
+    _operator_courses._build_latest_bill_usage_record_subquery
+)
+_build_latest_billing_order_subquery = (
+    _operator_courses._build_latest_billing_order_subquery
+)
+_find_operator_course_bids_by_name = (
+    _operator_courses._find_operator_course_bids_by_name
+)
+_build_operator_course_query_filter = (
+    _operator_courses._build_operator_course_query_filter
+)
+_build_operator_course_overview = _operator_courses._build_operator_course_overview
+get_operator_course_overview = _operator_courses.get_operator_course_overview
+_can_use_operator_course_sql_optimization = (
+    _operator_courses._can_use_operator_course_sql_optimization
+)
+_build_operator_course_overview_legacy = (
+    _operator_courses._build_operator_course_overview_legacy
+)
+_list_operator_courses_legacy = _operator_courses._list_operator_courses_legacy
+list_operator_courses = _operator_courses.list_operator_courses
 load_existing_demo_shifu_ids = _operator_courses.load_existing_demo_shifu_ids
 
 
