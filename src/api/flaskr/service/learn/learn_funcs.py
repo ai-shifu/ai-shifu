@@ -1245,10 +1245,37 @@ def stream_generated_block_audio(
                 str(element.content_text or "") for element in speakable_elements
             ]
             if not speakable_segments:
-                raise_error_with_args(
-                    "server.common.paramsError",
-                    param_message="No speakable text elements available for TTS synthesis",
+                cleaned_fallback_text = preprocess_for_tts(raw_text)
+                if not cleaned_fallback_text or len(cleaned_fallback_text.strip()) < 2:
+                    raise_error_with_args(
+                        "server.common.paramsError",
+                        param_message="No speakable text elements available for TTS synthesis",
+                    )
+
+                def _generate_legacy_audio():
+                    yield from _yield_run_tts_audio_events(
+                        app=app,
+                        text=raw_text,
+                        provider=provider,
+                        tts_model=tts_model,
+                        voice_settings=voice_settings,
+                        generated_block=generated_block,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        preview_mode=preview_mode,
+                        position=0,
+                    )
+
+                yield from _yield_with_tts_error_mapping(
+                    app,
+                    unknown_error_log="Legacy listen TTS synthesis failed",
+                    body=_generate_legacy_audio,
                 )
+                yield _build_tts_done_message(
+                    outline_bid=generated_block.outline_item_bid or "",
+                    generated_block_bid=generated_block_bid,
+                )
+                return
 
             expected_segment_count = len(speakable_segments)
             existing_by_position: dict[int, LearnGeneratedAudio] = {}

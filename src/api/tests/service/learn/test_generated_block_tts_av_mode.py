@@ -503,6 +503,59 @@ class TestGeneratedBlockListenTtsElementFirst:
             assert records[0].subtitle_cues[0]["text"] == "First."
             assert records[1].subtitle_cues[0]["text"] == "Second."
 
+    def test_stream_generated_block_audio_listen_falls_back_to_legacy_block_text(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "user-legacy"
+        shifu_bid = "shifu-legacy"
+        generated_block_bid = "gen-legacy"
+        generated_content = "Hello legacy.\n\n<svg><text>visual only</text></svg>\n\nSpeak this too."
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-legacy",
+                    user_bid=user_bid,
+                    block_bid="block-legacy",
+                    outline_item_bid="outline-legacy",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content=generated_content,
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=True,
+            )
+        )
+
+        assert synthesized_texts == [generated_content]
+        assert [event.type for event in events].count(GeneratedType.AUDIO_COMPLETE) == 1
+        assert events[-1].type == GeneratedType.DONE
+
     def test_stream_generated_block_audio_listen_preserves_position_after_short_text(
         self, monkeypatch
     ):
