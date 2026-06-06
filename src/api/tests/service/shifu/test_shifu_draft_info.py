@@ -195,9 +195,7 @@ def test_save_shifu_draft_info_rejects_missing_name_without_type_error(
     assert "object of type" not in str(exc_info.value)
 
 
-def test_save_shifu_draft_info_treats_missing_description_as_empty(
-    app, monkeypatch
-):
+def test_save_shifu_draft_info_treats_missing_description_as_empty(app, monkeypatch):
     from flaskr.service.shifu import shifu_draft_funcs
     from flaskr.service.shifu.models import DraftShifu
 
