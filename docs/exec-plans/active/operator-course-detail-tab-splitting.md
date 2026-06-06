@@ -17,21 +17,26 @@ without changing backend contracts.
   component while keeping request/state orchestration in `page.tsx`.
 - [x] 2026-05-13 18:45 CST: Recorded the later users/chapters split order in the
   requirement and optimization docs.
-- [ ] 2026-05-13 18:50 CST: Split the users tab into a dedicated local
-  component after the credit usage extraction stabilizes.
-- [ ] 2026-05-13 18:50 CST: Split the chapters table and chapter-detail display
-  helpers after the users tab extraction stabilizes.
+- [x] 2026-06-06 00:00 CST: Confirmed the users tab has been split into
+  `CourseUsersTab.tsx` with route-level fetch and pagination state kept in
+  `page.tsx`.
+- [x] 2026-06-06 00:00 CST: Confirmed the chapters table and chapter detail
+  display have been split into `CourseChaptersTab.tsx` and
+  `CourseChapterDetailDialog.tsx`.
 
 ## Surprises & Discoveries
 
-- The page had already grown past 3,000 lines before the credit usage block was
-  extracted, so even “small” tab additions now create high review overhead.
+- The page had already grown past 3,000 lines before the tab blocks were
+  extracted, so even “small” tab additions created high review overhead.
 - The credit usage tab owns its own column-sizing behavior and filter rendering,
   which makes it a good first split candidate without forcing route-level state
   changes.
 - The repository already contains a reusable `ClearableTextInput` under
   `src/cook-web/src/app/admin/operations/orders/orderUiShared.tsx`, which can be
   reused instead of adding another one-off input implementation.
+- The current `main` branch already contains the follow-up extraction files:
+  `CourseUsersTab.tsx`, `CourseChaptersTab.tsx`, and
+  `CourseChapterDetailDialog.tsx`.
 
 ## Decision Log
 
@@ -49,10 +54,10 @@ without changing backend contracts.
 
 ## Outcomes & Retrospective
 
-- Phase A should leave the course detail page functionally unchanged for
-  operators while reducing the size of `page.tsx` and isolating the newest tab.
-- If this pattern proves stable, the same route-orchestration plus local-tab
-  rendering split can be repeated for the users and chapters areas.
+- The course detail page keeps route-level orchestration in `page.tsx` while
+  moving tab-local rendering into dedicated sibling components.
+- The tab split plan is now complete; later work should focus on page-level
+  state/helper slimming only if the route entry grows again.
 
 ## Context and Orientation
 
@@ -60,6 +65,9 @@ Relevant files:
 
 - `src/cook-web/src/app/admin/operations/[shifu_bid]/page.tsx`
 - `src/cook-web/src/app/admin/operations/[shifu_bid]/CourseCreditUsageTab.tsx`
+- `src/cook-web/src/app/admin/operations/[shifu_bid]/CourseUsersTab.tsx`
+- `src/cook-web/src/app/admin/operations/[shifu_bid]/CourseChaptersTab.tsx`
+- `src/cook-web/src/app/admin/operations/[shifu_bid]/CourseChapterDetailDialog.tsx`
 - `src/cook-web/src/app/admin/operations/operation-course-types.ts`
 - `src/cook-web/src/app/admin/operations/[shifu_bid]/page.test.tsx`
 - `docs/product-specs/operator-course-detail-page.md`
