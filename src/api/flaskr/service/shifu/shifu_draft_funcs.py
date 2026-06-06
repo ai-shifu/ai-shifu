@@ -458,7 +458,11 @@ def save_shifu_draft_info(
             tts_pitch = validated.pitch
             tts_emotion = validated.emotion
 
-        # Validate input lengths
+        # Validate input before reading lengths so malformed/partial requests
+        # return a controlled business error instead of a TypeError.
+        if not shifu_name:
+            raise_error("server.shifu.shifuNameRequired")
+        shifu_description = shifu_description or ""
         if len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
             raise_error_with_args(
                 "server.shifu.shifuNameTooLong", max_length=SHIFU_NAME_MAX_LENGTH
