@@ -14,7 +14,6 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Creator Dashboard Ratings SQL Optimization](./active/creator-dashboard-ratings-sql-optimization.md)
 - [Creator Dashboard Request Splitting](./active/creator-dashboard-request-splitting.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./active/observability-artifacts-consistency-frontend-trace.md)
-- [Operator Course Detail Tab Splitting](./active/operator-course-detail-tab-splitting.md)
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)
 - [Operator User Detail Page Slimming](./active/operator-user-detail-page-slimming.md)
 
@@ -23,6 +22,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Agent-First Harness Migration](./completed/agent-first-harness-migration.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
+- [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)
 
 ## Supporting Tracker
 

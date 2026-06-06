@@ -12,17 +12,17 @@ without changing backend contracts.
 ## Progress
 
 - [x] 2026-05-13 18:10 CST: Reviewed the course detail page structure and
-  confirmed the credit usage tab is the safest first extraction target.
+      confirmed the credit usage tab is the safest first extraction target.
 - [x] 2026-05-13 18:35 CST: Split the credit usage tab into a dedicated sibling
-  component while keeping request/state orchestration in `page.tsx`.
+      component while keeping request/state orchestration in `page.tsx`.
 - [x] 2026-05-13 18:45 CST: Recorded the later users/chapters split order in the
-  requirement and optimization docs.
+      requirement and optimization docs.
 - [x] 2026-06-06 00:00 CST: Confirmed the users tab has been split into
-  `CourseUsersTab.tsx` with route-level fetch and pagination state kept in
-  `page.tsx`.
+      `CourseUsersTab.tsx` with route-level fetch and pagination state kept in
+      `page.tsx`.
 - [x] 2026-06-06 00:00 CST: Confirmed the chapters table and chapter detail
-  display have been split into `CourseChaptersTab.tsx` and
-  `CourseChapterDetailDialog.tsx`.
+      display have been split into `CourseChaptersTab.tsx` and
+      `CourseChapterDetailDialog.tsx`.
 
 ## Surprises & Discoveries
 

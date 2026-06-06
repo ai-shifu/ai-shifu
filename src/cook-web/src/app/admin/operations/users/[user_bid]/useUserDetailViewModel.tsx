@@ -17,12 +17,23 @@ import type {
   AdminOperationUserCreditsResponse,
   AdminOperationUserDetailResponse,
 } from '../../operation-user-types';
-import { EMPTY_VALUE } from './userDetailConstants';
+import { DEFAULT_CREDIT_SUMMARY, EMPTY_VALUE } from './userDetailConstants';
 
 const resolveCourseCount = (
   count: number,
   courses?: AdminOperationUserCourseItem[],
 ) => (count > 0 ? count : (courses || []).length);
+
+const formatCreditBalanceValue = (value: string, locale: string) => {
+  if (!value) {
+    return '';
+  }
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return '';
+  }
+  return formatAdminCredits(Math.floor(numericValue), locale);
+};
 
 export const formatLearningProgress = (
   course: AdminOperationUserCourseItem,
@@ -110,15 +121,12 @@ export default function useUserDetailViewModel({
       credits_expire_at:
         credits.summary.credits_expire_at || detail.credits_expire_at || '',
       has_active_subscription:
-        credits.summary.has_active_subscription ||
-        detail.has_active_subscription,
+        credits.summary === DEFAULT_CREDIT_SUMMARY
+          ? detail.has_active_subscription
+          : credits.summary.has_active_subscription,
     }),
     [
-      credits.summary.available_credits,
-      credits.summary.credits_expire_at,
-      credits.summary.has_active_subscription,
-      credits.summary.subscription_credits,
-      credits.summary.topup_credits,
+      credits.summary,
       detail.available_credits,
       detail.credits_expire_at,
       detail.has_active_subscription,
@@ -297,34 +305,28 @@ export default function useUserDetailViewModel({
         label: tOperationsUsers(
           'detail.creditsOverviewLabels.availableCredits',
         ),
-        value: creditSummary.available_credits
-          ? formatAdminCredits(
-              Number(creditSummary.available_credits),
-              i18n.language,
-            )
-          : '',
+        value: formatCreditBalanceValue(
+          creditSummary.available_credits,
+          i18n.language,
+        ),
       },
       {
         key: 'subscriptionCredits',
         label: tOperationsUsers(
           'detail.creditsOverviewLabels.subscriptionCredits',
         ),
-        value: creditSummary.subscription_credits
-          ? formatAdminCredits(
-              Number(creditSummary.subscription_credits),
-              i18n.language,
-            )
-          : '',
+        value: formatCreditBalanceValue(
+          creditSummary.subscription_credits,
+          i18n.language,
+        ),
       },
       {
         key: 'topupCredits',
         label: tOperationsUsers('detail.creditsOverviewLabels.topupCredits'),
-        value: creditSummary.topup_credits
-          ? formatAdminCredits(
-              Number(creditSummary.topup_credits),
-              i18n.language,
-            )
-          : '',
+        value: formatCreditBalanceValue(
+          creditSummary.topup_credits,
+          i18n.language,
+        ),
       },
       {
         key: 'creditsExpireAt',

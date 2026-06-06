@@ -23,6 +23,18 @@ type UseUserCreditLedgerDataOptions = {
   userBidErrorMessage: string;
 };
 
+const areCreditFiltersEqual = (
+  left: AdminOperationUserCreditFilters,
+  right: AdminOperationUserCreditFilters,
+) =>
+  left.creditType === right.creditType &&
+  left.grantSource === right.grantSource &&
+  left.courseQuery === right.courseQuery &&
+  left.usageScene === right.usageScene &&
+  left.usageMode === right.usageMode &&
+  left.startTime === right.startTime &&
+  left.endTime === right.endTime;
+
 export default function useUserCreditLedgerData({
   isReady,
   userBid,
@@ -168,10 +180,17 @@ export default function useUserCreditLedgerData({
 
   const handleCreditReset = useCallback(() => {
     const nextFilters = createUserCreditFilters();
+    if (
+      areCreditFiltersEqual(creditFiltersDraft, nextFilters) &&
+      areCreditFiltersEqual(creditFilters, nextFilters) &&
+      creditsPageIndex === 1
+    ) {
+      return;
+    }
     setCreditFiltersDraft(nextFilters);
     setCreditFilters(nextFilters);
     setCreditsPageIndex(1);
-  }, []);
+  }, [creditFilters, creditFiltersDraft, creditsPageIndex]);
 
   const retryCredits = useCallback(() => {
     setCreditsRetryNonce(value => value + 1);

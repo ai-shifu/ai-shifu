@@ -428,8 +428,9 @@ describe('AdminOperationUserDetailPage', () => {
       screen.queryByText('module.operationsUser.table.updatedAt'),
     ).not.toBeInTheDocument();
     expect(screen.getByText('¥88.50')).toBeInTheDocument();
+    expect(screen.getByText('35')).toBeInTheDocument();
     expect(screen.getAllByText('35.5').length).toBeGreaterThan(0);
-    expect(screen.getByText('27.5')).toBeInTheDocument();
+    expect(screen.getByText('27')).toBeInTheDocument();
     expect(screen.getByText('8')).toBeInTheDocument();
     expect(screen.getByText('2026-05-01 00:00:00')).toBeInTheDocument();
     expect(
