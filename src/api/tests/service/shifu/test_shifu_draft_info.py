@@ -166,3 +166,65 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(app, monkey
     assert detail.ask_temperature == pytest.approx(0.8)
     assert detail.ask_system_prompt == "ask prompt"
     assert detail.ask_provider_config == ask_provider_config
+
+
+def test_save_shifu_draft_info_rejects_missing_name_without_type_error(
+    app, monkeypatch
+):
+    from flaskr.service.common.models import AppException
+    from flaskr.service.shifu import shifu_draft_funcs
+
+    _mock_shifu_permissions(monkeypatch)
+
+    with pytest.raises(AppException) as exc_info:
+        shifu_draft_funcs.save_shifu_draft_info(
+            app=app,
+            user_id="owner-missing-name",
+            shifu_id="test-save-shifu-missing-name",
+            shifu_name=None,
+            shifu_description="desc",
+            shifu_avatar="res",
+            shifu_keywords=["test"],
+            shifu_model="gpt-test",
+            shifu_temperature=0.3,
+            shifu_price=1.23,
+            shifu_system_prompt="",
+            base_url="http://localhost:5000",
+        )
+
+    assert "object of type" not in str(exc_info.value)
+
+
+def test_save_shifu_draft_info_treats_missing_description_as_empty(app, monkeypatch):
+    from flaskr.service.shifu import shifu_draft_funcs
+    from flaskr.service.shifu.models import DraftShifu
+
+    shifu_bid = "test-save-shifu-none-description"
+    owner_bid = "owner-none-description"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_shifu_permissions(monkeypatch)
+
+    result = shifu_draft_funcs.save_shifu_draft_info(
+        app=app,
+        user_id=owner_bid,
+        shifu_id=shifu_bid,
+        shifu_name="Test Shifu",
+        shifu_description=None,
+        shifu_avatar="res",
+        shifu_keywords=["test"],
+        shifu_model="gpt-test",
+        shifu_temperature=0.3,
+        shifu_price=1.23,
+        shifu_system_prompt="",
+        base_url="http://localhost:5000",
+    )
+
+    assert result.description == ""
+    with app.app_context():
+        latest = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert latest is not None
+        assert latest.description == ""
