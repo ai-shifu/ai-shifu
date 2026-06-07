@@ -621,18 +621,14 @@ const ScriptManagementPage = () => {
             </Tabs>
             <div className='flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end'>
               {courseCreatorUrl ? (
-                <span className='text-xs text-muted-foreground'>
-                  {t('common.core.aiCourseCreatorPrefix')}
-                  <a
-                    href={courseCreatorUrl}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='text-muted-foreground underline hover:text-foreground'
-                  >
-                    {t('common.core.aiCourseCreatorLink')}
-                  </a>
-                  {t('common.core.aiCourseCreatorSuffix')}
-                </span>
+                <a
+                  href={courseCreatorUrl}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='text-xs text-muted-foreground underline hover:text-foreground'
+                >
+                  {t('common.core.aiCourseCreator')}
+                </a>
               ) : null}
               <Button
                 size='sm'

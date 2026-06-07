@@ -1,9 +1,7 @@
 {
   "__namespace__": "common.core",
   "adminTitle": "Admin",
-  "aiCourseCreatorLink": "Install Skill",
-  "aiCourseCreatorPrefix": "Have OpenClaw? ",
-  "aiCourseCreatorSuffix": " to create courses with AI",
+  "aiCourseCreator": "Create courses with AI assistant",
   "all": "All",
   "archived": "Archived",
   "brandName": "AI Shifu",
