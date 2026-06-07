@@ -65,6 +65,35 @@ interface StartPreviewParams {
   visual_mode?: boolean;
 }
 
+export const buildInteractionContinuationPreviewParams = ({
+  currentParams,
+  latestMdflow,
+  blockIndex,
+  variables,
+  userInput,
+}: {
+  currentParams: StartPreviewParams;
+  latestMdflow: string;
+  blockIndex: number;
+  variables: PreviewVariablesMap;
+  userInput?: Record<string, string[]>;
+}): StartPreviewParams => {
+  const nextParams: StartPreviewParams = {
+    ...currentParams,
+    mdflow: latestMdflow,
+    block_index: blockIndex,
+    variables,
+  };
+
+  if (userInput) {
+    nextParams.user_input = userInput;
+  } else if ('user_input' in nextParams) {
+    delete nextParams.user_input;
+  }
+
+  return nextParams;
+};
+
 enum PREVIEW_SSE_OUTPUT_TYPE {
   ELEMENT = 'element',
   INTERACTION = 'interaction',
@@ -1650,19 +1679,16 @@ export function usePreviewChat() {
       const targetGeneratedBlockBid =
         getPreviewItemGeneratedBlockBid(targetItem) || blockBid;
 
-      const nextParams: StartPreviewParams = {
-        ...sseParams.current,
-        block_index: resolvePreviewRequestBlockIndex(
+      const nextParams = buildInteractionContinuationPreviewParams({
+        currentParams: sseParams.current,
+        latestMdflow: resolveLatestMdflow(),
+        blockIndex: resolvePreviewRequestBlockIndex(
           targetGeneratedBlockBid,
           sseParams.current.block_index ?? 0,
         ),
         variables: requestVariables,
-      };
-      if (userInputPayload) {
-        nextParams.user_input = userInputPayload;
-      } else if ('user_input' in nextParams) {
-        delete nextParams.user_input;
-      }
+        userInput: userInputPayload,
+      });
       startPreview(nextParams);
       return true;
     },
@@ -1674,6 +1700,7 @@ export function usePreviewChat() {
       updateContentListWithUserOperate,
       prefillInteractionBlock,
       resolveLastActionableBlockBid,
+      resolveLatestMdflow,
     ],
   );
 
