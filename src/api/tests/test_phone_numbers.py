@@ -1,4 +1,7 @@
-from flaskr.service.common.phone_numbers import is_valid_sms_mobile, normalize_phone_identifier
+from flaskr.service.common.phone_numbers import (
+    is_valid_sms_mobile,
+    normalize_phone_identifier,
+)
 
 
 def test_normalize_phone_identifier_strips_cn_prefix():
