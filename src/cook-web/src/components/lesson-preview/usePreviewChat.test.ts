@@ -79,7 +79,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-describe('usePreviewChat business error rendering', () => {
+describe('usePreviewChat helpers and business error rendering', () => {
   test('builds interaction continuation preview params with latest mdflow', () => {
     expect(
       buildInteractionContinuationPreviewParams({
