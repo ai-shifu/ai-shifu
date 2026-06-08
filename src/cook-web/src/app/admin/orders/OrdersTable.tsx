@@ -123,7 +123,7 @@ export default function OrdersTable({
               <TableHead
                 className={cn(
                   ADMIN_TABLE_HEADER_CELL_CLASS,
-                  'h-10 whitespace-nowrap text-center text-xs',
+                  'h-10 whitespace-nowrap text-left text-xs',
                 )}
                 style={getColumnStyle('user')}
               >
