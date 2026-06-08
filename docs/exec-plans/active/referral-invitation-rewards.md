@@ -3,9 +3,10 @@
 ## Purpose / Big Picture
 
 Build the first version of AI-Shifu's existing-user-invites-new-user reward
-flow. Existing domestic users get an invite code and link; new phone-registered
-users can bind to one inviter at registration; the inviter receives one month
-of the configured 199 CNY plan for each valid invite, capped at 12 months.
+flow on top of configurable referral campaigns. Existing domestic users get an
+invite code and link; new phone-registered users can bind to one inviter at
+registration; the launch campaign grants the inviter one month of the configured
+199 CNY plan for each valid invite, capped at 12 months.
 
 ## Progress
 
@@ -14,6 +15,8 @@ of the configured 199 CNY plan for each valid invite, capped at 12 months.
   referral reward paths.
 - [x] 2026-06-08 22:45 CST: Captured the product and technical design in
   `docs/design-docs/referral-invitation-rewards.md`.
+- [x] 2026-06-08 23:25 CST: Revised the design to add campaign and reward-rule
+  configuration tables so the implementation is not hardcoded to one demand.
 - [ ] 2026-06-08 22:45 CST: Implement backend referral domain models,
   migrations, services, routes, and tests.
 - [ ] 2026-06-08 22:45 CST: Implement creator invite and invitee landing
@@ -40,12 +43,18 @@ of the configured 199 CNY plan for each valid invite, capped at 12 months.
   monthly plan, but implementation must verify the live catalog credit amount
   before feature enablement because the Feishu proposal states 1000 credits per
   30-day reward cycle.
+- The initial design was too close to the single Feishu campaign. The data model
+  needs campaign and reward-rule configuration tables so cap, product, route,
+  eligibility, and timing policy can vary without schema or code rewrites.
 
 ## Decision Log
 
 - Add a new `src/api/flaskr/service/referral/` domain for invite codes,
-  relation binding, click tracking, reward audit rows, repair scripts, and
-  operator read models.
+  campaign configuration, invite codes, relation binding, click tracking,
+  reward audit rows, repair scripts, and operator read models.
+- Store mutable campaign business settings in `referral_campaigns` and
+  `referral_campaign_reward_rules`. Runtime invite, relation, and reward rows
+  reference those config rows and keep snapshots needed for audit.
 - Keep billing as the package/credit truth by creating billing orders,
   subscriptions, wallet buckets, and ledger entries for each granted reward.
 - Do not reuse the existing operator `referral_reward_grants.py` helper for
@@ -101,18 +110,19 @@ referral tables.
 
 ## Plan of Work
 
-1. Add referral backend domain scaffolding and database schema.
-2. Add invite profile, invite click, and relation binding helpers.
-3. Extend SMS login post-auth context and add the referral post-auth handler.
-4. Add billing referral plan reward helper with extension/deferred semantics.
-5. Add creator-facing referral APIs.
-6. Add operator referral APIs and read models.
-7. Add focused backend tests for relation binding, cap handling, billing
+1. Add referral backend domain scaffolding and campaign-aware database schema.
+2. Add campaign activation and reward-rule evaluation helpers.
+3. Add invite profile, invite click, and relation binding helpers.
+4. Extend SMS login post-auth context and add the referral post-auth handler.
+5. Add billing referral plan reward helper with extension/deferred semantics.
+6. Add creator-facing referral APIs.
+7. Add operator referral APIs and read models.
+8. Add focused backend tests for campaign config, relation binding, cap handling, billing
    artifacts, and operator status changes.
-8. Add creator invite and invitee landing frontend flows.
-9. Add operator referral monitoring UI.
-10. Regenerate i18n/type surfaces and run validation.
-11. Verify in dev02 behind a feature flag.
+9. Add creator invite and invitee landing frontend flows.
+10. Add operator referral monitoring UI.
+11. Regenerate i18n/type surfaces and run validation.
+12. Verify in dev02 behind a feature flag.
 
 ## Concrete Steps
 
@@ -134,21 +144,52 @@ Implementation requirements:
 - Define status/type constants in a referral-local range, not in billing
   constants.
 - Add models for:
+  - `ReferralCampaign`
+  - `ReferralCampaignRewardRule`
   - `ReferralInviteCode`
   - `ReferralInviteClick`
   - `ReferralInviteRelation`
   - `ReferralInviteReward`
 - Use `String(36)` business IDs, soft delete, `SmallInteger` status fields, and
   JSON metadata following existing model conventions.
-- Add unique constraints for invite code and active invitee binding.
+- Add unique constraints for campaign code, campaign rule code, invite code, and
+  active invitee binding.
 
 Validation:
 
 - Generate a new Alembic migration from `src/api`.
 - Review the migration manually for table names, indexes, and comments.
-- Add model tests that insert minimal rows and enforce unique invitee binding.
+- Add model tests that insert campaign, reward rule, invite code, relation, and
+  reward rows, then enforce unique invitee binding.
 
-### Step 2: Build Invite Code And Profile Helpers
+### Step 2: Build Campaign And Reward Rule Helpers
+
+Files:
+
+- Modify `src/api/flaskr/service/referral/service.py`.
+- Modify `src/api/flaskr/service/referral/dtos.py`.
+- Add `src/api/tests/service/referral/test_campaign_config.py`.
+
+Implementation requirements:
+
+- Load only active campaigns inside their configured time window and enabled
+  rollout flag.
+- Select active reward rules by trigger event and priority.
+- Evaluate configured inviter and invitee eligibility for the launch rule.
+- Return a rule snapshot containing product code, cycle count, cap scope, cap
+  count, timing policy, and copy keys.
+- Seed or document the launch campaign row and launch reward-rule row used by
+  dev02 validation.
+
+Validation:
+
+- Inactive, paused, expired, or flag-disabled campaigns do not generate usable
+  invite profiles.
+- Changing the configured cap in test data changes reward behavior without code
+  changes.
+- Invalid reward product expectations fail before grant.
+
+### Step 3: Build Invite Code And Profile Helpers
 
 Files:
 
@@ -158,8 +199,10 @@ Files:
 
 Implementation requirements:
 
-- Generate immutable random invite codes with collision retry.
-- Lazily create the inviter profile on `GET /api/referral/invite-profile`.
+- Generate immutable random invite codes with collision retry, scoped by
+  campaign.
+- Lazily create the inviter profile for the active campaign on
+  `GET /api/referral/invite-profile`.
 - Build invite links through a public-origin helper, not hardcoded hostnames.
 - Return rewarded count, remaining count, cap, and reward queue summary.
 - Keep invitee mobile/user details out of inviter-facing responses.
@@ -167,10 +210,11 @@ Implementation requirements:
 Validation:
 
 - Invite code is stable across repeated profile loads.
+- The same user can hold distinct invite codes for distinct campaigns.
 - Invite link uses configured/request public origin.
 - Disabled invite codes are not returned as usable.
 
-### Step 3: Record Invite Clicks
+### Step 4: Record Invite Clicks
 
 Files:
 
@@ -182,6 +226,7 @@ Implementation requirements:
 
 - Add `POST /api/referral/invite-click`.
 - Accept invite code, landing path, and frontend session id.
+- Resolve the campaign from the invite code and store `campaign_bid`.
 - Hash IP and user-agent before persistence.
 - Return only a success status and a generated referral session id when needed.
 - Do not reveal inviter account data on anonymous calls.
@@ -193,7 +238,7 @@ Validation:
   matching product choice in the design.
 - Raw IP and raw user-agent are not persisted.
 
-### Step 4: Extend PostAuthContext And SMS Login Payload
+### Step 5: Extend PostAuthContext And SMS Login Payload
 
 Files:
 
@@ -216,7 +261,7 @@ Validation:
 - New test confirms SMS login passes referral metadata to post-auth handlers.
 - Existing user login with invite code does not imply a new registration.
 
-### Step 5: Add Referral Post-Auth Handler
+### Step 6: Add Referral Post-Auth Handler
 
 Files:
 
@@ -230,11 +275,12 @@ Implementation requirements:
 - Register an extension for `run_post_auth_extensions`.
 - Act only when `created_new_user = true` and invite code is present.
 - Reject self-invites.
+- Load the campaign and reward rule from the invite code, then evaluate
+  configured eligibility and cap.
 - Create one active relation per invitee.
-- Count rewardable prior invite rewards.
-- Create a reward row for reward months 1 through 12.
-- Mark 13th and subsequent valid invitees as cap-skipped without billing side
-  effects.
+- Count rewardable prior invite rewards using the configured cap scope.
+- Create a reward row while the configured cap is not reached.
+- Mark cap-exceeded valid invitees as skipped without billing side effects.
 - Never fail login because of referral processing errors; log enough BIDs for
   repair.
 
@@ -243,9 +289,9 @@ Validation:
 - New invited user creates relation and reward.
 - Existing user login does not create relation.
 - Duplicate post-auth retry returns the existing relation/reward.
-- 13th invite creates relation with skipped reward state.
+- Cap-exceeded invite creates relation with skipped reward state.
 
-### Step 6: Add Billing Referral Plan Reward Helper
+### Step 7: Add Billing Referral Plan Reward Helper
 
 Files:
 
@@ -255,12 +301,13 @@ Files:
 
 Implementation requirements:
 
-- Load reward product by configured product code.
-- Verify the product is an active plan and has the intended 199 CNY monthly
-  campaign shape before granting.
+- Load reward product from the reward rule snapshot.
+- Verify the product is an active plan and matches configured campaign
+  expectations before granting.
 - Create idempotent `manual + paid` billing orders with provider reference
   `referral-reward:{reward_bid}`.
 - Use metadata `checkout_type = referral_invitation_reward`.
+- Include campaign and reward-rule BIDs in billing metadata.
 - Reuse `grant_paid_order_credits`.
 - Support immediate activation when no active paid subscription exists.
 - Support same-plan extension when active self-managed subscription uses the
@@ -278,7 +325,7 @@ Validation:
   reward.
 - Ledger/order metadata contains relation and reward BIDs.
 
-### Step 7: Wire Reward Artifacts Back To Referral Rows
+### Step 8: Wire Reward Artifacts Back To Referral Rows
 
 Files:
 
@@ -288,7 +335,7 @@ Files:
 Implementation requirements:
 
 - After billing grant, update `referral_invite_rewards` with billing artifact
-  BIDs and effective windows.
+  BIDs, effective windows, campaign snapshot, and reward-rule snapshot.
 - If billing grant fails after relation creation, leave reward in a repairable
   pending/failed state with error metadata.
 - Add a repair helper that scans pending reward rows and retries billing grant.
@@ -300,7 +347,7 @@ Validation:
 - Repair helper grants a previously pending reward without duplicating relation
   or order rows.
 
-### Step 8: Add Creator Referral APIs
+### Step 9: Add Creator Referral APIs
 
 Files:
 
@@ -318,11 +365,13 @@ Implementation requirements:
 Validation:
 
 - Authenticated profile returns invite code and link.
+- Profile response includes campaign code, configured cap, remaining reward
+  count, and rule copy keys.
 - Unauthenticated profile is denied.
 - Click endpoint does not require auth.
 - Feature disabled state returns the configured disabled error/no-op.
 
-### Step 9: Add Operator Referral APIs
+### Step 10: Add Operator Referral APIs
 
 Files:
 
@@ -337,8 +386,8 @@ Files:
 Implementation requirements:
 
 - Add overview metrics route.
-- Add relation list route with inviter keyword, invitee keyword, reward status,
-  abnormal status, and created time filters.
+- Add relation list route with campaign, inviter keyword, invitee keyword,
+  reward status, abnormal status, and created time filters.
 - Add relation detail route with billing artifacts.
 - Add status update route for abnormal reviewing, cancel, freeze, and note.
 - Keep operator permission guard as the real access control.
@@ -349,7 +398,7 @@ Validation:
 - Operators can list, filter, inspect detail, and update abnormal status.
 - Status updates do not delete billing truth.
 
-### Step 10: Add Frontend API And Types
+### Step 11: Add Frontend API And Types
 
 Files:
 
@@ -371,7 +420,7 @@ Validation:
 - API endpoint string tests include new routes.
 - TypeScript type-check passes.
 
-### Step 11: Add Creator Invite Page
+### Step 12: Add Creator Invite Page
 
 Files:
 
@@ -383,8 +432,8 @@ Files:
 
 Implementation requirements:
 
-- Show invite link, invite code, copy action, reward count, remaining reward
-  count, queue summary, and cap state.
+- Show invite link, invite code, copy action, campaign rules copy, reward count,
+  remaining reward count, queue summary, and cap state.
 - Do not show invitee private data.
 - Use restrained admin styling consistent with billing/operations pages.
 
@@ -394,7 +443,7 @@ Validation:
 - Copy action uses the generated link.
 - All copy resolves through i18n.
 
-### Step 12: Add Invitee Landing Flow
+### Step 13: Add Invitee Landing Flow
 
 Files:
 
@@ -416,7 +465,7 @@ Validation:
 - SMS login payload includes invite code.
 - Clearing the flow removes stale invite context after successful login.
 
-### Step 13: Add Operator Referral UI
+### Step 14: Add Operator Referral UI
 
 Files:
 
@@ -426,8 +475,8 @@ Files:
 
 Implementation requirements:
 
-- Show overview metrics, filters, table, pagination, detail sheet, and abnormal
-  status actions.
+- Show campaign-aware overview metrics, filters, table, pagination, detail
+  sheet, and abnormal status actions.
 - Link relation rows to existing user detail and billing artifacts where routes
   already exist.
 - Keep the table dense and consistent with existing operations pages.
@@ -439,7 +488,7 @@ Validation:
 - Detail sheet shows relation, invitee, and billing artifact fields.
 - Status action confirmation sends the expected payload.
 
-### Step 14: Add Repair/Diagnostics Script
+### Step 15: Add Repair/Diagnostics Script
 
 Files:
 
@@ -463,11 +512,15 @@ Validation:
 
 Backend acceptance:
 
+- Active campaign and reward-rule config controls eligibility, cap, reward
+  product, and timing policy.
 - A new SMS-registered invitee creates one relation and one reward for the
   inviter.
-- The first 12 valid invitees produce 12 reward months.
-- The 13th valid invitee registers and binds, but creates no automatic billing
-  reward.
+- In the launch campaign, the first 12 valid invitees produce 12 reward months.
+- In the launch campaign, the 13th valid invitee registers and binds, but
+  creates no automatic billing reward.
+- A test campaign with a smaller configured cap skips at that cap without code
+  changes.
 - Reward billing artifacts are visible in `bill_orders`, `bill_subscriptions`,
   `credit_wallet_buckets`, and `credit_ledger_entries`.
 - Existing users are not rebound by invite links.
@@ -495,6 +548,7 @@ Dev02 validation:
 
 - Enable the referral feature flag only after the reward product code is
   configured and verified.
+- Seed dev02 campaign and reward-rule rows for the launch campaign.
 - Run a synthetic invited phone registration.
 - Query dev02 DB rows for relation, reward, billing order, subscription, wallet
   bucket, and ledger.
@@ -505,9 +559,12 @@ Dev02 validation:
 
 - Invite code generation is unique and immutable. Repeated profile calls return
   the same code.
+- Invite code generation is campaign-scoped, so campaign configuration can
+  change without rewriting existing invite rows.
 - Relation binding uses a unique invitee key. Repeated post-auth calls return
   the existing relation.
-- Reward generation uses one reward row per relation.
+- Reward generation uses one reward row per relation and stores campaign/rule
+  snapshots for repair.
 - Billing grant uses provider reference `referral-reward:{reward_bid}` and
   ledger idempotency `grant:{bill_order_bid}`.
 - Failed billing side effects leave pending/failed reward rows for repair.
@@ -518,13 +575,15 @@ Dev02 validation:
 
 Backend:
 
-- New referral tables and Alembic migration.
+- New campaign-aware referral tables and Alembic migration.
+- Launch campaign and reward-rule seed or documented operator setup.
 - New `/api/referral` creator/anonymous endpoints.
 - New `/api/shifu/admin/operations/referrals` operator endpoints.
 - Extended `PostAuthContext` optional fields.
 - New billing helper for referral plan rewards.
-- Feature flag and reward product code configuration in
-  `src/api/flaskr/common/config.py`.
+- Feature flag plus database campaign/reward-rule configuration. Environment
+  config may hold the default launch campaign code, but business values belong
+  in `referral_campaigns` and `referral_campaign_reward_rules`.
 
 Frontend:
 
@@ -537,6 +596,8 @@ Frontend:
 Operational:
 
 - Configured reward product must represent the intended 199 CNY monthly reward.
+- Campaign changes should be audited as data changes, not hidden inside code
+  constants.
 - dev02 rollout should verify live DB state, not only tests.
 - Existing operator manual `referral_reward` grant remains available and should
   not be silently repurposed.
