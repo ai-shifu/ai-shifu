@@ -317,6 +317,7 @@
     "cancel": "Annuler",
     "completed": "Paiement terminé.",
     "confirm": "Continuer vers le paiement",
+    "bonusCreditsLabel": "{baseCredits} + {bonusCredits} offerts",
     "creditsLabel": "Crédits",
     "planDescription": "Voici les détails de paiement de votre forfait de crédits.",
     "preorderDescription": "Ce forfait est prépayé maintenant et prendra effet à la fin du cycle actuel.",
@@ -512,6 +513,7 @@
       "upgradeOnlyTooltip": "L’abonnement actuel est encore actif. Seules les mises à niveau vers une offre supérieure sont autorisées."
     },
     "campaign": {
+      "bonusBadge": "{credits} crédits offerts",
       "discountBadge": "Offre limitée"
     },
     "creditPeriod": {

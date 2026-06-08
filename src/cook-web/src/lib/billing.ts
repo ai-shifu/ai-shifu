@@ -95,6 +95,26 @@ export function hasBillingProductDiscountCampaign(
   );
 }
 
+export function getBillingProductCampaignBonusCredits(
+  product: BillingPlan | BillingTopupProduct,
+): number {
+  const bonusCredits = Number(product.campaign?.bonus_credit_amount || 0);
+  if (
+    !product.campaign?.campaign_bid ||
+    product.campaign.benefit_type !== 'bonus' ||
+    !Number.isFinite(bonusCredits)
+  ) {
+    return 0;
+  }
+  return Math.max(bonusCredits, 0);
+}
+
+export function hasBillingProductBonusCampaign(
+  product: BillingPlan | BillingTopupProduct,
+): boolean {
+  return getBillingProductCampaignBonusCredits(product) > 0;
+}
+
 const BILLING_STATUS_KEYS: Record<string, string> = {
   active: 'module.billing.status.active',
   draft: 'module.billing.status.draft',

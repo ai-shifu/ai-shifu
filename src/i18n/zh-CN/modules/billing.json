@@ -317,6 +317,7 @@
     "cancel": "取消",
     "completed": "支付已完成。",
     "confirm": "继续支付",
+    "bonusCreditsLabel": "{baseCredits} + 赠送 {bonusCredits}",
     "creditsLabel": "积分",
     "planDescription": "以下是积分订阅套餐的支付环节。",
     "preorderDescription": "该套餐将现在预付，并在当前周期结束后生效。",
@@ -512,6 +513,7 @@
       "upgradeOnlyTooltip": "当前套餐在有效期内仅支持升级，不能购买同级或更低档套餐"
     },
     "campaign": {
+      "bonusBadge": "赠送 {credits} 积分",
       "discountBadge": "限时优惠"
     },
     "creditPeriod": {

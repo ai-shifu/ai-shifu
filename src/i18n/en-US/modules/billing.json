@@ -317,6 +317,7 @@
     "cancel": "Cancel",
     "completed": "Payment completed.",
     "confirm": "Continue to payment",
+    "bonusCreditsLabel": "{baseCredits} + {bonusCredits} bonus",
     "creditsLabel": "Credits",
     "planDescription": "Here are the payment details for your credit subscription plan.",
     "preorderDescription": "This package will be prepaid now and take effect when the current cycle ends.",
@@ -512,6 +513,7 @@
       "upgradeOnlyTooltip": "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
     },
     "campaign": {
+      "bonusBadge": "{credits} bonus credits",
       "discountBadge": "Limited offer"
     },
     "creditPeriod": {

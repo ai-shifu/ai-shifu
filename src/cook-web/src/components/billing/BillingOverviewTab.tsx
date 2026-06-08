@@ -30,6 +30,8 @@ import {
   formatBillingCredits,
   formatBillingDateTime,
   formatBillingPrice,
+  getBillingProductCampaignBonusCredits,
+  hasBillingProductBonusCampaign,
   openBillingCheckoutUrl,
   resolveBillingProductPayableAmount,
   registerBillingTranslationUsage,
@@ -527,7 +529,18 @@ export function BillingOverviewTab({
       )
     : '';
   const dialogCreditsLabel = checkoutTarget
-    ? formatBillingCredits(checkoutTarget.product.credit_amount, i18n.language)
+    ? hasBillingProductBonusCampaign(checkoutTarget.product)
+      ? t('module.billing.checkout.bonusCreditsLabel', {
+          baseCredits: formatBillingCredits(
+            checkoutTarget.product.credit_amount,
+            i18n.language,
+          ),
+          bonusCredits: formatBillingCredits(
+            getBillingProductCampaignBonusCredits(checkoutTarget.product),
+            i18n.language,
+          ),
+        })
+      : formatBillingCredits(checkoutTarget.product.credit_amount, i18n.language)
     : '';
   const dialogProviderLabel = checkoutTarget
     ? resolveCheckoutChannelLabel(t, checkoutTarget, selectedPingxxChannel)

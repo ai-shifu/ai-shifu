@@ -4,6 +4,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   formatBillingCreditAmount,
   formatBillingPrice,
+  getBillingProductCampaignBonusCredits,
+  hasBillingProductBonusCampaign,
   hasBillingProductDiscountCampaign,
   resolveBillingProductPayableAmount,
 } from '@/lib/billing';
@@ -152,6 +154,9 @@ export function BillingOverviewShowcase({
             {topups.map(product => {
               const hasDiscountCampaign =
                 hasBillingProductDiscountCampaign(product);
+              const hasBonusCampaign = hasBillingProductBonusCampaign(product);
+              const bonusCreditAmount =
+                getBillingProductCampaignBonusCredits(product);
               const provider = resolveCheckoutProvider(
                 stripeAvailable,
                 pingxxAvailable,
@@ -170,7 +175,12 @@ export function BillingOverviewShowcase({
                   campaignLabel={
                     hasDiscountCampaign
                       ? t('module.billing.package.campaign.discountBadge')
-                      : undefined
+                      : hasBonusCampaign
+                        ? t('module.billing.package.campaign.bonusBadge', {
+                            credits:
+                              formatBillingCreditAmount(bonusCreditAmount),
+                          })
+                        : undefined
                   }
                   creditsLabel={t('module.billing.package.topup.creditLabel', {
                     credits: formatBillingCreditAmount(product.credit_amount),

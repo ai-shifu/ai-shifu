@@ -10,6 +10,8 @@ import {
 import {
   formatBillingCreditAmount,
   formatBillingPrice,
+  getBillingProductCampaignBonusCredits,
+  hasBillingProductBonusCampaign,
   formatBillingPlanInterval,
   hasBillingProductDiscountCampaign,
   resolveBillingProductPayableAmount,
@@ -482,6 +484,8 @@ export function BillingPlanComparisonTable({
       hasActiveSubscription && !hasPendingPreorder && !action && isCurrentPlan;
 
     const hasDiscountCampaign = hasBillingProductDiscountCampaign(plan);
+    const hasBonusCampaign = hasBillingProductBonusCampaign(plan);
+    const bonusCreditAmount = getBillingProductCampaignBonusCredits(plan);
     const payableAmount = resolveBillingProductPayableAmount(plan);
 
     columns.push({
@@ -492,7 +496,11 @@ export function BillingPlanComparisonTable({
       badgeLabel: badgeKey ? t(badgeKey) : undefined,
       campaignLabel: hasDiscountCampaign
         ? t('module.billing.package.campaign.discountBadge')
-        : undefined,
+        : hasBonusCampaign
+          ? t('module.billing.package.campaign.bonusBadge', {
+              credits: formatBillingCreditAmount(bonusCreditAmount),
+            })
+          : undefined,
       originalPriceLabel: hasDiscountCampaign
         ? formatBillingPrice(plan.price_amount, plan.currency, i18n.language)
         : undefined,

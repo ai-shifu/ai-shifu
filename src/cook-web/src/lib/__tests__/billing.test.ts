@@ -6,6 +6,8 @@ import {
   formatBillingNumber,
   formatBillingPlanInterval,
   formatBillingPrice,
+  getBillingProductCampaignBonusCredits,
+  hasBillingProductBonusCampaign,
   extractBillingPingxxQrCode,
   parseBillingDateValue,
   resolveBillingLedgerUsageType,
@@ -169,6 +171,55 @@ describe('formatBillingCreditAmount', () => {
     expect(formatBillingCreditAmount(5)).toBe('5');
     expect(formatBillingCreditAmount(10000)).toBe('10,000');
     expect(formatBillingCreditAmount(3200.88)).toBe('3,200.88');
+  });
+});
+
+describe('billing campaign helpers', () => {
+  test('detects positive bonus-credit campaigns', () => {
+    const bonusPlan = {
+      ...monthlyPlan,
+      campaign: {
+        campaign_bid: 'campaign-bonus-1',
+        benefit_type: 'bonus' as const,
+        discount_amount: 0,
+        discount_percent: 0,
+        campaign_price_amount: 0,
+        bonus_credit_amount: 2,
+      },
+    };
+
+    expect(hasBillingProductBonusCampaign(bonusPlan)).toBe(true);
+    expect(getBillingProductCampaignBonusCredits(bonusPlan)).toBe(2);
+  });
+
+  test('ignores discount campaigns and zero bonus values', () => {
+    expect(
+      hasBillingProductBonusCampaign({
+        ...monthlyPlan,
+        campaign: {
+          campaign_bid: 'campaign-discount-1',
+          benefit_type: 'discount',
+          discount_type: 'percent',
+          discount_amount: 0,
+          discount_percent: 8,
+          campaign_price_amount: 790,
+          bonus_credit_amount: 2,
+        },
+      }),
+    ).toBe(false);
+    expect(
+      hasBillingProductBonusCampaign({
+        ...monthlyPlan,
+        campaign: {
+          campaign_bid: 'campaign-bonus-empty',
+          benefit_type: 'bonus',
+          discount_amount: 0,
+          discount_percent: 0,
+          campaign_price_amount: 0,
+          bonus_credit_amount: 0,
+        },
+      }),
+    ).toBe(false);
   });
 });
 
