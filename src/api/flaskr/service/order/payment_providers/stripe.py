@@ -96,7 +96,6 @@ class StripeProvider(PaymentProvider):
                     amount_off=subscription_discount_amount,
                     currency=(request.currency or "cny").lower(),
                     duration="once",
-                    name=f"{request.subject} first invoice discount",
                     metadata=metadata,
                     idempotency_key=(
                         f"{request.order_bid}:subscription-first-invoice-discount"
