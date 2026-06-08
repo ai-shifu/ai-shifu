@@ -19,7 +19,10 @@ import json
 
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.common.phone_numbers import (
+    is_valid_sms_mobile,
+    normalize_phone_identifier,
+)
 from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
 from flaskr.service.user.token_store import token_store
 from flaskr.util import generate_id
@@ -152,6 +155,8 @@ def send_sms_code(
     with app.app_context():
         if not phone:
             raise_param_error("mobile")
+        if not is_valid_sms_mobile(phone):
+            raise_param_error("mobile format invalid")
         if require_captcha:
             consume_captcha_ticket(app, captcha_ticket)
 

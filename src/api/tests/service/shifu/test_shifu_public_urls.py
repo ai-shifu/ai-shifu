@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
 from flask import Flask
 
+import flaskr.dao as dao
 import flaskr.common.config as common_config
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 
 
 def _reset_config_cache(*keys: str) -> None:
@@ -47,6 +50,45 @@ def _make_draft(shifu_bid: str = "course-1") -> SimpleNamespace:
         ask_llm_system_prompt="",
         ask_provider_config="{}",
     )
+
+
+def _seed_preview_route_course(
+    app,
+    *,
+    shifu_bid: str,
+    owner_bid: str,
+    collaborator_bid: str,
+) -> None:
+    from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
+
+    with app.app_context():
+        AiCourseAuth.query.filter_by(course_id=shifu_bid).delete()
+        DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()
+        dao.db.session.add(
+            DraftShifu(
+                shifu_bid=shifu_bid,
+                title="Preview Route Course",
+                description="desc",
+                avatar_res_bid="avatar-1",
+                keywords="test",
+                llm="gpt-test",
+                llm_temperature=Decimal("0"),
+                llm_system_prompt="",
+                price=Decimal("0"),
+                created_user_bid=owner_bid,
+                updated_user_bid=owner_bid,
+            )
+        )
+        dao.db.session.add(
+            AiCourseAuth(
+                course_auth_id=f"auth-{shifu_bid}-{collaborator_bid}",
+                course_id=shifu_bid,
+                user_id=collaborator_bid,
+                auth_type=json.dumps(["view"]),
+                status=1,
+            )
+        )
+        dao.db.session.commit()
 
 
 def _build_detail_for_base_url(monkeypatch, base_url: str):
@@ -135,6 +177,53 @@ def test_shifu_preview_endpoint_url_uses_public_base(monkeypatch):
         )
 
     assert preview_url == "https://forwarded.example.com/c/course-1?preview=true"
+
+
+def test_shifu_preview_endpoint_admits_course_owner_usage_for_collaborator(
+    monkeypatch,
+    test_client,
+    app,
+):
+    shifu_bid = "preview-route-owner-admission"
+    owner_bid = "owner-preview-route-admission"
+    collaborator_bid = "collaborator-preview-route-admission"
+    captured: dict[str, object] = {}
+    _seed_preview_route_course(
+        app,
+        shifu_bid=shifu_bid,
+        owner_bid=owner_bid,
+        collaborator_bid=collaborator_bid,
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: SimpleNamespace(
+            user_id=collaborator_bid,
+            is_creator=True,
+            is_operator=False,
+            language="en-US",
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.route.admit_creator_usage",
+        lambda _app, **kwargs: captured.setdefault("admission", kwargs),
+        raising=False,
+    )
+
+    resp = test_client.post(
+        f"/api/shifu/shifus/{shifu_bid}/preview",
+        headers={"Token": "test-token"},
+        json={"variables": {}},
+    )
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"].endswith(f"/c/{shifu_bid}?preview=true")
+    assert captured["admission"] == {
+        "shifu_bid": shifu_bid,
+        "usage_scene": BILL_USAGE_SCENE_PREVIEW,
+    }
 
 
 def test_shifu_publish_url_builder_uses_public_base():
