@@ -56,7 +56,10 @@ from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import assert_creator_debug_allowed
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+)
 from .consts import UNIT_TYPE_GUEST
 from functools import wraps
 from enum import Enum
@@ -71,6 +74,7 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
 )
 from flaskr.dao import db
+from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
@@ -276,6 +280,15 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             app,
             creator_bid=creator_bid,
             usage_scene=BILL_USAGE_SCENE_DEBUG,
+        )
+
+    def _admit_creator_preview_usage_for_shifu(shifu_bid: str) -> None:
+        if is_builtin_demo_shifu(app, shifu_bid):
+            return None
+        return admit_creator_usage(
+            app,
+            shifu_bid=shifu_bid,
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
         )
 
     def _validate_contacts(contact_type: str, contacts: list[str]) -> list[str]:
@@ -1080,7 +1093,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         user_id = request.user.user_id
         variables = request.get_json().get("variables")
         base_url = _get_request_base_url()
-        _admit_creator_debug_usage()
+        _admit_creator_preview_usage_for_shifu(shifu_bid)
         return make_common_response(
             preview_shifu_draft(app, user_id, shifu_bid, variables, base_url)
         )

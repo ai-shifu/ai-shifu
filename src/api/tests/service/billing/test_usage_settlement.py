@@ -47,6 +47,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu.models import DraftShifu
 
 
 @pytest.fixture
@@ -174,12 +175,14 @@ def _create_usage(
     usage_scene: int = BILL_USAGE_SCENE_PROD,
     record_level: int = 0,
     billable: int = 1,
+    user_bid: str = "learner-1",
+    shifu_bid: str = "shifu-1",
 ) -> BillUsageRecord:
     return BillUsageRecord(
         usage_bid=usage_bid,
         parent_usage_bid="",
-        user_bid="learner-1",
-        shifu_bid="shifu-1",
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
         outline_item_bid="",
         progress_record_bid="",
         generated_block_bid="",
@@ -208,6 +211,89 @@ def _create_usage(
         created_at=datetime(2026, 4, 8, 12, 0, 0),
         updated_at=datetime(2026, 4, 8, 12, 0, 0),
     )
+
+
+def test_settle_preview_usage_charges_course_owner_not_preview_operator(
+    billing_settlement_app: Flask,
+) -> None:
+    owner_bid = "owner-preview-settlement"
+    collaborator_bid = "collaborator-preview-settlement"
+    shifu_bid = "shifu-preview-settlement"
+
+    with billing_settlement_app.app_context():
+        owner_wallet = _create_wallet(owner_bid, "5.0000000000")
+        collaborator_wallet = _create_wallet(collaborator_bid, "5.0000000000")
+        dao.db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=shifu_bid,
+                    created_user_bid=owner_bid,
+                ),
+                owner_wallet,
+                collaborator_wallet,
+                _create_bucket(
+                    creator_bid=owner_bid,
+                    wallet_bid=owner_wallet.wallet_bid,
+                    bucket_bid="bucket-preview-owner",
+                    category=CREDIT_BUCKET_CATEGORY_FREE,
+                    priority=10,
+                    available_credits="5.0000000000",
+                ),
+                _create_bucket(
+                    creator_bid=collaborator_bid,
+                    wallet_bid=collaborator_wallet.wallet_bid,
+                    bucket_bid="bucket-preview-collaborator",
+                    category=CREDIT_BUCKET_CATEGORY_FREE,
+                    priority=10,
+                    available_credits="5.0000000000",
+                ),
+                _create_rate(
+                    rate_bid="rate-preview-owner-settlement",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+                    usage_scene=BILL_USAGE_SCENE_PREVIEW,
+                    credits_per_unit="1.0000000000",
+                ),
+                _create_usage(
+                    usage_bid="usage-preview-owner-settlement",
+                    usage_type=BILL_USAGE_TYPE_LLM,
+                    provider="openai",
+                    model="gpt-preview",
+                    input_value=1000,
+                    input_cache=0,
+                    output=0,
+                    total=1000,
+                    usage_scene=BILL_USAGE_SCENE_PREVIEW,
+                    user_bid=collaborator_bid,
+                    shifu_bid=shifu_bid,
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+        payload = settle_bill_usage(
+            billing_settlement_app,
+            usage_bid="usage-preview-owner-settlement",
+        )
+
+        owner_wallet = CreditWallet.query.filter_by(creator_bid=owner_bid).one()
+        collaborator_wallet = CreditWallet.query.filter_by(
+            creator_bid=collaborator_bid
+        ).one()
+        entry = CreditLedgerEntry.query.filter_by(
+            source_bid="usage-preview-owner-settlement"
+        ).one()
+        usage = BillUsageRecord.query.filter_by(
+            usage_bid="usage-preview-owner-settlement"
+        ).one()
+
+        assert payload["status"] == "settled"
+        assert payload["creator_bid"] == owner_bid
+        assert payload["consumed_credits"] == 1
+        assert entry.creator_bid == owner_bid
+        assert owner_wallet.available_credits == Decimal("4.0000000000")
+        assert collaborator_wallet.available_credits == Decimal("5.0000000000")
+        assert usage.user_bid == collaborator_bid
 
 
 def test_settle_llm_usage_consumes_multi_metric_in_bucket_priority_order(
