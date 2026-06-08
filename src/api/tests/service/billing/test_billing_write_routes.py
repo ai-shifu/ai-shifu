@@ -12,6 +12,8 @@ import flaskr.dao as dao
 from flaskr.i18n import load_translations, set_language
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
     BILLING_INTERVAL_DAY,
     BILLING_MODE_RECURRING,
     CREDIT_BUCKET_CATEGORY_FREE,
@@ -48,6 +50,8 @@ from flaskr.service.billing.consts import (
     BILLING_TRIAL_PRODUCT_BID,
 )
 from flaskr.service.billing.models import (
+    BillingCampaign,
+    BillingCampaignProduct,
     BillingOrder,
     BillingProduct,
     BillingRenewalEvent,
@@ -659,6 +663,69 @@ class TestBillingWriteRoutes:
         recurring = stripe_request["extra"]["line_items"][0]["price_data"]["recurring"]
         assert recurring["interval"] == "day"
         assert recurring["interval_count"] == 7
+
+    def test_stripe_subscription_campaign_uses_first_invoice_discount_not_recurring_price(
+        self,
+        billing_write_client,
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = datetime.now()
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingCampaign(
+                    campaign_bid="campaign-stripe-first-invoice",
+                    name="Stripe first invoice campaign",
+                    note="",
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+                    discount_amount=200,
+                    discount_percent=Decimal("0"),
+                    bonus_credit_amount=Decimal("0"),
+                    enabled=1,
+                    start_at=now - timedelta(days=1),
+                    end_at=now + timedelta(days=1),
+                    created_user_bid="operator-1",
+                    updated_user_bid="operator-1",
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProduct(
+                    campaign_bid="campaign-stripe-first-invoice",
+                    product_bid="bill-product-plan-monthly",
+                    product_type=BILLING_PRODUCT_TYPE_PLAN,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+                    discount_amount=200,
+                    discount_percent=Decimal("0"),
+                    campaign_price_amount=790,
+                    bonus_credit_amount=Decimal("0"),
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["payable_amount"] == 790
+        stripe_request = billing_write_client["stripe_requests"][-1]
+        price_data = stripe_request["extra"]["line_items"][0]["price_data"]
+        assert price_data["unit_amount"] == 990
+        assert stripe_request["extra"]["subscription_one_time_discount_amount"] == 200
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=payload["data"]["bill_order_bid"]
+            ).one()
+            assert order.campaign_bid == "campaign-stripe-first-invoice"
+            assert order.payable_amount == 790
 
     def test_subscription_checkout_rejects_lower_tier_plan_while_active(
         self, billing_write_client
@@ -2478,6 +2545,30 @@ class TestBillingWriteRoutes:
                 ).count()
                 == 1
             )
+
+    def test_stripe_topup_checkout_keeps_one_time_line_item(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        _add_active_subscription(app, subscription_bid="sub-topup-stripe-1")
+
+        checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "bill-product-topup-small",
+                "payment_provider": "stripe",
+            },
+            headers={"X-Language": "zh-CN"},
+        ).get_json(force=True)
+
+        assert checkout["code"] == 0
+        assert checkout["data"]["provider"] == "stripe"
+        stripe_request = billing_write_client["stripe_requests"][-1]
+        assert stripe_request["extra"]["session_params"]["mode"] == "payment"
+        price_data = stripe_request["extra"]["line_items"][0]["price_data"]
+        assert price_data["unit_amount"] == 5000
+        assert "recurring" not in price_data
 
     def test_topup_grant_expires_with_current_subscription_period(
         self, billing_write_client

@@ -9,11 +9,16 @@ import pytest
 
 import flaskr.dao as dao
 from flaskr.i18n import load_translations
+import flaskr.service.billing.campaigns as billing_campaigns_module
+from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.billing.consts import (
+    BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
+    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_TOPUP,
+    BILLING_PRODUCT_TYPE_PLAN,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -26,7 +31,15 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
+from flaskr.service.billing.campaigns import (
+    build_admin_billing_campaign_detail,
+    build_admin_billing_campaign_product_options,
+    build_admin_billing_campaigns_page,
+)
 from flaskr.service.billing.dtos import (
+    AdminBillingCampaignDetailDTO,
+    AdminBillingCampaignProductOptionsDTO,
+    AdminBillingCampaignsPageDTO,
     BillingDomainAuditsPageDTO,
     BillingEntitlementsPageDTO,
     BillingLedgerAdjustResultDTO,
@@ -45,8 +58,11 @@ from flaskr.service.billing.read_models import (
     build_admin_bill_subscriptions_page,
 )
 import flaskr.service.billing.queries as billing_queries_module
+import flaskr.service.billing.serializers as billing_serializers_module
 import flaskr.service.billing.wallets as billing_wallets_module
 from flaskr.service.billing.models import (
+    BillingCampaign,
+    BillingCampaignProduct,
     BillingOrder,
     BillingRenewalEvent,
     BillingSubscription,
@@ -76,6 +92,8 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(billing_queries_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_wallets_module, "datetime", _FixedDateTime)
+    monkeypatch.setattr(billing_campaigns_module, "datetime", _FixedDateTime)
+    monkeypatch.setattr(billing_serializers_module, "datetime", _FixedDateTime)
 
 
 @pytest.fixture
@@ -109,6 +127,7 @@ def admin_billing_client(monkeypatch):
             user_id=request.headers.get("X-User-Id", "admin-creator"),
             language="en-US",
             is_creator=request.headers.get("X-Creator", "1") == "1",
+            is_operator=request.headers.get("X-Operator", "1") == "1",
         )
 
     monkeypatch.setattr(
@@ -412,6 +431,341 @@ class TestAdminBillingRoutes:
                 Decimal("-12.5000000000"),
             ]
 
+    def test_admin_billing_campaign_routes_support_options_crud_and_status(
+        self,
+        admin_billing_client,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        options_response = client.get("/api/admin/billing/products/options")
+        options_payload = options_response.get_json(force=True)
+
+        assert options_payload["code"] == 0
+        assert options_payload["data"]["plans"]
+        assert options_payload["data"]["topups"]
+
+        create_response = client.post(
+            "/api/admin/billing/campaigns",
+            json={
+                "name": "Monthly bonus",
+                "note": "ops test",
+                "product_type": "plan",
+                "benefit_type": "bonus",
+                "products": [
+                    {
+                        "product_bid": "bill-product-plan-monthly",
+                        "bonus_credit_amount": "18",
+                    }
+                ],
+                "start_at": "2026-04-10 00:00:00",
+                "end_at": "2026-04-20 23:59:00",
+            },
+        )
+        create_payload = create_response.get_json(force=True)
+
+        assert create_payload["code"] == 0
+        created_campaign_bid = create_payload["data"]["campaign"]["campaign_bid"]
+        assert created_campaign_bid
+        assert create_payload["data"]["campaign"]["benefit_type"] == "bonus"
+        assert create_payload["data"]["campaign"]["bonus_credit_amount"] == 18
+        assert create_payload["data"]["products"][0]["product_bid"] == (
+            "bill-product-plan-monthly"
+        )
+        assert (
+            create_payload["data"]["products"][0]["campaign_bonus_credit_amount"] == 18
+        )
+
+        list_response = client.get(
+            "/api/admin/billing/campaigns?page_index=1&page_size=10"
+            "&keyword=Monthly&product_type=plan&benefit_type=bonus&status=upcoming"
+        )
+        list_payload = list_response.get_json(force=True)
+
+        assert list_payload["code"] == 0
+        assert list_payload["data"]["total"] == 1
+        assert list_payload["data"]["items"][0]["campaign_bid"] == created_campaign_bid
+
+        detail_response = client.get(
+            f"/api/admin/billing/campaigns/{created_campaign_bid}"
+        )
+        detail_payload = detail_response.get_json(force=True)
+
+        assert detail_payload["code"] == 0
+        assert detail_payload["data"]["campaign"]["name"] == "Monthly bonus"
+        assert detail_payload["data"]["products"][0]["product_type"] == "plan"
+
+        update_response = client.post(
+            f"/api/admin/billing/campaigns/{created_campaign_bid}",
+            json={
+                "name": "Monthly bonus updated",
+                "note": "ops test updated",
+                "product_type": "plan",
+                "benefit_type": "discount",
+                "products": [
+                    {
+                        "product_bid": "bill-product-plan-monthly",
+                        "discount_type": "percent",
+                        "discount_percent": "15",
+                    }
+                ],
+                "start_at": "2026-04-10 00:00:00",
+                "end_at": "2026-04-22 23:59:00",
+            },
+        )
+        update_payload = update_response.get_json(force=True)
+
+        assert update_payload["code"] == 0
+        assert update_payload["data"]["campaign"]["name"] == "Monthly bonus updated"
+        assert update_payload["data"]["campaign"]["benefit_type"] == "discount"
+        assert update_payload["data"]["campaign"]["discount_type"] == "percent"
+        assert update_payload["data"]["campaign"]["discount_percent"] == 15
+        assert (
+            update_payload["data"]["products"][0]["campaign_discount_type"] == "percent"
+        )
+
+        status_response = client.post(
+            f"/api/admin/billing/campaigns/{created_campaign_bid}/status",
+            json={"enabled": False},
+        )
+        status_payload = status_response.get_json(force=True)
+
+        assert status_payload["code"] == 0
+        assert status_payload["data"]["campaign"]["enabled"] is False
+        assert status_payload["data"]["campaign"]["computed_status"] == "inactive"
+
+    def test_admin_billing_campaign_create_returns_overlap_product_names(
+        self,
+        admin_billing_client,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        first_response = client.post(
+            "/api/admin/billing/campaigns",
+            json={
+                "name": "Monthly overlap 1",
+                "note": "ops test",
+                "product_type": "plan",
+                "benefit_type": "bonus",
+                "products": [
+                    {
+                        "product_bid": "bill-product-plan-monthly",
+                        "bonus_credit_amount": "18",
+                    }
+                ],
+                "start_at": "2026-04-10 00:00:00",
+                "end_at": "2026-04-20 23:59:00",
+            },
+        )
+        first_payload = first_response.get_json(force=True)
+        assert first_payload["code"] == 0
+
+        overlap_response = client.post(
+            "/api/admin/billing/campaigns",
+            json={
+                "name": "Monthly overlap 2",
+                "note": "ops test",
+                "product_type": "plan",
+                "benefit_type": "discount",
+                "products": [
+                    {
+                        "product_bid": "bill-product-plan-monthly",
+                        "discount_type": "percent",
+                        "discount_percent": "15",
+                    }
+                ],
+                "start_at": "2026-04-15 00:00:00",
+                "end_at": "2026-04-25 23:59:00",
+            },
+        )
+        overlap_payload = overlap_response.get_json(force=True)
+
+        assert (
+            overlap_payload["code"]
+            == ERROR_CODE["server.billing.campaignOverlapActive"]
+        )
+        assert "Lite" in overlap_payload["message"]
+
+    def test_admin_billing_campaign_create_ignores_ended_overlap(
+        self,
+        admin_billing_client,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        ended_response = client.post(
+            "/api/admin/billing/campaigns",
+            json={
+                "name": "Monthly ended overlap",
+                "note": "ops test",
+                "product_type": "plan",
+                "benefit_type": "bonus",
+                "products": [
+                    {
+                        "product_bid": "bill-product-plan-monthly",
+                        "bonus_credit_amount": "18",
+                    }
+                ],
+                "start_at": "2026-04-01 00:00:00",
+                "end_at": "2026-04-05 23:59:00",
+            },
+        )
+        ended_payload = ended_response.get_json(force=True)
+        assert ended_payload["code"] == 0
+        assert ended_payload["data"]["campaign"]["computed_status"] == "ended"
+
+        active_response = client.post(
+            "/api/admin/billing/campaigns",
+            json={
+                "name": "Monthly active after ended",
+                "note": "ops test",
+                "product_type": "plan",
+                "benefit_type": "discount",
+                "products": [
+                    {
+                        "product_bid": "bill-product-plan-monthly",
+                        "discount_type": "fixed",
+                        "campaign_price_amount": "500",
+                    }
+                ],
+                "start_at": "2026-04-04 00:00:00",
+                "end_at": "2026-04-10 23:59:00",
+            },
+        )
+        active_payload = active_response.get_json(force=True)
+
+        assert active_payload["code"] == 0
+        assert active_payload["data"]["campaign"]["computed_status"] == "active"
+
+    def test_admin_billing_campaign_routes_require_operator(
+        self,
+        admin_billing_client,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        response = client.get(
+            "/api/admin/billing/campaigns",
+            headers={"X-Operator": "0"},
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 401
+        assert payload["message"] == "No permission"
+
+    def test_admin_billing_campaign_rejects_zero_campaign_price(
+        self,
+        admin_billing_client,
+    ) -> None:
+        client = admin_billing_client["client"]
+
+        response = client.post(
+            "/api/admin/billing/campaigns",
+            json={
+                "name": "Zero price discount",
+                "note": "ops test",
+                "product_type": "topup",
+                "benefit_type": "discount",
+                "products": [
+                    {
+                        "product_bid": "bill-product-topup-small",
+                        "discount_type": "fixed",
+                        "campaign_price_amount": 0,
+                    }
+                ],
+                "start_at": "2026-04-10 00:00:00",
+                "end_at": "2026-04-20 23:59:00",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+        assert "campaign_price_amount" in payload["message"]
+
+    def test_admin_billing_campaign_update_locks_product_rules_after_hit(
+        self,
+        admin_billing_client,
+    ) -> None:
+        app = admin_billing_client["app"]
+        client = admin_billing_client["client"]
+
+        create_response = client.post(
+            "/api/admin/billing/campaigns",
+            json={
+                "name": "Hit locked discount",
+                "note": "ops test",
+                "product_type": "topup",
+                "benefit_type": "discount",
+                "products": [
+                    {
+                        "product_bid": "bill-product-topup-small",
+                        "discount_type": "fixed",
+                        "campaign_price_amount": "4000",
+                    },
+                    {
+                        "product_bid": "bill-product-topup-medium",
+                        "discount_type": "fixed",
+                        "campaign_price_amount": "8000",
+                    },
+                ],
+                "start_at": "2026-04-10 00:00:00",
+                "end_at": "2026-04-20 23:59:00",
+            },
+        )
+        create_payload = create_response.get_json(force=True)
+        assert create_payload["code"] == 0
+        created_campaign_bid = create_payload["data"]["campaign"]["campaign_bid"]
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingOrder(
+                    bill_order_bid="order-campaign-hit",
+                    creator_bid="creator-1",
+                    order_type=BILLING_ORDER_TYPE_TOPUP,
+                    product_bid="bill-product-topup-small",
+                    subscription_bid="",
+                    currency="CNY",
+                    payable_amount=4000,
+                    paid_amount=4000,
+                    payment_provider="pingxx",
+                    channel="alipay_qr",
+                    provider_reference_id="charge_campaign_hit",
+                    status=BILLING_ORDER_STATUS_PAID,
+                    campaign_bid=created_campaign_bid,
+                    campaign_benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+                    created_at=datetime(2026, 4, 11, 8, 0, 0),
+                )
+            )
+            dao.db.session.commit()
+
+        update_response = client.post(
+            f"/api/admin/billing/campaigns/{created_campaign_bid}",
+            json={
+                "name": "Hit locked discount",
+                "note": "rule drift attempt",
+                "product_type": "topup",
+                "benefit_type": "discount",
+                "products": [
+                    {
+                        "product_bid": "bill-product-topup-small",
+                        "discount_type": "fixed",
+                        "campaign_price_amount": "4000",
+                    },
+                    {
+                        "product_bid": "bill-product-topup-medium",
+                        "discount_type": "fixed",
+                        "campaign_price_amount": "7000",
+                    },
+                ],
+                "start_at": "2026-04-10 00:00:00",
+                "end_at": "2026-04-20 23:59:00",
+            },
+        )
+        update_payload = update_response.get_json(force=True)
+
+        assert update_payload["code"] == 7117
+        assert (
+            update_payload["message"]
+            == "This package campaign already has paid hit orders. Campaign products and benefit rules can no longer be changed."
+        )
+
     def test_admin_billing_routes_require_creator(self, admin_billing_client) -> None:
         client = admin_billing_client["client"]
 
@@ -435,6 +789,10 @@ class TestAdminBillingRoutes:
             "domain_audits": build_admin_billing_domain_audits_page(app),
             "entitlements": build_admin_bill_entitlements_page(app),
             "orders": build_admin_bill_orders_page(app),
+            "campaign_product_options": build_admin_billing_campaign_product_options(
+                app
+            ),
+            "campaigns": build_admin_billing_campaigns_page(app),
             "usage_daily": build_admin_bill_daily_usage_metrics_page(app),
             "ledger_daily": build_admin_bill_daily_ledger_summary_page(app),
             "adjust": adjust_admin_billing_ledger(
@@ -453,6 +811,11 @@ class TestAdminBillingRoutes:
         assert isinstance(results["entitlements"], BillingEntitlementsPageDTO)
         assert isinstance(results["orders"], AdminBillingOrdersPageDTO)
         assert isinstance(
+            results["campaign_product_options"],
+            AdminBillingCampaignProductOptionsDTO,
+        )
+        assert isinstance(results["campaigns"], AdminBillingCampaignsPageDTO)
+        assert isinstance(
             results["usage_daily"],
             AdminBillingDailyUsageMetricsPageDTO,
         )
@@ -466,3 +829,41 @@ class TestAdminBillingRoutes:
             assert not isinstance(value, dict)
             assert not isinstance(value, list)
             assert isinstance(value.__json__(), dict)
+
+    def test_admin_billing_campaign_detail_builder_returns_dto_instance(
+        self,
+        admin_billing_client,
+    ) -> None:
+        app = admin_billing_client["app"]
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingCampaign(
+                    campaign_bid="campaign-builder-1",
+                    name="Builder Campaign",
+                    note="",
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
+                    discount_type=0,
+                    discount_amount=0,
+                    discount_percent=Decimal("0"),
+                    bonus_credit_amount=Decimal("12"),
+                    enabled=1,
+                    start_at=datetime(2026, 4, 10, 0, 0, 0),
+                    end_at=datetime(2026, 4, 20, 23, 59, 0),
+                    created_user_bid="admin-creator",
+                    updated_user_bid="admin-creator",
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProduct(
+                    campaign_bid="campaign-builder-1",
+                    product_bid="bill-product-plan-monthly",
+                    product_type=BILLING_PRODUCT_TYPE_PLAN,
+                )
+            )
+            dao.db.session.commit()
+
+        detail = build_admin_billing_campaign_detail(app, "campaign-builder-1")
+
+        assert isinstance(detail, AdminBillingCampaignDetailDTO)
+        assert detail.campaign.campaign_bid == "campaign-builder-1"

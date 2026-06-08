@@ -48,6 +48,8 @@ def test_billing_models_register_core_tables() -> None:
     assert "bill_products" in tables
     assert "bill_subscriptions" in tables
     assert "bill_orders" in tables
+    assert "bill_campaigns" in tables
+    assert "bill_campaign_products" in tables
     assert "credit_wallets" in tables
     assert "credit_wallet_buckets" in tables
     assert "credit_ledger_entries" in tables
@@ -60,6 +62,7 @@ def test_billing_models_register_core_tables() -> None:
 
     credit_ledger_entries = tables["credit_ledger_entries"]
     assert "wallet_bucket_bid" in credit_ledger_entries.c
+    assert "campaign_bid" in tables["bill_orders"].c
     assert "idempotency_key" in credit_ledger_entries.c
     assert credit_ledger_entries.c.amount.type.precision == 20
     assert credit_ledger_entries.c.amount.type.scale == 10

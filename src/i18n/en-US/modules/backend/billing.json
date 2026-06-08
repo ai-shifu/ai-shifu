@@ -4,6 +4,8 @@
     "adminPlanGrantAlreadyActive": "The same plan is already active for this user.",
     "adminPlanGrantProviderManagedConflict": "The user already has an active payment-provider-managed subscription. Manual package grants are not supported until the current subscription expires.",
     "adminPlanGrantRoleUnsupported": "Only creator or operator users can receive manual credit or package grants.",
+    "campaignLockedAfterHit": "This package campaign already has paid hit orders. Campaign products and benefit rules can no longer be changed.",
+    "campaignOverlapActive": "Products {product_names} already have an active package campaign in the selected time range. Adjust the campaign window or choose different products.",
     "creditInsufficient": "Insufficient credits. Purchase a topup or subscription before continuing.",
     "customDomainDisabled": "Custom domains are not enabled for this creator.",
     "debugDisabledBySoftLimit": "Credits are below the configured reminder threshold. Top up or subscribe before continuing debug previews.",

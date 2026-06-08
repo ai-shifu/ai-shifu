@@ -31,6 +31,7 @@ import {
   formatBillingDateTime,
   formatBillingPrice,
   openBillingCheckoutUrl,
+  resolveBillingProductPayableAmount,
   registerBillingTranslationUsage,
   resolveBillingPingxxChannelLabel,
   resolveBillingProductTitle,
@@ -360,9 +361,8 @@ export function BillingOverviewTab({
 
         setPingxxCheckout({
           amountInMinor:
-            typeof result.payable_amount === 'number'
-              ? result.payable_amount
-              : checkoutTarget.product.price_amount,
+            result.payable_amount ??
+            resolveBillingProductPayableAmount(checkoutTarget.product),
           billingOrderBid: result.bill_order_bid,
           currency: checkoutTarget.product.currency,
           description: t(
@@ -521,7 +521,7 @@ export function BillingOverviewTab({
 
   const dialogPriceLabel = checkoutTarget
     ? formatBillingPrice(
-        checkoutTarget.product.price_amount,
+        resolveBillingProductPayableAmount(checkoutTarget.product),
         checkoutTarget.product.currency,
         i18n.language,
       )

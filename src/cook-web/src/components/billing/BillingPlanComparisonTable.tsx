@@ -11,6 +11,8 @@ import {
   formatBillingCreditAmount,
   formatBillingPrice,
   formatBillingPlanInterval,
+  hasBillingProductDiscountCampaign,
+  resolveBillingProductPayableAmount,
   resolveBillingProductTitle,
   resolveBillingProductDescription,
 } from '@/lib/billing';
@@ -158,6 +160,8 @@ type ColumnDescriptor = {
   title: string;
   description: string;
   badgeLabel?: string;
+  campaignLabel?: string;
+  originalPriceLabel?: string;
   priceLabel: string;
   periodLabel: string;
   creditAmount: string;
@@ -477,14 +481,23 @@ export function BillingPlanComparisonTable({
     const showCurrentSubscriptionState =
       hasActiveSubscription && !hasPendingPreorder && !action && isCurrentPlan;
 
+    const hasDiscountCampaign = hasBillingProductDiscountCampaign(plan);
+    const payableAmount = resolveBillingProductPayableAmount(plan);
+
     columns.push({
       key: plan.product_bid,
       testId: `billing-plan-card-${plan.product_bid}`,
       title: resolveBillingProductTitle(t, plan),
       description: resolveBillingProductDescription(t, plan),
       badgeLabel: badgeKey ? t(badgeKey) : undefined,
+      campaignLabel: hasDiscountCampaign
+        ? t('module.billing.package.campaign.discountBadge')
+        : undefined,
+      originalPriceLabel: hasDiscountCampaign
+        ? formatBillingPrice(plan.price_amount, plan.currency, i18n.language)
+        : undefined,
       priceLabel: formatBillingPrice(
-        plan.price_amount,
+        payableAmount,
         plan.currency,
         i18n.language,
       ),
@@ -613,9 +626,21 @@ export function BillingPlanComparisonTable({
                   data-testid={`${col.testId}-price-summary`}
                 >
                   <div className={styles.columnPrice}>
-                    {col.periodLabel
-                      ? `${col.priceLabel} / ${col.periodLabel}`
-                      : col.priceLabel}
+                    {col.originalPriceLabel ? (
+                      <div className={styles.columnOriginalPrice}>
+                        {col.originalPriceLabel}
+                      </div>
+                    ) : null}
+                    <div>
+                      {col.periodLabel
+                        ? `${col.priceLabel} / ${col.periodLabel}`
+                        : col.priceLabel}
+                    </div>
+                    {col.campaignLabel ? (
+                      <div className={styles.columnCampaignLabel}>
+                        {col.campaignLabel}
+                      </div>
+                    ) : null}
                   </div>
                   <div className={styles.columnCreditAmount}>
                     {col.creditAmount}

@@ -33,7 +33,9 @@ const PromotionStatusConfirmDialog = ({
       changeTarget.item.name ||
       (changeTarget.entityType === 'coupon'
         ? changeTarget.item.coupon_bid
-        : changeTarget.item.promo_bid)
+        : changeTarget.entityType === 'campaign'
+          ? changeTarget.item.promo_bid
+          : changeTarget.item.campaign_bid)
     );
   }, [changeTarget]);
 

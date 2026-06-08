@@ -84,6 +84,24 @@ class StripeProvider(PaymentProvider):
             if not line_items:
                 raise RuntimeError("Stripe checkout session requires line items")
             params["line_items"] = line_items
+            subscription_discount_amount = int(
+                options.get("subscription_one_time_discount_amount") or 0
+            )
+            if (
+                params.get("mode") == "subscription"
+                and subscription_discount_amount > 0
+            ):
+                coupon = stripe.Coupon.create(
+                    amount_off=subscription_discount_amount,
+                    currency=request.currency,
+                    duration="once",
+                    name=f"{request.subject} first invoice discount",
+                    metadata=metadata,
+                )
+                coupon_payload = (
+                    coupon.to_dict() if hasattr(coupon, "to_dict") else coupon
+                )
+                params["discounts"] = [{"coupon": coupon_payload["id"]}]
 
             customer_email = options.get("customer_email")
             if customer_email:

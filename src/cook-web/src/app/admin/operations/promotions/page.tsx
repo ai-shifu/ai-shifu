@@ -2,14 +2,22 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Plus } from 'lucide-react';
 import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
+import AdminRowActions from '@/app/admin/components/AdminRowActions';
+import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import type {
+  AdminBillingCampaignDetail,
+  AdminBillingCampaignItem,
+  AdminBillingCampaignProductOptions,
   AdminPromotionCampaignItem,
   AdminPromotionCouponCodeItem,
   AdminPromotionCouponItem,
@@ -18,6 +26,8 @@ import type {
 import useOperatorGuard from '@/app/admin/operations/useOperatorGuard';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
+import ErrorDisplay from '@/components/ErrorDisplay';
+import { Button } from '@/components/ui/Button';
 import {
   Select,
   SelectContent,
@@ -26,12 +36,24 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/Table';
+import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
+import { cn } from '@/lib/utils';
+import {
+  PackageCampaignDialog,
   PromotionCampaignDialog,
   PromotionCouponDialog,
 } from './PromotionFormDialogs';
 import {
+  PackageCampaignProductDetailsDialog,
   PromotionCampaignRedemptionsDialog,
   PromotionCouponCodesDialog,
   PromotionCouponUsageDialog,
@@ -46,6 +68,7 @@ import {
   type CampaignColumnKey,
   type CampaignFilters,
   type CampaignFormState,
+  buildPackageCampaignProductsPayload,
   COLUMN_MAX_WIDTH,
   COLUMN_MIN_WIDTH,
   COUPON_COLUMN_WIDTH_STORAGE_KEY,
@@ -55,10 +78,37 @@ import {
   type CouponFormState,
   createDefaultCampaignFilters,
   createDefaultCouponFilters,
+  createDefaultPackageCampaignFilters,
+  EMPTY_VALUE,
   type ErrorState,
   PAGE_SIZE,
+  PACKAGE_CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY,
+  PACKAGE_CAMPAIGN_DEFAULT_COLUMN_WIDTHS,
+  type PackageCampaignColumnKey,
+  type PackageCampaignFilters,
+  type PackageCampaignFormState,
   type PromotionStatusChangeTarget,
   type PromotionTab,
+  renderCouponAttentionBadges,
+  renderPromotionStatusBadge,
+  renderRuleLabel,
+  renderTimeRange,
+  renderTooltipText,
+  resolveCampaignApplyTypeLabel,
+  resolveCouponScopeLabel,
+  resolveCouponUsageTypeLabel,
+  resolvePackageCampaignBenefitTypeLabel,
+  resolvePackageCampaignProductSummary,
+  resolvePackageCampaignProductTypeLabel,
+  resolvePackageCampaignRuleLabel,
+  SectionCard,
+  shouldShowCampaignStatusToggle,
+  shouldShowCouponStatusToggle,
+  shouldShowPackageCampaignStatusToggle,
+  TABLE_ACTION_CELL_CLASS,
+  TABLE_ACTION_HEAD_CLASS,
+  TABLE_CELL_CLASS,
+  TABLE_HEAD_CLASS,
   SINGLE_SELECT_ITEM_CLASS,
   downloadExcelCompatibleCodesFile,
   canEditCampaignStrategyFields,
@@ -75,22 +125,36 @@ export default function AdminOperationPromotionsPage() {
   const [tab, setTab] = useState<PromotionTab>('coupons');
   const [couponLoading, setCouponLoading] = useState(true);
   const [campaignLoading, setCampaignLoading] = useState(false);
+  const [packageCampaignLoading, setPackageCampaignLoading] = useState(false);
   const [couponError, setCouponError] = useState<ErrorState>(null);
   const [campaignError, setCampaignError] = useState<ErrorState>(null);
+  const [packageCampaignError, setPackageCampaignError] =
+    useState<ErrorState>(null);
   const [coupons, setCoupons] = useState<AdminPromotionCouponItem[]>([]);
   const [campaigns, setCampaigns] = useState<AdminPromotionCampaignItem[]>([]);
+  const [packageCampaigns, setPackageCampaigns] = useState<
+    AdminBillingCampaignItem[]
+  >([]);
   const [couponPage, setCouponPage] = useState(1);
   const [campaignPage, setCampaignPage] = useState(1);
+  const [packageCampaignPage, setPackageCampaignPage] = useState(1);
   const [couponPageCount, setCouponPageCount] = useState(0);
   const [campaignPageCount, setCampaignPageCount] = useState(0);
+  const [packageCampaignPageCount, setPackageCampaignPageCount] = useState(0);
   const [couponFilters, setCouponFilters] = useState<CouponFilters>(() =>
     createDefaultCouponFilters(),
   );
   const [campaignFilters, setCampaignFilters] = useState<CampaignFilters>(() =>
     createDefaultCampaignFilters(),
   );
+  const [packageCampaignFilters, setPackageCampaignFilters] =
+    useState<PackageCampaignFilters>(() =>
+      createDefaultPackageCampaignFilters(),
+    );
   const campaignPageRef = useRef(campaignPage);
   const campaignFiltersRef = useRef(campaignFilters);
+  const packageCampaignPageRef = useRef(packageCampaignPage);
+  const packageCampaignFiltersRef = useRef(packageCampaignFilters);
   const [couponCreateOpen, setCouponCreateOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] =
     useState<AdminPromotionCouponItem | null>(null);
@@ -99,6 +163,12 @@ export default function AdminOperationPromotionsPage() {
     item: AdminPromotionCampaignItem;
     description: string;
   } | null>(null);
+  const [packageCampaignCreateOpen, setPackageCampaignCreateOpen] =
+    useState(false);
+  const [editingPackageCampaign, setEditingPackageCampaign] =
+    useState<AdminBillingCampaignDetail | null>(null);
+  const [packageCampaignProductOptions, setPackageCampaignProductOptions] =
+    useState<AdminBillingCampaignProductOptions | null>(null);
   const [selectedCouponBid, setSelectedCouponBid] = useState('');
   const [selectedCouponName, setSelectedCouponName] = useState('');
   const [selectedCouponShowCourseColumn, setSelectedCouponShowCourseColumn] =
@@ -108,11 +178,21 @@ export default function AdminOperationPromotionsPage() {
   const [selectedPromoName, setSelectedPromoName] = useState('');
   const [couponUsageOpen, setCouponUsageOpen] = useState(false);
   const [campaignRedemptionsOpen, setCampaignRedemptionsOpen] = useState(false);
+  const [
+    packageCampaignProductDetailsOpen,
+    setPackageCampaignProductDetailsOpen,
+  ] = useState(false);
+  const [selectedPackageCampaignBid, setSelectedPackageCampaignBid] =
+    useState('');
+  const [selectedPackageCampaignName, setSelectedPackageCampaignName] =
+    useState('');
   const [pendingStatusChange, setPendingStatusChange] =
     useState<PromotionStatusChangeTarget | null>(null);
   const [statusChangeSubmitting, setStatusChangeSubmitting] = useState(false);
   const [couponFiltersExpanded, setCouponFiltersExpanded] = useState(false);
   const [campaignFiltersExpanded, setCampaignFiltersExpanded] = useState(false);
+  const [packageCampaignFiltersExpanded, setPackageCampaignFiltersExpanded] =
+    useState(false);
   const {
     getColumnStyle: getCouponColumnStyle,
     getResizeHandleProps: getCouponResizeHandleProps,
@@ -131,6 +211,15 @@ export default function AdminOperationPromotionsPage() {
     minWidth: COLUMN_MIN_WIDTH,
     maxWidth: COLUMN_MAX_WIDTH,
   });
+  const {
+    getColumnStyle: getPackageCampaignColumnStyle,
+    getResizeHandleProps: getPackageCampaignResizeHandleProps,
+  } = useAdminResizableColumns<PackageCampaignColumnKey>({
+    storageKey: PACKAGE_CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY,
+    defaultWidths: PACKAGE_CAMPAIGN_DEFAULT_COLUMN_WIDTHS,
+    minWidth: COLUMN_MIN_WIDTH,
+    maxWidth: COLUMN_MAX_WIDTH,
+  });
 
   const renderCouponResizeHandle = (key: CouponColumnKey) => (
     <span
@@ -143,6 +232,13 @@ export default function AdminOperationPromotionsPage() {
     <span
       className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
       {...getCampaignResizeHandleProps(key)}
+    />
+  );
+
+  const renderPackageCampaignResizeHandle = (key: PackageCampaignColumnKey) => (
+    <span
+      className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
+      {...getPackageCampaignResizeHandleProps(key)}
     />
   );
 
@@ -249,6 +345,66 @@ export default function AdminOperationPromotionsPage() {
     [tPromotion],
   );
 
+  const fetchPackageCampaignProductOptions = useCallback(async () => {
+    const response = (await api.getAdminBillingCampaignProductOptions(
+      {},
+    )) as AdminBillingCampaignProductOptions;
+    setPackageCampaignProductOptions(response);
+    return response;
+  }, []);
+
+  const fetchPackageCampaigns = useCallback(
+    async (pageIndex: number, filters: PackageCampaignFilters) => {
+      setPackageCampaignLoading(true);
+      setPackageCampaignError(null);
+      try {
+        const requestPayload = {
+          page_index: pageIndex,
+          page_size: PAGE_SIZE,
+          keyword: filters.keyword.trim(),
+          product_type: filters.product_type,
+          benefit_type: filters.benefit_type,
+          status: filters.status,
+          start_time: filters.start_time,
+          end_time: filters.end_time,
+          timezone: getBrowserTimeZone(),
+        };
+        let response = (await api.getAdminBillingCampaigns(requestPayload)) as {
+          items: AdminBillingCampaignItem[];
+          page: number;
+          page_count: number;
+        };
+        const responsePage = response.page || pageIndex;
+        const responsePageCount = response.page_count || 0;
+        if (
+          responsePageCount > 0 &&
+          responsePage > responsePageCount &&
+          (response.items || []).length === 0
+        ) {
+          response = (await api.getAdminBillingCampaigns({
+            ...requestPayload,
+            page_index: responsePageCount,
+          })) as typeof response;
+        }
+        setPackageCampaigns(response.items || []);
+        setPackageCampaignPage(response.page || 1);
+        setPackageCampaignPageCount(response.page_count || 0);
+      } catch (error) {
+        setPackageCampaignError({
+          message:
+            (error as Error).message ||
+            tPromotion('messages.loadPackageCampaignsFailed'),
+        });
+        setPackageCampaigns([]);
+        setPackageCampaignPage(pageIndex);
+        setPackageCampaignPageCount(0);
+      } finally {
+        setPackageCampaignLoading(false);
+      }
+    },
+    [tPromotion],
+  );
+
   useEffect(() => {
     if (!isReady) return;
     void fetchCoupons(1, createDefaultCouponFilters());
@@ -256,12 +412,31 @@ export default function AdminOperationPromotionsPage() {
 
   campaignPageRef.current = campaignPage;
   campaignFiltersRef.current = campaignFilters;
+  packageCampaignPageRef.current = packageCampaignPage;
+  packageCampaignFiltersRef.current = packageCampaignFilters;
 
   useEffect(() => {
     if (!isReady || tab !== 'campaigns') return;
     // Re-entering the tab should keep the operator on the same filtered page.
     void fetchCampaigns(campaignPageRef.current, campaignFiltersRef.current);
   }, [fetchCampaigns, isReady, tab]);
+
+  useEffect(() => {
+    if (!isReady || tab !== 'packageCampaigns') return;
+    void fetchPackageCampaigns(
+      packageCampaignPageRef.current,
+      packageCampaignFiltersRef.current,
+    );
+    if (!packageCampaignProductOptions) {
+      void fetchPackageCampaignProductOptions();
+    }
+  }, [
+    fetchPackageCampaignProductOptions,
+    fetchPackageCampaigns,
+    isReady,
+    packageCampaignProductOptions,
+    tab,
+  ]);
 
   const handleCouponSearch = () => void fetchCoupons(1, couponFilters);
   const handleCouponReset = () => {
@@ -274,6 +449,13 @@ export default function AdminOperationPromotionsPage() {
     const next = createDefaultCampaignFilters();
     setCampaignFilters(next);
     void fetchCampaigns(1, next);
+  };
+  const handlePackageCampaignSearch = () =>
+    void fetchPackageCampaigns(1, packageCampaignFilters);
+  const handlePackageCampaignReset = () => {
+    const next = createDefaultPackageCampaignFilters();
+    setPackageCampaignFilters(next);
+    void fetchPackageCampaigns(1, next);
   };
 
   const handleCouponCreate = async (payload: CouponFormState) => {
@@ -402,6 +584,49 @@ export default function AdminOperationPromotionsPage() {
     setEditingCampaign(null);
   };
 
+  const handlePackageCampaignCreate = async (
+    payload: PackageCampaignFormState,
+  ) => {
+    const productOptions =
+      payload.product_type === 'topup'
+        ? packageCampaignProductOptions?.topups || []
+        : packageCampaignProductOptions?.plans || [];
+    await api.createAdminBillingCampaign({
+      name: payload.name.trim(),
+      note: payload.note.trim(),
+      benefit_type: payload.benefit_type,
+      start_at: payload.start_at,
+      end_at: payload.end_at,
+      products: buildPackageCampaignProductsPayload(payload, productOptions),
+    });
+    showDefaultToast(tPromotion('messages.createSuccess'));
+    await fetchPackageCampaigns(1, packageCampaignFilters);
+  };
+
+  const handlePackageCampaignUpdate = async (
+    payload: PackageCampaignFormState,
+  ) => {
+    if (!editingPackageCampaign) {
+      return;
+    }
+    const productOptions =
+      payload.product_type === 'topup'
+        ? packageCampaignProductOptions?.topups || []
+        : packageCampaignProductOptions?.plans || [];
+    await api.updateAdminBillingCampaign({
+      campaign_bid: editingPackageCampaign.campaign.campaign_bid,
+      name: payload.name.trim(),
+      note: payload.note.trim(),
+      benefit_type: payload.benefit_type,
+      start_at: payload.start_at,
+      end_at: payload.end_at,
+      products: buildPackageCampaignProductsPayload(payload, productOptions),
+    });
+    showDefaultToast(tPromotion('messages.updateSuccess'));
+    await fetchPackageCampaigns(packageCampaignPage, packageCampaignFilters);
+    setEditingPackageCampaign(null);
+  };
+
   const handleCouponStatusToggle = (item: AdminPromotionCouponItem) => {
     setPendingStatusChange({
       entityType: 'coupon',
@@ -413,6 +638,16 @@ export default function AdminOperationPromotionsPage() {
   const handleCampaignStatusToggle = (item: AdminPromotionCampaignItem) => {
     setPendingStatusChange({
       entityType: 'campaign',
+      enabling: item.computed_status === 'inactive',
+      item,
+    });
+  };
+
+  const handlePackageCampaignStatusToggle = (
+    item: AdminBillingCampaignItem,
+  ) => {
+    setPendingStatusChange({
+      entityType: 'packageCampaign',
       enabling: item.computed_status === 'inactive',
       item,
     });
@@ -436,7 +671,7 @@ export default function AdminOperationPromotionsPage() {
             : tPromotion('messages.couponDisabledSuccess'),
         );
         await fetchCoupons(couponPage, couponFilters);
-      } else {
+      } else if (pendingStatusChange.entityType === 'campaign') {
         await api.updateAdminOperationPromotionCampaignStatus({
           promo_bid: pendingStatusChange.item.promo_bid,
           enabled: pendingStatusChange.enabling,
@@ -447,6 +682,20 @@ export default function AdminOperationPromotionsPage() {
             : tPromotion('messages.campaignDisabledSuccess'),
         );
         await fetchCampaigns(campaignPage, campaignFilters);
+      } else {
+        await api.updateAdminBillingCampaignStatus({
+          campaign_bid: pendingStatusChange.item.campaign_bid,
+          enabled: pendingStatusChange.enabling,
+        });
+        showDefaultToast(
+          pendingStatusChange.enabling
+            ? tPromotion('messages.packageCampaignEnabledSuccess')
+            : tPromotion('messages.packageCampaignDisabledSuccess'),
+        );
+        await fetchPackageCampaigns(
+          packageCampaignPage,
+          packageCampaignFilters,
+        );
       }
       setPendingStatusChange(null);
     } catch (error) {
@@ -505,6 +754,30 @@ export default function AdminOperationPromotionsPage() {
       }
     },
     [tPromotion],
+  );
+
+  const handleStartPackageCampaignEdit = useCallback(
+    async (item: AdminBillingCampaignItem) => {
+      try {
+        if (!packageCampaignProductOptions) {
+          await fetchPackageCampaignProductOptions();
+        }
+        const detail = (await api.getAdminBillingCampaignDetail({
+          campaign_bid: item.campaign_bid,
+        })) as AdminBillingCampaignDetail;
+        setEditingPackageCampaign(detail);
+      } catch (error) {
+        showErrorToast(
+          (error as Error).message ||
+            tPromotion('messages.loadPackageCampaignDetailFailed'),
+        );
+      }
+    },
+    [
+      fetchPackageCampaignProductOptions,
+      packageCampaignProductOptions,
+      tPromotion,
+    ],
   );
 
   const couponFilterItems = [
@@ -942,6 +1215,179 @@ export default function AdminOperationPromotionsPage() {
     },
   ];
 
+  const packageCampaignFilterItems = [
+    {
+      key: 'keyword',
+      label: tPromotion('filters.campaignName'),
+      component: (
+        <AdminClearableInput
+          value={packageCampaignFilters.keyword}
+          onChange={value =>
+            setPackageCampaignFilters(current => ({
+              ...current,
+              keyword: value,
+            }))
+          }
+          placeholder={tPromotion('filters.campaignNamePlaceholder')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+    {
+      key: 'product_type',
+      label: tPromotion('packageCampaign.productType'),
+      component: (
+        <Select
+          value={packageCampaignFilters.product_type || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setPackageCampaignFilters(current => ({
+              ...current,
+              product_type: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue
+              placeholder={tPromotion('packageCampaign.productTypePlaceholder')}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            <SelectItem
+              value='plan'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('packageCampaign.productTypePlan')}
+            </SelectItem>
+            <SelectItem
+              value='topup'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('packageCampaign.productTypeTopup')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'benefit_type',
+      label: tPromotion('packageCampaign.benefitType'),
+      component: (
+        <Select
+          value={packageCampaignFilters.benefit_type || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setPackageCampaignFilters(current => ({
+              ...current,
+              benefit_type: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue
+              placeholder={tPromotion('packageCampaign.benefitTypePlaceholder')}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            <SelectItem
+              value='discount'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('packageCampaign.benefitTypeDiscount')}
+            </SelectItem>
+            <SelectItem
+              value='bonus'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('packageCampaign.benefitTypeBonus')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'status',
+      label: tPromotion('filters.status'),
+      component: (
+        <Select
+          value={packageCampaignFilters.status || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setPackageCampaignFilters(current => ({
+              ...current,
+              status: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue placeholder={tPromotion('filters.status')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            <SelectItem
+              value='upcoming'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.upcoming')}
+            </SelectItem>
+            <SelectItem
+              value='active'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.active')}
+            </SelectItem>
+            <SelectItem
+              value='inactive'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.inactive')}
+            </SelectItem>
+            <SelectItem
+              value='ended'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.ended')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'campaign_time',
+      label: tPromotion('filters.campaignTime'),
+      component: (
+        <AdminDateRangeFilter
+          startValue={packageCampaignFilters.start_time}
+          endValue={packageCampaignFilters.end_time}
+          onChange={range =>
+            setPackageCampaignFilters(current => ({
+              ...current,
+              start_time: range.start,
+              end_time: range.end,
+            }))
+          }
+          placeholder={tPromotion('filters.campaignTime')}
+          resetLabel={t('module.order.filters.reset')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+  ];
+
   if (!isReady) {
     return null;
   }
@@ -962,6 +1408,9 @@ export default function AdminOperationPromotionsPage() {
               </TabsTrigger>
               <TabsTrigger value='campaigns'>
                 {tPromotion('tabs.campaigns')}
+              </TabsTrigger>
+              <TabsTrigger value='packageCampaigns'>
+                {tPromotion('tabs.packageCampaigns')}
               </TabsTrigger>
             </TabsList>
           }
@@ -1037,6 +1486,297 @@ export default function AdminOperationPromotionsPage() {
             onToggleStatus={handleCampaignStatusToggle}
           />
         </TabsContent>
+
+        <TabsContent
+          value='packageCampaigns'
+          className='mt-6 space-y-6'
+        >
+          <SectionCard
+            title=''
+            action={
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={async () => {
+                  if (!packageCampaignProductOptions) {
+                    try {
+                      await fetchPackageCampaignProductOptions();
+                    } catch (error) {
+                      showErrorToast(
+                        (error as Error).message ||
+                          tPromotion(
+                            'messages.loadPackageCampaignProductsFailed',
+                          ),
+                      );
+                      return;
+                    }
+                  }
+                  setPackageCampaignCreateOpen(true);
+                }}
+              >
+                <Plus className='mr-1 h-4 w-4' />
+                {tPromotion('actions.createPackageCampaign')}
+              </Button>
+            }
+          >
+            <AdminFilter
+              items={packageCampaignFilterItems}
+              expanded={packageCampaignFiltersExpanded}
+              onExpandedChange={setPackageCampaignFiltersExpanded}
+              onReset={handlePackageCampaignReset}
+              onSearch={handlePackageCampaignSearch}
+              resetLabel={t('module.order.filters.reset')}
+              searchLabel={t('module.order.filters.search')}
+              expandLabel={t('common.core.expand')}
+              collapseLabel={t('common.core.collapse')}
+              collapsedCount={4}
+              className='bg-transparent'
+              contentClassName='min-w-0'
+              labelClassName='w-24 text-right'
+              collapsedGridClassName='gap-x-5 xl:grid-cols-4'
+              expandedGridClassName='gap-x-5 xl:grid-cols-3'
+              labelColon
+            />
+          </SectionCard>
+          {packageCampaignError ? (
+            <ErrorDisplay
+              errorMessage={packageCampaignError.message}
+              errorCode={0}
+            />
+          ) : null}
+          <AdminTableShell
+            loading={packageCampaignLoading}
+            isEmpty={!packageCampaigns.length}
+            emptyContent={tPromotion('messages.emptyPackageCampaigns')}
+            stickyActionEmpty={{
+              contentColSpan:
+                Object.keys(PACKAGE_CAMPAIGN_DEFAULT_COLUMN_WIDTHS).length - 1,
+              actionClassName: TABLE_ACTION_CELL_CLASS,
+              actionStyle: getPackageCampaignColumnStyle('action'),
+            }}
+            withTooltipProvider
+            tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
+            table={emptyRow => (
+              <Table containerClassName='overflow-visible max-h-none'>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead
+                      className={TABLE_HEAD_CLASS}
+                      style={getPackageCampaignColumnStyle('name')}
+                    >
+                      {tPromotion('packageCampaign.name')}
+                      {renderPackageCampaignResizeHandle('name')}
+                    </TableHead>
+                    <TableHead
+                      className={TABLE_HEAD_CLASS}
+                      style={getPackageCampaignColumnStyle('status')}
+                    >
+                      {tPromotion('table.status')}
+                      {renderPackageCampaignResizeHandle('status')}
+                    </TableHead>
+                    <TableHead
+                      className={TABLE_HEAD_CLASS}
+                      style={getPackageCampaignColumnStyle('products')}
+                    >
+                      {tPromotion('packageCampaign.products')}
+                      {renderPackageCampaignResizeHandle('products')}
+                    </TableHead>
+                    <TableHead
+                      className={TABLE_HEAD_CLASS}
+                      style={getPackageCampaignColumnStyle('rule')}
+                    >
+                      {tPromotion('packageCampaign.rule')}
+                      {renderPackageCampaignResizeHandle('rule')}
+                    </TableHead>
+                    <TableHead
+                      className={TABLE_HEAD_CLASS}
+                      style={getPackageCampaignColumnStyle('campaignTime')}
+                    >
+                      {tPromotion('filters.campaignTime')}
+                      {renderPackageCampaignResizeHandle('campaignTime')}
+                    </TableHead>
+                    <TableHead
+                      className={TABLE_HEAD_CLASS}
+                      style={getPackageCampaignColumnStyle('benefitType')}
+                    >
+                      {tPromotion('packageCampaign.benefitType')}
+                      {renderPackageCampaignResizeHandle('benefitType')}
+                    </TableHead>
+                    <TableHead
+                      className={TABLE_HEAD_CLASS}
+                      style={getPackageCampaignColumnStyle('productType')}
+                    >
+                      {tPromotion('packageCampaign.productType')}
+                      {renderPackageCampaignResizeHandle('productType')}
+                    </TableHead>
+                    <TableHead
+                      className={TABLE_HEAD_CLASS}
+                      style={getPackageCampaignColumnStyle('hitOrderCount')}
+                    >
+                      {tPromotion('packageCampaign.hitOrderCount')}
+                      {renderPackageCampaignResizeHandle('hitOrderCount')}
+                    </TableHead>
+                    <TableHead
+                      className={TABLE_HEAD_CLASS}
+                      style={getPackageCampaignColumnStyle('updatedAt')}
+                    >
+                      {tPromotion('table.updatedAt')}
+                      {renderPackageCampaignResizeHandle('updatedAt')}
+                    </TableHead>
+                    <TableHead
+                      className={TABLE_ACTION_HEAD_CLASS}
+                      style={getPackageCampaignColumnStyle('action')}
+                    >
+                      {tPromotion('table.actions')}
+                      {renderPackageCampaignResizeHandle('action')}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {emptyRow}
+                  {packageCampaigns.map(item => (
+                    <TableRow key={item.campaign_bid}>
+                      <TableCell
+                        className={TABLE_CELL_CLASS}
+                        style={getPackageCampaignColumnStyle('name')}
+                      >
+                        {renderTooltipText(item.name)}
+                      </TableCell>
+                      <TableCell
+                        className={cn(TABLE_CELL_CLASS, 'whitespace-normal')}
+                        style={getPackageCampaignColumnStyle('status')}
+                      >
+                        <div className='flex flex-wrap items-center justify-center gap-1'>
+                          {renderPromotionStatusBadge({
+                            tPromotion,
+                            status: item.computed_status,
+                          })}
+                        </div>
+                      </TableCell>
+                      <TableCell
+                        className={TABLE_CELL_CLASS}
+                        style={getPackageCampaignColumnStyle('products')}
+                      >
+                        <Button
+                          type='button'
+                          variant='link'
+                          className='h-auto max-w-full justify-start p-0 text-left font-normal'
+                          onClick={() => {
+                            setSelectedPackageCampaignBid(item.campaign_bid);
+                            setSelectedPackageCampaignName(
+                              item.name || item.campaign_bid,
+                            );
+                            setPackageCampaignProductDetailsOpen(true);
+                          }}
+                        >
+                          {renderTooltipText(
+                            resolvePackageCampaignProductSummary(
+                              tPromotion,
+                              item,
+                            ),
+                          )}
+                        </Button>
+                      </TableCell>
+                      <TableCell
+                        className={TABLE_CELL_CLASS}
+                        style={getPackageCampaignColumnStyle('rule')}
+                      >
+                        {renderTooltipText(
+                          resolvePackageCampaignRuleLabel(t, item),
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className={TABLE_CELL_CLASS}
+                        style={getPackageCampaignColumnStyle('campaignTime')}
+                      >
+                        {renderTooltipText(
+                          renderTimeRange(item.start_at, item.end_at),
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className={TABLE_CELL_CLASS}
+                        style={getPackageCampaignColumnStyle('benefitType')}
+                      >
+                        {renderTooltipText(
+                          resolvePackageCampaignBenefitTypeLabel(
+                            tPromotion,
+                            item.benefit_type,
+                          ),
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className={TABLE_CELL_CLASS}
+                        style={getPackageCampaignColumnStyle('productType')}
+                      >
+                        {renderTooltipText(
+                          resolvePackageCampaignProductTypeLabel(
+                            tPromotion,
+                            item.product_types[0],
+                          ),
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className={TABLE_CELL_CLASS}
+                        style={getPackageCampaignColumnStyle('hitOrderCount')}
+                      >
+                        {renderTooltipText(String(item.hit_order_count || 0))}
+                      </TableCell>
+                      <TableCell
+                        className={TABLE_CELL_CLASS}
+                        style={getPackageCampaignColumnStyle('updatedAt')}
+                      >
+                        {renderTooltipText(
+                          formatAdminUtcDateTime(item.updated_at),
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className={TABLE_ACTION_CELL_CLASS}
+                        style={getPackageCampaignColumnStyle('action')}
+                      >
+                        <div className='flex justify-center'>
+                          <AdminRowActions
+                            label={t('common.core.more')}
+                            actions={[
+                              {
+                                key: 'edit',
+                                label: tPromotion('actions.edit'),
+                                onClick: () =>
+                                  void handleStartPackageCampaignEdit(item),
+                              },
+                              {
+                                key: 'toggle-status',
+                                label:
+                                  item.computed_status === 'inactive'
+                                    ? tPromotion('actions.enable')
+                                    : tPromotion('actions.disable'),
+                                hidden:
+                                  !shouldShowPackageCampaignStatusToggle(item),
+                                onClick: () =>
+                                  void handlePackageCampaignStatusToggle(item),
+                              },
+                            ]}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            pagination={{
+              pageIndex: packageCampaignPage,
+              pageCount: packageCampaignPageCount,
+              onPageChange: page =>
+                void fetchPackageCampaigns(page, packageCampaignFilters),
+              prevLabel: t('module.order.paginationPrev'),
+              nextLabel: t('module.order.paginationNext'),
+              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+              hideWhenSinglePage: true,
+            }}
+            footerClassName='mt-3'
+          />
+        </TabsContent>
       </Tabs>
 
       <PromotionCouponDialog
@@ -1073,6 +1813,23 @@ export default function AdminOperationPromotionsPage() {
             ? canEditCampaignStrategyFields(editingCampaign.item)
             : false
         }
+      />
+      <PackageCampaignDialog
+        open={packageCampaignCreateOpen}
+        onOpenChange={setPackageCampaignCreateOpen}
+        onSubmit={handlePackageCampaignCreate}
+        productOptions={packageCampaignProductOptions}
+      />
+      <PackageCampaignDialog
+        open={Boolean(editingPackageCampaign)}
+        onOpenChange={open => {
+          if (!open) {
+            setEditingPackageCampaign(null);
+          }
+        }}
+        onSubmit={handlePackageCampaignUpdate}
+        campaign={editingPackageCampaign}
+        productOptions={packageCampaignProductOptions}
       />
       <PromotionCouponUsageDialog
         open={couponUsageOpen}
@@ -1111,6 +1868,18 @@ export default function AdminOperationPromotionsPage() {
         }}
         promoBid={selectedPromoBid}
         campaignName={selectedPromoName}
+      />
+      <PackageCampaignProductDetailsDialog
+        open={packageCampaignProductDetailsOpen}
+        onOpenChange={open => {
+          setPackageCampaignProductDetailsOpen(open);
+          if (!open) {
+            setSelectedPackageCampaignBid('');
+            setSelectedPackageCampaignName('');
+          }
+        }}
+        campaignBid={selectedPackageCampaignBid}
+        campaignName={selectedPackageCampaignName}
       />
       <PromotionStatusConfirmDialog
         changeTarget={pendingStatusChange}

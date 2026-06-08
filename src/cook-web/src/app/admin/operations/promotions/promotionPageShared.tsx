@@ -7,6 +7,9 @@ import {
 } from '@/app/admin/components/adminTableStyles';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import type {
+  AdminBillingCampaignDetail,
+  AdminBillingCampaignItem,
+  AdminBillingCampaignProductOption,
   AdminPromotionCampaignItem,
   AdminPromotionCampaignRedemptionItem,
   AdminPromotionCouponCodeItem,
@@ -15,9 +18,11 @@ import type {
 } from '@/app/admin/operations/operation-promotion-types';
 import { Badge } from '@/components/ui/Badge';
 import { Label } from '@/components/ui/Label';
+import { resolveBillingProductTitle } from '@/lib/billing';
 import { cn } from '@/lib/utils';
+import type { BillingPlan, BillingTopupProduct } from '@/types/billing';
 
-export type PromotionTab = 'coupons' | 'campaigns';
+export type PromotionTab = 'coupons' | 'campaigns' | 'packageCampaigns';
 
 export type CouponFilters = {
   keyword: string;
@@ -37,6 +42,15 @@ export type CampaignFilters = {
   apply_type: string;
   channel: string;
   discount_type: string;
+  status: string;
+  start_time: string;
+  end_time: string;
+};
+
+export type PackageCampaignFilters = {
+  keyword: string;
+  product_type: string;
+  benefit_type: string;
   status: string;
   start_time: string;
   end_time: string;
@@ -69,6 +83,25 @@ export type CampaignFormState = {
   enabled: string;
 };
 
+export type PackageCampaignFormState = {
+  name: string;
+  note: string;
+  product_type: string;
+  product_bids: string[];
+  benefit_type: string;
+  discount_type: string;
+  product_rules: Record<string, PackageCampaignProductRuleFormState>;
+  start_at: string;
+  end_at: string;
+};
+
+export type PackageCampaignProductRuleFormState = {
+  discount_type: string;
+  campaign_price: string;
+  discount_percent: string;
+  bonus_credit_amount: string;
+};
+
 export type ErrorState = { message: string } | null;
 export type PromotionStatusChangeTarget =
   | {
@@ -80,6 +113,11 @@ export type PromotionStatusChangeTarget =
       entityType: 'campaign';
       enabling: boolean;
       item: AdminPromotionCampaignItem;
+    }
+  | {
+      entityType: 'packageCampaign';
+      enabling: boolean;
+      item: AdminBillingCampaignItem;
     };
 
 export const PAGE_SIZE = 20;
@@ -92,6 +130,8 @@ export const COUPON_COLUMN_WIDTH_STORAGE_KEY =
   'adminPromotionCouponsColumnWidths';
 export const CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY =
   'adminPromotionCampaignsColumnWidths';
+export const PACKAGE_CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY =
+  'adminPromotionPackageCampaignsColumnWidths';
 export const COUPON_DEFAULT_COLUMN_WIDTHS = {
   name: 200,
   status: 110,
@@ -124,7 +164,21 @@ export const CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
   createdAt: 170,
   action: 120,
 } as const;
+export const PACKAGE_CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
+  name: 200,
+  status: 110,
+  products: 260,
+  rule: 160,
+  campaignTime: 280,
+  benefitType: 120,
+  productType: 120,
+  hitOrderCount: 110,
+  updatedAt: 170,
+  action: 120,
+} as const;
+export const BILLING_TRIAL_PLAN_PRODUCT_CODE = 'creator-plan-trial';
 export const PROMOTION_CODE_DIALOG_COLUMN_COUNT = 4;
+export const PACKAGE_CAMPAIGN_PRODUCT_DIALOG_COLUMN_COUNT = 5;
 export const PROMOTION_REDEMPTION_DIALOG_COLUMN_COUNT = 4;
 export const PROMOTION_USAGE_DIALOG_COLUMN_COUNT = {
   default: 4,
@@ -144,6 +198,8 @@ export const TABLE_ACTION_CELL_CLASS = getAdminStickyRightCellClass(
 );
 export type CouponColumnKey = keyof typeof COUPON_DEFAULT_COLUMN_WIDTHS;
 export type CampaignColumnKey = keyof typeof CAMPAIGN_DEFAULT_COLUMN_WIDTHS;
+export type PackageCampaignColumnKey =
+  keyof typeof PACKAGE_CAMPAIGN_DEFAULT_COLUMN_WIDTHS;
 
 export const createDefaultCouponFilters = (): CouponFilters => ({
   keyword: '',
@@ -167,6 +223,16 @@ export const createDefaultCampaignFilters = (): CampaignFilters => ({
   start_time: '',
   end_time: '',
 });
+
+export const createDefaultPackageCampaignFilters =
+  (): PackageCampaignFilters => ({
+    keyword: '',
+    product_type: '',
+    benefit_type: '',
+    status: '',
+    start_time: '',
+    end_time: '',
+  });
 
 export const createDefaultCouponForm = (): CouponFormState => ({
   name: '',
@@ -225,6 +291,185 @@ export const createDefaultCampaignForm = (): CampaignFormState => ({
   channel: '',
   enabled: 'true',
 });
+
+export const createDefaultPackageCampaignForm =
+  (): PackageCampaignFormState => ({
+    name: '',
+    note: '',
+    product_type: '',
+    product_bids: [],
+    benefit_type: '',
+    discount_type: '',
+    product_rules: {},
+    start_at: '',
+    end_at: '',
+  });
+
+export const formatCampaignPriceInput = (
+  amountInMinor: number,
+  currency: string,
+) => {
+  const safeAmount = Number(amountInMinor || 0);
+  const resolvedCurrency = currency || 'CNY';
+  const fractionDigits =
+    new Intl.NumberFormat('zh-CN', {
+      style: 'currency',
+      currency: resolvedCurrency,
+    }).resolvedOptions().maximumFractionDigits ?? 2;
+  const majorAmount = safeAmount / 10 ** fractionDigits;
+  return Number.isInteger(majorAmount)
+    ? String(majorAmount)
+    : majorAmount.toFixed(fractionDigits).replace(/\.?0+$/, '');
+};
+
+export const parseCampaignPriceInputToMinor = (
+  value: string,
+  currency: string,
+) => {
+  const normalizedValue = value.trim();
+  if (!normalizedValue) {
+    return null;
+  }
+  const numericValue = Number(normalizedValue);
+  if (!Number.isFinite(numericValue) || numericValue < 0) {
+    return null;
+  }
+  const resolvedCurrency = currency || 'CNY';
+  const fractionDigits =
+    new Intl.NumberFormat('zh-CN', {
+      style: 'currency',
+      currency: resolvedCurrency,
+    }).resolvedOptions().maximumFractionDigits ?? 2;
+  return Math.round(numericValue * 10 ** fractionDigits);
+};
+
+export const parsePositiveCampaignNumberInput = (value: string) => {
+  const normalizedValue = value.trim();
+  if (!normalizedValue) {
+    return null;
+  }
+  const numericValue = Number(normalizedValue);
+  return Number.isFinite(numericValue) && numericValue > 0
+    ? numericValue
+    : null;
+};
+
+export const resolveCampaignPriceCurrencySymbol = (currency: string) => {
+  try {
+    const formatter = new Intl.NumberFormat('zh-CN', {
+      style: 'currency',
+      currency: currency || 'CNY',
+    });
+    const currencyPart = formatter
+      .formatToParts(0)
+      .find(part => part.type === 'currency');
+    return currencyPart?.value || currency || 'CNY';
+  } catch {
+    return currency || 'CNY';
+  }
+};
+
+export const createDefaultPackageCampaignProductRule = (
+  discountType = 'fixed',
+): PackageCampaignProductRuleFormState => ({
+  discount_type: discountType,
+  campaign_price: '',
+  discount_percent: '',
+  bonus_credit_amount: '',
+});
+
+export const createPackageCampaignFormFromDetail = (
+  detail: AdminBillingCampaignDetail,
+): PackageCampaignFormState => {
+  const primaryProduct = detail.products[0];
+  const productRules = Object.fromEntries(
+    detail.products.map(product => [
+      product.product_bid,
+      {
+        discount_type: product.campaign_discount_type || 'fixed',
+        campaign_price:
+          product.campaign_price_amount > 0
+            ? formatCampaignPriceInput(
+                product.campaign_price_amount,
+                product.currency,
+              )
+            : '',
+        discount_percent: product.campaign_discount_percent
+          ? String(product.campaign_discount_percent)
+          : '',
+        bonus_credit_amount: product.campaign_bonus_credit_amount
+          ? String(product.campaign_bonus_credit_amount)
+          : '',
+      } satisfies PackageCampaignProductRuleFormState,
+    ]),
+  );
+  return {
+    name: detail.campaign.name || '',
+    note: detail.campaign.note || '',
+    product_type: primaryProduct?.product_type || '',
+    product_bids: detail.products.map(item => item.product_bid),
+    benefit_type: detail.campaign.benefit_type || '',
+    discount_type:
+      detail.campaign.benefit_type === 'discount'
+        ? detail.products[0]?.campaign_discount_type || 'fixed'
+        : '',
+    product_rules: productRules,
+    start_at: normalizePromotionFormDateTimeValue(detail.campaign.start_at),
+    end_at: normalizePromotionFormDateTimeValue(detail.campaign.end_at),
+  };
+};
+
+export const buildPackageCampaignProductsPayload = (
+  form: PackageCampaignFormState,
+  productOptions: AdminBillingCampaignProductOption[],
+) => {
+  const optionByBid = new Map(
+    productOptions.map(option => [option.product_bid, option]),
+  );
+  return form.product_bids
+    .map(productBid => {
+      const option = optionByBid.get(productBid);
+      const productRule =
+        form.product_rules[productBid] ||
+        createDefaultPackageCampaignProductRule();
+      if (!option) {
+        return null;
+      }
+      const discountPercent = parsePositiveCampaignNumberInput(
+        productRule.discount_percent,
+      );
+      const bonusCreditAmount = parsePositiveCampaignNumberInput(
+        productRule.bonus_credit_amount,
+      );
+      if (form.benefit_type === 'discount') {
+        const resolvedDiscountType = form.discount_type || 'fixed';
+        return {
+          product_bid: productBid,
+          discount_type: resolvedDiscountType,
+          campaign_price_amount:
+            resolvedDiscountType === 'fixed'
+              ? parseCampaignPriceInputToMinor(
+                  productRule.campaign_price,
+                  option.currency,
+                ) || 0
+              : 0,
+          discount_percent:
+            resolvedDiscountType === 'percent'
+              ? String(discountPercent || '')
+              : '',
+          bonus_credit_amount: '',
+        };
+      }
+      return {
+        product_bid: productBid,
+        discount_type: '',
+        campaign_price_amount: 0,
+        discount_percent: '',
+        bonus_credit_amount: String(bonusCreditAmount || ''),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+};
 
 export const createCampaignFormFromItem = (
   item: AdminPromotionCampaignItem,
@@ -430,6 +675,109 @@ export const renderPromotionStatusBadge = ({
   </Badge>
 );
 
+export const resolvePackageCampaignBenefitTypeLabel = (
+  tPromotion: (key: string) => string,
+  benefitType?: string,
+) => {
+  if (benefitType === 'discount') {
+    return tPromotion('packageCampaign.benefitTypeDiscount');
+  }
+  if (benefitType === 'bonus') {
+    return tPromotion('packageCampaign.benefitTypeBonus');
+  }
+  return EMPTY_VALUE;
+};
+
+export const resolvePackageCampaignProductTypeLabel = (
+  tPromotion: (key: string) => string,
+  productType?: string,
+) => {
+  if (productType === 'plan') {
+    return tPromotion('packageCampaign.productTypePlan');
+  }
+  if (productType === 'topup') {
+    return tPromotion('packageCampaign.productTypeTopup');
+  }
+  return EMPTY_VALUE;
+};
+
+export const canEnablePackageCampaignItem = (item: AdminBillingCampaignItem) =>
+  item.computed_status !== 'ended';
+
+export const shouldShowPackageCampaignStatusToggle = (
+  item: AdminBillingCampaignItem,
+) => item.computed_status !== 'inactive' || canEnablePackageCampaignItem(item);
+
+export const resolvePackageCampaignRuleLabel = (
+  t: (key: string, options?: Record<string, unknown>) => string,
+  item: Pick<
+    AdminBillingCampaignItem,
+    | 'benefit_type'
+    | 'discount_type'
+    | 'discount_amount'
+    | 'discount_percent'
+    | 'bonus_credit_amount'
+    | 'has_custom_product_rules'
+    | 'product_count'
+  >,
+) => {
+  if (item.benefit_type === 'discount') {
+    if (
+      item.has_custom_product_rules ||
+      item.discount_type === 'fixed' ||
+      item.product_count > 1
+    ) {
+      return t('module.operationsPromotion.packageCampaign.rulePerProduct');
+    }
+    if (item.discount_type === 'percent') {
+      return t('module.operationsPromotion.packageCampaign.rulePercent', {
+        value: item.discount_percent,
+      });
+    }
+  }
+  if (item.benefit_type === 'bonus') {
+    if (item.has_custom_product_rules || item.product_count > 1) {
+      return t('module.operationsPromotion.packageCampaign.rulePerProduct');
+    }
+    return t('module.operationsPromotion.packageCampaign.ruleBonus', {
+      value: item.bonus_credit_amount,
+    });
+  }
+  return EMPTY_VALUE;
+};
+
+export const resolvePackageCampaignProductSummary = (
+  tPromotion: (key: string) => string,
+  item: Pick<AdminBillingCampaignItem, 'product_types' | 'product_count'>,
+) => {
+  if (!item.product_types.length) {
+    return EMPTY_VALUE;
+  }
+  const labels = item.product_types
+    .map(type => resolvePackageCampaignProductTypeLabel(tPromotion, type))
+    .filter(Boolean);
+  if (!labels.length) {
+    return EMPTY_VALUE;
+  }
+  return `${labels.join(' / ')} · ${item.product_count}`;
+};
+
+export const resolvePackageCampaignOptionTitle = (
+  t: (key: string, options?: Record<string, unknown>) => string,
+  option: AdminBillingCampaignProductOption,
+) =>
+  resolveBillingProductTitle(
+    t,
+    option as BillingPlan | BillingTopupProduct,
+    option.product_code,
+  );
+
+export const isPackageCampaignTrialOption = (
+  option: AdminBillingCampaignProductOption,
+) =>
+  option.product_type === 'plan' &&
+  String(option.product_code || '').trim() === BILLING_TRIAL_PLAN_PRODUCT_CODE;
+
 export const resolveCampaignApplyTypeLabel = (
   tPromotion: (key: string) => string,
   applyType: number | string,
@@ -622,4 +970,42 @@ export const FormField = ({
     <Label className='text-sm font-medium text-foreground'>{label}</Label>
     {children}
   </div>
+);
+
+export const PackageCampaignInlineField = ({
+  label,
+  children,
+  className,
+}: React.PropsWithChildren<{
+  label: string;
+  className?: string;
+}>) => (
+  <div
+    className={cn(
+      'flex min-h-9 items-center gap-3 rounded-lg border border-border/80 bg-background px-3',
+      className,
+    )}
+  >
+    <span className='w-[5.5rem] shrink-0 text-sm font-medium text-foreground'>
+      {label}
+    </span>
+    <div className='min-w-0 max-w-[13rem] flex-1'>{children}</div>
+  </div>
+);
+
+export const PackageCampaignInlineValueField = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) => (
+  <PackageCampaignInlineField
+    label={label}
+    className='bg-muted/25'
+  >
+    <span className='block truncate text-sm text-muted-foreground'>
+      {value}
+    </span>
+  </PackageCampaignInlineField>
 );

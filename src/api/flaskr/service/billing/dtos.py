@@ -63,6 +63,17 @@ class BillingRouteBootstrapDTO(BillingBaseDTO):
 
 
 @register_schema_to_swagger
+class BillingCatalogCampaignDTO(BillingBaseDTO):
+    campaign_bid: str
+    benefit_type: str
+    discount_type: str | None = None
+    discount_amount: int = 0
+    discount_percent: int | float = 0
+    campaign_price_amount: int = 0
+    bonus_credit_amount: int | float = 0
+
+
+@register_schema_to_swagger
 class BillingPlanDTO(BillingBaseDTO):
     product_bid: str
     product_code: str
@@ -78,6 +89,7 @@ class BillingPlanDTO(BillingBaseDTO):
     billing_interval_count: int
     auto_renew_enabled: bool
     plan_tier: int | None = None
+    campaign: BillingCatalogCampaignDTO | None = None
 
 
 @register_schema_to_swagger
@@ -92,6 +104,7 @@ class BillingTopupProductDTO(BillingBaseDTO):
     credit_amount: int | float
     highlights: list[str] = Field(default_factory=list)
     status_badge_key: str | None = None
+    campaign: BillingCatalogCampaignDTO | None = None
 
 
 @register_schema_to_swagger
@@ -376,6 +389,8 @@ class BillingCheckoutResultDTO(BillingBaseDTO):
     preorder_order_bid: str | None = None
     prepaid_offset_amount: int = 0
     payable_amount: int | None = None
+    currency: str = ""
+    campaign: BillingCatalogCampaignDTO | None = None
     redirect_url: str | None = None
     checkout_session_id: str | None = None
     payment_payload: dict[str, Any] | None = None
@@ -489,6 +504,71 @@ class AdminBillingOrderDTO(BillingOrderSummaryDTO):
 @register_schema_to_swagger
 class AdminBillingOrdersPageDTO(BillingBaseDTO):
     items: list[AdminBillingOrderDTO]
+    page: int
+    page_count: int
+    page_size: int
+    total: int
+
+
+@register_schema_to_swagger
+class AdminBillingCampaignProductOptionDTO(BillingBaseDTO):
+    product_bid: str
+    product_code: str
+    product_type: str
+    display_name: str
+    description: str
+    currency: str
+    price_amount: int
+    credit_amount: int | float
+    billing_interval: str = "none"
+    billing_interval_count: int = 0
+    campaign_discount_type: str | None = None
+    campaign_discount_amount: int = 0
+    campaign_discount_percent: int | float = 0
+    campaign_price_amount: int = 0
+    campaign_bonus_credit_amount: int | float = 0
+
+
+@register_schema_to_swagger
+class AdminBillingCampaignProductOptionsDTO(BillingBaseDTO):
+    plans: list[AdminBillingCampaignProductOptionDTO] = Field(default_factory=list)
+    topups: list[AdminBillingCampaignProductOptionDTO] = Field(default_factory=list)
+
+
+@register_schema_to_swagger
+class AdminBillingCampaignDTO(BillingBaseDTO):
+    campaign_bid: str
+    name: str
+    note: str = ""
+    benefit_type: str
+    discount_type: str | None = None
+    discount_amount: int = 0
+    discount_percent: int | float = 0
+    bonus_credit_amount: int | float = 0
+    product_count: int = 0
+    product_types: list[str] = Field(default_factory=list)
+    product_names: list[str] = Field(default_factory=list)
+    has_custom_product_rules: bool = False
+    computed_status: str
+    hit_order_count: int = 0
+    start_at: str
+    end_at: str
+    enabled: bool
+    created_at: str
+    updated_at: str
+
+
+@register_schema_to_swagger
+class AdminBillingCampaignDetailDTO(BillingBaseDTO):
+    campaign: AdminBillingCampaignDTO
+    products: list[AdminBillingCampaignProductOptionDTO] = Field(default_factory=list)
+    created_user_bid: str = ""
+    updated_user_bid: str = ""
+
+
+@register_schema_to_swagger
+class AdminBillingCampaignsPageDTO(BillingBaseDTO):
+    items: list[AdminBillingCampaignDTO]
     page: int
     page_count: int
     page_size: int

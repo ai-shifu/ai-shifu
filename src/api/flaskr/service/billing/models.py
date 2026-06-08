@@ -423,6 +423,195 @@ class BillingOrder(BillingTableMixin, db.Model):
         nullable=True,
         comment="Billing order metadata",
     )
+    campaign_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Applied billing campaign business identifier",
+    )
+    campaign_benefit_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Applied billing campaign benefit type code",
+    )
+    campaign_discount_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Applied billing campaign discount amount in minor units",
+    )
+    campaign_bonus_credit_amount = Column(
+        CREDIT_NUMERIC,
+        nullable=False,
+        default=0,
+        comment="Applied billing campaign bonus credit amount",
+    )
+
+
+class BillingCampaign(BillingTableMixin, db.Model):
+    __tablename__ = "bill_campaigns"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_bid",
+            name="uq_bill_campaigns_campaign_bid",
+        ),
+        Index(
+            "ix_bill_campaigns_enabled_start_end",
+            "enabled",
+            "start_at",
+            "end_at",
+        ),
+        {"comment": "Billing campaign definitions"},
+    )
+
+    campaign_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing campaign business identifier",
+    )
+    name = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Operator-facing campaign name",
+    )
+    note = Column(
+        String(500),
+        nullable=False,
+        default="",
+        comment="Operator-facing campaign note",
+    )
+    benefit_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        index=True,
+        comment="Campaign benefit type code",
+    )
+    discount_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Campaign discount type code",
+    )
+    discount_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Fixed discount amount in minor units",
+    )
+    discount_percent = Column(
+        Numeric(6, 2),
+        nullable=False,
+        default=0,
+        comment="Percent discount value",
+    )
+    bonus_credit_amount = Column(
+        CREDIT_NUMERIC,
+        nullable=False,
+        default=0,
+        comment="Bonus credit amount",
+    )
+    enabled = Column(
+        SmallInteger,
+        nullable=False,
+        default=1,
+        index=True,
+        comment="Enabled flag",
+    )
+    start_at = Column(
+        DateTime,
+        nullable=False,
+        index=True,
+        comment="Campaign start timestamp",
+    )
+    end_at = Column(
+        DateTime,
+        nullable=False,
+        index=True,
+        comment="Campaign end timestamp",
+    )
+    created_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Creator user business identifier",
+    )
+    updated_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Last updater user business identifier",
+    )
+
+
+class BillingCampaignProduct(BillingTableMixin, db.Model):
+    __tablename__ = "bill_campaign_products"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_bid",
+            "product_bid",
+            name="uq_bill_campaign_products_campaign_product",
+        ),
+        {"comment": "Billing campaign product bindings"},
+    )
+
+    campaign_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing campaign business identifier",
+    )
+    product_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing product business identifier",
+    )
+    product_type = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Billing product type snapshot",
+    )
+    discount_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Per-product campaign discount type code",
+    )
+    discount_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Per-product campaign discount amount in minor units",
+    )
+    discount_percent = Column(
+        Numeric(6, 2),
+        nullable=False,
+        default=0,
+        comment="Per-product campaign discount percent",
+    )
+    campaign_price_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Per-product campaign price amount in minor units",
+    )
+    bonus_credit_amount = Column(
+        CREDIT_NUMERIC,
+        nullable=False,
+        default=0,
+        comment="Per-product campaign bonus credit amount",
+    )
 
 
 class CreditWallet(BillingTableMixin, db.Model):

@@ -432,6 +432,7 @@
       "page": "Page {page} / {pageCount} · {total} écritures"
     },
     "source": {
+      "campaignBonus": "Crédits bonus de campagne",
       "gift": "Crédits offerts",
       "manual": "Ajustement manuel",
       "refund": "Retour de remboursement",
@@ -509,6 +510,9 @@
       "subscribeNow": "S’abonner maintenant",
       "upgradeNow": "Mettre à niveau",
       "upgradeOnlyTooltip": "L’abonnement actuel est encore actif. Seules les mises à niveau vers une offre supérieure sont autorisées."
+    },
+    "campaign": {
+      "discountBadge": "Offre limitée"
     },
     "creditPeriod": {
       "oneTime": "Une fois"

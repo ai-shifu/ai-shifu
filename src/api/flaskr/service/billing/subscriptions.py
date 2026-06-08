@@ -47,6 +47,7 @@ from .consts import (
     CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
 )
@@ -1415,6 +1416,12 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
             order=order,
             grant_entry=existing_entry,
         )
+        _grant_paid_campaign_bonus_credits(
+            app,
+            order=order,
+            product=product,
+            effective_from=(order.paid_at or datetime.now()),
+        )
         _activate_subscription_for_paid_order(app, order)
         return False
 
@@ -1497,8 +1504,122 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     )
     db.session.add(ledger_entry)
 
+    _grant_paid_campaign_bonus_credits(
+        app,
+        order=order,
+        product=product,
+        effective_from=effective_from,
+        effective_to=effective_to,
+    )
     _activate_subscription_for_paid_order(app, order)
 
+    return True
+
+
+def _grant_paid_campaign_bonus_credits(
+    app: Flask,
+    *,
+    order: BillingOrder,
+    product: BillingProduct,
+    effective_from: datetime,
+    effective_to: datetime | None = None,
+) -> bool:
+    bonus_amount = _quantize_credit_amount(order.campaign_bonus_credit_amount)
+    if not _normalize_bid(order.campaign_bid) or bonus_amount <= 0:
+        return False
+
+    idempotency_key = f"grant:campaign_bonus:{order.bill_order_bid}"
+    existing_entry = (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == order.creator_bid,
+            CreditLedgerEntry.idempotency_key == idempotency_key,
+        )
+        .order_by(CreditLedgerEntry.id.desc())
+        .first()
+    )
+    if existing_entry is not None:
+        return False
+
+    wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+    resolved_effective_to = effective_to or _resolve_credit_bucket_effective_to(
+        order=order,
+        product=product,
+        effective_from=effective_from,
+    )
+    bucket_category = resolve_bucket_category_from_order_type(
+        int(order.order_type or 0)
+    )
+    if bucket_category not in {
+        CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+        CREDIT_BUCKET_CATEGORY_TOPUP,
+    }:
+        return False
+
+    bucket = CreditWalletBucket(
+        wallet_bucket_bid=generate_id(app),
+        wallet_bid=wallet.wallet_bid,
+        creator_bid=order.creator_bid,
+        bucket_category=bucket_category,
+        source_type=CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
+        source_bid=order.bill_order_bid,
+        priority=resolve_credit_bucket_priority(bucket_category),
+        original_credits=bonus_amount,
+        available_credits=bonus_amount,
+        reserved_credits=_to_decimal(0),
+        consumed_credits=_to_decimal(0),
+        expired_credits=_to_decimal(0),
+        effective_from=effective_from,
+        effective_to=resolved_effective_to,
+        status=CREDIT_BUCKET_STATUS_ACTIVE,
+        metadata_json=_normalize_json_object(
+            {
+                **_build_bucket_metadata_from_order(order),
+                "campaign_bid": order.campaign_bid,
+                "campaign_bonus_credit_amount": bonus_amount,
+                "grant_reason": "campaign_bonus",
+            }
+        ).to_metadata_json(),
+    )
+    db.session.add(bucket)
+    sync_credit_bucket_status(bucket)
+    refresh_credit_wallet_snapshot(wallet)
+    balance_after = _quantize_credit_amount(wallet.available_credits)
+    next_lifetime_granted = _quantize_credit_amount(
+        _to_decimal(wallet.lifetime_granted_credits) + bonus_amount
+    )
+    ledger_entry = CreditLedgerEntry(
+        ledger_bid=generate_id(app),
+        creator_bid=order.creator_bid,
+        wallet_bid=wallet.wallet_bid,
+        wallet_bucket_bid=bucket.wallet_bucket_bid,
+        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        source_type=CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
+        source_bid=order.bill_order_bid,
+        idempotency_key=idempotency_key,
+        amount=bonus_amount,
+        balance_after=balance_after,
+        expires_at=resolved_effective_to,
+        consumable_from=effective_from,
+        metadata_json=_normalize_json_object(
+            {
+                "bill_order_bid": order.bill_order_bid,
+                "product_bid": order.product_bid,
+                "campaign_bid": order.campaign_bid,
+                "grant_reason": "campaign_bonus",
+                "bonus_credit_amount": bonus_amount,
+            }
+        ).to_metadata_json(),
+    )
+    wallet.available_credits = balance_after
+    persist_credit_wallet_snapshot(
+        wallet,
+        available_credits=wallet.available_credits,
+        reserved_credits=wallet.reserved_credits,
+        lifetime_granted_credits=next_lifetime_granted,
+        updated_at=datetime.now(),
+    )
+    db.session.add(ledger_entry)
     return True
 
 

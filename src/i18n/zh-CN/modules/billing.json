@@ -432,6 +432,7 @@
       "page": "第 {page} / {pageCount} 页，共 {total} 条账本"
     },
     "source": {
+      "campaignBonus": "活动赠送积分",
       "gift": "赠送积分",
       "manual": "人工调整",
       "refund": "退款返还",
@@ -509,6 +510,9 @@
       "subscribeNow": "立即订阅",
       "upgradeNow": "立即升级",
       "upgradeOnlyTooltip": "当前套餐在有效期内仅支持升级，不能购买同级或更低档套餐"
+    },
+    "campaign": {
+      "discountBadge": "限时优惠"
     },
     "creditPeriod": {
       "oneTime": "一次性"

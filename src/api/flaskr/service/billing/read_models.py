@@ -40,6 +40,7 @@ from .consts import (
     CREDIT_SOURCE_TYPE_LABELS,
     CREDIT_SOURCE_TYPE_USAGE,
 )
+from .campaigns import resolve_catalog_campaign_payload
 from .bucket_categories import (
     build_wallet_bucket_runtime_sort_key,
     load_billing_order_type_by_bid,
@@ -555,7 +556,10 @@ def build_billing_catalog(app: Flask) -> BillingCatalogDTO:
         for row in rows:
             if _is_public_trial_catalog_product(row):
                 continue
-            payload = _serialize_product(row)
+            payload = _serialize_product(
+                row,
+                campaign_payload=resolve_catalog_campaign_payload(row),
+            )
             if isinstance(payload, BillingPlanDTO):
                 plans.append(payload)
             elif isinstance(payload, BillingTopupProductDTO):

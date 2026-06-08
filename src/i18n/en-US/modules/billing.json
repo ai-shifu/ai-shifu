@@ -432,6 +432,7 @@
       "page": "Page {page} / {pageCount} · {total} entries"
     },
     "source": {
+      "campaignBonus": "Campaign bonus credits",
       "gift": "Gift credits",
       "manual": "Manual adjustment",
       "refund": "Refund return",
@@ -509,6 +510,9 @@
       "subscribeNow": "Subscribe now",
       "upgradeNow": "Upgrade now",
       "upgradeOnlyTooltip": "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
+    },
+    "campaign": {
+      "discountBadge": "Limited offer"
     },
     "creditPeriod": {
       "oneTime": "One-time"

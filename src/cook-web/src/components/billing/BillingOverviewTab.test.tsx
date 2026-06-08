@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import api from '@/api';
 import { toast } from '@/hooks/useToast';
@@ -278,6 +278,14 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 5000,
       credit_amount: 24,
+      campaign: {
+        campaign_bid: 'campaign-topup-small',
+        benefit_type: 'discount' as const,
+        discount_type: 'percent' as const,
+        discount_amount: 400,
+        discount_percent: 8,
+        campaign_price_amount: 4600,
+      },
     },
     {
       product_bid: 'bill-product-topup-medium',
@@ -493,6 +501,21 @@ describe('BillingOverviewTab', () => {
 
     expect(
       screen.getByTestId('billing-topup-card-bill-product-topup-small'),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-small'),
+      ).getByText('¥50'),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-small'),
+      ).getByText('¥46'),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-small'),
+      ).getByText('module.billing.package.campaign.discountBadge'),
     ).toBeInTheDocument();
     expect(screen.getByTestId('billing-topup-note')).toBeInTheDocument();
     expect(

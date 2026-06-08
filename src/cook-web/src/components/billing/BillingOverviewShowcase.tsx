@@ -1,7 +1,12 @@
 import { useTranslation } from 'react-i18next';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { formatBillingCreditAmount, formatBillingPrice } from '@/lib/billing';
+import {
+  formatBillingCreditAmount,
+  formatBillingPrice,
+  hasBillingProductDiscountCampaign,
+  resolveBillingProductPayableAmount,
+} from '@/lib/billing';
 import type {
   BillingPlan,
   BillingProvider,
@@ -145,6 +150,8 @@ export function BillingOverviewShowcase({
             data-testid='billing-topup-grid'
           >
             {topups.map(product => {
+              const hasDiscountCampaign =
+                hasBillingProductDiscountCampaign(product);
               const provider = resolveCheckoutProvider(
                 stripeAvailable,
                 pingxxAvailable,
@@ -160,6 +167,11 @@ export function BillingOverviewShowcase({
                   key={product.product_bid}
                   actionLabel={t('module.billing.package.actions.buyNow')}
                   actionLoading={checkoutLoadingKey === checkoutKey}
+                  campaignLabel={
+                    hasDiscountCampaign
+                      ? t('module.billing.package.campaign.discountBadge')
+                      : undefined
+                  }
                   creditsLabel={t('module.billing.package.topup.creditLabel', {
                     credits: formatBillingCreditAmount(product.credit_amount),
                   })}
@@ -168,8 +180,17 @@ export function BillingOverviewShowcase({
                   onAction={() =>
                     provider && onSelectTopupCheckout(product, provider)
                   }
+                  originalPriceLabel={
+                    hasDiscountCampaign
+                      ? formatBillingPrice(
+                          product.price_amount,
+                          product.currency,
+                          i18n.language,
+                        )
+                      : undefined
+                  }
                   priceLabel={formatBillingPrice(
-                    product.price_amount,
+                    resolveBillingProductPayableAmount(product),
                     product.currency,
                     i18n.language,
                   )}
