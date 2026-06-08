@@ -18,6 +18,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)
 - [Operator User Detail Page Slimming](./active/operator-user-detail-page-slimming.md)
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
+- [Referral Invitation Rewards Implementation Plan](./active/referral-invitation-rewards.md)
 
 ## Completed
 
