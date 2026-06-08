@@ -491,11 +491,12 @@ class MdflowContextV2:
         current_app.logger.info(f"build_context_from_blocks variables: {variables}")
 
         for generated_block in blocks:
-            if (
-                generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE
-                and generated_block.position < len(block_list)
+            if generated_block.position < 0 or generated_block.position >= len(
+                block_list
             ):
-                block = block_list[generated_block.position]
+                continue
+            block = block_list[generated_block.position]
+            if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
                 message_list.append(
                     {
                         "role": "user",
@@ -509,6 +510,18 @@ class MdflowContextV2:
                     {
                         "role": "assistant",
                         "content": generated_block.generated_content or "",
+                    }
+                )
+            elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
+                # Hand the raw interaction syntax to markdown-flow as an
+                # assistant message. Its _transform_context_messages expands
+                # ?[%{{var}}...] into {user: <value>} + {assistant: "ok"}
+                # using `variables`, instead of us crudely flattening the
+                # input into a bare user message.
+                message_list.append(
+                    {
+                        "role": "assistant",
+                        "content": block.content or "",
                     }
                 )
         return message_list

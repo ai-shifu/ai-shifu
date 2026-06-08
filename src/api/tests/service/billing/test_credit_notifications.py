@@ -59,6 +59,7 @@ from flaskr.service.billing.tasks import (
     send_credit_notification_task,
 )
 from flaskr.service.common.models import AppException
+from flaskr.service.config.models import Config
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.repository import (
     create_user_entity,
@@ -619,6 +620,55 @@ def test_credit_notification_policy_can_preserve_opt_out_list(
         "creator_bids": ["creator-opted-out"],
         "mobiles": ["13800000000"],
     }
+
+
+def test_credit_notification_policy_persists_operator_updated_by(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+
+    save_credit_notification_policy(
+        app,
+        {"enabled": False},
+        updated_by="operator-audit-1",
+    )
+
+    with app.app_context():
+        config = (
+            Config.query.filter(
+                Config.key == "BILL_CREDIT_NOTIFICATION_SMS_CONFIG",
+                Config.deleted == 0,
+            )
+            .order_by(Config.id.desc())
+            .first()
+        )
+        assert config is not None
+        assert config.updated_by == "operator-audit-1"
+
+
+def test_credit_notification_policy_truncates_operator_updated_by(
+    credit_notifications_app: Flask,
+) -> None:
+    app = credit_notifications_app
+    updated_by = "operator-audit-" + ("x" * 40)
+
+    save_credit_notification_policy(
+        app,
+        {"enabled": False},
+        updated_by=updated_by,
+    )
+
+    with app.app_context():
+        config = (
+            Config.query.filter(
+                Config.key == "BILL_CREDIT_NOTIFICATION_SMS_CONFIG",
+                Config.deleted == 0,
+            )
+            .order_by(Config.id.desc())
+            .first()
+        )
+        assert config is not None
+        assert config.updated_by == updated_by[:36]
 
 
 def test_credit_notification_policy_resolves_list_creator_details(
@@ -2230,6 +2280,50 @@ def test_requeue_keeps_failed_status_when_enqueue_fails(
             notification_bid=staged["notification_bid"]
         ).one()
         assert notification.status == CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER
+
+
+def test_requeue_records_operator_audit_metadata(
+    credit_notifications_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = credit_notifications_app
+    _seed_creator(app)
+    _enable_policy(app)
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.send_sms_ali",
+        lambda app, mobile, *, template_code, template_params, sign_name=None: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.credit_notifications.enqueue_credit_notification",
+        lambda app, *, notification_bid: {
+            "status": "enqueued",
+            "notification_bid": notification_bid,
+            "enqueued": True,
+        },
+    )
+
+    with app.app_context():
+        _seed_credit_ledger(ledger_bid="ledger-requeue-audit")
+
+    staged = stage_credit_granted_notification(
+        app,
+        ledger_bid="ledger-requeue-audit",
+        enqueue=False,
+    )
+    deliver_credit_notification(app, notification_bid=str(staged["notification_bid"]))
+    requeue_credit_notification(
+        app,
+        notification_bid=str(staged["notification_bid"]),
+        operator_user_bid="operator-audit-2",
+    )
+
+    with app.app_context():
+        notification = NotificationRecord.query.filter_by(
+            notification_bid=staged["notification_bid"]
+        ).one()
+        assert notification.metadata_json["last_requeued_by"] == "operator-audit-2"
+        assert notification.metadata_json["last_requeued_at"]
+        assert notification.metadata_json["last_requeued_at"].endswith("Z")
 
 
 def test_provider_exception_marks_notification_failed(
