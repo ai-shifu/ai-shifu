@@ -32,7 +32,7 @@ const formatCreditBalanceValue = (value: string, locale: string) => {
   if (!Number.isFinite(numericValue)) {
     return '';
   }
-  return formatAdminCredits(Math.floor(numericValue), locale);
+  return formatAdminCredits(numericValue, locale);
 };
 
 export const formatLearningProgress = (
