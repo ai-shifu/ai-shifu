@@ -7,7 +7,7 @@ import {
   useMemo,
 } from 'react';
 import React from 'react';
-import { useLatest, useMountedState } from 'react-use';
+import { useLatest } from 'react-use';
 import {
   mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
@@ -338,7 +338,6 @@ function useChatLogicHook({
   listenRequestEnabled = false,
   shouldPromptLessonFeedback = true,
   trackEvent,
-  chatBoxBottomRef,
   trackTrailProgress,
   lessonUpdate,
   chapterUpdate,
@@ -349,7 +348,7 @@ function useChatLogicHook({
   showOutputInProgressToast,
   onPayModalOpen,
 }: UseChatSessionParams): UseChatSessionResult {
-  const { t, i18n, ready } = useTranslation();
+  const { t } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
   const isListenModeLatest = useLatest(isListenMode);
 
@@ -360,14 +359,12 @@ function useChatLogicHook({
   );
   const isStreamingRef = useRef(false);
   const [isOutputInProgress, setIsOutputInProgress] = useState(false);
-  const { updateResetedChapterId, updateResetedLessonId, resetedLessonId } =
-    useCourseStore(
-      useShallow(state => ({
-        resetedLessonId: state.resetedLessonId,
-        updateResetedChapterId: state.updateResetedChapterId,
-        updateResetedLessonId: state.updateResetedLessonId,
-      })),
-    );
+  const { updateResetedLessonId, resetedLessonId } = useCourseStore(
+    useShallow(state => ({
+      resetedLessonId: state.resetedLessonId,
+      updateResetedLessonId: state.updateResetedLessonId,
+    })),
+  );
 
   const effectivePreviewMode = previewMode ?? false;
   const lessonRunContentCacheKey = useMemo(
@@ -1361,47 +1358,6 @@ function useChatLogicHook({
     },
     [parseLessonFeedbackScore],
   );
-
-  // Use react-use hooks for safer state management
-  const isMounted = useMountedState();
-  const chatBoxBottomRefLatest = useLatest(chatBoxBottomRef);
-
-  /**
-   * Auto scroll to bottom when history records are loaded and rendered
-   * Only scroll once, don't interfere with user scrolling
-   */
-  // useEffect(() => {
-  //   // Only scroll once after initial load
-  //   if (hasScrolledToBottomRef.current) {
-  //     return;
-  //   }
-
-  //   // Wait for: 1) loading complete, 2) has content, 3) chapter loaded
-  //   if (!isLoading && contentList.length > 0 && loadedChapterId) {
-  //     // Simple one-time scroll after a reasonable delay
-  //     const timer = setTimeout(() => {
-  //       if (!isMounted()) return;
-
-  //       const bottomEl = chatBoxBottomRefLatest.current?.current;
-  //       if (bottomEl) {
-  //         // Use instant scroll to avoid blocking user interaction
-  //         bottomEl.scrollIntoView({
-  //           behavior: 'auto',
-  //           block: 'end',
-  //         });
-  //         hasScrolledToBottomRef.current = true;
-  //       }
-  //     }, 300);
-
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, [
-  //   isLoading,
-  //   contentList.length,
-  //   loadedChapterId,
-  //   isMounted,
-  //   chatBoxBottomRefLatest,
-  // ]);
 
   /**
    * Keeps the React state and mutable ref of the content list in sync.

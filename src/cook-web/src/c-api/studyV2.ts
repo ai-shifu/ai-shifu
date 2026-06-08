@@ -243,17 +243,6 @@ export interface StreamGeneratedBlockAudioParams {
   onError?: (error: unknown) => void;
 }
 
-const getListenFlagFromPageUrl = (): boolean => {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  const listenParam = new URLSearchParams(window.location.search).get('listen');
-  return (
-    typeof listenParam === 'string' && listenParam.toLowerCase() === 'true'
-  );
-};
-
 const dispatchSseBusinessError = (
   source: { dispatchEvent: (event: Event) => void },
   error: { message: string; code?: number },

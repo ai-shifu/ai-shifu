@@ -158,8 +158,6 @@ const ScriptEditor = ({
   const historyRequestIdRef = useRef(0);
   const historyDetailRequestIdRef = useRef(0);
   const selectedHistoryVersionIdRef = useRef<number | null>(null);
-  const [recentVariables, setRecentVariables] = useState<string[]>([]);
-  const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
   const currentLessonBidRef = useRef<string | null>(null);
   const {
@@ -1024,11 +1022,6 @@ const ScriptEditor = ({
     void loadSelectedHistoryVersionDetail();
   }, [isHistoryPage, loadSelectedHistoryVersionDetail]);
 
-  const mdflowVariableNames = useMemo(
-    () => extractVariableNames(mdflow),
-    [mdflow],
-  );
-
   const resolvedPreviewVariables = useMemo(() => {
     const candidates = [previewVariables, previewItems[0]?.variables];
     for (const candidate of candidates) {
@@ -1038,35 +1031,6 @@ const ScriptEditor = ({
     }
     return undefined;
   }, [previewItems, previewVariables]);
-  useEffect(() => {
-    const previousSeen = seenVariableNamesRef.current;
-    const currentSet = new Set<string>();
-    const newNames: string[] = [];
-    mdflowVariableNames.forEach(name => {
-      if (!name) {
-        return;
-      }
-      currentSet.add(name);
-      if (!previousSeen.has(name)) {
-        newNames.push(name);
-      }
-    });
-    seenVariableNamesRef.current = currentSet;
-    const currentNamesSet = new Set(mdflowVariableNames);
-    if (!newNames.length) {
-      setRecentVariables(prev =>
-        prev.filter(name => currentNamesSet.has(name)),
-      );
-      return;
-    }
-    setRecentVariables(prev => {
-      const filteredPrev = prev.filter(
-        name => !newNames.includes(name) && currentNamesSet.has(name),
-      );
-      return [...newNames, ...filteredPrev];
-    });
-  }, [mdflowVariableNames]);
-
   const variablesList = useMemo(() => {
     return (variables || []).map(name => ({ name }));
   }, [variables]);

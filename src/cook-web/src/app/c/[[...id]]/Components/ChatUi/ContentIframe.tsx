@@ -1,7 +1,6 @@
 import { memo } from 'react';
 import { isEqual } from 'lodash';
 import { IframeSandbox, type RenderSegment } from 'markdown-flow-ui/renderer';
-import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 
 interface ContentIframeProps {
   // item: ChatContentItem;
