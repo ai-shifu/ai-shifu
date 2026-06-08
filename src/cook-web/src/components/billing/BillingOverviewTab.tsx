@@ -540,7 +540,10 @@ export function BillingOverviewTab({
             i18n.language,
           ),
         })
-      : formatBillingCredits(checkoutTarget.product.credit_amount, i18n.language)
+      : formatBillingCredits(
+          checkoutTarget.product.credit_amount,
+          i18n.language,
+        )
     : '';
   const dialogProviderLabel = checkoutTarget
     ? resolveCheckoutChannelLabel(t, checkoutTarget, selectedPingxxChannel)

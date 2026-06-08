@@ -314,10 +314,10 @@
   "checkout": {
     "agreementLink": "Contrat d’achat de crédits",
     "agreementPrefix": "J’ai lu et j’accepte les",
+    "bonusCreditsLabel": "{baseCredits} + {bonusCredits} offerts",
     "cancel": "Annuler",
     "completed": "Paiement terminé.",
     "confirm": "Continuer vers le paiement",
-    "bonusCreditsLabel": "{baseCredits} + {bonusCredits} offerts",
     "creditsLabel": "Crédits",
     "planDescription": "Voici les détails de paiement de votre forfait de crédits.",
     "preorderDescription": "Ce forfait est prépayé maintenant et prendra effet à la fin du cycle actuel.",

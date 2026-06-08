@@ -314,10 +314,10 @@
   "checkout": {
     "agreementLink": "Credit Purchase Agreement",
     "agreementPrefix": "I have read and agreed to the",
+    "bonusCreditsLabel": "{baseCredits} + {bonusCredits} bonus",
     "cancel": "Cancel",
     "completed": "Payment completed.",
     "confirm": "Continue to payment",
-    "bonusCreditsLabel": "{baseCredits} + {bonusCredits} bonus",
     "creditsLabel": "Credits",
     "planDescription": "Here are the payment details for your credit subscription plan.",
     "preorderDescription": "This package will be prepaid now and take effect when the current cycle ends.",
