@@ -316,9 +316,17 @@ def create_billing_subscription_checkout(
             else:
                 raise_error("server.order.orderStatusError")
             subscription.updated_at = datetime.now()
-        applied_campaign = resolve_applied_billing_campaign(
-            product,
-            order_type=order_type,
+        is_preorder_renewal = (
+            checkout_action == CHECKOUT_ACTION_PREORDER
+            and order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+        )
+        applied_campaign = (
+            resolve_applied_billing_campaign(
+                product,
+                order_type=order_type,
+            )
+            if not is_preorder_renewal
+            else None
         )
         db.session.add(subscription)
         db.session.flush()
@@ -327,17 +335,19 @@ def create_billing_subscription_checkout(
             0,
             (
                 int(applied_campaign.campaign_price_amount)
-                if applied_campaign.campaign_bid
+                if applied_campaign is not None and applied_campaign.campaign_bid
                 else int(product.price_amount or 0)
             )
             - prepaid_offset_amount,
         )
 
+        order_metadata_payload = {**order_metadata}
+        if applied_campaign is not None:
+            order_metadata_payload["campaign"] = (
+                applied_campaign.to_catalog_payload() or None
+            )
         order_metadata = _normalize_json_object(
-            {
-                **order_metadata,
-                "campaign": applied_campaign.to_catalog_payload() or None,
-            }
+            order_metadata_payload
         ).to_metadata_json()
 
         order = BillingOrder(
@@ -354,10 +364,16 @@ def create_billing_subscription_checkout(
             provider_reference_id="",
             status=BILLING_ORDER_STATUS_PENDING,
             metadata_json=order_metadata,
-            campaign_bid=applied_campaign.campaign_bid,
-            campaign_benefit_type=applied_campaign.benefit_type_code,
-            campaign_discount_amount=applied_campaign.discount_amount,
-            campaign_bonus_credit_amount=applied_campaign.bonus_credit_amount,
+            campaign_bid=applied_campaign.campaign_bid if applied_campaign else "",
+            campaign_benefit_type=(
+                applied_campaign.benefit_type_code if applied_campaign else 0
+            ),
+            campaign_discount_amount=(
+                applied_campaign.discount_amount if applied_campaign else 0
+            ),
+            campaign_bonus_credit_amount=(
+                applied_campaign.bonus_credit_amount if applied_campaign else 0
+            ),
         )
         db.session.add(order)
         db.session.flush()

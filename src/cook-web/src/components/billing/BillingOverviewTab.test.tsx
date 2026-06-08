@@ -528,6 +528,16 @@ describe('BillingOverviewTab', () => {
       screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
     ).toBeInTheDocument();
     expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
+      ).queryByText('module.billing.package.campaign.discountBadge'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
+      ).queryByText('¥99'),
+    ).toBeInTheDocument();
+    expect(
       screen.getByTestId('billing-topup-card-bill-product-topup-large'),
     ).toBeInTheDocument();
     expect(

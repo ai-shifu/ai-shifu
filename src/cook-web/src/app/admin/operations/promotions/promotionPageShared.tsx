@@ -643,6 +643,7 @@ export const resolvePromotionStatusBadgeClassName = (status?: string) => {
   switch (status) {
     case 'active':
       return 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50';
+    case 'upcoming':
     case 'not_started':
       return 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50';
     case 'inactive':
@@ -755,7 +756,7 @@ export const resolvePackageCampaignProductSummary = (
   }
   const labels = item.product_types
     .map(type => resolvePackageCampaignProductTypeLabel(tPromotion, type))
-    .filter(Boolean);
+    .filter(label => label && label !== EMPTY_VALUE);
   if (!labels.length) {
     return EMPTY_VALUE;
   }

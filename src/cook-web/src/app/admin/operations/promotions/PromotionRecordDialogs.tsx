@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
@@ -128,23 +128,29 @@ export const PackageCampaignProductDetailsDialog = ({
   const [products, setProducts] = useState<AdminBillingCampaignProductOption[]>(
     [],
   );
+  const detailRequestIdRef = useRef(0);
 
   const fetchDetail = useCallback(async () => {
     if (!campaignBid) {
       return;
     }
+    const requestId = ++detailRequestIdRef.current;
     setLoading(true);
     try {
       const detail = await fetchDetailApi({ campaign_bid: campaignBid });
+      if (requestId !== detailRequestIdRef.current) return;
       setProducts(detail.products || []);
     } catch (error) {
+      if (requestId !== detailRequestIdRef.current) return;
       setProducts([]);
       showErrorToast(
         (error as Error).message ||
           tPromotion('messages.loadPackageCampaignDetailFailed'),
       );
     } finally {
-      setLoading(false);
+      if (requestId === detailRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [campaignBid, fetchDetailApi, tPromotion]);
 

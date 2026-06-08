@@ -8,6 +8,10 @@ import {
 } from '@testing-library/react';
 import api from '@/api';
 import AdminOperationPromotionsPage from './page';
+import {
+  resolvePackageCampaignProductSummary,
+  resolvePromotionStatusBadgeClassName,
+} from './promotionPageShared';
 
 const mockToast = jest.fn();
 const MOCK_DIALOG_CLOSE_LABEL = 'mock-dialog-close';
@@ -3103,6 +3107,20 @@ describe('AdminOperationPromotionsPage', () => {
     expect(
       screen.queryByText('module.operationsPromotion.table.createdAt'),
     ).not.toBeInTheDocument();
+  });
+
+  test('maps package campaign upcoming status and unknown product summary safely', () => {
+    const tPromotion = (key: string) => `module.operationsPromotion.${key}`;
+
+    expect(resolvePromotionStatusBadgeClassName('upcoming')).toBe(
+      resolvePromotionStatusBadgeClassName('not_started'),
+    );
+    expect(
+      resolvePackageCampaignProductSummary(tPromotion, {
+        product_types: ['unknown'],
+        product_count: 1,
+      }),
+    ).toBe('--');
   });
 
   test('opens package campaign product details from product column', async () => {

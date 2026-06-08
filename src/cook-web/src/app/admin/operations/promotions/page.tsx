@@ -427,14 +427,28 @@ export default function AdminOperationPromotionsPage() {
       packageCampaignPageRef.current,
       packageCampaignFiltersRef.current,
     );
-    if (!packageCampaignProductOptions) {
-      void fetchPackageCampaignProductOptions();
+  }, [fetchPackageCampaigns, isReady, tab]);
+
+  useEffect(() => {
+    if (
+      !isReady ||
+      tab !== 'packageCampaigns' ||
+      packageCampaignProductOptions
+    ) {
+      return;
     }
+    void fetchPackageCampaignProductOptions().catch(error => {
+      setPackageCampaignError({
+        message:
+          (error as Error).message ||
+          tPromotion('messages.loadPackageCampaignProductsFailed'),
+      });
+    });
   }, [
     fetchPackageCampaignProductOptions,
-    fetchPackageCampaigns,
     isReady,
     packageCampaignProductOptions,
+    tPromotion,
     tab,
   ]);
 

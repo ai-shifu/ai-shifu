@@ -87,21 +87,26 @@ class StripeProvider(PaymentProvider):
             subscription_discount_amount = int(
                 options.get("subscription_one_time_discount_amount") or 0
             )
+            coupon_id = ""
             if (
                 params.get("mode") == "subscription"
                 and subscription_discount_amount > 0
             ):
                 coupon = stripe.Coupon.create(
                     amount_off=subscription_discount_amount,
-                    currency=request.currency,
+                    currency=(request.currency or "cny").lower(),
                     duration="once",
                     name=f"{request.subject} first invoice discount",
                     metadata=metadata,
+                    idempotency_key=(
+                        f"{request.order_bid}:subscription-first-invoice-discount"
+                    ),
                 )
                 coupon_payload = (
                     coupon.to_dict() if hasattr(coupon, "to_dict") else coupon
                 )
-                params["discounts"] = [{"coupon": coupon_payload["id"]}]
+                coupon_id = coupon_payload["id"]
+                params["discounts"] = [{"coupon": coupon_id}]
 
             customer_email = options.get("customer_email")
             if customer_email:
@@ -122,7 +127,19 @@ class StripeProvider(PaymentProvider):
                 params["payment_method_types"].append("wechat_pay")
                 params["payment_method_options"] = {"wechat_pay": {"client": "web"}}
 
-            session = stripe.checkout.Session.create(**params)
+            try:
+                session = stripe.checkout.Session.create(**params)
+            except Exception:
+                if coupon_id:
+                    try:
+                        stripe.Coupon.delete(coupon_id)
+                    except Exception as cleanup_error:  # pragma: no cover
+                        app.logger.warning(
+                            "Failed to clean up Stripe coupon %s: %s",
+                            coupon_id,
+                            cleanup_error,
+                        )
+                raise
             session_dict = session.to_dict()
             payment_intent_id = session_dict.get("payment_intent")
             latest_charge_id = ""

@@ -10,9 +10,14 @@ def test_shifu_preview_routes_gate_creator_debug_usage_with_billing_admission() 
 
     assert "from flaskr.service.billing.admission import admit_creator_usage" in source
     assert "reserve_creator_runtime_slot" not in source
-    assert "from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG" in source
+    assert "usage_scene=BILL_USAGE_SCENE_DEBUG" in source
+    assert "usage_scene=BILL_USAGE_SCENE_PREVIEW" in source
     assert "def _admit_creator_debug_usage() -> None:" in source
+    assert (
+        "def _admit_creator_preview_usage_for_shifu(shifu_bid: str) -> None:" in source
+    )
     assert source.count("_admit_creator_debug_usage()") >= 3
+    assert "_admit_creator_preview_usage_for_shifu(shifu_bid)" in source
     assert "def ask_preview_api():" in source
     assert "def tts_preview_api():" in source
     assert "@bypass_token_validation\n    def ask_preview_api():" not in source

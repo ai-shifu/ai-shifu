@@ -178,12 +178,13 @@ def build_admin_billing_campaigns_page(
         if end_at is not None:
             query = query.filter(BillingCampaign.start_at <= end_at)
         if product_type_code is not None:
-            query = query.join(
-                BillingCampaignProduct,
-                BillingCampaignProduct.campaign_bid == BillingCampaign.campaign_bid,
-            ).filter(
-                BillingCampaignProduct.deleted == 0,
-                BillingCampaignProduct.product_type == product_type_code,
+            query = query.filter(
+                BillingCampaign.campaign_bid.in_(
+                    db.session.query(BillingCampaignProduct.campaign_bid).filter(
+                        BillingCampaignProduct.deleted == 0,
+                        BillingCampaignProduct.product_type == product_type_code,
+                    )
+                )
             )
 
         if normalized_status:
@@ -209,7 +210,7 @@ def build_admin_billing_campaigns_page(
         query = query.order_by(
             BillingCampaign.updated_at.desc(),
             BillingCampaign.id.desc(),
-        ).distinct()
+        )
 
         total = query.order_by(None).count()
         if total == 0:
@@ -262,7 +263,7 @@ def build_admin_billing_campaign_detail(
     with app.app_context():
         row = _load_campaign(normalized_campaign_bid)
         if row is None:
-            raise_error("server.order.orderNotFound")
+            raise_error("server.billing.campaignNotFound")
         product_rows = _load_campaign_products(normalized_campaign_bid)
         binding_map = _load_campaign_binding_map(
             campaign_bids=[normalized_campaign_bid]
@@ -362,7 +363,7 @@ def update_admin_billing_campaign(
     with app.app_context():
         row = _load_campaign(normalized_campaign_bid)
         if row is None:
-            raise_error("server.order.orderNotFound")
+            raise_error("server.billing.campaignNotFound")
         product_configs = _load_campaign_target_product_configs(draft["products"])
         campaign_rule_snapshot = _resolve_campaign_rule_snapshot(product_configs)
         hit_order_count = _load_campaign_hit_count_map(
@@ -421,7 +422,7 @@ def update_admin_billing_campaign_status(
     with app.app_context():
         row = _load_campaign(normalized_campaign_bid)
         if row is None:
-            raise_error("server.order.orderNotFound")
+            raise_error("server.billing.campaignNotFound")
         product_bids = sorted(
             product.product_bid
             for product in _load_campaign_products(normalized_campaign_bid)
@@ -1182,6 +1183,8 @@ def _load_campaign_hit_count_map(
     *,
     campaign_bids: list[str] | None = None,
 ) -> dict[str, int]:
+    if campaign_bids is not None and not campaign_bids:
+        return {}
     query = db.session.query(
         BillingOrder.campaign_bid,
         func.count(BillingOrder.id),

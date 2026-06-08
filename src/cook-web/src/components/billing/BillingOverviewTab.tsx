@@ -364,7 +364,7 @@ export function BillingOverviewTab({
             result.payable_amount ??
             resolveBillingProductPayableAmount(checkoutTarget.product),
           billingOrderBid: result.bill_order_bid,
-          currency: checkoutTarget.product.currency,
+          currency: result.currency || checkoutTarget.product.currency,
           description: t(
             checkoutTarget.kind === 'plan'
               ? resolvePlanCheckoutDescriptionKey(
