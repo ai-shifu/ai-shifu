@@ -284,8 +284,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
     def _admit_creator_preview_usage_for_shifu(shifu_bid: str) -> None:
         if is_builtin_demo_shifu(app, shifu_bid):
-            return None
-        return admit_creator_usage(
+            return
+        admit_creator_usage(
             app,
             shifu_bid=shifu_bid,
             usage_scene=BILL_USAGE_SCENE_PREVIEW,

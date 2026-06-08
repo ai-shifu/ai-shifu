@@ -10,8 +10,8 @@ def test_shifu_preview_routes_gate_creator_debug_usage_with_billing_admission() 
 
     assert "from flaskr.service.billing.admission import admit_creator_usage" in source
     assert "reserve_creator_runtime_slot" not in source
-    assert "BILL_USAGE_SCENE_DEBUG" in source
-    assert "BILL_USAGE_SCENE_PREVIEW" in source
+    assert "usage_scene=BILL_USAGE_SCENE_DEBUG" in source
+    assert "usage_scene=BILL_USAGE_SCENE_PREVIEW" in source
     assert "def _admit_creator_debug_usage() -> None:" in source
     assert (
         "def _admit_creator_preview_usage_for_shifu(shifu_bid: str) -> None:" in source
