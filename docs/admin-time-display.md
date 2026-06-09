@@ -73,8 +73,15 @@ offset.
   formatter helpers instead of applying browser-timezone conversion.
 - Current exceptions:
   - operator user record `created_at` / `updated_at`
+  - operator user credit ledger `created_at`
+  - operator user credit usage detail `created_at`
   - operator course metadata `basic_info.created_at` / `basic_info.updated_at`
   - operator course list metadata `created_at` / `updated_at`
+  - operator course credit usage `created_at`
+  - operator course credit usage detail `created_at`
+  - operator course follow-up `created_at` / `latest_follow_up_at`
+  - operator course follow-up detail `basic_info.created_at` / timeline `created_at`
+  - operator course ratings `rated_at` / `latest_rated_at`
   - operator chapter metadata `updated_at`
   - operator learn order metadata `created_at`
   - operator credit order metadata `created_at`
