@@ -13,6 +13,7 @@
     "disabled": "La facturation est actuellement désactivée.",
     "domainBindingNotFound": "La liaison de domaine personnalisé demandée est introuvable.",
     "domainHostConflict": "Ce domaine personnalisé est déjà lié à un autre créateur.",
+    "referralRewardProductMismatch": "La configuration du forfait de récompense d’invitation ne correspond pas au produit de facturation. Contactez un administrateur pour vérifier la campagne.",
     "subscriptionInactive": "Un abonnement actif est requis. Les crédits de recharge ne peuvent être achetés ou utilisés que pendant la période d’abonnement.",
     "subscriptionPreorderAlreadyExists": "Une précommande de forfait est déjà en attente pour cet abonnement.",
     "subscriptionPreorderProviderUnsupported": "La précommande de forfait est actuellement prise en charge uniquement pour les canaux de paiement autogérés.",

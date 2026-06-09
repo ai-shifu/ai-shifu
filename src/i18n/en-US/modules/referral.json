@@ -1,0 +1,147 @@
+{
+  "__namespace__": "module.referral",
+  "abnormalStatus": {
+    "confirmedAbnormal": "Confirmed abnormal",
+    "normal": "Normal",
+    "reviewing": "Under review",
+    "unknown": "Unknown abnormal status"
+  },
+  "creator": {
+    "capAvailableHint": "{remaining} automatic reward months remain.",
+    "capReached": "Automatic rewards capped",
+    "capReachedHint": "The automatic reward cap has been reached. Further valid invites are still tracked; contact the team for follow-up.",
+    "copied": "Copied",
+    "copyLink": "Copy link",
+    "description": "View your invite code, invite link, and awarded reward months.",
+    "emptyQueue": "No reward queue yet.",
+    "inviteCardDescription": "Share the link or code with a new user. After domestic mobile registration, rewards are granted from campaign configuration.",
+    "inviteCardTitle": "Your invite details",
+    "inviteCode": "Invite code",
+    "inviteLink": "Invite link",
+    "metrics": {
+      "cap": "Reward cap",
+      "remaining": "Remaining",
+      "rewarded": "Rewarded months"
+    },
+    "queueTitle": "Reward queue",
+    "refresh": "Refresh",
+    "rewardRule": "Each valid invite rewards {cycles} plan cycle; configured credits per cycle: {credits}, valid for {days} days.",
+    "rewardRulesTitle": "Campaign rules",
+    "title": "Invite Friends",
+    "tooltips": {
+      "cap": "Automatic reward cap configured for the current campaign.",
+      "remaining": "Reward months still eligible for automatic grants.",
+      "rewarded": "Months already counted in automatic rewards."
+    }
+  },
+  "inviteLanding": {
+    "badge": "Friend invite",
+    "codeLabel": "Invite code",
+    "codePlaceholder": "Enter invite code",
+    "codeRequired": "Enter an invite code first.",
+    "continue": "Continue to sign up or log in",
+    "description": "Use your friend's invite code to enter AI Shifu. New-user benefits still follow existing platform rules.",
+    "formAria": "Invite-code registration entry",
+    "formTitle": "Confirm invite code",
+    "noExtraBenefit": "Invited new users do not receive a referral-specific extra reward; existing new-user benefits still apply.",
+    "submitFailed": "Invite code submission failed. Try again later.",
+    "title": "Start creating AI courses with an invite code"
+  },
+  "operator": {
+    "actions": {
+      "cancelReward": "Cancel relation and reward",
+      "detail": "Detail",
+      "freezeReward": "Freeze reward",
+      "markNormal": "Mark normal",
+      "markReviewing": "Mark reviewing",
+      "reset": "Reset",
+      "search": "Search"
+    },
+    "description": "Review invite relations, reward status, invited accounts, billing artifacts, and manual exception handling.",
+    "detail": {
+      "abnormalStatus": "Abnormal status",
+      "billOrder": "Order BID",
+      "boundAt": "Bound at",
+      "campaign": "Campaign",
+      "inviteCode": "Invite code",
+      "invitee": "Invitee",
+      "inviteeMobile": "Invitee mobile",
+      "inviter": "Inviter",
+      "ledger": "Ledger BID",
+      "loading": "Loading",
+      "operatorNote": "Operator note",
+      "operatorNotePlaceholder": "Record why this manual action is needed",
+      "relationStatus": "Relation status",
+      "reward": "Reward and billing",
+      "rewardBid": "Reward BID",
+      "rewardProduct": "Reward product",
+      "rewardStatus": "Reward status",
+      "subscription": "Subscription BID",
+      "title": "Invite relation detail",
+      "walletBucket": "Wallet bucket BID"
+    },
+    "empty": "No invite relations.",
+    "filters": {
+      "abnormalStatus": "Abnormal status",
+      "all": "All",
+      "campaignBid": "Campaign BID",
+      "inviteCode": "Invite code",
+      "inviteeUserBid": "Invitee user BID",
+      "inviterUserBid": "Inviter user BID",
+      "relationStatus": "Relation status"
+    },
+    "loadFailed": "Failed to load invite relations. Refresh and try again.",
+    "metrics": {
+      "abnormalRelations": "Abnormal relations",
+      "generatedRewards": "Reward months",
+      "totalRelations": "Invite relations"
+    },
+    "pagination": {
+      "jumpInputAria": "Jump to invite relation page",
+      "next": "Next",
+      "nextAria": "Next page",
+      "prev": "Previous",
+      "prevAria": "Previous page"
+    },
+    "refresh": "Refresh",
+    "statusUpdated": "Status updated",
+    "table": {
+      "action": "Action",
+      "boundAt": "Bound at",
+      "campaign": "Campaign",
+      "inviteCode": "Invite code",
+      "invitee": "Invitee",
+      "inviter": "Inviter",
+      "relationStatus": "Relation status",
+      "rewardStatus": "Reward status"
+    },
+    "title": "Invite Rewards",
+    "tooltips": {
+      "abnormalRelations": "Invite relations marked reviewing or confirmed abnormal.",
+      "generatedRewards": "Invite reward records that are not canceled.",
+      "totalRelations": "Total bound invite relations."
+    },
+    "total": "{total} total"
+  },
+  "relationStatus": {
+    "abnormalReviewing": "Abnormal reviewing",
+    "canceled": "Canceled",
+    "registered": "Registered",
+    "rewardActive": "Reward active",
+    "rewardEnded": "Reward ended",
+    "rewardGenerated": "Reward generated",
+    "rewardPendingEffective": "Reward pending effective",
+    "rewardSkippedCap": "Skipped by cap",
+    "unknown": "Unknown relation status"
+  },
+  "rewardStatus": {
+    "active": "Active",
+    "canceled": "Canceled",
+    "expired": "Expired",
+    "frozen": "Frozen",
+    "generated": "Generated",
+    "pendingEffective": "Pending effective",
+    "skippedCap": "Skipped by cap",
+    "unknown": "Unknown reward status"
+  }
+}

@@ -11,9 +11,9 @@
 - [x] 2026-06-08 23:25 CST：按反馈增加 campaign 和 reward rule 配置表，避免实现只面向单一需求硬编码。
 - [x] 2026-06-09 16:15 CST：再次对照飞书需求，补齐手动输入邀请码、通用邀请事件、30 天积分过期、运营人工调整和活动统计覆盖。
 - [x] 2026-06-09 17:10 CST：按协作要求把设计文档和本 ExecPlan 的正文改为中文；保留 `PLANS.md` 要求的英文 section 锚点。
-- [ ] 2026-06-08 22:45 CST：实现后端 referral domain models、migrations、services、routes 和 tests。
-- [ ] 2026-06-08 22:45 CST：实现创作者邀请页和被邀请人落地页。
-- [ ] 2026-06-08 22:45 CST：实现运营 referral 监控和异常处理页面。
+- [x] 2026-06-09 17:45 CST：实现后端 referral domain models、migration、services、routes、post-auth hook、billing reward helper 和重点 tests。
+- [x] 2026-06-09 17:48 CST：实现创作者邀请页、被邀请人落地页、登录 payload 透传、前端 API/types 和共享 i18n 文案。
+- [x] 2026-06-09 17:50 CST：实现运营 referral 监控页、列表/详情/overview/status API、人工 adjustment API 和 reward grant retry helper。
 - [ ] 2026-06-08 22:45 CST：在 dev02 使用真实 billing product 配置和数据库行完成验证。
 
 ## Surprises & Discoveries
@@ -33,10 +33,19 @@
 - 扩展 `PostAuthContext`，加入可选 referral metadata；不要把邀请绑定逻辑直接写在 route handler 里。
 - Post-auth 奖励生成保持 best-effort 和幂等；缺失 side effects 可从 `referral_invite_relations` 与 `referral_invite_rewards` 修复。
 - 邀请事件只保存 hash 后的 IP 和 user agent，不保存原始值。
+- Billing grant 与 relation/reward 创建解耦。先保存 referral 事实，再调用 billing；billing 失败时写入 `grant_error` 和 `last_failed_at`，后续通过 retry helper 幂等修复。
 
 ## Outcomes & Retrospective
 
-实现完成后更新本节。预期结果：一个受 feature flag 控制的 referral reward 系统，可以在 dev02 启用，通过 DB 行和运营页面验证，并在不改变现有付费计费语义的前提下向前发布。
+本 PR 已完成一个受 campaign 配置和 feature flag 控制的 referral reward v1：
+
+- 后端可以从 `referral_campaigns` 与 `referral_campaign_reward_rules` 读取活动、cap、产品、积分有效期和生效策略。
+- SMS 新用户注册时，post-auth 会按邀请码绑定 relation，并在 cap 内生成 reward 和 billing artifacts；达到 cap 时保留关系但跳过 billing side effects。
+- 创作者侧可以查看邀请码/邀请链接/奖励数量；被邀请人侧可以通过链接或手动输入邀请码进入同一 SMS 登录 payload。
+- 运营侧可以查看 overview、筛选关系列表、打开详情、标记异常、取消关系/奖励、冻结奖励并写入备注。
+- 本地验证覆盖 py_compile、ruff、后端重点 pytest、前端 type-check、前端重点 jest 和 targeted lint。
+
+尚未完成的是 dev02 发布验证：真实 product code、campaign/rule seed、真实注册合成用例、event rows 与 billing/order/subscription/wallet/ledger DB 对账仍需在环境配置后执行。
 
 ## Context and Orientation
 
@@ -418,12 +427,12 @@
 - Overview metrics 与飞书活动统计清单一致。
 - 状态动作确认后发送预期 payload。
 
-### 步骤 15：增加修复/诊断脚本
+### 步骤 15：增加修复/诊断 helper
 
 文件：
 
-- 在 `src/api/flaskr/service/referral/` 下增加后端脚本或 CLI command；如果现有 CLI 入口是 `src/api/flaskr/service/billing/cli.py`，则按该路径接入。
-- 对 dry-run payload 增加可行测试。
+- 在 `src/api/flaskr/service/referral/service.py` 下增加 `retry_pending_referral_rewards`。
+- 对 billing grant 失败后保留 relation/reward 行并通过 dry-run/retry 修复的路径增加测试。
 
 实现要求：
 
@@ -431,6 +440,7 @@
 - 幂等重试 billing grant。
 - 打印 relation、reward、order、ledger 和 error 字段。
 - 支持 dry-run。
+- v1 先提供 service helper；如果需要在环境里批量执行，再接入现有 CLI command surface。
 
 验证：
 

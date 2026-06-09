@@ -1,0 +1,147 @@
+{
+  "__namespace__": "module.referral",
+  "abnormalStatus": {
+    "confirmedAbnormal": "已确认异常",
+    "normal": "正常",
+    "reviewing": "复核中",
+    "unknown": "未知异常状态"
+  },
+  "creator": {
+    "capAvailableHint": "当前还剩 {remaining} 个月自动奖励额度。",
+    "capReached": "自动奖励已满",
+    "capReachedHint": "已达到自动奖励上限，后续有效邀请会继续记录，可联系团队沟通后续安排。",
+    "copied": "已复制",
+    "copyLink": "复制链接",
+    "description": "查看你的专属邀请码、邀请链接和已获得的奖励月份。",
+    "emptyQueue": "暂无奖励队列。",
+    "inviteCardDescription": "把链接或邀请码发给新用户；新用户完成国内手机号注册后，会按活动配置为你发放奖励。",
+    "inviteCardTitle": "专属邀请信息",
+    "inviteCode": "邀请码",
+    "inviteLink": "邀请链接",
+    "metrics": {
+      "cap": "奖励上限",
+      "remaining": "剩余额度",
+      "rewarded": "已奖励月份"
+    },
+    "queueTitle": "奖励队列",
+    "refresh": "刷新",
+    "rewardRule": "每个有效邀请奖励 {cycles} 个套餐周期；每周期配置积分 {credits}，有效期 {days} 天。",
+    "rewardRulesTitle": "活动规则",
+    "title": "邀请好友",
+    "tooltips": {
+      "cap": "当前活动配置的自动奖励上限。",
+      "remaining": "达到上限前还可以自动发放的奖励月份。",
+      "rewarded": "已进入自动奖励统计的月份数量。"
+    }
+  },
+  "inviteLanding": {
+    "badge": "好友邀请",
+    "codeLabel": "邀请码",
+    "codePlaceholder": "输入邀请码",
+    "codeRequired": "请先填写邀请码。",
+    "continue": "继续注册或登录",
+    "description": "使用好友提供的邀请码进入 AI 师傅。新用户注册福利仍按平台现有规则发放。",
+    "formAria": "邀请码注册入口",
+    "formTitle": "确认邀请码",
+    "noExtraBenefit": "被邀请新用户不额外获得邀请专属奖励；注册后沿用平台已有的新用户福利。",
+    "submitFailed": "邀请码提交失败，请稍后重试。",
+    "title": "用邀请码开始创建你的 AI 课程"
+  },
+  "operator": {
+    "actions": {
+      "cancelReward": "取消关系与奖励",
+      "detail": "详情",
+      "freezeReward": "冻结奖励",
+      "markNormal": "标记正常",
+      "markReviewing": "标记复核",
+      "reset": "重置",
+      "search": "搜索"
+    },
+    "description": "查看邀请关系、奖励状态、被邀请账号和计费关联，并执行少量人工异常处理。",
+    "detail": {
+      "abnormalStatus": "异常状态",
+      "billOrder": "订单 BID",
+      "boundAt": "绑定时间",
+      "campaign": "活动",
+      "inviteCode": "邀请码",
+      "invitee": "被邀请用户",
+      "inviteeMobile": "被邀请手机号",
+      "inviter": "邀请人",
+      "ledger": "流水 BID",
+      "loading": "加载中",
+      "operatorNote": "运营备注",
+      "operatorNotePlaceholder": "记录本次人工处理原因",
+      "relationStatus": "关系状态",
+      "reward": "奖励与计费",
+      "rewardBid": "奖励 BID",
+      "rewardProduct": "奖励产品",
+      "rewardStatus": "奖励状态",
+      "subscription": "订阅 BID",
+      "title": "邀请关系详情",
+      "walletBucket": "积分桶 BID"
+    },
+    "empty": "暂无邀请关系。",
+    "filters": {
+      "abnormalStatus": "异常状态",
+      "all": "全部",
+      "campaignBid": "活动 BID",
+      "inviteCode": "邀请码",
+      "inviteeUserBid": "被邀请用户 BID",
+      "inviterUserBid": "邀请人 BID",
+      "relationStatus": "关系状态"
+    },
+    "loadFailed": "邀请关系读取失败，请刷新后重试。",
+    "metrics": {
+      "abnormalRelations": "异常关系",
+      "generatedRewards": "奖励月份",
+      "totalRelations": "邀请关系"
+    },
+    "pagination": {
+      "jumpInputAria": "跳转到邀请关系页码",
+      "next": "下一页",
+      "nextAria": "下一页",
+      "prev": "上一页",
+      "prevAria": "上一页"
+    },
+    "refresh": "刷新",
+    "statusUpdated": "状态已更新",
+    "table": {
+      "action": "操作",
+      "boundAt": "绑定时间",
+      "campaign": "活动",
+      "inviteCode": "邀请码",
+      "invitee": "被邀请人",
+      "inviter": "邀请人",
+      "relationStatus": "关系状态",
+      "rewardStatus": "奖励状态"
+    },
+    "title": "邀请奖励",
+    "tooltips": {
+      "abnormalRelations": "已被标记为复核中或确认异常的邀请关系。",
+      "generatedRewards": "未取消的邀请奖励记录数量。",
+      "totalRelations": "已绑定的邀请关系总数。"
+    },
+    "total": "共 {total} 条"
+  },
+  "relationStatus": {
+    "abnormalReviewing": "异常复核中",
+    "canceled": "已取消",
+    "registered": "已注册",
+    "rewardActive": "奖励生效中",
+    "rewardEnded": "奖励已结束",
+    "rewardGenerated": "奖励已生成",
+    "rewardPendingEffective": "奖励待生效",
+    "rewardSkippedCap": "达到上限未发放",
+    "unknown": "未知关系状态"
+  },
+  "rewardStatus": {
+    "active": "生效中",
+    "canceled": "已取消",
+    "expired": "已过期",
+    "frozen": "已冻结",
+    "generated": "已生成",
+    "pendingEffective": "待生效",
+    "skippedCap": "达到上限未发放",
+    "unknown": "未知奖励状态"
+  }
+}

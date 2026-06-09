@@ -10,6 +10,7 @@ describe('buildAdminMenuItems', () => {
       '/admin',
       '/admin/orders',
       '/admin/dashboard',
+      '/admin/referral',
     ]);
   });
 
@@ -20,6 +21,7 @@ describe('buildAdminMenuItems', () => {
       '/admin',
       '/admin/orders',
       '/admin/dashboard',
+      '/admin/referral',
       undefined,
     ]);
     expect(menuItems.at(-1)).toMatchObject({
@@ -40,6 +42,16 @@ describe('buildAdminMenuItems', () => {
           id: 'operations-order',
           label: 'common.core.orderManagement',
           href: '/admin/operations/orders',
+        },
+        {
+          id: 'operations-promotion',
+          label: 'common.core.promotionManagement',
+          href: '/admin/operations/promotions',
+        },
+        {
+          id: 'operations-credit-notification',
+          label: 'common.core.creditNotificationManagement',
+          href: '/admin/operations/credit-notifications',
         },
       ],
     });

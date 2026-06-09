@@ -42,6 +42,7 @@ from ..service.feedback.funs import submit_feedback
 from ..service.user.auth import get_provider
 from ..service.user.auth.base import OAuthCallbackRequest, VerificationRequest
 from ..service.user.post_auth import PostAuthContext, run_post_auth_extensions
+from ..service.referral.service import extract_referral_post_auth_fields
 from ..service.common.dtos import OAuthStartDTO
 from .common import make_common_response, bypass_token_validation, by_pass_login_func
 from flaskr.dao import db
@@ -69,6 +70,20 @@ def _apply_request_language(payload: dict | None = None) -> None:
     language = _extract_request_language(payload)
     if language:
         set_language(language)
+
+
+def _request_client_ip() -> str:
+    if "X-Forwarded-For" in request.headers:
+        return request.headers["X-Forwarded-For"].split(",")[0].strip()
+    return str(request.remote_addr or "").strip()
+
+
+def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
+    return extract_referral_post_auth_fields(
+        payload,
+        client_ip=_request_client_ip(),
+        user_agent=request.headers.get("User-Agent"),
+    )
 
 
 def optional_token_validation(f):
@@ -458,6 +473,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             course_id = payload.get("course_id", None)
             language = payload.get("language", None)
             login_context = payload.get("login_context", None)
+            referral_fields = _extract_referral_post_auth_fields(payload)
             current_user = getattr(request, "user", None)
             # Only pass an anonymous/guest token through SMS login so temporary
             # learning records can be claimed. If a real authenticated account
@@ -499,6 +515,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                         auth_result.metadata.get("creator_granted_now")
                     ),
                     language=language or getattr(auth_result.user, "language", None),
+                    **referral_fields,
                 ),
             )
             resp = make_response(make_common_response(auth_result.token))

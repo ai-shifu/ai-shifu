@@ -1,6 +1,6 @@
 ---
 title: 老带新邀请奖励
-status: proposed
+status: implemented
 owner_surface: shared
 last_reviewed: 2026-06-09
 canonical: true
@@ -20,6 +20,17 @@ canonical: true
 - 计费事实以 `bill_orders`、`bill_subscriptions`、`credit_wallet_buckets`、`credit_ledger_entries` 为准。
 - 运营手动发放套餐已经通过 `src/api/flaskr/service/billing/manual_plan_grants.py` 创建 `manual + paid` 订单。
 - 现有 `referral_reward_grants.py` 支持运营手动发放 referral reward credits，但它不表达邀请码、邀请关系绑定、注册触发自动奖励、权益队列或 12 个月上限。
+
+## 当前实现状态
+
+2026-06-09 的实现已覆盖本设计的核心 v1 链路：
+
+- 后端新增 campaign-aware referral 表、活动规则、邀请码、邀请事件、关系绑定、奖励审计、post-auth 绑定和 billing reward helper。
+- 前端新增创作者邀请页、被邀请人落地页、登录 payload 透传、运营 referral 页面和共享 i18n 文案。
+- 运营侧提供列表、详情、overview、状态更新和带备注的人工调整 API；人工调整复用审计化 status/adjustment payload，不直接删除 billing 事实。
+- Reward grant 失败时先保留 relation/reward 行，并提供幂等 retry helper 修复缺失的 billing artifacts。
+
+dev02 的活动配置、真实 product code 校验、真实注册合成用例和 DB 对账仍是发布验证步骤，不能用本地单测替代。
 
 ## 目标
 

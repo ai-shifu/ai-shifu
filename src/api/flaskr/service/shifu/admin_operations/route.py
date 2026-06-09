@@ -34,6 +34,12 @@ from flaskr.service.promo.api import (
     update_operator_promotion_coupon,
     update_operator_promotion_coupon_status,
 )
+from flaskr.service.referral.api import (
+    get_operator_referral_detail,
+    get_operator_referral_overview,
+    list_operator_referrals,
+    update_operator_referral_status,
+)
 from flaskr.service.shifu.admin_operations.courses import (
     OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
     copy_operator_course,
@@ -1011,6 +1017,117 @@ def register_admin_operations_routes(
         """
         _require_operator()
         return make_common_response(build_operator_credit_orders_overview(app))
+
+    @app.route(path_prefix + "/admin/operations/referrals", methods=["GET"])
+    def admin_operations_referrals():
+        """List operator-visible referral invite relations."""
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "campaign_bid": _normalize_query_text(request.args.get("campaign_bid")),
+            "inviter_user_bid": _normalize_query_text(
+                request.args.get("inviter_user_bid")
+            ),
+            "invitee_user_bid": _normalize_query_text(
+                request.args.get("invitee_user_bid")
+            ),
+            "invite_code": _normalize_query_text(request.args.get("invite_code")),
+            "relation_status": _parse_digit_query_param(
+                request.args.get("relation_status"),
+                field_name="relation_status",
+            ),
+            "abnormal_status": _parse_digit_query_param(
+                request.args.get("abnormal_status"),
+                field_name="abnormal_status",
+            ),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                field_name="start_time",
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                field_name="end_time",
+                is_end=True,
+            ),
+        }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
+        return make_common_response(
+            list_operator_referrals(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(path_prefix + "/admin/operations/referrals/overview", methods=["GET"])
+    def admin_operations_referrals_overview():
+        """Return operator referral overview metrics."""
+        _require_operator()
+        return make_common_response(get_operator_referral_overview(app))
+
+    @app.route(
+        path_prefix + "/admin/operations/referrals/<relation_bid>",
+        methods=["GET"],
+    )
+    def admin_operations_referral_detail(relation_bid: str):
+        """Return one operator referral relation detail."""
+        _require_operator()
+        return make_common_response(
+            get_operator_referral_detail(app, relation_bid=relation_bid)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/referrals/<relation_bid>/status",
+        methods=["POST"],
+    )
+    def admin_operations_referral_status(relation_bid: str):
+        """Update one referral relation or reward operator status."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("referral_status")
+        return make_common_response(
+            update_operator_referral_status(
+                app,
+                relation_bid=relation_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/referrals/<relation_bid>/adjustment",
+        methods=["POST"],
+    )
+    def admin_operations_referral_adjustment(relation_bid: str):
+        """Apply an audited operator adjustment to one referral relation."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("referral_adjustment")
+        return make_common_response(
+            update_operator_referral_status(
+                app,
+                relation_bid=relation_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
 
     @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["GET"])
     def admin_operations_promotion_coupons():

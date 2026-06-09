@@ -12,6 +12,31 @@ describe('auth api definitions', () => {
   });
 });
 
+describe('referral api definitions', () => {
+  test('exposes creator and anonymous referral endpoints', () => {
+    expect(api.getReferralInviteProfile).toBe('GET /referral/invite-profile');
+    expect(api.recordReferralInviteEvent).toBe('POST /referral/invite-event');
+  });
+
+  test('exposes operator referral endpoints', () => {
+    expect(api.getAdminOperationReferrals).toBe(
+      'GET /shifu/admin/operations/referrals',
+    );
+    expect(api.getAdminOperationReferralsOverview).toBe(
+      'GET /shifu/admin/operations/referrals/overview',
+    );
+    expect(api.getAdminOperationReferralDetail).toBe(
+      'GET /shifu/admin/operations/referrals/{relation_bid}',
+    );
+    expect(api.updateAdminOperationReferralStatus).toBe(
+      'POST /shifu/admin/operations/referrals/{relation_bid}/status',
+    );
+    expect(api.adjustAdminOperationReferral).toBe(
+      'POST /shifu/admin/operations/referrals/{relation_bid}/adjustment',
+    );
+  });
+});
+
 describe('billing api definitions', () => {
   test('exposes creator billing endpoints', () => {
     expect(api.getBillingBootstrap).toBe('GET /billing');

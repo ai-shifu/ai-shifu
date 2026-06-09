@@ -14,7 +14,11 @@ const AUTH_ERROR_CODES = new Set([1001, 1004, 1005]);
 let isHandlingAuthError = false;
 
 // ===== Type Definitions =====
-export type RequestConfig = RequestInit & { params?: any; data?: any };
+export type RequestConfig = RequestInit & {
+  params?: any;
+  data?: any;
+  skipErrorToast?: boolean;
+};
 
 export type StreamRequestConfig = RequestInit & {
   params?: any;
@@ -40,6 +44,7 @@ type RequestDebugMeta = {
   httpStatus?: number;
   requestId?: string;
   harnessRunId?: string;
+  skipErrorToast?: boolean;
 };
 
 // ===== Error Handling =====
@@ -271,7 +276,7 @@ export const handleBusinessCode = async (
 
     // Special status codes do not show toast
     if (!isAuthError) {
-      handleApiError(error);
+      handleApiError(error, !meta.skipErrorToast);
     }
 
     // If the token has changed since this request was sent, treat the auth error
@@ -392,10 +397,10 @@ export class Request {
 
   private async prepareConfig(
     url: string,
-    config: RequestInit,
+    config: RequestConfig,
   ): Promise<{
     url: string;
-    config: RequestInit;
+    config: RequestConfig;
     tokenUsed: string;
     requestId: string;
     harnessRunId?: string;
@@ -534,6 +539,7 @@ export class Request {
           httpStatus: response.status,
           requestId,
           harnessRunId,
+          skipErrorToast: Boolean(mergedConfig.skipErrorToast),
         });
       }
 
@@ -568,7 +574,7 @@ export class Request {
           }),
         );
       }
-      handleApiError(error);
+      handleApiError(error, !config.skipErrorToast);
       throw error;
     }
   }

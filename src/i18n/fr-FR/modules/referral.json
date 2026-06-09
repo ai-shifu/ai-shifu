@@ -1,0 +1,147 @@
+{
+  "__namespace__": "module.referral",
+  "abnormalStatus": {
+    "confirmedAbnormal": "Anomalie confirmée",
+    "normal": "Normal",
+    "reviewing": "En vérification",
+    "unknown": "Statut d’anomalie inconnu"
+  },
+  "creator": {
+    "capAvailableHint": "Il reste {remaining} mois de récompense automatique.",
+    "capReached": "Récompenses automatiques au plafond",
+    "capReachedHint": "Le plafond automatique est atteint. Les invitations valides suivantes restent suivies ; contactez l’équipe pour la suite.",
+    "copied": "Copié",
+    "copyLink": "Copier le lien",
+    "description": "Consultez votre code, votre lien d’invitation et les mois de récompense obtenus.",
+    "emptyQueue": "Aucune file de récompense pour le moment.",
+    "inviteCardDescription": "Partagez le lien ou le code avec un nouvel utilisateur. Après inscription par mobile national, la récompense suit la configuration de campagne.",
+    "inviteCardTitle": "Vos informations d’invitation",
+    "inviteCode": "Code d’invitation",
+    "inviteLink": "Lien d’invitation",
+    "metrics": {
+      "cap": "Plafond",
+      "remaining": "Restant",
+      "rewarded": "Mois récompensés"
+    },
+    "queueTitle": "File de récompenses",
+    "refresh": "Actualiser",
+    "rewardRule": "Chaque invitation valide récompense {cycles} cycle d’abonnement ; crédits configurés par cycle : {credits}, valables {days} jours.",
+    "rewardRulesTitle": "Règles de campagne",
+    "title": "Inviter des amis",
+    "tooltips": {
+      "cap": "Plafond de récompense automatique configuré pour la campagne actuelle.",
+      "remaining": "Mois encore éligibles à une attribution automatique.",
+      "rewarded": "Mois déjà comptés dans les récompenses automatiques."
+    }
+  },
+  "inviteLanding": {
+    "badge": "Invitation d’un ami",
+    "codeLabel": "Code d’invitation",
+    "codePlaceholder": "Saisir le code",
+    "codeRequired": "Veuillez d’abord saisir un code d’invitation.",
+    "continue": "Continuer l’inscription ou la connexion",
+    "description": "Utilisez le code d’un ami pour accéder à AI Shifu. Les avantages nouvel utilisateur suivent les règles existantes de la plateforme.",
+    "formAria": "Entrée d’inscription par code d’invitation",
+    "formTitle": "Confirmer le code",
+    "noExtraBenefit": "Les nouveaux utilisateurs invités ne reçoivent pas de récompense supplémentaire dédiée ; les avantages nouvel utilisateur existants s’appliquent.",
+    "submitFailed": "Échec de l’envoi du code. Réessayez plus tard.",
+    "title": "Commencer à créer des cours IA avec un code"
+  },
+  "operator": {
+    "actions": {
+      "cancelReward": "Annuler relation et récompense",
+      "detail": "Détail",
+      "freezeReward": "Geler la récompense",
+      "markNormal": "Marquer normal",
+      "markReviewing": "Marquer en vérification",
+      "reset": "Réinitialiser",
+      "search": "Rechercher"
+    },
+    "description": "Consultez les relations d’invitation, les statuts de récompense, les comptes invités, les artefacts de facturation et les exceptions manuelles.",
+    "detail": {
+      "abnormalStatus": "Statut d’anomalie",
+      "billOrder": "BID commande",
+      "boundAt": "Date de liaison",
+      "campaign": "Campagne",
+      "inviteCode": "Code d’invitation",
+      "invitee": "Invité",
+      "inviteeMobile": "Mobile invité",
+      "inviter": "Invitant",
+      "ledger": "BID écriture",
+      "loading": "Chargement",
+      "operatorNote": "Note opérateur",
+      "operatorNotePlaceholder": "Indiquer la raison de l’action manuelle",
+      "relationStatus": "Statut relation",
+      "reward": "Récompense et facturation",
+      "rewardBid": "BID récompense",
+      "rewardProduct": "Produit récompense",
+      "rewardStatus": "Statut récompense",
+      "subscription": "BID abonnement",
+      "title": "Détail relation d’invitation",
+      "walletBucket": "BID compartiment crédits"
+    },
+    "empty": "Aucune relation d’invitation.",
+    "filters": {
+      "abnormalStatus": "Statut d’anomalie",
+      "all": "Tous",
+      "campaignBid": "BID campagne",
+      "inviteCode": "Code d’invitation",
+      "inviteeUserBid": "BID utilisateur invité",
+      "inviterUserBid": "BID utilisateur invitant",
+      "relationStatus": "Statut relation"
+    },
+    "loadFailed": "Échec du chargement des relations. Actualisez puis réessayez.",
+    "metrics": {
+      "abnormalRelations": "Relations anormales",
+      "generatedRewards": "Mois récompensés",
+      "totalRelations": "Relations d’invitation"
+    },
+    "pagination": {
+      "jumpInputAria": "Aller à la page des invitations",
+      "next": "Suivant",
+      "nextAria": "Page suivante",
+      "prev": "Précédent",
+      "prevAria": "Page précédente"
+    },
+    "refresh": "Actualiser",
+    "statusUpdated": "Statut mis à jour",
+    "table": {
+      "action": "Action",
+      "boundAt": "Date de liaison",
+      "campaign": "Campagne",
+      "inviteCode": "Code",
+      "invitee": "Invité",
+      "inviter": "Invitant",
+      "relationStatus": "Statut relation",
+      "rewardStatus": "Statut récompense"
+    },
+    "title": "Récompenses d’invitation",
+    "tooltips": {
+      "abnormalRelations": "Relations marquées en vérification ou anomalie confirmée.",
+      "generatedRewards": "Récompenses non annulées.",
+      "totalRelations": "Nombre total de relations liées."
+    },
+    "total": "{total} au total"
+  },
+  "relationStatus": {
+    "abnormalReviewing": "Anomalie en vérification",
+    "canceled": "Annulé",
+    "registered": "Inscrit",
+    "rewardActive": "Récompense active",
+    "rewardEnded": "Récompense terminée",
+    "rewardGenerated": "Récompense générée",
+    "rewardPendingEffective": "Récompense en attente",
+    "rewardSkippedCap": "Ignorée par plafond",
+    "unknown": "Statut relation inconnu"
+  },
+  "rewardStatus": {
+    "active": "Active",
+    "canceled": "Annulée",
+    "expired": "Expirée",
+    "frozen": "Gelée",
+    "generated": "Générée",
+    "pendingEffective": "En attente",
+    "skippedCap": "Ignorée par plafond",
+    "unknown": "Statut récompense inconnu"
+  }
+}

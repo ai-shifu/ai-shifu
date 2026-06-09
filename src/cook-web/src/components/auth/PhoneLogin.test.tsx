@@ -271,6 +271,45 @@ describe('PhoneLogin captcha flow', () => {
     expect(onLoginSuccess).toHaveBeenCalled();
   });
 
+  test('passes referral metadata through SMS login payload', async () => {
+    render(
+      <PhoneLogin
+        onLoginSuccess={jest.fn()}
+        referralMetadata={{
+          invite_code: 'ab12cd34',
+          referral_session_id: 'session-1',
+          referral_entry_source: 'invite_link',
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(apiService.getCaptcha).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText('module.auth.phone'), {
+      target: { value: '13800138000' },
+    });
+    fireEvent.change(screen.getByTestId('captcha-input'), {
+      target: { value: '0000' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'module.auth.getOtp' }));
+
+    const otpInput = screen.getByPlaceholderText('module.auth.otpPlaceholder');
+    await waitFor(() => expect(otpInput).toBeEnabled());
+    fireEvent.change(otpInput, { target: { value: '9999' } });
+    fireEvent.keyDown(otpInput, { key: 'Enter' });
+
+    await waitFor(() =>
+      expect(apiService.smsLogin).toHaveBeenCalledWith(
+        expect.objectContaining({
+          invite_code: 'AB12CD34',
+          referral_session_id: 'session-1',
+          referral_entry_source: 'invite_link',
+        }),
+      ),
+    );
+  });
+
   test('prompts for SMS code when login is clicked without OTP', async () => {
     render(<PhoneLogin onLoginSuccess={jest.fn()} />);
 

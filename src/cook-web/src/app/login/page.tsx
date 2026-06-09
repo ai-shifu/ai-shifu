@@ -28,6 +28,11 @@ import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
+import {
+  readReferralContext,
+  saveReferralContext,
+} from '@/lib/referral-context';
+import type { ReferralLoginMetadata } from '@/types/referral';
 
 type LoginMethod = 'phone' | 'email' | 'google' | 'password';
 
@@ -113,6 +118,25 @@ export default function AuthPage() {
 
   const searchParams = useSearchParams();
   const isInitialized = useUserStore(state => state.isInitialized);
+  const [referralMetadata, setReferralMetadata] =
+    useState<ReferralLoginMetadata>({});
+
+  useEffect(() => {
+    const inviteCode = searchParams.get('invite_code');
+    if (inviteCode) {
+      setReferralMetadata(
+        saveReferralContext({
+          invite_code: inviteCode,
+          referral_session_id:
+            searchParams.get('referral_session_id') || undefined,
+          referral_entry_source: 'invite_link',
+        }),
+      );
+      return;
+    }
+
+    setReferralMetadata(readReferralContext());
+  }, [searchParams]);
 
   useEffect(() => {
     if (!isInitialized || loginSessionResetCheckedRef.current) {
@@ -342,6 +366,7 @@ export default function AuthPage() {
               onLoginSuccess={handleAuthSuccess}
               loginContext={loginContext}
               courseId={courseIdFromRedirect || undefined}
+              referralMetadata={referralMetadata}
             />
           );
         case 'email':
@@ -379,6 +404,7 @@ export default function AuthPage() {
       isGoogleLoading,
       loginContext,
       courseIdFromRedirect,
+      referralMetadata,
       isEmailEnabled,
     ],
   );
