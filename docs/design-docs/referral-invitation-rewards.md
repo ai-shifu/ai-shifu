@@ -35,6 +35,8 @@ The repository already has several relevant primitives:
 
 - Give each registered domestic user one immutable invite code and one invite
   link.
+- Support both invitation-link entry and pre-registration manual invite-code
+  entry.
 - Bind a new domestic phone-registered user to exactly one inviter at successful
   registration time.
 - Drive inviter eligibility, invitee eligibility, reward cap, reward product,
@@ -48,6 +50,8 @@ The repository already has several relevant primitives:
 - Keep invited users on the existing 15-day free benefit only.
 - Reuse billing order, subscription, wallet bucket, and ledger truth for all
   reward grants.
+- Preserve the launch campaign's 30-day reward cycle and 1000-credit bucket
+  expiry semantics through billing artifacts, not a referral-only balance.
 - Give operators enough backend visibility to inspect invite relations, reward
   status, invitee account data, and abnormal invitation handling.
 - Track the minimal funnel data needed for activity analysis: link clicks,
@@ -57,6 +61,8 @@ The repository already has several relevant primitives:
 ## Non-Goals
 
 - No overseas invite flow in the first version.
+- No complex multi-level referral, ranking, or viral-game mechanics in the
+  first version.
 - No self-service custom invite code.
 - No post-registration invite-code backfill by users.
 - No automatic fraud scoring that cancels rewards without human review.
@@ -113,8 +119,11 @@ runtime facts and audit snapshots.
   `/login?invite_code={invite_code}`. The route shape can be adjusted during
   implementation, but the backend stores the canonical invite code, not the full
   link.
-- Invite context is carried from landing page to login through frontend state
-  and the SMS login payload.
+- Invitees can also manually enter an invite code before registration. Manual
+  entry and invite-link entry use the same validation, binding, and event
+  recording path.
+- Invite context is carried from landing page or manual-code entry to login
+  through frontend state and the SMS login payload.
 - Registration success is the only binding moment. Users cannot fill an invite
   code after registration.
 
@@ -132,6 +141,8 @@ runtime facts and audit snapshots.
   feature, the implementation must verify the configured product has the
   intended price, cycle, and credit amount for this campaign.
 - If the inviter has no active paid plan, the reward starts immediately.
+- If the inviter is on the free plan, the reward starts as the configured paid
+  reward plan.
 - If the inviter has the same configured reward plan, the reward extends the
   plan by the configured reward cycle count.
 - If the inviter has a higher or yearly active plan, the reward waits until the
@@ -140,6 +151,9 @@ runtime facts and audit snapshots.
 - Paid entitlement takes precedence over invite entitlement so paid orders keep
   clean revenue recognition.
 - Multiple invite rewards are applied in creation order.
+- For the launch campaign, each reward cycle is 30 days and grants 1000 credits
+  through the normal wallet bucket path. The bucket expires at the end of that
+  30-day cycle, and unused credits do not roll over.
 
 ### Invitee Benefit
 
@@ -169,6 +183,8 @@ Launch campaign configuration:
 - reward type: billing plan cycle.
 - reward product code: configured 199 CNY monthly plan code.
 - reward cycle count: 1.
+- reward credit amount expectation: 1000 credits per cycle.
+- reward credit validity: 30 days per cycle.
 - reward cap per inviter: 12.
 - reward timing policy: immediate without active paid plan, same-plan extension,
   deferred after higher or yearly paid plan.
@@ -246,6 +262,8 @@ Required fields:
 - `reward_type`: billing_plan_cycle.
 - `reward_product_code`: stable billing product code.
 - `reward_cycle_count`: number of product cycles to grant per trigger.
+- `reward_credit_amount`: optional expected credit amount per cycle.
+- `reward_credit_validity_days`: optional expected credit bucket validity.
 - `reward_cap_scope`: per_inviter, per_campaign, none.
 - `reward_cap_count`: nullable integer cap.
 - `reward_timing_policy`: immediate_extend_or_defer.
@@ -279,20 +297,26 @@ Indexes:
 - unique `invite_code`.
 - unique active `campaign_bid + inviter_user_bid`.
 
-### `referral_invite_clicks`
+### `referral_invite_events`
 
-Append-only event rows for minimal funnel analysis.
+Append-only event rows for minimal funnel analysis. This table covers link
+clicks, registration page visits, manual code entry, and registration attempts
+without treating every event as a click.
 
 Required fields:
 
-- `click_bid`.
+- `event_bid`.
 - `campaign_bid`.
-- `invite_code`.
-- `inviter_user_bid`.
+- `event_type`: invite_link_clicked, registration_page_viewed,
+  invite_code_entered, registration_submitted.
+- `invite_code`: nullable for invalid manual-code attempts.
+- `inviter_user_bid`: nullable until an invite code resolves.
 - `session_id`: anonymous frontend-generated session identifier.
 - `client_ip_hash`: one-way hash, not raw IP.
 - `user_agent_hash`: one-way hash, not raw user agent.
 - `landing_path`.
+- `metadata`: non-identifying event details such as input source and validation
+  result.
 - `created_at`.
 
 Future analytics jobs can aggregate these rows; the raw event table keeps the v1
@@ -314,8 +338,9 @@ Required fields:
 - `bound_at`.
 - `registration_source`: phone.
 - `reward_eligible`: boolean-like small integer.
-- `relation_status`: registered, reward_generated, reward_skipped_cap,
-  abnormal_reviewing, canceled.
+- `relation_status`: registered, reward_generated, reward_pending_effective,
+  reward_active, reward_ended, reward_skipped_cap, abnormal_reviewing,
+  canceled.
 - `abnormal_status`: normal, reviewing, confirmed_abnormal.
 - `metadata`: landing/session/client fingerprints and operator notes.
 - standard `deleted`, `created_at`, `updated_at`.
@@ -343,15 +368,18 @@ Required fields:
 - `reward_sequence_index`: ordinal reward number within the configured cap.
 - `reward_product_code`: product code snapshot used at grant time.
 - `reward_cycle_count`: configured cycle-count snapshot.
+- `reward_credit_amount`: configured credit amount snapshot.
+- `reward_credit_validity_days`: configured credit validity snapshot.
 - `reward_cap_count`: configured cap snapshot.
-- `reward_status`: pending, granted, active, ended, frozen, canceled,
-  skipped_cap.
+- `reward_status`: generated, pending_effective, active, expired, frozen,
+  canceled, skipped_cap.
 - `billing_subscription_bid`.
 - `bill_order_bid`.
 - `wallet_bucket_bid`.
 - `ledger_bid`.
 - `effective_from`.
 - `effective_to`.
+- `credit_bucket_expires_at`.
 - `operator_note`.
 - standard `deleted`, `created_at`, `updated_at`.
 
@@ -373,15 +401,17 @@ Add creator-facing invite APIs under `/api/referral`:
   - returns campaign code, invite code, invite link, successful invite count,
     rewarded count, remaining reward count, reward queue summary, and simple
     activity rules from the campaign configuration.
-- `POST /api/referral/invite-click`
-  - anonymous or authenticated endpoint that records an invite-code landing
-    event. It must not expose inviter private data.
+- `POST /api/referral/invite-event`
+  - anonymous or authenticated endpoint that records invite link clicks,
+    registration page views, manual invite-code entry, and registration-submit
+    events. It must not expose inviter private data.
 
 Operator APIs live under the existing operations namespace:
 
 - `GET /api/shifu/admin/operations/referrals`
 - `GET /api/shifu/admin/operations/referrals/{relation_bid}`
 - `POST /api/shifu/admin/operations/referrals/{relation_bid}/status`
+- `POST /api/shifu/admin/operations/referrals/{relation_bid}/adjustment`
 - `GET /api/shifu/admin/operations/referrals/overview`
 
 ### Registration Binding
@@ -390,6 +420,7 @@ Extend `PostAuthContext` with optional referral fields:
 
 - `invite_code`.
 - `referral_session_id`.
+- `referral_entry_source`: invite_link, manual_code.
 - `client_ip_hash`.
 - `user_agent_hash`.
 
@@ -431,9 +462,12 @@ The helper reuses the existing `manual + paid` order and
 `grant_paid_order_credits` path, but must support reward-specific timing:
 
 - immediate start if there is no active paid subscription.
+- immediate paid-plan transition if the inviter is currently on the free plan.
 - same-plan extension if the current active self-managed subscription already
   uses the configured reward product.
 - deferred activation after higher or yearly plan end.
+- 30-day wallet bucket expiration for launch reward credits, matching the
+  configured reward rule snapshot.
 
 Billing metadata must include:
 
@@ -466,6 +500,8 @@ The first version should show:
 - Copy link action.
 - Rewarded month count and remaining reward months.
 - Reward status or queued effective windows.
+- Clear "obtained but pending effective" state when paid entitlement has
+  priority over invitation entitlement.
 - Clear rules copy from shared i18n JSON.
 
 If reward count reaches the configured cap, show that automatic rewards are full
@@ -476,7 +512,9 @@ and ask the user to contact the team for further cooperation.
 Add a lightweight invite landing route that:
 
 - stores invite code and referral session id client-side until login completes.
-- records a click event.
+- records invite-link click and registration-page-view events.
+- lets users manually enter an invite code before SMS login and records manual
+  code-entry events.
 - sends the invite code with SMS login.
 - uses existing login UI and existing phone verification semantics.
 
@@ -491,6 +529,8 @@ Add referral views under `Admin -> Operations` or an adjacent operations tab:
   status, abnormal status.
 - detail sheet with billing order, subscription, wallet bucket, ledger, and
   operator status actions.
+- audited operator adjustment for the rare case where a registered relation must
+  be canceled or corrected after registration.
 
 ## API Shape
 
@@ -509,7 +549,7 @@ Creator invite profile response:
   "reward_queue": [
     {
       "reward_bid": "reward_...",
-      "status": "granted",
+      "status": "pending_effective",
       "reward_sequence_index": 3,
       "effective_from": "2026-06-08T00:00:00Z",
       "effective_to": "2026-07-08T00:00:00Z"
@@ -525,7 +565,20 @@ SMS login request extension:
   "mobile": "13800000000",
   "sms_code": "123456",
   "invite_code": "AB12CD34",
-  "referral_session_id": "browser-generated-id"
+  "referral_session_id": "browser-generated-id",
+  "referral_entry_source": "invite_link"
+}
+```
+
+Invite event request:
+
+```json
+{
+  "campaign_code": "domestic_creator_invite_202606",
+  "event_type": "registration_page_viewed",
+  "invite_code": "AB12CD34",
+  "referral_session_id": "browser-generated-id",
+  "landing_path": "/invite/AB12CD34"
 }
 ```
 
@@ -537,9 +590,10 @@ Operator relation list item:
   "inviter_user_bid": "user_...",
   "invitee_user_bid": "user_...",
   "invitee_mobile": "13800000000",
+  "invitee_registered_at": "2026-06-08T00:00:00Z",
   "bound_at": "2026-06-08T00:00:00Z",
   "relation_status": "reward_generated",
-  "reward_status": "granted",
+  "reward_status": "pending_effective",
   "campaign_code": "domestic_creator_invite_202606",
   "reward_rule_code": "inviter_monthly_plan_per_registration",
   "reward_sequence_index": 1,
@@ -551,7 +605,7 @@ Operator relation list item:
 
 - Store raw mobile snapshots only where operations already need them; never
   expose invitee phone numbers to inviters.
-- Store click IP and user-agent as hashes.
+- Store event IP and user-agent as hashes.
 - Keep invite codes unguessable enough for public links. Use random bytes with
   collision retry rather than deterministic user IDs.
 - Do not reveal whether an invite code belongs to a specific user on anonymous
@@ -563,11 +617,23 @@ Operator relation list item:
 Add structured logs for:
 
 - invite profile creation.
-- click recording.
+- invite event recording.
 - relation binding.
 - reward cap skip.
 - billing reward grant success or failure.
 - abnormal status changes.
+
+Operator overview metrics should cover the Feishu activity requirements:
+
+- invite link clicks.
+- registration page visits.
+- invited registrations.
+- inviter invite counts.
+- effective reward months.
+- capped inviter count.
+- abnormal invite count.
+- invited-user usage, credit consumption, and paid conversion joined from the
+  existing usage, wallet, and billing tables.
 
 Use request IDs already available in the backend logs. Reward repair scripts
 should print relation and reward BIDs so operations can reconcile with DB rows.
@@ -580,6 +646,9 @@ Focused backend tests:
 - configured eligibility and cap values are used rather than hardcoded constants.
 - invite code generation is unique and immutable.
 - invite codes are scoped by campaign.
+- invite-link entry and manual-code entry both carry invite context to SMS login.
+- invite events record link click, registration page view, manual code entry,
+  and registration submit without persisting raw IP or user agent.
 - SMS login with invite code binds only new phone users.
 - existing users do not get rebound.
 - self-invite is rejected.
@@ -590,14 +659,21 @@ Focused backend tests:
   changes.
 - repeated post-auth retry is idempotent.
 - billing helper creates `manual + paid` order metadata and linked ledger.
+- launch campaign reward creates a 30-day 1000-credit bucket and expires unused
+  credits at the cycle end through the normal wallet path.
 - deferred reward starts after active higher/yearly plan.
 - operator abnormal actions update relation/reward state without deleting
   billing truth.
+- operator overview can report clicks, registration page visits, registrations,
+  reward months, capped inviters, abnormal count, invited-user usage, invited-user
+  credit consumption, and invited-user paid conversion.
 
 Focused frontend tests:
 
 - invite profile renders link, code, copy action, reward counts, and cap state.
-- invite landing preserves invite code through login payload.
+- invite landing preserves link-derived and manually entered invite code through
+  login payload.
+- invite landing explains pending-effective rewards and configured cap state.
 - operator relation list filters and opens detail.
 - user-facing strings come from `src/i18n`.
 
