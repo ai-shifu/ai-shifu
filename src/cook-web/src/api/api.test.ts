@@ -44,6 +44,22 @@ describe('billing api definitions', () => {
     expect(api.getAdminBillingSubscriptions).toBe(
       'GET /admin/billing/subscriptions',
     );
+    expect(api.getAdminBillingCampaignProductOptions).toBe(
+      'GET /admin/billing/products/options',
+    );
+    expect(api.getAdminBillingCampaigns).toBe('GET /admin/billing/campaigns');
+    expect(api.createAdminBillingCampaign).toBe(
+      'POST /admin/billing/campaigns',
+    );
+    expect(api.getAdminBillingCampaignDetail).toBe(
+      'GET /admin/billing/campaigns/{campaign_bid}',
+    );
+    expect(api.updateAdminBillingCampaign).toBe(
+      'POST /admin/billing/campaigns/{campaign_bid}',
+    );
+    expect(api.updateAdminBillingCampaignStatus).toBe(
+      'POST /admin/billing/campaigns/{campaign_bid}/status',
+    );
     expect(api.getAdminBillingOrders).toBe('GET /admin/billing/orders');
     expect(api.getAdminBillingEntitlements).toBe(
       'GET /admin/billing/entitlements',

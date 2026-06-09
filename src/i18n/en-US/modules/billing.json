@@ -314,6 +314,7 @@
   "checkout": {
     "agreementLink": "Credit Purchase Agreement",
     "agreementPrefix": "I have read and agreed to the",
+    "bonusCreditsLabel": "{baseCredits} + {bonusCredits} bonus",
     "cancel": "Cancel",
     "completed": "Payment completed.",
     "confirm": "Continue to payment",
@@ -432,6 +433,7 @@
       "page": "Page {page} / {pageCount} · {total} entries"
     },
     "source": {
+      "campaignBonus": "Campaign bonus credits",
       "gift": "Gift credits",
       "manual": "Manual adjustment",
       "refund": "Refund return",
@@ -509,6 +511,10 @@
       "subscribeNow": "Subscribe now",
       "upgradeNow": "Upgrade now",
       "upgradeOnlyTooltip": "The current subscription is still active. Only upgrades to a higher-tier plan are allowed."
+    },
+    "campaign": {
+      "bonusBadge": "{credits} bonus credits",
+      "discountBadge": "Limited offer"
     },
     "creditPeriod": {
       "oneTime": "One-time"

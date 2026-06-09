@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import api from '@/api';
 import { toast } from '@/hooks/useToast';
@@ -21,6 +21,13 @@ jest.mock('react-i18next', () => ({
     t: (key: string, options?: Record<string, unknown>) => {
       if (options?.date) {
         return `${key}:${options.date}`;
+      }
+      if (
+        (key === 'module.billing.package.campaign.bonusBadge' ||
+          key === 'module.billing.checkout.bonusCreditsLabel') &&
+        options
+      ) {
+        return `${key}:${String(options.credits || options.baseCredits || '')}:${String(options.bonusCredits || '')}`;
       }
       if (
         key.startsWith('module.billing.catalog.topups.') &&
@@ -278,6 +285,14 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 5000,
       credit_amount: 24,
+      campaign: {
+        campaign_bid: 'campaign-topup-small',
+        benefit_type: 'discount' as const,
+        discount_type: 'percent' as const,
+        discount_amount: 400,
+        discount_percent: 8,
+        campaign_price_amount: 4600,
+      },
     },
     {
       product_bid: 'bill-product-topup-medium',
@@ -494,6 +509,21 @@ describe('BillingOverviewTab', () => {
     expect(
       screen.getByTestId('billing-topup-card-bill-product-topup-small'),
     ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-small'),
+      ).getByText('¥50'),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-small'),
+      ).getByText('¥46'),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-small'),
+      ).getByText('module.billing.package.campaign.discountBadge'),
+    ).toBeInTheDocument();
     expect(screen.getByTestId('billing-topup-note')).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.package.topup.noteInstant'),
@@ -503,6 +533,16 @@ describe('BillingOverviewTab', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
+      ).queryByText('module.billing.package.campaign.discountBadge'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
+      ).queryByText('¥99'),
     ).toBeInTheDocument();
     expect(
       screen.getByTestId('billing-topup-card-bill-product-topup-large'),
@@ -516,6 +556,73 @@ describe('BillingOverviewTab', () => {
     expect(
       screen.queryByTestId('billing-plan-card-free'),
     ).not.toBeInTheDocument();
+  });
+
+  test('renders campaign bonus credits for plans and topups', async () => {
+    const user = userEvent.setup();
+    const catalogWithBonus = {
+      ...CATALOG_RESPONSE,
+      plans: CATALOG_RESPONSE.plans.map(plan =>
+        plan.product_bid === 'bill-product-plan-monthly'
+          ? {
+              ...plan,
+              campaign: {
+                campaign_bid: 'campaign-plan-bonus',
+                benefit_type: 'bonus' as const,
+                discount_amount: 0,
+                discount_percent: 0,
+                campaign_price_amount: 0,
+                bonus_credit_amount: 2,
+              },
+            }
+          : plan,
+      ),
+      topups: CATALOG_RESPONSE.topups.map(product =>
+        product.product_bid === 'bill-product-topup-medium'
+          ? {
+              ...product,
+              campaign: {
+                campaign_bid: 'campaign-topup-bonus',
+                benefit_type: 'bonus' as const,
+                discount_amount: 0,
+                discount_percent: 0,
+                campaign_price_amount: 0,
+                bonus_credit_amount: 10,
+              },
+            }
+          : product,
+      ),
+    };
+    mockGetBillingCatalog.mockResolvedValue(catalogWithBonus);
+    mockUseSWR.mockReturnValue({
+      data: catalogWithBonus,
+      error: undefined,
+      isLoading: false,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      within(
+        screen.getByTestId(
+          'billing-plan-card-bill-product-plan-monthly-price-summary',
+        ),
+      ).getByText('module.billing.package.campaign.bonusBadge:2:'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.package.intervalTabs.topup',
+        }),
+      );
+    });
+
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
+      ).getByText('module.billing.package.campaign.bonusBadge:10:'),
+    ).toBeInTheDocument();
   });
 
   test('hides daily plans even when the catalog returns them', () => {

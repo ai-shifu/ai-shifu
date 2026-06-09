@@ -11,6 +11,8 @@ import pytest
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
     BILLING_INTERVAL_DAY,
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
@@ -34,6 +36,8 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_USAGE,
 )
 from flaskr.service.billing.models import (
+    BillingCampaign,
+    BillingCampaignProduct,
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
     BillingOrder,
@@ -52,8 +56,10 @@ from flaskr.service.billing.dtos import (
     BillingWalletBucketListDTO,
 )
 from flaskr.service.billing.capabilities import build_billing_route_bootstrap
+import flaskr.service.billing.campaigns as billing_campaigns_module
 import flaskr.service.billing.entitlements as billing_entitlements_module
 import flaskr.service.billing.queries as billing_queries_module
+import flaskr.service.billing.serializers as billing_serializers_module
 from flaskr.service.billing.read_models import (
     build_billing_catalog,
     build_billing_ledger_page,
@@ -91,6 +97,8 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(billing_entitlements_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_queries_module, "datetime", _FixedDateTime)
+    monkeypatch.setattr(billing_campaigns_module, "datetime", _FixedDateTime)
+    monkeypatch.setattr(billing_serializers_module, "datetime", _FixedDateTime)
 
 
 def _seed_products_with_yearly_entitlements():
@@ -654,6 +662,18 @@ class TestBillingRoutes:
             "method": "GET",
             "path": "/api/admin/billing/reports/ledger-daily",
         } in payload["data"]["admin_routes"]
+        assert {
+            "method": "GET",
+            "path": "/api/admin/billing/products/options",
+        } in payload["data"]["admin_routes"]
+        assert {
+            "method": "GET",
+            "path": "/api/admin/billing/campaigns",
+        } in payload["data"]["admin_routes"]
+        assert {
+            "method": "POST",
+            "path": "/api/admin/billing/campaigns",
+        } in payload["data"]["admin_routes"]
 
     def test_catalog_overview_and_wallet_buckets_follow_design_projection(
         self, billing_test_client
@@ -726,6 +746,55 @@ class TestBillingRoutes:
         assert bucket_payload["data"]["items"][0]["category"] == "subscription"
         assert bucket_payload["data"]["items"][0]["priority"] == 20
         assert bucket_payload["data"]["items"][2]["source_bid"] == "topup-1"
+
+    def test_catalog_returns_active_campaign_payload_for_plan_product(
+        self,
+        billing_test_client,
+    ) -> None:
+        app = billing_test_client.application
+        with app.app_context():
+            dao.db.session.add(
+                BillingCampaign(
+                    campaign_bid="campaign-catalog-1",
+                    name="April plan discount",
+                    note="",
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
+                    discount_amount=0,
+                    discount_percent=Decimal("20.00"),
+                    bonus_credit_amount=Decimal("0"),
+                    enabled=1,
+                    start_at=datetime(2026, 4, 1, 0, 0, 0),
+                    end_at=datetime(2026, 4, 30, 23, 59, 0),
+                    created_user_bid="creator-1",
+                    updated_user_bid="creator-1",
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProduct(
+                    campaign_bid="campaign-catalog-1",
+                    product_bid="bill-product-plan-monthly",
+                    product_type=BILLING_PRODUCT_TYPE_PLAN,
+                )
+            )
+            dao.db.session.commit()
+
+        payload = billing_test_client.get("/api/billing/catalog").get_json(force=True)
+        plan = next(
+            item
+            for item in payload["data"]["plans"]
+            if item["product_bid"] == "bill-product-plan-monthly"
+        )
+
+        assert plan["campaign"] == {
+            "campaign_bid": "campaign-catalog-1",
+            "benefit_type": "discount",
+            "discount_type": "percent",
+            "discount_amount": 198,
+            "discount_percent": 20,
+            "campaign_price_amount": 792,
+            "bonus_credit_amount": 0,
+        }
 
     def test_catalog_serializes_daily_plan_interval_without_month_fallback(
         self, billing_test_client

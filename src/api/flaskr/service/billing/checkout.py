@@ -42,6 +42,7 @@ from flaskr.service.order.raw_snapshots import (
 from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.uuid import generate_id
 
+from .campaigns import resolve_applied_billing_campaign
 from .consts import (
     BILLING_INTERVAL_LABELS,
     BILLING_ORDER_STATUS_CANCELED,
@@ -315,13 +316,39 @@ def create_billing_subscription_checkout(
             else:
                 raise_error("server.order.orderStatusError")
             subscription.updated_at = datetime.now()
+        is_preorder_renewal = (
+            checkout_action == CHECKOUT_ACTION_PREORDER
+            and order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+        )
+        applied_campaign = (
+            resolve_applied_billing_campaign(
+                product,
+                order_type=order_type,
+            )
+            if not is_preorder_renewal
+            else None
+        )
         db.session.add(subscription)
         db.session.flush()
 
         payable_amount = max(
             0,
-            int(product.price_amount or 0) - prepaid_offset_amount,
+            (
+                int(applied_campaign.campaign_price_amount)
+                if applied_campaign is not None and applied_campaign.campaign_bid
+                else int(product.price_amount or 0)
+            )
+            - prepaid_offset_amount,
         )
+
+        order_metadata_payload = {**order_metadata}
+        if applied_campaign is not None:
+            order_metadata_payload["campaign"] = (
+                applied_campaign.to_catalog_payload() or None
+            )
+        order_metadata = _normalize_json_object(
+            order_metadata_payload
+        ).to_metadata_json()
 
         order = BillingOrder(
             bill_order_bid=generate_id(app),
@@ -337,6 +364,16 @@ def create_billing_subscription_checkout(
             provider_reference_id="",
             status=BILLING_ORDER_STATUS_PENDING,
             metadata_json=order_metadata,
+            campaign_bid=applied_campaign.campaign_bid if applied_campaign else "",
+            campaign_benefit_type=(
+                applied_campaign.benefit_type_code if applied_campaign else 0
+            ),
+            campaign_discount_amount=(
+                applied_campaign.discount_amount if applied_campaign else 0
+            ),
+            campaign_bonus_credit_amount=(
+                applied_campaign.bonus_credit_amount if applied_campaign else 0
+            ),
         )
         db.session.add(order)
         db.session.flush()
@@ -379,6 +416,10 @@ def create_billing_topup_checkout(
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_TOPUP)
         if _load_effective_topup_subscription(normalized_creator_bid) is None:
             raise_error("server.billing.subscriptionInactive")
+        applied_campaign = resolve_applied_billing_campaign(
+            product,
+            order_type=BILLING_ORDER_TYPE_TOPUP,
+        )
         order = BillingOrder(
             bill_order_bid=generate_id(app),
             creator_bid=normalized_creator_bid,
@@ -386,13 +427,26 @@ def create_billing_topup_checkout(
             product_bid=product.product_bid,
             subscription_bid="",
             currency=product.currency,
-            payable_amount=int(product.price_amount or 0),
+            payable_amount=(
+                int(applied_campaign.campaign_price_amount)
+                if applied_campaign.campaign_bid
+                else int(product.price_amount or 0)
+            ),
             paid_amount=0,
             payment_provider=payment_provider,
             channel=channel,
             provider_reference_id="",
             status=BILLING_ORDER_STATUS_PENDING,
-            metadata_json={"checkout_type": "topup"},
+            metadata_json=_normalize_json_object(
+                {
+                    "checkout_type": "topup",
+                    "campaign": applied_campaign.to_catalog_payload() or None,
+                }
+            ).to_metadata_json(),
+            campaign_bid=applied_campaign.campaign_bid,
+            campaign_benefit_type=applied_campaign.benefit_type_code,
+            campaign_discount_amount=applied_campaign.discount_amount,
+            campaign_bonus_credit_amount=applied_campaign.bonus_credit_amount,
         )
         db.session.add(order)
         db.session.flush()
@@ -978,15 +1032,27 @@ def _create_provider_checkout(
         provider_options["session_params"] = {
             "mode": "subscription" if payment_mode == "subscription" else "payment",
         }
+        stripe_line_item_amount = int(order.payable_amount or 0)
         if payment_mode == "subscription":
             provider_options["session_params"]["subscription_data"] = {
                 "metadata": metadata
             }
+            product_amount = int(product.price_amount or 0)
+            stripe_line_item_amount = product_amount
+            first_invoice_discount_amount = max(
+                product_amount - int(order.payable_amount or 0),
+                0,
+            )
+            if first_invoice_discount_amount > 0:
+                provider_options["subscription_one_time_discount_amount"] = (
+                    first_invoice_discount_amount
+                )
         provider_options["line_items"] = [
             _build_stripe_line_item(
                 product,
                 product_name=product_name,
                 payment_mode=payment_mode,
+                unit_amount=stripe_line_item_amount,
             ).to_provider_payload()
         ]
     elif payment_provider == "pingxx":
@@ -1153,6 +1219,8 @@ def _build_checkout_response_payload(
         "preorder_order_bid": order_metadata.get("preorder_order_bid") or None,
         "prepaid_offset_amount": int(order_metadata.get("prepaid_offset_amount") or 0),
         "payable_amount": int(order.payable_amount or 0),
+        "currency": str(order.currency or "CNY"),
+        "campaign": order_metadata.get("campaign") or None,
     }
 
 
@@ -1422,6 +1490,7 @@ def _build_stripe_line_item(
     *,
     product_name: str,
     payment_mode: str,
+    unit_amount: int,
 ) -> StripeLineItemPayload:
     interval: str | None = None
     interval_count: int | None = None
@@ -1432,7 +1501,7 @@ def _build_stripe_line_item(
         interval_count = int(product.billing_interval_count or 1)
     return StripeLineItemPayload(
         currency=str(product.currency or "CNY").lower(),
-        unit_amount=int(product.price_amount or 0),
+        unit_amount=int(unit_amount or 0),
         product_name=product_name,
         interval=interval,
         interval_count=interval_count,

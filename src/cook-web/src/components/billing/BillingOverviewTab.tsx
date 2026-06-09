@@ -30,7 +30,10 @@ import {
   formatBillingCredits,
   formatBillingDateTime,
   formatBillingPrice,
+  getBillingProductCampaignBonusCredits,
+  hasBillingProductBonusCampaign,
   openBillingCheckoutUrl,
+  resolveBillingProductPayableAmount,
   registerBillingTranslationUsage,
   resolveBillingPingxxChannelLabel,
   resolveBillingProductTitle,
@@ -360,11 +363,10 @@ export function BillingOverviewTab({
 
         setPingxxCheckout({
           amountInMinor:
-            typeof result.payable_amount === 'number'
-              ? result.payable_amount
-              : checkoutTarget.product.price_amount,
+            result.payable_amount ??
+            resolveBillingProductPayableAmount(checkoutTarget.product),
           billingOrderBid: result.bill_order_bid,
-          currency: checkoutTarget.product.currency,
+          currency: result.currency || checkoutTarget.product.currency,
           description: t(
             checkoutTarget.kind === 'plan'
               ? resolvePlanCheckoutDescriptionKey(
@@ -521,13 +523,27 @@ export function BillingOverviewTab({
 
   const dialogPriceLabel = checkoutTarget
     ? formatBillingPrice(
-        checkoutTarget.product.price_amount,
+        resolveBillingProductPayableAmount(checkoutTarget.product),
         checkoutTarget.product.currency,
         i18n.language,
       )
     : '';
   const dialogCreditsLabel = checkoutTarget
-    ? formatBillingCredits(checkoutTarget.product.credit_amount, i18n.language)
+    ? hasBillingProductBonusCampaign(checkoutTarget.product)
+      ? t('module.billing.checkout.bonusCreditsLabel', {
+          baseCredits: formatBillingCredits(
+            checkoutTarget.product.credit_amount,
+            i18n.language,
+          ),
+          bonusCredits: formatBillingCredits(
+            getBillingProductCampaignBonusCredits(checkoutTarget.product),
+            i18n.language,
+          ),
+        })
+      : formatBillingCredits(
+          checkoutTarget.product.credit_amount,
+          i18n.language,
+        )
     : '';
   const dialogProviderLabel = checkoutTarget
     ? resolveCheckoutChannelLabel(t, checkoutTarget, selectedPingxxChannel)

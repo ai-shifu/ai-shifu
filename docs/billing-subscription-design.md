@@ -346,6 +346,53 @@ v1 冻结 subscription lifecycle 规则：
 - 订阅级 provider 事件优先回填同 `subscription_bid` 最近一笔 `bill_orders.metadata`，并更新关联 provider raw snapshot；如找不到关联订单，则只推进状态或忽略，不额外补 raw snapshot
 - 找不到关联订单的孤儿 webhook 直接忽略，后续依赖 `POST /billing/orders/{bill_order_bid}/sync` 或 reconcile 补偿
 
+后续优化：billing 订单 30 分钟有效期与 pending 订单复用。
+
+- 当前实现每次新的套餐 / 积分包 checkout 都创建新的 `bill_orders`；
+  只有同一个 QR 弹窗内切换渠道时，才通过
+  `POST /billing/orders/{bill_order_bid}/checkout` 刷新已有 pending 订单的
+  provider 凭证。
+- 后续如引入 30 分钟订单有效期，建议新增 billing 专用配置
+  `BILLING_ORDER_EXPIRE_TIME=1800`，不要直接复用或改动
+  `PAY_ORDER_EXPIRE_TIME`，避免影响旧课程订单的 10 分钟超时语义。
+- 复用条件必须严格匹配：`creator_bid`、`product_bid`、`order_type`、
+  checkout action / effective mode、payment provider、应付金额、
+  `metadata.campaign` 快照等均未变化，且订单仍为 `pending` 且未超过
+  30 分钟。
+- 如果当前商品价格或套餐活动快照已经变化，即使旧订单未超过 30 分钟，
+  也应把旧订单标记为 `timeout` 或 `canceled` 并创建新订单，保证用户再次
+  点击时看到的页面价格与支付价格一致。
+- 如果产品选择严格锁价语义，则必须在产品文案中明确“订单 30 分钟内价格
+  锁定”；否则默认采用“价格 / 活动变化则新建订单”的安全策略。
+- 超时状态保持终态：`timeout` 订单不允许被后续 webhook / sync 推进为
+  `paid`。上线前需要定义 provider 侧 late payment 的异常处理策略。
+- 首次开通套餐的 pending 订单如超时，需同步清理或中和其 draft
+  subscription；升级 / 预购续费 pending 订单超时时，不得误改当前 active
+  subscription。
+
+后续优化：用户主动预购续费参与套餐活动。
+
+- 产品意向：用户当前套餐仍有效时，如果主动预付下一个周期的套餐，且该
+  目标套餐当前存在有效套餐活动，则这笔预购续费订单可以享受当前活动价
+  或活动赠送权益。
+- 自动续费 executor 订单继续默认不参与套餐活动，除非后续单独调整自动续费
+  规则；本优化只讨论用户主动发起的 preorder renewal checkout。
+- 预购续费订单应在创建时锁定 `metadata.campaign` 快照、应付金额、
+  `order_type`、checkout action 和 effective mode。活动结束、禁用或调整后，
+  已支付预购续费订单仍按原快照在下周期生效。
+- 上线前必须明确是否允许用户在同一活动期内连续预购多个未来周期；若不
+  允许，应继续保持同一 subscription 只有一笔 pending / paid preorder renewal
+  可等待生效。
+- 需要明确赠送积分的生效策略：立即写入下周期 reserved bucket，还是等
+  preorder renewal 真正生效时再发放；无论选择哪种，都必须保持账本幂等。
+- Stripe subscription checkout 不能直接把活动价写成 recurring line item 后
+  长期续费，否则会把一次预购优惠变成后续每期优惠。若支持 Stripe 预购续费
+  活动价，需要 provider-specific 首周期折扣方案，或走平台自管的一次性预购
+  支付路径。
+- 若先上线 30 分钟订单有效期 / pending 订单复用，本优化的复用条件必须
+  同时比较商品价格、活动快照、`order_type`、checkout action、effective mode
+  和 provider/channel，避免复用到旧的非活动订单或过期活动订单。
+
 ### 3.4 `credit_wallets`
 
 角色：余额快照；不是扣费真相源；不是报表表。

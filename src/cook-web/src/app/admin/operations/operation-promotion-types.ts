@@ -137,3 +137,55 @@ export type AdminPromotionCampaignRedemptionItem = {
   applied_at: string;
   updated_at: string;
 };
+
+export type AdminBillingCampaignProductOption = {
+  product_bid: string;
+  product_code: string;
+  product_type: 'plan' | 'topup';
+  display_name: string;
+  description: string;
+  currency: string;
+  price_amount: number;
+  credit_amount: number;
+  billing_interval: string;
+  billing_interval_count: number;
+  campaign_discount_type?: 'fixed' | 'percent' | null;
+  campaign_discount_amount: number;
+  campaign_discount_percent: number;
+  campaign_price_amount: number;
+  campaign_bonus_credit_amount: number;
+};
+
+export type AdminBillingCampaignProductOptions = {
+  plans: AdminBillingCampaignProductOption[];
+  topups: AdminBillingCampaignProductOption[];
+};
+
+export type AdminBillingCampaignItem = {
+  campaign_bid: string;
+  name: string;
+  note: string;
+  benefit_type: 'discount' | 'bonus';
+  discount_type?: 'fixed' | 'percent' | null;
+  discount_amount: number;
+  discount_percent: number;
+  bonus_credit_amount: number;
+  product_count: number;
+  product_types: string[];
+  product_names: string[];
+  has_custom_product_rules: boolean;
+  computed_status: 'active' | 'upcoming' | 'ended' | 'inactive';
+  hit_order_count: number;
+  start_at: string;
+  end_at: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminBillingCampaignDetail = {
+  campaign: AdminBillingCampaignItem;
+  products: AdminBillingCampaignProductOption[];
+  created_user_bid: string;
+  updated_user_bid: string;
+};

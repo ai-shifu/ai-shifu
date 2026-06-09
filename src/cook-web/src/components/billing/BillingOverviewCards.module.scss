@@ -399,12 +399,42 @@
   gap: 16px;
 }
 
+.topupCardPriceGroup {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
 .topupCardPrice {
   color: var(--base-card-foreground, #0a0a0a);
   font-size: var(--text-2xl-font-size, 24px);
   font-style: normal;
   font-weight: 500;
   line-height: var(--text-2xl-line-height, 32px);
+}
+
+.topupCardOriginalPrice {
+  color: var(--base-muted-foreground, #737373);
+  font-size: var(--text-sm-font-size, 14px);
+  font-style: normal;
+  font-weight: var(--font-weight-normal, 400);
+  line-height: var(--text-sm-line-height, 20px);
+  text-decoration: line-through;
+}
+
+.topupCardCampaignLabel {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: var(--text-xs-font-size, 12px);
+  font-style: normal;
+  font-weight: var(--font-weight-medium, 500);
+  line-height: var(--text-xs-line-height, 16px);
+  white-space: nowrap;
 }
 
 .topupCardAction {
