@@ -607,9 +607,7 @@ describe('AdminOperationUsersPage', () => {
     ).toBeInTheDocument();
   });
 
-  test(
-    'keeps user metadata timestamps as wall-clock time and converts event timestamps by browser timezone',
-    async () => {
+  test('keeps user metadata timestamps as wall-clock time and converts event timestamps by browser timezone', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationUsers.mockResolvedValueOnce({
       items: [
@@ -654,8 +652,7 @@ describe('AdminOperationUsersPage', () => {
     expect(screen.queryByText('2026-06-09 04:01:50')).not.toBeInTheDocument();
     expect(screen.queryByText('2026-06-08 21:01:50')).not.toBeInTheDocument();
     expect(screen.queryByText('2026-06-08 22:01:50')).not.toBeInTheDocument();
-    },
-  );
+  });
 
   test('formats overview counts and credits without grouping in Chinese locale', async () => {
     mockLanguage = 'zh-CN';
