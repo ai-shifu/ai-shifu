@@ -105,6 +105,19 @@ const MainMenuModal = ({
     // @ts-expect-error EXPECT
     onClose?.(evt);
   };
+  const setPasswordRow = canSetPassword ? (
+    <div
+      className={cn(styles.mainMenuModalRow, 'px-2.5')}
+      onClick={onSetPasswordClick}
+      title={t('module.settings.setPassword')}
+    >
+      <KeyRound
+        className={styles.rowIcon}
+        size={16}
+      />
+      <div className={styles.rowTitle}>{t('module.settings.setPassword')}</div>
+    </div>
+  ) : null;
 
   const onAdminEntryClick = (evt: React.MouseEvent) => {
     evt.preventDefault();
@@ -205,21 +218,7 @@ const MainMenuModal = ({
                   {t('component.menus.navigationMenus.personalInfo')}
                 </div>
               </div>
-              {canSetPassword ? (
-                <div
-                  className={cn(styles.mainMenuModalRow, 'px-2.5')}
-                  onClick={onSetPasswordClick}
-                  title={t('module.settings.setPassword')}
-                >
-                  <KeyRound
-                    className={styles.rowIcon}
-                    size={16}
-                  />
-                  <div className={styles.rowTitle}>
-                    {t('module.settings.setPassword')}
-                  </div>
-                </div>
-              ) : null}
+              {setPasswordRow}
               <div
                 className={cn(styles.mainMenuModalRow, 'px-2.5')}
                 onClick={onAdminEntryClick}
@@ -242,21 +241,9 @@ const MainMenuModal = ({
                 </div>
               </div>
             </>
-          ) : canSetPassword ? (
-            <div
-              className={cn(styles.mainMenuModalRow, 'px-2.5')}
-              onClick={onSetPasswordClick}
-              title={t('module.settings.setPassword')}
-            >
-              <KeyRound
-                className={styles.rowIcon}
-                size={16}
-              />
-              <div className={styles.rowTitle}>
-                {t('module.settings.setPassword')}
-              </div>
-            </div>
-          ) : null}
+          ) : (
+            setPasswordRow
+          )}
 
           <div className={styles.languageRow}>
             <div
