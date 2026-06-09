@@ -114,22 +114,40 @@ jest.mock('../Settings/SetPasswordModal', () => ({
   __esModule: true,
   SetPasswordModal: undefined,
   default: ({ open }: { open: boolean }) =>
-    open ? <div data-testid='set-password-modal'>set-password-modal</div> : null,
+    open ? (
+      <div data-testid='set-password-modal'>set-password-modal</div>
+    ) : null,
 }));
 
 jest.mock('@/components/ui/AlertDialog', () => ({
-  AlertDialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AlertDialogAction: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
-    <button onClick={onClick}>{children}</button>
+  AlertDialog: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
   ),
+  AlertDialogAction: ({
+    children,
+    onClick,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+  }) => <button onClick={onClick}>{children}</button>,
   AlertDialogCancel: ({ children }: { children: React.ReactNode }) => (
     <button>{children}</button>
   ),
-  AlertDialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AlertDialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AlertDialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogFooter: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogHeader: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
 }));
 
 describe('MainMenuModal', () => {
@@ -166,9 +184,7 @@ describe('MainMenuModal', () => {
 
     fireEvent.click(screen.getByText('module.settings.setPassword'));
 
-    expect(
-      screen.getByTestId('set-password-modal'),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('set-password-modal')).toBeInTheDocument();
     expect(mockTrackEvent).toHaveBeenCalledWith('USER_MENU_SET_PASSWORD', {});
   });
 
