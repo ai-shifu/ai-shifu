@@ -210,4 +210,26 @@ describe('MainMenuModal', () => {
       screen.queryByText('module.settings.setPassword'),
     ).not.toBeInTheDocument();
   });
+
+  test('hides set password entry when contact methods only contain whitespace', () => {
+    mockUserStoreState.userInfo = {
+      mobile: '   ',
+      email: '\t',
+      is_creator: false,
+    };
+
+    render(
+      <MainMenuModal
+        open
+        onClose={jest.fn()}
+        onBasicInfoClick={jest.fn()}
+        onPersonalInfoClick={jest.fn()}
+        isAdmin
+      />,
+    );
+
+    expect(
+      screen.queryByText('module.settings.setPassword'),
+    ).not.toBeInTheDocument();
+  });
 });

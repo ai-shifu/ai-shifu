@@ -59,9 +59,11 @@ const MainMenuModal = ({
   const isPasswordEnabled = Array.isArray(loginMethodsEnabled)
     ? loginMethodsEnabled.includes('password')
     : false;
-  const canSetPassword = Boolean(
-    isPasswordEnabled && (userInfo?.mobile || userInfo?.email),
-  );
+  const hasMobile =
+    typeof userInfo?.mobile === 'string' && userInfo.mobile.trim() !== '';
+  const hasEmail =
+    typeof userInfo?.email === 'string' && userInfo.email.trim() !== '';
+  const canSetPassword = isPasswordEnabled && (hasMobile || hasEmail);
 
   const { trackEvent } = useTracking();
 
