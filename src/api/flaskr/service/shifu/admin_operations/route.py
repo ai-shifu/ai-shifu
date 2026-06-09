@@ -34,7 +34,7 @@ from flaskr.service.promo.api import (
     update_operator_promotion_coupon,
     update_operator_promotion_coupon_status,
 )
-from flaskr.service.shifu.admin import (
+from flaskr.service.shifu.admin_operations.courses import (
     OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
     copy_operator_course,
     get_operator_course_chapter_detail,
