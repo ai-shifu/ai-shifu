@@ -59,6 +59,11 @@ const MainMenuModal = ({
   const isPasswordEnabled = Array.isArray(loginMethodsEnabled)
     ? loginMethodsEnabled.includes('password')
     : false;
+  const hasMobile =
+    typeof userInfo?.mobile === 'string' && userInfo.mobile.trim() !== '';
+  const hasEmail =
+    typeof userInfo?.email === 'string' && userInfo.email.trim() !== '';
+  const canSetPassword = isPasswordEnabled && (hasMobile || hasEmail);
 
   const { trackEvent } = useTracking();
 
@@ -100,6 +105,19 @@ const MainMenuModal = ({
     // @ts-expect-error EXPECT
     onClose?.(evt);
   };
+  const setPasswordRow = canSetPassword ? (
+    <div
+      className={cn(styles.mainMenuModalRow, 'px-2.5')}
+      onClick={onSetPasswordClick}
+      title={t('module.settings.setPassword')}
+    >
+      <KeyRound
+        className={styles.rowIcon}
+        size={16}
+      />
+      <div className={styles.rowTitle}>{t('module.settings.setPassword')}</div>
+    </div>
+  ) : null;
 
   const onAdminEntryClick = (evt: React.MouseEvent) => {
     evt.preventDefault();
@@ -183,7 +201,7 @@ const MainMenuModal = ({
           className={styles.mainMenuModal}
           ref={htmlRef}
         >
-          {!isAdmin && (
+          {!isAdmin ? (
             <>
               <div
                 className={cn(styles.mainMenuModalRow, 'px-2.5')}
@@ -200,21 +218,7 @@ const MainMenuModal = ({
                   {t('component.menus.navigationMenus.personalInfo')}
                 </div>
               </div>
-              {isPasswordEnabled ? (
-                <div
-                  className={cn(styles.mainMenuModalRow, 'px-2.5')}
-                  onClick={onSetPasswordClick}
-                  title={t('module.settings.password')}
-                >
-                  <KeyRound
-                    className={styles.rowIcon}
-                    size={16}
-                  />
-                  <div className={styles.rowTitle}>
-                    {t('module.settings.passwordPlaceholder')}
-                  </div>
-                </div>
-              ) : null}
+              {setPasswordRow}
               <div
                 className={cn(styles.mainMenuModalRow, 'px-2.5')}
                 onClick={onAdminEntryClick}
@@ -237,6 +241,8 @@ const MainMenuModal = ({
                 </div>
               </div>
             </>
+          ) : (
+            setPasswordRow
           )}
 
           <div className={styles.languageRow}>
