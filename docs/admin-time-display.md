@@ -73,6 +73,7 @@ offset.
   formatter helpers instead of applying browser-timezone conversion.
 - Current exceptions:
   - operator user record `created_at` / `updated_at`
+  - operator user activity `last_login_at` / `last_learning_at`
   - operator user credit ledger `created_at`
   - operator user credit usage detail `created_at`
   - operator course metadata `basic_info.created_at` / `basic_info.updated_at`
