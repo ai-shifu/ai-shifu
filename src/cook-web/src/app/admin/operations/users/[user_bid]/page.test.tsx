@@ -733,7 +733,7 @@ describe('AdminOperationUserDetailPage', () => {
     });
   });
 
-  test('renders detail timestamps with operator UTC formatting', async () => {
+  test('renders detail timestamps with field-specific formatting', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationUserDetail.mockResolvedValue({
       ...detailResponse,
@@ -766,7 +766,7 @@ describe('AdminOperationUserDetailPage', () => {
 
     expect(screen.getByText('2026-04-14 18:30:00')).toBeInTheDocument();
     expect(screen.getByText('2026-04-14 19:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-13 18:15:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-14 01:15:00')).toBeInTheDocument();
     expect(screen.getAllByText('2026-04-30 18:00:00').length).toBeGreaterThan(
       0,
     );

@@ -64,6 +64,18 @@ offset.
 - Display uses browser timezone from `getBrowserTimeZone()`
 - Invalid or empty values render as empty/placeholder labels
 
+### Current exception: operator user record timestamps
+
+- Operator user record fields `created_at` and `updated_at` currently come from
+  backend payloads as wall-clock values without timezone semantics.
+- Until those backend fields are migrated to timezone-qualified ISO strings, the
+  operator user list/detail pages should preserve the returned wall-clock time
+  with `formatOperatorNaiveDateTime`.
+- This exception only applies to the user-record timestamps above.
+- Event timestamps such as `last_login_at`, `last_learning_at`, and other
+  timezone-qualified activity fields should continue to use the browser-timezone
+  rendering flow.
+
 ## Implementation Plan
 
 1. Add a shared admin datetime helper in Cook Web and move the current
