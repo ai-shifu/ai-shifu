@@ -103,17 +103,17 @@ def test_load_active_campaign_honors_window_and_feature_flag(
 
         monkeypatch.setattr(
             "flaskr.service.referral.service.get_common_config",
-            lambda key, default=None: "0"
-            if key == "REFERRAL_INVITE_REWARDS_ENABLED"
-            else default,
+            lambda key, default=None: (
+                "0" if key == "REFERRAL_INVITE_REWARDS_ENABLED" else default
+            ),
         )
         assert load_active_campaign(now=now) is None
 
         monkeypatch.setattr(
             "flaskr.service.referral.service.get_common_config",
-            lambda key, default=None: "true"
-            if key == "REFERRAL_INVITE_REWARDS_ENABLED"
-            else default,
+            lambda key, default=None: (
+                "true" if key == "REFERRAL_INVITE_REWARDS_ENABLED" else default
+            ),
         )
         assert load_active_campaign(now=now).campaign_code == (
             "domestic_creator_invite_flagged"
