@@ -227,7 +227,7 @@ export default function useUserDetailViewModel({
       {
         key: 'lastLoginAt',
         label: tOperationsUsers('table.lastLoginAt'),
-        value: formatOperatorUtcDateTime(detail.last_login_at),
+        value: formatOperatorNaiveDateTime(detail.last_login_at),
       },
       {
         key: 'createdAt',
@@ -285,7 +285,7 @@ export default function useUserDetailViewModel({
       {
         key: 'lastLearningAt',
         label: tOperationsUsers('table.lastLearningAt'),
-        value: formatOperatorUtcDateTime(detail.last_learning_at),
+        value: formatOperatorNaiveDateTime(detail.last_learning_at),
       },
     ],
     [

@@ -764,9 +764,11 @@ describe('AdminOperationUserDetailPage', () => {
       name: 'module.operationsUser.detail.title',
     });
 
-    expect(screen.getByText('2026-04-14 18:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-14 19:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-15 01:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-15 02:30:00')).toBeInTheDocument();
     expect(screen.getByText('2026-04-14 01:15:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-14 18:30:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-14 19:30:00')).not.toBeInTheDocument();
     expect(screen.getAllByText('2026-04-30 18:00:00').length).toBeGreaterThan(
       0,
     );

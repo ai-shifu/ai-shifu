@@ -1484,7 +1484,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('lastLoginAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorUtcDateTime(user.last_login_at),
+                            formatOperatorNaiveDateTime(user.last_login_at),
                           )}
                         </TableCell>
                         <TableCell
@@ -1492,7 +1492,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('lastLearningAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorUtcDateTime(user.last_learning_at),
+                            formatOperatorNaiveDateTime(user.last_learning_at),
                           )}
                         </TableCell>
                         <TableCell
