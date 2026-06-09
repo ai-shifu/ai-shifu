@@ -769,8 +769,12 @@ def run_script(
 
             if stream_error and not client_disconnected:
                 if isinstance(stream_error, Exception):
-                    app.logger.error("run_script error")
-                    app.logger.error(stream_error)
+                    is_app_exception = isinstance(stream_error, AppException)
+                    if is_app_exception:
+                        app.logger.info("run_script app exception: %s", stream_error)
+                    else:
+                        app.logger.error("run_script error")
+                        app.logger.error(stream_error)
                     error_traceback = "".join(
                         traceback.format_exception(
                             type(stream_error),
@@ -784,7 +788,7 @@ def run_script(
                         "traceback": error_traceback,
                     }
 
-                    if isinstance(stream_error, AppException):
+                    if is_app_exception:
                         app.logger.info(error_info)
                         error_content = str(stream_error)
                     else:
