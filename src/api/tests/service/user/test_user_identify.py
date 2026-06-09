@@ -46,6 +46,78 @@ def _reset_shifu_tables() -> None:
     db.session.commit()
 
 
+def test_phone_flow_marks_temp_phone_claim_as_created_new_user(tmp_path, monkeypatch):
+    from flask import Flask
+    from flask_sqlalchemy import SQLAlchemy
+
+    from flaskr import dao
+    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.service.user.consts import (
+        USER_STATE_REGISTERED,
+        USER_STATE_UNREGISTERED,
+    )
+    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+
+    app = Flask(__name__)
+    app.config.update(
+        SECRET_KEY="test-secret-key",
+        SQLALCHEMY_DATABASE_URI=f"sqlite:///{tmp_path / 'phone-claim.db'}",
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        TOKEN_EXPIRE_TIME=60 * 60,
+        UNIVERSAL_VERIFICATION_CODE="9999",
+        REDIS_KEY_PREFIX_PHONE_CODE="test:phone:",
+        REDIS_KEY_PREFIX_USER="test:user:",
+        ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO=False,
+    )
+
+    if dao.db is None:
+        dao.db = SQLAlchemy()
+    dao.db.init_app(app)
+
+    fake_redis = _FakeRedis()
+    monkeypatch.setattr(phone_flow, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(phone_flow, "init_first_course", lambda *_args: False)
+
+    with app.app_context():
+        dao.db.create_all()
+        temp_user_bid = uuid.uuid4().hex
+        phone = "15500006661"
+        dao.db.session.add(
+            UserEntity(
+                user_bid=temp_user_bid,
+                user_identify=temp_user_bid,
+                nickname="",
+                language="zh-CN",
+                state=USER_STATE_UNREGISTERED,
+                deleted=0,
+            )
+        )
+        dao.db.session.commit()
+
+        token, created_new_user, _ctx = phone_flow.verify_phone_code(
+            app,
+            user_id=temp_user_bid,
+            phone=phone,
+            code="9999",
+            language="zh-CN",
+            login_context="admin",
+        )
+
+        entity = UserEntity.query.filter_by(user_bid=temp_user_bid).first()
+        credential = AuthCredential.query.filter_by(
+            user_bid=temp_user_bid,
+            provider_name="phone",
+            identifier=phone,
+        ).first()
+
+        assert token.userInfo.user_id == temp_user_bid
+        assert created_new_user is True
+        assert entity is not None
+        assert entity.user_identify == phone
+        assert entity.state == USER_STATE_REGISTERED
+        assert credential is not None
+
+
 def test_phone_flow_sets_user_identify(app):
     import flaskr.service.user.phone_flow as phone_flow
     from flaskr.service.user.models import UserInfo as UserEntity

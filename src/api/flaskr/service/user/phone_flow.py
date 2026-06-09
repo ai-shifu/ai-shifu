@@ -430,6 +430,7 @@ def verify_phone_code(
                     updates["language"] = language
                 entity = update_user_entity_fields(entity, **updates)
                 if promote_state:
+                    created_new_user = True
                     creator_granted_now = (
                         init_first_course(app, entity.user_bid) or creator_granted_now
                     )
