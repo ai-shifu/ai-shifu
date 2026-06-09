@@ -1425,6 +1425,9 @@ export default function AdminOperationCourseDetailPage() {
       {
         label: tOperations('detail.fields.createdAt'),
         value:
+          // Course metadata timestamps currently come from backend payloads as
+          // wall-clock values, so preserve them without browser-timezone
+          // conversion until those fields migrate to timezone-qualified ISO.
           formatAdminNaiveDateTime(detail.basic_info.created_at) || emptyValue,
       },
       {

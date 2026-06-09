@@ -64,6 +64,20 @@ offset.
 - Display uses browser timezone from `getBrowserTimeZone()`
 - Invalid or empty values render as empty/placeholder labels
 
+### Current exceptions: wall-clock metadata fields
+
+- Some admin/operator metadata fields still come from backend payloads as
+  wall-clock values without timezone semantics.
+- Until those fields are migrated to timezone-qualified ISO strings, the
+  frontend should preserve the returned wall-clock time with the naive
+  formatter helpers instead of applying browser-timezone conversion.
+- Current exceptions:
+  - operator user record `created_at` / `updated_at`
+  - operator course metadata `basic_info.created_at` / `basic_info.updated_at`
+- Event timestamps such as login, learning activity, and other
+  timezone-qualified fields should continue to use the browser-timezone
+  rendering flow.
+
 ## Implementation Plan
 
 1. Add a shared admin datetime helper in Cook Web and move the current
