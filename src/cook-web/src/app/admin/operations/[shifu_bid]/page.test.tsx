@@ -616,6 +616,90 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.queryByText('2026-06-09 04:01:50')).not.toBeInTheDocument();
   });
 
+  test(
+    'keeps course credit usage created_at values as returned wall-clock time',
+    async () => {
+      mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+      mockGetAdminOperationCourseCreditUsages.mockResolvedValueOnce({
+        view: 'grouped',
+        items: [
+          {
+            group_key: 'student-1:lesson-1:learning:listen',
+            usage_bid: 'usage-listen',
+            progress_record_bid: 'progress-1',
+            generated_block_bid: '',
+            user_bid: 'student-1',
+            mobile: '13900001234',
+            email: '',
+            nickname: 'Bob',
+            chapter_outline_item_bid: 'chapter-1',
+            chapter_title: 'Chapter 1',
+            lesson_outline_item_bid: 'lesson-1',
+            lesson_title: 'Lesson 1',
+            usage_scene: 'learning',
+            usage_mode: 'listen',
+            provider: 'volcengine',
+            model: 'cancan-2.0',
+            usage_count: 1,
+            model_variant_count: 1,
+            consumed_credits: 2,
+            created_at: '2026-04-08T12:30:00Z',
+          },
+        ],
+        page: 1,
+        page_count: 1,
+        page_size: 20,
+        total: 1,
+      });
+      mockGetAdminOperationCourseCreditUsageDetails.mockResolvedValueOnce({
+        usage_bid: 'usage-listen',
+        page: 1,
+        page_count: 1,
+        page_size: 20,
+        total: 1,
+        items: [
+          {
+            usage_bid: 'usage-detail-1',
+            created_at: '2026-04-08T12:20:00Z',
+            content: 'Listen detail content',
+            consumed_credits: '2',
+            usage_units: 1,
+            input_tokens: 0,
+            output_tokens: 0,
+            word_count: 180,
+            duration_ms: 30000,
+            segment_count: 1,
+          },
+        ],
+      });
+
+      render(<AdminOperationCourseDetailPage />);
+
+      await openCreditUsageTab();
+
+      expect(screen.getByText('2026-04-08 12:30:00')).toBeInTheDocument();
+      expect(screen.queryByText('2026-04-08 05:30:00')).not.toBeInTheDocument();
+
+      const usageRow = (await screen.findByText('Lesson 1')).closest('tr');
+      expect(usageRow).not.toBeNull();
+      fireEvent.click(
+        within(usageRow as HTMLElement).getByRole('button', {
+          name: 'module.operationsCourse.detail.creditUsage.details.openUsageDetails',
+        }),
+      );
+
+      const dialog = await screen.findByRole('dialog');
+      await waitFor(() => {
+        expect(
+          within(dialog).getByText('2026-04-08 12:20:00'),
+        ).toBeInTheDocument();
+      });
+      expect(
+        within(dialog).queryByText('2026-04-08 05:20:00'),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   test('loads credit usage tab on demand and renders credit rows', async () => {
     render(<AdminOperationCourseDetailPage />);
 
