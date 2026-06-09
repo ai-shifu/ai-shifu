@@ -838,7 +838,9 @@ describe('AdminOperationUserDetailPage', () => {
     fireEvent.click(openDetailButton);
 
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('2026-04-18 10:00:00')).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText('2026-04-18 10:00:00'),
+    ).toBeInTheDocument();
     expect(
       within(dialog).queryByText('2026-04-18 03:00:00'),
     ).not.toBeInTheDocument();

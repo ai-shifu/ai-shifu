@@ -650,18 +650,16 @@ describe('AdminOperationCourseDetailPage', () => {
       total: 1,
     });
     mockGetAdminOperationCourseCreditUsageDetails.mockResolvedValueOnce({
-      usage_bid: 'usage-listen',
       page: 1,
       page_count: 1,
-      page_size: 20,
+      page_size: 10,
       total: 1,
       items: [
         {
           usage_bid: 'usage-detail-1',
           created_at: '2026-04-08T12:20:00Z',
           content: 'Listen detail content',
-          consumed_credits: '2',
-          usage_units: 1,
+          consumed_credits: 2,
           input_tokens: 0,
           output_tokens: 0,
           word_count: 180,
