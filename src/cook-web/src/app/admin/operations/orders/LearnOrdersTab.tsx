@@ -9,7 +9,7 @@ import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import {
   formatAdminCount,
   formatAdminNumber,
@@ -836,7 +836,7 @@ export default function LearnOrdersTab() {
                           style={getColumnStyle('createdAt')}
                         >
                           {renderTooltipText(
-                            formatAdminUtcDateTime(order.created_at),
+                            formatAdminNaiveDateTime(order.created_at),
                           )}
                         </TableCell>
                         <TableCell

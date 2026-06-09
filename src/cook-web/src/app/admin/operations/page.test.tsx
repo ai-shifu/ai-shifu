@@ -682,6 +682,41 @@ describe('OperationsPage', () => {
     expect(screen.queryByText('76,384')).not.toBeInTheDocument();
   });
 
+  test('keeps course metadata timestamps as returned wall-clock time', async () => {
+    mockGetAdminOperationCourses.mockResolvedValueOnce({
+      items: [
+        {
+          shifu_bid: 'course-timezone',
+          course_name: 'Timezone Course',
+          course_status: 'published',
+          price: '0',
+          course_model: '',
+          has_course_prompt: false,
+          creator_user_bid: 'creator-1',
+          creator_mobile: '',
+          creator_email: 'creator@example.com',
+          creator_nickname: '',
+          updater_user_bid: 'editor-1',
+          updater_mobile: '',
+          updater_email: 'editor@example.com',
+          updater_nickname: '',
+          created_at: '2026-06-09T12:01:50+08:00',
+          updated_at: '2026-06-09T13:01:50+08:00',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    await renderAndWaitForLoadedPage();
+
+    expect(screen.getByText('2026-06-09 12:01:50')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-09 13:01:50')).toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 04:01:50')).not.toBeInTheDocument();
+  });
+
   test('navigates from course name and transfers creator from the action menu', async () => {
     await renderAndWaitForLoadedPage();
 

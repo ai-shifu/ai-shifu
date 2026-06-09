@@ -549,6 +549,66 @@ describe('AdminOperationCourseDetailPage', () => {
     ).toHaveAttribute('href', '/admin/operations');
   });
 
+  test('keeps course detail metadata timestamps as returned wall-clock time', async () => {
+    mockGetAdminOperationCourseDetail.mockResolvedValueOnce({
+      basic_info: {
+        shifu_bid: 'course-1',
+        course_name: 'Course One',
+        course_status: 'published',
+        creator_user_bid: 'creator-1',
+        creator_mobile: '13800001234',
+        creator_email: '',
+        creator_nickname: 'Alice',
+        created_at: '2026-06-09T12:01:50+08:00',
+        updated_at: '2026-06-09T13:01:50+08:00',
+      },
+      metrics: {
+        visit_count_30d: 34,
+        learner_count: 12,
+        order_count: 4,
+        order_amount: '88',
+        follow_up_count: 9,
+        rating_score: '4.2',
+        credit_consumed_total: 120,
+        credit_usage_count: 18,
+        credit_user_count: 6,
+        completed_credit_user_count: 3,
+        completed_user_avg_credits: 20,
+      },
+      chapters: [
+        {
+          outline_item_bid: 'chapter-timezone',
+          title: 'Timezone Chapter',
+          parent_bid: '',
+          position: '1',
+          node_type: 'chapter',
+          learning_permission: 'guest',
+          is_visible: true,
+          content_status: 'empty',
+          follow_up_count: 0,
+          rating_score: '',
+          rating_count: 0,
+          modifier_user_bid: 'creator-1',
+          modifier_mobile: '13800001234',
+          modifier_email: '',
+          modifier_nickname: 'Alice',
+          updated_at: '2026-06-09T13:01:50+08:00',
+          children: [],
+        },
+      ],
+    });
+
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Timezone Chapter');
+
+    expect(screen.getByText('2026-06-09 12:01:50')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-06-09 13:01:50').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText('2026-06-09 04:01:50')).not.toBeInTheDocument();
+  });
+
   test('loads credit usage tab on demand and renders credit rows', async () => {
     render(<AdminOperationCourseDetailPage />);
 
