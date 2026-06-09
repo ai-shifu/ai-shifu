@@ -59,6 +59,9 @@ const MainMenuModal = ({
   const isPasswordEnabled = Array.isArray(loginMethodsEnabled)
     ? loginMethodsEnabled.includes('password')
     : false;
+  const canSetPassword = Boolean(
+    isPasswordEnabled && (userInfo?.mobile || userInfo?.email),
+  );
 
   const { trackEvent } = useTracking();
 
@@ -183,7 +186,7 @@ const MainMenuModal = ({
           className={styles.mainMenuModal}
           ref={htmlRef}
         >
-          {!isAdmin && (
+          {!isAdmin ? (
             <>
               <div
                 className={cn(styles.mainMenuModalRow, 'px-2.5')}
@@ -200,18 +203,18 @@ const MainMenuModal = ({
                   {t('component.menus.navigationMenus.personalInfo')}
                 </div>
               </div>
-              {isPasswordEnabled ? (
+              {canSetPassword ? (
                 <div
                   className={cn(styles.mainMenuModalRow, 'px-2.5')}
                   onClick={onSetPasswordClick}
-                  title={t('module.settings.password')}
+                  title={t('module.settings.setPassword')}
                 >
                   <KeyRound
                     className={styles.rowIcon}
                     size={16}
                   />
                   <div className={styles.rowTitle}>
-                    {t('module.settings.passwordPlaceholder')}
+                    {t('module.settings.setPassword')}
                   </div>
                 </div>
               ) : null}
@@ -237,7 +240,21 @@ const MainMenuModal = ({
                 </div>
               </div>
             </>
-          )}
+          ) : canSetPassword ? (
+            <div
+              className={cn(styles.mainMenuModalRow, 'px-2.5')}
+              onClick={onSetPasswordClick}
+              title={t('module.settings.setPassword')}
+            >
+              <KeyRound
+                className={styles.rowIcon}
+                size={16}
+              />
+              <div className={styles.rowTitle}>
+                {t('module.settings.setPassword')}
+              </div>
+            </div>
+          ) : null}
 
           <div className={styles.languageRow}>
             <div
