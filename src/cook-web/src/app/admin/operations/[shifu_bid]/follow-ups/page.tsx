@@ -499,7 +499,8 @@ export default function AdminOperationCourseFollowUpsPage() {
         key: 'latestFollowUpAt',
         label: tOperations('detail.followUps.summary.latestFollowUpAt'),
         value:
-          formatAdminUtcDateTime(fullSummary.latest_follow_up_at) || emptyValue,
+          formatAdminUtcDateTime(fullSummary.latest_follow_up_at) ||
+            emptyValue,
         tone: 'timestamp' as const,
       },
     ],

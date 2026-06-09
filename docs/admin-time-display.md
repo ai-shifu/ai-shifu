@@ -79,9 +79,8 @@ offset.
   - operator learn order metadata `created_at`
   - operator credit order metadata `created_at`
   - operator order detail metadata `created_at` / `updated_at`
-- Event timestamps such as login, learning activity, and other
-  timezone-qualified fields should continue to use the browser-timezone
-  rendering flow.
+- Other event timestamps that are already backed by correct timezone-qualified
+  payloads should continue to use the browser-timezone rendering flow.
 
 ## Implementation Plan
 

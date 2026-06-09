@@ -12,6 +12,7 @@ import AdminOperationUsersPage from './page';
 
 const mockReplace = jest.fn();
 const mockMutateBillingOverview = jest.fn();
+const mockBrowserTimeZone = jest.fn(() => 'UTC');
 const originalLocation = window.location;
 const mockGrantDialogPrefix = 'grant-dialog-';
 const mockGrantSuccessLabel = 'mock-grant-success';
@@ -100,6 +101,10 @@ jest.mock('swr', () => ({
   useSWRConfig: () => ({
     mutate: mockMutateBillingOverview,
   }),
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('@/components/ui/DropdownMenu', () => ({
@@ -314,6 +319,8 @@ describe('AdminOperationUsersPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
     mockMutateBillingOverview.mockReset();
+    mockBrowserTimeZone.mockReset();
+    mockBrowserTimeZone.mockReturnValue('UTC');
     mockGetAdminOperationUsersOverview.mockReset();
     mockGetAdminOperationUsers.mockReset();
     mockGetAdminOperationUserDetail.mockReset();
@@ -604,7 +611,8 @@ describe('AdminOperationUsersPage', () => {
     ).toBeInTheDocument();
   });
 
-  test('keeps user created and updated timestamps as returned wall-clock time', async () => {
+  test('keeps user metadata timestamps as returned wall-clock time', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationUsers.mockResolvedValueOnce({
       items: [
         {
@@ -627,8 +635,8 @@ describe('AdminOperationUsersPage', () => {
           subscription_credits: '0',
           topup_credits: '0',
           credits_expire_at: '',
-          last_login_at: '',
-          last_learning_at: '',
+          last_login_at: '2026-06-09T14:01:50Z',
+          last_learning_at: '2026-06-09T15:01:50Z',
           created_at: '2026-06-09T12:01:50+08:00',
           updated_at: '2026-06-09T13:01:50+08:00',
         },

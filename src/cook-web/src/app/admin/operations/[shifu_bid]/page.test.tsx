@@ -16,6 +16,7 @@ const mockGetAdminOperationCourseUsers = jest.fn();
 const mockGetAdminOperationCourseCreditUsages = jest.fn();
 const mockGetAdminOperationCourseCreditUsageDetails = jest.fn();
 const mockGetAdminOperationCourseChapterDetail = jest.fn();
+const mockBrowserTimeZone = jest.fn(() => 'UTC');
 const mockCopyText = jest.fn();
 const mockToastShow = jest.fn();
 const mockToastFail = jest.fn();
@@ -107,6 +108,10 @@ jest.mock('@/hooks/useToast', () => ({
   __esModule: true,
   fail: (...args: unknown[]) => mockToastFail(...args),
   show: (...args: unknown[]) => mockToastShow(...args),
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -307,6 +312,8 @@ describe('AdminOperationCourseDetailPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
     mockPush.mockReset();
+    mockBrowserTimeZone.mockReset();
+    mockBrowserTimeZone.mockReturnValue('UTC');
     mockGetAdminOperationCourseDetail.mockReset();
     mockGetAdminOperationCourseUsers.mockReset();
     mockGetAdminOperationCourseCreditUsages.mockReset();
