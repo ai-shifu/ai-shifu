@@ -179,10 +179,6 @@ jest.mock('@/c-store', () => ({
     }),
 }));
 
-jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
-}));
-
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
 }));
@@ -649,9 +645,13 @@ describe('AdminOperationUsersPage', () => {
 
     await renderResolvedPage();
 
+    expect(screen.getByText('2026-06-09 07:01:50')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-09 08:01:50')).toBeInTheDocument();
     expect(screen.getByText('2026-06-09 12:01:50')).toBeInTheDocument();
     expect(screen.getByText('2026-06-09 13:01:50')).toBeInTheDocument();
     expect(screen.queryByText('2026-06-09 04:01:50')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-06-08 21:01:50')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-06-08 22:01:50')).not.toBeInTheDocument();
   });
 
   test('formats overview counts and credits without grouping in Chinese locale', async () => {
