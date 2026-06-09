@@ -300,8 +300,7 @@ export default function FollowUpDetailSheet({
                 <DetailRow
                   label={t('detail.followUps.drawer.fields.followUpTime')}
                   value={
-                    formatAdminUtcDateTime(basicInfo?.created_at) ||
-                      emptyValue
+                    formatAdminUtcDateTime(basicInfo?.created_at) || emptyValue
                   }
                 />
                 <DetailRow
