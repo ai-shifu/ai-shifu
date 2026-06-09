@@ -10,7 +10,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { formatOperatorUtcDateTime } from '../dateTime';
+import {
+  formatOperatorNaiveDateTime,
+  formatOperatorUtcDateTime,
+} from '../dateTime';
 import type {
   AdminOperationUserCourseItem,
   AdminOperationUserCreditSummary,
@@ -229,7 +232,7 @@ export default function useUserDetailViewModel({
       {
         key: 'createdAt',
         label: tOperationsUsers('table.createdAt'),
-        value: formatOperatorUtcDateTime(detail.created_at),
+        value: formatOperatorNaiveDateTime(detail.created_at),
       },
     ],
     [

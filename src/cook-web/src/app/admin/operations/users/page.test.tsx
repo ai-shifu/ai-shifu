@@ -604,6 +604,48 @@ describe('AdminOperationUsersPage', () => {
     ).toBeInTheDocument();
   });
 
+  test('keeps user created and updated timestamps as returned wall-clock time', async () => {
+    mockGetAdminOperationUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'timezone-user',
+          mobile: '',
+          email: 'timezone-user@example.com',
+          nickname: 'Timezone User',
+          user_status: 'registered',
+          user_role: 'regular',
+          user_roles: ['regular'],
+          login_methods: ['email'],
+          registration_source: 'email',
+          language: 'zh-CN',
+          learning_course_count: 0,
+          learning_courses: [],
+          created_course_count: 0,
+          created_courses: [],
+          total_paid_amount: '0',
+          available_credits: '0',
+          subscription_credits: '0',
+          topup_credits: '0',
+          credits_expire_at: '',
+          last_login_at: '',
+          last_learning_at: '',
+          created_at: '2026-06-09T12:01:50+08:00',
+          updated_at: '2026-06-09T13:01:50+08:00',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    await renderResolvedPage();
+
+    expect(screen.getByText('2026-06-09 12:01:50')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-09 13:01:50')).toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 04:01:50')).not.toBeInTheDocument();
+  });
+
   test('formats overview counts and credits without grouping in Chinese locale', async () => {
     mockLanguage = 'zh-CN';
     mockGetAdminOperationUsersOverview.mockResolvedValueOnce({
