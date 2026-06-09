@@ -66,7 +66,10 @@ import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
-import { formatOperatorUtcDateTime } from './dateTime';
+import {
+  formatOperatorNaiveDateTime,
+  formatOperatorUtcDateTime,
+} from './dateTime';
 import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
 import useOperatorGuard from '../useOperatorGuard';
@@ -1497,7 +1500,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('createdAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorUtcDateTime(user.created_at),
+                            formatOperatorNaiveDateTime(user.created_at),
                           )}
                         </TableCell>
                         <TableCell
@@ -1505,7 +1508,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('updatedAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorUtcDateTime(user.updated_at),
+                            formatOperatorNaiveDateTime(user.updated_at),
                           )}
                         </TableCell>
                         <TableCell
