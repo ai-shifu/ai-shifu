@@ -241,7 +241,7 @@ describe('CreditOrdersTab', () => {
           provider_reference_id: 'charge_1',
           failure_code: '',
           failure_message: '',
-          created_at: '2026-04-27T09:00:00Z',
+          created_at: '2026-04-27T09:00:00+08:00',
           paid_at: '2026-04-27T10:00:00Z',
           failed_at: null,
           refunded_at: null,
@@ -312,7 +312,7 @@ describe('CreditOrdersTab', () => {
         provider_reference_id: 'charge_1',
         failure_code: '',
         failure_message: '',
-        created_at: '2026-04-27T09:00:00Z',
+        created_at: '2026-04-27T09:00:00+08:00',
         paid_at: '2026-04-27T10:00:00Z',
         failed_at: null,
         refunded_at: null,
@@ -352,6 +352,8 @@ describe('CreditOrdersTab', () => {
     });
 
     expect(await screen.findByText('bill-order-1')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-27 09:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-27 01:00:00')).not.toBeInTheDocument();
     expect(
       screen.queryByText('module.operationsOrder.overview.activeFilter'),
     ).not.toBeInTheDocument();
@@ -633,6 +635,10 @@ describe('CreditOrdersTab', () => {
         'module.operationsOrder.creditOrders.detail.title',
       ),
     ).toBeInTheDocument();
+    expect(screen.getAllByText('2026-04-27 09:00:00').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText('2026-04-27 01:00:00')).not.toBeInTheDocument();
   });
 
   test('shows detail error state when detail request fails', async () => {

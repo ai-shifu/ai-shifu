@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import { copyText } from '@/c-utils/textutils';
@@ -1425,12 +1425,15 @@ export default function AdminOperationCourseDetailPage() {
       {
         label: tOperations('detail.fields.createdAt'),
         value:
-          formatAdminUtcDateTime(detail.basic_info.created_at) || emptyValue,
+          // Course metadata timestamps currently come from backend payloads as
+          // wall-clock values, so preserve them without browser-timezone
+          // conversion until those fields migrate to timezone-qualified ISO.
+          formatAdminNaiveDateTime(detail.basic_info.created_at) || emptyValue,
       },
       {
         label: tOperations('detail.fields.updatedAt'),
         value:
-          formatAdminUtcDateTime(detail.basic_info.updated_at) || emptyValue,
+          formatAdminNaiveDateTime(detail.basic_info.updated_at) || emptyValue,
       },
     ],
     [
@@ -1540,7 +1543,7 @@ export default function AdminOperationCourseDetailPage() {
                   resolveContentStatusLabel={resolveContentStatusLabel}
                   resolveModifierDisplay={resolveModifierDisplay}
                   formatCount={formatCount}
-                  formatAdminUtcDateTime={formatAdminUtcDateTime}
+                  formatAdminNaiveDateTime={formatAdminNaiveDateTime}
                   getColumnStyle={getChapterColumnStyle}
                   getResizeHandleProps={getChapterResizeHandleProps}
                   tOperations={tOperations}

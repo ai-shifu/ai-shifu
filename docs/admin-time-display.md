@@ -64,16 +64,23 @@ offset.
 - Display uses browser timezone from `getBrowserTimeZone()`
 - Invalid or empty values render as empty/placeholder labels
 
-### Current exception: operator user record timestamps
+### Current exceptions: wall-clock metadata fields
 
-- Operator user record fields `created_at` and `updated_at` currently come from
-  backend payloads as wall-clock values without timezone semantics.
-- Until those backend fields are migrated to timezone-qualified ISO strings, the
-  operator user list/detail pages should preserve the returned wall-clock time
-  with `formatOperatorNaiveDateTime`.
-- This exception only applies to the user-record timestamps above.
-- Event timestamps such as `last_login_at`, `last_learning_at`, and other
-  timezone-qualified activity fields should continue to use the browser-timezone
+- Some admin/operator metadata fields still come from backend payloads as
+  wall-clock values without timezone semantics.
+- Until those fields are migrated to timezone-qualified ISO strings, the
+  frontend should preserve the returned wall-clock time with the naive
+  formatter helpers instead of applying browser-timezone conversion.
+- Current exceptions:
+  - operator user record `created_at` / `updated_at`
+  - operator course metadata `basic_info.created_at` / `basic_info.updated_at`
+  - operator course list metadata `created_at` / `updated_at`
+  - operator chapter metadata `updated_at`
+  - operator learn order metadata `created_at`
+  - operator credit order metadata `created_at`
+  - operator order detail metadata `created_at` / `updated_at`
+- Event timestamps such as login, learning activity, and other
+  timezone-qualified fields should continue to use the browser-timezone
   rendering flow.
 
 ## Implementation Plan
