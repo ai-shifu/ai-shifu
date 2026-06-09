@@ -496,7 +496,9 @@ export default function CourseUsersTab({
                           style={getColumnStyle('lastLearnedAt')}
                         >
                           <AdminTooltipText
-                            text={formatAdminNaiveDateTime(row.last_learning_at)}
+                            text={formatAdminNaiveDateTime(
+                              row.last_learning_at,
+                            )}
                             emptyValue={emptyValue}
                             className='mx-auto block max-w-full tabular-nums'
                           />
