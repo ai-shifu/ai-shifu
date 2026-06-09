@@ -599,9 +599,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     ).toBeInTheDocument();
   });
 
-  test(
-    'keeps follow-up timestamps as returned wall-clock time when browser timezone changes',
-    async () => {
+  test('keeps follow-up timestamps as returned wall-clock time when browser timezone changes', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
       summary: {
@@ -641,42 +639,38 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     expect(document.body.textContent).toContain('01:30:00');
     expect(document.body.textContent).not.toContain('2026-04-04');
     expect(document.body.textContent).not.toContain('18:30:00');
-    },
-  );
+  });
 
-  test(
-    'keeps follow-up detail drawer timestamps as returned wall-clock time',
-    async () => {
-      mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+  test('keeps follow-up detail drawer timestamps as returned wall-clock time', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
 
-      render(<AdminOperationCourseFollowUpsPage />);
+    render(<AdminOperationCourseFollowUpsPage />);
 
-      await screen.findByText('Second follow-up question');
+    await screen.findByText('Second follow-up question');
 
-      fireEvent.click(
-        screen.getAllByRole('button', {
-          name: 'module.operationsCourse.detail.followUps.table.detailAction',
-        })[0],
-      );
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.table.detailAction',
+      })[0],
+    );
 
-      expect(
-        await screen.findByText(
-          'module.operationsCourse.detail.followUps.drawer.title',
-        ),
-      ).toBeInTheDocument();
-      expect(screen.getAllByText('2026-04-05 11:02:00').length).toBeGreaterThan(
-        0,
-      );
-      expect(screen.getAllByText('2026-04-05 11:01:00').length).toBeGreaterThan(
-        0,
-      );
-      expect(screen.getAllByText('2026-04-05 11:02:02').length).toBeGreaterThan(
-        0,
-      );
-      expect(screen.queryByText('2026-04-05 04:02:00')).not.toBeInTheDocument();
-      expect(screen.queryByText('2026-04-05 04:01:00')).not.toBeInTheDocument();
-    },
-  );
+    expect(
+      await screen.findByText(
+        'module.operationsCourse.detail.followUps.drawer.title',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('2026-04-05 11:02:00').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText('2026-04-05 11:01:00').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText('2026-04-05 11:02:02').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText('2026-04-05 04:02:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-05 04:01:00')).not.toBeInTheDocument();
+  });
 
   test('ignores a late detail response after the drawer is closed', async () => {
     const deferredDetail =
