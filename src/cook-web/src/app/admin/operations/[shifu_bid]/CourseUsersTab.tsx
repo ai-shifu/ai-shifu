@@ -10,7 +10,7 @@ import {
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
 } from '@/app/admin/components/adminTableStyles';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -496,7 +496,7 @@ export default function CourseUsersTab({
                           style={getColumnStyle('lastLearnedAt')}
                         >
                           <AdminTooltipText
-                            text={formatAdminUtcDateTime(row.last_learning_at)}
+                            text={formatAdminNaiveDateTime(row.last_learning_at)}
                             emptyValue={emptyValue}
                             className='mx-auto block max-w-full tabular-nums'
                           />
@@ -506,7 +506,7 @@ export default function CourseUsersTab({
                           style={getColumnStyle('lastLoginAt')}
                         >
                           <AdminTooltipText
-                            text={formatAdminUtcDateTime(row.last_login_at)}
+                            text={formatAdminNaiveDateTime(row.last_login_at)}
                             emptyValue={emptyValue}
                             className='mx-auto block max-w-full tabular-nums'
                           />
@@ -516,7 +516,7 @@ export default function CourseUsersTab({
                           style={getColumnStyle('joinedAt')}
                         >
                           <AdminTooltipText
-                            text={formatAdminUtcDateTime(row.joined_at)}
+                            text={formatAdminNaiveDateTime(row.joined_at)}
                             emptyValue={emptyValue}
                             className='mx-auto block max-w-full tabular-nums'
                           />

@@ -616,6 +616,47 @@ describe('AdminOperationCourseDetailPage', () => {
     expect(screen.queryByText('2026-06-09 04:01:50')).not.toBeInTheDocument();
   });
 
+  test(
+    'keeps course user activity timestamps as returned wall-clock time',
+    async () => {
+      mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+      mockGetAdminOperationCourseUsers.mockResolvedValueOnce({
+        items: [
+          {
+            user_bid: 'student-1',
+            mobile: '13900001234',
+            email: '',
+            nickname: 'Bob',
+            user_role: 'student',
+            learned_lesson_count: 1,
+            total_lesson_count: 3,
+            learning_status: 'learning',
+            is_paid: true,
+            total_paid_amount: '88',
+            last_learning_at: '2026-04-08T11:30:00Z',
+            joined_at: '2026-04-07T09:00:00Z',
+            last_login_at: '2026-04-08T12:00:00Z',
+          },
+        ],
+        page: 1,
+        page_count: 1,
+        page_size: 20,
+        total: 1,
+      });
+
+      render(<AdminOperationCourseDetailPage />);
+
+      await openUsersTab();
+
+      expect(screen.getByText('2026-04-08 11:30:00')).toBeInTheDocument();
+      expect(screen.getByText('2026-04-08 12:00:00')).toBeInTheDocument();
+      expect(screen.getByText('2026-04-07 09:00:00')).toBeInTheDocument();
+      expect(screen.queryByText('2026-04-08 04:30:00')).not.toBeInTheDocument();
+      expect(screen.queryByText('2026-04-08 05:00:00')).not.toBeInTheDocument();
+      expect(screen.queryByText('2026-04-07 02:00:00')).not.toBeInTheDocument();
+    },
+  );
+
   test('keeps course credit usage created_at values as returned wall-clock time', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseCreditUsages.mockResolvedValueOnce({
