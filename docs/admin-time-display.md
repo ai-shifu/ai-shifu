@@ -74,6 +74,11 @@ offset.
 - Current exceptions:
   - operator user record `created_at` / `updated_at`
   - operator course metadata `basic_info.created_at` / `basic_info.updated_at`
+  - operator course list metadata `created_at` / `updated_at`
+  - operator chapter metadata `updated_at`
+  - operator learn order metadata `created_at`
+  - operator credit order metadata `created_at`
+  - operator order detail metadata `created_at` / `updated_at`
 - Event timestamps such as login, learning activity, and other
   timezone-qualified fields should continue to use the browser-timezone
   rendering flow.
