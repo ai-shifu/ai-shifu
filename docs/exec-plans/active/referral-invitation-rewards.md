@@ -1,581 +1,467 @@
-# Referral Invitation Rewards Implementation Plan
+# 老带新邀请奖励实施计划
 
 ## Purpose / Big Picture
 
-Build the first version of AI-Shifu's existing-user-invites-new-user reward
-flow on top of configurable referral campaigns. Existing domestic users get an
-invite code and link; new phone-registered users can bind to one inviter at
-registration; the launch campaign grants the inviter one month of the configured
-199 CNY plan for each valid invite, capped at 12 months.
+基于可配置 referral campaign，实现 AI 师傅第一版“老用户邀请新用户”奖励链路。老用户获得邀请码和邀请链接；新手机号注册用户可以在注册时绑定一个邀请人；首发活动中，每个有效邀请给邀请人发放 1 个月配置好的 199 元套餐权益，最多 12 个月。
 
 ## Progress
 
-- [x] 2026-06-08 22:30 CST: Read the Feishu wiki proposal, inspected the
-  current user auth, post-auth, billing, manual plan grant, and operator
-  referral reward paths.
-- [x] 2026-06-08 22:45 CST: Captured the product and technical design in
-  `docs/design-docs/referral-invitation-rewards.md`.
-- [x] 2026-06-08 23:25 CST: Revised the design to add campaign and reward-rule
-  configuration tables so the implementation is not hardcoded to one demand.
-- [x] 2026-06-09 16:15 CST: Rechecked against the Feishu requirement and added
-  manual-code entry, generic invite events, 30-day credit expiry, operator
-  adjustment, and analytics coverage.
-- [ ] 2026-06-08 22:45 CST: Implement backend referral domain models,
-  migrations, services, routes, and tests.
-- [ ] 2026-06-08 22:45 CST: Implement creator invite and invitee landing
-  frontend surfaces.
-- [ ] 2026-06-08 22:45 CST: Implement operator referral monitoring and abnormal
-  handling surfaces.
-- [ ] 2026-06-08 22:45 CST: Validate in dev02 with real configured billing
-  product and database rows.
+- [x] 2026-06-08 22:30 CST：阅读飞书方案，检查现有用户认证、post-auth、billing、运营手动套餐发放和运营 referral reward 路径。
+- [x] 2026-06-08 22:45 CST：在 `docs/design-docs/referral-invitation-rewards.md` 中记录产品和技术设计。
+- [x] 2026-06-08 23:25 CST：按反馈增加 campaign 和 reward rule 配置表，避免实现只面向单一需求硬编码。
+- [x] 2026-06-09 16:15 CST：再次对照飞书需求，补齐手动输入邀请码、通用邀请事件、30 天积分过期、运营人工调整和活动统计覆盖。
+- [x] 2026-06-09 17:10 CST：按协作要求把设计文档和本 ExecPlan 的正文改为中文；保留 `PLANS.md` 要求的英文 section 锚点。
+- [ ] 2026-06-08 22:45 CST：实现后端 referral domain models、migrations、services、routes 和 tests。
+- [ ] 2026-06-08 22:45 CST：实现创作者邀请页和被邀请人落地页。
+- [ ] 2026-06-08 22:45 CST：实现运营 referral 监控和异常处理页面。
+- [ ] 2026-06-08 22:45 CST：在 dev02 使用真实 billing product 配置和数据库行完成验证。
 
 ## Surprises & Discoveries
 
-- `src/api/flaskr/service/billing/referral_reward_grants.py` already exists,
-  but it is an operator manual credit pool. It does not model invite codes,
-  invitee binding, automatic rewards, or the 12-month cap.
-- `src/api/flaskr/service/billing/manual_plan_grants.py` already has the
-  useful `manual + paid` billing order pattern, but it currently implements
-  operator package grants with immediate activation/upgrade semantics. Referral
-  rewards need same-plan extension and deferred activation after higher/yearly
-  paid plans.
-- `src/api/flaskr/service/user/post_auth.py` is the right registration-side
-  extension point. It is already used by billing trial bootstrap and is
-  best-effort so login success is not coupled to side-effect delivery.
-- The test fixture product `creator-plan-monthly-pro` represents the 199 CNY
-  monthly plan, but implementation must verify the live catalog credit amount
-  before feature enablement because the Feishu proposal states 1000 credits per
-  30-day reward cycle.
-- The initial design was too close to the single Feishu campaign. The data model
-  needs campaign and reward-rule configuration tables so cap, product, route,
-  eligibility, and timing policy can vary without schema or code rewrites.
+- `src/api/flaskr/service/billing/referral_reward_grants.py` 已存在，但它是运营手动 credit pool，不表达邀请码、被邀请人绑定、自动奖励或 12 个月上限。
+- `src/api/flaskr/service/billing/manual_plan_grants.py` 已有有用的 `manual + paid` 订单编排模式，但当前语义是运营套餐发放和立即生效/升级。Referral 奖励需要同套餐顺延，以及在更高级套餐或年套餐结束后延后生效。
+- `src/api/flaskr/service/user/post_auth.py` 是注册侧扩展点。它已被 billing trial bootstrap 使用，并且是 best-effort，不会把登录成功和副作用强绑定。
+- 测试 fixture 产品 `creator-plan-monthly-pro` 代表 199 元月套餐，但启用功能前必须验证线上 catalog 的积分数量，因为飞书方案要求每 30 天周期 1000 积分。
+- 初始设计过于贴近单个飞书活动。数据模型需要 campaign 和 reward rule 配置表，让 cap、product、route、eligibility、积分有效期和 timing policy 不通过改代码表达。
 
 ## Decision Log
 
-- Add a new `src/api/flaskr/service/referral/` domain for invite codes,
-  campaign configuration, invite codes, relation binding, invite event tracking,
-  reward audit rows, repair scripts, and operator read models.
-- Store mutable campaign business settings in `referral_campaigns` and
-  `referral_campaign_reward_rules`. Runtime invite, relation, and reward rows
-  reference those config rows and keep snapshots needed for audit.
-- Keep billing as the package/credit truth by creating billing orders,
-  subscriptions, wallet buckets, and ledger entries for each granted reward.
-- Do not reuse the existing operator `referral_reward_grants.py` helper for
-  automatic invitation rewards; keep that helper as the current manual credit
-  tool. A separate cleanup can rename or merge these surfaces only after the
-  automatic invitation reward flow is live.
-- Extend `PostAuthContext` with optional referral metadata instead of placing
-  invite binding directly inside route handlers.
-- Treat post-auth reward generation as best-effort and idempotent; missing
-  reward side effects are repairable from `referral_invite_relations` and
-  `referral_invite_rewards`.
-- Store hashed event IP and user-agent values for funnel analysis. Do not store
-  raw IP/user-agent in referral event rows.
+- 新增 `src/api/flaskr/service/referral/` 域，负责活动配置、邀请码、邀请事件、关系绑定、奖励审计、修复脚本和运营 read model。
+- 将可变活动业务配置放在 `referral_campaigns` 和 `referral_campaign_reward_rules`。运行期 invite、relation、reward 行引用这些配置行，并保留审计需要的快照。
+- Billing 仍是套餐和积分事实来源。每个已发放奖励仍通过 billing order、subscription、wallet bucket 和 ledger entries 表达。
+- 不复用现有运营 `referral_reward_grants.py` helper 承载自动邀请奖励；该 helper 保留为当前运营手动 credit 工具。自动邀请奖励上线后，是否重命名或合并这些 surface 可以单独清理。
+- 扩展 `PostAuthContext`，加入可选 referral metadata；不要把邀请绑定逻辑直接写在 route handler 里。
+- Post-auth 奖励生成保持 best-effort 和幂等；缺失 side effects 可从 `referral_invite_relations` 与 `referral_invite_rewards` 修复。
+- 邀请事件只保存 hash 后的 IP 和 user agent，不保存原始值。
 
 ## Outcomes & Retrospective
 
-This section is updated after implementation. Expected outcome: a feature-flagged
-referral reward system that can be enabled in dev02, verified through DB rows
-and operator screens, and then rolled forward without changing existing paid
-billing semantics.
+实现完成后更新本节。预期结果：一个受 feature flag 控制的 referral reward 系统，可以在 dev02 启用，通过 DB 行和运营页面验证，并在不改变现有付费计费语义的前提下向前发布。
 
 ## Context and Orientation
 
-Start from these files:
+开始实现前先读这些文件：
 
-- Design source: `docs/design-docs/referral-invitation-rewards.md`.
-- Billing design: `docs/billing-subscription-design.md`.
-- User auth rules: `src/api/AGENTS.md`,
-  `src/api/flaskr/service/user/AGENTS.md`, and
-  `src/api/skills/user-auth-flows/SKILL.md`.
-- Billing rules: `src/api/flaskr/service/billing/AGENTS.md`.
-- Frontend rules: `src/cook-web/AGENTS.md`, `src/cook-web/src/app/AGENTS.md`,
-  and nearest `AGENTS.md` files in touched directories.
+- 设计来源：`docs/design-docs/referral-invitation-rewards.md`。
+- 计费设计：`docs/billing-subscription-design.md`。
+- 用户认证规则：`src/api/AGENTS.md`、`src/api/flaskr/service/user/AGENTS.md`、`src/api/skills/user-auth-flows/SKILL.md`。
+- 计费规则：`src/api/flaskr/service/billing/AGENTS.md`。
+- 前端规则：`src/cook-web/AGENTS.md`、`src/cook-web/src/app/AGENTS.md`，以及被修改目录下最近的 `AGENTS.md`。
 
-Existing code to reuse:
+优先复用这些现有代码：
 
-- `src/api/flaskr/route/user.py`: SMS login payload and post-auth context.
-- `src/api/flaskr/service/user/post_auth.py`: post-auth extension contract.
-- `src/api/flaskr/service/billing/subscriptions.py`: paid order activation and
-  `grant_paid_order_credits`.
-- `src/api/flaskr/service/billing/manual_plan_grants.py`: manual paid-order
-  orchestration pattern.
-- `src/api/flaskr/common/public_urls.py`: public origin URL construction.
-- `src/api/flaskr/service/shifu/admin_operations/route.py`: operator route
-  namespace pattern.
-- `src/cook-web/src/lib/request.ts` and `src/cook-web/src/lib/api.ts`: frontend
-  request stack.
-- `src/i18n/*/modules/operations-user.json` and billing i18n modules for
-  existing operations copy style.
+- `src/api/flaskr/route/user.py`：SMS 登录 payload 和 post-auth context。
+- `src/api/flaskr/service/user/post_auth.py`：post-auth extension contract。
+- `src/api/flaskr/service/billing/subscriptions.py`：paid order activation 和 `grant_paid_order_credits`。
+- `src/api/flaskr/service/billing/manual_plan_grants.py`：手动 paid-order 编排模式。
+- `src/api/flaskr/common/public_urls.py`：公开 origin URL 构造。
+- `src/api/flaskr/service/shifu/admin_operations/route.py`：运营 route namespace 模式。
+- `src/cook-web/src/lib/request.ts` 和 `src/cook-web/src/lib/api.ts`：前端请求栈。
+- `src/i18n/*/modules/operations-user.json` 和 billing i18n modules：现有运营文案风格。
 
-Do not edit existing applied Alembic migrations. Generate a new migration for
-referral tables.
+不要修改已经应用过的 Alembic migration。Referral 表需要新增 migration。
 
 ## Plan of Work
 
-1. Add referral backend domain scaffolding and campaign-aware database schema.
-2. Add campaign activation and reward-rule evaluation helpers.
-3. Add invite profile, invite event, and relation binding helpers.
-4. Extend SMS login post-auth context and add the referral post-auth handler.
-5. Add billing referral plan reward helper with extension/deferred semantics.
-6. Add creator-facing referral APIs.
-7. Add operator referral APIs and read models.
-8. Add focused backend tests for campaign config, relation binding, cap handling, billing
-   artifacts, and operator status changes.
-9. Add creator invite and invitee landing frontend flows.
-10. Add operator referral monitoring UI.
-11. Regenerate i18n/type surfaces and run validation.
-12. Verify in dev02 behind a feature flag.
+1. 新增 referral backend domain scaffold 和 campaign-aware 数据库 schema。
+2. 新增 campaign activation 和 reward-rule evaluation helpers。
+3. 新增 invite profile、invite event 和 relation binding helpers。
+4. 扩展 SMS 登录 post-auth context，并加入 referral post-auth handler。
+5. 新增 billing referral plan reward helper，支持顺延和延后生效。
+6. 新增创作者侧 referral APIs。
+7. 新增运营侧 referral APIs 和 read models。
+8. 增加后端重点测试，覆盖 campaign config、关系绑定、cap、billing artifacts 和运营状态变更。
+9. 增加创作者邀请页和被邀请人落地页。
+10. 增加运营 referral 监控 UI。
+11. 重新生成 i18n/type surface，并运行验证。
+12. 在 feature flag 后面完成 dev02 验证。
 
 ## Concrete Steps
 
-### Step 1: Create Backend Referral Domain
+### 步骤 1：创建后端 Referral Domain
 
-Files:
+文件：
 
-- Create `src/api/flaskr/service/referral/AGENTS.md`.
-- Create `src/api/flaskr/service/referral/__init__.py`.
-- Create `src/api/flaskr/service/referral/consts.py`.
-- Create `src/api/flaskr/service/referral/models.py`.
-- Create `src/api/flaskr/service/referral/dtos.py`.
-- Create `src/api/flaskr/service/referral/service.py`.
-- Create `src/api/flaskr/service/referral/routes.py`.
-- Create `src/api/tests/service/referral/`.
+- 新建 `src/api/flaskr/service/referral/AGENTS.md`。
+- 新建 `src/api/flaskr/service/referral/__init__.py`。
+- 新建 `src/api/flaskr/service/referral/consts.py`。
+- 新建 `src/api/flaskr/service/referral/models.py`。
+- 新建 `src/api/flaskr/service/referral/dtos.py`。
+- 新建 `src/api/flaskr/service/referral/service.py`。
+- 新建 `src/api/flaskr/service/referral/routes.py`。
+- 新建 `src/api/tests/service/referral/`。
 
-Implementation requirements:
+实现要求：
 
-- Define status/type constants in a referral-local range, not in billing
-  constants.
-- Add models for:
+- 在 referral 域内定义本地 status/type constants，不放进 billing constants。
+- 增加模型：
   - `ReferralCampaign`
   - `ReferralCampaignRewardRule`
   - `ReferralInviteCode`
   - `ReferralInviteEvent`
   - `ReferralInviteRelation`
   - `ReferralInviteReward`
-- Use `String(36)` business IDs, soft delete, `SmallInteger` status fields, and
-  JSON metadata following existing model conventions.
-- Add unique constraints for campaign code, campaign rule code, invite code, and
-  active invitee binding.
+- 遵循现有模型约定，使用 `String(36)` 业务 ID、soft delete、`SmallInteger` 状态字段和 JSON metadata。
+- 增加 campaign code、campaign rule code、invite code 和 active invitee binding 的唯一约束。
 
-Validation:
+验证：
 
-- Generate a new Alembic migration from `src/api`.
-- Review the migration manually for table names, indexes, and comments.
-- Add model tests that insert campaign, reward rule, invite code, relation, and
-  reward rows, then enforce unique invitee binding.
+- 从 `src/api` 生成新 Alembic migration。
+- 手动检查 migration 的表名、索引和注释。
+- 增加模型测试，插入 campaign、reward rule、invite code、relation、reward 行，并验证 invitee 唯一绑定约束。
 
-### Step 2: Build Campaign And Reward Rule Helpers
+### 步骤 2：实现 Campaign 和 Reward Rule Helpers
 
-Files:
+文件：
 
-- Modify `src/api/flaskr/service/referral/service.py`.
-- Modify `src/api/flaskr/service/referral/dtos.py`.
-- Add `src/api/tests/service/referral/test_campaign_config.py`.
+- 修改 `src/api/flaskr/service/referral/service.py`。
+- 修改 `src/api/flaskr/service/referral/dtos.py`。
+- 增加 `src/api/tests/service/referral/test_campaign_config.py`。
 
-Implementation requirements:
+实现要求：
 
-- Load only active campaigns inside their configured time window and enabled
-  rollout flag.
-- Select active reward rules by trigger event and priority.
-- Evaluate configured inviter and invitee eligibility for the launch rule.
-- Return a rule snapshot containing product code, cycle count, cap scope, cap
-  count, credit amount, credit validity, timing policy, and copy keys.
-- Seed or document the launch campaign row and launch reward-rule row used by
-  dev02 validation.
+- 只加载 active、处于配置时间窗口内且 rollout flag 已打开的 campaign。
+- 按 trigger event 和 priority 选择 active reward rules。
+- 对首发规则评估配置化的邀请人和被邀请人资格。
+- 返回 rule snapshot，包含 product code、cycle count、cap scope、cap count、credit amount、credit validity、timing policy 和 copy keys。
+- seed 或文档化 dev02 验证用的首发 campaign row 和 reward-rule row。
 
-Validation:
+验证：
 
-- Inactive, paused, expired, or flag-disabled campaigns do not generate usable
-  invite profiles.
-- Changing the configured cap in test data changes reward behavior without code
-  changes.
-- Invalid reward product expectations fail before grant.
+- inactive、paused、expired 或 flag-disabled campaign 不生成可用邀请资料。
+- 测试数据里修改 cap 后，奖励行为随配置变化，不需要改代码。
+- 奖励产品期望不合法时，grant 前失败。
 
-### Step 3: Build Invite Code And Profile Helpers
+### 步骤 3：实现 Invite Code 和 Profile Helpers
 
-Files:
+文件：
 
-- Modify `src/api/flaskr/service/referral/service.py`.
-- Modify `src/api/flaskr/service/referral/dtos.py`.
-- Add `src/api/tests/service/referral/test_invite_profile.py`.
+- 修改 `src/api/flaskr/service/referral/service.py`。
+- 修改 `src/api/flaskr/service/referral/dtos.py`。
+- 增加 `src/api/tests/service/referral/test_invite_profile.py`。
 
-Implementation requirements:
+实现要求：
 
-- Generate immutable random invite codes with collision retry, scoped by
-  campaign.
-- Lazily create the inviter profile for the active campaign on
-  `GET /api/referral/invite-profile`.
-- Build invite links through a public-origin helper, not hardcoded hostnames.
-- Return rewarded count, remaining count, cap, and reward queue summary.
-- Keep invitee mobile/user details out of inviter-facing responses.
+- 生成不可变随机邀请码，按 campaign 隔离，并做碰撞重试。
+- `GET /api/referral/invite-profile` 按当前 active campaign 懒创建邀请资料。
+- 使用公开 origin helper 构造邀请链接，不硬编码 hostname。
+- 返回已奖励数、剩余奖励数、cap 和奖励队列摘要。
+- 邀请人侧响应不暴露被邀请人手机号或账号详情。
 
-Validation:
+验证：
 
-- Invite code is stable across repeated profile loads.
-- The same user can hold distinct invite codes for distinct campaigns.
-- Invite link uses configured/request public origin.
-- Disabled invite codes are not returned as usable.
+- 多次加载 profile 返回稳定的邀请码。
+- 同一用户在不同 campaign 下可以拥有不同邀请码。
+- 邀请链接使用配置或请求 public origin。
+- disabled invite code 不作为可用 code 返回。
 
-### Step 4: Record Invite Events
+### 步骤 4：记录邀请事件
 
-Files:
+文件：
 
-- Modify `src/api/flaskr/service/referral/service.py`.
-- Modify `src/api/flaskr/service/referral/routes.py`.
-- Add `src/api/tests/service/referral/test_invite_events.py`.
-
-Implementation requirements:
-
-- Add `POST /api/referral/invite-event`.
-- Accept event type, invite code, landing path, frontend session id, and entry
-  source.
-- Record invite link click, registration page view, manual invite-code entry,
-  and registration submit events.
-- Resolve the campaign from the invite code when possible and store
-  `campaign_bid`.
-- Hash IP and user-agent before persistence.
-- Return only a success status and a generated referral session id when needed.
-- Do not reveal inviter account data on anonymous calls.
-
-Validation:
-
-- Valid invite code records each supported event type.
-- Invalid invite code returns a generic non-identifying error or no-op response,
-  matching product choice in the design.
-- Raw IP and raw user-agent are not persisted.
-
-### Step 5: Extend PostAuthContext And SMS Login Payload
-
-Files:
+- 修改 `src/api/flaskr/service/referral/service.py`。
+- 修改 `src/api/flaskr/service/referral/routes.py`。
+- 增加 `src/api/tests/service/referral/test_invite_events.py`。
 
-- Modify `src/api/flaskr/service/user/post_auth.py`.
-- Modify `src/api/flaskr/route/user.py`.
-- Add/update tests under `src/api/tests/service/user/`.
-
-Implementation requirements:
-
-- Add optional `invite_code`, `referral_session_id`, `referral_entry_source`,
-  `client_ip_hash`, and `user_agent_hash` fields to `PostAuthContext`.
-- In SMS login, read `invite_code`, `referral_session_id`, and
-  `referral_entry_source` from the payload.
-- Pass referral fields only to post-auth context. Do not bind referral state in
-  the route.
-- Preserve existing temp-user and verification-code behavior.
-
-Validation:
-
-- Existing SMS login tests still pass.
-- New test confirms SMS login passes referral metadata to post-auth handlers.
-- Link-derived and manually entered invite codes follow the same post-auth path.
-- Existing user login with invite code does not imply a new registration.
-
-### Step 6: Add Referral Post-Auth Handler
-
-Files:
-
-- Create `src/api/flaskr/service/referral/auth_hooks.py`.
-- Ensure the module is imported by the plugin/registration path used by service
-  extensions.
-- Add `src/api/tests/service/referral/test_post_auth_binding.py`.
-
-Implementation requirements:
-
-- Register an extension for `run_post_auth_extensions`.
-- Act only when `created_new_user = true` and invite code is present.
-- Reject self-invites.
-- Load the campaign and reward rule from the invite code, then evaluate
-  configured eligibility and cap.
-- Create one active relation per invitee.
-- Count rewardable prior invite rewards using the configured cap scope.
-- Create a reward row while the configured cap is not reached.
-- Mark cap-exceeded valid invitees as skipped without billing side effects.
-- Never fail login because of referral processing errors; log enough BIDs for
-  repair.
-
-Validation:
-
-- New invited user creates relation and reward.
-- Existing user login does not create relation.
-- Duplicate post-auth retry returns the existing relation/reward.
-- Cap-exceeded invite creates relation with skipped reward state.
-
-### Step 7: Add Billing Referral Plan Reward Helper
-
-Files:
-
-- Create `src/api/flaskr/service/billing/referral_plan_rewards.py`.
-- Modify `src/api/flaskr/service/billing/api.py` to export the helper.
-- Add `src/api/tests/service/billing/test_referral_plan_rewards.py`.
-
-Implementation requirements:
-
-- Load reward product from the reward rule snapshot.
-- Verify the product is an active plan and matches configured campaign
-  expectations before granting.
-- Create idempotent `manual + paid` billing orders with provider reference
-  `referral-reward:{reward_bid}`.
-- Use metadata `checkout_type = referral_invitation_reward`.
-- Include campaign and reward-rule BIDs in billing metadata.
-- Reuse `grant_paid_order_credits`.
-- Support immediate activation when no active paid subscription exists.
-- Support immediate transition into the configured reward plan when the inviter
-  is currently on the free plan.
-- Support same-plan extension when active self-managed subscription uses the
-  reward product.
-- Support deferred activation after higher/yearly paid plan end.
-- Preserve configured 30-day credit-bucket expiry for launch rewards.
-- Return subscription, order, wallet bucket, and ledger BIDs to the referral
-  service.
-
-Validation:
-
-- New user with no subscription gets active reward immediately.
-- Same reward call is idempotent.
-- Existing same-plan subscription extends by one cycle.
-- Existing higher/yearly plan leaves paid plan current and records deferred
-  reward.
-- Launch reward creates a 1000-credit bucket that expires at the 30-day cycle
-  boundary.
-- Ledger/order metadata contains relation and reward BIDs.
-
-### Step 8: Wire Reward Artifacts Back To Referral Rows
-
-Files:
-
-- Modify `src/api/flaskr/service/referral/service.py`.
-- Add tests in `src/api/tests/service/referral/test_reward_generation.py`.
-
-Implementation requirements:
-
-- After billing grant, update `referral_invite_rewards` with billing artifact
-  BIDs, effective windows, campaign snapshot, reward-rule snapshot, credit
-  amount, and credit expiry.
-- If billing grant fails after relation creation, leave reward in a repairable
-  pending/failed state with error metadata.
-- Add a repair helper that scans pending reward rows and retries billing grant.
-
-Validation:
-
-- Successful reward row links to billing artifacts.
-- Failed billing call leaves relation intact and retryable.
-- Repair helper grants a previously pending reward without duplicating relation
-  or order rows.
-
-### Step 9: Add Creator Referral APIs
-
-Files:
-
-- Modify `src/api/flaskr/service/referral/routes.py`.
-- Ensure route registration under `/api/referral`.
-- Add route tests in `src/api/tests/service/referral/test_referral_routes.py`.
+实现要求：
 
-Implementation requirements:
+- 增加 `POST /api/referral/invite-event`。
+- 接收 event type、invite code、landing path、frontend session id 和 entry source。
+- 记录 invite link click、registration page view、manual invite-code entry 和 registration submit 事件。
+- 能解析邀请码时，从邀请码解析 campaign 并保存 `campaign_bid`。
+- 持久化前 hash IP 和 user agent。
+- 只返回 success 状态和必要时生成的 referral session id。
+- 匿名调用不得泄露邀请人账号数据。
 
-- `GET /api/referral/invite-profile` requires authenticated user.
-- `POST /api/referral/invite-event` supports anonymous use.
-- Responses use the shared response envelope.
-- Add feature flag checks so the feature can be disabled by default.
-
-Validation:
-
-- Authenticated profile returns invite code and link.
-- Profile response includes campaign code, configured cap, remaining reward
-  count, and rule copy keys.
-- Unauthenticated profile is denied.
-- Event endpoint does not require auth.
-- Event endpoint records manual-code entry without exposing inviter account data.
-- Feature disabled state returns the configured disabled error/no-op.
-
-### Step 10: Add Operator Referral APIs
+验证：
 
-Files:
-
-- Modify `src/api/flaskr/service/shifu/admin_operations/route.py` or add a
-  focused referral route module under that namespace if the file grows too much.
-- Add referral read model helpers under `src/api/flaskr/service/referral/`.
-- Add DTOs under `src/api/flaskr/service/referral/dtos.py` or
-  `src/api/flaskr/service/shifu/admin_dtos.py`, following existing patterns.
-- Add tests under `src/api/tests/service/referral/` and
-  route permission tests under `src/api/tests/service/shifu/`.
+- 有效邀请码能记录每种支持的 event type。
+- 无效邀请码返回非识别性的通用错误或 no-op 响应，按设计选择实现。
+- 不持久化原始 IP 和原始 user agent。
 
-Implementation requirements:
+### 步骤 5：扩展 PostAuthContext 和 SMS 登录 Payload
 
-- Add overview metrics route.
-- Add relation list route with campaign, inviter keyword, invitee keyword,
-  reward status, abnormal status, and created time filters.
-- Add relation detail route with billing artifacts.
-- Add audited relation adjustment route for exceptional post-registration
-  correction or cancellation.
-- Add status update route for abnormal reviewing, cancel, freeze, and note.
-- Keep operator permission guard as the real access control.
+文件：
 
-Validation:
+- 修改 `src/api/flaskr/service/user/post_auth.py`。
+- 修改 `src/api/flaskr/route/user.py`。
+- 增加或更新 `src/api/tests/service/user/` 下测试。
 
-- Non-operator users are denied.
-- Operators can list, filter, inspect detail, update abnormal status, and record
-  relation adjustments with notes.
-- Overview includes clicks, registration page visits, invited registrations,
-  capped inviters, reward months, abnormal counts, invited-user usage,
-  invited-user credit consumption, and invited-user paid conversion.
-- Status updates do not delete billing truth.
+实现要求：
 
-### Step 11: Add Frontend API And Types
+- 在 `PostAuthContext` 增加可选 `invite_code`、`referral_session_id`、`referral_entry_source`、`client_ip_hash`、`user_agent_hash`。
+- SMS 登录从 payload 读取 `invite_code`、`referral_session_id`、`referral_entry_source`。
+- 路由只把 referral 字段传给 post-auth context，不直接绑定关系。
+- 保持既有 temp-user 和 verification-code 行为。
 
-Files:
+验证：
 
-- Modify `src/cook-web/src/api/api.ts`.
-- Create or modify referral API wrappers under the existing frontend API layer.
-- Add `src/cook-web/src/types/referral.ts` if a separate type file is cleaner.
-- Update i18n JSON under `src/i18n/zh-CN`, `src/i18n/en-US`,
-  and `src/i18n/fr-FR`.
+- 既有 SMS 登录测试继续通过。
+- 新测试确认 SMS 登录会把 referral metadata 传给 post-auth handlers。
+- 链接带来的邀请码和手动输入的邀请码进入同一 post-auth 路径。
+- 已有用户携带邀请码登录不会触发新绑定。
 
-Implementation requirements:
+### 步骤 6：增加 Referral Post-Auth Handler
 
-- Keep calls on the shared request stack.
-- Add creator invite profile and invite-event endpoints.
-- Add operator referral endpoints.
-- Keep all user-facing copy in i18n JSON.
+文件：
 
-Validation:
+- 新建 `src/api/flaskr/service/referral/auth_hooks.py`。
+- 确保该模块被 service extension 注册路径 import。
+- 增加 `src/api/tests/service/referral/test_post_auth_binding.py`。
 
-- API endpoint string tests include new routes.
-- TypeScript type-check passes.
+实现要求：
 
-### Step 12: Add Creator Invite Page
+- 注册 `run_post_auth_extensions` extension。
+- 只在 `created_new_user = true` 且存在 invite code 时执行。
+- 拒绝自邀请。
+- 从 invite code 加载 campaign 和 reward rule，并评估配置化 eligibility 与 cap。
+- 每个 invitee 创建一个 active relation。
+- 按配置的 cap scope 统计既有 reward。
+- 未达到 cap 时创建 reward row。
+- 超过 cap 的有效邀请标记为 skipped，不产生 billing side effects。
+- Referral 处理错误不能导致登录失败；日志必须包含足够 BID 供修复。
 
-Files:
+验证：
 
-- Add a route under the creator/admin area in `src/cook-web/src/app/admin/`.
-- Add components near the route or under `src/cook-web/src/components/` if they
-  are shared.
-- Update navigation only in the existing creator/admin navigation path.
-- Add frontend tests for rendering and copy action.
+- 新被邀请用户创建 relation 和 reward。
+- 已有用户登录不创建 relation。
+- 重复 post-auth 重试返回既有 relation/reward。
+- 超过 cap 的邀请创建 skipped 状态 relation。
 
-Implementation requirements:
+### 步骤 7：增加 Billing Referral Plan Reward Helper
 
-- Show invite link, invite code, copy action, campaign rules copy, reward count,
-  remaining reward count, queue summary, and cap state.
-- Explain obtained-but-pending-effective rewards when paid entitlement has
-  priority.
-- Do not show invitee private data.
-- Use restrained admin styling consistent with billing/operations pages.
+文件：
 
-Validation:
+- 新建 `src/api/flaskr/service/billing/referral_plan_rewards.py`。
+- 修改 `src/api/flaskr/service/billing/api.py` 导出 helper。
+- 增加 `src/api/tests/service/billing/test_referral_plan_rewards.py`。
 
-- Page renders loading, success, empty, disabled, and cap states.
-- Copy action uses the generated link.
-- All copy resolves through i18n.
+实现要求：
 
-### Step 13: Add Invitee Landing Flow
+- 从 reward rule snapshot 加载 reward product。
+- Grant 前验证 product 是 active plan，且符合配置的活动期望。
+- 创建幂等 `manual + paid` billing order，provider reference 为 `referral-reward:{reward_bid}`。
+- 使用 metadata `checkout_type = referral_invitation_reward`。
+- 在 billing metadata 中包含 campaign 和 reward-rule BID。
+- 复用 `grant_paid_order_credits`。
+- 无有效付费订阅时立即生效。
+- 邀请人当前为免费套餐时，立即进入配置的奖励套餐。
+- 当前同款自营订阅使用 reward product 时，同套餐顺延。
+- 更高级套餐或年套餐结束后延后生效。
+- 首发奖励保持配置的 30 天 credit-bucket 过期语义。
+- 返回 subscription、order、wallet bucket、ledger BID 给 referral service。
 
-Files:
+验证：
 
-- Add invite route under `src/cook-web/src/app/`.
-- Add manual invite-code entry in the pre-registration flow.
-- Modify existing login/SMS call site to include stored invite code and
-  referral session id.
-- Add tests for payload propagation.
+- 无订阅用户立即得到 active reward。
+- 同一 reward 重复调用幂等。
+- 已有同套餐订阅顺延一个周期。
+- 已有更高级套餐或年套餐保持当前付费套餐，记录 deferred reward。
+- 首发奖励创建 1000 积分 bucket，并在 30 天周期边界过期。
+- Ledger/order metadata 包含 relation 和 reward BID。
 
-Implementation requirements:
+### 步骤 8：将 Reward Artifacts 写回 Referral Rows
 
-- Read invite code from route/query.
-- Record invite link click and registration page view once per referral session.
-- Accept manually entered invite code before SMS login and record the code-entry
-  event.
-- Preserve invite code through SMS login.
-- Do not display extra invitee reward promises.
+文件：
 
-Validation:
+- 修改 `src/api/flaskr/service/referral/service.py`。
+- 增加 `src/api/tests/service/referral/test_reward_generation.py`。
 
-- Landing route stores invite context.
-- Manual invite-code entry stores the same invite context as link entry.
-- SMS login payload includes invite code.
-- Clearing the flow removes stale invite context after successful login.
+实现要求：
 
-### Step 14: Add Operator Referral UI
+- Billing grant 成功后，更新 `referral_invite_rewards` 的 billing artifact BID、effective windows、campaign snapshot、reward-rule snapshot、credit amount 和 credit expiry。
+- Relation 创建后 billing grant 失败时，reward 保留为可修复的 pending/failed 状态，并写入 error metadata。
+- 增加 repair helper，扫描 pending reward rows 并重试 billing grant。
 
-Files:
+验证：
 
-- Add page under `src/cook-web/src/app/admin/operations/referrals/`.
-- Add route/nav entries in operations menu.
-- Add tests near the new page.
+- 成功 reward row 关联 billing artifacts。
+- Billing 调用失败时 relation 保留且 reward 可重试。
+- Repair helper 修复 pending reward 时不重复创建 relation 或 order。
 
-Implementation requirements:
+### 步骤 9：增加创作者 Referral APIs
 
-- Show campaign-aware overview metrics, filters, table, pagination, detail
-  sheet, and abnormal status actions.
-- Show invitee registration time, phone, account ID, reward status, effective
-  queue, and billing artifacts.
-- Link relation rows to existing user detail and billing artifacts where routes
-  already exist.
-- Keep the table dense and consistent with existing operations pages.
+文件：
 
-Validation:
+- 修改 `src/api/flaskr/service/referral/routes.py`。
+- 确保 route 注册到 `/api/referral`。
+- 增加 `src/api/tests/service/referral/test_referral_routes.py`。
 
-- Operator guard works.
-- Filters call the expected API params.
-- Detail sheet shows relation, invitee, and billing artifact fields.
-- Overview metrics match the Feishu activity-statistics list.
-- Status action confirmation sends the expected payload.
+实现要求：
 
-### Step 15: Add Repair/Diagnostics Script
+- `GET /api/referral/invite-profile` 需要登录用户。
+- `POST /api/referral/invite-event` 支持匿名使用。
+- 响应使用共享 response envelope。
+- 增加 feature flag 检查，默认可禁用。
 
-Files:
+验证：
 
-- Add backend script or CLI command under `src/api/flaskr/service/referral/` or
-  `src/api/flaskr/service/billing/cli.py` if that is the established CLI route.
-- Add tests for dry-run payloads where feasible.
+- 已登录用户 profile 返回 invite code 和 link。
+- Profile 响应包含 campaign code、配置 cap、剩余奖励数和规则文案 key。
+- 未登录 profile 被拒绝。
+- Event endpoint 不需要登录。
+- Event endpoint 记录手动输入邀请码时不暴露邀请人账号数据。
+- Feature disabled 时返回配置好的 disabled error 或 no-op。
 
-Implementation requirements:
+### 步骤 10：增加运营 Referral APIs
 
-- Scan pending/failed reward rows.
-- Retry billing grant idempotently.
-- Print relation, reward, order, ledger, and error fields.
-- Support dry-run mode.
+文件：
 
-Validation:
+- 修改 `src/api/flaskr/service/shifu/admin_operations/route.py`，或在该 namespace 下增加独立 referral route module，避免单文件过大。
+- 在 `src/api/flaskr/service/referral/` 下增加 referral read model helpers。
+- 按现有模式，在 `src/api/flaskr/service/referral/dtos.py` 或 `src/api/flaskr/service/shifu/admin_dtos.py` 增加 DTO。
+- 增加 `src/api/tests/service/referral/` 测试，以及 `src/api/tests/service/shifu/` 下 route permission 测试。
 
-- Dry run reports pending rewards without writes.
-- Retry repairs one pending reward and does not duplicate billing rows.
+实现要求：
+
+- 增加 overview metrics route。
+- 增加 relation list route，支持 campaign、邀请人 keyword、被邀请人 keyword、reward status、abnormal status、创建时间筛选。
+- 增加 relation detail route，包含 billing artifacts。
+- 增加带审计的 relation adjustment route，用于少数注册后纠正或取消关系的场景。
+- 增加 abnormal reviewing、cancel、freeze、note 的状态更新 route。
+- 真实访问控制使用现有 operator permission guard。
+
+验证：
+
+- 非运营用户被拒绝。
+- 运营可以 list、filter、查看详情、更新异常状态，并记录带备注的关系调整。
+- Overview 包含 clicks、registration page visits、invited registrations、capped inviters、reward months、abnormal counts、invited-user usage、invited-user credit consumption、invited-user paid conversion。
+- 状态更新不删除 billing truth。
+
+### 步骤 11：增加前端 API 和 Types
+
+文件：
+
+- 修改 `src/cook-web/src/api/api.ts`。
+- 在现有前端 API 层创建或修改 referral API wrappers。
+- 如果拆分更清晰，增加 `src/cook-web/src/types/referral.ts`。
+- 更新 `src/i18n/zh-CN`、`src/i18n/en-US`、`src/i18n/fr-FR` 下 JSON。
+
+实现要求：
+
+- 复用共享 request stack。
+- 增加 creator invite profile 和 invite-event endpoints。
+- 增加 operator referral endpoints。
+- 所有用户可见文案放进 i18n JSON。
+
+验证：
+
+- API endpoint string 测试包含新 routes。
+- TypeScript type-check 通过。
+
+### 步骤 12：增加创作者邀请页
+
+文件：
+
+- 在 `src/cook-web/src/app/admin/` 的创作者/后台区域增加 route。
+- 组件放在 route 附近；如果会复用，再放到 `src/cook-web/src/components/`。
+- 只更新现有创作者/后台导航路径。
+- 增加页面渲染和复制动作测试。
+
+实现要求：
+
+- 展示邀请链接、邀请码、复制动作、活动规则文案、已奖励数、剩余奖励数、队列摘要和 cap 状态。
+- 付费权益优先导致奖励待生效时，说明“已获得但待生效”。
+- 不展示被邀请人隐私数据。
+- 使用与 billing/operations 页面一致的克制后台样式。
+
+验证：
+
+- 页面覆盖 loading、success、empty、disabled、cap 状态。
+- 复制动作使用生成的链接。
+- 所有文案通过 i18n 解析。
+
+### 步骤 13：增加被邀请人落地页
+
+文件：
+
+- 在 `src/cook-web/src/app/` 下增加 invite route。
+- 在注册前流程增加手动输入邀请码入口。
+- 修改现有 login/SMS 调用点，携带保存的 invite code 和 referral session id。
+- 增加 payload 传递测试。
+
+实现要求：
+
+- 从 route/query 读取 invite code。
+- 同一 referral session 下记录一次邀请链接点击和注册页访问。
+- SMS 登录前接受手动输入邀请码，并记录 code-entry 事件。
+- SMS 登录时保留 invite code。
+- 不展示额外被邀请人奖励承诺。
+
+验证：
+
+- 落地页保存 invite context。
+- 手动输入邀请码保存的 invite context 与链接入口一致。
+- SMS 登录 payload 包含 invite code。
+- 登录成功后清理 stale invite context。
+
+### 步骤 14：增加运营 Referral UI
+
+文件：
+
+- 增加 `src/cook-web/src/app/admin/operations/referrals/` 页面。
+- 更新 operations 菜单 route/nav。
+- 在新页面附近增加测试。
+
+实现要求：
+
+- 展示 campaign-aware overview metrics、filters、table、pagination、detail sheet 和 abnormal status actions。
+- 展示被邀请人注册时间、手机号、账号 ID、奖励状态、生效队列和 billing artifacts。
+- 如果已有用户详情和 billing artifacts 路由，关系行链接到这些现有页面。
+- 表格保持密集且与现有 operations 页面一致。
+
+验证：
+
+- Operator guard 生效。
+- 筛选项调用预期 API params。
+- Detail sheet 展示 relation、invitee 和 billing artifact 字段。
+- Overview metrics 与飞书活动统计清单一致。
+- 状态动作确认后发送预期 payload。
+
+### 步骤 15：增加修复/诊断脚本
+
+文件：
+
+- 在 `src/api/flaskr/service/referral/` 下增加后端脚本或 CLI command；如果现有 CLI 入口是 `src/api/flaskr/service/billing/cli.py`，则按该路径接入。
+- 对 dry-run payload 增加可行测试。
+
+实现要求：
+
+- 扫描 pending/failed reward rows。
+- 幂等重试 billing grant。
+- 打印 relation、reward、order、ledger 和 error 字段。
+- 支持 dry-run。
+
+验证：
+
+- Dry run 报告 pending rewards 且不写数据。
+- Retry 修复一个 pending reward 时不重复创建 billing rows。
 
 ## Validation and Acceptance
 
-Backend acceptance:
+后端验收：
 
-- Active campaign and reward-rule config controls eligibility, cap, reward
-  product, and timing policy.
-- Invitation link and manual invite-code entry both produce the same binding
-  path before SMS registration.
-- A new SMS-registered invitee creates one relation and one reward for the
-  inviter.
-- In the launch campaign, the first 12 valid invitees produce 12 reward months.
-- In the launch campaign, the 13th valid invitee registers and binds, but
-  creates no automatic billing reward.
-- A test campaign with a smaller configured cap skips at that cap without code
-  changes.
-- Reward billing artifacts are visible in `bill_orders`, `bill_subscriptions`,
-  `credit_wallet_buckets`, and `credit_ledger_entries`.
-- Launch reward buckets grant 1000 credits per 30-day cycle and expire unused
-  credits at cycle end.
-- Existing users are not rebound by invite links.
-- Invitee accounts receive no extra referral-specific benefit.
-- Operator APIs can trace inviter, invitee, relation, reward, order,
-  subscription, bucket, and ledger.
-- Operator overview can report the required activity funnel and downstream
-  usage/conversion metrics from referral events plus existing billing and usage
-  tables.
+- Active campaign 和 reward-rule config 控制 eligibility、cap、reward product、credit validity 和 timing policy。
+- 邀请链接和手动输入邀请码在 SMS 注册前进入同一个绑定路径。
+- 新 SMS 注册 invitee 为邀请人创建一个 relation 和一个 reward。
+- 首发活动中，前 12 个有效邀请产生 12 个奖励月。
+- 首发活动中，第 13 个有效 invitee 继续注册并绑定，但不创建自动 billing reward。
+- 配置较小 cap 的测试活动会在该 cap 处跳过，不需要改代码。
+- Reward billing artifacts 可在 `bill_orders`、`bill_subscriptions`、`credit_wallet_buckets`、`credit_ledger_entries` 中看到。
+- 首发 reward bucket 每 30 天周期发放 1000 积分，并在周期结束时过期未用积分。
+- 已有用户不会被邀请链接重新绑定。
+- 被邀请账号不会获得 referral-specific 额外福利。
+- 运营 API 可以追踪邀请人、被邀请人、relation、reward、order、subscription、bucket 和 ledger。
+- 运营 overview 可以通过 referral events 加现有 billing/usage 表报告活动漏斗和下游使用/转化指标。
 
-Frontend acceptance:
+前端验收：
 
-- Creator invite page shows code, link, copy action, reward counts, queue,
-  pending-effective state, and cap messaging.
-- Invite landing and manual invite-code entry send invite context through SMS
-  login.
-- Operator referral page supports list, filters, detail, and abnormal actions.
-- User-facing strings live in shared i18n JSON.
+- 创作者邀请页展示邀请码、链接、复制动作、奖励数量、待生效状态和 cap 文案。
+- 邀请落地页和手动输入邀请码入口都能把 invite context 传到 SMS 登录。
+- 运营 referral 页面支持列表、筛选、详情和异常动作。
+- 用户可见文案都在共享 i18n JSON。
 
-Commands:
+命令：
 
 - `python scripts/build_repo_knowledge_index.py`
 - `python scripts/check_repo_harness.py`
@@ -583,68 +469,53 @@ Commands:
 - `cd src/cook-web && npm run type-check`
 - `cd src/cook-web && npm run lint`
 
-Dev02 validation:
+Dev02 验证：
 
-- Enable the referral feature flag only after the reward product code is
-  configured and verified.
-- Seed dev02 campaign and reward-rule rows for the launch campaign.
-- Run a synthetic invited phone registration.
-- Run synthetic manual-code registration.
-- Query dev02 DB rows for relation, reward, billing order, subscription, wallet
-  bucket, and ledger.
-- Query dev02 event rows for link click, registration page visit, manual code
-  entry, and registration submit.
-- Confirm the creator invite page and operator referral page show the same
-  reward state.
+- 只有在 reward product code 已配置且验证后，才启用 referral feature flag。
+- Seed dev02 的首发 campaign 和 reward-rule rows。
+- 跑邀请链接注册合成用例。
+- 跑手动输入邀请码注册合成用例。
+- 查询 dev02 DB 的 relation、reward、billing order、subscription、wallet bucket 和 ledger。
+- 查询 dev02 event rows，确认 link click、registration page visit、manual code entry、registration submit 都落表。
+- 确认创作者邀请页和运营 referral 页面展示同一份奖励状态。
 
 ## Idempotence and Recovery
 
-- Invite code generation is unique and immutable. Repeated profile calls return
-  the same code.
-- Invite code generation is campaign-scoped, so campaign configuration can
-  change without rewriting existing invite rows.
-- Invite event recording is idempotent by frontend session where the event type
-  must not be double-counted.
-- Relation binding uses a unique invitee key. Repeated post-auth calls return
-  the existing relation.
-- Reward generation uses one reward row per relation and stores campaign/rule
-  snapshots for repair.
-- Billing grant uses provider reference `referral-reward:{reward_bid}` and
-  ledger idempotency `grant:{bill_order_bid}`.
-- Failed billing side effects leave pending/failed reward rows for repair.
-- Repair commands are idempotent and print all relevant business IDs.
-- Abnormal status updates preserve rows and record operator notes.
+- 邀请码生成唯一且不可变。重复 profile 调用返回同一个 code。
+- 邀请码按 campaign 生成，因此活动配置变化不需要重写已有 invite rows。
+- 对不应重复计数的 event type，邀请事件记录按 frontend session 幂等。
+- 关系绑定使用唯一 invitee key。重复 post-auth 调用返回既有 relation。
+- 奖励生成每个 relation 一个 reward row，并保存 campaign/rule 快照以便修复。
+- Billing grant 使用 provider reference `referral-reward:{reward_bid}` 和 ledger idempotency `grant:{bill_order_bid}`。
+- Billing 副作用失败时保留 pending/failed reward rows 供修复。
+- 修复命令幂等，并打印所有相关业务 ID。
+- 异常状态更新保留原始行并记录运营备注。
 
 ## Interfaces and Dependencies
 
-Backend:
+后端：
 
-- New campaign-aware referral tables and Alembic migration.
-- Launch campaign and reward-rule seed or documented operator setup.
-- New `/api/referral` creator/anonymous endpoints.
-- New `/api/shifu/admin/operations/referrals` operator endpoints.
-- Extended `PostAuthContext` optional fields.
-- New billing helper for referral plan rewards.
-- Referral event table for link clicks, registration page views, manual code
-  entry, and registration submit.
-- Feature flag plus database campaign/reward-rule configuration. Environment
-  config may hold the default launch campaign code, but business values belong
-  in `referral_campaigns` and `referral_campaign_reward_rules`.
+- 新增 campaign-aware referral tables 和 Alembic migration。
+- 首发 campaign 与 reward-rule seed，或文档化运营配置步骤。
+- 新增 `/api/referral` 创作者/匿名 endpoints。
+- 新增 `/api/shifu/admin/operations/referrals` 运营 endpoints。
+- 扩展 `PostAuthContext` 可选字段。
+- 新增 referral plan rewards billing helper。
+- Referral event table 覆盖 link clicks、registration page views、manual code entry、registration submit。
+- Feature flag 加数据库 campaign/reward-rule 配置。环境配置可以保存默认 launch campaign code，但业务值应在 `referral_campaigns` 和 `referral_campaign_reward_rules`。
 
-Frontend:
+前端：
 
-- Creator invite page.
-- Invitee landing route.
-- Manual invite-code entry before registration.
-- Login payload propagation.
-- Operator referral page.
-- Shared i18n additions.
+- 创作者邀请页。
+- 被邀请人落地页。
+- 注册前手动输入邀请码入口。
+- 登录 payload 传递。
+- 运营 referral 页面。
+- 共享 i18n 增量。
 
-Operational:
+运营：
 
-- Configured reward product must represent the intended 199 CNY monthly reward.
-- Campaign changes should be audited as data changes, not hidden inside code
-  constants.
-- dev02 rollout should verify live DB state, not only tests.
-- Existing operator manual `referral_reward` grant remains available and should
-  not be silently repurposed.
+- 配置的 reward product 必须代表预期 199 元月奖励。
+- Campaign 变更应作为数据变更审计，不隐藏在代码常量里。
+- Dev02 发布验证必须检查真实 DB 状态，不只看测试。
+- 现有运营手动 `referral_reward` grant 继续可用，不能被静默改造成自动邀请奖励。
