@@ -9,23 +9,30 @@ import pytest
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
+    BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
+    CreditWallet,
     CreditWalletBucket,
 )
 from flaskr.service.billing.referral_plan_rewards import (
     ReferralPlanRewardRequest,
     grant_referral_plan_reward,
 )
+from flaskr.service.billing.renewal import run_billing_renewal_event
 from tests.common.fixtures.bill_products import build_bill_products
 
 
@@ -153,6 +160,220 @@ def test_referral_plan_reward_extends_same_manual_plan_subscription(
             second_order.metadata_json["renewal_cycle_start_at"]
             == first_order.metadata_json["applied_cycle_end_at"]
         )
+
+
+def test_referral_plan_reward_reserves_future_manual_renewal_credits(
+    referral_billing_app: Flask,
+) -> None:
+    first = grant_referral_plan_reward(
+        referral_billing_app,
+        request=_request("ref-reward-billing-reserved-1"),
+    )
+    second = grant_referral_plan_reward(
+        referral_billing_app,
+        request=_request("ref-reward-billing-reserved-2"),
+    )
+
+    with referral_billing_app.app_context():
+        first_order = BillingOrder.query.filter_by(
+            bill_order_bid=first.bill_order_bid
+        ).one()
+        second_order = BillingOrder.query.filter_by(
+            bill_order_bid=second.bill_order_bid
+        ).one()
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid=first.subscription_bid
+        ).one()
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-ref-billing-1").one()
+        bucket = CreditWalletBucket.query.filter_by(
+            creator_bid="creator-ref-billing-1",
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+        ).one()
+        renewal_ledger = CreditLedgerEntry.query.filter_by(
+            source_bid=second.bill_order_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        ).one()
+        expire_ledgers = CreditLedgerEntry.query.filter_by(
+            creator_bid="creator-ref-billing-1",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+        ).all()
+
+        assert second_order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+        assert second_order.payment_provider == "manual"
+        assert second_order.metadata_json["referral_invitation_reward"] is True
+        assert (
+            second_order.metadata_json["renewal_cycle_start_at"]
+            == first_order.metadata_json["applied_cycle_end_at"]
+        )
+        assert subscription.current_period_start_at == first_order.paid_at
+        assert (
+            subscription.current_period_end_at.isoformat()
+            == first_order.metadata_json["applied_cycle_end_at"]
+        )
+        assert wallet.available_credits == Decimal("1000.0000000000")
+        assert wallet.reserved_credits == Decimal("1000.0000000000")
+        assert bucket.original_credits == Decimal("2000.0000000000")
+        assert bucket.available_credits == Decimal("1000.0000000000")
+        assert bucket.reserved_credits == Decimal("1000.0000000000")
+        assert renewal_ledger.balance_after == Decimal("1000.0000000000")
+        assert (
+            renewal_ledger.consumable_from.isoformat()
+            == (second_order.metadata_json["renewal_cycle_start_at"])
+        )
+        assert renewal_ledger.metadata_json["bucket_credit_state"] == "reserved"
+        assert (
+            renewal_ledger.metadata_json["reserved_until"]
+            == (second_order.metadata_json["renewal_cycle_start_at"])
+        )
+        assert expire_ledgers == []
+
+
+def test_referral_plan_reward_releases_reserved_manual_renewal_at_boundary(
+    referral_billing_app: Flask,
+) -> None:
+    boundary_at = datetime.now() - timedelta(minutes=1)
+    current_cycle_start = boundary_at - timedelta(days=30)
+    next_cycle_end = boundary_at + timedelta(days=30)
+
+    with referral_billing_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-referral-boundary",
+            creator_bid="creator-ref-billing-1",
+            available_credits=Decimal("1000.0000000000"),
+            reserved_credits=Decimal("1000.0000000000"),
+            lifetime_granted_credits=Decimal("2000.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        subscription = BillingSubscription(
+            subscription_bid="sub-referral-boundary",
+            creator_bid="creator-ref-billing-1",
+            product_bid="bill-product-plan-monthly-pro",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="manual",
+            provider_subscription_id="",
+            provider_customer_id="",
+            billing_anchor_at=current_cycle_start,
+            current_period_start_at=current_cycle_start,
+            current_period_end_at=boundary_at,
+            grace_period_end_at=None,
+            cancel_at_period_end=0,
+            next_product_bid="",
+            last_renewed_at=current_cycle_start,
+            last_failed_at=None,
+            metadata_json={"referral_invitation_reward": True},
+        )
+        order = BillingOrder(
+            bill_order_bid="bill-referral-boundary-renewal",
+            creator_bid="creator-ref-billing-1",
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid="bill-product-plan-monthly-pro",
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=0,
+            paid_amount=0,
+            payment_provider="manual",
+            channel="manual",
+            provider_reference_id="referral-reward:ref-reward-boundary",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=boundary_at - timedelta(days=1),
+            metadata_json={
+                "checkout_type": "referral_invitation_reward",
+                "referral_invitation_reward": True,
+                "reward_bid": "ref-reward-boundary",
+                "campaign_bid": "ref-campaign-billing",
+                "reward_rule_bid": "ref-rule-billing",
+                "renewal_cycle_start_at": boundary_at.isoformat(),
+                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+            },
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-referral-boundary",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid="creator-ref-billing-1",
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="bill-referral-current",
+            priority=20,
+            original_credits=Decimal("2000.0000000000"),
+            available_credits=Decimal("1000.0000000000"),
+            reserved_credits=Decimal("1000.0000000000"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=current_cycle_start,
+            effective_to=boundary_at,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={"bill_order_bid": "bill-referral-current"},
+        )
+        ledger = CreditLedgerEntry(
+            ledger_bid="ledger-referral-boundary-renewal",
+            creator_bid="creator-ref-billing-1",
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=order.bill_order_bid,
+            idempotency_key=f"grant:{order.bill_order_bid}",
+            amount=Decimal("1000.0000000000"),
+            balance_after=Decimal("1000.0000000000"),
+            expires_at=next_cycle_end,
+            consumable_from=boundary_at,
+            metadata_json={
+                "bill_order_bid": order.bill_order_bid,
+                "subscription_bid": subscription.subscription_bid,
+                "product_bid": order.product_bid,
+                "payment_provider": order.payment_provider,
+                "grant_reason": "subscription",
+                "bucket_credit_state": "reserved",
+                "reserved_until": boundary_at.isoformat(),
+            },
+        )
+        event = BillingRenewalEvent(
+            renewal_event_bid="renewal-referral-boundary",
+            subscription_bid=subscription.subscription_bid,
+            creator_bid=subscription.creator_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+            scheduled_at=boundary_at,
+            status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
+            attempt_count=0,
+            last_error="",
+            payload_json={"source": "pytest"},
+            processed_at=None,
+        )
+        dao.db.session.add_all([wallet, subscription, order, bucket, ledger, event])
+        dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        referral_billing_app,
+        renewal_event_bid="renewal-referral-boundary",
+    )
+
+    assert payload.status == "applied"
+    assert payload.bill_order_bid == "bill-referral-boundary-renewal"
+
+    with referral_billing_app.app_context():
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-ref-billing-1").one()
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-referral-boundary",
+        ).one()
+        ledger = CreditLedgerEntry.query.filter_by(
+            ledger_bid="ledger-referral-boundary-renewal",
+        ).one()
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-referral-boundary",
+        ).one()
+
+        assert subscription.current_period_start_at == boundary_at
+        assert subscription.current_period_end_at == next_cycle_end
+        assert wallet.available_credits == Decimal("1000.0000000000")
+        assert wallet.reserved_credits == Decimal("0E-10")
+        assert bucket.source_bid == "bill-referral-boundary-renewal"
+        assert bucket.available_credits == Decimal("1000.0000000000")
+        assert bucket.reserved_credits == Decimal("0E-10")
+        assert bucket.effective_from == boundary_at
+        assert bucket.effective_to == next_cycle_end
+        assert ledger.metadata_json["bucket_credit_state"] == "available"
 
 
 def test_referral_plan_reward_defers_after_higher_paid_subscription(

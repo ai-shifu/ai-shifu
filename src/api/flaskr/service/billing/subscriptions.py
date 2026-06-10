@@ -648,6 +648,20 @@ def _should_defer_pingxx_renewal_activation(order: BillingOrder) -> bool:
     return order.paid_at < renewal_cycle_start_at
 
 
+def _is_manual_referral_invitation_renewal(order: BillingOrder) -> bool:
+    if (
+        order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+        or _normalize_bid(order.payment_provider) != "manual"
+    ):
+        return False
+
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    checkout_type = str(metadata.get("checkout_type") or "").strip()
+    return checkout_type == "referral_invitation_reward" or (
+        metadata.get("referral_invitation_reward") is True
+    )
+
+
 def _should_defer_subscription_renewal_activation(
     order: BillingOrder,
     *,
@@ -664,7 +678,11 @@ def _should_defer_subscription_renewal_activation(
         return False
     if effective_from <= datetime.now():
         return False
-    return _should_defer_pingxx_renewal_activation(order) or _is_preorder_order(order)
+    return (
+        _should_defer_pingxx_renewal_activation(order)
+        or _is_preorder_order(order)
+        or _is_manual_referral_invitation_renewal(order)
+    )
 
 
 def _is_same_product_preorder_renewal(order: BillingOrder) -> bool:

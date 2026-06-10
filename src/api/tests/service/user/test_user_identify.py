@@ -59,9 +59,14 @@ def test_phone_flow_marks_temp_phone_claim_as_created_new_user(tmp_path, monkeyp
     from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 
     app = Flask(__name__)
+    db_uri = f"sqlite:///{tmp_path / 'phone-claim.db'}"
     app.config.update(
         SECRET_KEY="test-secret-key",
-        SQLALCHEMY_DATABASE_URI=f"sqlite:///{tmp_path / 'phone-claim.db'}",
+        SQLALCHEMY_DATABASE_URI=db_uri,
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": db_uri,
+            "ai_shifu_admin": db_uri,
+        },
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         TOKEN_EXPIRE_TIME=60 * 60,
         UNIVERSAL_VERIFICATION_CODE="9999",
