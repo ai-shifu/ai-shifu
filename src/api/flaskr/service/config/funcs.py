@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
 
 from flaskr.common.cache_provider import cache as redis
-from flaskr.common.config import get_config as get_config_from_common
+from flaskr.common.config import ENV_VARS, get_config as get_config_from_common
 from flaskr.dao import db
 from flaskr.framework import extensible
 from flaskr.service.config.models import Config
@@ -94,11 +94,11 @@ def _decrypt_config(app: Flask, encrypted_value: str) -> str:
 
 
 def _get_config_cache_key(app: Flask, key: str) -> str:
-    return app.config["REDIS_KEY_PREFIX"] + "sys:config:" + key
+    return app.config.get("REDIS_KEY_PREFIX", "ai-shifu:") + "sys:config:" + key
 
 
 def _get_config_lock_key(app: Flask, key: str) -> str:
-    return app.config["REDIS_KEY_PREFIX"] + "sys:config:lock:" + key
+    return app.config.get("REDIS_KEY_PREFIX", "ai-shifu:") + "sys:config:lock:" + key
 
 
 @extensible
@@ -124,6 +124,8 @@ def get_config(key: str, default: str = None) -> str:
         return get_config_from_common(key, default)
     app = current_app
     with nullcontext():
+        if key in ENV_VARS:
+            return get_config_from_common(key, default)
         # Only real process env vars should override DB-backed config rows here.
         # A shared runtime config instance from another Flask app/test process
         # must not short-circuit the current app's DB lookup.
