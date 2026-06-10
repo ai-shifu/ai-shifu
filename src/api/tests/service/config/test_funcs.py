@@ -858,3 +858,5 @@ class TestConfigCache:
         """Test ConfigCache JSON deserialization."""
         json_str = '{"is_encrypted": true, "value": "test-value"}'
         cache = ConfigCache.model_validate_json(json_str)
+        assert cache.is_encrypted is True
+        assert cache.value == "test-value"

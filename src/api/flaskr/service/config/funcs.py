@@ -258,3 +258,37 @@ def update_config(
             else:
                 value = cache_config.value
         if value:
+            if is_secret:
+                value = _encrypt_config(app, value)
+            config = (
+                Config.query.filter(
+                    Config.key == key,
+                    Config.deleted == 0,
+                )
+                .order_by(Config.created_at.desc())
+                .first()
+            )
+            if not config:
+                config = Config(
+                    config_bid=generate_id(app),
+                    key=key,
+                    value=value,
+                    deleted=0,
+                    is_encrypted=is_secret,
+                    remark=remark,
+                    updated_by=normalized_updated_by,
+                )
+                db.session.add(config)
+            else:
+                config.value = value
+                config.is_encrypted = is_secret
+                config.remark = remark
+                config.updated_by = normalized_updated_by
+            db.session.commit()
+            redis.set(
+                cache_key,
+                ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
+                ex=86400 + random.randint(0, 3600),
+            )
+            return True
+        return False
