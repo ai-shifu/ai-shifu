@@ -345,15 +345,17 @@ def _expire_pending_billing_order_if_due(
 
 
 def _build_subscription_checkout_lock_key(app: Flask, creator_bid: str) -> str:
-    prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
+    prefix = str(app.config.get("REDIS_KEY_PREFIX", "ai-shifu") or "ai-shifu").rstrip(
+        ":"
+    )
     return f"{prefix}:billing:subscription-checkout:{creator_bid}"
 
 
 @contextmanager
 def _subscription_checkout_lock(app: Flask, creator_bid: str) -> Iterator[None]:
     """
-    Serialize subscription checkout per creator so provider I/O never holds DB
-    row locks while still preventing concurrent duplicate pending orders.
+    Serialize subscription checkout per creator to avoid duplicate pending
+    orders without taking row locks on the pending-order query itself.
     """
 
     lock = cache_provider.cache.lock(
