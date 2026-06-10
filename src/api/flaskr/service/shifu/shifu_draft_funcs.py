@@ -396,14 +396,14 @@ def save_shifu_draft_info(
     shifu_price: float,
     shifu_system_prompt: str,
     base_url: str,
-    tts_enabled: bool = False,
-    tts_provider: str = "",
-    tts_model: str = "",
-    tts_voice_id: str = "",
-    tts_speed: float = 1.0,
-    tts_pitch: int = 0,
-    tts_emotion: str = "",
-    use_learner_language: bool = False,
+    tts_enabled: bool | None = None,
+    tts_provider: str | None = None,
+    tts_model: str | None = None,
+    tts_voice_id: str | None = None,
+    tts_speed: float | None = None,
+    tts_pitch: int | None = None,
+    tts_emotion: str | None = None,
+    use_learner_language: bool | None = None,
     ask_enabled_status: int | None = None,
     ask_model: str | None = None,
     ask_temperature: float | None = None,
@@ -458,12 +458,13 @@ def save_shifu_draft_info(
             tts_pitch = validated.pitch
             tts_emotion = validated.emotion
 
-        # Validate input lengths
-        if len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
+        # Validate input lengths (only when provided — PATCH callers may omit
+        # name/description entirely, which must mean "leave unchanged").
+        if shifu_name is not None and len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
             raise_error_with_args(
                 "server.shifu.shifuNameTooLong", max_length=SHIFU_NAME_MAX_LENGTH
             )
-        if len(shifu_description) > 500:
+        if shifu_description is not None and len(shifu_description) > 500:
             raise_error("server.shifu.shifuDescriptionTooLong")
 
         shifu_draft = get_latest_shifu_draft(shifu_id)
@@ -512,14 +513,18 @@ def save_shifu_draft_info(
                 "server.shifu.shifuPriceTooLow", min_shifu_price=min_shifu_price
             )
         if not shifu_draft:
+            # First-time draft: there is no current value to preserve, so fill
+            # sensible defaults for any field the caller omitted (None).
             shifu_draft: DraftShifu = DraftShifu(
                 shifu_bid=shifu_id,
-                title=shifu_name,
-                description=shifu_description,
-                avatar_res_bid=shifu_avatar,
+                title=shifu_name or "",
+                description=shifu_description or "",
+                avatar_res_bid=shifu_avatar or "",
                 keywords=",".join(shifu_keywords) if shifu_keywords else "",
-                llm=shifu_model,
-                llm_temperature=shifu_temperature,
+                llm=shifu_model or "",
+                llm_temperature=(
+                    shifu_temperature if shifu_temperature is not None else 0.3
+                ),
                 price=shifu_price,
                 llm_system_prompt=shifu_system_prompt if shifu_system_prompt else "",
                 ask_enabled_status=ask_enabled_status,
@@ -531,8 +536,8 @@ def save_shifu_draft_info(
                 tts_provider=tts_provider or "",
                 tts_model=tts_model or "",
                 tts_voice_id=tts_voice_id or "",
-                tts_speed=tts_speed,
-                tts_pitch=tts_pitch,
+                tts_speed=tts_speed if tts_speed is not None else 1.0,
+                tts_pitch=tts_pitch if tts_pitch is not None else 0,
                 tts_emotion=tts_emotion or "",
                 use_learner_language=1 if use_learner_language else 0,
                 deleted=0,
@@ -545,28 +550,46 @@ def save_shifu_draft_info(
             db.session.commit()
         else:
             new_shifu_draft: DraftShifu = shifu_draft.clone()
-            new_shifu_draft.title = shifu_name
-            new_shifu_draft.description = shifu_description
-            new_shifu_draft.avatar_res_bid = parse_shifu_res_bid(shifu_avatar)
-            new_shifu_draft.keywords = (
-                ",".join(shifu_keywords) if shifu_keywords else ""
-            )
-            new_shifu_draft.llm = shifu_model
-            new_shifu_draft.llm_temperature = shifu_temperature
+            # PATCH semantics: only overwrite a field the caller actually provided
+            # (non-None); otherwise keep the cloned current value. price/ask_* were
+            # already resolved above to the kept value when omitted, so assigning
+            # them here is preserve-safe.
+            if shifu_name is not None:
+                new_shifu_draft.title = shifu_name
+            if shifu_description is not None:
+                new_shifu_draft.description = shifu_description
+            if shifu_avatar is not None:
+                new_shifu_draft.avatar_res_bid = parse_shifu_res_bid(shifu_avatar)
+            if shifu_keywords is not None:
+                new_shifu_draft.keywords = (
+                    ",".join(shifu_keywords) if shifu_keywords else ""
+                )
+            if shifu_model is not None:
+                new_shifu_draft.llm = shifu_model
+            if shifu_temperature is not None:
+                new_shifu_draft.llm_temperature = shifu_temperature
             new_shifu_draft.price = shifu_price
             new_shifu_draft.ask_enabled_status = ask_enabled_status
             new_shifu_draft.ask_llm = ask_model
             new_shifu_draft.ask_llm_temperature = ask_temperature
             new_shifu_draft.ask_llm_system_prompt = ask_system_prompt
             new_shifu_draft.ask_provider_config = serialized_ask_provider_config
-            new_shifu_draft.tts_enabled = 1 if tts_enabled else 0
-            new_shifu_draft.tts_provider = tts_provider or ""
-            new_shifu_draft.tts_model = tts_model or ""
-            new_shifu_draft.tts_voice_id = tts_voice_id or ""
-            new_shifu_draft.tts_speed = tts_speed
-            new_shifu_draft.tts_pitch = tts_pitch
-            new_shifu_draft.tts_emotion = tts_emotion or ""
-            new_shifu_draft.use_learner_language = 1 if use_learner_language else 0
+            if tts_enabled is not None:
+                new_shifu_draft.tts_enabled = 1 if tts_enabled else 0
+            if tts_provider is not None:
+                new_shifu_draft.tts_provider = tts_provider or ""
+            if tts_model is not None:
+                new_shifu_draft.tts_model = tts_model or ""
+            if tts_voice_id is not None:
+                new_shifu_draft.tts_voice_id = tts_voice_id or ""
+            if tts_speed is not None:
+                new_shifu_draft.tts_speed = tts_speed
+            if tts_pitch is not None:
+                new_shifu_draft.tts_pitch = tts_pitch
+            if tts_emotion is not None:
+                new_shifu_draft.tts_emotion = tts_emotion or ""
+            if use_learner_language is not None:
+                new_shifu_draft.use_learner_language = 1 if use_learner_language else 0
             new_shifu_draft.updated_user_bid = user_id
             new_shifu_draft.updated_at = datetime.now()
             if shifu_system_prompt is not None:

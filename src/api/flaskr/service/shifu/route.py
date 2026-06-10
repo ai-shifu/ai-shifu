@@ -919,17 +919,19 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         ask_provider_config = _parse_ask_provider_config(
             json_data.get("ask_provider_config")
         )
-        # TTS Configuration
-        tts_enabled = json_data.get("tts_enabled", False)
-        tts_provider = json_data.get("tts_provider", "") or ""
-        tts_provider = tts_provider.strip().lower()
-        tts_model = json_data.get("tts_model", "")
-        tts_voice_id = json_data.get("tts_voice_id", "")
-        tts_speed = json_data.get("tts_speed", 1.0)
-        tts_pitch = json_data.get("tts_pitch", 0)
-        tts_emotion = json_data.get("tts_emotion", "")
+        # TTS Configuration — read without defaults so an omitted field stays
+        # None and is preserved (PATCH semantics), not reset to a default.
+        tts_enabled = json_data.get("tts_enabled")
+        tts_provider = json_data.get("tts_provider")
+        if isinstance(tts_provider, str):
+            tts_provider = tts_provider.strip().lower()
+        tts_model = json_data.get("tts_model")
+        tts_voice_id = json_data.get("tts_voice_id")
+        tts_speed = json_data.get("tts_speed")
+        tts_pitch = json_data.get("tts_pitch")
+        tts_emotion = json_data.get("tts_emotion")
         # Language Output Configuration
-        use_learner_language = json_data.get("use_learner_language", False)
+        use_learner_language = json_data.get("use_learner_language")
         if isinstance(use_learner_language, str):
             use_learner_language = use_learner_language.lower() == "true"
         base_url = _get_request_base_url()
@@ -1209,10 +1211,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         parent_bid = request.get_json().get("parent_bid")
         name = request.get_json().get("name")
         description = request.get_json().get("description", "")
-        type = request.get_json().get("type", UNIT_TYPE_GUEST)
+        # No defaults: None is passed through to create_outline, which applies its
+        # own fallback (a new outline still needs a concrete type/visibility).
+        type = request.get_json().get("type")
         index = request.get_json().get("index", None)
         system_prompt = request.get_json().get("system_prompt", None)
-        is_hidden = request.get_json().get("is_hidden", False)
+        is_hidden = request.get_json().get("is_hidden")
         return make_common_response(
             create_outline(
                 app,
@@ -1285,8 +1289,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         description = request.get_json().get("description")
         index = request.get_json().get("index")
         system_prompt = request.get_json().get("system_prompt", None)
-        is_hidden = request.get_json().get("is_hidden", False)
-        type = request.get_json().get("type", UNIT_TYPE_GUEST)
+        # No defaults: an omitted type/is_hidden stays None and is preserved by
+        # modify_unit (PATCH semantics), instead of resetting to guest/visible.
+        is_hidden = request.get_json().get("is_hidden")
+        type = request.get_json().get("type")
         return make_common_response(
             modify_unit(
                 app,
