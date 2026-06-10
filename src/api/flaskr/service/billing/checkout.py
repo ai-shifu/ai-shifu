@@ -408,9 +408,7 @@ def create_billing_subscription_checkout(
         default_pingxx_channel="alipay_qr",
     )
 
-    with app.app_context(), _subscription_checkout_lock(
-        app, normalized_creator_bid
-    ):
+    with app.app_context(), _subscription_checkout_lock(app, normalized_creator_bid):
         now = datetime.now()
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
         if payment_provider == "stripe":
@@ -514,7 +512,9 @@ def create_billing_subscription_checkout(
                 raise_error("server.order.orderStatusError")
             subscription.updated_at = datetime.now()
 
-        pending_orders = _load_active_pending_subscription_orders(normalized_creator_bid)
+        pending_orders = _load_active_pending_subscription_orders(
+            normalized_creator_bid
+        )
         reusable_order: BillingOrder | None = None
         duplicate_reusable_orders: list[BillingOrder] = []
         conflicting_pending_orders: list[BillingOrder] = []
