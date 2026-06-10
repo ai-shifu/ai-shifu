@@ -1106,13 +1106,6 @@ def build_admin_bill_orders_page(
             query = query.filter(BillingOrder.status == status_code)
 
         query = query.order_by(
-            case(
-                (BillingOrder.status == BILLING_ORDER_STATUS_FAILED, 1),
-                (BillingOrder.status == BILLING_ORDER_STATUS_PENDING, 2),
-                (BillingOrder.status == BILLING_ORDER_STATUS_TIMEOUT, 3),
-                (BillingOrder.status == BILLING_ORDER_STATUS_REFUNDED, 4),
-                else_=9,
-            ),
             BillingOrder.created_at.desc(),
             BillingOrder.id.desc(),
         )
@@ -1227,13 +1220,6 @@ def build_operator_credit_orders_page(
             query = query.filter(BillingOrder.created_at <= end_time)
 
         query = query.order_by(
-            case(
-                (BillingOrder.status == BILLING_ORDER_STATUS_FAILED, 1),
-                (BillingOrder.status == BILLING_ORDER_STATUS_PENDING, 2),
-                (BillingOrder.status == BILLING_ORDER_STATUS_TIMEOUT, 3),
-                (BillingOrder.status == BILLING_ORDER_STATUS_REFUNDED, 4),
-                else_=9,
-            ),
             BillingOrder.created_at.desc(),
             BillingOrder.id.desc(),
         )
