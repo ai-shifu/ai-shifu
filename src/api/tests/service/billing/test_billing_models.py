@@ -63,6 +63,7 @@ def test_billing_models_register_core_tables() -> None:
     credit_ledger_entries = tables["credit_ledger_entries"]
     assert "wallet_bucket_bid" in credit_ledger_entries.c
     assert "campaign_bid" in tables["bill_orders"].c
+    assert "expires_at" in tables["bill_orders"].c
     assert "idempotency_key" in credit_ledger_entries.c
     assert credit_ledger_entries.c.amount.type.precision == 20
     assert credit_ledger_entries.c.amount.type.scale == 10

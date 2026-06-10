@@ -7,12 +7,16 @@ import sys
 import threading
 import time
 import types
+from types import SimpleNamespace
 
 from flask import Flask
 import pytest
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_STATUS_TIMEOUT,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -29,6 +33,7 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import (
+    BillingOrder,
     BillingRenewalEvent,
     CreditLedgerEntry,
     CreditUsageRate,
@@ -39,6 +44,7 @@ from flaskr.service.billing.tasks import (
     aggregate_daily_ledger_summary_task,
     aggregate_daily_usage_metrics_task,
     dispatch_due_renewal_events_task,
+    expire_pending_orders_task,
     expire_wallet_buckets_task,
     finalize_daily_ledger_summary_task,
     reconcile_provider_reference_task,
@@ -812,6 +818,137 @@ def test_expire_wallet_buckets_task_calls_wallet_helper(
     assert captured["expire_before"] == datetime(2026, 4, 8, 12, 34, 56)
     assert payload["status"] == "expired"
     assert payload["task_name"] == "billing.expire_wallet_buckets"
+
+
+def test_expire_pending_orders_task_delegates_to_sync_flow(
+    billing_task_integration_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_app_module(monkeypatch, billing_task_integration_app)
+    now = datetime(2026, 6, 9, 12, 0, 0)
+
+    with billing_task_integration_app.app_context():
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid="bill-order-expire-task-1",
+                creator_bid="creator-expire-task-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-expire-task-1",
+                currency="CNY",
+                payable_amount=990,
+                paid_amount=0,
+                payment_provider="pingxx",
+                channel="alipay_qr",
+                provider_reference_id="charge-expire-task-1",
+                status=BILLING_ORDER_STATUS_PENDING,
+                expires_at=now - timedelta(minutes=1),
+                metadata_json={},
+                created_at=now - timedelta(minutes=30),
+                updated_at=now - timedelta(minutes=30),
+            )
+        )
+        dao.db.session.commit()
+
+    captured: dict[str, object] = {}
+
+    def _fake_sync_billing_order(app, creator_bid: str, bill_order_bid: str, payload):
+        captured["app"] = app
+        captured["creator_bid"] = creator_bid
+        captured["bill_order_bid"] = bill_order_bid
+        captured["payload"] = payload
+        with billing_task_integration_app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            order.status = BILLING_ORDER_STATUS_TIMEOUT
+            order.failure_code = "timeout"
+            dao.db.session.add(order)
+            dao.db.session.commit()
+        return {
+            "bill_order_bid": bill_order_bid,
+            "status": "timeout",
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.sync_billing_order",
+        _fake_sync_billing_order,
+    )
+
+    payload = expire_pending_orders_task(
+        creator_bid="creator-expire-task-1",
+        expire_before=now.isoformat(),
+    )
+
+    assert captured == {
+        "app": billing_task_integration_app,
+        "creator_bid": "creator-expire-task-1",
+        "bill_order_bid": "bill-order-expire-task-1",
+        "payload": {},
+    }
+    assert payload["status"] == "processed"
+    assert payload["timeout_count"] == 1
+    assert payload["task_name"] == "billing.expire_pending_orders"
+
+
+def test_expire_pending_orders_task_includes_legacy_orders_without_expires_at(
+    billing_task_integration_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_app_module(monkeypatch, billing_task_integration_app)
+    now = datetime(2026, 6, 9, 12, 0, 0)
+
+    with billing_task_integration_app.app_context():
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid="bill-order-expire-task-legacy-1",
+                creator_bid="creator-expire-task-legacy-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-expire-task-legacy-1",
+                currency="CNY",
+                payable_amount=990,
+                paid_amount=0,
+                payment_provider="pingxx",
+                channel="alipay_qr",
+                provider_reference_id="charge-expire-task-legacy-1",
+                status=BILLING_ORDER_STATUS_PENDING,
+                expires_at=None,
+                metadata_json={},
+                created_at=now - timedelta(minutes=31),
+                updated_at=now - timedelta(minutes=31),
+            )
+        )
+        dao.db.session.commit()
+
+    captured: dict[str, object] = {}
+
+    def _fake_sync_billing_order(app, creator_bid: str, bill_order_bid: str, payload):
+        captured["app"] = app
+        captured["creator_bid"] = creator_bid
+        captured["bill_order_bid"] = bill_order_bid
+        captured["payload"] = payload
+        return SimpleNamespace(
+            bill_order_bid=bill_order_bid,
+            status="timeout",
+        )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.sync_billing_order",
+        _fake_sync_billing_order,
+    )
+
+    payload = expire_pending_orders_task(
+        creator_bid="creator-expire-task-legacy-1",
+        expire_before=now.isoformat(),
+    )
+
+    assert captured == {
+        "app": billing_task_integration_app,
+        "creator_bid": "creator-expire-task-legacy-1",
+        "bill_order_bid": "bill-order-expire-task-legacy-1",
+        "payload": {},
+    }
+    assert payload["status"] == "processed"
+    assert payload["timeout_count"] == 1
 
 
 def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(

@@ -12,6 +12,7 @@ from flask import Flask
 
 _DEFAULT_BROKER_URL = "redis://localhost:6379/0"
 _DEFAULT_BILLING_RENEWAL_CRON = "* * * * *"
+_DEFAULT_BILLING_PENDING_ORDER_EXPIRE_CRON = "* * * * *"
 _DEFAULT_BILLING_BUCKET_EXPIRE_CRON = "* * * * *"
 _DEFAULT_BILLING_LOW_BALANCE_CRON = "0 * * * *"
 _DEFAULT_BILLING_CREDIT_EXPIRING_CRON = "0 * * * *"
@@ -101,6 +102,14 @@ def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, Any]:
                 flask_app,
                 "BILLING_BUCKET_EXPIRE_CRON",
                 _DEFAULT_BILLING_BUCKET_EXPIRE_CRON,
+            ),
+        },
+        "billing.expire_pending_orders.schedule": {
+            "task": "billing.expire_pending_orders",
+            "schedule": _resolve_billing_crontab(
+                flask_app,
+                "BILLING_PENDING_ORDER_EXPIRE_CRON",
+                _DEFAULT_BILLING_PENDING_ORDER_EXPIRE_CRON,
             ),
         },
         "billing.send_low_balance_alert.schedule": {

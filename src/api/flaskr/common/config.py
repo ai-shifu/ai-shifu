@@ -663,6 +663,12 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Cron expression for dispatching due billing renewal events.",
         group="celery",
     ),
+    "BILLING_PENDING_ORDER_EXPIRE_CRON": EnvVar(
+        name="BILLING_PENDING_ORDER_EXPIRE_CRON",
+        default="* * * * *",
+        description="Cron expression for expiring pending billing package orders.",
+        group="celery",
+    ),
     "BILLING_BUCKET_EXPIRE_CRON": EnvVar(
         name="BILLING_BUCKET_EXPIRE_CRON",
         default="* * * * *",

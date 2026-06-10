@@ -969,10 +969,7 @@ def register_admin_operations_routes(
                 credit_order_kind=_normalize_query_text(
                     request.args.get("credit_order_kind")
                 ),
-                status=_parse_digit_query_param(
-                    request.args.get("status"),
-                    field_name="status",
-                ),
+                status=_normalize_query_text(request.args.get("status")),
                 has_available_credits=_parse_boolean_query_param(
                     request.args.get("has_available_credits"),
                     field_name="has_available_credits",

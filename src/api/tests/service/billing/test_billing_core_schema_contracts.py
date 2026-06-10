@@ -33,6 +33,7 @@ def test_billing_core_models_define_catalog_subscription_order_tables() -> None:
     assert BillingOrder.__tablename__ == "bill_orders"
     assert "bill_order_bid" in order_table.c
     assert "campaign_bid" in order_table.c
+    assert "expires_at" in order_table.c
 
     assert BillingCampaign.__tablename__ == "bill_campaigns"
     assert "campaign_bid" in campaign_table.c
@@ -58,6 +59,12 @@ def test_billing_core_migration_creates_catalog_subscription_order_tables() -> N
     assert "ix_bill_subscriptions_creator_status" in source
     assert "ix_bill_orders_creator_status" in source
     assert "op.bulk_insert(" not in source
+
+    expires_source = (
+        _API_ROOT / "migrations/versions/c5d8e1f2a3b4_add_billing_order_expires_at.py"
+    ).read_text(encoding="utf-8")
+    assert '"expires_at"' in expires_source
+    assert 'ix_bill_orders_expires_at' in expires_source
 
 
 def test_billing_campaign_migrations_define_campaign_tables_and_rule_columns() -> None:

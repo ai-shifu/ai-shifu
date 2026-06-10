@@ -382,6 +382,7 @@ class BillingCheckoutResultDTO(BillingBaseDTO):
     provider: str
     payment_mode: str
     status: str
+    reused_existing_order: bool = False
     checkout_type: str | None = None
     effective_mode: str | None = None
     current_product_bid: str | None = None
@@ -390,6 +391,8 @@ class BillingCheckoutResultDTO(BillingBaseDTO):
     prepaid_offset_amount: int = 0
     payable_amount: int | None = None
     currency: str = ""
+    expires_at: str | None = None
+    expires_in_seconds: int | None = None
     campaign: BillingCatalogCampaignDTO | None = None
     redirect_url: str | None = None
     checkout_session_id: str | None = None
@@ -400,6 +403,8 @@ class BillingCheckoutResultDTO(BillingBaseDTO):
 class BillingOrderSyncResultDTO(BillingBaseDTO):
     bill_order_bid: str
     status: str
+    expires_at: str | None = None
+    expires_in_seconds: int | None = None
 
 
 @register_schema_to_swagger
