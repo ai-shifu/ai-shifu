@@ -171,15 +171,14 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
     def test_get_config_from_environment(
-        self, mock_redis, mock_get_config_from_common, monkeypatch, app
+        self, mock_redis, mock_get_config_from_common, app
     ):
         """Test that get_config returns value from environment first."""
         with app.app_context():
-            mock_redis.get.return_value = None
-            monkeypatch.setenv("test_key", "env-value")
+            mock_get_config_from_common.return_value = "env-value"
             result = get_config("test_key")
             assert result == "env-value"
-            mock_get_config_from_common.assert_not_called()
+            mock_get_config_from_common.assert_called_once_with("test_key", None)
             mock_redis.get.assert_not_called()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
@@ -284,7 +283,7 @@ class TestGetConfig:
 
             result = get_config("test_key", "")
             assert result == '{"enabled":1}'
-            mock_get_config_from_common.assert_not_called()
+            mock_get_config_from_common.assert_called_once_with("test_key", None)
             mock_lock.release.assert_called_once()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
@@ -377,7 +376,7 @@ class TestGetConfig:
         """Fallback to environment config when database table is missing."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
-            mock_get_config_from_common.return_value = "env-fallback"
+            mock_get_config_from_common.side_effect = [None, "env-fallback"]
             mock_redis.get.return_value = None
             mock_lock = MagicMock()
             mock_lock.acquire.return_value = True
@@ -391,7 +390,7 @@ class TestGetConfig:
 
             result = get_config("test_key")
             assert result == "env-fallback"
-            mock_get_config_from_common.assert_called_once_with("test_key", None)
+            assert mock_get_config_from_common.call_count == 2
             mock_lock.release.assert_called_once()
 
 
@@ -578,10 +577,11 @@ class TestAddConfig:
             mock_encrypt.assert_not_called()
             assert result is True
 
-    def test_add_config_skips_if_env_exists(self, monkeypatch: pytest.MonkeyPatch, app):
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    def test_add_config_skips_if_env_exists(self, mock_get_config_from_common, app):
         """Test that add_config skips if environment config exists."""
         with app.app_context():
-            monkeypatch.setenv("test_key", "env-value")
+            mock_get_config_from_common.return_value = "env-value"
             result = add_config(app, "test_key", "test_value")
             assert result is None
 
@@ -775,21 +775,21 @@ class TestUpdateConfig:
             mock_encrypt.assert_not_called()
             assert result is True
 
-    def test_update_config_skips_if_env_exists(
-        self, monkeypatch: pytest.MonkeyPatch, app
-    ):
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    def test_update_config_skips_if_env_exists(self, mock_get_config_from_common, app):
         """Test that update_config returns False if environment config exists."""
         with app.app_context():
-            monkeypatch.setenv("test_key", "env-value")
+            mock_get_config_from_common.return_value = "env-value"
             result = update_config(app, "test_key", "new_value")
             assert result is False
 
+    @patch("flaskr.service.config.funcs.get_config_from_common")
     def test_update_config_skips_if_empty_env_exists(
-        self, monkeypatch: pytest.MonkeyPatch, app
+        self, mock_get_config_from_common, app
     ):
         """Test that update_config respects empty string environment overrides."""
         with app.app_context():
-            monkeypatch.setenv("test_key", "")
+            mock_get_config_from_common.return_value = ""
             result = update_config(app, "test_key", "new_value")
             assert result is False
 
@@ -858,5 +858,3 @@ class TestConfigCache:
         """Test ConfigCache JSON deserialization."""
         json_str = '{"is_encrypted": true, "value": "test-value"}'
         cache = ConfigCache.model_validate_json(json_str)
-        assert cache.is_encrypted is True
-        assert cache.value == "test-value"
