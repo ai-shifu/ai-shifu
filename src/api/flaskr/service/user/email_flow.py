@@ -99,7 +99,9 @@ def verify_email_code(
         configure_fix_check_code(app.config.get("UNIVERSAL_VERIFICATION_CODE"))
 
     email_key = (email or "").strip()
-    code_key = get_redis_derived_prefix("REDIS_KEY_PREFIX_MAIL_CODE", app=app) + email_key
+    code_key = (
+        get_redis_derived_prefix("REDIS_KEY_PREFIX_MAIL_CODE", app=app) + email_key
+    )
     if code != FIX_CHECK_CODE:
         cached = redis.get(code_key)
         if cached is not None:

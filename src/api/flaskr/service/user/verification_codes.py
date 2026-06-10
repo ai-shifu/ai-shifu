@@ -111,7 +111,9 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
     if is_email:
         email_key = identifier
         email_lower = email_key.lower()
-        mail_code_prefix = get_redis_derived_prefix("REDIS_KEY_PREFIX_MAIL_CODE", app=app)
+        mail_code_prefix = get_redis_derived_prefix(
+            "REDIS_KEY_PREFIX_MAIL_CODE", app=app
+        )
 
         cache_keys = [mail_code_prefix + email_key]
         if email_lower != email_key:

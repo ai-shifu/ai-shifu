@@ -13,7 +13,7 @@ from sqlalchemy import and_, case, false, literal, not_, or_
 from sqlalchemy.orm import defer
 
 from flaskr.common.cache_provider import cache as redis
-from flaskr.common.config import get_config, get_redis_key_prefix
+from flaskr.common.config import get_redis_key_prefix
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.i18n import _
 from flaskr.dao import db
