@@ -152,10 +152,8 @@ def _resolve_billing_crontab(
         return schedule
 
     flask_app.logger.warning(
-        "Invalid %s=%r; falling back to %s",
+        "Invalid cron expression configured for %s; falling back to default schedule",
         config_key,
-        raw_expression,
-        default_expression,
     )
     fallback_schedule = _parse_crontab_expression(default_expression)
     if fallback_schedule is None:  # pragma: no cover - guarded by constants above

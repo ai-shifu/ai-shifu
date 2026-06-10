@@ -10,6 +10,7 @@ from flaskr.common.config import (
     Config,
     EnvironmentConfigError,
     get_config,
+    has_explicit_env_override,
     __ENHANCED_CONFIG__,
 )
 from tests.common.fixtures.config_data import DOCKER_ENV_CONFIG
@@ -488,3 +489,15 @@ class TestConfigIntegrationWithFlask:
 
         # Parent should not be called for known keys
         parent_config.__getitem__.assert_not_called()
+
+
+class TestExplicitEnvOverride:
+    """Test explicit environment override detection."""
+
+    def test_has_explicit_env_override_true_when_key_present(self, monkeypatch):
+        monkeypatch.setenv("REDIS_HOST", "")
+        assert has_explicit_env_override("REDIS_HOST") is True
+
+    def test_has_explicit_env_override_false_when_key_missing(self, monkeypatch):
+        monkeypatch.delenv("REDIS_HOST", raising=False)
+        assert has_explicit_env_override("REDIS_HOST") is False

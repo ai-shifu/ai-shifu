@@ -1933,3 +1933,8 @@ def get_config(key: str, default: Any = None) -> Any:
         # For unknown keys, check environment directly
         return os.environ.get(key, default)
     return __INSTANCE__.get(key, default)
+
+
+def has_explicit_env_override(key: str) -> bool:
+    """Return whether a config key is explicitly present in the environment."""
+    return key in os.environ
