@@ -2473,9 +2473,10 @@ class TestBillingWriteRoutes:
 
         assert first_checkout["code"] == 0
         assert second_checkout["code"] == 0
-        assert second_checkout["data"]["bill_order_bid"] == first_checkout["data"][
-            "bill_order_bid"
-        ]
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            == first_checkout["data"]["bill_order_bid"]
+        )
         assert second_checkout["data"]["reused_existing_order"] is True
         assert second_checkout["data"]["redirect_url"] == "https://stripe.test/checkout"
         assert len(billing_write_client["stripe_requests"]) == 1
@@ -2510,9 +2511,10 @@ class TestBillingWriteRoutes:
 
         assert first_checkout["code"] == 0
         assert second_checkout["code"] == 0
-        assert second_checkout["data"]["bill_order_bid"] != first_checkout["data"][
-            "bill_order_bid"
-        ]
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            != first_checkout["data"]["bill_order_bid"]
+        )
 
         with app.app_context():
             old_order = BillingOrder.query.filter_by(
@@ -2559,9 +2561,10 @@ class TestBillingWriteRoutes:
         ).get_json(force=True)
 
         assert second_checkout["code"] == 0
-        assert second_checkout["data"]["bill_order_bid"] != first_checkout["data"][
-            "bill_order_bid"
-        ]
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            != first_checkout["data"]["bill_order_bid"]
+        )
         assert second_checkout["data"]["reused_existing_order"] is False
 
         with app.app_context():
@@ -2603,9 +2606,10 @@ class TestBillingWriteRoutes:
         ).get_json(force=True)
 
         assert second_checkout["code"] == 0
-        assert second_checkout["data"]["bill_order_bid"] == first_checkout["data"][
-            "bill_order_bid"
-        ]
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            == first_checkout["data"]["bill_order_bid"]
+        )
         assert second_checkout["data"]["reused_existing_order"] is True
 
         with app.app_context():
@@ -2646,9 +2650,10 @@ class TestBillingWriteRoutes:
         ).get_json(force=True)
 
         assert second_checkout["code"] == 0
-        assert second_checkout["data"]["bill_order_bid"] != first_checkout["data"][
-            "bill_order_bid"
-        ]
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            != first_checkout["data"]["bill_order_bid"]
+        )
 
         with app.app_context():
             old_order = BillingOrder.query.filter_by(

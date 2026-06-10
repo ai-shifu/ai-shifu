@@ -191,7 +191,9 @@ def _can_transition_billing_order_status(
             and invalidated_reason == "replaced_by_new_package"
         ):
             return False
-        return source in {"sync", "webhook"} and target_status == BILLING_ORDER_STATUS_PAID
+        return (
+            source in {"sync", "webhook"} and target_status == BILLING_ORDER_STATUS_PAID
+        )
     if current_status == BILLING_ORDER_STATUS_FAILED:
         return (
             source in {"sync", "webhook"} and target_status == BILLING_ORDER_STATUS_PAID

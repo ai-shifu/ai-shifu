@@ -64,7 +64,7 @@ def test_billing_core_migration_creates_catalog_subscription_order_tables() -> N
         _API_ROOT / "migrations/versions/c5d8e1f2a3b4_add_billing_order_expires_at.py"
     ).read_text(encoding="utf-8")
     assert '"expires_at"' in expires_source
-    assert 'ix_bill_orders_expires_at' in expires_source
+    assert "ix_bill_orders_expires_at" in expires_source
 
 
 def test_billing_campaign_migrations_define_campaign_tables_and_rule_columns() -> None:

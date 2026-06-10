@@ -273,10 +273,7 @@ def _expire_pending_billing_orders(
 ) -> dict[str, Any]:
     normalized_creator_bid = _normalize_bid(creator_bid)
     resolved_expire_before = _coerce_datetime(expire_before) or datetime.now()
-    legacy_expire_before = (
-        resolved_expire_before
-        - timedelta(minutes=30)
-    )
+    legacy_expire_before = resolved_expire_before - timedelta(minutes=30)
 
     with app.app_context():
         query = BillingOrder.query.filter(
@@ -298,10 +295,9 @@ def _expire_pending_billing_orders(
         )
         if normalized_creator_bid:
             query = query.filter(BillingOrder.creator_bid == normalized_creator_bid)
-        orders = (
-            query.order_by(BillingOrder.expires_at.asc(), BillingOrder.id.asc())
-            .all()
-        )
+        orders = query.order_by(
+            BillingOrder.expires_at.asc(), BillingOrder.id.asc()
+        ).all()
 
     inspected = 0
     timeout_count = 0

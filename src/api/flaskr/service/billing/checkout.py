@@ -268,9 +268,9 @@ def _is_same_subscription_checkout_target(
     product_bid: str,
     order_type: int,
 ) -> bool:
-    return _normalize_bid(order.product_bid) == _normalize_bid(
-        product_bid
-    ) and int(order.order_type or 0) == int(order_type or 0)
+    return _normalize_bid(order.product_bid) == _normalize_bid(product_bid) and int(
+        order.order_type or 0
+    ) == int(order_type or 0)
 
 
 def _is_billing_order_expired(
@@ -293,7 +293,9 @@ def _mark_billing_order_invalidated(
     replaced_by_bill_order_bid: str = "",
 ) -> None:
     now = invalidated_at or datetime.now()
-    metadata = dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    metadata = (
+        dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+    )
     metadata["invalidated_reason"] = reason
     metadata["invalidated_at"] = now.isoformat()
     if replaced_by_bill_order_bid:
@@ -304,9 +306,7 @@ def _mark_billing_order_invalidated(
     order.failed_at = order.failed_at or now
     order.failure_code = reason
     if target_status == BILLING_ORDER_STATUS_TIMEOUT:
-        order.failure_message = (
-            f"Billing order expired after {_BILLING_PENDING_ORDER_TIMEOUT_MINUTES} minutes"
-        )
+        order.failure_message = f"Billing order expired after {_BILLING_PENDING_ORDER_TIMEOUT_MINUTES} minutes"
     elif target_status == BILLING_ORDER_STATUS_CANCELED:
         order.failure_message = "Billing order invalidated by a newer package checkout"
 
@@ -770,7 +770,9 @@ def _build_stored_stripe_checkout_result(
 
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
     checkout_payload = (
-        metadata.get("checkout", {}) if isinstance(metadata.get("checkout"), dict) else {}
+        metadata.get("checkout", {})
+        if isinstance(metadata.get("checkout"), dict)
+        else {}
     )
     redirect_url = str(checkout_payload.get("url") or "").strip()
     checkout_session_id = (
@@ -955,10 +957,9 @@ def sync_billing_order(
         if order is None:
             raise_error("server.order.orderNotFound")
 
-        if (
-            int(order.status or 0) == BILLING_ORDER_STATUS_PENDING
-            and _is_subscription_checkout_order(order)
-        ):
+        if int(
+            order.status or 0
+        ) == BILLING_ORDER_STATUS_PENDING and _is_subscription_checkout_order(order):
             if _hydrate_legacy_billing_order_expires_at(order):
                 db.session.add(order)
             if order.payment_provider == "stripe":
