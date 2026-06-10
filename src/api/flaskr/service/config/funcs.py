@@ -124,12 +124,11 @@ def get_config(key: str, default: str = None) -> str:
         return get_config_from_common(key, default)
     app = current_app
     with nullcontext():
-        # Only treat explicitly configured env values as overrides. Passing the
-        # caller default here would short-circuit DB-backed keys that are not
-        # registered in flaskr.common.config.
-        env_value = get_config_from_common(key, None)
-        if env_value is not None:
-            return env_value
+        # Only real process env vars should override DB-backed config rows here.
+        # A shared runtime config instance from another Flask app/test process
+        # must not short-circuit the current app's DB lookup.
+        if _has_explicit_environment_override(key):
+            return os.environ.get(key, default)
         try:
             cache_key = _get_config_cache_key(app, key)
             cache = redis.get(cache_key)

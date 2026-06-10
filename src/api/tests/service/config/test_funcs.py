@@ -171,14 +171,15 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
     def test_get_config_from_environment(
-        self, mock_redis, mock_get_config_from_common, app
+        self, mock_redis, mock_get_config_from_common, monkeypatch, app
     ):
         """Test that get_config returns value from environment first."""
         with app.app_context():
-            mock_get_config_from_common.return_value = "env-value"
+            mock_redis.get.return_value = None
+            monkeypatch.setenv("test_key", "env-value")
             result = get_config("test_key")
             assert result == "env-value"
-            mock_get_config_from_common.assert_called_once_with("test_key", None)
+            mock_get_config_from_common.assert_not_called()
             mock_redis.get.assert_not_called()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
@@ -283,7 +284,7 @@ class TestGetConfig:
 
             result = get_config("test_key", "")
             assert result == '{"enabled":1}'
-            mock_get_config_from_common.assert_called_once_with("test_key", None)
+            mock_get_config_from_common.assert_not_called()
             mock_lock.release.assert_called_once()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
@@ -376,7 +377,7 @@ class TestGetConfig:
         """Fallback to environment config when database table is missing."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
-            mock_get_config_from_common.side_effect = [None, "env-fallback"]
+            mock_get_config_from_common.return_value = "env-fallback"
             mock_redis.get.return_value = None
             mock_lock = MagicMock()
             mock_lock.acquire.return_value = True
@@ -390,7 +391,7 @@ class TestGetConfig:
 
             result = get_config("test_key")
             assert result == "env-fallback"
-            assert mock_get_config_from_common.call_count == 2
+            mock_get_config_from_common.assert_called_once_with("test_key", None)
             mock_lock.release.assert_called_once()
 
 
