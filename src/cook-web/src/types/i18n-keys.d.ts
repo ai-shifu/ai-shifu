@@ -2764,6 +2764,7 @@ export type I18nKey =
   | 'server.order.mobileAlreadyActivated'
   | 'server.order.orderHasPaid'
   | 'server.order.orderNotFound'
+  | 'server.order.orderPayExpired'
   | 'server.order.orderRefundError'
   | 'server.order.orderStatusError'
   | 'server.order.orderStatusInit'

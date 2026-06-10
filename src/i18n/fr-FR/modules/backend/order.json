@@ -15,6 +15,7 @@
     "mobileAlreadyActivated": "Le mobile {mobile} est déjà activé pour ce cours",
     "orderHasPaid": "La commande a déjà été payée",
     "orderNotFound": "Commande introuvable",
+    "orderPayExpired": "Cette commande a expiré. Veuillez en créer une nouvelle.",
     "orderRefundError": "Échec du remboursement",
     "orderStatusError": "Le statut de la commande n’est pas valide pour cette opération",
     "orderStatusInit": "Non initié",

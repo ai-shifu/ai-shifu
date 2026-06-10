@@ -73,24 +73,37 @@ export function BillingPingxxQrDialog({
         : BILLING_PINGXX_CHANNELS;
 
   useEffect(() => {
-    setRemainingSeconds(expiresInSeconds);
-  }, [expiresInSeconds, open]);
+    const syncRemainingSeconds = (value: number | null) => {
+      setRemainingSeconds(current => (current === value ? current : value));
+    };
 
-  useEffect(() => {
-    if (!open || remainingSeconds === null || remainingSeconds <= 0) {
+    if (!open) {
+      syncRemainingSeconds(expiresInSeconds);
+      return;
+    }
+
+    syncRemainingSeconds(expiresInSeconds);
+    if (expiresInSeconds === null || expiresInSeconds <= 0) {
       return;
     }
 
     const timer = window.setInterval(() => {
-      setRemainingSeconds(current =>
-        current === null ? current : Math.max(0, current - 1),
-      );
+      setRemainingSeconds(current => {
+        if (current === null) {
+          return current;
+        }
+        if (current <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+        return current - 1;
+      });
     }, 1000);
 
     return () => {
       window.clearInterval(timer);
     };
-  }, [open, remainingSeconds]);
+  }, [expiresInSeconds, open]);
 
   const countdownLabel =
     remainingSeconds === null

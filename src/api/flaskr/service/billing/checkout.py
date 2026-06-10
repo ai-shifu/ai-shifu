@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from flask import Flask
+from flask import Flask, current_app
 
 from flaskr.common.public_urls import build_stripe_billing_result_url
 from flaskr.i18n import _ as translate
@@ -40,6 +40,7 @@ from flaskr.service.order.raw_snapshots import (
     upsert_billing_stripe_snapshot,
 )
 from flaskr.service.user.repository import load_user_aggregate
+from flaskr.util.timezone import serialize_with_app_timezone
 from flaskr.util.uuid import generate_id
 
 from .campaigns import resolve_applied_billing_campaign
@@ -53,6 +54,7 @@ from .consts import (
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_LABELS,
+    BILLING_PENDING_ORDER_TIMEOUT_DELTA,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
@@ -135,10 +137,6 @@ _CHECKOUT_PLAN_SUBJECT_PREFIX_KEYS = {
     "year": "module.billing.checkout.subject.plan.year",
 }
 
-_BILLING_PENDING_ORDER_TIMEOUT_MINUTES = 30
-_BILLING_PENDING_ORDER_TIMEOUT_DELTA = timedelta(
-    minutes=_BILLING_PENDING_ORDER_TIMEOUT_MINUTES
-)
 _SUBSCRIPTION_CHECKOUT_ORDER_TYPES = {
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
@@ -212,14 +210,17 @@ class RefundProviderMetadata:
 def _serialize_checkout_datetime(value: datetime | None) -> str | None:
     if value is None:
         return None
-    return value.isoformat()
+    try:
+        return serialize_with_app_timezone(current_app, value, "UTC")
+    except RuntimeError:
+        return value.isoformat()
 
 
 def _resolve_billing_order_expires_at(
     *,
     now: datetime | None = None,
 ) -> datetime:
-    return (now or datetime.now()) + _BILLING_PENDING_ORDER_TIMEOUT_DELTA
+    return (now or datetime.now()) + BILLING_PENDING_ORDER_TIMEOUT_DELTA
 
 
 def _resolve_effective_billing_order_expires_at(
@@ -231,7 +232,7 @@ def _resolve_effective_billing_order_expires_at(
         return None
     if order.created_at is None:
         return None
-    return order.created_at + _BILLING_PENDING_ORDER_TIMEOUT_DELTA
+    return order.created_at + BILLING_PENDING_ORDER_TIMEOUT_DELTA
 
 
 def _hydrate_legacy_billing_order_expires_at(
@@ -273,6 +274,15 @@ def _is_same_subscription_checkout_target(
     ) == int(order_type or 0)
 
 
+def _is_managed_pending_subscription_checkout_order(order: BillingOrder) -> bool:
+    if int(order.status or 0) != BILLING_ORDER_STATUS_PENDING:
+        return False
+    if not _is_subscription_checkout_order(order):
+        return False
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    return str(metadata.get("checkout_type") or "").strip() != PREORDER_CHECKOUT_TYPE
+
+
 def _is_billing_order_expired(
     order: BillingOrder,
     *,
@@ -306,9 +316,9 @@ def _mark_billing_order_invalidated(
     order.failed_at = order.failed_at or now
     order.failure_code = reason
     if target_status == BILLING_ORDER_STATUS_TIMEOUT:
-        order.failure_message = f"Billing order expired after {_BILLING_PENDING_ORDER_TIMEOUT_MINUTES} minutes"
+        order.failure_message = "billing.order.timeout"
     elif target_status == BILLING_ORDER_STATUS_CANCELED:
-        order.failure_message = "Billing order invalidated by a newer package checkout"
+        order.failure_message = "billing.order.replaced_by_new_package"
 
 
 def _expire_pending_billing_order_if_due(
@@ -334,7 +344,7 @@ def _expire_pending_billing_order_if_due(
 def _load_active_pending_subscription_orders_for_update(
     creator_bid: str,
 ) -> list[BillingOrder]:
-    return (
+    orders = (
         BillingOrder.query.filter(
             BillingOrder.deleted == 0,
             BillingOrder.creator_bid == creator_bid,
@@ -345,6 +355,11 @@ def _load_active_pending_subscription_orders_for_update(
         .order_by(BillingOrder.id.desc())
         .all()
     )
+    return [
+        order
+        for order in orders
+        if _is_managed_pending_subscription_checkout_order(order)
+    ]
 
 
 def create_billing_subscription_checkout(
@@ -1931,7 +1946,7 @@ def _sync_stripe_order(
     elif session.get("status") == "expired":
         target_status = BILLING_ORDER_STATUS_TIMEOUT
         failure_code = "expired"
-        failure_message = "Stripe checkout session expired"
+        failure_message = "billing.provider.stripe_checkout_session_expired"
 
     order_update = _apply_billing_order_provider_update(
         order,
@@ -2018,7 +2033,7 @@ def _sync_stripe_subscription_order(
     failure_message = ""
     if target_status == BILLING_ORDER_STATUS_FAILED:
         failure_code = str(subscription_payload.get("status") or "subscription_sync")
-        failure_message = "Stripe subscription sync indicates renewal is not paid yet"
+        failure_message = "billing.provider.stripe_subscription_unpaid"
 
     order_update = _apply_billing_order_provider_update(
         order,

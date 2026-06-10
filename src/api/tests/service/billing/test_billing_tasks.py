@@ -863,10 +863,10 @@ def test_expire_pending_orders_task_delegates_to_sync_flow(
             order.failure_code = "timeout"
             dao.db.session.add(order)
             dao.db.session.commit()
-        return {
-            "bill_order_bid": bill_order_bid,
-            "status": "timeout",
-        }
+        return SimpleNamespace(
+            bill_order_bid=bill_order_bid,
+            status="timeout",
+        )
 
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.sync_billing_order",

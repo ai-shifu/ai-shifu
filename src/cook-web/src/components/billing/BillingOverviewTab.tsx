@@ -708,7 +708,7 @@ export function BillingOverviewTab({
         amountInMinor={pingxxCheckout?.amountInMinor || 0}
         currency={pingxxCheckout?.currency || 'CNY'}
         description={pingxxCheckout?.description || ''}
-        expiresInSeconds={pingxxCheckout?.expiresInSeconds || null}
+        expiresInSeconds={pingxxCheckout?.expiresInSeconds ?? null}
         isLoading={Boolean(checkoutLoadingKey)}
         open={Boolean(pingxxCheckout)}
         productName={pingxxCheckout?.productName || ''}
