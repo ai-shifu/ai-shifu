@@ -577,9 +577,7 @@ class TestAddConfig:
             mock_encrypt.assert_not_called()
             assert result is True
 
-    def test_add_config_skips_if_env_exists(
-        self, monkeypatch: pytest.MonkeyPatch, app
-    ):
+    def test_add_config_skips_if_env_exists(self, monkeypatch: pytest.MonkeyPatch, app):
         """Test that add_config skips if environment config exists."""
         with app.app_context():
             monkeypatch.setenv("test_key", "env-value")
