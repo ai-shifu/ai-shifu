@@ -1938,3 +1938,31 @@ def get_config(key: str, default: Any = None) -> Any:
 def has_explicit_env_override(key: str) -> bool:
     """Return whether a config key is explicitly present in the environment."""
     return key in os.environ
+
+
+def get_redis_key_prefix(app: Flask | None = None) -> str:
+    """Return the base Redis prefix as a normalized string."""
+    if app is not None:
+        configured = app.config.get("REDIS_KEY_PREFIX")
+        if configured is not None:
+            return str(configured)
+    return str(get_config("REDIS_KEY_PREFIX", "") or "")
+
+
+def get_redis_derived_prefix(
+    config_key: str,
+    *,
+    app: Flask | None = None,
+    suffix: str | None = None,
+) -> str:
+    """Resolve a derived Redis prefix even when app config is only partially set."""
+    if app is not None:
+        configured = app.config.get(config_key)
+        if configured is not None:
+            return str(configured)
+    resolved_suffix = suffix
+    if resolved_suffix is None:
+        resolved_suffix = REDIS_KEY_SUFFIXES.get(config_key, "")
+    if not resolved_suffix:
+        return ""
+    return get_redis_key_prefix(app) + resolved_suffix
