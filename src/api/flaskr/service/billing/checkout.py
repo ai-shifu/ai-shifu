@@ -55,6 +55,7 @@ from .consts import (
     BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_LABELS,
     BILLING_PENDING_ORDER_TIMEOUT_DELTA,
+    BILLING_PENDING_ORDER_TIMEOUT_MINUTES,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
@@ -316,9 +317,11 @@ def _mark_billing_order_invalidated(
     order.failed_at = order.failed_at or now
     order.failure_code = reason
     if target_status == BILLING_ORDER_STATUS_TIMEOUT:
-        order.failure_message = "billing.order.timeout"
+        order.failure_message = (
+            f"Billing order expired after {BILLING_PENDING_ORDER_TIMEOUT_MINUTES} minutes"
+        )
     elif target_status == BILLING_ORDER_STATUS_CANCELED:
-        order.failure_message = "billing.order.replaced_by_new_package"
+        order.failure_message = "Billing order invalidated by a newer package checkout"
 
 
 def _expire_pending_billing_order_if_due(
@@ -1946,7 +1949,7 @@ def _sync_stripe_order(
     elif session.get("status") == "expired":
         target_status = BILLING_ORDER_STATUS_TIMEOUT
         failure_code = "expired"
-        failure_message = "billing.provider.stripe_checkout_session_expired"
+        failure_message = "Stripe checkout session expired"
 
     order_update = _apply_billing_order_provider_update(
         order,
@@ -2033,7 +2036,7 @@ def _sync_stripe_subscription_order(
     failure_message = ""
     if target_status == BILLING_ORDER_STATUS_FAILED:
         failure_code = str(subscription_payload.get("status") or "subscription_sync")
-        failure_message = "billing.provider.stripe_subscription_unpaid"
+        failure_message = "Stripe subscription sync indicates renewal is not paid yet"
 
     order_update = _apply_billing_order_provider_update(
         order,

@@ -303,7 +303,7 @@ def _expire_pending_billing_orders(
         )
         if normalized_creator_bid:
             query = query.filter(BillingOrder.creator_bid == normalized_creator_bid)
-        orders = (
+        orders = list(
             query.order_by(BillingOrder.expires_at.asc(), BillingOrder.id.asc())
             .limit(_EXPIRE_PENDING_BILLING_ORDER_BATCH_SIZE)
             .yield_per(_EXPIRE_PENDING_BILLING_ORDER_BATCH_SIZE)
