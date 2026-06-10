@@ -1,16 +1,19 @@
-from flask import Flask
-from cryptography.fernet import Fernet
 import base64
 import hashlib
-from flaskr.service.config.models import Config
-from flaskr.common.config import get_config as get_config_from_common
-from flaskr.common.cache_provider import cache as redis
-from flaskr.dao import db
-from flaskr.util import generate_id
-from pydantic import BaseModel, Field
-from flaskr.framework import extensible
-from sqlalchemy.exc import SQLAlchemyError
+import os
 import random
+
+from cryptography.fernet import Fernet
+from flask import Flask
+from pydantic import BaseModel, Field
+from sqlalchemy.exc import SQLAlchemyError
+
+from flaskr.common.cache_provider import cache as redis
+from flaskr.common.config import get_config as get_config_from_common
+from flaskr.dao import db
+from flaskr.framework import extensible
+from flaskr.service.config.models import Config
+from flaskr.util import generate_id
 
 MAX_UPDATED_BY_LEN = 36
 
@@ -22,6 +25,10 @@ class ConfigCache(BaseModel):
 
 def _normalize_updated_by(value: str) -> str:
     return (str(value or "").strip() or "system")[:MAX_UPDATED_BY_LEN]
+
+
+def _has_explicit_environment_override(key: str) -> bool:
+    return key in os.environ
 
 
 def _get_fernet_key(app: Flask) -> bytes:
@@ -180,8 +187,7 @@ def add_config(
     """
     with app.app_context():
         normalized_updated_by = _normalize_updated_by(updated_by)
-        env_value = get_config_from_common(key, None)
-        if env_value is not None:
+        if _has_explicit_environment_override(key):
             return
         # Check if config already exists in database
         existing_config = (
@@ -246,8 +252,7 @@ def update_config(
     """
     with app.app_context():
         normalized_updated_by = _normalize_updated_by(updated_by)
-        env_value = get_config_from_common(key, None)
-        if env_value is not None:
+        if _has_explicit_environment_override(key):
             return False
         cache_key = _get_config_cache_key(app, key)
         cache = redis.get(cache_key)

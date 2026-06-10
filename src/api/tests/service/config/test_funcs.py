@@ -577,11 +577,12 @@ class TestAddConfig:
             mock_encrypt.assert_not_called()
             assert result is True
 
-    @patch("flaskr.service.config.funcs.get_config_from_common")
-    def test_add_config_skips_if_env_exists(self, mock_get_config_from_common, app):
+    def test_add_config_skips_if_env_exists(
+        self, monkeypatch: pytest.MonkeyPatch, app
+    ):
         """Test that add_config skips if environment config exists."""
         with app.app_context():
-            mock_get_config_from_common.return_value = "env-value"
+            monkeypatch.setenv("test_key", "env-value")
             result = add_config(app, "test_key", "test_value")
             assert result is None
 
@@ -775,21 +776,21 @@ class TestUpdateConfig:
             mock_encrypt.assert_not_called()
             assert result is True
 
-    @patch("flaskr.service.config.funcs.get_config_from_common")
-    def test_update_config_skips_if_env_exists(self, mock_get_config_from_common, app):
+    def test_update_config_skips_if_env_exists(
+        self, monkeypatch: pytest.MonkeyPatch, app
+    ):
         """Test that update_config returns False if environment config exists."""
         with app.app_context():
-            mock_get_config_from_common.return_value = "env-value"
+            monkeypatch.setenv("test_key", "env-value")
             result = update_config(app, "test_key", "new_value")
             assert result is False
 
-    @patch("flaskr.service.config.funcs.get_config_from_common")
     def test_update_config_skips_if_empty_env_exists(
-        self, mock_get_config_from_common, app
+        self, monkeypatch: pytest.MonkeyPatch, app
     ):
         """Test that update_config respects empty string environment overrides."""
         with app.app_context():
-            mock_get_config_from_common.return_value = ""
+            monkeypatch.setenv("test_key", "")
             result = update_config(app, "test_key", "new_value")
             assert result is False
 
