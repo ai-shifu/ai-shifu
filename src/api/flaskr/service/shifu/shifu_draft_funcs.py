@@ -454,6 +454,16 @@ def save_shifu_draft_info(
             tts_enabled if tts_enabled is not None else current_tts_enabled
         )
 
+        # PATCH merge guards — whether each TTS sub-field was sent by the
+        # caller. Defaulting to False so that when TTS is disabled / omitted
+        # the merge does not clobber the draft's TTS config.
+        tts_provided = tts_provider is not None
+        tts_model_provided = tts_model is not None
+        tts_voice_provided = tts_voice_id is not None
+        tts_speed_provided = tts_speed is not None
+        tts_pitch_provided = tts_pitch is not None
+        tts_emotion_provided = tts_emotion is not None
+
         if merged_tts_enabled:
             merged_provider = (
                 tts_provider
@@ -624,17 +634,20 @@ def save_shifu_draft_info(
             new_shifu_draft.ask_provider_config = serialized_ask_provider_config
             if tts_enabled is not None:
                 new_shifu_draft.tts_enabled = 1 if tts_enabled else 0
-            if tts_provider is not None:
+            # PATCH guard: use the pre-validation provided flags (not the
+            # now-overwritten local variables) so we only overwrite TTS
+            # sub-fields the caller actually sent.
+            if tts_provided:
                 new_shifu_draft.tts_provider = tts_provider or ""
-            if tts_model is not None:
+            if tts_model_provided:
                 new_shifu_draft.tts_model = tts_model or ""
-            if tts_voice_id is not None:
+            if tts_voice_provided:
                 new_shifu_draft.tts_voice_id = tts_voice_id or ""
-            if tts_speed is not None:
+            if tts_speed_provided:
                 new_shifu_draft.tts_speed = tts_speed
-            if tts_pitch is not None:
+            if tts_pitch_provided:
                 new_shifu_draft.tts_pitch = tts_pitch
-            if tts_emotion is not None:
+            if tts_emotion_provided:
                 new_shifu_draft.tts_emotion = tts_emotion or ""
             if use_learner_language is not None:
                 new_shifu_draft.use_learner_language = 1 if use_learner_language else 0
