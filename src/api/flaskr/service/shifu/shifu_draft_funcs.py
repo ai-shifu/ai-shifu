@@ -442,14 +442,60 @@ def save_shifu_draft_info(
         ShifuDetailDto: Shifu detail dto
     """
     with app.app_context():
-        if tts_enabled:
+        # Fetch the current draft first — PATCH callers may omit TTS fields,
+        # so we merge the incoming (non-None) values with the existing draft
+        # before validation, rather than validating partial data.
+        shifu_draft = get_latest_shifu_draft(shifu_id)
+
+        # Resolve the effective TTS enabled flag: caller-provided value wins,
+        # otherwise keep what the draft already has.
+        current_tts_enabled = (
+            bool(shifu_draft.tts_enabled) if shifu_draft else False
+        )
+        merged_tts_enabled = (
+            tts_enabled if tts_enabled is not None else current_tts_enabled
+        )
+
+        if merged_tts_enabled:
+            merged_provider = (
+                tts_provider if tts_provider is not None
+                else (shifu_draft.tts_provider if shifu_draft else "")
+            )
+            merged_model = (
+                tts_model if tts_model is not None
+                else (shifu_draft.tts_model if shifu_draft else "")
+            )
+            merged_voice_id = (
+                tts_voice_id if tts_voice_id is not None
+                else (shifu_draft.tts_voice_id if shifu_draft else "")
+            )
+            merged_speed = (
+                tts_speed if tts_speed is not None
+                else (
+                    float(shifu_draft.tts_speed)
+                    if shifu_draft and shifu_draft.tts_speed is not None
+                    else 1.0
+                )
+            )
+            merged_pitch = (
+                tts_pitch if tts_pitch is not None
+                else (
+                    int(shifu_draft.tts_pitch)
+                    if shifu_draft and shifu_draft.tts_pitch is not None
+                    else 0
+                )
+            )
+            merged_emotion = (
+                tts_emotion if tts_emotion is not None
+                else (shifu_draft.tts_emotion if shifu_draft else "")
+            )
             validated = validate_tts_settings_strict(
-                provider=tts_provider,
-                model=tts_model,
-                voice_id=tts_voice_id,
-                speed=tts_speed,
-                pitch=tts_pitch,
-                emotion=tts_emotion,
+                provider=merged_provider,
+                model=merged_model,
+                voice_id=merged_voice_id,
+                speed=merged_speed,
+                pitch=merged_pitch,
+                emotion=merged_emotion,
             )
             tts_provider = validated.provider
             tts_model = validated.model
@@ -466,8 +512,6 @@ def save_shifu_draft_info(
             )
         if shifu_description is not None and len(shifu_description) > 500:
             raise_error("server.shifu.shifuDescriptionTooLong")
-
-        shifu_draft = get_latest_shifu_draft(shifu_id)
 
         if ask_enabled_status is None:
             ask_enabled_status = (

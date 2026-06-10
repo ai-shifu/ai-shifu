@@ -1216,6 +1216,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         index = request.get_json().get("index", None)
         system_prompt = request.get_json().get("system_prompt", None)
         is_hidden = request.get_json().get("is_hidden")
+        if isinstance(is_hidden, str):
+            is_hidden = is_hidden.lower() == "true"
         return make_common_response(
             create_outline(
                 app,
@@ -1291,6 +1293,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         # No defaults: an omitted type/is_hidden stays None and is preserved by
         # modify_unit (PATCH semantics), instead of resetting to guest/visible.
         is_hidden = request.get_json().get("is_hidden")
+        if isinstance(is_hidden, str):
+            is_hidden = is_hidden.lower() == "true"
         type = request.get_json().get("type")
         return make_common_response(
             modify_unit(
