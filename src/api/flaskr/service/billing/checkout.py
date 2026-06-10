@@ -317,9 +317,7 @@ def _mark_billing_order_invalidated(
     order.failed_at = order.failed_at or now
     order.failure_code = reason
     if target_status == BILLING_ORDER_STATUS_TIMEOUT:
-        order.failure_message = (
-            f"Billing order expired after {BILLING_PENDING_ORDER_TIMEOUT_MINUTES} minutes"
-        )
+        order.failure_message = f"Billing order expired after {BILLING_PENDING_ORDER_TIMEOUT_MINUTES} minutes"
     elif target_status == BILLING_ORDER_STATUS_CANCELED:
         order.failure_message = "Billing order invalidated by a newer package checkout"
 
