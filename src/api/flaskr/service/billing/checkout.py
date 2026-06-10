@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from flask import Flask, current_app
 
+from flaskr.common import cache_provider
 from flaskr.common.public_urls import build_stripe_billing_result_url
 from flaskr.i18n import _ as translate
 from flaskr.dao import db
@@ -342,7 +344,36 @@ def _expire_pending_billing_order_if_due(
     return True
 
 
-def _load_active_pending_subscription_orders_for_update(
+def _build_subscription_checkout_lock_key(app: Flask, creator_bid: str) -> str:
+    prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
+    return f"{prefix}:billing:subscription-checkout:{creator_bid}"
+
+
+@contextmanager
+def _subscription_checkout_lock(app: Flask, creator_bid: str) -> Iterator[None]:
+    """
+    Serialize subscription checkout per creator so provider I/O never holds DB
+    row locks while still preventing concurrent duplicate pending orders.
+    """
+
+    lock = cache_provider.cache.lock(
+        _build_subscription_checkout_lock_key(app, creator_bid),
+        timeout=30,
+        blocking_timeout=10,
+    )
+    acquired = bool(lock.acquire(blocking=True))
+    if not acquired:
+        raise_error("server.common.systemError")
+    try:
+        yield
+    finally:
+        try:
+            lock.release()
+        except Exception:
+            pass
+
+
+def _load_active_pending_subscription_orders(
     creator_bid: str,
 ) -> list[BillingOrder]:
     orders = (
@@ -352,7 +383,6 @@ def _load_active_pending_subscription_orders_for_update(
             BillingOrder.status == BILLING_ORDER_STATUS_PENDING,
             BillingOrder.order_type.in_(_SUBSCRIPTION_CHECKOUT_ORDER_TYPES),
         )
-        .with_for_update()
         .order_by(BillingOrder.id.desc())
         .all()
     )
@@ -378,7 +408,9 @@ def create_billing_subscription_checkout(
         default_pingxx_channel="alipay_qr",
     )
 
-    with app.app_context():
+    with app.app_context(), _subscription_checkout_lock(
+        app, normalized_creator_bid
+    ):
         now = datetime.now()
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
         if payment_provider == "stripe":
@@ -482,9 +514,7 @@ def create_billing_subscription_checkout(
                 raise_error("server.order.orderStatusError")
             subscription.updated_at = datetime.now()
 
-        pending_orders = _load_active_pending_subscription_orders_for_update(
-            normalized_creator_bid
-        )
+        pending_orders = _load_active_pending_subscription_orders(normalized_creator_bid)
         reusable_order: BillingOrder | None = None
         duplicate_reusable_orders: list[BillingOrder] = []
         conflicting_pending_orders: list[BillingOrder] = []
