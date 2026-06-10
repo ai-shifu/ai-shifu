@@ -60,7 +60,6 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
 )
-from .consts import UNIT_TYPE_GUEST
 from functools import wraps
 from enum import Enum
 from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
