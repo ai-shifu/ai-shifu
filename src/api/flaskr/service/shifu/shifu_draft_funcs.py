@@ -449,28 +449,30 @@ def save_shifu_draft_info(
 
         # Resolve the effective TTS enabled flag: caller-provided value wins,
         # otherwise keep what the draft already has.
-        current_tts_enabled = (
-            bool(shifu_draft.tts_enabled) if shifu_draft else False
-        )
+        current_tts_enabled = bool(shifu_draft.tts_enabled) if shifu_draft else False
         merged_tts_enabled = (
             tts_enabled if tts_enabled is not None else current_tts_enabled
         )
 
         if merged_tts_enabled:
             merged_provider = (
-                tts_provider if tts_provider is not None
+                tts_provider
+                if tts_provider is not None
                 else (shifu_draft.tts_provider if shifu_draft else "")
             )
             merged_model = (
-                tts_model if tts_model is not None
+                tts_model
+                if tts_model is not None
                 else (shifu_draft.tts_model if shifu_draft else "")
             )
             merged_voice_id = (
-                tts_voice_id if tts_voice_id is not None
+                tts_voice_id
+                if tts_voice_id is not None
                 else (shifu_draft.tts_voice_id if shifu_draft else "")
             )
             merged_speed = (
-                tts_speed if tts_speed is not None
+                tts_speed
+                if tts_speed is not None
                 else (
                     float(shifu_draft.tts_speed)
                     if shifu_draft and shifu_draft.tts_speed is not None
@@ -478,7 +480,8 @@ def save_shifu_draft_info(
                 )
             )
             merged_pitch = (
-                tts_pitch if tts_pitch is not None
+                tts_pitch
+                if tts_pitch is not None
                 else (
                     int(shifu_draft.tts_pitch)
                     if shifu_draft and shifu_draft.tts_pitch is not None
@@ -486,7 +489,8 @@ def save_shifu_draft_info(
                 )
             )
             merged_emotion = (
-                tts_emotion if tts_emotion is not None
+                tts_emotion
+                if tts_emotion is not None
                 else (shifu_draft.tts_emotion if shifu_draft else "")
             )
             validated = validate_tts_settings_strict(
