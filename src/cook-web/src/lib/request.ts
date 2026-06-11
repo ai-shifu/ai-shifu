@@ -58,10 +58,6 @@ const getRequestFallbackMessage = (error?: Partial<ErrorWithCode>) => {
     return i18n.t('common.core.networkError');
   }
 
-  if (typeof error?.status === 'number' || error?.name === 'TypeError') {
-    return i18n.t('common.core.requestFailed');
-  }
-
   return i18n.t('common.core.requestFailed');
 };
 

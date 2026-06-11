@@ -10,6 +10,7 @@ from flaskr.common.shifu_context import clear_shifu_context
 from flaskr.i18n import clear_language
 from flaskr.i18n import set_language
 from flaskr.i18n import _
+from flaskr.i18n import _translations
 
 
 by_pass_login_func = [
@@ -22,23 +23,40 @@ by_pass_login_func = [
 ]
 
 
+def _resolve_supported_language(raw_language: str | None) -> str | None:
+    normalized_language = str(raw_language or "").strip()
+    if not normalized_language:
+        return None
+
+    normalized_language_lower = normalized_language.lower()
+    for supported_language in _translations.keys():
+        if supported_language.lower() == normalized_language_lower:
+            return supported_language
+
+    for supported_language in _translations.keys():
+        if supported_language.lower().startswith(normalized_language_lower):
+            return supported_language
+
+    return normalized_language
+
+
 def _extract_request_language() -> str | None:
-    if request.method.upper() == "POST" and request.is_json:
-        payload = request.get_json(silent=True)
+    raw_language = None
+    if request.method.upper() in ("POST", "PUT", "PATCH") and request.is_json:
+        payload = request.get_json(silent=True) or {}
         if isinstance(payload, dict):
             language = payload.get("language")
             if language:
-                return str(language).strip()
+                raw_language = str(language).strip()
 
-    accept_language = request.headers.get("Accept-Language", "")
-    if not accept_language:
-        return None
+    if not raw_language:
+        accept_language = request.headers.get("Accept-Language", "")
+        if accept_language:
+            first_part = accept_language.split(",")[0].strip()
+            if first_part:
+                raw_language = first_part.split(";")[0].strip()
 
-    first_part = accept_language.split(",")[0].strip()
-    if not first_part:
-        return None
-
-    return first_part.split(";")[0].strip() or None
+    return _resolve_supported_language(raw_language)
 
 
 # 装饰器函数，用于跳过Token校验

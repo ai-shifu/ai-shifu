@@ -52,3 +52,50 @@ def test_common_handler_uses_request_language_for_unhandled_exceptions():
         "code": -1,
         "message": "服务异常，请稍后重试",
     }
+
+    with app.test_client() as client:
+        response = client.get(
+            "/boom-zh",
+            headers={"Accept-Language": "zh-cn,zh;q=0.9,en;q=0.8"},
+        )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "code": -1,
+        "message": "服务异常，请稍后重试",
+    }
+
+    with app.test_client() as client:
+        response = client.get(
+            "/boom-zh",
+            headers={"Accept-Language": "zh"},
+        )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "code": -1,
+        "message": "服务异常，请稍后重试",
+    }
+
+
+def test_common_handler_uses_json_language_for_patch_requests():
+    os.environ["SHARED_I18N_ROOT"] = str(_shared_i18n_root())
+    app = Flask(__name__)
+    load_translations(app)
+    register_common_handler(app)
+
+    @app.route("/boom-patch", methods=["PATCH"])
+    def _boom_patch():
+        raise RuntimeError("unexpected failure")
+
+    with app.test_client() as client:
+        response = client.patch(
+            "/boom-patch",
+            json={"language": "zh-cn"},
+        )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "code": -1,
+        "message": "服务异常，请稍后重试",
+    }
