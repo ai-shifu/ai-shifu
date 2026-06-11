@@ -380,6 +380,7 @@ export type BillingCheckoutResult = {
   provider: BillingProvider;
   payment_mode: BillingPaymentMode;
   status: 'init' | 'pending' | 'paid' | 'failed' | 'unsupported';
+  reused_existing_order?: boolean;
   checkout_type?: string | null;
   effective_mode?: 'immediate' | 'cycle_end' | string | null;
   current_product_bid?: string | null;
@@ -388,6 +389,8 @@ export type BillingCheckoutResult = {
   prepaid_offset_amount?: number;
   payable_amount?: number | null;
   currency?: string;
+  expires_at?: string | null;
+  expires_in_seconds?: number | null;
   campaign?: BillingCatalogCampaign | null;
   redirect_url?: string;
   checkout_session_id?: string;
@@ -397,6 +400,8 @@ export type BillingCheckoutResult = {
 export type BillingSyncResult = {
   bill_order_bid: string;
   status: BillingOrderStatus;
+  expires_at?: string | null;
+  expires_in_seconds?: number | null;
 };
 
 export type BillingEntitlements = {

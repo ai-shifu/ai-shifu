@@ -277,6 +277,20 @@ def test_build_operator_credit_orders_page_filters_orders_with_available_credits
     assert result.items[0].bill_order_bid == "bill-order-topup-1"
 
 
+def test_build_operator_credit_orders_page_supports_status_label_filter():
+    app = _build_app()
+
+    result = build_operator_credit_orders_page(
+        app,
+        status="paid",
+        page_index=1,
+        page_size=20,
+    )
+
+    assert result.total == 1
+    assert result.items[0].bill_order_bid == "bill-order-topup-1"
+
+
 def test_build_operator_credit_orders_page_keeps_orders_for_deleted_products():
     app = _build_app()
 

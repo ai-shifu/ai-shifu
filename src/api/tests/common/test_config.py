@@ -10,6 +10,9 @@ from flaskr.common.config import (
     Config,
     EnvironmentConfigError,
     get_config,
+    get_redis_derived_prefix,
+    get_redis_key_prefix,
+    has_explicit_env_override,
     __ENHANCED_CONFIG__,
 )
 from tests.common.fixtures.config_data import DOCKER_ENV_CONFIG
@@ -488,3 +491,40 @@ class TestConfigIntegrationWithFlask:
 
         # Parent should not be called for known keys
         parent_config.__getitem__.assert_not_called()
+
+
+class TestExplicitEnvOverride:
+    """Test explicit environment override detection."""
+
+    def test_has_explicit_env_override_true_when_key_present(self, monkeypatch):
+        monkeypatch.setenv("REDIS_HOST", "")
+        assert has_explicit_env_override("REDIS_HOST") is True
+
+    def test_has_explicit_env_override_false_when_key_missing(self, monkeypatch):
+        monkeypatch.delenv("REDIS_HOST", raising=False)
+        assert has_explicit_env_override("REDIS_HOST") is False
+
+
+class TestRedisPrefixHelpers:
+    """Test Redis prefix helpers with partial Flask config state."""
+
+    def test_get_redis_key_prefix_prefers_app_config(self, monkeypatch):
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
+        monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+        app = Flask(__name__)
+        app.config["REDIS_KEY_PREFIX"] = "app:"
+
+        assert get_redis_key_prefix(app) == "app:"
+
+    def test_get_redis_derived_prefix_falls_back_to_base_prefix(self, monkeypatch):
+        monkeypatch.setenv("REDIS_KEY_PREFIX", "env:")
+
+        app = Flask(__name__)
+
+        assert (
+            get_redis_derived_prefix("REDIS_KEY_PREFIX_MAIL_CODE", app=app)
+            == "env:mail_code:"
+        )

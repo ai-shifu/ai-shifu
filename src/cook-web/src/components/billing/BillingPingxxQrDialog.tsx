@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { LoaderIcon } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +29,7 @@ type BillingPingxxQrDialogProps = {
   amountInMinor: number;
   currency: string;
   description: string;
+  expiresInSeconds?: number | null;
   isLoading?: boolean;
   open: boolean;
   prepaidOffsetAmount?: number;
@@ -46,6 +47,7 @@ export function BillingPingxxQrDialog({
   amountInMinor,
   currency,
   description,
+  expiresInSeconds = null,
   isLoading = false,
   open,
   prepaidOffsetAmount = 0,
@@ -60,12 +62,55 @@ export function BillingPingxxQrDialog({
 }: BillingPingxxQrDialogProps) {
   const { t, i18n } = useTranslation();
   const agreementUrl = getPaymentAgreementUrl();
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(
+    expiresInSeconds,
+  );
   const availableChannels =
     provider === 'alipay'
       ? (['alipay_qr'] as BillingPingxxChannel[])
       : provider === 'wechatpay'
         ? (['wx_pub_qr'] as BillingPingxxChannel[])
         : BILLING_PINGXX_CHANNELS;
+
+  useEffect(() => {
+    const syncRemainingSeconds = (value: number | null) => {
+      setRemainingSeconds(current => (current === value ? current : value));
+    };
+
+    if (!open) {
+      syncRemainingSeconds(expiresInSeconds);
+      return;
+    }
+
+    syncRemainingSeconds(expiresInSeconds);
+    if (expiresInSeconds === null || expiresInSeconds <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setRemainingSeconds(current => {
+        if (current === null) {
+          return current;
+        }
+        if (current <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [expiresInSeconds, open]);
+
+  const countdownLabel =
+    remainingSeconds === null
+      ? ''
+      : `${String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:${String(
+          remainingSeconds % 60,
+        ).padStart(2, '0')}`;
 
   return (
     <Dialog
@@ -100,6 +145,24 @@ export function BillingPingxxQrDialog({
                   currency,
                   i18n.language,
                 )}
+              </span>
+            </div>
+          ) : null}
+          {remainingSeconds !== null ? (
+            <div className='flex items-center justify-between gap-3'>
+              <span>{t('module.billing.checkout.expiresInLabel')}</span>
+              <span
+                className={cn(
+                  'text-right font-semibold',
+                  remainingSeconds > 0 ? 'text-slate-900' : 'text-rose-600',
+                )}
+                data-testid='billing-pingxx-expiration-countdown'
+              >
+                {remainingSeconds > 0
+                  ? t('module.billing.checkout.expiresInValue', {
+                      countdown: countdownLabel,
+                    })
+                  : t('module.billing.checkout.expired')}
               </span>
             </div>
           ) : null}

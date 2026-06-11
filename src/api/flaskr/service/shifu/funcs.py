@@ -8,6 +8,7 @@ Date: 2025-08-07
 """
 
 from flaskr.common.cache_provider import cache as redis
+from flaskr.common.config import get_redis_key_prefix
 from ...dao import db
 from .models import FavoriteScenario, AiCourseAuth
 from ..common.models import raise_error
@@ -268,14 +269,8 @@ def shifu_permission_verification(
         bool: True if the user has the permission
     """
     with app.app_context():
-        cache_key = (
-            get_config("REDIS_KEY_PREFIX")
-            + "shifu_permission:"
-            + user_id
-            + ":"
-            + shifu_id
-        )
-        cache_key_expire = int(get_config("SHIFU_PERMISSION_CACHE_EXPIRE"))
+        cache_key = f"{get_redis_key_prefix(app)}shifu_permission:{user_id}:{shifu_id}"
+        cache_key_expire = int(get_config("SHIFU_PERMISSION_CACHE_EXPIRE", 300))
         cache_result = redis.get(cache_key)
         if cache_result is not None:
             try:

@@ -8,6 +8,7 @@ import pytest
 import flaskr.dao as dao
 from flaskr.route.callback import register_callback_handler
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_TOPUP,
@@ -18,6 +19,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from flaskr.service.billing.provider_state import _apply_billing_order_provider_update
 from flaskr.service.billing.webhooks import (
     apply_billing_native_notification,
     handle_billing_alipay_webhook,
@@ -126,6 +128,38 @@ def _create_native_billing_order(
         failure_message="",
         metadata_json={},
     )
+
+
+def test_replaced_package_canceled_order_cannot_be_revived_by_provider_sync() -> None:
+    order = BillingOrder(
+        bill_order_bid="bill-order-canceled-replaced-1",
+        creator_bid="creator-1",
+        order_type=BILLING_ORDER_TYPE_TOPUP,
+        product_bid="bill-product-topup-small",
+        subscription_bid="",
+        currency="CNY",
+        payable_amount=19900,
+        paid_amount=0,
+        payment_provider="stripe",
+        channel="checkout_session",
+        provider_reference_id="cs_replaced_1",
+        status=BILLING_ORDER_STATUS_CANCELED,
+        metadata_json={"invalidated_reason": "replaced_by_new_package"},
+    )
+
+    result = _apply_billing_order_provider_update(
+        order,
+        provider="stripe",
+        event_type="manual_sync",
+        source="sync",
+        payload={"checkout_session": {"id": "cs_replaced_1"}},
+        provider_reference_id="cs_replaced_1",
+        target_status=BILLING_ORDER_STATUS_PAID,
+    )
+
+    assert result.applied is False
+    assert order.status == BILLING_ORDER_STATUS_CANCELED
+    assert order.paid_at is None
 
 
 def _create_billing_native_raw_snapshot(

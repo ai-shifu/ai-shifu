@@ -128,10 +128,14 @@ def _apply_billing_order_provider_update(
         event_time=event_time,
     ).to_metadata_json()
 
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    invalidated_reason = str(metadata.get("invalidated_reason") or "").strip()
+
     if not _can_transition_billing_order_status(
         current_status=int(order.status or 0),
         target_status=target_status,
         source=source,
+        invalidated_reason=invalidated_reason,
     ):
         return result
 
@@ -170,6 +174,7 @@ def _can_transition_billing_order_status(
     current_status: int,
     target_status: int | None,
     source: str,
+    invalidated_reason: str = "",
 ) -> bool:
     if target_status is None or current_status == target_status:
         return False
@@ -181,7 +186,14 @@ def _can_transition_billing_order_status(
         BILLING_ORDER_STATUS_CANCELED,
         BILLING_ORDER_STATUS_TIMEOUT,
     }:
-        return False
+        if (
+            current_status == BILLING_ORDER_STATUS_CANCELED
+            and invalidated_reason == "replaced_by_new_package"
+        ):
+            return False
+        return (
+            source in {"sync", "webhook"} and target_status == BILLING_ORDER_STATUS_PAID
+        )
     if current_status == BILLING_ORDER_STATUS_FAILED:
         return (
             source in {"sync", "webhook"} and target_status == BILLING_ORDER_STATUS_PAID

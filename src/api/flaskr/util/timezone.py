@@ -62,8 +62,7 @@ def _coerce_datetime(app: Flask, value: datetime | str | None) -> datetime | Non
             return datetime.fromisoformat(normalized_value)
         except ValueError:
             app.logger.warning(
-                "Failed to parse datetime string '%s' for timezone conversion",
-                stripped_value,
+                "Failed to parse datetime string for timezone conversion",
             )
             return None
     app.logger.warning(
