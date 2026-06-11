@@ -30,6 +30,7 @@ import {
   type AskMessage,
 } from './askState';
 import { useAskStateStore } from './useAskStateStore';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 export type { AskMessage } from './askState';
 
 export interface AskBlockProps {
@@ -662,7 +663,7 @@ export default function AskBlock({
                       lessonFeedbackInteractionDefaultValueOptions
                     }
                     enableTypewriter={shouldEnableMessageTypewriter}
-                    typingSpeed={40}
+                    typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
                     readonly={true}
                     copyButtonText={copyButtonText}
                     copiedButtonText={copiedButtonText}

@@ -109,7 +109,7 @@ describe('ContentBlock pay interaction overrides', () => {
     expect(mockContentRender).toHaveBeenCalledWith(
       expect.objectContaining({
         enableTypewriter: true,
-        typingSpeed: 40,
+        typingSpeed: 30,
       }),
     );
   });

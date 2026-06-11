@@ -17,8 +17,7 @@ import {
 } from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
-
-const STREAMING_TEXT_TYPING_SPEED = 40;
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -126,7 +125,7 @@ const ContentBlock = memo(
       >
         <ContentRender
           enableTypewriter={shouldEnableTypewriter}
-          typingSpeed={STREAMING_TEXT_TYPING_SPEED}
+          typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
           content={renderedContent}
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}
