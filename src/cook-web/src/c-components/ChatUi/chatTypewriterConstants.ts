@@ -1,0 +1,1 @@
+export const CHAT_TYPEWRITER_SPEED_MS = 30;
