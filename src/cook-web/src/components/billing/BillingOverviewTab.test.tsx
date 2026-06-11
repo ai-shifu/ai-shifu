@@ -50,6 +50,12 @@ jest.mock('react-i18next', () => ({
       ) {
         return `${options.provider} / ${options.channel}`;
       }
+      if (
+        key === 'module.billing.checkout.expiresInValue' &&
+        typeof options?.countdown === 'string'
+      ) {
+        return `${key}:${options.countdown}`;
+      }
       return key;
     },
     i18n: {
@@ -1682,6 +1688,72 @@ describe('BillingOverviewTab', () => {
     );
   });
 
+  test('uses the returned provider when a same-package checkout reuses an existing QR order', async () => {
+    const user = userEvent.setup();
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 12,
+          reserved_credits: 0,
+          lifetime_granted_credits: 120,
+          lifetime_consumed_credits: 108,
+        },
+        subscription: null,
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-plan-reused-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      expires_in_seconds: 1800,
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/reused-wechat-qr',
+        },
+      },
+    });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
+      );
+    });
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payment_provider: 'stripe',
+          product_bid: 'bill-product-plan-yearly',
+        }),
+      );
+    });
+
+    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
+    expect(mockRememberStripeCheckoutSession).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId('billing-pingxx-expiration-countdown'),
+    ).toHaveTextContent('module.billing.checkout.expiresInValue:30:00');
+  });
+
   test('shows an in-app Pingxx subscription QR and allows switching channels', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];
@@ -1708,6 +1780,7 @@ describe('BillingOverviewTab', () => {
       provider: 'pingxx',
       payment_mode: 'subscription',
       status: 'pending',
+      expires_in_seconds: 1800,
       payment_payload: {
         credential: {
           wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
@@ -1763,6 +1836,9 @@ describe('BillingOverviewTab', () => {
     });
 
     expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('billing-pingxx-expiration-countdown'),
+    ).toHaveTextContent('module.billing.checkout.expiresInValue:30:00');
     expect(screen.getByRole('checkbox')).toBeChecked();
     expect(
       screen.getByRole('button', {

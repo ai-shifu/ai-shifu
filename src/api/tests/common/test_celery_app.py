@@ -32,6 +32,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
         CELERY_TASK_ALWAYS_EAGER=True,
         TZ="Asia/Shanghai",
         BILLING_RENEWAL_CRON="*/2 * * * *",
+        BILLING_PENDING_ORDER_EXPIRE_CRON="*/3 * * * *",
         BILLING_BUCKET_EXPIRE_CRON="*/15 * * * *",
         BILLING_LOW_BALANCE_CRON="30 * * * *",
         BILLING_CREDIT_EXPIRING_CRON="45 * * * *",
@@ -48,6 +49,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert "billing.settle_usage" in celery_app.tasks
     assert "billing.replay_usage_settlement" in celery_app.tasks
     assert "billing.expire_wallet_buckets" in celery_app.tasks
+    assert "billing.expire_pending_orders" in celery_app.tasks
     assert "billing.reconcile_provider_reference" in celery_app.tasks
     assert "billing.send_low_balance_alert" in celery_app.tasks
     assert "billing.scan_credit_expiring_notifications" in celery_app.tasks
@@ -70,6 +72,9 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert beat_schedule["billing.expire_wallet_buckets.schedule"]["task"] == (
         "billing.expire_wallet_buckets"
     )
+    assert beat_schedule["billing.expire_pending_orders.schedule"]["task"] == (
+        "billing.expire_pending_orders"
+    )
     assert beat_schedule["billing.send_low_balance_alert.schedule"]["task"] == (
         "billing.send_low_balance_alert"
     )
@@ -83,6 +88,11 @@ def test_create_celery_app_reuses_flask_config() -> None:
     _assert_cron_schedule(
         beat_schedule["billing.dispatch_due_renewal_events.schedule"]["schedule"],
         minute="*/2",
+        hour="*",
+    )
+    _assert_cron_schedule(
+        beat_schedule["billing.expire_pending_orders.schedule"]["schedule"],
+        minute="*/3",
         hour="*",
     )
     _assert_cron_schedule(

@@ -405,6 +405,12 @@ class BillingOrder(BillingTableMixin, db.Model):
         nullable=True,
         comment="Refunded timestamp",
     )
+    expires_at = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="Checkout expiration timestamp",
+    )
     failure_code = Column(
         String(255),
         nullable=False,

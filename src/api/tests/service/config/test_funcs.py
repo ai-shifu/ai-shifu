@@ -43,6 +43,15 @@ def app():
     yield flask_app
 
 
+@pytest.fixture(autouse=True)
+def disable_explicit_env_override(monkeypatch):
+    """Default test posture: config helpers should read/write DB-backed values."""
+    monkeypatch.setattr(
+        "flaskr.service.config.funcs.has_explicit_env_override",
+        lambda key: False,
+    )
+
+
 class TestFernetKeyGeneration:
     """Test Fernet key generation functions."""
 
@@ -164,20 +173,34 @@ class TestCacheKeyGeneration:
             key = _get_config_lock_key(app, "test_key")
             assert key == "test:sys:config:lock:test_key"
 
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    def test_get_config_cache_key_falls_back_to_common_prefix(
+        self, mock_get_config_from_common, app
+    ):
+        """Fallback to shared config prefix when plain Flask config lacks the key."""
+        with app.app_context():
+            app.config.pop("REDIS_KEY_PREFIX", None)
+            mock_get_config_from_common.return_value = "fallback:"
+            key = _get_config_cache_key(app, "test_key")
+            assert key == "fallback:sys:config:test_key"
+            mock_get_config_from_common.assert_called_once_with("REDIS_KEY_PREFIX", "")
+
 
 class TestGetConfig:
     """Test get_config function."""
 
+    @patch("flaskr.service.config.funcs.has_explicit_env_override", return_value=True)
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
     def test_get_config_from_environment(
-        self, mock_redis, mock_get_config_from_common, app
+        self, mock_redis, mock_get_config_from_common, mock_has_override, app
     ):
         """Test that get_config returns value from environment first."""
         with app.app_context():
             mock_get_config_from_common.return_value = "env-value"
             result = get_config("test_key")
             assert result == "env-value"
+            mock_has_override.assert_called_once_with("test_key")
             mock_get_config_from_common.assert_called_once_with("test_key", None)
             mock_redis.get.assert_not_called()
 
@@ -283,7 +306,7 @@ class TestGetConfig:
 
             result = get_config("test_key", "")
             assert result == '{"enabled":1}'
-            mock_get_config_from_common.assert_called_once_with("test_key", None)
+            mock_get_config_from_common.assert_not_called()
             mock_lock.release.assert_called_once()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
@@ -354,6 +377,32 @@ class TestGetConfig:
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
+    @patch("flaskr.service.config.funcs.Config")
+    def test_get_config_uses_common_default_when_database_config_is_missing(
+        self, mock_config_class, mock_redis, mock_get_config_from_common, app
+    ):
+        """Registered config defaults should survive missing DB rows."""
+        with app.app_context():
+            app.config["REDIS_KEY_PREFIX"] = "test:"
+            mock_get_config_from_common.return_value = 0.5
+            mock_redis.get.return_value = None
+            mock_lock = MagicMock()
+            mock_lock.acquire.return_value = True
+            mock_redis.lock.return_value = mock_lock
+
+            mock_query = MagicMock()
+            mock_query.filter.return_value.order_by.return_value.first.return_value = (
+                None
+            )
+            mock_config_class.query = mock_query
+
+            result = get_config("MIN_SHIFU_PRICE")
+            assert result == 0.5
+            mock_get_config_from_common.assert_called_once_with("MIN_SHIFU_PRICE", None)
+            assert mock_lock.release.call_count >= 1
+
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    @patch("flaskr.service.config.funcs.redis")
     def test_get_config_lock_failed(self, mock_redis, mock_get_config_from_common, app):
         """Test that get_config returns None when lock acquisition fails."""
         with app.app_context():
@@ -376,7 +425,7 @@ class TestGetConfig:
         """Fallback to environment config when database table is missing."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
-            mock_get_config_from_common.side_effect = [None, "env-fallback"]
+            mock_get_config_from_common.return_value = "env-fallback"
             mock_redis.get.return_value = None
             mock_lock = MagicMock()
             mock_lock.acquire.return_value = True
@@ -390,7 +439,7 @@ class TestGetConfig:
 
             result = get_config("test_key")
             assert result == "env-fallback"
-            assert mock_get_config_from_common.call_count == 2
+            mock_get_config_from_common.assert_called_once_with("test_key", None)
             mock_lock.release.assert_called_once()
 
 
@@ -581,9 +630,47 @@ class TestAddConfig:
     def test_add_config_skips_if_env_exists(self, mock_get_config_from_common, app):
         """Test that add_config skips if environment config exists."""
         with app.app_context():
-            mock_get_config_from_common.return_value = "env-value"
-            result = add_config(app, "test_key", "test_value")
+            with patch(
+                "flaskr.service.config.funcs.has_explicit_env_override",
+                return_value=True,
+            ):
+                result = add_config(app, "test_key", "test_value")
             assert result is None
+            mock_get_config_from_common.assert_not_called()
+
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    @patch("flaskr.service.config.funcs.redis")
+    @patch("flaskr.service.config.funcs.db")
+    @patch("flaskr.service.config.funcs.generate_id")
+    @patch("flaskr.service.config.funcs.Config")
+    def test_add_config_does_not_treat_non_env_defaults_as_override(
+        self,
+        mock_config_class,
+        mock_generate_id,
+        mock_db,
+        mock_redis,
+        mock_get_config_from_common,
+        app,
+    ):
+        """DB writes should proceed when the key is not explicitly in os.environ."""
+        with app.app_context():
+            app.config["REDIS_KEY_PREFIX"] = "test:"
+            mock_get_config_from_common.return_value = "parent-default"
+            mock_generate_id.return_value = "test-config-bid-123"
+            mock_config_instance = MagicMock()
+            mock_config_class.return_value = mock_config_instance
+            mock_query = MagicMock()
+            mock_query.filter.return_value.order_by.return_value.first.return_value = (
+                None
+            )
+            mock_config_class.query = mock_query
+
+            result = add_config(app, "test_key", "test_value")
+
+            assert result is True
+            mock_db.session.add.assert_called_once()
+            mock_db.session.commit.assert_called_once()
+            mock_get_config_from_common.assert_not_called()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
@@ -779,9 +866,13 @@ class TestUpdateConfig:
     def test_update_config_skips_if_env_exists(self, mock_get_config_from_common, app):
         """Test that update_config returns False if environment config exists."""
         with app.app_context():
-            mock_get_config_from_common.return_value = "env-value"
-            result = update_config(app, "test_key", "new_value")
+            with patch(
+                "flaskr.service.config.funcs.has_explicit_env_override",
+                return_value=True,
+            ):
+                result = update_config(app, "test_key", "new_value")
             assert result is False
+            mock_get_config_from_common.assert_not_called()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     def test_update_config_skips_if_empty_env_exists(
@@ -789,9 +880,13 @@ class TestUpdateConfig:
     ):
         """Test that update_config respects empty string environment overrides."""
         with app.app_context():
-            mock_get_config_from_common.return_value = ""
-            result = update_config(app, "test_key", "new_value")
+            with patch(
+                "flaskr.service.config.funcs.has_explicit_env_override",
+                return_value=True,
+            ):
+                result = update_config(app, "test_key", "new_value")
             assert result is False
+            mock_get_config_from_common.assert_not_called()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")

@@ -13,6 +13,7 @@ from typing import Literal, Optional
 from flask import Flask
 
 from flaskr.common.cache_provider import cache as redis
+from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.user.models import UserVerifyCode
@@ -110,10 +111,13 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
     if is_email:
         email_key = identifier
         email_lower = email_key.lower()
+        mail_code_prefix = get_redis_derived_prefix(
+            "REDIS_KEY_PREFIX_MAIL_CODE", app=app
+        )
 
-        cache_keys = [app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email_key]
+        cache_keys = [mail_code_prefix + email_key]
         if email_lower != email_key:
-            cache_keys.append(app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email_lower)
+            cache_keys.append(mail_code_prefix + email_lower)
 
         cached = None
         for cache_key in cache_keys:
@@ -168,8 +172,9 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
     lookup_identifiers = [identifier]
     if raw_identifier and raw_identifier not in lookup_identifiers:
         lookup_identifiers.append(raw_identifier)
+    phone_code_prefix = get_redis_derived_prefix("REDIS_KEY_PREFIX_PHONE_CODE", app=app)
     cache_keys = [
-        app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + lookup_identifier
+        phone_code_prefix + lookup_identifier
         for lookup_identifier in lookup_identifiers
     ]
 

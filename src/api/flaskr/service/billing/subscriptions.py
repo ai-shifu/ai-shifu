@@ -936,7 +936,12 @@ def _repair_existing_paid_order_grant_bucket(
 
     effective_to = grant_entry.expires_at
     now = datetime.now()
-    if effective_to is not None and effective_to <= now:
+    if (
+        effective_to is not None
+        and effective_to <= now
+        and _to_decimal(bucket.available_credits) <= 0
+        and _to_decimal(bucket.reserved_credits) <= 0
+    ):
         return False
 
     changed = False

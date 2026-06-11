@@ -15,6 +15,7 @@
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "format:check:changed": "node scripts/prettier-check-changed.mjs",
     "precommit": "lint-staged",
     "test": "jest",
     "test:e2e": "npx @playwright/test test",

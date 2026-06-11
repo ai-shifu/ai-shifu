@@ -40,6 +40,7 @@ from flaskr.service.user.repository import (
     upsert_wechat_credentials,
     transactional_session,
 )
+from flaskr.common.config import get_redis_derived_prefix
 
 FIX_CHECK_CODE = None
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
@@ -295,10 +296,8 @@ def verify_phone_code(
     lookup_phones = [normalized_phone]
     if raw_phone and raw_phone not in lookup_phones:
         lookup_phones.append(raw_phone)
-    code_keys = [
-        app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + lookup_phone
-        for lookup_phone in lookup_phones
-    ]
+    phone_code_prefix = get_redis_derived_prefix("REDIS_KEY_PREFIX_PHONE_CODE", app=app)
+    code_keys = [phone_code_prefix + lookup_phone for lookup_phone in lookup_phones]
     if code != FIX_CHECK_CODE:
         cached = None
         cached_phone = normalized_phone

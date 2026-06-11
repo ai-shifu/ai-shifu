@@ -65,7 +65,7 @@ from enum import Enum
 from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.common.cache_provider import cache as redis
-from flaskr.common.config import get_config
+from flaskr.common.config import get_config, get_redis_key_prefix
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
@@ -327,7 +327,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         # Clear both legacy and current redis prefixes to avoid stale permissions.
         prefixes = {
             app.config.get("CACHE_KEY_PREFIX", "") or "",
-            get_config("REDIS_KEY_PREFIX") or "",
+            get_redis_key_prefix(app),
         }
         for prefix in prefixes:
             cache_key = f"{prefix}shifu_permission:{user_id}:{shifu_bid}"

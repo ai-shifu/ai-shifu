@@ -13,7 +13,7 @@ from sqlalchemy import and_, case, false, literal, not_, or_
 from sqlalchemy.orm import defer
 
 from flaskr.common.cache_provider import cache as redis
-from flaskr.common.config import get_config
+from flaskr.common.config import get_redis_key_prefix
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.i18n import _
 from flaskr.dao import db
@@ -2365,7 +2365,7 @@ def _load_recent_paid_order_course_bids(
 def _clear_shifu_permission_cache(app: Flask, user_id: str, shifu_bid: str) -> None:
     prefixes = {
         app.config.get("CACHE_KEY_PREFIX", "") or "",
-        get_config("REDIS_KEY_PREFIX") or "",
+        get_redis_key_prefix(app),
     }
     for prefix in prefixes:
         cache_key = f"{prefix}shifu_permission:{user_id}:{shifu_bid}"
@@ -2374,8 +2374,7 @@ def _clear_shifu_permission_cache(app: Flask, user_id: str, shifu_bid: str) -> N
 
 def _clear_shifu_creator_cache(app: Flask, shifu_bid: str) -> None:
     prefixes = {
-        app.config.get("REDIS_KEY_PREFIX", "") or "",
-        get_config("REDIS_KEY_PREFIX") or "",
+        get_redis_key_prefix(app),
         "ai-shifu",
     }
     for prefix in prefixes:

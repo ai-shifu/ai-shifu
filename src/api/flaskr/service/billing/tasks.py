@@ -8,11 +8,18 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Callable
 
+from sqlalchemy import and_, or_
+
 from flaskr.dao import db
 from flaskr.service.config import get_config
 
-from .checkout import reconcile_billing_provider_reference
+from .checkout import reconcile_billing_provider_reference, sync_billing_order
 from .consts import (
+    BILLING_ORDER_STATUS_PENDING,
+    BILLING_PENDING_ORDER_TIMEOUT_DELTA,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
@@ -30,7 +37,7 @@ from .daily_aggregates import (
     rebuild_daily_aggregates,
 )
 from .domains import verify_domain_binding
-from .models import BillingRenewalEvent, BillingSubscription, CreditWallet
+from .models import BillingOrder, BillingRenewalEvent, BillingSubscription, CreditWallet
 from .notifications import (
     BILLING_PAID_FEISHU_TASK_NAME as _BILLING_PAID_FEISHU_TASK_NAME,
     TASK_NAME as _SUBSCRIPTION_PURCHASE_SMS_TASK_NAME,
@@ -53,6 +60,9 @@ except ImportError:  # pragma: no cover - local fallback for non-Celery test env
             return func
 
         return decorator
+
+
+_EXPIRE_PENDING_BILLING_ORDER_BATCH_SIZE = 500
 
 
 class SubscriptionPurchaseSmsRetryableError(RuntimeError):
@@ -308,6 +318,94 @@ def _collect_low_balance_creator_bids() -> list[str]:
     return sorted(creator_bids)
 
 
+def _expire_pending_billing_orders(
+    app,
+    *,
+    creator_bid: str = "",
+    expire_before: Any = None,
+) -> dict[str, Any]:
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    resolved_expire_before = _coerce_datetime(expire_before) or datetime.now()
+    legacy_expire_before = resolved_expire_before - BILLING_PENDING_ORDER_TIMEOUT_DELTA
+
+    with app.app_context():
+        query = BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.status == BILLING_ORDER_STATUS_PENDING,
+            BillingOrder.order_type.in_(
+                (
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                )
+            ),
+            or_(
+                and_(
+                    BillingOrder.expires_at.is_not(None),
+                    BillingOrder.expires_at <= resolved_expire_before,
+                ),
+                and_(
+                    BillingOrder.expires_at.is_(None),
+                    BillingOrder.created_at <= legacy_expire_before,
+                ),
+            ),
+        )
+        if normalized_creator_bid:
+            query = query.filter(BillingOrder.creator_bid == normalized_creator_bid)
+        orders = list(
+            query.order_by(BillingOrder.expires_at.asc(), BillingOrder.id.asc())
+            .limit(_EXPIRE_PENDING_BILLING_ORDER_BATCH_SIZE)
+            .yield_per(_EXPIRE_PENDING_BILLING_ORDER_BATCH_SIZE)
+        )
+
+    inspected = 0
+    timeout_count = 0
+    paid_count = 0
+    terminal_count = 0
+    failed_orders: list[str] = []
+    bill_order_bids: list[str] = []
+
+    for order in orders:
+        inspected += 1
+        try:
+            result = sync_billing_order(
+                app,
+                order.creator_bid,
+                order.bill_order_bid,
+                {},
+            )
+        except Exception:
+            app.logger.exception(
+                "Failed to sync pending billing order during timeout scan: %s",
+                order.bill_order_bid,
+            )
+            failed_orders.append(order.bill_order_bid)
+            continue
+        result_status = getattr(result, "status", None)
+        if result_status is None and isinstance(result, dict):
+            result_status = str(result.get("status") or "").strip()
+        bill_order_bids.append(order.bill_order_bid)
+        if result_status == "timeout":
+            timeout_count += 1
+        elif result_status == "paid":
+            paid_count += 1
+        elif result_status in {"failed", "canceled", "refunded"}:
+            terminal_count += 1
+
+    return {
+        "status": "processed" if inspected else "noop",
+        "creator_bid": normalized_creator_bid or None,
+        "expire_before": resolved_expire_before.isoformat(),
+        "inspected_count": inspected,
+        "timeout_count": timeout_count,
+        "paid_count": paid_count,
+        "terminal_count": terminal_count,
+        "failed_count": len(failed_orders),
+        "bill_order_bids": bill_order_bids,
+        "failed_bill_order_bids": failed_orders,
+    }
+
+
 @shared_task(name="billing.settle_usage")
 def settle_usage_task(*, creator_bid: str = "", usage_bid: str = "") -> dict[str, Any]:
     """Default async entrypoint for usage credit settlement."""
@@ -354,6 +452,24 @@ def expire_wallet_buckets_task(
     )
     payload = _serialize_task_payload(payload)
     payload["task_name"] = "billing.expire_wallet_buckets"
+    return payload
+
+
+@shared_task(name="billing.expire_pending_orders")
+def expire_pending_orders_task(
+    *,
+    creator_bid: str = "",
+    expire_before: Any = None,
+) -> dict[str, Any]:
+    """Scan expired pending package orders and sync them into terminal state."""
+
+    app = _create_task_app()
+    payload = _expire_pending_billing_orders(
+        app,
+        creator_bid=_normalize_bid(creator_bid),
+        expire_before=expire_before,
+    )
+    payload["task_name"] = "billing.expire_pending_orders"
     return payload
 
 

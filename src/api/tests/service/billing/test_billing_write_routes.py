@@ -28,9 +28,11 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_REFUNDED,
+    BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
@@ -2447,6 +2449,249 @@ class TestBillingWriteRoutes:
         assert billing_write_client["pingxx_requests"][1]["order_bid"] == bill_order_bid
         assert billing_write_client["pingxx_requests"][1]["subject"] == "月套餐·轻量版"
         assert billing_write_client["pingxx_requests"][1]["body"] == "月套餐·轻量版"
+
+    def test_subscription_checkout_reuses_same_pending_stripe_order_within_timeout(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        assert first_checkout["code"] == 0
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            == first_checkout["data"]["bill_order_bid"]
+        )
+        assert second_checkout["data"]["reused_existing_order"] is True
+        assert second_checkout["data"]["redirect_url"] == "https://stripe.test/checkout"
+        assert len(billing_write_client["stripe_requests"]) == 1
+
+        with app.app_context():
+            orders = BillingOrder.query.filter_by(creator_bid="creator-1").all()
+            assert len(orders) == 1
+            assert orders[0].status == BILLING_ORDER_STATUS_PENDING
+            assert orders[0].expires_at is not None
+
+    def test_subscription_checkout_cancels_pending_order_when_switching_package(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly-pro",
+                "payment_provider": "stripe",
+                "action": "upgrade_immediate",
+            },
+        ).get_json(force=True)
+
+        assert first_checkout["code"] == 0
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            != first_checkout["data"]["bill_order_bid"]
+        )
+
+        with app.app_context():
+            old_order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            new_order = BillingOrder.query.filter_by(
+                bill_order_bid=second_checkout["data"]["bill_order_bid"]
+            ).one()
+            assert old_order.status == BILLING_ORDER_STATUS_CANCELED
+            assert old_order.failure_code == "replaced_by_new_package"
+            assert old_order.metadata_json["replaced_by_bill_order_bid"] == (
+                new_order.bill_order_bid
+            )
+            assert new_order.status == BILLING_ORDER_STATUS_PENDING
+
+    def test_expired_pending_order_is_timed_out_and_recreated_on_same_package_checkout(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        with app.app_context():
+            old_order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            old_order.expires_at = datetime.now() - timedelta(minutes=1)
+            dao.db.session.add(old_order)
+            dao.db.session.commit()
+
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            != first_checkout["data"]["bill_order_bid"]
+        )
+        assert second_checkout["data"]["reused_existing_order"] is False
+
+        with app.app_context():
+            old_order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            assert old_order.status == BILLING_ORDER_STATUS_TIMEOUT
+            assert old_order.failure_code == "timeout"
+
+    def test_legacy_pending_order_without_expires_at_is_reused_within_timeout(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            order.expires_at = None
+            order.created_at = datetime.now() - timedelta(minutes=10)
+            dao.db.session.add(order)
+            dao.db.session.commit()
+
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            == first_checkout["data"]["bill_order_bid"]
+        )
+        assert second_checkout["data"]["reused_existing_order"] is True
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            assert order.expires_at is not None
+
+    def test_legacy_pending_order_without_expires_at_times_out_and_recreates(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        with app.app_context():
+            old_order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            old_order.expires_at = None
+            old_order.created_at = datetime.now() - timedelta(minutes=31)
+            dao.db.session.add(old_order)
+            dao.db.session.commit()
+
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            != first_checkout["data"]["bill_order_bid"]
+        )
+
+        with app.app_context():
+            old_order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            assert old_order.status == BILLING_ORDER_STATUS_TIMEOUT
+            assert old_order.failure_code == "timeout"
+
+    def test_pending_subscription_checkout_route_marks_expired_order_timeout(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "pingxx",
+            },
+        ).get_json(force=True)
+        bill_order_bid = checkout["data"]["bill_order_bid"]
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            order.expires_at = datetime.now() - timedelta(minutes=1)
+            dao.db.session.add(order)
+            dao.db.session.commit()
+
+        refreshed = client.post(
+            f"/api/billing/orders/{bill_order_bid}/checkout",
+        ).get_json(force=True)
+
+        assert refreshed["code"] == ERROR_CODE["server.order.orderPayExpired"]
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            assert order.status == BILLING_ORDER_STATUS_TIMEOUT
 
     def test_pingxx_wechat_subscription_checkout_aligns_legacy_charge_extra(
         self, billing_write_client, monkeypatch
