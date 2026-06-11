@@ -116,6 +116,28 @@ def _load_product_by_bid(product_bid: str):
     )
 
 
+def _is_trial_subscription_product(subscription, product) -> bool:
+    consts = _billing_consts()
+    product_bid = _normalize_bid(getattr(product, "product_bid", ""))
+    product_code = str(getattr(product, "product_code", "") or "").strip()
+    product_metadata = (
+        product.metadata_json
+        if product is not None and isinstance(product.metadata_json, dict)
+        else {}
+    )
+    subscription_metadata = (
+        subscription.metadata_json
+        if subscription is not None and isinstance(subscription.metadata_json, dict)
+        else {}
+    )
+    return (
+        product_bid == consts.BILLING_TRIAL_PRODUCT_BID
+        or product_code == consts.BILLING_TRIAL_PRODUCT_CODE
+        or bool(product_metadata.get(consts.BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG))
+        or bool(subscription_metadata.get("trial_bootstrap"))
+    )
+
+
 def _load_existing_order(
     *,
     inviter_user_bid: str,
@@ -300,6 +322,24 @@ def _resolve_order_shape(
         )
 
     current_product_bid = _normalize_bid(active_subscription.product_bid)
+    current_product = _load_product_by_bid(current_product_bid)
+    if _is_trial_subscription_product(active_subscription, current_product):
+        cycle_start_at = now
+        cycle_end_at = _cycle_end_from_start(product, cycle_start_at)
+        metadata["applied_cycle_start_at"] = cycle_start_at.isoformat()
+        metadata["applied_cycle_end_at"] = cycle_end_at.isoformat()
+        metadata["upgraded_from_trial_product_bid"] = current_product_bid
+        metadata["upgraded_from_subscription_bid"] = (
+            active_subscription.subscription_bid
+        )
+        return (
+            active_subscription,
+            consts.BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+            cycle_start_at,
+            cycle_end_at,
+            metadata,
+        )
+
     cycle_start_at = active_subscription.current_period_end_at or now
     cycle_end_at = _cycle_end_after_boundary(product, cycle_start_at)
     metadata["renewal_cycle_start_at"] = cycle_start_at.isoformat()
@@ -316,7 +356,6 @@ def _resolve_order_shape(
             metadata,
         )
 
-    current_product = _load_product_by_bid(current_product_bid)
     if current_product is not None:
         metadata["deferred_after_product_bid"] = current_product.product_bid
     metadata["deferred_after_subscription_bid"] = active_subscription.subscription_bid

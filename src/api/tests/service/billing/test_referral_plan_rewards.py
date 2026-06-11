@@ -9,11 +9,13 @@ import pytest
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_TRIAL_PRODUCT_BID,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
@@ -54,7 +56,10 @@ def referral_billing_app() -> Flask:
         dao.db.create_all()
         dao.db.session.add_all(
             build_bill_products(
-                product_bids=["bill-product-plan-monthly-pro"],
+                product_bids=[
+                    BILLING_TRIAL_PRODUCT_BID,
+                    "bill-product-plan-monthly-pro",
+                ],
                 overrides_by_bid={
                     "bill-product-plan-monthly-pro": {
                         "credit_amount": Decimal("1000.0000000000"),
@@ -133,6 +138,146 @@ def test_referral_plan_reward_creates_manual_paid_order_and_credits(
         assert bucket.original_credits == Decimal("1000.0000000000")
         assert bucket.effective_to == subscription.current_period_end_at
         assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_GRANT
+
+
+def test_referral_plan_reward_immediately_upgrades_active_trial_subscription(
+    referral_billing_app: Flask,
+) -> None:
+    trial_started_at = datetime.now() - timedelta(minutes=5)
+    trial_ends_at = trial_started_at + timedelta(days=15)
+
+    with referral_billing_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-referral-trial-upgrade",
+            creator_bid="creator-ref-billing-1",
+            available_credits=Decimal("100.0000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("100.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        subscription = BillingSubscription(
+            subscription_bid="sub-referral-trial-upgrade",
+            creator_bid="creator-ref-billing-1",
+            product_bid=BILLING_TRIAL_PRODUCT_BID,
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="manual",
+            provider_subscription_id="",
+            provider_customer_id="",
+            billing_anchor_at=trial_started_at,
+            current_period_start_at=trial_started_at,
+            current_period_end_at=trial_ends_at,
+            grace_period_end_at=None,
+            cancel_at_period_end=0,
+            next_product_bid="",
+            last_renewed_at=trial_started_at,
+            last_failed_at=None,
+            metadata_json={"trial_bootstrap": True},
+        )
+        trial_order = BillingOrder(
+            bill_order_bid="bill-referral-trial-start",
+            creator_bid="creator-ref-billing-1",
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            product_bid=BILLING_TRIAL_PRODUCT_BID,
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=0,
+            paid_amount=0,
+            payment_provider="manual",
+            channel="manual",
+            provider_reference_id="",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=trial_started_at,
+            metadata_json={
+                "checkout_type": "trial_bootstrap",
+                "trial_bootstrap": True,
+                "applied_cycle_start_at": trial_started_at.isoformat(),
+                "applied_cycle_end_at": trial_ends_at.isoformat(),
+            },
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-referral-trial-upgrade",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid="creator-ref-billing-1",
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=trial_order.bill_order_bid,
+            priority=20,
+            original_credits=Decimal("100.0000000000"),
+            available_credits=Decimal("100.0000000000"),
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=trial_started_at,
+            effective_to=trial_ends_at,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={"bill_order_bid": trial_order.bill_order_bid},
+        )
+        ledger = CreditLedgerEntry(
+            ledger_bid="ledger-referral-trial-start",
+            creator_bid="creator-ref-billing-1",
+            wallet_bid=wallet.wallet_bid,
+            wallet_bucket_bid=bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=trial_order.bill_order_bid,
+            idempotency_key=f"grant:{trial_order.bill_order_bid}",
+            amount=Decimal("100.0000000000"),
+            balance_after=Decimal("100.0000000000"),
+            expires_at=trial_ends_at,
+            consumable_from=trial_started_at,
+            metadata_json={
+                "bill_order_bid": trial_order.bill_order_bid,
+                "subscription_bid": subscription.subscription_bid,
+                "product_bid": trial_order.product_bid,
+                "payment_provider": trial_order.payment_provider,
+                "grant_reason": "subscription",
+                "bucket_credit_state": "available",
+            },
+        )
+        dao.db.session.add_all([wallet, subscription, trial_order, bucket, ledger])
+        dao.db.session.commit()
+
+    result = grant_referral_plan_reward(
+        referral_billing_app,
+        request=_request("ref-reward-billing-trial-upgrade"),
+    )
+
+    with referral_billing_app.app_context():
+        order = BillingOrder.query.filter_by(bill_order_bid=result.bill_order_bid).one()
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-referral-trial-upgrade"
+        ).one()
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-ref-billing-1").one()
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-referral-trial-upgrade",
+        ).one()
+        reward_ledger = CreditLedgerEntry.query.filter_by(
+            source_bid=order.bill_order_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        ).one()
+
+        assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+        assert order.subscription_bid == "sub-referral-trial-upgrade"
+        assert order.metadata_json["upgraded_from_trial_product_bid"] == (
+            BILLING_TRIAL_PRODUCT_BID
+        )
+        assert "renewal_cycle_start_at" not in order.metadata_json
+        assert subscription.product_bid == "bill-product-plan-monthly-pro"
+        assert subscription.current_period_start_at == order.paid_at
+        assert (
+            subscription.current_period_end_at.isoformat()
+            == order.metadata_json["applied_cycle_end_at"]
+        )
+        assert wallet.available_credits == Decimal("1100.0000000000")
+        assert wallet.reserved_credits == Decimal("0E-10")
+        assert bucket.source_bid == order.bill_order_bid
+        assert bucket.available_credits == Decimal("1100.0000000000")
+        assert bucket.reserved_credits == Decimal("0E-10")
+        assert reward_ledger.balance_after == Decimal("1100.0000000000")
+        assert reward_ledger.consumable_from == order.paid_at
+        assert reward_ledger.metadata_json["bucket_credit_state"] == "available"
 
 
 def test_referral_plan_reward_extends_same_manual_plan_subscription(
