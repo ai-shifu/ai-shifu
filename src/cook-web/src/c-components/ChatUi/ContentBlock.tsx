@@ -18,7 +18,7 @@ import {
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
 
-const STREAMING_TEXT_TYPING_SPEED = 40;
+const STREAMING_TEXT_TYPING_SPEED = 30;
 
 interface ContentBlockProps {
   item: ChatContentItem;

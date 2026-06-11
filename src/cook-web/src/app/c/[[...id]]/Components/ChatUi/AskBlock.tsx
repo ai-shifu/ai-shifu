@@ -662,7 +662,7 @@ export default function AskBlock({
                       lessonFeedbackInteractionDefaultValueOptions
                     }
                     enableTypewriter={shouldEnableMessageTypewriter}
-                    typingSpeed={40}
+                    typingSpeed={30}
                     readonly={true}
                     copyButtonText={copyButtonText}
                     copiedButtonText={copiedButtonText}
