@@ -8,8 +8,10 @@ from flask import Flask
 import flaskr.dao as dao
 from flaskr.i18n import load_translations
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_TOPUP,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -327,6 +329,62 @@ def test_build_operator_credit_orders_page_keeps_orders_for_deleted_products():
     assert searched_result.total == 1
     assert searched_result.items[0].bill_order_bid == "bill-order-topup-1"
     assert searched_result.items[0].product_code == "creator-topup-small"
+
+
+def test_build_operator_credit_orders_page_sorts_all_status_by_latest_created_at():
+    app = _build_app()
+
+    with app.app_context():
+        dao.db.session.add_all(
+            [
+                BillingOrder(
+                    bill_order_bid="bill-order-pending-newer-than-paid",
+                    creator_bid="creator-1",
+                    order_type=BILLING_ORDER_TYPE_TOPUP,
+                    product_bid="bill-product-topup-small",
+                    subscription_bid="",
+                    currency="CNY",
+                    payable_amount=29900,
+                    paid_amount=0,
+                    payment_provider="pingxx",
+                    channel="alipay_qr",
+                    provider_reference_id="charge_pending_newer",
+                    status=BILLING_ORDER_STATUS_PENDING,
+                    created_at=datetime(2026, 4, 28, 9, 0, 0),
+                ),
+                BillingOrder(
+                    bill_order_bid="bill-order-canceled-latest",
+                    creator_bid="creator-2",
+                    order_type=BILLING_ORDER_TYPE_TOPUP,
+                    product_bid="bill-product-topup-small",
+                    subscription_bid="",
+                    currency="CNY",
+                    payable_amount=39900,
+                    paid_amount=0,
+                    payment_provider="stripe",
+                    channel="checkout_session",
+                    provider_reference_id="charge_canceled_latest",
+                    status=BILLING_ORDER_STATUS_CANCELED,
+                    created_at=datetime(2026, 4, 29, 9, 0, 0),
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    result = build_operator_credit_orders_page(
+        app,
+        status="",
+        page_index=1,
+        page_size=20,
+    )
+
+    assert result.total == 4
+    assert [item.bill_order_bid for item in result.items[:4]] == [
+        "bill-order-canceled-latest",
+        "bill-order-pending-newer-than-paid",
+        "bill-order-topup-1",
+        "bill-order-plan-1",
+    ]
 
 
 def test_build_operator_credit_orders_overview_returns_aggregates():
