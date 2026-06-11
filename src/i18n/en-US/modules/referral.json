@@ -75,6 +75,25 @@
       "reward": "Reward and billing",
       "rewardBid": "Reward BID",
       "rewardProduct": "Reward product",
+      "rewardQueue": {
+        "artifacts": {
+          "ledger": "Ledger",
+          "order": "Order",
+          "reward": "Reward"
+        },
+        "columns": {
+          "artifacts": "Order / ledger",
+          "credits": "Credits",
+          "effectiveAt": "Effective at",
+          "expiresAt": "Expires at",
+          "index": "Cycle",
+          "invitee": "Invitee",
+          "ledgerState": "Ledger state",
+          "status": "Status"
+        },
+        "empty": "No reward queue.",
+        "title": "Reward queue"
+      },
       "rewardStatus": "Reward status",
       "subscription": "Subscription BID",
       "title": "Invite relation detail",

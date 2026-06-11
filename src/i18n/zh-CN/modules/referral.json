@@ -75,6 +75,25 @@
       "reward": "奖励与计费",
       "rewardBid": "奖励 BID",
       "rewardProduct": "奖励产品",
+      "rewardQueue": {
+        "artifacts": {
+          "ledger": "流水",
+          "order": "订单",
+          "reward": "奖励"
+        },
+        "columns": {
+          "artifacts": "订单/流水",
+          "credits": "积分",
+          "effectiveAt": "生效时间",
+          "expiresAt": "到期时间",
+          "index": "期数",
+          "invitee": "被邀请人",
+          "ledgerState": "账务状态",
+          "status": "状态"
+        },
+        "empty": "暂无奖励队列。",
+        "title": "奖励队列"
+      },
       "rewardStatus": "奖励状态",
       "subscription": "订阅 BID",
       "title": "邀请关系详情",

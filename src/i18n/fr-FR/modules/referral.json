@@ -75,6 +75,25 @@
       "reward": "Récompense et facturation",
       "rewardBid": "BID récompense",
       "rewardProduct": "Produit récompense",
+      "rewardQueue": {
+        "artifacts": {
+          "ledger": "Écriture",
+          "order": "Commande",
+          "reward": "Récompense"
+        },
+        "columns": {
+          "artifacts": "Commande / écriture",
+          "credits": "Crédits",
+          "effectiveAt": "Début",
+          "expiresAt": "Expiration",
+          "index": "Cycle",
+          "invitee": "Invité",
+          "ledgerState": "État comptable",
+          "status": "Statut"
+        },
+        "empty": "Aucune file de récompenses.",
+        "title": "File de récompenses"
+      },
       "rewardStatus": "Statut récompense",
       "subscription": "BID abonnement",
       "title": "Détail relation d’invitation",

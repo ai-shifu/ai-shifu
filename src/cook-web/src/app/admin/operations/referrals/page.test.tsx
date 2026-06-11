@@ -70,6 +70,44 @@ const relation = {
     created_at: '2026-06-09T12:00:00',
     updated_at: '2026-06-09T12:00:00',
   },
+  reward_queue: [
+    {
+      queue_index: 1,
+      reward_bid: 'reward-queue-1',
+      relation_bid: 'relation-queue-1',
+      invitee_user_bid: 'invitee-queue-1',
+      invitee_mobile_snapshot: '13900000001',
+      reward_status: 7852,
+      reward_credit_amount: '1000.0000000000',
+      reward_product_code: 'creator-plan-monthly-pro',
+      bill_order_bid: 'order-queue-1',
+      subscription_bid: 'sub-queue-1',
+      wallet_bucket_bid: 'bucket-queue-1',
+      ledger_bid: 'ledger-queue-1',
+      ledger_credit_state: 'reserved',
+      effective_at: '2026-07-01T00:00:00',
+      expires_at: '2026-08-01T00:00:00',
+      created_at: '2026-06-09T12:00:00',
+    },
+    {
+      queue_index: 2,
+      reward_bid: 'reward-queue-2',
+      relation_bid: 'relation-queue-2',
+      invitee_user_bid: 'invitee-queue-2',
+      invitee_mobile_snapshot: '13900000002',
+      reward_status: 7853,
+      reward_credit_amount: '1000.0000000000',
+      reward_product_code: 'creator-plan-monthly-pro',
+      bill_order_bid: 'order-queue-2',
+      subscription_bid: 'sub-queue-2',
+      wallet_bucket_bid: 'bucket-queue-2',
+      ledger_bid: 'ledger-queue-2',
+      ledger_credit_state: 'available',
+      effective_at: '2026-08-01T00:00:00',
+      expires_at: '2026-09-01T00:00:00',
+      created_at: '2026-06-09T13:00:00',
+    },
+  ],
   created_at: '2026-06-09T12:00:00',
   updated_at: '2026-06-09T12:00:00',
 };
@@ -138,5 +176,27 @@ describe('AdminOperationReferralsPage', () => {
         }),
       ),
     );
+  });
+
+  test('renders inviter reward queue in relation detail', async () => {
+    render(<AdminOperationReferralsPage />);
+
+    await screen.findByText('domestic_creator_invite_202606');
+    fireEvent.click(await screen.findByTestId('referral-detail-relation-1'));
+
+    expect(
+      await screen.findByText(
+        'module.referral.operator.detail.rewardQueue.title',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('reward-queue-1')).toBeInTheDocument();
+    expect(screen.getByText('reward-queue-2')).toBeInTheDocument();
+    expect(screen.getByText('order-queue-1')).toBeInTheDocument();
+    expect(screen.getByText('ledger-queue-1')).toBeInTheDocument();
+    expect(screen.getByText('13900000001')).toBeInTheDocument();
+    expect(screen.getByText('2026-07-01T00:00:00')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-08-01T00:00:00')).toHaveLength(2);
+    expect(screen.getByText('reserved')).toBeInTheDocument();
+    expect(screen.getByText('available')).toBeInTheDocument();
   });
 });

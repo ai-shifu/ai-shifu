@@ -43,6 +43,7 @@ import type {
   AdminReferralListResponse,
   AdminReferralOverview,
   AdminReferralRelation,
+  AdminReferralRewardQueueItem,
   AdminReferralStatusPayload,
 } from '@/types/referral';
 import {
@@ -83,6 +84,19 @@ const ALL_OPTION_VALUE = 'all';
  * t('module.referral.operator.detail.relationStatus')
  * t('module.referral.operator.detail.reward')
  * t('module.referral.operator.detail.rewardBid')
+ * t('module.referral.operator.detail.rewardQueue.artifacts.ledger')
+ * t('module.referral.operator.detail.rewardQueue.artifacts.order')
+ * t('module.referral.operator.detail.rewardQueue.artifacts.reward')
+ * t('module.referral.operator.detail.rewardQueue.columns.artifacts')
+ * t('module.referral.operator.detail.rewardQueue.columns.credits')
+ * t('module.referral.operator.detail.rewardQueue.columns.effectiveAt')
+ * t('module.referral.operator.detail.rewardQueue.columns.expiresAt')
+ * t('module.referral.operator.detail.rewardQueue.columns.index')
+ * t('module.referral.operator.detail.rewardQueue.columns.invitee')
+ * t('module.referral.operator.detail.rewardQueue.columns.ledgerState')
+ * t('module.referral.operator.detail.rewardQueue.columns.status')
+ * t('module.referral.operator.detail.rewardQueue.empty')
+ * t('module.referral.operator.detail.rewardQueue.title')
  * t('module.referral.operator.detail.rewardProduct')
  * t('module.referral.operator.detail.rewardStatus')
  * t('module.referral.operator.detail.subscription')
@@ -680,6 +694,12 @@ export default function AdminOperationReferralsPage() {
                 ]}
               />
 
+              <RewardQueueTable
+                items={detail.reward_queue || []}
+                rewardStatusLabel={rewardStatusLabel}
+                t={t}
+              />
+
               <div className='space-y-2'>
                 <Label htmlFor='operator-note'>
                   {t('operator.detail.operatorNote')}
@@ -738,6 +758,109 @@ export default function AdminOperationReferralsPage() {
           ) : null}
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+function RewardQueueTable({
+  items,
+  rewardStatusLabel,
+  t,
+}: {
+  items: AdminReferralRewardQueueItem[];
+  rewardStatusLabel: (status?: number) => string;
+  t: (key: string, values?: Record<string, unknown>) => string;
+}) {
+  return (
+    <section className='rounded-lg border border-border p-3'>
+      <h3 className='mb-3 text-sm font-semibold text-foreground'>
+        {t('operator.detail.rewardQueue.title')}
+      </h3>
+      <div className='overflow-x-auto'>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>
+                {t('operator.detail.rewardQueue.columns.index')}
+              </TableHead>
+              <TableHead>
+                {t('operator.detail.rewardQueue.columns.status')}
+              </TableHead>
+              <TableHead>
+                {t('operator.detail.rewardQueue.columns.credits')}
+              </TableHead>
+              <TableHead>
+                {t('operator.detail.rewardQueue.columns.invitee')}
+              </TableHead>
+              <TableHead>
+                {t('operator.detail.rewardQueue.columns.effectiveAt')}
+              </TableHead>
+              <TableHead>
+                {t('operator.detail.rewardQueue.columns.expiresAt')}
+              </TableHead>
+              <TableHead>
+                {t('operator.detail.rewardQueue.columns.ledgerState')}
+              </TableHead>
+              <TableHead>
+                {t('operator.detail.rewardQueue.columns.artifacts')}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.length ? (
+              items.map(item => (
+                <TableRow key={`${item.reward_bid}:${item.queue_index}`}>
+                  <TableCell>{item.queue_index}</TableCell>
+                  <TableCell>{rewardStatusLabel(item.reward_status)}</TableCell>
+                  <TableCell>{formatText(item.reward_credit_amount)}</TableCell>
+                  <TableCell>
+                    <UserSummary
+                      userBid={item.invitee_user_bid}
+                      identifier={item.invitee_mobile_snapshot}
+                    />
+                  </TableCell>
+                  <TableCell>{formatText(item.effective_at)}</TableCell>
+                  <TableCell>{formatText(item.expires_at)}</TableCell>
+                  <TableCell>{formatText(item.ledger_credit_state)}</TableCell>
+                  <TableCell>
+                    <div className='space-y-1 text-xs'>
+                      <ArtifactLine
+                        label={t(
+                          'operator.detail.rewardQueue.artifacts.reward',
+                        )}
+                        value={item.reward_bid}
+                      />
+                      <ArtifactLine
+                        label={t('operator.detail.rewardQueue.artifacts.order')}
+                        value={item.bill_order_bid}
+                      />
+                      <ArtifactLine
+                        label={t(
+                          'operator.detail.rewardQueue.artifacts.ledger',
+                        )}
+                        value={item.ledger_bid}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableEmpty colSpan={8}>
+                {t('operator.detail.rewardQueue.empty')}
+              </TableEmpty>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  );
+}
+
+function ArtifactLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className='min-w-[160px]'>
+      <span className='mr-1 text-muted-foreground'>{label}</span>
+      <span className='font-mono text-foreground'>{formatText(value)}</span>
     </div>
   );
 }

@@ -71,6 +71,25 @@ export type AdminReferralReward = {
   updated_at: string | null;
 };
 
+export type AdminReferralRewardQueueItem = {
+  queue_index: number;
+  reward_bid: string;
+  relation_bid: string;
+  invitee_user_bid: string;
+  invitee_mobile_snapshot: string;
+  reward_status: number;
+  reward_credit_amount: string | null;
+  reward_product_code: string;
+  bill_order_bid: string;
+  subscription_bid: string;
+  wallet_bucket_bid: string;
+  ledger_bid: string;
+  ledger_credit_state: string;
+  effective_at: string | null;
+  expires_at: string | null;
+  created_at: string | null;
+};
+
 export type AdminReferralRelation = {
   relation_bid: string;
   campaign_bid: string;
@@ -90,6 +109,7 @@ export type AdminReferralRelation = {
   abnormal_status: number;
   metadata: Record<string, unknown>;
   reward: AdminReferralReward | null;
+  reward_queue?: AdminReferralRewardQueueItem[];
   created_at: string | null;
   updated_at: string | null;
 };
