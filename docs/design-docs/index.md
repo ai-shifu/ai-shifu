@@ -21,4 +21,4 @@ Implementation and architecture decisions that shape repository behavior live he
 - [Primary Surface Rules Completion](../design-docs/primary-surface-rules.md)
   - Status: `implemented` | Owner: `repo` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [老带新邀请奖励](../design-docs/referral-invitation-rewards.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-06-09` | Canonical: `true`
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-06-11` | Canonical: `true`

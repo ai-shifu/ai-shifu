@@ -14,6 +14,7 @@
 - [x] 2026-06-09 17:45 CST：实现后端 referral domain models、migration、services、routes、post-auth hook、billing reward helper 和重点 tests。
 - [x] 2026-06-09 17:48 CST：实现创作者邀请页、被邀请人落地页、登录 payload 透传、前端 API/types 和共享 i18n 文案。
 - [x] 2026-06-09 17:50 CST：实现运营 referral 监控页、列表/详情/overview/status API、人工 adjustment API 和 reward grant retry helper。
+- [x] 2026-06-11 14:55 CST：按 dev02 对账反馈修正 billing reward helper：免费/试用等任何当前有效权益窗口均不提前加账，邀请奖励进入 renewal reserved 队列，到期后自动释放并顺延。
 - [ ] 2026-06-08 22:45 CST：在 dev02 使用真实 billing product 配置和数据库行完成验证。
 
 ## Surprises & Discoveries
@@ -253,8 +254,8 @@
 - 使用 metadata `checkout_type = referral_invitation_reward`。
 - 在 billing metadata 中包含 campaign 和 reward-rule BID。
 - 复用 `grant_paid_order_credits`。
-- 无有效付费订阅时立即生效。
-- 邀请人当前为免费套餐时，立即进入配置的奖励套餐。
+- 无任何有效权益窗口时立即生效。
+- 邀请人当前为免费或试用套餐时，奖励排到当前权益结束后生效，不提前叠加到当前周期可用积分。
 - 当前同款自营订阅使用 reward product 时，同套餐顺延。
 - 更高级套餐或年套餐结束后延后生效。
 - 首发奖励保持配置的 30 天 credit-bucket 过期语义。
@@ -264,6 +265,7 @@
 
 - 无订阅用户立即得到 active reward。
 - 同一 reward 重复调用幂等。
+- 免费或试用套餐用户的邀请奖励先进入 reserved renewal 队列，到期事件执行后才释放为下一周期 available。
 - 已有同套餐订阅顺延一个周期。
 - 已有更高级套餐或年套餐保持当前付费套餐，记录 deferred reward。
 - 首发奖励创建 1000 积分 bucket，并在 30 天周期边界过期。
@@ -458,7 +460,7 @@
 - 首发活动中，第 13 个有效 invitee 继续注册并绑定，但不创建自动 billing reward。
 - 配置较小 cap 的测试活动会在该 cap 处跳过，不需要改代码。
 - Reward billing artifacts 可在 `bill_orders`、`bill_subscriptions`、`credit_wallet_buckets`、`credit_ledger_entries` 中看到。
-- 首发 reward bucket 每 30 天周期发放 1000 积分，并在周期结束时过期未用积分。
+- 首发 reward bucket 每 30 天周期发放 1000 积分；有当前权益窗口时先 reserved，到周期边界释放为当期 available，并在周期结束时过期未用积分。
 - 已有用户不会被邀请链接重新绑定。
 - 被邀请账号不会获得 referral-specific 额外福利。
 - 运营 API 可以追踪邀请人、被邀请人、relation、reward、order、subscription、bucket 和 ledger。

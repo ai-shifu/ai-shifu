@@ -191,6 +191,12 @@ def _calculate_self_managed_billing_cycle_end_after_boundary(
     )
 
 
+def _extract_order_metadata_datetime(metadata: Any, key: str) -> datetime | None:
+    from .queries import extract_order_metadata_datetime
+
+    return extract_order_metadata_datetime(metadata, key)
+
+
 def _grant_paid_order_credits(app: Flask, order) -> bool:
     from .subscriptions import grant_paid_order_credits
 
@@ -265,6 +271,73 @@ def _cycle_end_after_boundary(
     return cycle_end_at
 
 
+def _is_referral_reward_order(order) -> bool:
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    checkout_type = str(metadata.get("checkout_type") or "").strip()
+    return checkout_type == _CHECKOUT_TYPE or bool(
+        metadata.get("referral_invitation_reward") is True
+    )
+
+
+def _latest_referral_renewal_cycle_end_after(
+    *,
+    creator_bid: str,
+    subscription_bid: str,
+    boundary_at: datetime,
+) -> datetime | None:
+    consts = _billing_consts()
+    models = _billing_models()
+    rows = (
+        models.BillingOrder.query.filter(
+            models.BillingOrder.deleted == 0,
+            models.BillingOrder.creator_bid == _normalize_bid(creator_bid),
+            models.BillingOrder.subscription_bid == _normalize_bid(subscription_bid),
+            models.BillingOrder.order_type
+            == consts.BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            models.BillingOrder.status == consts.BILLING_ORDER_STATUS_PAID,
+            models.BillingOrder.payment_provider == _MANUAL_PROVIDER_NAME,
+        )
+        .order_by(models.BillingOrder.id.asc())
+        .all()
+    )
+    latest_cycle_end_at: datetime | None = None
+    for order in rows:
+        if not _is_referral_reward_order(order):
+            continue
+        metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+        cycle_end_at = _extract_order_metadata_datetime(
+            metadata,
+            "renewal_cycle_end_at",
+        )
+        if cycle_end_at is None or cycle_end_at <= boundary_at:
+            continue
+        if latest_cycle_end_at is None or cycle_end_at > latest_cycle_end_at:
+            latest_cycle_end_at = cycle_end_at
+    return latest_cycle_end_at
+
+
+def _resolve_referral_renewal_cycle_start_at(
+    *,
+    active_subscription,
+    now: datetime,
+) -> datetime:
+    cycle_start_at = active_subscription.current_period_end_at or now
+    queued_cycle_end_at = _latest_referral_renewal_cycle_end_after(
+        creator_bid=active_subscription.creator_bid,
+        subscription_bid=active_subscription.subscription_bid,
+        boundary_at=cycle_start_at,
+    )
+    if queued_cycle_end_at is not None:
+        return queued_cycle_end_at
+    return cycle_start_at
+
+
+def _classify_deferred_entitlement(active_subscription, current_product) -> str:
+    if _is_trial_subscription_product(active_subscription, current_product):
+        return "trial"
+    return "paid"
+
+
 def _resolve_order_shape(
     *,
     request: ReferralPlanRewardRequest,
@@ -323,27 +396,21 @@ def _resolve_order_shape(
 
     current_product_bid = _normalize_bid(active_subscription.product_bid)
     current_product = _load_product_by_bid(current_product_bid)
-    if _is_trial_subscription_product(active_subscription, current_product):
-        cycle_start_at = now
-        cycle_end_at = _cycle_end_from_start(product, cycle_start_at)
-        metadata["applied_cycle_start_at"] = cycle_start_at.isoformat()
-        metadata["applied_cycle_end_at"] = cycle_end_at.isoformat()
-        metadata["upgraded_from_trial_product_bid"] = current_product_bid
-        metadata["upgraded_from_subscription_bid"] = (
-            active_subscription.subscription_bid
-        )
-        return (
-            active_subscription,
-            consts.BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
-            cycle_start_at,
-            cycle_end_at,
-            metadata,
-        )
 
-    cycle_start_at = active_subscription.current_period_end_at or now
+    cycle_start_at = _resolve_referral_renewal_cycle_start_at(
+        active_subscription=active_subscription,
+        now=now,
+    )
     cycle_end_at = _cycle_end_after_boundary(product, cycle_start_at)
     metadata["renewal_cycle_start_at"] = cycle_start_at.isoformat()
     metadata["renewal_cycle_end_at"] = cycle_end_at.isoformat()
+    metadata["deferred_after_entitlement"] = _classify_deferred_entitlement(
+        active_subscription,
+        current_product,
+    )
+    metadata["deferred_after_subscription_bid"] = active_subscription.subscription_bid
+    if current_product is not None:
+        metadata["deferred_after_product_bid"] = current_product.product_bid
 
     if current_product_bid == product.product_bid and _is_self_managed_billing_provider(
         active_subscription.billing_provider
@@ -356,9 +423,6 @@ def _resolve_order_shape(
             metadata,
         )
 
-    if current_product is not None:
-        metadata["deferred_after_product_bid"] = current_product.product_bid
-    metadata["deferred_after_subscription_bid"] = active_subscription.subscription_bid
     return (
         active_subscription,
         consts.BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
