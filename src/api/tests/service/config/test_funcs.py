@@ -377,6 +377,32 @@ class TestGetConfig:
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
+    @patch("flaskr.service.config.funcs.Config")
+    def test_get_config_uses_common_default_when_database_config_is_missing(
+        self, mock_config_class, mock_redis, mock_get_config_from_common, app
+    ):
+        """Registered config defaults should survive missing DB rows."""
+        with app.app_context():
+            app.config["REDIS_KEY_PREFIX"] = "test:"
+            mock_get_config_from_common.return_value = 0.5
+            mock_redis.get.return_value = None
+            mock_lock = MagicMock()
+            mock_lock.acquire.return_value = True
+            mock_redis.lock.return_value = mock_lock
+
+            mock_query = MagicMock()
+            mock_query.filter.return_value.order_by.return_value.first.return_value = (
+                None
+            )
+            mock_config_class.query = mock_query
+
+            result = get_config("MIN_SHIFU_PRICE")
+            assert result == 0.5
+            mock_get_config_from_common.assert_called_once_with("MIN_SHIFU_PRICE", None)
+            assert mock_lock.release.call_count >= 1
+
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    @patch("flaskr.service.config.funcs.redis")
     def test_get_config_lock_failed(self, mock_redis, mock_get_config_from_common, app):
         """Test that get_config returns None when lock acquisition fails."""
         with app.app_context():
