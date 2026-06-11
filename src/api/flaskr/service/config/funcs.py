@@ -151,7 +151,7 @@ def get_config(key: str, default: str = None) -> str:
                         .first()
                     )
                     if not config:
-                        return default
+                        return get_config_from_common(key, default)
                     raw_value = config.value
                     if bool(config.is_encrypted):
                         value = _decrypt_config(app, raw_value)
