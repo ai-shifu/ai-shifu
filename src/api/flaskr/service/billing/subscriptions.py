@@ -685,6 +685,23 @@ def _should_defer_subscription_renewal_activation(
     )
 
 
+def _has_paid_referral_invitation_renewal_at_boundary(
+    subscription: BillingSubscription,
+    *,
+    boundary_at: datetime | None,
+) -> bool:
+    if boundary_at is None:
+        return False
+    order = _load_subscription_renewal_order_by_cycle(
+        subscription.subscription_bid,
+        cycle_start_at=boundary_at,
+        statuses=(BILLING_ORDER_STATUS_PAID,),
+    )
+    if order is None:
+        return False
+    return _is_manual_referral_invitation_renewal(order)
+
+
 def _is_same_product_preorder_renewal(order: BillingOrder) -> bool:
     if (
         order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
@@ -757,8 +774,8 @@ def _activate_subscription_for_paid_order(
     ):
         if _is_preorder_order(order):
             _mark_subscription_preorder_pending(subscription, order)
-            _sync_subscription_lifecycle_events(app, subscription)
-            db.session.add(subscription)
+        _sync_subscription_lifecycle_events(app, subscription)
+        db.session.add(subscription)
         return False
 
     if order.order_type in {
@@ -2429,6 +2446,16 @@ def _sync_subscription_lifecycle_events(
             scheduled_at=renewal_scheduled_at or scheduled_at,
         )
         if provider_name == "pingxx":
+            _upsert_subscription_renewal_event(
+                app,
+                subscription,
+                event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+                scheduled_at=scheduled_at,
+            )
+        elif _has_paid_referral_invitation_renewal_at_boundary(
+            subscription,
+            boundary_at=scheduled_at,
+        ):
             _upsert_subscription_renewal_event(
                 app,
                 subscription,

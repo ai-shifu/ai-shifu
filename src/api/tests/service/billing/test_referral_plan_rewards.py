@@ -9,6 +9,7 @@ import pytest
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
+    BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -239,7 +240,28 @@ def test_referral_plan_reward_defers_active_trial_subscription_until_boundary(
                 "bucket_credit_state": "available",
             },
         )
-        dao.db.session.add_all([wallet, subscription, trial_order, bucket, ledger])
+        canceled_expire_event = BillingRenewalEvent(
+            renewal_event_bid="renewal-referral-trial-upgrade-canceled",
+            subscription_bid=subscription.subscription_bid,
+            creator_bid=subscription.creator_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+            scheduled_at=trial_ends_at,
+            status=BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+            attempt_count=0,
+            last_error="",
+            payload_json={"source": "pytest"},
+            processed_at=trial_started_at,
+        )
+        dao.db.session.add_all(
+            [
+                wallet,
+                subscription,
+                trial_order,
+                bucket,
+                ledger,
+                canceled_expire_event,
+            ]
+        )
         dao.db.session.commit()
 
     result = grant_referral_plan_reward(
@@ -259,6 +281,11 @@ def test_referral_plan_reward_defers_active_trial_subscription_until_boundary(
         reward_ledger = CreditLedgerEntry.query.filter_by(
             source_bid=order.bill_order_bid,
             entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        ).one()
+        expire_event = BillingRenewalEvent.query.filter_by(
+            subscription_bid=subscription.subscription_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+            scheduled_at=trial_ends_at,
         ).one()
         reward_product = BillingProduct.query.filter_by(
             product_bid="bill-product-plan-monthly-pro"
@@ -299,6 +326,8 @@ def test_referral_plan_reward_defers_active_trial_subscription_until_boundary(
         assert reward_ledger.metadata_json["reserved_until"] == (
             trial_ends_at.isoformat()
         )
+        assert expire_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+        assert expire_event.processed_at is None
 
 
 def test_referral_plan_reward_queues_multiple_trial_rewards_in_order(
@@ -849,6 +878,9 @@ def test_referral_plan_reward_defers_after_higher_paid_subscription(
     now = datetime.now()
     current_end = now + timedelta(days=90)
     with referral_billing_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(product_bids=["bill-product-plan-yearly"])
+        )
         dao.db.session.add(
             BillingSubscription(
                 subscription_bid="sub-higher-paid",
@@ -878,8 +910,14 @@ def test_referral_plan_reward_defers_after_higher_paid_subscription(
 
     with referral_billing_app.app_context():
         order = BillingOrder.query.filter_by(bill_order_bid=result.bill_order_bid).one()
+        expire_event = BillingRenewalEvent.query.filter_by(
+            subscription_bid="sub-higher-paid",
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+            scheduled_at=current_end,
+        ).one()
         assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
         assert order.metadata_json["deferred_after_subscription_bid"] == (
             "sub-higher-paid"
         )
         assert order.metadata_json["renewal_cycle_start_at"] == current_end.isoformat()
+        assert expire_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
