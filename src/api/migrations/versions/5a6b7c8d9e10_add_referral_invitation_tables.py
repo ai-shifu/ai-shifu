@@ -1,7 +1,7 @@
 """add referral invitation tables
 
 Revision ID: 5a6b7c8d9e10
-Revises: b8c1d2e3f4a5
+Revises: c5d8e1f2a3b4
 Create Date: 2026-06-09 18:20:00.000000
 
 """
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import mysql
 
 
 revision = "5a6b7c8d9e10"
-down_revision = "b8c1d2e3f4a5"
+down_revision = "c5d8e1f2a3b4"
 branch_labels = None
 depends_on = None
 
