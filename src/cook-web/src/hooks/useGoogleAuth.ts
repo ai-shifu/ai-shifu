@@ -2,7 +2,6 @@
 
 import { useCallback } from 'react';
 import apiService from '@/api';
-import { environment } from '@/config/environment';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useUserStore } from '@/store';

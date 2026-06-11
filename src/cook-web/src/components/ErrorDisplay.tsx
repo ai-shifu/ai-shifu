@@ -61,8 +61,6 @@ const errorIcons: Record<string, React.ReactNode> = {
 
 export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   errorCode,
-  errorMessage,
-  showDetails = true,
   onRetry,
   customAction,
 }) => {

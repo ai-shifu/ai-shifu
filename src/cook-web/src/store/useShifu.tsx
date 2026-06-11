@@ -183,10 +183,10 @@ export const ShifuProvider = ({
   const [blockTypes, setBlockTypes] = useState<{
     [x: string]: BlockType;
   }>({});
-  const [blockUITypes, setBlockUITypes] = useState<{
+  const [blockUITypes] = useState<{
     [x: string]: BlockType;
   }>({});
-  const [blockContentTypes, setBlockContentTypes] = useState<{
+  const [blockContentTypes] = useState<{
     [x: string]: BlockType;
   }>({});
   const [blockContentState, setBlockContentState] = useState<{
@@ -480,14 +480,6 @@ export const ShifuProvider = ({
     }
   };
 
-  const loadProfileItemDefinations = async (shifuId: string) => {
-    const list = await api.getProfileItemDefinitions({
-      parent_id: shifuId,
-      type: 'all',
-    });
-    setProfileItemDefinations(list);
-  };
-
   const remapOutlineTree = (
     items: any,
     parentBid = '',
@@ -565,7 +557,7 @@ export const ShifuProvider = ({
       setMdflow(mdflow);
       setCurrentMdflow(mdflow);
       lastPersistedMdflowRef.current[outlineId] = mdflow || '';
-      await parseMdflow(mdflow, shifuId, outlineId);
+      await parseMdflow(shifuId);
       return true;
     } catch (error) {
       if (isLatest()) {
@@ -740,7 +732,6 @@ export const ShifuProvider = ({
       setChapters(list);
       buildOutlineTree(list);
       await refreshVariableUsage(shifuId);
-      // loadProfileItemDefinations(shifuId);
     } catch (error) {
       console.error(error);
       setError('Failed to load chapters');
@@ -1611,11 +1602,7 @@ export const ShifuProvider = ({
     }
   }, []);
 
-  const parseMdflow = async (
-    value: string,
-    shifuId: string,
-    outlineId: string,
-  ) => {
+  const parseMdflow = async (shifuId: string) => {
     setIsLoading(true);
     try {
       await refreshProfileDefinitions(shifuId);
@@ -1806,7 +1793,6 @@ export const ShifuProvider = ({
         // Only unhide keys that became used to keep manual hides stable.
         await applyUpdate(keysToUnhide, false);
         if (appliedList) {
-          const existingCache = profileDefinitionCacheRef.current[shifuId];
           applyProfileDefinitionList(appliedList, shifuId);
           const updatedCache = profileDefinitionCacheRef.current[shifuId];
           if (updatedCache) {

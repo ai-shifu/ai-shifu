@@ -297,7 +297,7 @@ export default function ShifuPermissionDialog({
       setPermissionError(t('module.shifuSetting.permissionOwnerNotAllowed'));
       return;
     }
-    const existingContacts = contacts.filter((contact, index) =>
+    const existingContacts = contacts.filter((_contact, index) =>
       normalizedExisting.has(normalizedContacts[index]),
     );
     const newContacts = contacts.filter(

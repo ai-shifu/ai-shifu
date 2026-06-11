@@ -31,7 +31,7 @@ export const SettingBaseModal = ({
   onClose,
   defaultWidth = '100%',
   title,
-  header = (t, title) => <div className={styles.header}>{title}</div>,
+  header = (_t, title) => <div className={styles.header}>{title}</div>,
   okText,
   okDisabled = false,
   okLoading = false,

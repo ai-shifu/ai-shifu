@@ -163,9 +163,6 @@ export function SortableTree<
     () => flattenedItems.map(({ id }) => id),
     [flattenedItems],
   );
-  const activeItem = activeId
-    ? flattenedItems.find(({ id }) => id === activeId)
-    : null;
 
   useEffect(() => {
     sensorContext.current = {
