@@ -214,7 +214,7 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
         )
         if not shifu:
             raise_error("server.shifu.shifuNotFound")
-        tts_enabled = bool(getattr(shifu, "tts_enabled", 0))
+        tts_enabled = bool(shifu.tts_enabled)
         return LearnShifuInfoDTO(
             bid=shifu.shifu_bid,
             title=shifu.title,
