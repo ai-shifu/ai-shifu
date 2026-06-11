@@ -23,6 +23,7 @@ jest.mock('@/components/ErrorDisplay', () => ({
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
+    i18n: { language: 'en-US' },
     t: (key: string, values?: Record<string, unknown>) =>
       values ? `${key}:${JSON.stringify(values)}` : key,
   }),
@@ -39,7 +40,7 @@ describe('AdminReferralPage', () => {
       invite_url: 'https://app.example.com/invite/AB12CD34',
       reward_product_code: 'creator-plan-monthly-pro',
       reward_cycle_count: 1,
-      reward_credit_amount: '1000',
+      reward_credit_amount: '1000.0000000000',
       reward_credit_validity_days: 30,
       reward_cap_scope: 'per_inviter',
       reward_cap_count: 12,
@@ -72,10 +73,13 @@ describe('AdminReferralPage', () => {
 
     await screen.findByDisplayValue('https://app.example.com/invite/AB12CD34');
 
+    expect(screen.queryByText('common.core.home')).not.toBeInTheDocument();
     expect(screen.getByText('AB12CD34')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('9')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText(/"credits":"1,000"/)).toBeInTheDocument();
+    expect(screen.queryByText('1000.0000000000')).not.toBeInTheDocument();
   });
 
   test('copies invite link', async () => {
@@ -98,7 +102,7 @@ describe('AdminReferralPage', () => {
 
     expect(screen.getByText('#1')).toBeInTheDocument();
     expect(screen.getByText('13521510781')).toBeInTheDocument();
-    expect(screen.getByText('1000.0000000000')).toBeInTheDocument();
+    expect(screen.getByText('1,000')).toBeInTheDocument();
     expect(screen.getByText('2026-06-26T13:18:00')).toBeInTheDocument();
     expect(screen.getByText('2026-07-26T13:18:00')).toBeInTheDocument();
     expect(

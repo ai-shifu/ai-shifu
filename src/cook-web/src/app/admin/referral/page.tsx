@@ -4,7 +4,6 @@ import React from 'react';
 import { Check, Copy, RefreshCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { Badge } from '@/components/ui/Badge';
@@ -22,6 +21,7 @@ import {
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { copyText } from '@/c-utils/textutils';
+import { formatBillingCredits } from '@/lib/billing';
 import { ErrorWithCode } from '@/lib/request';
 import {
   REFERRAL_REWARD_STATUS,
@@ -85,6 +85,19 @@ const REWARD_STATUS_KEY_BY_VALUE: Record<number, string> = {
 const formatCount = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value) ? value : '-';
 
+const formatCreditAmount = (
+  value: string | number | null | undefined,
+  locale: string,
+) => {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue)
+    ? formatBillingCredits(numericValue, locale)
+    : '-';
+};
+
 const formatQueueIndex = (value: number) => `#${value}`;
 
 const ledgerStateKey = (state: string | null | undefined) => {
@@ -95,7 +108,7 @@ const ledgerStateKey = (state: string | null | undefined) => {
 };
 
 export default function AdminReferralPage() {
-  const { t } = useTranslation('module.referral');
+  const { t, i18n } = useTranslation('module.referral');
   const [profile, setProfile] = React.useState<ReferralInviteProfile | null>(
     null,
   );
@@ -137,6 +150,7 @@ export default function AdminReferralPage() {
     Number(profile.reward_remaining_count || 0) <= 0;
 
   const rewardQueue = profile?.reward_queue || [];
+  const locale = i18n.language || 'en-US';
 
   if (loading) {
     return <Loading />;
@@ -154,7 +168,6 @@ export default function AdminReferralPage() {
 
   return (
     <div className='flex min-h-0 flex-col'>
-      <AdminBreadcrumb items={[{ label: t('creator.title') }]} />
       <AdminTitle
         title={t('creator.title')}
         description={t('creator.description')}
@@ -265,7 +278,10 @@ export default function AdminReferralPage() {
               <div className='rounded-md border border-border/70 bg-muted/20 p-3 text-sm leading-6'>
                 {t('creator.rewardRule', {
                   cycles: profile.reward_cycle_count,
-                  credits: profile.reward_credit_amount || '-',
+                  credits: formatCreditAmount(
+                    profile.reward_credit_amount,
+                    locale,
+                  ),
                   days: profile.reward_credit_validity_days || '-',
                 })}
               </div>
@@ -314,7 +330,7 @@ export default function AdminReferralPage() {
                         )}
                       </TableCell>
                       <TableCell className='whitespace-nowrap tabular-nums'>
-                        {item.reward_credit_amount || '-'}
+                        {formatCreditAmount(item.reward_credit_amount, locale)}
                       </TableCell>
                       <TableCell className='whitespace-nowrap'>
                         {item.invitee_mobile_snapshot || '-'}
