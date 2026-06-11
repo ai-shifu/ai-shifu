@@ -6,6 +6,20 @@ export type ReferralLoginMetadata = {
   referral_entry_source?: ReferralEntrySource;
 };
 
+export type ReferralRewardQueueItem = {
+  queue_index: number;
+  reward_bid: string;
+  relation_bid: string;
+  invitee_mobile_snapshot: string;
+  reward_status: number;
+  reward_credit_amount: string | null;
+  reward_product_code: string;
+  ledger_credit_state: string;
+  effective_at: string | null;
+  expires_at: string | null;
+  created_at: string | null;
+};
+
 export type ReferralInviteProfile = {
   campaign_bid: string;
   campaign_code: string;
@@ -20,6 +34,7 @@ export type ReferralInviteProfile = {
   reward_granted_count: number;
   reward_remaining_count: number | null;
   reward_queue_summary: Record<string, number>;
+  reward_queue?: ReferralRewardQueueItem[];
   rules_copy_i18n_key?: string;
 };
 

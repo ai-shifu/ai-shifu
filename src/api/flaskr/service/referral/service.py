@@ -49,6 +49,7 @@ from .models import (
     ReferralInviteRelation,
     ReferralInviteReward,
 )
+from .reward_queue import build_referral_reward_queue
 
 
 _INVITE_CODE_ALPHABET = string.ascii_uppercase + string.digits
@@ -393,6 +394,11 @@ def build_invite_profile(app: Flask, *, inviter_user_bid: str) -> InviteProfileD
             reward_granted_count=granted_count,
             reward_remaining_count=remaining,
             reward_queue_summary=_reward_queue_summary(normalized_inviter),
+            reward_queue=build_referral_reward_queue(
+                normalized_inviter,
+                include_billing_artifacts=False,
+                include_invitee_user_bid=False,
+            ),
             rules_copy_i18n_key=campaign.rules_copy_i18n_key,
         )
 

@@ -18,10 +18,24 @@
     "inviteCardTitle": "专属邀请信息",
     "inviteCode": "邀请码",
     "inviteLink": "邀请链接",
+    "ledgerStates": {
+      "available": "已生效",
+      "reserved": "待生效",
+      "unknown": "未生成"
+    },
     "metrics": {
       "cap": "奖励上限",
       "remaining": "剩余额度",
       "rewarded": "已奖励月份"
+    },
+    "queueColumns": {
+      "credits": "积分",
+      "effectiveAt": "开始时间",
+      "expiresAt": "结束时间",
+      "index": "期数",
+      "invitee": "被邀请人",
+      "ledgerState": "账务状态",
+      "status": "状态"
     },
     "queueTitle": "奖励队列",
     "refresh": "刷新",

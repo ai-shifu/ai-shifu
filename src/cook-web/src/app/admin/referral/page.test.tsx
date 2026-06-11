@@ -48,6 +48,21 @@ describe('AdminReferralPage', () => {
       reward_queue_summary: {
         '7852': 1,
       },
+      reward_queue: [
+        {
+          queue_index: 1,
+          reward_bid: 'reward-profile-queue',
+          relation_bid: 'relation-profile-queue',
+          invitee_mobile_snapshot: '13521510781',
+          reward_status: 7852,
+          reward_credit_amount: '1000.0000000000',
+          reward_product_code: 'creator-plan-monthly-pro',
+          ledger_credit_state: 'reserved',
+          effective_at: '2026-06-26T13:18:00',
+          expires_at: '2026-07-26T13:18:00',
+          created_at: '2026-06-11T12:00:00',
+        },
+      ],
       rules_copy_i18n_key: 'module.referral.rules.default',
     });
   });
@@ -74,5 +89,20 @@ describe('AdminReferralPage', () => {
         'https://app.example.com/invite/AB12CD34',
       ),
     );
+  });
+
+  test('renders reward queue detail rows', async () => {
+    render(<AdminReferralPage />);
+
+    await screen.findByText('creator.queueColumns.index');
+
+    expect(screen.getByText('#1')).toBeInTheDocument();
+    expect(screen.getByText('13521510781')).toBeInTheDocument();
+    expect(screen.getByText('1000.0000000000')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-26T13:18:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-07-26T13:18:00')).toBeInTheDocument();
+    expect(
+      screen.getByText('creator.ledgerStates.reserved'),
+    ).toBeInTheDocument();
   });
 });

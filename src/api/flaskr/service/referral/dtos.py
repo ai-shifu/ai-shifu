@@ -22,6 +22,7 @@ class InviteProfileDTO:
     reward_granted_count: int
     reward_remaining_count: int | None
     reward_queue_summary: dict[str, int] = field(default_factory=dict)
+    reward_queue: list[dict[str, Any]] = field(default_factory=list)
     rules_copy_i18n_key: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -43,5 +44,6 @@ class InviteProfileDTO:
             "reward_granted_count": self.reward_granted_count,
             "reward_remaining_count": self.reward_remaining_count,
             "reward_queue_summary": dict(self.reward_queue_summary),
+            "reward_queue": [dict(item) for item in self.reward_queue],
             "rules_copy_i18n_key": self.rules_copy_i18n_key,
         }

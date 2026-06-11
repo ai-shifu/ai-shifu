@@ -15,6 +15,7 @@ from flaskr.service.referral.consts import (
     REFERRAL_RELATION_STATUS_REWARD_GENERATED,
     REFERRAL_RELATION_STATUS_REWARD_SKIPPED_CAP,
     REFERRAL_REWARD_STATUS_GENERATED,
+    REFERRAL_REWARD_STATUS_PENDING_EFFECTIVE,
     REFERRAL_REWARD_STATUS_SKIPPED_CAP,
     REFERRAL_REWARD_TARGET_INVITER,
     REFERRAL_REWARD_TYPE_BILLING_PLAN_CYCLE,
@@ -144,6 +145,79 @@ def test_invite_profile_lazily_creates_stable_campaign_scoped_code(
         assert first.reward_cap_count == 12
         assert first.reward_granted_count == 0
         assert first.reward_remaining_count == 12
+
+
+def test_invite_profile_includes_creator_reward_queue(
+    referral_app,
+    monkeypatch,
+) -> None:
+    with referral_app.app_context():
+        campaign, rule = _seed_campaign(campaign_bid="ref-campaign-profile-queue")
+        inviter_user_bid = "inviter-profile-queue"
+        relation = ReferralInviteRelation(
+            relation_bid="relation-profile-queue",
+            campaign_bid=campaign.campaign_bid,
+            reward_rule_bid=rule.reward_rule_bid,
+            invite_code="QUEUE123",
+            inviter_user_bid=inviter_user_bid,
+            invitee_user_bid="invitee-profile-queue",
+            invitee_mobile_snapshot="13521510781",
+            bound_at=datetime(2026, 6, 11, 12, 0, 0),
+            registration_source="phone",
+            reward_eligible=True,
+            relation_status=REFERRAL_RELATION_STATUS_REWARD_GENERATED,
+            metadata_json={},
+        )
+        reward = ReferralInviteReward(
+            reward_bid="reward-profile-queue",
+            campaign_bid=campaign.campaign_bid,
+            reward_rule_bid=rule.reward_rule_bid,
+            relation_bid=relation.relation_bid,
+            inviter_user_bid=inviter_user_bid,
+            invitee_user_bid=relation.invitee_user_bid,
+            reward_status=REFERRAL_REWARD_STATUS_PENDING_EFFECTIVE,
+            reward_target=REFERRAL_REWARD_TARGET_INVITER,
+            reward_type=REFERRAL_REWARD_TYPE_BILLING_PLAN_CYCLE,
+            reward_product_code=rule.reward_product_code,
+            reward_cycle_count=rule.reward_cycle_count,
+            reward_credit_amount=rule.reward_credit_amount,
+            reward_credit_validity_days=rule.reward_credit_validity_days,
+            reward_cap_scope=rule.reward_cap_scope,
+            reward_cap_count=rule.reward_cap_count,
+            reward_timing_policy=rule.reward_timing_policy,
+            rule_snapshot={},
+            billing_artifacts={},
+            effective_at=datetime(2026, 6, 26, 13, 18, 0),
+            expires_at=datetime(2026, 7, 26, 13, 18, 0),
+        )
+        db.session.add_all([relation, reward])
+        db.session.commit()
+        monkeypatch.setattr(
+            "flaskr.service.referral.service._resolve_public_origin",
+            lambda: "https://frontend.example",
+        )
+
+        profile = build_invite_profile(
+            referral_app,
+            inviter_user_bid=inviter_user_bid,
+        )
+
+        queue = profile.to_dict()["reward_queue"]
+        assert queue == [
+            {
+                "queue_index": 1,
+                "reward_bid": "reward-profile-queue",
+                "relation_bid": "relation-profile-queue",
+                "invitee_mobile_snapshot": "13521510781",
+                "reward_status": REFERRAL_REWARD_STATUS_PENDING_EFFECTIVE,
+                "reward_credit_amount": "1000.0000000000",
+                "reward_product_code": "creator-plan-monthly-pro",
+                "ledger_credit_state": "",
+                "effective_at": "2026-06-26T13:18:00",
+                "expires_at": "2026-07-26T13:18:00",
+                "created_at": reward.created_at.isoformat(),
+            }
+        ]
 
 
 def test_record_invite_event_hashes_client_context(referral_app) -> None:

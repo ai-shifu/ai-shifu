@@ -18,10 +18,24 @@
     "inviteCardTitle": "Your invite details",
     "inviteCode": "Invite code",
     "inviteLink": "Invite link",
+    "ledgerStates": {
+      "available": "Active",
+      "reserved": "Pending",
+      "unknown": "Not created"
+    },
     "metrics": {
       "cap": "Reward cap",
       "remaining": "Remaining",
       "rewarded": "Rewarded months"
+    },
+    "queueColumns": {
+      "credits": "Credits",
+      "effectiveAt": "Starts",
+      "expiresAt": "Ends",
+      "index": "Cycle",
+      "invitee": "Invitee",
+      "ledgerState": "Ledger state",
+      "status": "Status"
     },
     "queueTitle": "Reward queue",
     "refresh": "Refresh",

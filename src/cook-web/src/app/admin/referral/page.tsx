@@ -10,6 +10,15 @@ import AdminTitle from '@/app/admin/components/AdminTitle';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/Table';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { copyText } from '@/c-utils/textutils';
@@ -35,7 +44,17 @@ import {
  * t('module.referral.creator.metrics.cap')
  * t('module.referral.creator.metrics.remaining')
  * t('module.referral.creator.metrics.rewarded')
+ * t('module.referral.creator.queueColumns.credits')
+ * t('module.referral.creator.queueColumns.effectiveAt')
+ * t('module.referral.creator.queueColumns.expiresAt')
+ * t('module.referral.creator.queueColumns.index')
+ * t('module.referral.creator.queueColumns.invitee')
+ * t('module.referral.creator.queueColumns.ledgerState')
+ * t('module.referral.creator.queueColumns.status')
  * t('module.referral.creator.queueTitle')
+ * t('module.referral.creator.ledgerStates.available')
+ * t('module.referral.creator.ledgerStates.reserved')
+ * t('module.referral.creator.ledgerStates.unknown')
  * t('module.referral.creator.refresh')
  * t('module.referral.creator.rewardRule')
  * t('module.referral.creator.rewardRulesTitle')
@@ -65,6 +84,15 @@ const REWARD_STATUS_KEY_BY_VALUE: Record<number, string> = {
 
 const formatCount = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value) ? value : '-';
+
+const formatQueueIndex = (value: number) => `#${value}`;
+
+const ledgerStateKey = (state: string | null | undefined) => {
+  if (state === 'available' || state === 'reserved') {
+    return state;
+  }
+  return 'unknown';
+};
 
 export default function AdminReferralPage() {
   const { t } = useTranslation('module.referral');
@@ -108,12 +136,7 @@ export default function AdminReferralPage() {
     profile?.reward_cap_count !== undefined &&
     Number(profile.reward_remaining_count || 0) <= 0;
 
-  const queueEntries = Object.entries(profile?.reward_queue_summary || {})
-    .map(([status, count]) => ({
-      status: Number(status),
-      count,
-    }))
-    .filter(item => item.count > 0);
+  const rewardQueue = profile?.reward_queue || [];
 
   if (loading) {
     return <Loading />;
@@ -260,29 +283,62 @@ export default function AdminReferralPage() {
             <h2 className='text-base font-semibold text-foreground'>
               {t('creator.queueTitle')}
             </h2>
-            {queueEntries.length ? (
-              <div className='mt-3 grid gap-2 md:grid-cols-2'>
-                {queueEntries.map(item => (
-                  <div
-                    key={item.status}
-                    className='flex items-center justify-between rounded-md border border-border/70 px-3 py-2 text-sm'
-                  >
-                    <span>
-                      {t(
-                        `rewardStatus.${
-                          REWARD_STATUS_KEY_BY_VALUE[item.status] || 'unknown'
-                        }`,
-                      )}
-                    </span>
-                    <span className='font-semibold'>{item.count}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className='mt-3 text-sm text-muted-foreground'>
-                {t('creator.emptyQueue')}
-              </p>
-            )}
+            <Table
+              className='mt-3 min-w-[760px] table-auto'
+              containerClassName='mt-3 rounded-md border border-border/70'
+            >
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('creator.queueColumns.index')}</TableHead>
+                  <TableHead>{t('creator.queueColumns.status')}</TableHead>
+                  <TableHead>{t('creator.queueColumns.credits')}</TableHead>
+                  <TableHead>{t('creator.queueColumns.invitee')}</TableHead>
+                  <TableHead>{t('creator.queueColumns.effectiveAt')}</TableHead>
+                  <TableHead>{t('creator.queueColumns.expiresAt')}</TableHead>
+                  <TableHead>{t('creator.queueColumns.ledgerState')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rewardQueue.length ? (
+                  rewardQueue.map(item => (
+                    <TableRow key={item.reward_bid || item.queue_index}>
+                      <TableCell className='whitespace-nowrap font-medium'>
+                        {formatQueueIndex(item.queue_index)}
+                      </TableCell>
+                      <TableCell className='whitespace-nowrap'>
+                        {t(
+                          `rewardStatus.${
+                            REWARD_STATUS_KEY_BY_VALUE[item.reward_status] ||
+                            'unknown'
+                          }`,
+                        )}
+                      </TableCell>
+                      <TableCell className='whitespace-nowrap tabular-nums'>
+                        {item.reward_credit_amount || '-'}
+                      </TableCell>
+                      <TableCell className='whitespace-nowrap'>
+                        {item.invitee_mobile_snapshot || '-'}
+                      </TableCell>
+                      <TableCell className='whitespace-nowrap'>
+                        {item.effective_at || '-'}
+                      </TableCell>
+                      <TableCell className='whitespace-nowrap'>
+                        {item.expires_at || '-'}
+                      </TableCell>
+                      <TableCell className='whitespace-nowrap'>
+                        {t(
+                          `creator.ledgerStates.${ledgerStateKey(
+                            item.ledger_credit_state,
+                          )}`,
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableEmpty colSpan={7}>{t('creator.emptyQueue')}</TableEmpty>
+                )}
+              </TableBody>
+            </Table>
           </section>
         </div>
       ) : null}

@@ -18,10 +18,24 @@
     "inviteCardTitle": "Vos informations d’invitation",
     "inviteCode": "Code d’invitation",
     "inviteLink": "Lien d’invitation",
+    "ledgerStates": {
+      "available": "Active",
+      "reserved": "En attente",
+      "unknown": "Non créée"
+    },
     "metrics": {
       "cap": "Plafond",
       "remaining": "Restant",
       "rewarded": "Mois récompensés"
+    },
+    "queueColumns": {
+      "credits": "Crédits",
+      "effectiveAt": "Début",
+      "expiresAt": "Fin",
+      "index": "Cycle",
+      "invitee": "Invité",
+      "ledgerState": "État comptable",
+      "status": "Statut"
     },
     "queueTitle": "File de récompenses",
     "refresh": "Actualiser",
