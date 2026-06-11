@@ -1,7 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import ContentBlock from '@/c-components/ChatUi/ContentBlock';
-import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-components/ChatUi/chatTypewriterConstants';
 
 const mockContentRender = jest.fn<null, [Record<string, unknown>]>(() => null);
 
@@ -110,7 +109,7 @@ describe('ContentBlock pay interaction overrides', () => {
     expect(mockContentRender).toHaveBeenCalledWith(
       expect.objectContaining({
         enableTypewriter: true,
-        typingSpeed: CHAT_TYPEWRITER_SPEED_MS,
+        typingSpeed: 30,
       }),
     );
   });
