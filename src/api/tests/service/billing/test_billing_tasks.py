@@ -1011,6 +1011,7 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
                     last_error="",
                     payload_json=None,
                     processed_at=None,
+                    updated_at=now,
                 ),
                 BillingRenewalEvent(
                     renewal_event_bid="renewal-succeeded",
@@ -1088,6 +1089,164 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
             },
             "options": {},
         },
+    ]
+
+
+def test_dispatch_due_renewal_events_recovers_stale_processing_events(
+    billing_task_integration_app,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_app_module(monkeypatch, billing_task_integration_app)
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.get_config",
+        lambda key, default="": json.dumps(
+            {
+                "enabled": 1,
+                "batch_size": 5,
+                "lookahead_minutes": 60,
+                "processing_timeout_minutes": 30,
+                "queue": "billing-renewal",
+            }
+        ),
+    )
+
+    now = datetime.now()
+    with billing_task_integration_app.app_context():
+        dao.db.session.add_all(
+            [
+                BillingRenewalEvent(
+                    renewal_event_bid="renewal-stale-processing",
+                    subscription_bid="subscription-stale-processing",
+                    creator_bid="creator-stale-processing",
+                    event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+                    scheduled_at=now - timedelta(minutes=10),
+                    status=BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+                    attempt_count=1,
+                    last_error="",
+                    payload_json=None,
+                    processed_at=None,
+                    updated_at=now - timedelta(minutes=45),
+                ),
+                BillingRenewalEvent(
+                    renewal_event_bid="renewal-fresh-processing",
+                    subscription_bid="subscription-fresh-processing",
+                    creator_bid="creator-fresh-processing",
+                    event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+                    scheduled_at=now - timedelta(minutes=10),
+                    status=BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+                    attempt_count=1,
+                    last_error="",
+                    payload_json=None,
+                    processed_at=None,
+                    updated_at=now - timedelta(minutes=5),
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    captured_calls: list[dict[str, object]] = []
+
+    def _fake_apply_async(*, kwargs=None, **options):
+        captured_calls.append(
+            {
+                "kwargs": dict(kwargs or {}),
+                "options": dict(options),
+            }
+        )
+
+    monkeypatch.setattr(run_renewal_event_task, "apply_async", _fake_apply_async)
+
+    payload = dispatch_due_renewal_events_task()
+
+    assert payload["status"] == "enqueued"
+    assert payload["candidate_count"] == 1
+    assert payload["enqueued_count"] == 1
+    assert payload["recovered_processing_count"] == 1
+    assert payload["renewal_event_bids"] == ["renewal-stale-processing"]
+    assert captured_calls == [
+        {
+            "kwargs": {
+                "renewal_event_bid": "renewal-stale-processing",
+                "subscription_bid": "subscription-stale-processing",
+                "creator_bid": "creator-stale-processing",
+            },
+            "options": {},
+        }
+    ]
+
+    with billing_task_integration_app.app_context():
+        stale_event = BillingRenewalEvent.query.filter_by(
+            renewal_event_bid="renewal-stale-processing",
+        ).one()
+        fresh_event = BillingRenewalEvent.query.filter_by(
+            renewal_event_bid="renewal-fresh-processing",
+        ).one()
+        assert stale_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+        assert stale_event.last_error == "recovered_stale_processing"
+        assert fresh_event.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+
+
+def test_dispatch_due_renewal_events_uses_dedicated_queue_when_enabled(
+    billing_task_integration_app,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_app_module(monkeypatch, billing_task_integration_app)
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.get_config",
+        lambda key, default="": json.dumps(
+            {
+                "enabled": 1,
+                "batch_size": 5,
+                "lookahead_minutes": 60,
+                "queue": "billing-renewal",
+                "use_dedicated_queue": 1,
+            }
+        ),
+    )
+
+    now = datetime.now()
+    with billing_task_integration_app.app_context():
+        dao.db.session.add(
+            BillingRenewalEvent(
+                renewal_event_bid="renewal-dedicated-queue",
+                subscription_bid="subscription-dedicated-queue",
+                creator_bid="creator-dedicated-queue",
+                event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+                scheduled_at=now - timedelta(minutes=1),
+                status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
+                attempt_count=0,
+                last_error="",
+                payload_json=None,
+                processed_at=None,
+            )
+        )
+        dao.db.session.commit()
+
+    captured_calls: list[dict[str, object]] = []
+
+    def _fake_apply_async(*, kwargs=None, **options):
+        captured_calls.append(
+            {
+                "kwargs": dict(kwargs or {}),
+                "options": dict(options),
+            }
+        )
+
+    monkeypatch.setattr(run_renewal_event_task, "apply_async", _fake_apply_async)
+
+    payload = dispatch_due_renewal_events_task()
+
+    assert payload["status"] == "enqueued"
+    assert payload["renewal_event_bids"] == ["renewal-dedicated-queue"]
+    assert captured_calls == [
+        {
+            "kwargs": {
+                "renewal_event_bid": "renewal-dedicated-queue",
+                "subscription_bid": "subscription-dedicated-queue",
+                "creator_bid": "creator-dedicated-queue",
+            },
+            "options": {"queue": "billing-renewal"},
+        }
     ]
 
 
