@@ -65,6 +65,8 @@ export const calcFrameLayout = selector => {
 export const THEME_LIGHT = 'light';
 export const THEME_DARK = 'dark';
 
+export const CHAT_TYPEWRITER_SPEED_MS = 30;
+
 export const inWechat = () => {
   const ua = navigator.userAgent.toLowerCase();
   // @ts-expect-error EXPECT

@@ -17,7 +17,7 @@ import {
 } from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
-import { CHAT_TYPEWRITER_SPEED_MS } from './chatTypewriterConstants';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 
 interface ContentBlockProps {
   item: ChatContentItem;

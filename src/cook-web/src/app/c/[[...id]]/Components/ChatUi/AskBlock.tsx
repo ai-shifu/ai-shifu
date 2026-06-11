@@ -30,7 +30,7 @@ import {
   type AskMessage,
 } from './askState';
 import { useAskStateStore } from './useAskStateStore';
-import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-components/ChatUi/chatTypewriterConstants';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 export type { AskMessage } from './askState';
 
 export interface AskBlockProps {
