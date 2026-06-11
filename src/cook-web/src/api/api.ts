@@ -157,6 +157,16 @@ const api = {
     'POST /shifu/admin/operations/promotions/campaigns/{promo_bid}/status',
   getAdminOperationPromotionCampaignRedemptions:
     'GET /shifu/admin/operations/promotions/campaigns/{promo_bid}/redemptions',
+  getAdminOperationPromotionReferralCampaigns:
+    'GET /shifu/admin/operations/promotions/referral-campaigns',
+  createAdminOperationPromotionReferralCampaign:
+    'POST /shifu/admin/operations/promotions/referral-campaigns',
+  getAdminOperationPromotionReferralCampaignDetail:
+    'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}',
+  updateAdminOperationPromotionReferralCampaign:
+    'POST /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}',
+  updateAdminOperationPromotionReferralCampaignStatus:
+    'POST /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/status',
   getAdminOperationUserDetail:
     'GET /shifu/admin/operations/users/{user_bid}/detail',
   getAdminOperationUserCredits:

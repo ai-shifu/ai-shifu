@@ -35,6 +35,24 @@ describe('referral api definitions', () => {
       'POST /shifu/admin/operations/referrals/{relation_bid}/adjustment',
     );
   });
+
+  test('exposes operator referral campaign promotion endpoints', () => {
+    expect(api.getAdminOperationPromotionReferralCampaigns).toBe(
+      'GET /shifu/admin/operations/promotions/referral-campaigns',
+    );
+    expect(api.createAdminOperationPromotionReferralCampaign).toBe(
+      'POST /shifu/admin/operations/promotions/referral-campaigns',
+    );
+    expect(api.getAdminOperationPromotionReferralCampaignDetail).toBe(
+      'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}',
+    );
+    expect(api.updateAdminOperationPromotionReferralCampaign).toBe(
+      'POST /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}',
+    );
+    expect(api.updateAdminOperationPromotionReferralCampaignStatus).toBe(
+      'POST /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/status',
+    );
+  });
 });
 
 describe('billing api definitions', () => {

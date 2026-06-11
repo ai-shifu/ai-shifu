@@ -189,3 +189,45 @@ export type AdminBillingCampaignDetail = {
   created_user_bid: string;
   updated_user_bid: string;
 };
+
+export type AdminReferralCampaignStatus =
+  | 'active'
+  | 'not_started'
+  | 'ended'
+  | 'inactive';
+
+export type AdminReferralCampaignItem = {
+  campaign_bid: string;
+  campaign_code: string;
+  campaign_name: string;
+  campaign_status: number;
+  computed_status: AdminReferralCampaignStatus;
+  enabled: boolean;
+  feature_flag_key: string;
+  starts_at: string;
+  ends_at: string;
+  invite_route_template: string;
+  inviter_eligibility: Record<string, unknown>;
+  invitee_eligibility: Record<string, unknown>;
+  invitee_benefit_policy: string;
+  rules_copy_i18n_key: string;
+  reward_rule_bid: string;
+  rule_code: string;
+  rule_status: number;
+  reward_product_code: string;
+  reward_cycle_count: number;
+  reward_credit_amount: string | null;
+  reward_credit_validity_days: number;
+  reward_cap_scope: 'none' | 'per_inviter' | 'per_campaign' | string;
+  reward_cap_count: number | null;
+  reward_timing_policy: string;
+  priority: number;
+  relation_count: number;
+  reward_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminReferralCampaignDetail = {
+  campaign: AdminReferralCampaignItem;
+};

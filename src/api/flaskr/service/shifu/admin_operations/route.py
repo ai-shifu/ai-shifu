@@ -35,9 +35,14 @@ from flaskr.service.promo.api import (
     update_operator_promotion_coupon_status,
 )
 from flaskr.service.referral.api import (
+    create_operator_referral_campaign,
+    get_operator_referral_campaign_detail,
     get_operator_referral_detail,
     get_operator_referral_overview,
+    list_operator_referral_campaigns,
     list_operator_referrals,
+    update_operator_referral_campaign,
+    update_operator_referral_campaign_status,
     update_operator_referral_status,
 )
 from flaskr.service.shifu.admin_operations.courses import (
@@ -92,6 +97,7 @@ OPERATOR_USER_STATUS_VALUES = {"unregistered", "registered", "trial", "paid"}
 OPERATOR_USER_ROLE_VALUES = {"operator", "creator", "learner", "regular"}
 PROMOTION_COUPON_STATUS_VALUES = {"inactive", "not_started", "active", "expired"}
 PROMOTION_CAMPAIGN_STATUS_VALUES = {"inactive", "not_started", "active", "ended"}
+REFERRAL_CAMPAIGN_STATUS_VALUES = {"inactive", "not_started", "active", "ended"}
 PROMOTION_COUPON_USAGE_STATUS_VALUES = {"901", "902", "903", "904"}
 CREDIT_NOTIFICATION_STATUS_VALUES = {
     "pending",
@@ -1123,6 +1129,123 @@ def register_admin_operations_routes(
                 relation_bid=relation_bid,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
                 payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/referral-campaigns",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_referral_campaigns():
+        """Operator referral campaign configuration list."""
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "keyword": _normalize_query_text(request.args.get("keyword")),
+            "status": _parse_choice_query_param(
+                request.args.get("status"),
+                field_name="status",
+                allowed_values=REFERRAL_CAMPAIGN_STATUS_VALUES,
+            ),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                field_name="start_time",
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                field_name="end_time",
+                is_end=True,
+            ),
+        }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
+        return make_common_response(
+            list_operator_referral_campaigns(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/referral-campaigns",
+        methods=["POST"],
+    )
+    def admin_create_operations_promotion_referral_campaign():
+        """Create operator referral campaign configuration."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("referral_campaign")
+        return make_common_response(
+            create_operator_referral_campaign(
+                app,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/referral-campaigns/<campaign_bid>",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_referral_campaign_detail(campaign_bid: str):
+        """Get operator referral campaign configuration detail."""
+        _require_operator()
+        return make_common_response(
+            get_operator_referral_campaign_detail(app, campaign_bid=campaign_bid)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/referral-campaigns/<campaign_bid>",
+        methods=["POST"],
+    )
+    def admin_update_operations_promotion_referral_campaign(campaign_bid: str):
+        """Update operator referral campaign configuration."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("referral_campaign")
+        return make_common_response(
+            update_operator_referral_campaign(
+                app,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                campaign_bid=campaign_bid,
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/promotions/referral-campaigns/<campaign_bid>/status",
+        methods=["POST"],
+    )
+    def admin_operations_promotion_referral_campaign_status(campaign_bid: str):
+        """Update operator referral campaign configuration status."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("referral_campaign_status")
+        return make_common_response(
+            update_operator_referral_campaign_status(
+                app,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                campaign_bid=campaign_bid,
+                enabled=payload.get("enabled"),
             )
         )
 

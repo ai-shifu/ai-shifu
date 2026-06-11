@@ -46,6 +46,11 @@ jest.mock('@/api', () => ({
     getAdminOperationPromotionCampaignDetail: jest.fn(),
     getAdminOperationPromotionCampaignRedemptions: jest.fn(),
     updateAdminOperationPromotionCampaignStatus: jest.fn(),
+    getAdminOperationPromotionReferralCampaigns: jest.fn(),
+    createAdminOperationPromotionReferralCampaign: jest.fn(),
+    getAdminOperationPromotionReferralCampaignDetail: jest.fn(),
+    updateAdminOperationPromotionReferralCampaign: jest.fn(),
+    updateAdminOperationPromotionReferralCampaignStatus: jest.fn(),
     getAdminBillingCampaignProductOptions: jest.fn(),
     getAdminBillingCampaigns: jest.fn(),
     createAdminBillingCampaign: jest.fn(),
@@ -429,6 +434,16 @@ const mockGetCampaignRedemptions =
   api.getAdminOperationPromotionCampaignRedemptions as jest.Mock;
 const mockUpdateCampaignStatus =
   api.updateAdminOperationPromotionCampaignStatus as jest.Mock;
+const mockGetReferralCampaigns =
+  api.getAdminOperationPromotionReferralCampaigns as jest.Mock;
+const mockCreateReferralCampaign =
+  api.createAdminOperationPromotionReferralCampaign as jest.Mock;
+const mockGetReferralCampaignDetail =
+  api.getAdminOperationPromotionReferralCampaignDetail as jest.Mock;
+const mockUpdateReferralCampaign =
+  api.updateAdminOperationPromotionReferralCampaign as jest.Mock;
+const mockUpdateReferralCampaignStatus =
+  api.updateAdminOperationPromotionReferralCampaignStatus as jest.Mock;
 const mockGetPackageCampaignProductOptions =
   api.getAdminBillingCampaignProductOptions as jest.Mock;
 const mockGetPackageCampaigns = api.getAdminBillingCampaigns as jest.Mock;
@@ -454,6 +469,11 @@ describe('AdminOperationPromotionsPage', () => {
     mockGetCampaignDetail.mockReset();
     mockGetCampaignRedemptions.mockReset();
     mockUpdateCampaignStatus.mockReset();
+    mockGetReferralCampaigns.mockReset();
+    mockCreateReferralCampaign.mockReset();
+    mockGetReferralCampaignDetail.mockReset();
+    mockUpdateReferralCampaign.mockReset();
+    mockUpdateReferralCampaignStatus.mockReset();
     mockGetPackageCampaignProductOptions.mockReset();
     mockGetPackageCampaigns.mockReset();
     mockCreatePackageCampaign.mockReset();
@@ -636,6 +656,94 @@ describe('AdminOperationPromotionsPage', () => {
     });
     mockUpdateCampaignStatus.mockResolvedValue({
       promo_bid: 'promo-1',
+      enabled: false,
+    });
+    mockGetReferralCampaigns.mockResolvedValue({
+      summary: {
+        total: 1,
+        active: 1,
+        relation_count: 14,
+        reward_count: 12,
+      },
+      items: [
+        {
+          campaign_bid: 'ref-campaign-1',
+          campaign_code: 'domestic_creator_invite_202606',
+          campaign_name: 'Domestic Creator Invite',
+          campaign_status: 7802,
+          computed_status: 'active',
+          enabled: true,
+          feature_flag_key: 'referral.invite.enabled',
+          starts_at: '2026-06-01T00:00:00Z',
+          ends_at: '2026-08-01T00:00:00Z',
+          invite_route_template: '/invite/{invite_code}',
+          inviter_eligibility: {},
+          invitee_eligibility: {},
+          invitee_benefit_policy: 'existing_trial_only',
+          rules_copy_i18n_key: 'module.referral.rules.default',
+          reward_rule_bid: 'reward-rule-1',
+          rule_code: 'domestic_creator_invite_202606_invited_registration',
+          rule_status: 7812,
+          reward_product_code: 'creator-plan-monthly',
+          reward_cycle_count: 1,
+          reward_credit_amount: '1000.0000000000',
+          reward_credit_validity_days: 30,
+          reward_cap_scope: 'per_inviter',
+          reward_cap_count: 12,
+          reward_timing_policy: 'immediate_extend_or_defer',
+          priority: 10,
+          relation_count: 14,
+          reward_count: 12,
+          created_at: '2026-06-01T00:00:00Z',
+          updated_at: '2026-06-11T09:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    mockCreateReferralCampaign.mockResolvedValue({
+      campaign_bid: 'ref-campaign-created',
+    });
+    mockGetReferralCampaignDetail.mockResolvedValue({
+      campaign: {
+        campaign_bid: 'ref-campaign-1',
+        campaign_code: 'domestic_creator_invite_202606',
+        campaign_name: 'Domestic Creator Invite',
+        campaign_status: 7802,
+        computed_status: 'active',
+        enabled: true,
+        feature_flag_key: 'referral.invite.enabled',
+        starts_at: '2026-06-01T00:00:00Z',
+        ends_at: '2026-08-01T00:00:00Z',
+        invite_route_template: '/invite/{invite_code}',
+        inviter_eligibility: { country: 'CN' },
+        invitee_eligibility: {},
+        invitee_benefit_policy: 'existing_trial_only',
+        rules_copy_i18n_key: 'module.referral.rules.default',
+        reward_rule_bid: 'reward-rule-1',
+        rule_code: 'domestic_creator_invite_202606_invited_registration',
+        rule_status: 7812,
+        reward_product_code: 'creator-plan-monthly',
+        reward_cycle_count: 1,
+        reward_credit_amount: '1000.0000000000',
+        reward_credit_validity_days: 30,
+        reward_cap_scope: 'per_inviter',
+        reward_cap_count: 12,
+        reward_timing_policy: 'immediate_extend_or_defer',
+        priority: 10,
+        relation_count: 14,
+        reward_count: 12,
+        created_at: '2026-06-01T00:00:00Z',
+        updated_at: '2026-06-11T09:00:00Z',
+      },
+    });
+    mockUpdateReferralCampaign.mockResolvedValue({
+      campaign_bid: 'ref-campaign-1',
+    });
+    mockUpdateReferralCampaignStatus.mockResolvedValue({
+      campaign_bid: 'ref-campaign-1',
       enabled: false,
     });
     mockGetPackageCampaignProductOptions.mockResolvedValue({
@@ -3107,6 +3215,174 @@ describe('AdminOperationPromotionsPage', () => {
     expect(
       screen.queryByText('module.operationsPromotion.table.createdAt'),
     ).not.toBeInTheDocument();
+  });
+
+  test('switches to referral campaign tab and loads referral campaigns', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetReferralCampaigns).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 20,
+        keyword: '',
+        status: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+    expect(mockGetPackageCampaignProductOptions).toHaveBeenCalledWith({});
+    expect(
+      await screen.findByText('Domestic Creator Invite'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.catalog.plans.creatorMonthly.title'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('1,000')).toBeInTheDocument();
+    expect(screen.getByText('14')).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument();
+  });
+
+  test('creates a referral campaign with full configuration payload', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await screen.findByText('Domestic Creator Invite');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.createReferralCampaign',
+      }),
+    );
+
+    const dialogTitle = await screen.findByText(
+      'module.operationsPromotion.referralCampaign.dialogTitle',
+    );
+    const dialog = dialogTitle.closest('div')?.parentElement?.parentElement;
+    expect(dialog).not.toBeNull();
+    const dialogScope = within(dialog as HTMLElement);
+
+    fireEvent.change(
+      dialogScope.getByPlaceholderText(
+        'module.operationsPromotion.referralCampaign.namePlaceholder',
+      ),
+      {
+        target: { value: 'July Referral Campaign' },
+      },
+    );
+    fireEvent.change(
+      dialogScope.getByPlaceholderText(
+        'module.operationsPromotion.referralCampaign.codePlaceholder',
+      ),
+      {
+        target: { value: 'july_referral' },
+      },
+    );
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.billing.catalog.plans.creatorMonthly.title',
+      }),
+    );
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.campaign.startAtPlaceholder',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'select-date' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.confirm',
+      }),
+    );
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.campaign.endAtPlaceholder',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'select-date' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.confirm',
+      }),
+    );
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmCreate',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockCreateReferralCampaign).toHaveBeenCalledWith({
+        campaign_code: 'july_referral',
+        campaign_name: 'July Referral Campaign',
+        enabled: true,
+        starts_at: '2026-04-24 00:00:00',
+        ends_at: '2026-04-24 23:59:00',
+        reward_product_code: 'creator-plan-monthly',
+        reward_cycle_count: 1,
+        reward_credit_amount: '1000',
+        reward_credit_validity_days: 30,
+        reward_cap_scope: 'per_inviter',
+        reward_cap_count: 12,
+        feature_flag_key: '',
+        invite_route_template: '/invite/{invite_code}',
+        inviter_eligibility: {},
+        invitee_eligibility: {},
+        invitee_benefit_policy: 'existing_trial_only',
+        rules_copy_i18n_key: '',
+        rule_code: '',
+        priority: 0,
+      });
+    });
+  });
+
+  test('updates referral campaign status through the shared confirmation flow', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await screen.findByText('Domestic Creator Invite');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.disable',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmDisable',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateReferralCampaignStatus).toHaveBeenCalledWith({
+        campaign_bid: 'ref-campaign-1',
+        enabled: false,
+      });
+    });
   });
 
   test('maps package campaign upcoming status and unknown product summary safely', () => {
