@@ -15,7 +15,7 @@ import {
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
@@ -443,7 +443,7 @@ export default function AdminOperationCourseRatingsPage() {
         key: 'latestRatedAt',
         label: tOperations('detail.ratings.summary.latestRatedAt'),
         value:
-          formatAdminUtcDateTime(fullSummary.latest_rated_at) || emptyValue,
+          formatAdminNaiveDateTime(fullSummary.latest_rated_at) || emptyValue,
         tone: 'timestamp' as const,
       },
     ],
@@ -993,7 +993,7 @@ export default function AdminOperationCourseRatingsPage() {
                                       style={getColumnStyle('ratedAt')}
                                     >
                                       <AdminTooltipText
-                                        text={formatAdminUtcDateTime(
+                                        text={formatAdminNaiveDateTime(
                                           item.rated_at,
                                         )}
                                         emptyValue={emptyValue}

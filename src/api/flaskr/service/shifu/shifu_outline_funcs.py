@@ -211,6 +211,13 @@ def create_outline(
         # generate new outline id
         outline_bid = generate_id(app)
 
+        # A brand-new outline has no current value to preserve, so a None
+        # type/is_hidden (caller omitted it) falls back to a concrete default.
+        if outline_type is None:
+            outline_type = UNIT_TYPE_GUEST
+        if is_hidden is None:
+            is_hidden = False
+
         # validate name length
         if len(outline_name) > 100:
             raise_error("server.shifu.outlineNameTooLong")
@@ -422,8 +429,8 @@ def modify_unit(
     unit_description: str = None,
     unit_index: int = 0,
     unit_system_prompt: str = None,
-    unit_is_hidden: bool = False,
-    unit_type: str = UNIT_TYPE_GUEST,
+    unit_is_hidden: bool | None = None,
+    unit_type: str | None = None,
 ):
     """
     Modify unit
@@ -466,15 +473,16 @@ def modify_unit(
         # create new version
         new_unit: DraftOutlineItem = existing_unit.clone()
 
-        if unit_name:
+        # PATCH semantics: only change a field the caller provided (non-None);
+        # an omitted type/is_hidden must keep the unit's current value rather
+        # than reset it (this is what made a plain rename wipe the permission).
+        if unit_name is not None:
             new_unit.title = unit_name
         if unit_system_prompt is not None:
             new_unit.llm_system_prompt = unit_system_prompt
-        if unit_is_hidden is True:
-            new_unit.hidden = 1
-        elif unit_is_hidden is False:
-            new_unit.hidden = 0
-        if unit_type:
+        if unit_is_hidden is not None:
+            new_unit.hidden = 1 if unit_is_hidden else 0
+        if unit_type is not None:
             new_unit.type = UNIT_TYPE_VALUES.get(unit_type, UNIT_TYPE_VALUE_TRIAL)
 
         new_unit.updated_user_bid = user_id
@@ -500,10 +508,11 @@ def modify_unit(
             position=existing_unit.position,
             name=existing_unit.title,
             description=unit_description or "",
-            type=unit_type,
+            # Reflect the actually-stored values, not the (possibly None) inputs.
+            type=UNIT_TYPE_VALUES_REVERSE.get(existing_unit.type, UNIT_TYPE_GUEST),
             index=int(existing_unit.position),
             system_prompt=existing_unit.llm_system_prompt or "",
-            is_hidden=unit_is_hidden,
+            is_hidden=bool(existing_unit.hidden),
         )
 
 
