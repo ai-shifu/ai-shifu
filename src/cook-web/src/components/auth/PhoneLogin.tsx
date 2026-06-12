@@ -19,16 +19,19 @@ import { useCaptchaTicket } from '@/hooks/useCaptchaTicket';
 import { cn } from '@/lib/utils';
 
 import type { UserInfo } from '@/c-types';
+import type { ReferralLoginMetadata } from '@/types/referral';
 interface PhoneLoginProps {
   onLoginSuccess: (userInfo: UserInfo) => void;
   loginContext?: string;
   courseId?: string;
+  referralMetadata?: ReferralLoginMetadata;
 }
 
 export function PhoneLogin({
   onLoginSuccess,
   loginContext,
   courseId,
+  referralMetadata,
 }: PhoneLoginProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -240,7 +243,7 @@ export function PhoneLogin({
 
     try {
       setIsLoading(true);
-      await loginWithSmsCode(phoneNumber, otp, i18n.language);
+      await loginWithSmsCode(phoneNumber, otp, i18n.language, referralMetadata);
     } finally {
       setIsLoading(false);
     }

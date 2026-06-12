@@ -46,6 +46,7 @@
     "module.preview",
     "module.profiles",
     "module.profilesManage",
+    "module.referral",
     "module.renderUi.core",
     "module.renderUi.inlineInput",
     "module.settings",

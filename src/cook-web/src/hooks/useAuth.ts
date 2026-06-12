@@ -5,6 +5,11 @@ import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import type { UserInfo } from '@/c-types';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import {
+  buildReferralLoginPayload,
+  clearReferralContext,
+} from '@/lib/referral-context';
+import type { ReferralLoginMetadata } from '@/types/referral';
 
 interface ApiResponse {
   code: number;
@@ -160,8 +165,10 @@ export function useAuth(options: UseAuthOptions = {}) {
     mobile: string,
     sms_code: string,
     language: string,
+    referralMetadata?: ReferralLoginMetadata,
   ) => {
     try {
+      const referralPayload = buildReferralLoginPayload(referralMetadata);
       const response = await callWithTokenRefresh(() =>
         apiService.smsLogin({
           mobile,
@@ -169,10 +176,14 @@ export function useAuth(options: UseAuthOptions = {}) {
           language,
           login_context: options.loginContext,
           course_id: options.courseId,
+          ...referralPayload,
         }),
       );
 
       const success = await processLoginResponse(response, 'sms');
+      if (success && referralPayload.invite_code) {
+        clearReferralContext();
+      }
       if (!success) {
         handleLoginError(
           response.code,

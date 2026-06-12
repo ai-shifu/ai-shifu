@@ -6,6 +6,7 @@ import type {
   AdminBillingCampaignProductOptions,
   AdminPromotionCampaignItem,
   AdminPromotionCouponItem,
+  AdminReferralCampaignDetail,
 } from '@/app/admin/operations/operation-promotion-types';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -41,13 +42,16 @@ import {
   type CouponFormState,
   type PackageCampaignFormState,
   type PackageCampaignProductRuleFormState,
+  type ReferralCampaignFormState,
   createDefaultPackageCampaignForm,
   createDefaultPackageCampaignProductRule,
   createCampaignFormFromItem,
   createCouponFormFromItem,
   createDefaultCampaignForm,
   createDefaultCouponForm,
+  createDefaultReferralCampaignForm,
   createPackageCampaignFormFromDetail,
+  createReferralCampaignFormFromDetail,
   DEFAULT_END_TIME,
   DEFAULT_START_TIME,
   FormField,
@@ -58,6 +62,7 @@ import {
   parseCampaignPriceInputToMinor,
   parseLocalDateTimeInput,
   parsePositiveCampaignNumberInput,
+  parseReferralCampaignJsonObjectInput,
   resolveCampaignPriceCurrencySymbol,
   resolvePackageCampaignOptionTitle,
   SINGLE_SELECT_ITEM_CLASS,
@@ -1337,6 +1342,566 @@ export const PackageCampaignDialog = ({
                 />
               </FormField>
             </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
+            {t('common.core.cancel')}
+          </Button>
+          <Button
+            type='button'
+            onClick={() => void handleSubmit()}
+            disabled={submitting}
+          >
+            {isEditing
+              ? tPromotion('actions.confirmUpdate')
+              : tPromotion('actions.confirmCreate')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export const ReferralCampaignDialog = ({
+  open,
+  onOpenChange,
+  onSubmit,
+  campaign,
+  productOptions,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (payload: ReferralCampaignFormState) => Promise<void>;
+  campaign?: AdminReferralCampaignDetail | null;
+  productOptions: AdminBillingCampaignProductOptions | null;
+}) => {
+  const { t, i18n } = useTranslation();
+  const { t: tPromotion } = useTranslation('module.operationsPromotion');
+  const [form, setForm] = useState<ReferralCampaignFormState>(() =>
+    createDefaultReferralCampaignForm(),
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [advancedExpanded, setAdvancedExpanded] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setAdvancedExpanded(false);
+      setForm(
+        campaign
+          ? createReferralCampaignFormFromDetail(campaign)
+          : createDefaultReferralCampaignForm(),
+      );
+    }
+  }, [campaign, open]);
+
+  const isEditing = Boolean(campaign);
+  const planOptions = (productOptions?.plans || []).filter(
+    option => !isPackageCampaignTrialOption(option),
+  );
+
+  const handleSubmit = async () => {
+    if (!isEditing && !form.campaign_code.trim()) {
+      showDefaultToast(tPromotion('validation.referralCampaignCodeRequired'));
+      return;
+    }
+    if (!form.campaign_name.trim()) {
+      showDefaultToast(tPromotion('validation.referralCampaignNameRequired'));
+      return;
+    }
+    if (!form.reward_product_code.trim()) {
+      showDefaultToast(
+        tPromotion('validation.referralCampaignProductRequired'),
+      );
+      return;
+    }
+    if (
+      !isPositiveIntegerString(form.reward_cycle_count) ||
+      Number(form.reward_cycle_count) <= 0
+    ) {
+      showDefaultToast(tPromotion('validation.referralCampaignCycleInvalid'));
+      return;
+    }
+    if (parsePositiveCampaignNumberInput(form.reward_credit_amount) === null) {
+      showDefaultToast(tPromotion('validation.referralCampaignCreditInvalid'));
+      return;
+    }
+    if (
+      !isPositiveIntegerString(form.reward_credit_validity_days) ||
+      Number(form.reward_credit_validity_days) <= 0
+    ) {
+      showDefaultToast(
+        tPromotion('validation.referralCampaignValidityInvalid'),
+      );
+      return;
+    }
+    if (
+      form.reward_cap_scope !== 'none' &&
+      (!isPositiveIntegerString(form.reward_cap_count) ||
+        Number(form.reward_cap_count) <= 0)
+    ) {
+      showDefaultToast(tPromotion('validation.referralCampaignCapInvalid'));
+      return;
+    }
+    const startAtDate = parseLocalDateTimeInput(form.starts_at);
+    const endAtDate = parseLocalDateTimeInput(form.ends_at);
+    if (!form.starts_at) {
+      showDefaultToast(tPromotion('validation.startAtRequired'));
+      return;
+    }
+    if (!form.ends_at) {
+      showDefaultToast(tPromotion('validation.endAtRequired'));
+      return;
+    }
+    if (
+      !startAtDate ||
+      !endAtDate ||
+      endAtDate.getTime() <= startAtDate.getTime()
+    ) {
+      showDefaultToast(tPromotion('validation.endAtInvalid'));
+      return;
+    }
+    if (
+      parseReferralCampaignJsonObjectInput(form.inviter_eligibility_json) ===
+        null ||
+      parseReferralCampaignJsonObjectInput(form.invitee_eligibility_json) ===
+        null
+    ) {
+      showDefaultToast(tPromotion('validation.referralCampaignJsonInvalid'));
+      return;
+    }
+    if (form.priority.trim() && !/^-?\d+$/.test(form.priority.trim())) {
+      showDefaultToast(
+        tPromotion('validation.referralCampaignPriorityInvalid'),
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await onSubmit(form);
+      onOpenChange(false);
+    } catch (error) {
+      showErrorToast((error as Error).message || t('common.core.submitFailed'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      <DialogContent className='flex max-h-[min(92vh,840px)] flex-col overflow-hidden sm:max-w-[860px]'>
+        <DialogHeader>
+          <DialogTitle>
+            {isEditing
+              ? tPromotion('referralCampaign.editDialogTitle')
+              : tPromotion('referralCampaign.dialogTitle')}
+          </DialogTitle>
+        </DialogHeader>
+        <div className='min-h-0 flex-1 overflow-y-auto pr-1'>
+          <div className='grid gap-x-4 gap-y-5 md:grid-cols-2 xl:grid-cols-3'>
+            <FormField label={tPromotion('referralCampaign.name')}>
+              <Input
+                className='h-9'
+                value={form.campaign_name}
+                placeholder={tPromotion('referralCampaign.namePlaceholder')}
+                onChange={event =>
+                  setForm(current => ({
+                    ...current,
+                    campaign_name: event.target.value,
+                  }))
+                }
+              />
+            </FormField>
+            <FormField label={tPromotion('referralCampaign.code')}>
+              <Input
+                className='h-9'
+                value={form.campaign_code}
+                disabled={isEditing}
+                placeholder={tPromotion('referralCampaign.codePlaceholder')}
+                onChange={event =>
+                  setForm(current => ({
+                    ...current,
+                    campaign_code: event.target.value,
+                  }))
+                }
+              />
+            </FormField>
+            <FormField label={tPromotion('campaign.enabled')}>
+              <Select
+                value={form.enabled}
+                onValueChange={value =>
+                  setForm(current => ({ ...current, enabled: value }))
+                }
+              >
+                <SelectTrigger className='h-9'>
+                  <SelectValue placeholder={tPromotion('campaign.enabled')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem
+                    value='true'
+                    className={SINGLE_SELECT_ITEM_CLASS}
+                  >
+                    {tPromotion('actions.enable')}
+                  </SelectItem>
+                  <SelectItem
+                    value='false'
+                    className={SINGLE_SELECT_ITEM_CLASS}
+                  >
+                    {tPromotion('actions.disable')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label={tPromotion('referralCampaign.rewardProduct')}>
+              <Select
+                value={form.reward_product_code}
+                onValueChange={value =>
+                  setForm(current => ({
+                    ...current,
+                    reward_product_code: value,
+                  }))
+                }
+              >
+                <SelectTrigger className='h-9'>
+                  <SelectValue
+                    placeholder={tPromotion(
+                      'referralCampaign.rewardProductPlaceholder',
+                    )}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {planOptions.map(option => (
+                    <SelectItem
+                      key={option.product_code}
+                      value={option.product_code}
+                      className={SINGLE_SELECT_ITEM_CLASS}
+                    >
+                      {resolvePackageCampaignOptionTitle(t, option)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label={tPromotion('referralCampaign.rewardCycles')}>
+              <Input
+                className='h-9'
+                inputMode='numeric'
+                value={form.reward_cycle_count}
+                placeholder={tPromotion(
+                  'referralCampaign.rewardCyclesPlaceholder',
+                )}
+                onChange={event =>
+                  setForm(current => ({
+                    ...current,
+                    reward_cycle_count: event.target.value,
+                  }))
+                }
+              />
+            </FormField>
+            <FormField label={tPromotion('referralCampaign.rewardCredits')}>
+              <Input
+                className='h-9'
+                inputMode='decimal'
+                value={form.reward_credit_amount}
+                placeholder={tPromotion(
+                  'referralCampaign.rewardCreditsPlaceholder',
+                )}
+                onChange={event =>
+                  setForm(current => ({
+                    ...current,
+                    reward_credit_amount: event.target.value,
+                  }))
+                }
+              />
+            </FormField>
+            <FormField label={tPromotion('referralCampaign.validityDays')}>
+              <Input
+                className='h-9'
+                inputMode='numeric'
+                value={form.reward_credit_validity_days}
+                placeholder={tPromotion(
+                  'referralCampaign.validityDaysPlaceholder',
+                )}
+                onChange={event =>
+                  setForm(current => ({
+                    ...current,
+                    reward_credit_validity_days: event.target.value,
+                  }))
+                }
+              />
+            </FormField>
+            <FormField label={tPromotion('referralCampaign.capScope')}>
+              <Select
+                value={form.reward_cap_scope}
+                onValueChange={value =>
+                  setForm(current => ({
+                    ...current,
+                    reward_cap_scope: value,
+                    reward_cap_count:
+                      value === 'none' ? '' : current.reward_cap_count,
+                  }))
+                }
+              >
+                <SelectTrigger className='h-9'>
+                  <SelectValue
+                    placeholder={tPromotion(
+                      'referralCampaign.capScopePlaceholder',
+                    )}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem
+                    value='per_inviter'
+                    className={SINGLE_SELECT_ITEM_CLASS}
+                  >
+                    {tPromotion('referralCampaign.capScopePerInviter')}
+                  </SelectItem>
+                  <SelectItem
+                    value='per_campaign'
+                    className={SINGLE_SELECT_ITEM_CLASS}
+                  >
+                    {tPromotion('referralCampaign.capScopePerCampaign')}
+                  </SelectItem>
+                  <SelectItem
+                    value='none'
+                    className={SINGLE_SELECT_ITEM_CLASS}
+                  >
+                    {tPromotion('referralCampaign.capScopeNone')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            {form.reward_cap_scope !== 'none' ? (
+              <FormField label={tPromotion('referralCampaign.capCount')}>
+                <Input
+                  className='h-9'
+                  inputMode='numeric'
+                  value={form.reward_cap_count}
+                  placeholder={tPromotion(
+                    'referralCampaign.capCountPlaceholder',
+                  )}
+                  onChange={event =>
+                    setForm(current => ({
+                      ...current,
+                      reward_cap_count: event.target.value,
+                    }))
+                  }
+                />
+              </FormField>
+            ) : null}
+            <FormField label={tPromotion('campaign.startAt')}>
+              <PromotionDateTimePicker
+                value={form.starts_at}
+                placeholder={tPromotion('campaign.startAtPlaceholder')}
+                resetLabel={t('module.order.filters.reset')}
+                clearLabel={t('common.core.close')}
+                timeLabel={tPromotion('campaign.startAt')}
+                defaultTime={DEFAULT_START_TIME}
+                maxDateTime={form.ends_at}
+                onChange={nextValue =>
+                  setForm(current => ({ ...current, starts_at: nextValue }))
+                }
+              />
+            </FormField>
+            <FormField label={tPromotion('campaign.endAt')}>
+              <PromotionDateTimePicker
+                value={form.ends_at}
+                placeholder={tPromotion('campaign.endAtPlaceholder')}
+                resetLabel={t('module.order.filters.reset')}
+                clearLabel={t('common.core.close')}
+                timeLabel={tPromotion('campaign.endAt')}
+                defaultTime={DEFAULT_END_TIME}
+                minDateTime={form.starts_at}
+                onChange={nextValue =>
+                  setForm(current => ({ ...current, ends_at: nextValue }))
+                }
+              />
+            </FormField>
+            <div className='md:col-span-2 xl:col-span-3'>
+              <div className='space-y-2 rounded-lg border border-border/80 p-4'>
+                <div className='flex items-center justify-between gap-3'>
+                  <div>
+                    <Label className='text-sm font-medium text-foreground'>
+                      {tPromotion('referralCampaign.advancedSettings')}
+                    </Label>
+                    <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+                      {tPromotion('referralCampaign.advancedSettingsHelper')}
+                    </p>
+                  </div>
+                  <Button
+                    type='button'
+                    size='icon'
+                    variant='ghost'
+                    className='h-8 w-8 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground'
+                    aria-label={tPromotion('referralCampaign.advancedSettings')}
+                    onClick={() => setAdvancedExpanded(current => !current)}
+                  >
+                    {advancedExpanded ? (
+                      <ChevronUp className='h-4 w-4' />
+                    ) : (
+                      <ChevronDown className='h-4 w-4' />
+                    )}
+                  </Button>
+                </div>
+                <div
+                  className={cn(
+                    'grid gap-x-4 gap-y-5 pt-3 md:grid-cols-2',
+                    advancedExpanded ? 'grid' : 'hidden',
+                  )}
+                >
+                  <FormField label={tPromotion('referralCampaign.featureFlag')}>
+                    <Input
+                      className='h-9'
+                      value={form.feature_flag_key}
+                      placeholder={tPromotion(
+                        'referralCampaign.featureFlagPlaceholder',
+                      )}
+                      onChange={event =>
+                        setForm(current => ({
+                          ...current,
+                          feature_flag_key: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                  <FormField label={tPromotion('referralCampaign.inviteRoute')}>
+                    <Input
+                      className='h-9'
+                      value={form.invite_route_template}
+                      placeholder={tPromotion(
+                        'referralCampaign.inviteRoutePlaceholder',
+                      )}
+                      onChange={event =>
+                        setForm(current => ({
+                          ...current,
+                          invite_route_template: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                  <FormField
+                    label={tPromotion('referralCampaign.inviteeBenefitPolicy')}
+                  >
+                    <Input
+                      className='h-9'
+                      value={form.invitee_benefit_policy}
+                      placeholder={tPromotion(
+                        'referralCampaign.inviteeBenefitPolicyPlaceholder',
+                      )}
+                      onChange={event =>
+                        setForm(current => ({
+                          ...current,
+                          invitee_benefit_policy: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                  <FormField label={tPromotion('referralCampaign.copyKey')}>
+                    <Input
+                      className='h-9'
+                      value={form.rules_copy_i18n_key}
+                      placeholder={tPromotion(
+                        'referralCampaign.copyKeyPlaceholder',
+                      )}
+                      onChange={event =>
+                        setForm(current => ({
+                          ...current,
+                          rules_copy_i18n_key: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                  <FormField label={tPromotion('referralCampaign.ruleCode')}>
+                    <Input
+                      className='h-9'
+                      value={form.rule_code}
+                      placeholder={tPromotion(
+                        'referralCampaign.ruleCodePlaceholder',
+                      )}
+                      onChange={event =>
+                        setForm(current => ({
+                          ...current,
+                          rule_code: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                  <FormField label={tPromotion('referralCampaign.priority')}>
+                    <Input
+                      className='h-9'
+                      inputMode='numeric'
+                      value={form.priority}
+                      placeholder={tPromotion(
+                        'referralCampaign.priorityPlaceholder',
+                      )}
+                      onChange={event =>
+                        setForm(current => ({
+                          ...current,
+                          priority: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                  <div className='md:col-span-2 grid gap-4 md:grid-cols-2'>
+                    <FormField
+                      label={tPromotion('referralCampaign.inviterEligibility')}
+                    >
+                      <Textarea
+                        className='min-h-28 font-mono text-xs'
+                        value={form.inviter_eligibility_json}
+                        placeholder='{ }'
+                        onChange={event =>
+                          setForm(current => ({
+                            ...current,
+                            inviter_eligibility_json: event.target.value,
+                          }))
+                        }
+                      />
+                    </FormField>
+                    <FormField
+                      label={tPromotion('referralCampaign.inviteeEligibility')}
+                    >
+                      <Textarea
+                        className='min-h-28 font-mono text-xs'
+                        value={form.invitee_eligibility_json}
+                        placeholder='{ }'
+                        onChange={event =>
+                          setForm(current => ({
+                            ...current,
+                            invitee_eligibility_json: event.target.value,
+                          }))
+                        }
+                      />
+                    </FormField>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {planOptions.length ? (
+              <div className='md:col-span-2 xl:col-span-3 text-xs leading-5 text-muted-foreground'>
+                {planOptions.map(option =>
+                  option.product_code === form.reward_product_code
+                    ? `${resolvePackageCampaignOptionTitle(t, option)} · ${formatBillingPrice(
+                        option.price_amount,
+                        option.currency,
+                        i18n.language,
+                      )} · ${formatBillingPlanInterval(
+                        t,
+                        option as unknown as BillingPlan,
+                      )} · ${formatBillingCreditAmount(option.credit_amount)}`
+                    : null,
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
         <DialogFooter>

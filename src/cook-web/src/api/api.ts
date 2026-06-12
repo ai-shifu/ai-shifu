@@ -31,6 +31,10 @@ const api = {
   changePassword: 'POST /user/change_password',
   resetPassword: 'POST /user/reset_password',
 
+  // referral api
+  getReferralInviteProfile: 'GET /referral/invite-profile',
+  recordReferralInviteEvent: 'POST /referral/invite-event',
+
   // shifu api start
   getShifuList: 'GET /shifu/shifus',
   createShifu: 'PUT /shifu/shifus',
@@ -153,6 +157,16 @@ const api = {
     'POST /shifu/admin/operations/promotions/campaigns/{promo_bid}/status',
   getAdminOperationPromotionCampaignRedemptions:
     'GET /shifu/admin/operations/promotions/campaigns/{promo_bid}/redemptions',
+  getAdminOperationPromotionReferralCampaigns:
+    'GET /shifu/admin/operations/promotions/referral-campaigns',
+  createAdminOperationPromotionReferralCampaign:
+    'POST /shifu/admin/operations/promotions/referral-campaigns',
+  getAdminOperationPromotionReferralCampaignDetail:
+    'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}',
+  updateAdminOperationPromotionReferralCampaign:
+    'POST /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}',
+  updateAdminOperationPromotionReferralCampaignStatus:
+    'POST /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/status',
   getAdminOperationUserDetail:
     'GET /shifu/admin/operations/users/{user_bid}/detail',
   getAdminOperationUserCredits:
@@ -183,6 +197,15 @@ const api = {
     'POST /shifu/admin/operations/credit-notifications/dry-run',
   requeueAdminOperationCreditNotification:
     'POST /shifu/admin/operations/credit-notifications/{notification_bid}/requeue',
+  getAdminOperationReferrals: 'GET /shifu/admin/operations/referrals',
+  getAdminOperationReferralsOverview:
+    'GET /shifu/admin/operations/referrals/overview',
+  getAdminOperationReferralDetail:
+    'GET /shifu/admin/operations/referrals/{relation_bid}',
+  updateAdminOperationReferralStatus:
+    'POST /shifu/admin/operations/referrals/{relation_bid}/status',
+  adjustAdminOperationReferral:
+    'POST /shifu/admin/operations/referrals/{relation_bid}/adjustment',
   getAdminOperationCoursesOverview:
     'GET /shifu/admin/operations/courses/overview',
   getAdminOperationCourses: 'GET /shifu/admin/operations/courses',

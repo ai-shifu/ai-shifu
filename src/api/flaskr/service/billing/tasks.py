@@ -10,6 +10,7 @@ from typing import Any, Callable
 
 from sqlalchemy import and_, or_
 
+from flaskr.dao import db
 from flaskr.service.config import get_config
 
 from .checkout import reconcile_billing_provider_reference, sync_billing_order
@@ -21,6 +22,7 @@ from .consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
     BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
 )
 from .credit_notifications import (
     TASK_NAME as _CREDIT_NOTIFICATION_TASK_NAME,
@@ -139,7 +141,9 @@ def _load_renewal_task_config() -> dict[str, Any]:
         "enabled": 0,
         "batch_size": 100,
         "lookahead_minutes": 60,
-        "queue": "billing-renewal",
+        "processing_timeout_minutes": 30,
+        "queue": "",
+        "use_dedicated_queue": 0,
     }
     raw_config = get_config(BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG, "") or ""
     try:
@@ -164,6 +168,32 @@ def _coerce_positive_int(
     return max(minimum, normalized)
 
 
+def _normalize_optional_queue(value: Any, *, enabled: Any = False) -> str:
+    if not _coerce_bool(enabled):
+        return ""
+    queue = str(value or "").strip()
+    return queue
+
+
+def _recover_stale_processing_renewal_events(
+    *,
+    stale_before: datetime,
+) -> int:
+    updated_rows = BillingRenewalEvent.query.filter(
+        BillingRenewalEvent.deleted == 0,
+        BillingRenewalEvent.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+        BillingRenewalEvent.updated_at <= stale_before,
+    ).update(
+        {
+            "status": BILLING_RENEWAL_EVENT_STATUS_PENDING,
+            "last_error": "recovered_stale_processing",
+            "updated_at": datetime.now(),
+        },
+        synchronize_session=False,
+    )
+    return int(updated_rows or 0)
+
+
 def dispatch_due_renewal_events(
     app,
 ) -> dict[str, Any]:
@@ -185,7 +215,23 @@ def dispatch_due_renewal_events(
             60,
             minimum=0,
         )
-        cutoff = datetime.now() + timedelta(minutes=lookahead_minutes)
+        processing_timeout_minutes = _coerce_positive_int(
+            config.get("processing_timeout_minutes"),
+            30,
+            minimum=1,
+        )
+        queue = _normalize_optional_queue(
+            config.get("queue"),
+            enabled=config.get("use_dedicated_queue"),
+        )
+        now = datetime.now()
+        recovered_processing_count = _recover_stale_processing_renewal_events(
+            stale_before=now - timedelta(minutes=processing_timeout_minutes)
+        )
+        if recovered_processing_count:
+            db.session.commit()
+
+        cutoff = now + timedelta(minutes=lookahead_minutes)
         events = (
             BillingRenewalEvent.query.filter(
                 BillingRenewalEvent.deleted == 0,
@@ -202,12 +248,14 @@ def dispatch_due_renewal_events(
 
         renewal_event_bids: list[str] = []
         for event in events:
+            apply_options = {"queue": queue} if queue else {}
             run_renewal_event_task.apply_async(
                 kwargs={
                     "renewal_event_bid": event.renewal_event_bid,
                     "subscription_bid": event.subscription_bid,
                     "creator_bid": event.creator_bid,
-                }
+                },
+                **apply_options,
             )
             renewal_event_bids.append(event.renewal_event_bid)
 
@@ -215,6 +263,7 @@ def dispatch_due_renewal_events(
             "status": "enqueued" if renewal_event_bids else "noop",
             "candidate_count": len(events),
             "enqueued_count": len(renewal_event_bids),
+            "recovered_processing_count": recovered_processing_count,
             "renewal_event_bids": renewal_event_bids,
         }
 

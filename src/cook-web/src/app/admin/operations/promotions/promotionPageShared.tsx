@@ -15,6 +15,8 @@ import type {
   AdminPromotionCouponCodeItem,
   AdminPromotionCouponItem,
   AdminPromotionCouponUsageItem,
+  AdminReferralCampaignDetail,
+  AdminReferralCampaignItem,
 } from '@/app/admin/operations/operation-promotion-types';
 import { Badge } from '@/components/ui/Badge';
 import { Label } from '@/components/ui/Label';
@@ -22,7 +24,11 @@ import { resolveBillingProductTitle } from '@/lib/billing';
 import { cn } from '@/lib/utils';
 import type { BillingPlan, BillingTopupProduct } from '@/types/billing';
 
-export type PromotionTab = 'coupons' | 'campaigns' | 'packageCampaigns';
+export type PromotionTab =
+  | 'coupons'
+  | 'campaigns'
+  | 'packageCampaigns'
+  | 'referralCampaigns';
 
 export type CouponFilters = {
   keyword: string;
@@ -51,6 +57,13 @@ export type PackageCampaignFilters = {
   keyword: string;
   product_type: string;
   benefit_type: string;
+  status: string;
+  start_time: string;
+  end_time: string;
+};
+
+export type ReferralCampaignFilters = {
+  keyword: string;
   status: string;
   start_time: string;
   end_time: string;
@@ -95,6 +108,28 @@ export type PackageCampaignFormState = {
   end_at: string;
 };
 
+export type ReferralCampaignFormState = {
+  campaign_code: string;
+  campaign_name: string;
+  enabled: string;
+  starts_at: string;
+  ends_at: string;
+  reward_product_code: string;
+  reward_cycle_count: string;
+  reward_credit_amount: string;
+  reward_credit_validity_days: string;
+  reward_cap_scope: string;
+  reward_cap_count: string;
+  feature_flag_key: string;
+  invite_route_template: string;
+  inviter_eligibility_json: string;
+  invitee_eligibility_json: string;
+  invitee_benefit_policy: string;
+  rules_copy_i18n_key: string;
+  rule_code: string;
+  priority: string;
+};
+
 export type PackageCampaignProductRuleFormState = {
   discount_type: string;
   campaign_price: string;
@@ -118,6 +153,11 @@ export type PromotionStatusChangeTarget =
       entityType: 'packageCampaign';
       enabling: boolean;
       item: AdminBillingCampaignItem;
+    }
+  | {
+      entityType: 'referralCampaign';
+      enabling: boolean;
+      item: AdminReferralCampaignItem;
     };
 
 export const PAGE_SIZE = 20;
@@ -132,6 +172,8 @@ export const CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY =
   'adminPromotionCampaignsColumnWidths';
 export const PACKAGE_CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY =
   'adminPromotionPackageCampaignsColumnWidths';
+export const REFERRAL_CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY =
+  'adminPromotionReferralCampaignsColumnWidths';
 export const COUPON_DEFAULT_COLUMN_WIDTHS = {
   name: 200,
   status: 110,
@@ -176,6 +218,20 @@ export const PACKAGE_CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
   updatedAt: 170,
   action: 120,
 } as const;
+export const REFERRAL_CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
+  name: 200,
+  status: 110,
+  code: 190,
+  rewardProduct: 220,
+  rewardCredits: 130,
+  rewardValidity: 120,
+  rewardCap: 140,
+  campaignTime: 280,
+  relationCount: 110,
+  rewardCount: 110,
+  updatedAt: 170,
+  action: 120,
+} as const;
 export const BILLING_TRIAL_PLAN_PRODUCT_CODE = 'creator-plan-trial';
 export const PROMOTION_CODE_DIALOG_COLUMN_COUNT = 4;
 export const PACKAGE_CAMPAIGN_PRODUCT_DIALOG_COLUMN_COUNT = 5;
@@ -200,6 +256,8 @@ export type CouponColumnKey = keyof typeof COUPON_DEFAULT_COLUMN_WIDTHS;
 export type CampaignColumnKey = keyof typeof CAMPAIGN_DEFAULT_COLUMN_WIDTHS;
 export type PackageCampaignColumnKey =
   keyof typeof PACKAGE_CAMPAIGN_DEFAULT_COLUMN_WIDTHS;
+export type ReferralCampaignColumnKey =
+  keyof typeof REFERRAL_CAMPAIGN_DEFAULT_COLUMN_WIDTHS;
 
 export const createDefaultCouponFilters = (): CouponFilters => ({
   keyword: '',
@@ -229,6 +287,14 @@ export const createDefaultPackageCampaignFilters =
     keyword: '',
     product_type: '',
     benefit_type: '',
+    status: '',
+    start_time: '',
+    end_time: '',
+  });
+
+export const createDefaultReferralCampaignFilters =
+  (): ReferralCampaignFilters => ({
+    keyword: '',
     status: '',
     start_time: '',
     end_time: '',
@@ -303,6 +369,29 @@ export const createDefaultPackageCampaignForm =
     product_rules: {},
     start_at: '',
     end_at: '',
+  });
+
+export const createDefaultReferralCampaignForm =
+  (): ReferralCampaignFormState => ({
+    campaign_code: '',
+    campaign_name: '',
+    enabled: 'true',
+    starts_at: '',
+    ends_at: '',
+    reward_product_code: '',
+    reward_cycle_count: '1',
+    reward_credit_amount: '1000',
+    reward_credit_validity_days: '30',
+    reward_cap_scope: 'per_inviter',
+    reward_cap_count: '12',
+    feature_flag_key: '',
+    invite_route_template: '/invite/{invite_code}',
+    inviter_eligibility_json: '{}',
+    invitee_eligibility_json: '{}',
+    invitee_benefit_policy: 'existing_trial_only',
+    rules_copy_i18n_key: '',
+    rule_code: '',
+    priority: '0',
   });
 
 export const formatCampaignPriceInput = (
@@ -416,6 +505,114 @@ export const createPackageCampaignFormFromDetail = (
     product_rules: productRules,
     start_at: normalizePromotionFormDateTimeValue(detail.campaign.start_at),
     end_at: normalizePromotionFormDateTimeValue(detail.campaign.end_at),
+  };
+};
+
+export const stringifyReferralCampaignJson = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return '{}';
+  }
+  return JSON.stringify(value, null, 2);
+};
+
+export const createReferralCampaignFormFromDetail = (
+  detail: AdminReferralCampaignDetail,
+): ReferralCampaignFormState => {
+  const campaign = detail.campaign;
+  return {
+    campaign_code: campaign.campaign_code || '',
+    campaign_name: campaign.campaign_name || '',
+    enabled: resolvePromotionEnabledFormValue(campaign),
+    starts_at: normalizePromotionFormDateTimeValue(campaign.starts_at),
+    ends_at: normalizePromotionFormDateTimeValue(campaign.ends_at),
+    reward_product_code: campaign.reward_product_code || '',
+    reward_cycle_count: String(campaign.reward_cycle_count || ''),
+    reward_credit_amount: campaign.reward_credit_amount || '',
+    reward_credit_validity_days: String(
+      campaign.reward_credit_validity_days || '',
+    ),
+    reward_cap_scope: campaign.reward_cap_scope || 'none',
+    reward_cap_count:
+      campaign.reward_cap_count === null ||
+      typeof campaign.reward_cap_count === 'undefined'
+        ? ''
+        : String(campaign.reward_cap_count),
+    feature_flag_key: campaign.feature_flag_key || '',
+    invite_route_template: campaign.invite_route_template || '',
+    inviter_eligibility_json: stringifyReferralCampaignJson(
+      campaign.inviter_eligibility,
+    ),
+    invitee_eligibility_json: stringifyReferralCampaignJson(
+      campaign.invitee_eligibility,
+    ),
+    invitee_benefit_policy: campaign.invitee_benefit_policy || '',
+    rules_copy_i18n_key: campaign.rules_copy_i18n_key || '',
+    rule_code: campaign.rule_code || '',
+    priority: String(campaign.priority || 0),
+  };
+};
+
+export const parseReferralCampaignJsonObjectInput = (value: string) => {
+  const normalized = value.trim();
+  if (!normalized) {
+    return {};
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(normalized) as unknown;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return null;
+  }
+  return parsed as Record<string, unknown>;
+};
+
+export const buildReferralCampaignPayload = (
+  form: ReferralCampaignFormState,
+  {
+    includeCampaignCode,
+  }: {
+    includeCampaignCode: boolean;
+  },
+) => {
+  const inviterEligibility = parseReferralCampaignJsonObjectInput(
+    form.inviter_eligibility_json,
+  );
+  const inviteeEligibility = parseReferralCampaignJsonObjectInput(
+    form.invitee_eligibility_json,
+  );
+  if (inviterEligibility === null || inviteeEligibility === null) {
+    return null;
+  }
+  return {
+    ...(includeCampaignCode
+      ? { campaign_code: form.campaign_code.trim() }
+      : {}),
+    campaign_name: form.campaign_name.trim(),
+    enabled: form.enabled === 'true',
+    starts_at: form.starts_at,
+    ends_at: form.ends_at,
+    reward_product_code: form.reward_product_code.trim(),
+    reward_cycle_count: Number(form.reward_cycle_count.trim()),
+    reward_credit_amount: form.reward_credit_amount.trim(),
+    reward_credit_validity_days: Number(
+      form.reward_credit_validity_days.trim(),
+    ),
+    reward_cap_scope: form.reward_cap_scope,
+    reward_cap_count:
+      form.reward_cap_scope === 'none'
+        ? null
+        : Number(form.reward_cap_count.trim()),
+    feature_flag_key: form.feature_flag_key.trim(),
+    invite_route_template: form.invite_route_template.trim(),
+    inviter_eligibility: inviterEligibility,
+    invitee_eligibility: inviteeEligibility,
+    invitee_benefit_policy: form.invitee_benefit_policy.trim(),
+    rules_copy_i18n_key: form.rules_copy_i18n_key.trim(),
+    rule_code: form.rule_code.trim(),
+    priority: Number(form.priority.trim() || 0),
   };
 };
 
@@ -708,6 +905,14 @@ export const canEnablePackageCampaignItem = (item: AdminBillingCampaignItem) =>
 export const shouldShowPackageCampaignStatusToggle = (
   item: AdminBillingCampaignItem,
 ) => item.computed_status !== 'inactive' || canEnablePackageCampaignItem(item);
+
+export const canEnableReferralCampaignItem = (
+  item: AdminReferralCampaignItem,
+) => item.computed_status !== 'ended';
+
+export const shouldShowReferralCampaignStatusToggle = (
+  item: AdminReferralCampaignItem,
+) => item.computed_status !== 'inactive' || canEnableReferralCampaignItem(item);
 
 export const resolvePackageCampaignRuleLabel = (
   t: (key: string, options?: Record<string, unknown>) => string,

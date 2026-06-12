@@ -22,6 +22,8 @@ import type {
   AdminPromotionCouponCodeItem,
   AdminPromotionCouponItem,
   AdminPromotionListResponse,
+  AdminReferralCampaignDetail,
+  AdminReferralCampaignItem,
 } from '@/app/admin/operations/operation-promotion-types';
 import useOperatorGuard from '@/app/admin/operations/useOperatorGuard';
 import { useEnvStore } from '@/c-store';
@@ -51,6 +53,7 @@ import {
   PackageCampaignDialog,
   PromotionCampaignDialog,
   PromotionCouponDialog,
+  ReferralCampaignDialog,
 } from './PromotionFormDialogs';
 import {
   PackageCampaignProductDetailsDialog,
@@ -60,9 +63,11 @@ import {
 } from './PromotionRecordDialogs';
 import PromotionCampaignsTab from './PromotionCampaignsTab';
 import PromotionCouponsTab from './PromotionCouponsTab';
+import ReferralCampaignsTab from './ReferralCampaignsTab';
 import PromotionStatusConfirmDialog from './PromotionStatusConfirmDialog';
 import {
   ALL_OPTION_VALUE,
+  buildReferralCampaignPayload,
   CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY,
   CAMPAIGN_DEFAULT_COLUMN_WIDTHS,
   type CampaignColumnKey,
@@ -79,7 +84,7 @@ import {
   createDefaultCampaignFilters,
   createDefaultCouponFilters,
   createDefaultPackageCampaignFilters,
-  EMPTY_VALUE,
+  createDefaultReferralCampaignFilters,
   type ErrorState,
   PAGE_SIZE,
   PACKAGE_CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY,
@@ -87,23 +92,21 @@ import {
   type PackageCampaignColumnKey,
   type PackageCampaignFilters,
   type PackageCampaignFormState,
+  REFERRAL_CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY,
+  REFERRAL_CAMPAIGN_DEFAULT_COLUMN_WIDTHS,
+  type ReferralCampaignColumnKey,
+  type ReferralCampaignFilters,
+  type ReferralCampaignFormState,
   type PromotionStatusChangeTarget,
   type PromotionTab,
-  renderCouponAttentionBadges,
   renderPromotionStatusBadge,
-  renderRuleLabel,
   renderTimeRange,
   renderTooltipText,
-  resolveCampaignApplyTypeLabel,
-  resolveCouponScopeLabel,
-  resolveCouponUsageTypeLabel,
   resolvePackageCampaignBenefitTypeLabel,
   resolvePackageCampaignProductSummary,
   resolvePackageCampaignProductTypeLabel,
   resolvePackageCampaignRuleLabel,
   SectionCard,
-  shouldShowCampaignStatusToggle,
-  shouldShowCouponStatusToggle,
   shouldShowPackageCampaignStatusToggle,
   TABLE_ACTION_CELL_CLASS,
   TABLE_ACTION_HEAD_CLASS,
@@ -114,6 +117,15 @@ import {
   canEditCampaignStrategyFields,
 } from './promotionPageShared';
 
+/**
+ * t('module.operationsPromotion.actions.createReferralCampaign')
+ * t('module.operationsPromotion.messages.emptyReferralCampaigns')
+ * t('module.operationsPromotion.referralCampaign.cap')
+ * t('module.operationsPromotion.referralCampaign.capSummary')
+ * t('module.operationsPromotion.referralCampaign.relationCount')
+ * t('module.operationsPromotion.referralCampaign.rewardCount')
+ * t('module.operationsPromotion.referralCampaign.validityDaysValue')
+ */
 export default function AdminOperationPromotionsPage() {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
@@ -126,21 +138,29 @@ export default function AdminOperationPromotionsPage() {
   const [couponLoading, setCouponLoading] = useState(true);
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [packageCampaignLoading, setPackageCampaignLoading] = useState(false);
+  const [referralCampaignLoading, setReferralCampaignLoading] = useState(false);
   const [couponError, setCouponError] = useState<ErrorState>(null);
   const [campaignError, setCampaignError] = useState<ErrorState>(null);
   const [packageCampaignError, setPackageCampaignError] =
+    useState<ErrorState>(null);
+  const [referralCampaignError, setReferralCampaignError] =
     useState<ErrorState>(null);
   const [coupons, setCoupons] = useState<AdminPromotionCouponItem[]>([]);
   const [campaigns, setCampaigns] = useState<AdminPromotionCampaignItem[]>([]);
   const [packageCampaigns, setPackageCampaigns] = useState<
     AdminBillingCampaignItem[]
   >([]);
+  const [referralCampaigns, setReferralCampaigns] = useState<
+    AdminReferralCampaignItem[]
+  >([]);
   const [couponPage, setCouponPage] = useState(1);
   const [campaignPage, setCampaignPage] = useState(1);
   const [packageCampaignPage, setPackageCampaignPage] = useState(1);
+  const [referralCampaignPage, setReferralCampaignPage] = useState(1);
   const [couponPageCount, setCouponPageCount] = useState(0);
   const [campaignPageCount, setCampaignPageCount] = useState(0);
   const [packageCampaignPageCount, setPackageCampaignPageCount] = useState(0);
+  const [referralCampaignPageCount, setReferralCampaignPageCount] = useState(0);
   const [couponFilters, setCouponFilters] = useState<CouponFilters>(() =>
     createDefaultCouponFilters(),
   );
@@ -151,10 +171,16 @@ export default function AdminOperationPromotionsPage() {
     useState<PackageCampaignFilters>(() =>
       createDefaultPackageCampaignFilters(),
     );
+  const [referralCampaignFilters, setReferralCampaignFilters] =
+    useState<ReferralCampaignFilters>(() =>
+      createDefaultReferralCampaignFilters(),
+    );
   const campaignPageRef = useRef(campaignPage);
   const campaignFiltersRef = useRef(campaignFilters);
   const packageCampaignPageRef = useRef(packageCampaignPage);
   const packageCampaignFiltersRef = useRef(packageCampaignFilters);
+  const referralCampaignPageRef = useRef(referralCampaignPage);
+  const referralCampaignFiltersRef = useRef(referralCampaignFilters);
   const [couponCreateOpen, setCouponCreateOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] =
     useState<AdminPromotionCouponItem | null>(null);
@@ -167,6 +193,10 @@ export default function AdminOperationPromotionsPage() {
     useState(false);
   const [editingPackageCampaign, setEditingPackageCampaign] =
     useState<AdminBillingCampaignDetail | null>(null);
+  const [referralCampaignCreateOpen, setReferralCampaignCreateOpen] =
+    useState(false);
+  const [editingReferralCampaign, setEditingReferralCampaign] =
+    useState<AdminReferralCampaignDetail | null>(null);
   const [packageCampaignProductOptions, setPackageCampaignProductOptions] =
     useState<AdminBillingCampaignProductOptions | null>(null);
   const [selectedCouponBid, setSelectedCouponBid] = useState('');
@@ -192,6 +222,8 @@ export default function AdminOperationPromotionsPage() {
   const [couponFiltersExpanded, setCouponFiltersExpanded] = useState(false);
   const [campaignFiltersExpanded, setCampaignFiltersExpanded] = useState(false);
   const [packageCampaignFiltersExpanded, setPackageCampaignFiltersExpanded] =
+    useState(false);
+  const [referralCampaignFiltersExpanded, setReferralCampaignFiltersExpanded] =
     useState(false);
   const {
     getColumnStyle: getCouponColumnStyle,
@@ -220,6 +252,15 @@ export default function AdminOperationPromotionsPage() {
     minWidth: COLUMN_MIN_WIDTH,
     maxWidth: COLUMN_MAX_WIDTH,
   });
+  const {
+    getColumnStyle: getReferralCampaignColumnStyle,
+    getResizeHandleProps: getReferralCampaignResizeHandleProps,
+  } = useAdminResizableColumns<ReferralCampaignColumnKey>({
+    storageKey: REFERRAL_CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY,
+    defaultWidths: REFERRAL_CAMPAIGN_DEFAULT_COLUMN_WIDTHS,
+    minWidth: COLUMN_MIN_WIDTH,
+    maxWidth: COLUMN_MAX_WIDTH,
+  });
 
   const renderCouponResizeHandle = (key: CouponColumnKey) => (
     <span
@@ -239,6 +280,15 @@ export default function AdminOperationPromotionsPage() {
     <span
       className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
       {...getPackageCampaignResizeHandleProps(key)}
+    />
+  );
+
+  const renderReferralCampaignResizeHandle = (
+    key: ReferralCampaignColumnKey,
+  ) => (
+    <span
+      className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
+      {...getReferralCampaignResizeHandleProps(key)}
     />
   );
 
@@ -405,6 +455,53 @@ export default function AdminOperationPromotionsPage() {
     [tPromotion],
   );
 
+  const fetchReferralCampaigns = useCallback(
+    async (pageIndex: number, filters: ReferralCampaignFilters) => {
+      setReferralCampaignLoading(true);
+      setReferralCampaignError(null);
+      try {
+        const requestPayload = {
+          page_index: pageIndex,
+          page_size: PAGE_SIZE,
+          keyword: filters.keyword.trim(),
+          status: filters.status,
+          start_time: filters.start_time,
+          end_time: filters.end_time,
+        };
+        let response = (await api.getAdminOperationPromotionReferralCampaigns(
+          requestPayload,
+        )) as AdminPromotionListResponse<AdminReferralCampaignItem>;
+        const responsePage = response.page || pageIndex;
+        const responsePageCount = response.page_count || 0;
+        if (
+          responsePageCount > 0 &&
+          responsePage > responsePageCount &&
+          (response.items || []).length === 0
+        ) {
+          response = (await api.getAdminOperationPromotionReferralCampaigns({
+            ...requestPayload,
+            page_index: responsePageCount,
+          })) as AdminPromotionListResponse<AdminReferralCampaignItem>;
+        }
+        setReferralCampaigns(response.items || []);
+        setReferralCampaignPage(response.page || 1);
+        setReferralCampaignPageCount(response.page_count || 0);
+      } catch (error) {
+        setReferralCampaignError({
+          message:
+            (error as Error).message ||
+            tPromotion('messages.loadReferralCampaignsFailed'),
+        });
+        setReferralCampaigns([]);
+        setReferralCampaignPage(pageIndex);
+        setReferralCampaignPageCount(0);
+      } finally {
+        setReferralCampaignLoading(false);
+      }
+    },
+    [tPromotion],
+  );
+
   useEffect(() => {
     if (!isReady) return;
     void fetchCoupons(1, createDefaultCouponFilters());
@@ -414,6 +511,8 @@ export default function AdminOperationPromotionsPage() {
   campaignFiltersRef.current = campaignFilters;
   packageCampaignPageRef.current = packageCampaignPage;
   packageCampaignFiltersRef.current = packageCampaignFilters;
+  referralCampaignPageRef.current = referralCampaignPage;
+  referralCampaignFiltersRef.current = referralCampaignFilters;
 
   useEffect(() => {
     if (!isReady || tab !== 'campaigns') return;
@@ -430,19 +529,32 @@ export default function AdminOperationPromotionsPage() {
   }, [fetchPackageCampaigns, isReady, tab]);
 
   useEffect(() => {
+    if (!isReady || tab !== 'referralCampaigns') return;
+    void fetchReferralCampaigns(
+      referralCampaignPageRef.current,
+      referralCampaignFiltersRef.current,
+    );
+  }, [fetchReferralCampaigns, isReady, tab]);
+
+  useEffect(() => {
     if (
       !isReady ||
-      tab !== 'packageCampaigns' ||
+      (tab !== 'packageCampaigns' && tab !== 'referralCampaigns') ||
       packageCampaignProductOptions
     ) {
       return;
     }
     void fetchPackageCampaignProductOptions().catch(error => {
-      setPackageCampaignError({
+      const nextError = {
         message:
           (error as Error).message ||
           tPromotion('messages.loadPackageCampaignProductsFailed'),
-      });
+      };
+      if (tab === 'referralCampaigns') {
+        setReferralCampaignError(nextError);
+      } else {
+        setPackageCampaignError(nextError);
+      }
     });
   }, [
     fetchPackageCampaignProductOptions,
@@ -470,6 +582,13 @@ export default function AdminOperationPromotionsPage() {
     const next = createDefaultPackageCampaignFilters();
     setPackageCampaignFilters(next);
     void fetchPackageCampaigns(1, next);
+  };
+  const handleReferralCampaignSearch = () =>
+    void fetchReferralCampaigns(1, referralCampaignFilters);
+  const handleReferralCampaignReset = () => {
+    const next = createDefaultReferralCampaignFilters();
+    setReferralCampaignFilters(next);
+    void fetchReferralCampaigns(1, next);
   };
 
   const handleCouponCreate = async (payload: CouponFormState) => {
@@ -641,6 +760,43 @@ export default function AdminOperationPromotionsPage() {
     setEditingPackageCampaign(null);
   };
 
+  const handleReferralCampaignCreate = async (
+    payload: ReferralCampaignFormState,
+  ) => {
+    const requestPayload = buildReferralCampaignPayload(payload, {
+      includeCampaignCode: true,
+    });
+    if (!requestPayload) {
+      showDefaultToast(tPromotion('validation.referralCampaignJsonInvalid'));
+      return;
+    }
+    await api.createAdminOperationPromotionReferralCampaign(requestPayload);
+    showDefaultToast(tPromotion('messages.createSuccess'));
+    await fetchReferralCampaigns(1, referralCampaignFilters);
+  };
+
+  const handleReferralCampaignUpdate = async (
+    payload: ReferralCampaignFormState,
+  ) => {
+    if (!editingReferralCampaign) {
+      return;
+    }
+    const requestPayload = buildReferralCampaignPayload(payload, {
+      includeCampaignCode: false,
+    });
+    if (!requestPayload) {
+      showDefaultToast(tPromotion('validation.referralCampaignJsonInvalid'));
+      return;
+    }
+    await api.updateAdminOperationPromotionReferralCampaign({
+      campaign_bid: editingReferralCampaign.campaign.campaign_bid,
+      ...requestPayload,
+    });
+    showDefaultToast(tPromotion('messages.updateSuccess'));
+    await fetchReferralCampaigns(referralCampaignPage, referralCampaignFilters);
+    setEditingReferralCampaign(null);
+  };
+
   const handleCouponStatusToggle = (item: AdminPromotionCouponItem) => {
     setPendingStatusChange({
       entityType: 'coupon',
@@ -662,6 +818,16 @@ export default function AdminOperationPromotionsPage() {
   ) => {
     setPendingStatusChange({
       entityType: 'packageCampaign',
+      enabling: item.computed_status === 'inactive',
+      item,
+    });
+  };
+
+  const handleReferralCampaignStatusToggle = (
+    item: AdminReferralCampaignItem,
+  ) => {
+    setPendingStatusChange({
+      entityType: 'referralCampaign',
       enabling: item.computed_status === 'inactive',
       item,
     });
@@ -696,7 +862,7 @@ export default function AdminOperationPromotionsPage() {
             : tPromotion('messages.campaignDisabledSuccess'),
         );
         await fetchCampaigns(campaignPage, campaignFilters);
-      } else {
+      } else if (pendingStatusChange.entityType === 'packageCampaign') {
         await api.updateAdminBillingCampaignStatus({
           campaign_bid: pendingStatusChange.item.campaign_bid,
           enabled: pendingStatusChange.enabling,
@@ -709,6 +875,20 @@ export default function AdminOperationPromotionsPage() {
         await fetchPackageCampaigns(
           packageCampaignPage,
           packageCampaignFilters,
+        );
+      } else {
+        await api.updateAdminOperationPromotionReferralCampaignStatus({
+          campaign_bid: pendingStatusChange.item.campaign_bid,
+          enabled: pendingStatusChange.enabling,
+        });
+        showDefaultToast(
+          pendingStatusChange.enabling
+            ? tPromotion('messages.referralCampaignEnabledSuccess')
+            : tPromotion('messages.referralCampaignDisabledSuccess'),
+        );
+        await fetchReferralCampaigns(
+          referralCampaignPage,
+          referralCampaignFilters,
         );
       }
       setPendingStatusChange(null);
@@ -784,6 +964,50 @@ export default function AdminOperationPromotionsPage() {
         showErrorToast(
           (error as Error).message ||
             tPromotion('messages.loadPackageCampaignDetailFailed'),
+        );
+      }
+    },
+    [
+      fetchPackageCampaignProductOptions,
+      packageCampaignProductOptions,
+      tPromotion,
+    ],
+  );
+
+  const handleOpenReferralCampaignCreate = useCallback(async () => {
+    if (!packageCampaignProductOptions) {
+      try {
+        await fetchPackageCampaignProductOptions();
+      } catch (error) {
+        showErrorToast(
+          (error as Error).message ||
+            tPromotion('messages.loadPackageCampaignProductsFailed'),
+        );
+        return;
+      }
+    }
+    setReferralCampaignCreateOpen(true);
+  }, [
+    fetchPackageCampaignProductOptions,
+    packageCampaignProductOptions,
+    tPromotion,
+  ]);
+
+  const handleStartReferralCampaignEdit = useCallback(
+    async (item: AdminReferralCampaignItem) => {
+      try {
+        if (!packageCampaignProductOptions) {
+          await fetchPackageCampaignProductOptions();
+        }
+        const detail =
+          (await api.getAdminOperationPromotionReferralCampaignDetail({
+            campaign_bid: item.campaign_bid,
+          })) as AdminReferralCampaignDetail;
+        setEditingReferralCampaign(detail);
+      } catch (error) {
+        showErrorToast(
+          (error as Error).message ||
+            tPromotion('messages.loadReferralCampaignDetailFailed'),
         );
       }
     },
@@ -1402,6 +1626,97 @@ export default function AdminOperationPromotionsPage() {
     },
   ];
 
+  const referralCampaignFilterItems = [
+    {
+      key: 'keyword',
+      label: tPromotion('filters.campaignName'),
+      component: (
+        <AdminClearableInput
+          value={referralCampaignFilters.keyword}
+          onChange={value =>
+            setReferralCampaignFilters(current => ({
+              ...current,
+              keyword: value,
+            }))
+          }
+          placeholder={tPromotion('filters.campaignNamePlaceholder')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+    {
+      key: 'status',
+      label: tPromotion('filters.status'),
+      component: (
+        <Select
+          value={referralCampaignFilters.status || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setReferralCampaignFilters(current => ({
+              ...current,
+              status: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue placeholder={tPromotion('filters.status')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value={ALL_OPTION_VALUE}
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {t('common.core.all')}
+            </SelectItem>
+            <SelectItem
+              value='not_started'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.notStarted')}
+            </SelectItem>
+            <SelectItem
+              value='active'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.active')}
+            </SelectItem>
+            <SelectItem
+              value='ended'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.ended')}
+            </SelectItem>
+            <SelectItem
+              value='inactive'
+              className={SINGLE_SELECT_ITEM_CLASS}
+            >
+              {tPromotion('status.inactive')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'campaign_time',
+      label: tPromotion('filters.campaignTime'),
+      component: (
+        <AdminDateRangeFilter
+          startValue={referralCampaignFilters.start_time}
+          endValue={referralCampaignFilters.end_time}
+          onChange={range =>
+            setReferralCampaignFilters(current => ({
+              ...current,
+              start_time: range.start,
+              end_time: range.end,
+            }))
+          }
+          placeholder={tPromotion('filters.campaignTime')}
+          resetLabel={t('module.order.filters.reset')}
+          clearLabel={clearLabel}
+        />
+      ),
+    },
+  ];
+
   if (!isReady) {
     return null;
   }
@@ -1425,6 +1740,9 @@ export default function AdminOperationPromotionsPage() {
               </TabsTrigger>
               <TabsTrigger value='packageCampaigns'>
                 {tPromotion('tabs.packageCampaigns')}
+              </TabsTrigger>
+              <TabsTrigger value='referralCampaigns'>
+                {tPromotion('tabs.referralCampaigns')}
               </TabsTrigger>
             </TabsList>
           }
@@ -1791,6 +2109,34 @@ export default function AdminOperationPromotionsPage() {
             footerClassName='mt-3'
           />
         </TabsContent>
+
+        <TabsContent
+          value='referralCampaigns'
+          className='mt-6 space-y-6'
+        >
+          <ReferralCampaignsTab
+            t={t}
+            tPromotion={tPromotion}
+            filterItems={referralCampaignFilterItems}
+            filtersExpanded={referralCampaignFiltersExpanded}
+            onFiltersExpandedChange={setReferralCampaignFiltersExpanded}
+            onReset={handleReferralCampaignReset}
+            onSearch={handleReferralCampaignSearch}
+            onCreate={() => void handleOpenReferralCampaignCreate()}
+            error={referralCampaignError}
+            loading={referralCampaignLoading}
+            campaigns={referralCampaigns}
+            page={referralCampaignPage}
+            pageCount={referralCampaignPageCount}
+            filters={referralCampaignFilters}
+            fetchCampaigns={fetchReferralCampaigns}
+            productOptions={packageCampaignProductOptions}
+            getColumnStyle={getReferralCampaignColumnStyle}
+            renderResizeHandle={renderReferralCampaignResizeHandle}
+            onEdit={handleStartReferralCampaignEdit}
+            onToggleStatus={handleReferralCampaignStatusToggle}
+          />
+        </TabsContent>
       </Tabs>
 
       <PromotionCouponDialog
@@ -1843,6 +2189,23 @@ export default function AdminOperationPromotionsPage() {
         }}
         onSubmit={handlePackageCampaignUpdate}
         campaign={editingPackageCampaign}
+        productOptions={packageCampaignProductOptions}
+      />
+      <ReferralCampaignDialog
+        open={referralCampaignCreateOpen}
+        onOpenChange={setReferralCampaignCreateOpen}
+        onSubmit={handleReferralCampaignCreate}
+        productOptions={packageCampaignProductOptions}
+      />
+      <ReferralCampaignDialog
+        open={Boolean(editingReferralCampaign)}
+        onOpenChange={open => {
+          if (!open) {
+            setEditingReferralCampaign(null);
+          }
+        }}
+        onSubmit={handleReferralCampaignUpdate}
+        campaign={editingReferralCampaign}
         productOptions={packageCampaignProductOptions}
       />
       <PromotionCouponUsageDialog

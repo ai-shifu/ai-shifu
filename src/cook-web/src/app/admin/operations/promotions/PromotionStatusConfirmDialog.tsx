@@ -29,14 +29,16 @@ const PromotionStatusConfirmDialog = ({
     if (!changeTarget) {
       return '';
     }
-    return (
-      changeTarget.item.name ||
-      (changeTarget.entityType === 'coupon'
-        ? changeTarget.item.coupon_bid
-        : changeTarget.entityType === 'campaign'
-          ? changeTarget.item.promo_bid
-          : changeTarget.item.campaign_bid)
-    );
+    if (changeTarget.entityType === 'coupon') {
+      return changeTarget.item.name || changeTarget.item.coupon_bid;
+    }
+    if (changeTarget.entityType === 'campaign') {
+      return changeTarget.item.name || changeTarget.item.promo_bid;
+    }
+    if (changeTarget.entityType === 'packageCampaign') {
+      return changeTarget.item.name || changeTarget.item.campaign_bid;
+    }
+    return changeTarget.item.campaign_name || changeTarget.item.campaign_bid;
   }, [changeTarget]);
 
   return (

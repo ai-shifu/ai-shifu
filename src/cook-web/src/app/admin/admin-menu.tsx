@@ -4,6 +4,7 @@ import {
   DocumentIcon,
   PresentationChartLineIcon,
   ShoppingCartIcon,
+  UserPlusIcon,
 } from '@heroicons/react/24/outline';
 
 export type AdminMenuItem = {
@@ -42,6 +43,12 @@ export const buildAdminMenuItems = ({
       icon: <PresentationChartLineIcon className='w-4 h-4' />,
       label: t('module.dashboard.title'),
       href: '/admin/dashboard',
+    },
+    {
+      id: 'referral',
+      icon: <UserPlusIcon className='w-4 h-4' />,
+      label: t('common.core.referralInvitation'),
+      href: '/admin/referral',
     },
   ];
 

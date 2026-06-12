@@ -4103,7 +4103,7 @@ class TestBillingWriteRoutes:
         self, billing_write_client
     ) -> None:
         app = billing_write_client["app"]
-        paid_at = datetime(2026, 5, 11, 14, 11, 8)
+        paid_at = datetime(2026, 6, 11, 14, 11, 8)
         expired_at = datetime(2026, 5, 5, 19, 22, 1)
 
         with app.app_context():
@@ -4219,7 +4219,7 @@ class TestBillingWriteRoutes:
         self, billing_write_client
     ) -> None:
         app = billing_write_client["app"]
-        paid_at = datetime(2026, 5, 11, 14, 11, 8)
+        paid_at = datetime(2026, 6, 11, 14, 11, 8)
         expired_at = datetime(2026, 5, 5, 19, 22, 1)
 
         with app.app_context():
