@@ -26,6 +26,7 @@ from flaskr.util.uuid import generate_id
 
 from .consts import (
     REFERRAL_CAMPAIGN_STATUS_ACTIVE,
+    REFERRAL_INVITEE_BENEFIT_EXISTING_TRIAL_ONLY,
     REFERRAL_INVITE_CODE_STATUS_ACTIVE,
     REFERRAL_INVITE_EVENT_TYPES,
     REFERRAL_RELATION_STATUS_REGISTERED,
@@ -37,6 +38,9 @@ from .consts import (
     REFERRAL_REWARD_GRANTED_STATUSES,
     REFERRAL_REWARD_STATUS_GENERATED,
     REFERRAL_REWARD_STATUS_SKIPPED_CAP,
+    REFERRAL_REWARD_TARGET_INVITER,
+    REFERRAL_REWARD_TIMING_IMMEDIATE_EXTEND_OR_DEFER,
+    REFERRAL_REWARD_TYPE_BILLING_PLAN_CYCLE,
     REFERRAL_RULE_STATUS_ACTIVE,
     REFERRAL_TRIGGER_INVITED_REGISTRATION,
 )
@@ -54,6 +58,14 @@ from .reward_queue import build_referral_reward_queue
 
 _INVITE_CODE_ALPHABET = string.ascii_uppercase + string.digits
 _INVITE_CODE_LENGTH = 8
+_DEFAULT_CAMPAIGN_CODE = "domestic_creator_invite_202606"
+_DEFAULT_CAMPAIGN_NAME = "Domestic creator invite"
+_DEFAULT_RULE_CODE = "inviter_monthly_pro_first_12"
+_DEFAULT_REWARD_PRODUCT_CODE = "creator-plan-monthly-pro"
+_DEFAULT_REWARD_CREDIT_AMOUNT = Decimal("1000.0000000000")
+_DEFAULT_REWARD_VALIDITY_DAYS = 30
+_DEFAULT_REWARD_CAP_COUNT = 12
+_DEFAULT_RULES_COPY_I18N_KEY = "module.referral.rules.domesticCreatorInvite"
 
 
 @dataclass(slots=True, frozen=True)
@@ -175,6 +187,62 @@ def load_active_campaign(*, now: datetime | None = None) -> ReferralCampaign | N
         if _feature_flag_enabled(str(campaign.feature_flag_key or "")):
             return campaign
     return None
+
+
+def _bootstrap_default_campaign_if_empty(app: Flask) -> ReferralCampaign | None:
+    existing = (
+        ReferralCampaign.query.filter(ReferralCampaign.deleted == 0)
+        .order_by(ReferralCampaign.id.asc())
+        .first()
+    )
+    if existing is not None:
+        return None
+
+    campaign = ReferralCampaign(
+        campaign_bid=generate_id(app),
+        campaign_code=_DEFAULT_CAMPAIGN_CODE,
+        campaign_name=_DEFAULT_CAMPAIGN_NAME,
+        campaign_status=REFERRAL_CAMPAIGN_STATUS_ACTIVE,
+        feature_flag_key="",
+        starts_at=None,
+        ends_at=None,
+        invite_route_template="/invite/{invite_code}",
+        inviter_eligibility={"registered_phone_user": True},
+        invitee_eligibility={"created_new_phone_user": True},
+        invitee_benefit_policy=REFERRAL_INVITEE_BENEFIT_EXISTING_TRIAL_ONLY,
+        rules_copy_i18n_key=_DEFAULT_RULES_COPY_I18N_KEY,
+        metadata_json={"source": "runtime_default"},
+    )
+    rule = ReferralCampaignRewardRule(
+        reward_rule_bid=generate_id(app),
+        campaign_bid=campaign.campaign_bid,
+        rule_code=_DEFAULT_RULE_CODE,
+        rule_status=REFERRAL_RULE_STATUS_ACTIVE,
+        trigger_event=REFERRAL_TRIGGER_INVITED_REGISTRATION,
+        reward_target=REFERRAL_REWARD_TARGET_INVITER,
+        reward_type=REFERRAL_REWARD_TYPE_BILLING_PLAN_CYCLE,
+        reward_product_code=_DEFAULT_REWARD_PRODUCT_CODE,
+        reward_cycle_count=1,
+        reward_credit_amount=_DEFAULT_REWARD_CREDIT_AMOUNT,
+        reward_credit_validity_days=_DEFAULT_REWARD_VALIDITY_DAYS,
+        reward_cap_scope=REFERRAL_REWARD_CAP_SCOPE_PER_INVITER,
+        reward_cap_count=_DEFAULT_REWARD_CAP_COUNT,
+        reward_timing_policy=REFERRAL_REWARD_TIMING_IMMEDIATE_EXTEND_OR_DEFER,
+        priority=10,
+        starts_at=None,
+        ends_at=None,
+        metadata_json={"source": "runtime_default"},
+    )
+    db.session.add_all([campaign, rule])
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+    else:
+        app.logger.warning(
+            "Bootstrapped default referral campaign because no campaign existed"
+        )
+    return load_active_campaign()
 
 
 def load_campaign_by_bid(
@@ -351,6 +419,8 @@ def build_invite_profile(app: Flask, *, inviter_user_bid: str) -> InviteProfileD
         if not normalized_inviter:
             raise ValueError("inviter_user_bid is required")
         campaign = load_active_campaign()
+        if campaign is None:
+            campaign = _bootstrap_default_campaign_if_empty(app)
         if campaign is None:
             raise ValueError("no active referral campaign")
         rule = select_reward_rule(campaign)

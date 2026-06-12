@@ -147,6 +147,38 @@ def test_invite_profile_lazily_creates_stable_campaign_scoped_code(
         assert first.reward_remaining_count == 12
 
 
+def test_invite_profile_bootstraps_default_campaign_when_empty(
+    referral_app,
+    monkeypatch,
+) -> None:
+    with referral_app.app_context():
+        monkeypatch.setattr(
+            "flaskr.service.referral.service._resolve_public_origin",
+            lambda: "https://frontend.example",
+        )
+
+        profile = build_invite_profile(
+            referral_app,
+            inviter_user_bid="inviter-profile-default",
+        )
+
+        campaign = ReferralCampaign.query.one()
+        rule = ReferralCampaignRewardRule.query.one()
+        assert campaign.campaign_code == "domestic_creator_invite_202606"
+        assert campaign.campaign_status == REFERRAL_CAMPAIGN_STATUS_ACTIVE
+        assert rule.campaign_bid == campaign.campaign_bid
+        assert rule.rule_code == "inviter_monthly_pro_first_12"
+        assert rule.reward_product_code == "creator-plan-monthly-pro"
+        assert rule.reward_credit_amount == Decimal("1000.0000000000")
+        assert rule.reward_credit_validity_days == 30
+        assert rule.reward_cap_count == 12
+        assert profile.campaign_bid == campaign.campaign_bid
+        assert profile.reward_remaining_count == 12
+        assert profile.invite_url == (
+            f"https://frontend.example/invite/{profile.invite_code}"
+        )
+
+
 def test_invite_profile_includes_creator_reward_queue(
     referral_app,
     monkeypatch,
