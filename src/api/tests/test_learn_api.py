@@ -2,7 +2,12 @@ from decimal import Decimal
 
 from flaskr.dao import db
 from flaskr.service.learn.learn_funcs import get_outline_item_tree, get_shifu_info
-from flaskr.service.shifu.models import DraftOutlineItem, LogDraftStruct, PublishedShifu
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    LogDraftStruct,
+    PublishedShifu,
+)
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 
@@ -23,6 +28,36 @@ def test_get_shifu_info_returns_dto(app):
     assert dto.title == "Test Shifu"
     assert dto.price == "9.99"
     assert dto.keywords == ["a", "b"]
+
+
+def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
+    with app.app_context():
+        draft = DraftShifu(
+            shifu_bid="shifu-learn-tts",
+            title="Draft Shifu",
+            description="Draft Desc",
+            price=Decimal("1.00"),
+            keywords="listen",
+            tts_enabled=1,
+        )
+        published = PublishedShifu(
+            shifu_bid="shifu-learn-tts",
+            title="Published Shifu",
+            description="Published Desc",
+            price=Decimal("2.00"),
+            keywords="listen",
+            tts_enabled=0,
+        )
+        db.session.add_all([draft, published])
+        db.session.commit()
+
+    preview_dto = get_shifu_info(app, "shifu-learn-tts", preview_mode=True)
+    live_dto = get_shifu_info(app, "shifu-learn-tts", preview_mode=False)
+
+    assert preview_dto.title == "Draft Shifu"
+    assert preview_dto.tts_enabled is True
+    assert live_dto.title == "Published Shifu"
+    assert live_dto.tts_enabled is False
 
 
 def test_get_outline_item_tree_preview_mode(app):
