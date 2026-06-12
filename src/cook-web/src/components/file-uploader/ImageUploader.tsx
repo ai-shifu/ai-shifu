@@ -108,13 +108,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
     } else {
       setIsUploading(true);
       try {
-        const url = await api.upfileByUrl({ url: inputUrl }).catch(err => {
-          console.error('Error uploading image:', err);
-          toast({
-            title: t('component.fileUploader.checkImageUrl'),
-            variant: 'destructive',
-          });
-        });
+        const url = await api.upfileByUrl({ url: inputUrl });
         setResourceUrl(url);
         setResourceTitle('');
         setResourceScale(100);
