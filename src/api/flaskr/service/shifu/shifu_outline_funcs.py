@@ -275,7 +275,9 @@ def create_outline(
         if is_hidden is None:
             is_hidden = False
 
-        # validate name length
+        # validate name
+        if not isinstance(outline_name, str) or not outline_name.strip():
+            raise_param_error("name")
         if len(outline_name) > 100:
             raise_error("server.shifu.outlineNameTooLong")
 
