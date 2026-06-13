@@ -23,7 +23,7 @@ from .consts import (
 from .models import DraftOutlineItem
 from ...dao import db
 from ...util import generate_id
-from ..common.models import raise_error
+from ..common.models import raise_error, raise_param_error
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from decimal import Decimal
 from .shifu_history_manager import (
@@ -218,7 +218,9 @@ def create_outline(
         if is_hidden is None:
             is_hidden = False
 
-        # validate name length
+        # validate name
+        if not isinstance(outline_name, str) or not outline_name.strip():
+            raise_param_error("name")
         if len(outline_name) > 100:
             raise_error("server.shifu.outlineNameTooLong")
 
