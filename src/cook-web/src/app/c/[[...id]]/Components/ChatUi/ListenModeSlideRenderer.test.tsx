@@ -259,7 +259,7 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
-  it('removes audio, subtitles, and custom listen actions in classroom mode', async () => {
+  it('removes audio, subtitles, and custom listen actions while keeping keyboard navigation mounted in classroom mode', async () => {
     const requestFullscreen = jest
       .fn()
       .mockRejectedValue(new Error('fullscreen blocked'));
@@ -335,8 +335,8 @@ describe('ListenModeSlideRenderer', () => {
     );
     expect(slideProps?.disableLoadingOverlay).toBe(true);
     expect(slideProps?.playerCustomActions).toBeNull();
-    expect(slideProps?.showPlayer).toBe(false);
-    expect(slideProps?.playerClassName ?? '').not.toContain(
+    expect(slideProps?.showPlayer).toBe(true);
+    expect(slideProps?.playerClassName ?? '').toContain(
       'classroom-slide-player',
     );
     expect(
@@ -355,6 +355,41 @@ describe('ListenModeSlideRenderer', () => {
     await waitFor(() => {
       expect(requestFullscreen).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('maps classroom vertical page shortcuts to slide player navigation shortcuts', () => {
+    const forwardedKeys: string[] = [];
+    const handleForwardedShortcut = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        forwardedKeys.push(event.key);
+      }
+    };
+    document.addEventListener('keydown', handleForwardedShortcut);
+
+    try {
+      render(
+        <ListenModeSlideRenderer
+          variant='classroom'
+          items={[
+            {
+              type: 'content',
+              content: 'Slide',
+              element_bid: 'content-1',
+              is_speakable: true,
+            },
+          ]}
+          mobileStyle={false}
+          chatRef={createChatRef()}
+        />,
+      );
+
+      fireEvent.keyDown(document, { key: 'ArrowDown' });
+      fireEvent.keyDown(document, { key: 'PageUp' });
+
+      expect(forwardedKeys).toEqual(['ArrowRight', 'ArrowLeft']);
+    } finally {
+      document.removeEventListener('keydown', handleForwardedShortcut);
+    }
   });
 
   it('keeps the mobile ask block mounted and collapsed after closing the listen panel', async () => {

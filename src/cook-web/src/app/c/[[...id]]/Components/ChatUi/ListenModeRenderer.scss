@@ -138,6 +138,10 @@
   background: var(--color-slide-desktop-bg);
 }
 
+.classroom-slide-player {
+  display: none !important;
+}
+
 .classroom-slide-root .slide-element--interaction,
 .classroom-slide-root .slide-interaction-overlay {
   font-size: 20px;

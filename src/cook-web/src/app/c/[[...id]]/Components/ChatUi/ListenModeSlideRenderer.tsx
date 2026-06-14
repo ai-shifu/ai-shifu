@@ -95,6 +95,51 @@ type ListenSlideProps = Omit<
 
 const ListenSlide = Slide as React.ComponentType<ListenSlideProps>;
 
+const CLASSROOM_PAGE_SHORTCUT_KEY_MAP: Record<
+  string,
+  'ArrowLeft' | 'ArrowRight'
+> = {
+  ArrowUp: 'ArrowLeft',
+  PageUp: 'ArrowLeft',
+  ArrowDown: 'ArrowRight',
+  PageDown: 'ArrowRight',
+};
+
+const CLASSROOM_PAGE_SHORTCUT_IGNORE_SELECTOR = [
+  'input',
+  'textarea',
+  'select',
+  '[contenteditable]:not([contenteditable="false"])',
+  '[role="textbox"]',
+  '[role="slider"]',
+  '[role="listbox"]',
+  '[role="combobox"]',
+  '[role="tablist"]',
+  '[role="menu"]',
+  '[role="tree"]',
+  '[role="grid"]',
+  '[data-player-keyboard-shortcuts-ignore="true"]',
+].join(', ');
+
+const shouldIgnoreClassroomPageShortcutEvent = (event: KeyboardEvent) => {
+  if (
+    event.defaultPrevented ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey
+  ) {
+    return true;
+  }
+
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return Boolean(target.closest(CLASSROOM_PAGE_SHORTCUT_IGNORE_SELECTOR));
+};
+
 interface ListenModeSlideRendererProps {
   items: ChatContentItem[];
   mobileStyle: boolean;
@@ -1056,6 +1101,36 @@ const ListenModeSlideRenderer = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isClassroomMode) {
+      return;
+    }
+
+    const handleClassroomPageShortcut = (event: KeyboardEvent) => {
+      const forwardedKey = CLASSROOM_PAGE_SHORTCUT_KEY_MAP[event.key];
+      if (!forwardedKey || shouldIgnoreClassroomPageShortcutEvent(event)) {
+        return;
+      }
+
+      const forwardedEvent = new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        code: forwardedKey,
+        composed: true,
+        key: forwardedKey,
+        repeat: event.repeat,
+      });
+      document.dispatchEvent(forwardedEvent);
+      event.preventDefault();
+    };
+
+    document.addEventListener('keydown', handleClassroomPageShortcut);
+
+    return () => {
+      document.removeEventListener('keydown', handleClassroomPageShortcut);
+    };
+  }, [isClassroomMode]);
+
   const syncMediaPlaybackState = useCallback(() => {
     const trackedAudioElements = Array.from(
       audioWaitingStateMapRef.current.keys(),
@@ -1804,11 +1879,14 @@ const ListenModeSlideRenderer = ({
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
           disableLoadingOverlay={isClassroomMode}
-          playerClassName={cn(mobileStyle ? 'listen-slide-player-mobile' : '')}
+          playerClassName={cn(
+            mobileStyle ? 'listen-slide-player-mobile' : '',
+            isClassroomMode ? 'classroom-slide-player' : '',
+          )}
           playerCustomActionPauseOnActive={!isClassroomMode}
           playerCustomActions={isClassroomMode ? null : playerCustomActions}
           playerTexts={playerTexts}
-          showPlayer={!isClassroomMode && !shouldRenderEmptyPpt}
+          showPlayer={!shouldRenderEmptyPpt}
         />
         {shouldRenderClassroomFullscreenButton ? (
           <button
