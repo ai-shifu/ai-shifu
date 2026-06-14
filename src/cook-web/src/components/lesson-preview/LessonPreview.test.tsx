@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import LessonPreview from './LessonPreview';
+import { resolveLessonPreviewItemKey } from './LessonPreview';
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 
 const mockPush = jest.fn();
@@ -195,6 +196,35 @@ describe('LessonPreview billing action', () => {
     expect(
       screen.queryByRole('button', { name: 'finish-text-1' }),
     ).not.toBeInTheDocument();
+  });
+
+  test('builds stable preview item keys from business ids instead of list indexes', () => {
+    expect(
+      resolveLessonPreviewItemKey({
+        element_bid: 'text-1',
+        generated_block_bid: 'block-1',
+        content: '第一段内容',
+        type: ChatContentItemType.CONTENT,
+      } as ChatContentItem),
+    ).toBe('content:text-1');
+
+    expect(
+      resolveLessonPreviewItemKey({
+        element_bid: 'feedback-1',
+        generated_block_bid: 'feedback-block-1',
+        parent_element_bid: 'text-1',
+        parent_block_bid: 'block-1',
+        type: ChatContentItemType.LIKE_STATUS,
+      } as ChatContentItem),
+    ).toBe('like:feedback-1');
+
+    expect(
+      resolveLessonPreviewItemKey({
+        generated_block_bid: 'preview-business-error',
+        content: 'error',
+        type: ChatContentItemType.ERROR,
+      } as ChatContentItem),
+    ).toBe('error:preview-business-error');
   });
 
   test('routes preview regenerate from helper row to the parent content item', () => {

@@ -107,6 +107,26 @@ const shouldPreferGeneratedBlockItem = (
   return false;
 };
 
+const resolveLessonPreviewItemIdentity = (item: ChatContentItem) =>
+  item.element_bid ||
+  item.generated_block_bid ||
+  item.parent_element_bid ||
+  item.parent_block_bid ||
+  item.content ||
+  'unknown';
+
+export const resolveLessonPreviewItemKey = (item: ChatContentItem) => {
+  if (item.type === ChatContentItemType.LIKE_STATUS) {
+    return `like:${resolveLessonPreviewItemIdentity(item)}`;
+  }
+
+  if (item.type === ChatContentItemType.ERROR) {
+    return `error:${resolveLessonPreviewItemIdentity(item)}`;
+  }
+
+  return `content:${resolveLessonPreviewItemIdentity(item)}`;
+};
+
 const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
   items = [],
@@ -373,7 +393,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                 }
                 return (
                   <div
-                    key={`${idx}-like`}
+                    key={resolveLessonPreviewItemKey(item)}
                     className='p-0'
                     style={{ maxWidth: '100%' }}
                   >
@@ -418,7 +438,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   item.business_code === CREDIT_INSUFFICIENT_BUSINESS_CODE;
                 return (
                   <div
-                    key={`${idx}-error`}
+                    key={resolveLessonPreviewItemKey(item)}
                     className='p-0 relative'
                     style={{ maxWidth: '100%' }}
                   >
@@ -453,7 +473,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
               return (
                 <div
-                  key={`${idx}-content`}
+                  key={resolveLessonPreviewItemKey(item)}
                   className='p-0 relative'
                   style={{
                     maxWidth: '100%',
