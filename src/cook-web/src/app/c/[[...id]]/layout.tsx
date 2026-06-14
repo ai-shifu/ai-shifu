@@ -367,7 +367,7 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
-    if (!storageCourseId || !learningMode) {
+    if (!storageCourseId) {
       return;
     }
 

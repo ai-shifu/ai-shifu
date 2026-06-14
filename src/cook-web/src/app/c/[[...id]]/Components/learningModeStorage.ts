@@ -1,20 +1,16 @@
 import type { LearningMode } from './learningModeOptions';
 
-type StoredLearningMode = LearningMode;
-
 const LEARNING_MODE_STORAGE_PREFIX = 'course_learning_mode';
 
 const buildLearningModeStorageKey = (courseId?: string) =>
   courseId ? `${LEARNING_MODE_STORAGE_PREFIX}:${courseId}` : '';
 
-const isStoredLearningMode = (
-  value: string | null,
-): value is StoredLearningMode =>
+const isStoredLearningMode = (value: string | null): value is LearningMode =>
   value === 'listen' || value === 'read' || value === 'classroom';
 
 export const readLearningModeFromStorage = (
   courseId?: string,
-): StoredLearningMode | null => {
+): LearningMode | null => {
   if (typeof window === 'undefined') {
     return null;
   }

@@ -2,7 +2,6 @@ import styles from './ChatComponents.module.scss';
 import { ChevronsDown, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import {
   useContext,
   useRef,
@@ -31,6 +30,7 @@ import type { ChatContentItem } from './useChatLogicHook';
 import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
+import ListenModeSlideRenderer from './ListenModeSlideRenderer';
 import LessonFeedbackInteraction from './LessonFeedbackInteraction';
 import LoadingBar from './LoadingBar';
 import StreamingLoadingDotsBar from './StreamingLoadingDotsBar';
@@ -51,7 +51,6 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
-
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
 import {
   getMissingListenModeAudioBlockBids,
@@ -77,11 +76,6 @@ import {
   projectReadModeItems,
 } from './chatUiModeProjection';
 import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
-
-const ListenModeSlideRenderer = dynamic(
-  () => import('./ListenModeSlideRenderer'),
-  { ssr: false },
-);
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 

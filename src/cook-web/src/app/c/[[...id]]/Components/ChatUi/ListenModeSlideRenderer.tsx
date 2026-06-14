@@ -788,7 +788,7 @@ const ListenModeSlideRenderer = ({
     const nextElementList = buildSlideElementList({
       items,
       askListByAnchorElementBid,
-      sectionTitle: isClassroomMode ? undefined : sectionTitle,
+      sectionTitle,
       interactionInputMap,
       lastInteractionBid,
       lastItemIsInteraction,
@@ -806,7 +806,6 @@ const ListenModeSlideRenderer = ({
   }, [
     askListByAnchorElementBid,
     interactionInputMap,
-    isClassroomMode,
     items,
     lastInteractionBid,
     lastItemIsInteraction,
@@ -1900,7 +1899,6 @@ const ListenModeSlideRenderer = ({
           fullscreenHeader={fullscreenHeader}
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
-          disableLoadingOverlay={isClassroomMode}
           playerClassName={cn(
             mobileStyle ? 'listen-slide-player-mobile' : '',
             isClassroomMode ? 'classroom-slide-player' : '',

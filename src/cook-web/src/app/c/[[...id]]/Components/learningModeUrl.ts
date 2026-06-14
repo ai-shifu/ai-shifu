@@ -55,11 +55,7 @@ export const normalizeLegacyListenModeInUrl = ({
   listenModeParam: boolean | null;
   urlModeParam: LearningMode | null;
 }) => {
-  if (
-    typeof window === 'undefined' ||
-    urlModeParam ||
-    listenModeParam === null
-  ) {
+  if (urlModeParam || listenModeParam === null) {
     return;
   }
 

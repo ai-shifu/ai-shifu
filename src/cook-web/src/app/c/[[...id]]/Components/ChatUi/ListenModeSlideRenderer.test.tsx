@@ -315,7 +315,6 @@ describe('ListenModeSlideRenderer', () => {
 
     const slideProps = getMockSlide().mock.calls[0]?.[0] as
       | {
-          disableLoadingOverlay?: boolean;
           elementList?: Array<Record<string, unknown>>;
           playerCustomActions?: unknown;
           playerClassName?: string;
@@ -352,7 +351,6 @@ describe('ListenModeSlideRenderer', () => {
         ]),
       }),
     );
-    expect(slideProps?.disableLoadingOverlay).toBe(true);
     expect(slideProps?.playerCustomActions).toBeNull();
     expect(slideProps?.showPlayer).toBe(true);
     expect(slideProps?.playerClassName ?? '').toContain(
