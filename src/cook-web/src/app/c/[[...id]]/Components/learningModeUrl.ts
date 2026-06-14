@@ -3,8 +3,6 @@ import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 
 const MODE_QUERY_PARAM = 'mode';
 const LEGACY_LISTEN_QUERY_PARAM = 'listen';
-const PREVIEW_QUERY_PARAM = 'preview';
-
 type BrowserFullscreenElement = HTMLElement & {
   webkitRequestFullscreen?: HTMLElement['requestFullscreen'];
 };
@@ -45,8 +43,8 @@ export const enableClassroomModeInUrl = () => {
   }
 
   const url = new URL(window.location.href);
-  url.searchParams.set(PREVIEW_QUERY_PARAM, 'true');
   url.searchParams.set(MODE_QUERY_PARAM, 'classroom');
+  url.searchParams.delete('preview');
   url.searchParams.delete(LEGACY_LISTEN_QUERY_PARAM);
   replaceCurrentUrl(url);
 };

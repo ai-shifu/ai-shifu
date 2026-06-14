@@ -36,7 +36,6 @@ import {
 import { resolveCourseLearningMode } from './Components/learningModePreference';
 import {
   clearClassroomModeFromUrl,
-  enableClassroomModeInUrl,
   parseLearningModeQueryParam,
 } from './Components/learningModeUrl';
 
@@ -280,23 +279,11 @@ export default function ChatLayout({
       return;
     }
 
-    if (canUseClassroomMode === true && !isPreviewMode) {
-      enableClassroomModeInUrl();
-      updatePreviewMode(true);
-      return;
-    }
-
     if (canUseClassroomMode === false) {
       clearClassroomModeFromUrl();
       updateLearningMode('read');
     }
-  }, [
-    canUseClassroomMode,
-    hasClassroomModeOverride,
-    isPreviewMode,
-    updateLearningMode,
-    updatePreviewMode,
-  ]);
+  }, [canUseClassroomMode, hasClassroomModeOverride, updateLearningMode]);
 
   useEffect(() => {
     if (!storageCourseId) {
@@ -342,8 +329,7 @@ export default function ChatLayout({
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
     const nextLearningMode = resolveCourseLearningMode({
       courseTtsEnabled,
-      canUseClassroomMode:
-        isPreviewMode && canUseClassroomMode === true ? true : false,
+      canUseClassroomMode,
       hasListenModeOverride,
       listenModeParam,
       urlModeParam,
@@ -360,7 +346,6 @@ export default function ChatLayout({
     courseTtsEnabled,
     canUseClassroomMode,
     hasListenModeOverride,
-    isPreviewMode,
     listenModeParam,
     storageCourseId,
     updateLearningMode,

@@ -242,22 +242,8 @@
 
     .chatComponents {
       min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
-      padding-top: 0 !important;
       background: var(--color-slide-desktop-bg);
     }
-
-    .footer {
-      display: none;
-    }
-
-    .UserSettings {
-      margin-top: 0;
-    }
-  }
-
-  &.mobile.classroomMode.listenMode {
-    height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
-    max-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
   }
 
   .chatComponentsHidden {

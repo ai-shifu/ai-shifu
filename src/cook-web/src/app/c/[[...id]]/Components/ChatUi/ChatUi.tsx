@@ -80,7 +80,7 @@ export const ChatUi = ({
   const isListenMode = learningMode === 'listen';
   const isClassroomMode = learningMode === 'classroom';
   const isSlideMode = isListenMode || isClassroomMode;
-  const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE && !isClassroomMode;
+  const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const footerSeparator = String.fromCharCode(124);
   const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(false);
 
@@ -171,27 +171,25 @@ export const ChatUi = ({
         />
       )}
 
-      {!isClassroomMode ? (
-        <div className={styles.footer}>
-          <div
-            id='chat-scroll-target'
-            className={styles.scrollTarget}
-          />
-          <div className={styles.footerContent}>
-            <span className={styles.footerText}>
-              {t('module.chat.aiGenerated')}
-            </span>
-            <span className={styles.separator}>{footerSeparator}</span>
-            <span className={styles.footerText}>
-              <MarkdownFlowLink
-                prefix={t('module.chat.poweredByPrefix')}
-                suffix={t('module.chat.poweredBySuffix')}
-                linkText={t('module.chat.markdownFlow')}
-              />
-            </span>
-          </div>
+      <div className={styles.footer}>
+        <div
+          id='chat-scroll-target'
+          className={styles.scrollTarget}
+        />
+        <div className={styles.footerContent}>
+          <span className={styles.footerText}>
+            {t('module.chat.aiGenerated')}
+          </span>
+          <span className={styles.separator}>{footerSeparator}</span>
+          <span className={styles.footerText}>
+            <MarkdownFlowLink
+              prefix={t('module.chat.poweredByPrefix')}
+              suffix={t('module.chat.poweredBySuffix')}
+              linkText={t('module.chat.markdownFlow')}
+            />
+          </span>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 };

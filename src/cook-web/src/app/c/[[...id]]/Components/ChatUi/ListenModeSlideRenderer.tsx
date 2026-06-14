@@ -1819,14 +1819,11 @@ const ListenModeSlideRenderer = ({
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
           disableLoadingOverlay={isClassroomMode}
-          playerClassName={cn(
-            mobileStyle ? 'listen-slide-player-mobile' : '',
-            isClassroomMode && 'classroom-slide-player',
-          )}
+          playerClassName={cn(mobileStyle ? 'listen-slide-player-mobile' : '')}
           playerCustomActionPauseOnActive={!isClassroomMode}
           playerCustomActions={isClassroomMode ? null : playerCustomActions}
           playerTexts={playerTexts}
-          showPlayer={!shouldRenderEmptyPpt}
+          showPlayer={!isClassroomMode && !shouldRenderEmptyPpt}
         />
         {shouldRenderClassroomFullscreenButton ? (
           <button

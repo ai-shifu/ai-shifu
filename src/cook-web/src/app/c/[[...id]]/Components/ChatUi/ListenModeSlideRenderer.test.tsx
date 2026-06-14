@@ -316,6 +316,8 @@ describe('ListenModeSlideRenderer', () => {
           disableLoadingOverlay?: boolean;
           elementList?: Array<Record<string, unknown>>;
           playerCustomActions?: unknown;
+          playerClassName?: string;
+          showPlayer?: boolean;
         }
       | undefined;
     const contentElement = slideProps?.elementList?.find(
@@ -333,6 +335,10 @@ describe('ListenModeSlideRenderer', () => {
     );
     expect(slideProps?.disableLoadingOverlay).toBe(true);
     expect(slideProps?.playerCustomActions).toBeNull();
+    expect(slideProps?.showPlayer).toBe(false);
+    expect(slideProps?.playerClassName ?? '').not.toContain(
+      'classroom-slide-player',
+    );
     expect(
       screen.queryByRole('button', {
         name: 'module.chat.listenPlaybackSpeedAriaLabel',
