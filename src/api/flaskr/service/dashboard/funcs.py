@@ -662,6 +662,12 @@ def _format_dashboard_datetime_display(
     value: Optional[datetime],
     timezone_name: Optional[str],
 ) -> str:
+    if value is None:
+        return ""
+    if value.tzinfo is None:
+        # Dashboard learning/follow-up/rating records are legacy wall-clock
+        # timestamps. Preserve naive values as-is instead of converting them.
+        return value.strftime("%Y-%m-%d %H:%M:%S")
     return (
         format_with_app_timezone(
             app,
@@ -1264,10 +1270,9 @@ def build_dashboard_entry(
                         timezone_name,
                     )
                     or "",
-                    last_active_at_display=format_with_app_timezone(
+                    last_active_at_display=_format_dashboard_datetime_display(
                         app,
                         last_active,
-                        "%Y-%m-%d %H:%M:%S",
                         timezone_name,
                     )
                     or "",
@@ -1661,10 +1666,9 @@ def _build_dashboard_course_learners(
                     timezone_name,
                 )
                 or "",
-                last_learning_at_display=format_with_app_timezone(
+                last_learning_at_display=_format_dashboard_datetime_display(
                     app,
                     last_learning_at,
-                    "%Y-%m-%d %H:%M:%S",
                     timezone_name,
                 )
                 or "",
@@ -1674,10 +1678,9 @@ def _build_dashboard_course_learners(
                     timezone_name,
                 )
                 or "",
-                joined_at_display=format_with_app_timezone(
+                joined_at_display=_format_dashboard_datetime_display(
                     app,
                     joined_at,
-                    "%Y-%m-%d %H:%M:%S",
                     timezone_name,
                 )
                 or "",
