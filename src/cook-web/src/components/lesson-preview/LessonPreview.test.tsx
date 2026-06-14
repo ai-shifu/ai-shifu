@@ -56,15 +56,20 @@ jest.mock('@/c-components/ChatUi/ContentBlock', () => ({
   default: ({
     item,
     blockBid,
+    contentRenderKey,
     enableStreamingTypewriter,
     onTypeFinished,
   }: {
     item: ChatContentItem;
     blockBid: string;
+    contentRenderKey?: string;
     enableStreamingTypewriter?: boolean;
     onTypeFinished?: (blockBid: string, content: string) => void;
   }) => (
-    <div data-testid={item.element_bid}>
+    <div
+      data-testid={item.element_bid}
+      data-content-render-key={contentRenderKey}
+    >
       <span>{item.content}</span>
       {enableStreamingTypewriter ? <span>typing</span> : null}
       {onTypeFinished ? (
@@ -227,6 +232,15 @@ describe('LessonPreview billing action', () => {
     ).toBe('error:preview-business-error');
 
     expect(
+      resolveLessonPreviewItemKey({
+        element_bid: 'interaction-1',
+        generated_block_bid: 'block-2',
+        content: '请选择',
+        type: ChatContentItemType.INTERACTION,
+      } as ChatContentItem),
+    ).toBe('interaction:interaction-1');
+
+    expect(
       resolveLessonPreviewItemKey(
         {
           content: 'streaming text that should not become the key',
@@ -245,6 +259,56 @@ describe('LessonPreview billing action', () => {
         3,
       ),
     ).toBe('error:idx-3');
+  });
+
+  test('uses a dedicated preview content render key when typewriter state changes', () => {
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'text-1',
+        generated_block_bid: 'block-1',
+        content: '第一段内容',
+        type: ChatContentItemType.CONTENT,
+        element_type: 'text',
+        shouldUseTypewriter: true,
+        is_final: false,
+      },
+    ];
+
+    const { rerender } = render(
+      <LessonPreview
+        loading={false}
+        items={items}
+        shifuBid='shifu-1'
+        onRefresh={jest.fn()}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('text-1')).toHaveAttribute(
+      'data-content-render-key',
+      'preview:content:text-1:text:typing',
+    );
+
+    rerender(
+      <LessonPreview
+        loading={false}
+        items={[
+          {
+            ...items[0],
+            is_final: true,
+            shouldUseTypewriter: false,
+          },
+        ]}
+        shifuBid='shifu-1'
+        onRefresh={jest.fn()}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('text-1')).toHaveAttribute(
+      'data-content-render-key',
+      'preview:content:text-1:text:static',
+    );
   });
 
   test('routes preview regenerate from helper row to the parent content item', () => {
