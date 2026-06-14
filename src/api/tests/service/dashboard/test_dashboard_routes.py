@@ -35,6 +35,18 @@ from flaskr.service.shifu.models import (
     ShifuUserArchive,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo, UserToken
+from flaskr.service.dashboard.funcs import _format_dashboard_datetime_display
+
+
+def test_format_dashboard_datetime_display_preserves_naive_mysql_strings(app):
+    assert (
+        _format_dashboard_datetime_display(
+            app,
+            "2026-05-20 16:40:51",
+            "Asia/Shanghai",
+        )
+        == "2026-05-20 16:40:51"
+    )
 
 
 def _clear_dashboard_tables() -> None:
@@ -458,7 +470,7 @@ class TestDashboardRoutes:
         assert payload["data"]["items"][0]["order_count"] == 1
         assert payload["data"]["items"][0]["order_amount"] == "9.99"
 
-    def test_entry_returns_timezone_adjusted_last_active_fields(
+    def test_entry_preserves_wall_clock_last_active_display_for_naive_times(
         self,
         monkeypatch,
         test_client,
@@ -502,7 +514,7 @@ class TestDashboardRoutes:
         assert resp.status_code == 200
         assert payload["code"] == 0
         assert item["last_active_at"] == expected.isoformat()
-        assert item["last_active_at_display"] == expected.strftime("%Y-%m-%d %H:%M:%S")
+        assert item["last_active_at_display"] == "2026-03-06 08:00:00"
 
     def test_entry_course_count_respects_date_filter(
         self,
@@ -1276,6 +1288,18 @@ class TestDashboardRoutes:
         assert learners_payload["data"]["items"][1]["learning_status"] == "learning"
         assert learners_payload["data"]["items"][2]["nickname"] == "Charlie"
         assert learners_payload["data"]["items"][2]["learning_status"] == "not_started"
+        assert learners_payload["data"]["items"][0]["last_learning_at_display"] == (
+            recent_now - timedelta(minutes=30)
+        ).strftime("%Y-%m-%d %H:%M:%S")
+        assert learners_payload["data"]["items"][0]["joined_at_display"] == (
+            recent_now - timedelta(hours=2)
+        ).strftime("%Y-%m-%d %H:%M:%S")
+        assert learners_payload["data"]["items"][1]["last_learning_at_display"] == (
+            old_activity
+        ).strftime("%Y-%m-%d %H:%M:%S")
+        assert learners_payload["data"]["items"][1]["joined_at_display"] == (
+            old_activity - timedelta(minutes=25)
+        ).strftime("%Y-%m-%d %H:%M:%S")
         assert learners_payload["data"]["items"][2]["last_learning_at"] == ""
         assert learners_payload["data"]["items"][2]["last_learning_at_display"] == ""
 
@@ -1625,14 +1649,14 @@ class TestDashboardRoutes:
             "average_score": "4.0",
             "rating_count": 3,
             "user_count": 2,
-            "latest_rated_at": "2026-04-06 17:05:00",
+            "latest_rated_at": "2026-04-06 09:05:00",
         }
         assert [item["lesson_feedback_bid"] for item in payload["data"]["items"]] == [
             "rating-feedback-3",
             "rating-feedback-2",
             "rating-feedback-1",
         ]
-        assert payload["data"]["items"][0]["rated_at"] == "2026-04-06 17:05:00"
+        assert payload["data"]["items"][0]["rated_at"] == "2026-04-06 09:05:00"
         assert payload["data"]["items"][1]["chapter_title"] == "Deep Dive"
         assert payload["data"]["items"][1]["lesson_title"] == "Lesson Beta"
 
@@ -1807,6 +1831,9 @@ class TestDashboardRoutes:
         assert list_payload["data"]["summary"]["follow_up_count"] == 1
         assert list_payload["data"]["summary"]["user_count"] == 1
         assert list_payload["data"]["summary"]["lesson_count"] == 1
+        assert list_payload["data"]["summary"]["latest_follow_up_at"] == (
+            now - timedelta(hours=2)
+        ).strftime("%Y-%m-%d %H:%M:%S")
         assert list_payload["data"]["items"][0]["user_bid"] == "learner-followup-1"
         assert list_payload["data"]["items"][0]["mobile"] == "13800138000"
         assert list_payload["data"]["items"][0]["nickname"] == "Alice"
@@ -1816,7 +1843,9 @@ class TestDashboardRoutes:
             "How should I start lesson 1?"
         )
         assert list_payload["data"]["items"][0]["turn_index"] == 1
-        assert list_payload["data"]["items"][0]["created_at"]
+        assert list_payload["data"]["items"][0]["created_at"] == (
+            now - timedelta(hours=2)
+        ).strftime("%Y-%m-%d %H:%M:%S")
 
         filtered_list_resp = test_client.get(
             "/api/dashboard/shifus/course-followups/follow-ups"
@@ -1851,10 +1880,19 @@ class TestDashboardRoutes:
         assert detail_payload["data"]["current_record"]["answer_content"] == (
             "Start with the first exercise."
         )
+        assert detail_payload["data"]["basic_info"]["created_at"] == (
+            now - timedelta(hours=2)
+        ).strftime("%Y-%m-%d %H:%M:%S")
         assert detail_payload["data"]["timeline"][0]["role"] == "student"
         assert detail_payload["data"]["timeline"][0]["is_current"] is True
+        assert detail_payload["data"]["timeline"][0]["created_at"] == (
+            now - timedelta(hours=2)
+        ).strftime("%Y-%m-%d %H:%M:%S")
         assert detail_payload["data"]["timeline"][1]["role"] == "teacher"
         assert detail_payload["data"]["timeline"][1]["is_current"] is True
+        assert detail_payload["data"]["timeline"][1]["created_at"] == (
+            now - timedelta(hours=1, minutes=55)
+        ).strftime("%Y-%m-%d %H:%M:%S")
 
     def test_course_follow_ups_clamps_page_index_to_last_page(
         self,
@@ -2026,6 +2064,80 @@ class TestDashboardRoutes:
         assert payload["data"]["basic_info"]["created_at"] == expected.isoformat()
         assert payload["data"]["basic_info"]["created_at_display"] == expected.strftime(
             "%Y-%m-%d %H:%M:%S"
+        )
+
+    def test_course_learners_preserve_wall_clock_displays_when_timezone_changes(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        joined_at = datetime(2026, 3, 4, 9, 15, 0)
+        last_learning_at = datetime(2026, 3, 4, 10, 45, 0)
+        with app.app_context():
+            self._seed_dashboard_user(
+                user_bid="course-detail-tz-learner",
+                nickname="Timezone Learner",
+                email="tz@example.com",
+            )
+            self._seed_dashboard_course(
+                shifu_bid="course-detail-tz-learners",
+                title="Detail TZ Learners Course",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-detail-tz-learners",
+                outline_item_bid="tz-chapter-1",
+                title="Chapter 1",
+                position="1",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-detail-tz-learners",
+                outline_item_bid="tz-lesson-1",
+                title="Lesson 1",
+                parent_bid="tz-chapter-1",
+                position="1.1",
+            )
+            db.session.add(
+                Order(
+                    order_bid="course-detail-tz-order-1",
+                    shifu_bid="course-detail-tz-learners",
+                    user_bid="course-detail-tz-learner",
+                    paid_price="10.00",
+                    status=ORDER_STATUS_SUCCESS,
+                    deleted=0,
+                    created_at=joined_at,
+                    updated_at=joined_at,
+                )
+            )
+            db.session.add(
+                LearnProgressRecord(
+                    progress_record_bid="course-detail-tz-progress-1",
+                    shifu_bid="course-detail-tz-learners",
+                    outline_item_bid="tz-lesson-1",
+                    user_bid="course-detail-tz-learner",
+                    status=LEARN_STATUS_IN_PROGRESS,
+                    block_position=0,
+                    deleted=0,
+                    created_at=joined_at,
+                    updated_at=last_learning_at,
+                )
+            )
+            db.session.commit()
+
+        response = test_client.get(
+            "/api/dashboard/shifus/course-detail-tz-learners/learners"
+            "?timezone=Asia/Shanghai"
+        )
+        payload = response.get_json(force=True)
+
+        assert response.status_code == 200
+        assert payload["code"] == 0
+        assert payload["data"]["items"][0]["joined_at_display"] == "2026-03-04 09:15:00"
+        assert (
+            payload["data"]["items"][0]["last_learning_at_display"]
+            == "2026-03-04 10:45:00"
         )
 
     def test_course_detail_counts_restudy_learners_as_completed(
