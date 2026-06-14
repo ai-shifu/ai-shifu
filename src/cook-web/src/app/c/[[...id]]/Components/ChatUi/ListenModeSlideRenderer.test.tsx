@@ -348,13 +348,12 @@ describe('ListenModeSlideRenderer', () => {
     const fullscreenButton = await screen.findByRole('button', {
       name: 'module.chat.classroomEnterFullscreen',
     });
-    const initialRequestCount = requestFullscreen.mock.calls.length;
-    expect(initialRequestCount).toBeGreaterThan(0);
+    expect(requestFullscreen).not.toHaveBeenCalled();
 
     fireEvent.click(fullscreenButton);
 
     await waitFor(() => {
-      expect(requestFullscreen).toHaveBeenCalledTimes(initialRequestCount + 1);
+      expect(requestFullscreen).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -101,7 +101,7 @@ describe('LearningModeSwitch', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('enters classroom mode with classroom URL state and fullscreen request', () => {
+  it('enters classroom mode with classroom URL state without fullscreen request', () => {
     const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
     useSystemStore.setState({ canUseClassroomMode: true });
 
@@ -119,6 +119,6 @@ describe('LearningModeSwitch', () => {
       '',
       '/c/course-1?mode=classroom',
     );
-    expect(requestFullscreen).toHaveBeenCalled();
+    expect(requestFullscreen).not.toHaveBeenCalled();
   });
 });

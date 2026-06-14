@@ -16,7 +16,6 @@ import HeaderBetaBadge from './HeaderBetaBadge';
 import {
   clearClassroomModeFromUrl,
   enableClassroomModeInUrl,
-  requestClassroomBrowserFullscreen,
 } from './learningModeUrl';
 
 interface LearningModeSwitchProps {
@@ -45,7 +44,6 @@ export const LearningModeSwitch = ({
 
   const handleLearningModeSelect = (nextLearningMode: LearningMode) => {
     if (nextLearningMode === 'classroom') {
-      void requestClassroomBrowserFullscreen();
       enableClassroomModeInUrl();
     } else {
       clearClassroomModeFromUrl();

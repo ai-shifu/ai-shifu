@@ -572,7 +572,7 @@ const ListenModeSlideRenderer = ({
   const [isMobileAskPanelMounted, setIsMobileAskPanelMounted] = useState(false);
   const [mobileAskPanelElementBid, setMobileAskPanelElementBid] = useState('');
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
-  const [isClassroomFullscreenBlocked, setIsClassroomFullscreenBlocked] =
+  const [isClassroomFullscreenActive, setIsClassroomFullscreenActive] =
     useState(false);
   const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
     DEFAULT_LISTEN_MOBILE_VIEW_MODE,
@@ -1025,36 +1025,23 @@ const ListenModeSlideRenderer = ({
     const didEnterFullscreen =
       Boolean(getDocumentFullscreenElement()) ||
       (await requestClassroomBrowserFullscreen(slideShellElement));
-    setIsClassroomFullscreenBlocked(!didEnterFullscreen);
+    setIsClassroomFullscreenActive(didEnterFullscreen);
 
     return didEnterFullscreen;
   }, []);
 
   useEffect(() => {
     if (!isClassroomMode) {
-      setIsClassroomFullscreenBlocked(false);
+      setIsClassroomFullscreenActive(false);
       return;
     }
 
-    if (getDocumentFullscreenElement()) {
-      setIsClassroomFullscreenBlocked(false);
-      return;
-    }
-
-    const frameId = window.requestAnimationFrame(() => {
-      void requestClassroomFullscreen();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frameId);
-    };
-  }, [isClassroomMode, lessonId, requestClassroomFullscreen]);
+    setIsClassroomFullscreenActive(Boolean(getDocumentFullscreenElement()));
+  }, [isClassroomMode, lessonId]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      if (getDocumentFullscreenElement()) {
-        setIsClassroomFullscreenBlocked(false);
-      }
+      setIsClassroomFullscreenActive(Boolean(getDocumentFullscreenElement()));
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -1683,9 +1670,7 @@ const ListenModeSlideRenderer = ({
   const shouldRenderMobileAskPanel =
     !isClassroomMode && isMobileAskPanelMounted && !shouldRenderEmptyPpt;
   const shouldRenderClassroomFullscreenButton =
-    isClassroomMode &&
-    isClassroomFullscreenBlocked &&
-    !Boolean(getDocumentFullscreenElement());
+    isClassroomMode && !isClassroomFullscreenActive;
 
   const desktopAskOverlay = shouldRenderDesktopAskOverlay ? (
     <div
