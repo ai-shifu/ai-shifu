@@ -392,6 +392,31 @@ describe('ListenModeSlideRenderer', () => {
     }
   });
 
+  it('moves the classroom fullscreen entry below the taller preview header', async () => {
+    render(
+      <ListenModeSlideRenderer
+        variant='classroom'
+        previewMode={true}
+        items={[
+          {
+            type: 'content',
+            content: 'Slide',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'module.chat.classroomEnterFullscreen',
+      }),
+    ).toHaveClass('classroom-fullscreen-button--preview');
+  });
+
   it('maps classroom space shortcuts to next slide without bubbling the original space key', () => {
     const observedKeys: string[] = [];
     const handleKeyDown = (event: KeyboardEvent) => {
