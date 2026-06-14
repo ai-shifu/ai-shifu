@@ -67,6 +67,7 @@ import {
   LESSON_FEEDBACK_TAIL_INTERACTION_SETTLE_DELAY_MS,
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
+import { requestClassroomBrowserFullscreen } from '../learningModeUrl';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -346,28 +347,6 @@ const hasBlockingListenInteraction = (element?: SlideElement) => {
     !isLessonFeedbackInteractionContent(interactionContent) &&
     !isSystemInteraction
   );
-};
-
-type BrowserFullscreenTarget = HTMLElement & {
-  webkitRequestFullscreen?: HTMLElement['requestFullscreen'];
-};
-
-const requestBrowserFullscreen = async (element: HTMLElement) => {
-  const fullscreenTarget = element as BrowserFullscreenTarget;
-  const requestFullscreen =
-    fullscreenTarget.requestFullscreen ??
-    fullscreenTarget.webkitRequestFullscreen;
-
-  if (!requestFullscreen) {
-    return false;
-  }
-
-  try {
-    await requestFullscreen.call(fullscreenTarget);
-    return true;
-  } catch {
-    return false;
-  }
 };
 
 const getListenPlaybackSequenceActive = ({
@@ -1045,7 +1024,7 @@ const ListenModeSlideRenderer = ({
 
     const didEnterFullscreen =
       Boolean(getDocumentFullscreenElement()) ||
-      (await requestBrowserFullscreen(slideShellElement));
+      (await requestClassroomBrowserFullscreen(slideShellElement));
     setIsClassroomFullscreenBlocked(!didEnterFullscreen);
 
     return didEnterFullscreen;

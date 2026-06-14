@@ -40,6 +40,25 @@ describe('chatUiModeProjection', () => {
       },
       {
         type: ChatContentItemType.CONTENT,
+        element_bid: 'narration-with-slide-metadata',
+        element_type: 'text',
+        content: 'Teacher script with visual slide metadata',
+        is_renderable: true,
+        listenSlides: [
+          {
+            slide_id: 'slide-meta-1',
+            slide_index: 0,
+            audio_position: 0,
+            visual_kind: 'html',
+            segment_type: 'visual',
+            segment_content: '<section>Generated slide</section>',
+            source_span: [0, 1],
+            is_placeholder: false,
+          },
+        ],
+      },
+      {
+        type: ChatContentItemType.CONTENT,
         element_bid: 'slide-1',
         element_type: 'html',
         content: `<section>Slide</section>${askButtonMarkup}`,

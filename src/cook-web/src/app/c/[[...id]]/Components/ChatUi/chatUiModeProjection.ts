@@ -126,10 +126,6 @@ const isClassroomVisualContentItem = (item: ChatContentItem) => {
     return false;
   }
 
-  if (item.listenSlides?.some(slide => !slide.is_placeholder)) {
-    return true;
-  }
-
   return CLASSROOM_VISUAL_ELEMENT_TYPES.has(getItemElementType(item));
 };
 

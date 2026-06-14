@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
+import type { LearningMode } from '@/c-types/store';
 
-export type LearningMode = 'listen' | 'read' | 'classroom';
+export type { LearningMode };
 
 type LearningModeOption = {
   mode: LearningMode;

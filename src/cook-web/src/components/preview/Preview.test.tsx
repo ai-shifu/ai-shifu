@@ -127,6 +127,7 @@ describe('PreviewSettingsModal', () => {
       expect(openSpy).toHaveBeenCalledWith(
         'https://example.com/preview',
         '_blank',
+        'noopener,noreferrer',
       );
     });
 
@@ -157,6 +158,7 @@ describe('PreviewSettingsModal', () => {
       expect(openSpy).toHaveBeenCalledWith(
         'https://example.com/preview?preview=true&mode=classroom',
         '_blank',
+        'noopener,noreferrer',
       );
     });
 
@@ -167,5 +169,8 @@ describe('PreviewSettingsModal', () => {
     expect(
       appendClassroomModeToPreviewUrl('https://example.com/c/1?listen=true'),
     ).toBe('https://example.com/c/1?preview=true&mode=classroom');
+    expect(appendClassroomModeToPreviewUrl('/c/1?listen=true#slide-2')).toBe(
+      '/c/1?preview=true&mode=classroom#slide-2',
+    );
   });
 });

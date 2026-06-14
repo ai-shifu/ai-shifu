@@ -1,4 +1,5 @@
 import type { LearningMode } from './learningModeOptions';
+import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 
 const MODE_QUERY_PARAM = 'mode';
 const LEGACY_LISTEN_QUERY_PARAM = 'listen';
@@ -50,17 +51,19 @@ export const enableClassroomModeInUrl = () => {
   replaceCurrentUrl(url);
 };
 
-export const requestClassroomBrowserFullscreen = async () => {
+export const requestClassroomBrowserFullscreen = async (
+  targetElement?: HTMLElement,
+) => {
   if (typeof document === 'undefined') {
     return false;
   }
 
-  if (document.fullscreenElement) {
+  if (getDocumentFullscreenElement()) {
     return true;
   }
 
-  const fullscreenElement =
-    document.documentElement as BrowserFullscreenElement;
+  const fullscreenElement = (targetElement ??
+    document.documentElement) as BrowserFullscreenElement;
   const requestFullscreen =
     fullscreenElement.requestFullscreen ??
     fullscreenElement.webkitRequestFullscreen;

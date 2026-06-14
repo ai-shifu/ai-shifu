@@ -48,6 +48,23 @@ const parseBooleanQueryParam = (value?: string) => {
   return value.trim().toLowerCase() === 'true';
 };
 
+const CLASSROOM_ACCESS_DENIAL_STATUSES = new Set([401, 403, 404]);
+
+const isDefinitiveClassroomAccessDenial = (error: unknown) => {
+  const fetchError = error as {
+    code?: number | string;
+    isCourseNotFound?: boolean;
+    status?: number | string;
+  };
+
+  if (fetchError?.isCourseNotFound) {
+    return true;
+  }
+
+  const status = Number(fetchError?.status ?? fetchError?.code);
+  return CLASSROOM_ACCESS_DENIAL_STATUSES.has(status);
+};
+
 export default function ChatLayout({
   children,
 }: {
@@ -239,9 +256,11 @@ export default function ChatLayout({
           updateCanUseClassroomMode(true);
         }
       })
-      .catch(() => {
+      .catch(error => {
         if (!canceled) {
-          updateCanUseClassroomMode(false);
+          updateCanUseClassroomMode(
+            isDefinitiveClassroomAccessDenial(error) ? false : null,
+          );
         }
       });
 

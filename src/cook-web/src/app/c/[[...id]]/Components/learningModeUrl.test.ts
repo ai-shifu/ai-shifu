@@ -13,9 +13,31 @@ describe('learningModeUrl', () => {
     window.location.search = url.search;
     window.location.hash = url.hash;
   };
+  const setFullscreenElement = (element: Element | null) => {
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      value: element,
+    });
+  };
+  const setWebkitFullscreenElement = (element: Element | null) => {
+    Object.defineProperty(document, 'webkitFullscreenElement', {
+      configurable: true,
+      value: element,
+    });
+  };
 
   beforeEach(() => {
     jest.restoreAllMocks();
+    setFullscreenElement(null);
+    setWebkitFullscreenElement(null);
+    Object.defineProperty(document.documentElement, 'requestFullscreen', {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(document.documentElement, 'webkitRequestFullscreen', {
+      configurable: true,
+      value: undefined,
+    });
     setMockLocation('http://localhost:3000/c/course-1?listen=true');
   });
 
@@ -62,5 +84,32 @@ describe('learningModeUrl', () => {
 
     await expect(requestClassroomBrowserFullscreen()).resolves.toBe(true);
     expect(requestFullscreen).toHaveBeenCalled();
+  });
+
+  it('uses WebKit fullscreen state before requesting fullscreen again', async () => {
+    const requestFullscreen = jest.fn().mockResolvedValue(undefined);
+    setWebkitFullscreenElement(document.body);
+    Object.defineProperty(document.documentElement, 'requestFullscreen', {
+      configurable: true,
+      value: requestFullscreen,
+    });
+
+    await expect(requestClassroomBrowserFullscreen()).resolves.toBe(true);
+    expect(requestFullscreen).not.toHaveBeenCalled();
+  });
+
+  it('requests fullscreen on a provided target element', async () => {
+    const targetElement = document.createElement('section');
+    const requestFullscreen = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(targetElement, 'requestFullscreen', {
+      configurable: true,
+      value: requestFullscreen,
+    });
+
+    await expect(
+      requestClassroomBrowserFullscreen(targetElement),
+    ).resolves.toBe(true);
+    expect(requestFullscreen).toHaveBeenCalledTimes(1);
+    expect(requestFullscreen.mock.contexts[0]).toBe(targetElement);
   });
 });

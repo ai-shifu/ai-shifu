@@ -125,6 +125,8 @@ const createChatRef = () =>
 const getMockSlide = () =>
   jest.requireMock('markdown-flow-ui/slide').Slide as jest.Mock;
 
+const originalRequestFullscreen = HTMLElement.prototype.requestFullscreen;
+
 describe('ListenModeSlideRenderer', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -135,6 +137,14 @@ describe('ListenModeSlideRenderer', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    if (originalRequestFullscreen) {
+      Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+        configurable: true,
+        value: originalRequestFullscreen,
+      });
+    } else {
+      delete (HTMLElement.prototype as Partial<HTMLElement>).requestFullscreen;
+    }
   });
 
   it('does not show the audio preparation text for normal loading', () => {
@@ -249,7 +259,15 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
-  it('removes audio, subtitles, and custom listen actions in classroom mode', () => {
+  it('removes audio, subtitles, and custom listen actions in classroom mode', async () => {
+    const requestFullscreen = jest
+      .fn()
+      .mockRejectedValue(new Error('fullscreen blocked'));
+    Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+      configurable: true,
+      value: requestFullscreen,
+    });
+
     render(
       <ListenModeSlideRenderer
         variant='classroom'
@@ -320,6 +338,18 @@ describe('ListenModeSlideRenderer', () => {
         name: 'module.chat.listenPlaybackSpeedAriaLabel',
       }),
     ).not.toBeInTheDocument();
+
+    const fullscreenButton = await screen.findByRole('button', {
+      name: 'module.chat.classroomEnterFullscreen',
+    });
+    const initialRequestCount = requestFullscreen.mock.calls.length;
+    expect(initialRequestCount).toBeGreaterThan(0);
+
+    fireEvent.click(fullscreenButton);
+
+    await waitFor(() => {
+      expect(requestFullscreen).toHaveBeenCalledTimes(initialRequestCount + 1);
+    });
   });
 
   it('keeps the mobile ask block mounted and collapsed after closing the listen panel', async () => {
