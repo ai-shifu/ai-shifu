@@ -35,6 +35,18 @@ from flaskr.service.shifu.models import (
     ShifuUserArchive,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo, UserToken
+from flaskr.service.dashboard.funcs import _format_dashboard_datetime_display
+
+
+def test_format_dashboard_datetime_display_preserves_naive_mysql_strings(app):
+    assert (
+        _format_dashboard_datetime_display(
+            app,
+            "2026-05-20 16:40:51",
+            "Asia/Shanghai",
+        )
+        == "2026-05-20 16:40:51"
+    )
 
 
 def _clear_dashboard_tables() -> None:

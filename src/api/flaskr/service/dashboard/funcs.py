@@ -58,7 +58,11 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
-from flaskr.util.timezone import format_with_app_timezone, serialize_with_app_timezone
+from flaskr.util.timezone import (
+    _coerce_datetime,
+    format_with_app_timezone,
+    serialize_with_app_timezone,
+)
 
 
 @dataclass(frozen=True)
@@ -659,19 +663,20 @@ def _load_dashboard_course_outline_items(
 
 def _format_dashboard_datetime_display(
     app: Flask,
-    value: Optional[datetime],
+    value: Optional[datetime | str],
     timezone_name: Optional[str],
 ) -> str:
-    if value is None:
+    normalized_value = _coerce_datetime(app, value)
+    if normalized_value is None:
         return ""
-    if value.tzinfo is None:
+    if normalized_value.tzinfo is None:
         # Dashboard learning/follow-up/rating records are legacy wall-clock
         # timestamps. Preserve naive values as-is instead of converting them.
-        return value.strftime("%Y-%m-%d %H:%M:%S")
+        return normalized_value.strftime("%Y-%m-%d %H:%M:%S")
     return (
         format_with_app_timezone(
             app,
-            value,
+            normalized_value,
             "%Y-%m-%d %H:%M:%S",
             timezone_name,
         )
