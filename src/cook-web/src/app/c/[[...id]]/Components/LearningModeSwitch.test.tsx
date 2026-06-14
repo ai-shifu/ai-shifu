@@ -6,7 +6,7 @@ import {
   EVENT_NAMES as BZ_EVENT_NAMES,
 } from '@/app/c/[[...id]]/events';
 
-const mockCourseStoreState = {
+const mockCourseStoreState: { courseTtsEnabled: boolean | null } = {
   courseTtsEnabled: true,
 };
 
@@ -99,6 +99,18 @@ describe('LearningModeSwitch', () => {
         name: 'module.chat.learningModeClassroom',
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it('keeps listen mode available while course TTS availability is unknown', () => {
+    mockCourseStoreState.courseTtsEnabled = null;
+
+    render(<LearningModeSwitch />);
+
+    expect(
+      screen.getByRole('button', {
+        name: 'module.chat.learningModeListen',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('enters classroom mode with classroom URL state without fullscreen request', () => {

@@ -28,7 +28,7 @@ export const getAvailableLearningModeOptions = ({
 }) =>
   LEARNING_MODE_OPTIONS.filter(option => {
     if (option.mode === 'listen') {
-      return courseTtsEnabled === true;
+      return courseTtsEnabled !== false;
     }
 
     if (option.mode === 'classroom') {

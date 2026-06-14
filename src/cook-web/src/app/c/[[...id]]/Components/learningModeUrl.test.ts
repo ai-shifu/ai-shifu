@@ -78,6 +78,21 @@ describe('learningModeUrl', () => {
     );
   });
 
+  it('clears classroom mode query parameter case-insensitively', () => {
+    const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
+    setMockLocation(
+      'http://localhost:3000/c/course-1?preview=true&mode=Classroom',
+    );
+
+    clearClassroomModeFromUrl();
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/c/course-1?preview=true',
+    );
+  });
+
   it('uses browser fullscreen when it is available', async () => {
     const requestFullscreen = jest.fn().mockResolvedValue(undefined);
     Object.defineProperty(document.documentElement, 'requestFullscreen', {

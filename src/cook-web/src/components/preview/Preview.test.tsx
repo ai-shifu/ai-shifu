@@ -7,6 +7,10 @@ import PreviewSettingsModal, { buildClassroomModeCourseUrl } from './Preview';
 const mockSaveMdflow = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
+let mockCurrentShifu: { bid: string; readonly: boolean } | null = {
+  bid: 'shifu-1',
+  readonly: false,
+};
 
 jest.mock('@/api', () => ({
   __esModule: true,
@@ -27,10 +31,7 @@ jest.mock('@/c-store', () => ({
 
 jest.mock('@/store', () => ({
   useShifu: () => ({
-    currentShifu: {
-      bid: 'shifu-1',
-      readonly: false,
-    },
+    currentShifu: mockCurrentShifu,
     actions: {
       saveMdflow: mockSaveMdflow,
     },
@@ -55,6 +56,10 @@ describe('PreviewSettingsModal', () => {
     mockTrackEvent.mockReset();
     (api.previewShifu as jest.Mock).mockReset();
     mockUseBillingOverview.mockReset();
+    mockCurrentShifu = {
+      bid: 'shifu-1',
+      readonly: false,
+    };
   });
 
   it('disables preview when billing softlimit blocks debug', () => {
@@ -163,6 +168,23 @@ describe('PreviewSettingsModal', () => {
     });
 
     openSpy.mockRestore();
+  });
+
+  it('hides classroom mode until a course id is available', () => {
+    mockCurrentShifu = null;
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        debug_allowed: true,
+      },
+    });
+
+    render(<PreviewSettingsModal />);
+
+    expect(
+      screen.queryByRole('link', {
+        name: /module.preview.classroomMode/,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it('builds classroom course URLs without preview mode', () => {

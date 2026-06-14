@@ -8,11 +8,6 @@
   box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
     var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
     var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
-
-  &:focus-visible {
-    outline: 2px solid var(--primary, #0f63ee);
-    outline-offset: 2px;
-  }
 }
 
 .learningModeSwitchDesktop {

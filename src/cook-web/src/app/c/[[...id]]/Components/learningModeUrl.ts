@@ -83,7 +83,11 @@ export const clearClassroomModeFromUrl = () => {
   }
 
   const url = new URL(window.location.href);
-  if (url.searchParams.get(MODE_QUERY_PARAM) !== 'classroom') {
+  if (
+    parseLearningModeQueryParam(
+      url.searchParams.get(MODE_QUERY_PARAM) ?? undefined,
+    ) !== 'classroom'
+  ) {
     return;
   }
 

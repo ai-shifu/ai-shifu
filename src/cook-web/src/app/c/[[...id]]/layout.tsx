@@ -233,6 +233,11 @@ export default function ChatLayout({
       return;
     }
 
+    if (isPreviewMode) {
+      updateCanUseClassroomMode(null);
+      return;
+    }
+
     if (!isInitialized) {
       updateCanUseClassroomMode(null);
       return;
@@ -270,6 +275,7 @@ export default function ChatLayout({
     envDataInitialized,
     isInitialized,
     isLoggedIn,
+    isPreviewMode,
     storageCourseId,
     updateCanUseClassroomMode,
   ]);
