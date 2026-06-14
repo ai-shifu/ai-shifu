@@ -174,7 +174,7 @@
   padding: 0 18px;
   border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--background) 94%, transparent);
+  background: color-mix(in srgb, var(--background) 82%, transparent);
   color: var(--foreground);
   font-size: 18px;
   font-weight: 600;
@@ -191,7 +191,7 @@
 }
 
 .classroom-fullscreen-button:hover {
-  background: var(--background);
+  background: color-mix(in srgb, var(--background) 92%, transparent);
 }
 
 .classroom-fullscreen-button:focus-visible {
