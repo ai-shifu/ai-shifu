@@ -195,5 +195,7 @@ describe('PreviewSettingsModal', () => {
       '/c/course%201?mode=classroom',
     );
     expect(buildClassroomModeCourseUrl('')).toBe('');
+    expect(buildClassroomModeCourseUrl(null)).toBe('');
+    expect(buildClassroomModeCourseUrl(undefined)).toBe('');
   });
 });

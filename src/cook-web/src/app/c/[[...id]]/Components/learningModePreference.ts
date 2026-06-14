@@ -22,7 +22,7 @@ export const resolveCourseLearningMode = ({
   }
 
   if (urlModeParam === 'listen') {
-    return courseTtsEnabled === true ? 'listen' : 'read';
+    return courseTtsEnabled !== false ? 'listen' : 'read';
   }
 
   if (urlModeParam === 'read') {

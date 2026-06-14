@@ -109,6 +109,32 @@ describe('resolveCourseLearningMode', () => {
     ).toBe('read');
   });
 
+  it('keeps URL listen mode while course TTS capability is still unknown', () => {
+    expect(
+      resolveCourseLearningMode({
+        courseTtsEnabled: null,
+        canUseClassroomMode: false,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        urlModeParam: 'listen',
+        storedLearningMode: 'read',
+      }),
+    ).toBe('listen');
+  });
+
+  it('falls back from URL listen mode when course TTS is disabled', () => {
+    expect(
+      resolveCourseLearningMode({
+        courseTtsEnabled: false,
+        canUseClassroomMode: true,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        urlModeParam: 'listen',
+        storedLearningMode: 'listen',
+      }),
+    ).toBe('read');
+  });
+
   it('restores stored classroom mode only when classroom access is available', () => {
     expect(
       resolveCourseLearningMode({
