@@ -190,6 +190,7 @@ const ContentBlock = memo(
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
+      prevProps.contentRenderKey === nextProps.contentRenderKey &&
       prevProps.item.isHistory === nextProps.item.isHistory &&
       prevProps.item.element_type === nextProps.item.element_type &&
       prevProps.confirmButtonText === nextProps.confirmButtonText &&
