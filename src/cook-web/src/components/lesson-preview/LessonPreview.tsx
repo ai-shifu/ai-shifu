@@ -515,11 +515,11 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                 );
               }
 
-                return (
-                  <div
-                    key={resolveLessonPreviewItemKey(item, idx)}
-                    className='p-0 relative'
-                    style={{
+              return (
+                <div
+                  key={resolveLessonPreviewItemKey(item, idx)}
+                  className='p-0 relative'
+                  style={{
                     maxWidth: '100%',
                     margin: !idx ? '0' : '40px 0 0 0',
                   }}
