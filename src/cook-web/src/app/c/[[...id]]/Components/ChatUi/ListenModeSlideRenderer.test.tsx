@@ -392,6 +392,119 @@ describe('ListenModeSlideRenderer', () => {
     }
   });
 
+  it('maps classroom space shortcuts to next slide without bubbling the original space key', () => {
+    const observedKeys: string[] = [];
+    const handleKeyDown = (event: KeyboardEvent) => {
+      observedKeys.push(event.key);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+
+    try {
+      render(
+        <ListenModeSlideRenderer
+          variant='classroom'
+          items={[
+            {
+              type: 'content',
+              content: 'Slide',
+              element_bid: 'content-1',
+              is_speakable: true,
+            },
+          ]}
+          mobileStyle={false}
+          chatRef={createChatRef()}
+        />,
+      );
+
+      fireEvent.keyDown(document, { code: 'Space', key: ' ' });
+
+      expect(observedKeys).toEqual(['ArrowRight']);
+    } finally {
+      document.removeEventListener('keydown', handleKeyDown);
+    }
+  });
+
+  it('does not map space shortcuts outside classroom mode', () => {
+    const forwardedKeys: string[] = [];
+    const handleForwardedShortcut = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight') {
+        forwardedKeys.push(event.key);
+      }
+    };
+    document.addEventListener('keydown', handleForwardedShortcut);
+
+    try {
+      render(
+        <ListenModeSlideRenderer
+          variant='listen'
+          items={[
+            {
+              type: 'content',
+              content: 'Slide',
+              element_bid: 'content-1',
+              is_speakable: true,
+            },
+          ]}
+          mobileStyle={false}
+          chatRef={createChatRef()}
+        />,
+      );
+
+      fireEvent.keyDown(document, { code: 'Space', key: ' ' });
+
+      expect(forwardedKeys).toEqual([]);
+    } finally {
+      document.removeEventListener('keydown', handleForwardedShortcut);
+    }
+  });
+
+  it('does not map classroom space shortcuts from native interactive targets', async () => {
+    const forwardedKeys: string[] = [];
+    const handleForwardedShortcut = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight') {
+        forwardedKeys.push(event.key);
+      }
+    };
+    document.addEventListener('keydown', handleForwardedShortcut);
+
+    try {
+      render(
+        <ListenModeSlideRenderer
+          variant='classroom'
+          items={[
+            {
+              type: 'content',
+              content: 'Slide',
+              element_bid: 'content-1',
+              is_speakable: true,
+            },
+          ]}
+          mobileStyle={false}
+          chatRef={createChatRef()}
+        />,
+      );
+
+      fireEvent.keyDown(
+        await screen.findByRole('button', {
+          name: 'module.chat.classroomEnterFullscreen',
+        }),
+        { code: 'Space', key: ' ' },
+      );
+
+      const input = document.createElement('input');
+      document.body.append(input);
+      try {
+        fireEvent.keyDown(input, { code: 'Space', key: ' ' });
+      } finally {
+        input.remove();
+      }
+
+      expect(forwardedKeys).toEqual([]);
+    } finally {
+      document.removeEventListener('keydown', handleForwardedShortcut);
+    }
+  });
+
   it('keeps the mobile ask block mounted and collapsed after closing the listen panel', async () => {
     render(
       <ListenModeSlideRenderer

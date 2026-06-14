@@ -121,6 +121,30 @@ const CLASSROOM_PAGE_SHORTCUT_IGNORE_SELECTOR = [
   '[data-player-keyboard-shortcuts-ignore="true"]',
 ].join(', ');
 
+const CLASSROOM_SPACE_NATIVE_ACTION_SELECTOR = "button, [role='button']";
+
+const isClassroomSpaceShortcutEvent = (event: KeyboardEvent) => {
+  const normalizedKey = event.key.toLowerCase();
+  return (
+    event.code === 'Space' || event.key === ' ' || normalizedKey === 'spacebar'
+  );
+};
+
+const resolveClassroomPageShortcutKey = (
+  event: KeyboardEvent,
+): 'ArrowLeft' | 'ArrowRight' | null => {
+  const mappedKey = CLASSROOM_PAGE_SHORTCUT_KEY_MAP[event.key];
+  if (mappedKey) {
+    return mappedKey;
+  }
+
+  if (isClassroomSpaceShortcutEvent(event)) {
+    return 'ArrowRight';
+  }
+
+  return null;
+};
+
 const shouldIgnoreClassroomPageShortcutEvent = (event: KeyboardEvent) => {
   if (
     event.defaultPrevented ||
@@ -137,7 +161,11 @@ const shouldIgnoreClassroomPageShortcutEvent = (event: KeyboardEvent) => {
     return false;
   }
 
-  return Boolean(target.closest(CLASSROOM_PAGE_SHORTCUT_IGNORE_SELECTOR));
+  return Boolean(
+    target.closest(CLASSROOM_PAGE_SHORTCUT_IGNORE_SELECTOR) ||
+    (isClassroomSpaceShortcutEvent(event) &&
+      target.closest(CLASSROOM_SPACE_NATIVE_ACTION_SELECTOR)),
+  );
 };
 
 interface ListenModeSlideRendererProps {
@@ -1107,10 +1135,13 @@ const ListenModeSlideRenderer = ({
     }
 
     const handleClassroomPageShortcut = (event: KeyboardEvent) => {
-      const forwardedKey = CLASSROOM_PAGE_SHORTCUT_KEY_MAP[event.key];
+      const forwardedKey = resolveClassroomPageShortcutKey(event);
       if (!forwardedKey || shouldIgnoreClassroomPageShortcutEvent(event)) {
         return;
       }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
 
       const forwardedEvent = new KeyboardEvent('keydown', {
         bubbles: true,
@@ -1121,13 +1152,16 @@ const ListenModeSlideRenderer = ({
         repeat: event.repeat,
       });
       document.dispatchEvent(forwardedEvent);
-      event.preventDefault();
     };
 
-    document.addEventListener('keydown', handleClassroomPageShortcut);
+    document.addEventListener('keydown', handleClassroomPageShortcut, true);
 
     return () => {
-      document.removeEventListener('keydown', handleClassroomPageShortcut);
+      document.removeEventListener(
+        'keydown',
+        handleClassroomPageShortcut,
+        true,
+      );
     };
   }, [isClassroomMode]);
 
