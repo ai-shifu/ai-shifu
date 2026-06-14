@@ -23,6 +23,7 @@ interface ContentBlockProps {
   item: ChatContentItem;
   mobileStyle: boolean;
   blockBid: string;
+  contentRenderKey?: string;
   confirmButtonText?: string;
   copyButtonText?: string;
   copiedButtonText?: string;
@@ -42,6 +43,7 @@ const ContentBlock = memo(
     item,
     mobileStyle,
     blockBid,
+    contentRenderKey,
     confirmButtonText,
     copyButtonText,
     copiedButtonText,
@@ -124,6 +126,7 @@ const ContentBlock = memo(
         {...(mobileStyle ? longPressEvent : {})}
       >
         <ContentRender
+          key={contentRenderKey}
           enableTypewriter={shouldEnableTypewriter}
           typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
           content={renderedContent}
@@ -187,6 +190,7 @@ const ContentBlock = memo(
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
+      prevProps.contentRenderKey === nextProps.contentRenderKey &&
       prevProps.item.isHistory === nextProps.item.isHistory &&
       prevProps.item.element_type === nextProps.item.element_type &&
       prevProps.confirmButtonText === nextProps.confirmButtonText &&

@@ -117,19 +117,54 @@ const resolveLessonPreviewItemIdentity = (
   item.parent_block_bid ||
   (index !== undefined ? `idx-${index}` : '');
 
-export const resolveLessonPreviewItemKey = (
-  item: ChatContentItem,
-  index?: number,
-) => {
+const resolveLessonPreviewItemTypeKey = (item: ChatContentItem) => {
   if (item.type === ChatContentItemType.LIKE_STATUS) {
-    return `like:${resolveLessonPreviewItemIdentity(item, index)}`;
+    return 'like';
   }
 
   if (item.type === ChatContentItemType.ERROR) {
-    return `error:${resolveLessonPreviewItemIdentity(item, index)}`;
+    return 'error';
   }
 
-  return `content:${resolveLessonPreviewItemIdentity(item, index)}`;
+  if (item.type === ChatContentItemType.INTERACTION) {
+    return 'interaction';
+  }
+
+  if (item.type === ChatContentItemType.ASK) {
+    return 'ask';
+  }
+
+  return 'content';
+};
+
+export const resolveLessonPreviewItemKey = (
+  item: ChatContentItem,
+  index?: number,
+) =>
+  `${resolveLessonPreviewItemTypeKey(item)}:${resolveLessonPreviewItemIdentity(
+    item,
+    index,
+  )}`;
+
+const resolveLessonPreviewContentRenderKey = (
+  item: ChatContentItem,
+  enableStreamingTypewriter: boolean,
+) => {
+  const hasStreamingTypewriterIntent =
+    item.type === ChatContentItemType.CONTENT &&
+    item.element_type === 'text' &&
+    item.shouldUseTypewriter === true &&
+    item.is_final !== true;
+
+  return [
+    'preview',
+    resolveLessonPreviewItemTypeKey(item),
+    item.element_bid || item.generated_block_bid || '',
+    item.element_type || '',
+    enableStreamingTypewriter || hasStreamingTypewriterIntent
+      ? 'typing'
+      : 'static',
+  ].join(':');
 };
 
 const LessonPreview: React.FC<LessonPreviewProps> = ({
@@ -453,6 +488,10 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                       blockBid={
                         item.element_bid || item.generated_block_bid || ''
                       }
+                      contentRenderKey={resolveLessonPreviewContentRenderKey(
+                        item,
+                        false,
+                      )}
                       confirmButtonText={confirmButtonText}
                       copyButtonText={copyButtonText}
                       copiedButtonText={copiedButtonText}
@@ -485,29 +524,38 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     margin: !idx ? '0' : '40px 0 0 0',
                   }}
                 >
-                  <ContentBlock
-                    item={item}
-                    mobileStyle={false}
-                    blockBid={
-                      item.element_bid || item.generated_block_bid || ''
-                    }
-                    enableStreamingTypewriter={
+                  {(() => {
+                    const enableStreamingTypewriter =
                       ENABLE_PREVIEW_TYPEWRITER &&
                       shouldEnablePreviewTypewriter(
                         item,
                         previewTypewriterCache[item.element_bid || ''],
-                      )
-                    }
-                    confirmButtonText={confirmButtonText}
-                    copyButtonText={copyButtonText}
-                    copiedButtonText={copiedButtonText}
-                    onSend={onSend}
-                    onTypeFinished={
-                      ENABLE_PREVIEW_TYPEWRITER
-                        ? handlePreviewTypeFinished
-                        : undefined
-                    }
-                  />
+                      );
+
+                    return (
+                      <ContentBlock
+                        item={item}
+                        mobileStyle={false}
+                        blockBid={
+                          item.element_bid || item.generated_block_bid || ''
+                        }
+                        contentRenderKey={resolveLessonPreviewContentRenderKey(
+                          item,
+                          enableStreamingTypewriter,
+                        )}
+                        enableStreamingTypewriter={enableStreamingTypewriter}
+                        confirmButtonText={confirmButtonText}
+                        copyButtonText={copyButtonText}
+                        copiedButtonText={copiedButtonText}
+                        onSend={onSend}
+                        onTypeFinished={
+                          ENABLE_PREVIEW_TYPEWRITER
+                            ? handlePreviewTypeFinished
+                            : undefined
+                        }
+                      />
+                    );
+                  })()}
                 </div>
               );
             })}
