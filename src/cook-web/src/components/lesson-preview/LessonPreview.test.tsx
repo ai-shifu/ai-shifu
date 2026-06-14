@@ -198,7 +198,7 @@ describe('LessonPreview billing action', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('builds stable preview item keys from business ids instead of list indexes', () => {
+  test('builds stable preview item keys from business ids and falls back to idx only when needed', () => {
     expect(
       resolveLessonPreviewItemKey({
         element_bid: 'text-1',
@@ -225,6 +225,26 @@ describe('LessonPreview billing action', () => {
         type: ChatContentItemType.ERROR,
       } as ChatContentItem),
     ).toBe('error:preview-business-error');
+
+    expect(
+      resolveLessonPreviewItemKey(
+        {
+          content: 'streaming text that should not become the key',
+          type: ChatContentItemType.CONTENT,
+        } as ChatContentItem,
+        7,
+      ),
+    ).toBe('content:idx-7');
+
+    expect(
+      resolveLessonPreviewItemKey(
+        {
+          content: '',
+          type: ChatContentItemType.ERROR,
+        } as ChatContentItem,
+        3,
+      ),
+    ).toBe('error:idx-3');
   });
 
   test('routes preview regenerate from helper row to the parent content item', () => {

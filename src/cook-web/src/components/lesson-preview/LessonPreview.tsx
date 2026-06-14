@@ -107,24 +107,29 @@ const shouldPreferGeneratedBlockItem = (
   return false;
 };
 
-const resolveLessonPreviewItemIdentity = (item: ChatContentItem) =>
+const resolveLessonPreviewItemIdentity = (
+  item: ChatContentItem,
+  index?: number,
+) =>
   item.element_bid ||
   item.generated_block_bid ||
   item.parent_element_bid ||
   item.parent_block_bid ||
-  item.content ||
-  'unknown';
+  (index !== undefined ? `idx-${index}` : '');
 
-export const resolveLessonPreviewItemKey = (item: ChatContentItem) => {
+export const resolveLessonPreviewItemKey = (
+  item: ChatContentItem,
+  index?: number,
+) => {
   if (item.type === ChatContentItemType.LIKE_STATUS) {
-    return `like:${resolveLessonPreviewItemIdentity(item)}`;
+    return `like:${resolveLessonPreviewItemIdentity(item, index)}`;
   }
 
   if (item.type === ChatContentItemType.ERROR) {
-    return `error:${resolveLessonPreviewItemIdentity(item)}`;
+    return `error:${resolveLessonPreviewItemIdentity(item, index)}`;
   }
 
-  return `content:${resolveLessonPreviewItemIdentity(item)}`;
+  return `content:${resolveLessonPreviewItemIdentity(item, index)}`;
 };
 
 const LessonPreview: React.FC<LessonPreviewProps> = ({
@@ -393,7 +398,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                 }
                 return (
                   <div
-                    key={resolveLessonPreviewItemKey(item)}
+                    key={resolveLessonPreviewItemKey(item, idx)}
                     className='p-0'
                     style={{ maxWidth: '100%' }}
                   >
@@ -438,7 +443,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   item.business_code === CREDIT_INSUFFICIENT_BUSINESS_CODE;
                 return (
                   <div
-                    key={resolveLessonPreviewItemKey(item)}
+                    key={resolveLessonPreviewItemKey(item, idx)}
                     className='p-0 relative'
                     style={{ maxWidth: '100%' }}
                   >
@@ -473,7 +478,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
               return (
                 <div
-                  key={resolveLessonPreviewItemKey(item)}
+                  key={resolveLessonPreviewItemKey(item, idx)}
                   className='p-0 relative'
                   style={{
                     maxWidth: '100%',
