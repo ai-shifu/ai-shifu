@@ -48,7 +48,7 @@ describe('learningModeUrl', () => {
     expect(parseLearningModeQueryParam('present')).toBeNull();
   });
 
-  it('enables classroom mode without preview or legacy listen mode', () => {
+  it('enables classroom mode while preserving preview mode and removing legacy listen mode', () => {
     const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
     setMockLocation(
       'http://localhost:3000/c/course-1?preview=true&listen=true',
@@ -59,7 +59,7 @@ describe('learningModeUrl', () => {
     expect(replaceStateSpy).toHaveBeenCalledWith(
       window.history.state,
       '',
-      '/c/course-1?mode=classroom',
+      '/c/course-1?preview=true&mode=classroom',
     );
   });
 

@@ -44,7 +44,6 @@ export const enableClassroomModeInUrl = () => {
 
   const url = new URL(window.location.href);
   url.searchParams.set(MODE_QUERY_PARAM, 'classroom');
-  url.searchParams.delete('preview');
   url.searchParams.delete(LEGACY_LISTEN_QUERY_PARAM);
   replaceCurrentUrl(url);
 };

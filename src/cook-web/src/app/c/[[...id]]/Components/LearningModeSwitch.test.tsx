@@ -121,4 +121,24 @@ describe('LearningModeSwitch', () => {
     );
     expect(requestFullscreen).not.toHaveBeenCalled();
   });
+
+  it('preserves preview mode when switching to classroom mode', () => {
+    const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
+    setMockLocation('http://localhost:3000/c/course-1?preview=true');
+    useSystemStore.setState({ canUseClassroomMode: true });
+
+    render(<LearningModeSwitch />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.chat.learningModeClassroom',
+      }),
+    );
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/c/course-1?preview=true&mode=classroom',
+    );
+  });
 });
