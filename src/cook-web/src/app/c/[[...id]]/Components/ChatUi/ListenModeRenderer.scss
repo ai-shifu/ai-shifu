@@ -142,25 +142,6 @@
   display: none !important;
 }
 
-.classroom-slide-root .slide-element--interaction,
-.classroom-slide-root .slide-interaction-overlay {
-  font-size: 20px;
-  line-height: 1.45;
-}
-
-.classroom-slide-root .slide-element--interaction button,
-.classroom-slide-root .slide-element--interaction input,
-.classroom-slide-root .slide-element--interaction textarea,
-.classroom-slide-root .slide-element--interaction select,
-.classroom-slide-root .slide-interaction-overlay button,
-.classroom-slide-root .slide-interaction-overlay input,
-.classroom-slide-root .slide-interaction-overlay textarea,
-.classroom-slide-root .slide-interaction-overlay select {
-  min-height: 44px;
-  font-size: 18px;
-  line-height: 1.35;
-}
-
 .classroom-fullscreen-button {
   position: absolute;
   top: 80px;
