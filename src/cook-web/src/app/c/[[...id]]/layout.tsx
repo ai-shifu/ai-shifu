@@ -242,7 +242,6 @@ export default function ChatLayout({
     }
 
     if (isPreviewMode) {
-      updateCanUseClassroomMode(null);
       return;
     }
 
