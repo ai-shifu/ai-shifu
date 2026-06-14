@@ -474,7 +474,6 @@ const buildSlideElementList = ({
   lastInteractionBid,
   lastItemIsInteraction,
   resolveRenderSequence,
-  variant,
 }: {
   items: ChatContentItem[];
   askListByAnchorElementBid: Map<string, AskMessage[]>;
@@ -483,9 +482,7 @@ const buildSlideElementList = ({
   lastInteractionBid: string | null;
   lastItemIsInteraction: boolean;
   resolveRenderSequence: ResolveRenderSequence;
-  variant: 'listen' | 'classroom';
 }) => {
-  const isClassroomMode = variant === 'classroom';
   let pageCursor = 0;
   let sequenceNumber = 0;
   let hasResolvedFirstContentType = false;
@@ -498,9 +495,7 @@ const buildSlideElementList = ({
         resolveListenSlideAudioSource(item);
       const contentType = resolveListenSlideElementType(item);
       const subtitleCues = resolveListenSlideSubtitleCues(item);
-      const askList = isClassroomMode
-        ? undefined
-        : askListByAnchorElementBid.get(item.element_bid);
+      const askList = askListByAnchorElementBid.get(item.element_bid);
 
       if (!hasResolvedFirstContentType) {
         hasResolvedFirstContentType = true;
@@ -519,16 +514,13 @@ const buildSlideElementList = ({
         is_marker: item.is_marker ?? true,
         is_renderable: item.is_renderable ?? true,
         is_new: item.is_new ?? true,
-        // Keep classroom slides out of markdown-flow-ui's silent-step auto advance
-        // path while still stripping every audio source below.
-        is_speakable: isClassroomMode
-          ? true
-          : (item.is_speakable ?? Boolean(audioUrl || audioSegments?.length)),
-        audio_url: isClassroomMode ? undefined : audioUrl,
-        is_audio_streaming: isClassroomMode ? false : isAudioStreaming,
-        isAudioStreaming: isClassroomMode ? false : isAudioStreaming,
-        audio_segments: isClassroomMode ? undefined : audioSegments,
-        subtitle_cues: isClassroomMode ? undefined : subtitleCues,
+        is_speakable:
+          item.is_speakable ?? Boolean(audioUrl || audioSegments?.length),
+        audio_url: audioUrl,
+        is_audio_streaming: isAudioStreaming,
+        isAudioStreaming,
+        audio_segments: audioSegments,
+        subtitle_cues: subtitleCues,
         ask_list: askList,
         blockBid: item.element_bid,
         page: pageCursor,
@@ -552,9 +544,7 @@ const buildSlideElementList = ({
     const isPayInteraction = isPaySystemInteractionContent(item.content);
     const isLatestEditable =
       lastItemIsInteraction && item.element_bid === lastInteractionBid;
-    const askList = isClassroomMode
-      ? undefined
-      : askListByAnchorElementBid.get(item.element_bid);
+    const askList = askListByAnchorElementBid.get(item.element_bid);
 
     sequenceNumber += 1;
     elementList.push({
@@ -803,7 +793,6 @@ const ListenModeSlideRenderer = ({
       lastInteractionBid,
       lastItemIsInteraction,
       resolveRenderSequence,
-      variant,
     });
 
     for (const streamKey of Array.from(sequenceMap.keys())) {
@@ -822,7 +811,6 @@ const ListenModeSlideRenderer = ({
     lastInteractionBid,
     lastItemIsInteraction,
     sectionTitle,
-    variant,
   ]);
   const markerStepCount = useMemo(
     () => elementList.filter(element => Boolean(element.is_marker)).length,

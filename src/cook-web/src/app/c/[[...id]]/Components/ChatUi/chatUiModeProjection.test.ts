@@ -29,7 +29,7 @@ describe('chatUiModeProjection', () => {
     ]);
   });
 
-  it('projects classroom mode to visual slides and interactions only', () => {
+  it('keeps listen projection free of classroom-only visual filtering', () => {
     const items: ChatContentItem[] = [
       {
         type: ChatContentItemType.CONTENT,
@@ -111,29 +111,28 @@ describe('chatUiModeProjection', () => {
     const projectedItems = projectListenModeItems({
       items,
       askButtonMarkup,
-      variant: 'classroom',
     });
 
     expect(projectedItems.map(item => item.element_bid)).toEqual([
+      'narration-1',
+      'narration-with-slide-metadata',
       'slide-1',
       'interaction-1',
+      'ask-2',
     ]);
 
-    const slideItem = projectedItems[0];
+    const slideItem = projectedItems[2];
     expect(slideItem).toEqual(
       expect.objectContaining({
         content: '<section>Slide</section>',
-        is_speakable: false,
+        is_speakable: true,
+        audioUrl: '/tts.mp3',
+        audio_url: '/tts-history.mp3',
       }),
     );
-    expect(slideItem.audioUrl).toBeUndefined();
-    expect(slideItem.audioTracks).toBeUndefined();
-    expect(slideItem.isAudioStreaming).toBeUndefined();
-    expect(slideItem.isAudioBackfillReady).toBeUndefined();
-    expect(slideItem.audioDurationMs).toBeUndefined();
-    expect(slideItem.audio_url).toBeUndefined();
-    expect(slideItem.audio_segments).toBeUndefined();
-    expect(slideItem.ask_list).toBeUndefined();
-    expect(slideItem.payload?.audio).toBeUndefined();
+    expect(slideItem.audioTracks).toHaveLength(1);
+    expect(slideItem.audio_segments).toHaveLength(1);
+    expect(slideItem.ask_list).toHaveLength(1);
+    expect(slideItem.payload?.audio).toBeDefined();
   });
 });

@@ -1,6 +1,6 @@
 import type { LearningMode } from './learningModeOptions';
 
-type StoredLearningMode = Exclude<LearningMode, 'classroom'>;
+type StoredLearningMode = LearningMode;
 
 const LEARNING_MODE_STORAGE_PREFIX = 'course_learning_mode';
 
@@ -9,7 +9,8 @@ const buildLearningModeStorageKey = (courseId?: string) =>
 
 const isStoredLearningMode = (
   value: string | null,
-): value is StoredLearningMode => value === 'listen' || value === 'read';
+): value is StoredLearningMode =>
+  value === 'listen' || value === 'read' || value === 'classroom';
 
 export const readLearningModeFromStorage = (
   courseId?: string,
@@ -37,10 +38,6 @@ export const writeLearningModeToStorage = (
   mode: LearningMode,
 ) => {
   if (typeof window === 'undefined') {
-    return;
-  }
-
-  if (mode === 'classroom') {
     return;
   }
 

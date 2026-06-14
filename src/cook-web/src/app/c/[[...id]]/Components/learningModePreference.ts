@@ -43,6 +43,10 @@ export const resolveCourseLearningMode = ({
     return 'listen';
   }
 
+  if (storedLearningMode === 'classroom') {
+    return canUseClassroomMode === true ? 'classroom' : 'read';
+  }
+
   if (storedLearningMode === 'read') {
     return 'read';
   }

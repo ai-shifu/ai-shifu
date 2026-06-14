@@ -37,15 +37,33 @@ const replaceCurrentUrl = (url: URL) => {
   );
 };
 
-export const enableClassroomModeInUrl = () => {
+export const setLearningModeInUrl = (mode: LearningMode) => {
   if (typeof window === 'undefined') {
     return;
   }
 
   const url = new URL(window.location.href);
-  url.searchParams.set(MODE_QUERY_PARAM, 'classroom');
+  url.searchParams.set(MODE_QUERY_PARAM, mode);
   url.searchParams.delete(LEGACY_LISTEN_QUERY_PARAM);
   replaceCurrentUrl(url);
+};
+
+export const normalizeLegacyListenModeInUrl = ({
+  listenModeParam,
+  urlModeParam,
+}: {
+  listenModeParam: boolean | null;
+  urlModeParam: LearningMode | null;
+}) => {
+  if (
+    typeof window === 'undefined' ||
+    urlModeParam ||
+    listenModeParam === null
+  ) {
+    return;
+  }
+
+  setLearningModeInUrl(listenModeParam ? 'listen' : 'read');
 };
 
 export const requestClassroomBrowserFullscreen = async (
@@ -75,22 +93,4 @@ export const requestClassroomBrowserFullscreen = async (
   } catch {
     return false;
   }
-};
-
-export const clearClassroomModeFromUrl = () => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  const url = new URL(window.location.href);
-  if (
-    parseLearningModeQueryParam(
-      url.searchParams.get(MODE_QUERY_PARAM) ?? undefined,
-    ) !== 'classroom'
-  ) {
-    return;
-  }
-
-  url.searchParams.delete(MODE_QUERY_PARAM);
-  replaceCurrentUrl(url);
 };

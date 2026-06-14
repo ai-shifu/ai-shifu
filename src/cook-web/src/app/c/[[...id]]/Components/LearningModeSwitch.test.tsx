@@ -64,6 +64,7 @@ describe('LearningModeSwitch', () => {
 
   it('switches presentation modes without stopping active lesson streams', () => {
     const eventsInOrder: string[] = [];
+    const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
     const stopListener = () => {
       eventsInOrder.push(`stop:${useSystemStore.getState().learningMode}`);
     };
@@ -83,6 +84,11 @@ describe('LearningModeSwitch', () => {
       eventsInOrder.push(`mode:${useSystemStore.getState().learningMode}`);
 
       expect(eventsInOrder).toEqual(['mode:listen']);
+      expect(replaceStateSpy).toHaveBeenCalledWith(
+        window.history.state,
+        '',
+        '/c/course-1?mode=listen',
+      );
     } finally {
       events.removeEventListener(
         BZ_EVENT_NAMES.STOP_ACTIVE_LESSON_STREAM,
@@ -132,6 +138,30 @@ describe('LearningModeSwitch', () => {
       '/c/course-1?mode=classroom',
     );
     expect(requestFullscreen).not.toHaveBeenCalled();
+  });
+
+  it('writes read mode to URL when switching back from another mode', () => {
+    const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
+    setMockLocation('http://localhost:3000/c/course-1?mode=classroom');
+    useSystemStore.setState({
+      learningMode: 'classroom',
+      canUseClassroomMode: true,
+    });
+
+    render(<LearningModeSwitch />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.chat.learningModeRead',
+      }),
+    );
+
+    expect(useSystemStore.getState().learningMode).toBe('read');
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/c/course-1?mode=read',
+    );
   });
 
   it('preserves preview mode when switching to classroom mode', () => {

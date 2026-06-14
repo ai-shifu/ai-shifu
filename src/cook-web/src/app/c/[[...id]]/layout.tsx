@@ -35,8 +35,9 @@ import {
 } from './Components/learningModeStorage';
 import { resolveCourseLearningMode } from './Components/learningModePreference';
 import {
-  clearClassroomModeFromUrl,
+  normalizeLegacyListenModeInUrl,
   parseLearningModeQueryParam,
+  setLearningModeInUrl,
 } from './Components/learningModeUrl';
 
 const parseBooleanQueryParam = (value?: string) => {
@@ -228,6 +229,13 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
+    normalizeLegacyListenModeInUrl({
+      listenModeParam,
+      urlModeParam,
+    });
+  }, [listenModeParam, urlModeParam]);
+
+  useEffect(() => {
     if (!envDataInitialized || !storageCourseId) {
       updateCanUseClassroomMode(null);
       return;
@@ -286,7 +294,7 @@ export default function ChatLayout({
     }
 
     if (canUseClassroomMode === false) {
-      clearClassroomModeFromUrl();
+      setLearningModeInUrl('read');
       updateLearningMode('read');
     }
   }, [canUseClassroomMode, hasClassroomModeOverride, updateLearningMode]);
@@ -359,16 +367,20 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
-    if (
-      !storageCourseId ||
-      hasListenModeOverride ||
-      urlModeParam ||
-      learningMode === 'classroom'
-    ) {
+    if (!storageCourseId || !learningMode) {
       return;
     }
 
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
+    const hasPendingClassroomResolution =
+      canUseClassroomMode === null &&
+      learningMode === 'read' &&
+      (urlModeParam === 'classroom' ||
+        (!urlModeParam && storedLearningMode === 'classroom'));
+
+    if (hasPendingClassroomResolution) {
+      return;
+    }
 
     if (storedLearningMode === learningMode) {
       return;
@@ -376,7 +388,7 @@ export default function ChatLayout({
 
     // Keep the course-scoped preference synced after auto resolution or manual toggles.
     writeLearningModeToStorage(storageCourseId, learningMode);
-  }, [hasListenModeOverride, learningMode, storageCourseId, urlModeParam]);
+  }, [canUseClassroomMode, learningMode, storageCourseId, urlModeParam]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {

@@ -1,8 +1,8 @@
 import {
-  clearClassroomModeFromUrl,
-  enableClassroomModeInUrl,
+  normalizeLegacyListenModeInUrl,
   parseLearningModeQueryParam,
   requestClassroomBrowserFullscreen,
+  setLearningModeInUrl,
 } from './learningModeUrl';
 
 describe('learningModeUrl', () => {
@@ -48,48 +48,86 @@ describe('learningModeUrl', () => {
     expect(parseLearningModeQueryParam('present')).toBeNull();
   });
 
-  it('enables classroom mode while preserving preview mode and removing legacy listen mode', () => {
+  it('sets learning mode while preserving preview mode, hash, and removing legacy listen mode', () => {
     const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
     setMockLocation(
-      'http://localhost:3000/c/course-1?preview=true&listen=true',
+      'http://localhost:3000/c/course-1?preview=true&listen=true#slide-2',
     );
 
-    enableClassroomModeInUrl();
+    setLearningModeInUrl('classroom');
 
     expect(replaceStateSpy).toHaveBeenCalledWith(
       window.history.state,
       '',
-      '/c/course-1?preview=true&mode=classroom',
+      '/c/course-1?preview=true&mode=classroom#slide-2',
     );
   });
 
-  it('clears only the classroom mode query parameter', () => {
+  it('writes read and listen modes through the unified mode query parameter', () => {
     const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
     setMockLocation(
       'http://localhost:3000/c/course-1?preview=true&mode=classroom',
     );
 
-    clearClassroomModeFromUrl();
+    setLearningModeInUrl('read');
 
     expect(replaceStateSpy).toHaveBeenCalledWith(
       window.history.state,
       '',
-      '/c/course-1?preview=true',
+      '/c/course-1?preview=true&mode=read',
+    );
+
+    setMockLocation('http://localhost:3000/c/course-1?listen=false');
+    setLearningModeInUrl('listen');
+
+    expect(replaceStateSpy).toHaveBeenLastCalledWith(
+      window.history.state,
+      '',
+      '/c/course-1?mode=listen',
     );
   });
 
-  it('clears classroom mode query parameter case-insensitively', () => {
+  it('normalizes legacy listen query params only when mode is absent', () => {
     const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
     setMockLocation(
-      'http://localhost:3000/c/course-1?preview=true&mode=Classroom',
+      'http://localhost:3000/c/course-1?preview=true&listen=true',
     );
 
-    clearClassroomModeFromUrl();
+    normalizeLegacyListenModeInUrl({
+      listenModeParam: true,
+      urlModeParam: null,
+    });
 
     expect(replaceStateSpy).toHaveBeenCalledWith(
       window.history.state,
       '',
-      '/c/course-1?preview=true',
+      '/c/course-1?preview=true&mode=listen',
+    );
+
+    setMockLocation(
+      'http://localhost:3000/c/course-1?mode=classroom&listen=false',
+    );
+    normalizeLegacyListenModeInUrl({
+      listenModeParam: false,
+      urlModeParam: 'classroom',
+    });
+
+    expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalizes legacy listen=false query params to read mode', () => {
+    const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
+    setMockLocation('http://localhost:3000/c/course-1?listen=false');
+
+    normalizeLegacyListenModeInUrl({
+      listenModeParam: false,
+      urlModeParam: null,
+    });
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/c/course-1?mode=read',
     );
   });
 

@@ -13,10 +13,7 @@ import {
   type LearningMode,
 } from './learningModeOptions';
 import HeaderBetaBadge from './HeaderBetaBadge';
-import {
-  clearClassroomModeFromUrl,
-  enableClassroomModeInUrl,
-} from './learningModeUrl';
+import { setLearningModeInUrl } from './learningModeUrl';
 
 interface LearningModeSwitchProps {
   className?: string;
@@ -43,12 +40,7 @@ export const LearningModeSwitch = ({
   });
 
   const handleLearningModeSelect = (nextLearningMode: LearningMode) => {
-    if (nextLearningMode === 'classroom') {
-      enableClassroomModeInUrl();
-    } else {
-      clearClassroomModeFromUrl();
-    }
-
+    setLearningModeInUrl(nextLearningMode);
     updateLearningMode(nextLearningMode);
   };
 

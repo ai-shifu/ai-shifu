@@ -15,6 +15,7 @@ import {
   isListenLessonFeedbackPromptReady,
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
+import type { ChatContentItem } from '@/c-types/chatUi';
 
 const mockIsLessonFeedbackInteractionContent = jest.fn(
   (content?: string) => content?.includes('lesson_feedback') ?? false,
@@ -259,7 +260,7 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
-  it('removes audio, subtitles, and custom listen actions while keeping keyboard navigation mounted in classroom mode', async () => {
+  it('keeps listen slide data while hiding custom listen actions in classroom mode', async () => {
     const requestFullscreen = jest
       .fn()
       .mockRejectedValue(new Error('fullscreen blocked'));
@@ -302,7 +303,8 @@ describe('ListenModeSlideRenderer', () => {
                 type: 'ask',
                 content: '',
                 element_bid: 'ask-1',
-              },
+                anchor_element_bid: 'content-1',
+              } as ChatContentItem & { anchor_element_bid: string },
             ],
           },
         ]}
@@ -327,10 +329,27 @@ describe('ListenModeSlideRenderer', () => {
     expect(contentElement).toEqual(
       expect.objectContaining({
         is_speakable: true,
-        audio_url: undefined,
-        audio_segments: undefined,
-        subtitle_cues: undefined,
-        ask_list: undefined,
+        audio_url: '/tts.mp3',
+        audio_segments: expect.arrayContaining([
+          expect.objectContaining({
+            segment_index: 0,
+            audio_data: 'abc',
+            duration_ms: 100,
+            is_final: true,
+          }),
+        ]),
+        subtitle_cues: expect.arrayContaining([
+          expect.objectContaining({
+            text: 'caption',
+            start_ms: 0,
+            end_ms: 100,
+          }),
+        ]),
+        ask_list: expect.arrayContaining([
+          expect.objectContaining({
+            element_bid: 'ask-1',
+          }),
+        ]),
       }),
     );
     expect(slideProps?.disableLoadingOverlay).toBe(true);

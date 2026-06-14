@@ -814,15 +814,16 @@ export const NewChatComponents = ({
     resolveScrollPresentation,
   ]);
 
-  const slideModeItems = useMemo(
-    () =>
-      projectListenModeItems({
-        items,
-        askButtonMarkup,
-        variant: isClassroomMode ? 'classroom' : 'listen',
-      }),
-    [askButtonMarkup, isClassroomMode, items],
-  );
+  const slideModeItems = useMemo(() => {
+    if (isClassroomMode) {
+      return readModeItems;
+    }
+
+    return projectListenModeItems({
+      items,
+      askButtonMarkup,
+    });
+  }, [askButtonMarkup, isClassroomMode, items, readModeItems]);
 
   const itemByGeneratedBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();

@@ -108,4 +108,36 @@ describe('resolveCourseLearningMode', () => {
       }),
     ).toBe('read');
   });
+
+  it('restores stored classroom mode only when classroom access is available', () => {
+    expect(
+      resolveCourseLearningMode({
+        courseTtsEnabled: true,
+        canUseClassroomMode: true,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        storedLearningMode: 'classroom',
+      }),
+    ).toBe('classroom');
+
+    expect(
+      resolveCourseLearningMode({
+        courseTtsEnabled: true,
+        canUseClassroomMode: false,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        storedLearningMode: 'classroom',
+      }),
+    ).toBe('read');
+
+    expect(
+      resolveCourseLearningMode({
+        courseTtsEnabled: true,
+        canUseClassroomMode: null,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        storedLearningMode: 'classroom',
+      }),
+    ).toBe('read');
+  });
 });
