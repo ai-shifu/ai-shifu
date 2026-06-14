@@ -34,6 +34,11 @@ import {
   writeLearningModeToStorage,
 } from './Components/learningModeStorage';
 import { resolveCourseLearningMode } from './Components/learningModePreference';
+import {
+  clearClassroomModeFromUrl,
+  enableClassroomModeInUrl,
+  parseLearningModeQueryParam,
+} from './Components/learningModeUrl';
 
 const parseBooleanQueryParam = (value?: string) => {
   if (typeof value !== 'string') {
@@ -70,6 +75,8 @@ export default function ChatLayout({
     updatePreviewMode,
     updateSkip,
     updateShowLearningModeToggle,
+    canUseClassroomMode,
+    updateCanUseClassroomMode,
     learningMode,
     updateLearningMode,
   } = useSystemStore() as SystemStoreState;
@@ -101,7 +108,7 @@ export default function ChatLayout({
     })),
   );
 
-  const { userInfo, initUser } = useUserStore();
+  const { userInfo, initUser, isInitialized, isLoggedIn } = useUserStore();
 
   useEffect(() => {
     if (!envDataInitialized) return;
@@ -121,12 +128,14 @@ export default function ChatLayout({
   const isPreviewMode = parseBooleanQueryParam(params.preview) ?? false;
   const isSkipMode = parseBooleanQueryParam(params.skip) ?? false;
   const listenModeParam = parseBooleanQueryParam(params.listen);
+  const urlModeParam = parseLearningModeQueryParam(params.mode);
   const hasListenModeOverride = listenModeParam !== null;
+  const hasClassroomModeOverride = urlModeParam === 'classroom';
   const isCourseListenModeAvailable = courseTtsEnabled === true;
   const showLearningModeToggle =
     courseTtsEnabled === null
-      ? listenModeParam === true
-      : isCourseListenModeAvailable;
+      ? listenModeParam === true || canUseClassroomMode === true
+      : isCourseListenModeAvailable || canUseClassroomMode === true;
 
   if (channel !== currChannel) {
     updateChannel(currChannel);
@@ -203,14 +212,87 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
+    if (!envDataInitialized || !storageCourseId) {
+      updateCanUseClassroomMode(null);
+      return;
+    }
+
+    if (!isInitialized) {
+      updateCanUseClassroomMode(null);
+      return;
+    }
+
+    if (!isLoggedIn) {
+      updateCanUseClassroomMode(false);
+      return;
+    }
+
+    let canceled = false;
+    updateCanUseClassroomMode(null);
+
+    getCourseInfo(storageCourseId, true, {
+      skipErrorToast: true,
+      trackErrors: false,
+    })
+      .then(() => {
+        if (!canceled) {
+          updateCanUseClassroomMode(true);
+        }
+      })
+      .catch(() => {
+        if (!canceled) {
+          updateCanUseClassroomMode(false);
+        }
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [
+    envDataInitialized,
+    isInitialized,
+    isLoggedIn,
+    storageCourseId,
+    updateCanUseClassroomMode,
+  ]);
+
+  useEffect(() => {
+    if (!hasClassroomModeOverride) {
+      return;
+    }
+
+    if (canUseClassroomMode === true && !isPreviewMode) {
+      enableClassroomModeInUrl();
+      updatePreviewMode(true);
+      return;
+    }
+
+    if (canUseClassroomMode === false) {
+      clearClassroomModeFromUrl();
+      updateLearningMode('read');
+    }
+  }, [
+    canUseClassroomMode,
+    hasClassroomModeOverride,
+    isPreviewMode,
+    updateLearningMode,
+    updatePreviewMode,
+  ]);
+
+  useEffect(() => {
     if (!storageCourseId) {
       return;
     }
 
     const trackingKey = [
       storageCourseId,
-      hasListenModeOverride ? 'override' : 'default',
-      listenModeParam === null ? 'none' : listenModeParam ? 'listen' : 'read',
+      hasListenModeOverride || urlModeParam ? 'override' : 'default',
+      urlModeParam ||
+        (listenModeParam === null
+          ? 'none'
+          : listenModeParam
+            ? 'listen'
+            : 'read'),
     ].join(':');
 
     if (trackedLearningModeStorageRef.current === trackingKey) {
@@ -234,14 +316,18 @@ export default function ChatLayout({
     outlineBid,
     storageCourseId,
     trackEvent,
+    urlModeParam,
   ]);
 
   useEffect(() => {
     const storedLearningMode = readLearningModeFromStorage(storageCourseId);
     const nextLearningMode = resolveCourseLearningMode({
       courseTtsEnabled,
+      canUseClassroomMode:
+        isPreviewMode && canUseClassroomMode === true ? true : false,
       hasListenModeOverride,
       listenModeParam,
+      urlModeParam,
       storedLearningMode,
     });
     const currentLearningMode = useSystemStore.getState().learningMode;
@@ -253,14 +339,22 @@ export default function ChatLayout({
     updateLearningMode(nextLearningMode);
   }, [
     courseTtsEnabled,
+    canUseClassroomMode,
     hasListenModeOverride,
+    isPreviewMode,
     listenModeParam,
     storageCourseId,
     updateLearningMode,
+    urlModeParam,
   ]);
 
   useEffect(() => {
-    if (!storageCourseId || hasListenModeOverride) {
+    if (
+      !storageCourseId ||
+      hasListenModeOverride ||
+      urlModeParam ||
+      learningMode === 'classroom'
+    ) {
       return;
     }
 
@@ -272,7 +366,7 @@ export default function ChatLayout({
 
     // Keep the course-scoped preference synced after auto resolution or manual toggles.
     writeLearningModeToStorage(storageCourseId, learningMode);
-  }, [hasListenModeOverride, learningMode, storageCourseId]);
+  }, [hasListenModeOverride, learningMode, storageCourseId, urlModeParam]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {
@@ -299,6 +393,9 @@ export default function ChatLayout({
           updateCourseName(resp.course_name);
           updateCourseAvatar(resp.course_avatar);
           updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
+          if (isPreviewMode) {
+            updateCanUseClassroomMode(true);
+          }
           const titleSuffix = t('common.core.brandName');
           document.title = `${resp.course_name} - ${titleSuffix}`;
           const metaDescription = document.querySelector(
@@ -387,6 +484,7 @@ export default function ChatLayout({
     updateCourseName,
     updateCourseAvatar,
     updateCourseTtsEnabled,
+    updateCanUseClassroomMode,
     isPreviewMode,
   ]);
 

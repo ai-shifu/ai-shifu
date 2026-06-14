@@ -143,7 +143,7 @@ export default function ChatPage() {
       learningMode: state.learningMode,
     })),
   );
-  const isListenMode = learningMode === 'listen';
+  const isSlideMode = learningMode === 'listen' || learningMode === 'classroom';
 
   useEffect(() => {
     if (!initialized) {
@@ -184,7 +184,7 @@ export default function ChatPage() {
     useState<MobileViewMode>(DEFAULT_LISTEN_MOBILE_VIEW_MODE);
   const [isLandscapeViewport, setIsLandscapeViewport] = useState(false);
   const shouldUseVhViewportUnit =
-    isListenMode &&
+    isSlideMode &&
     mobileStyle &&
     isLandscapeViewport &&
     listenMobileViewMode === 'fullscreen';
@@ -192,16 +192,16 @@ export default function ChatPage() {
   useEffect(() => {
     const root = document.getElementById('root');
     const html = document.documentElement;
-    // Sync listen mode to global layout classes.
-    html.classList.toggle('listen-mode', isListenMode);
-    document.body.classList.toggle('listen-mode', isListenMode);
-    root?.classList.toggle('listen-mode', isListenMode);
+    // Keep the existing global layout class for both slide-based modes.
+    html.classList.toggle('listen-mode', isSlideMode);
+    document.body.classList.toggle('listen-mode', isSlideMode);
+    root?.classList.toggle('listen-mode', isSlideMode);
     return () => {
       html.classList.remove('listen-mode');
       document.body.classList.remove('listen-mode');
       root?.classList.remove('listen-mode');
     };
-  }, [isListenMode]);
+  }, [isSlideMode]);
 
   useEffect(() => {
     if (mobileStyle) {
@@ -213,10 +213,10 @@ export default function ChatPage() {
   }, [mobileStyle]);
 
   useEffect(() => {
-    if (!isListenMode || !mobileStyle) {
+    if (!isSlideMode || !mobileStyle) {
       setListenMobileViewMode(DEFAULT_LISTEN_MOBILE_VIEW_MODE);
     }
-  }, [isListenMode, mobileStyle]);
+  }, [isSlideMode, mobileStyle]);
 
   useEffect(() => {
     const shouldIgnoreKeyboardResize = (event?: Event) =>
@@ -855,7 +855,7 @@ export default function ChatPage() {
       className={clsx(
         styles.newChatPage,
         previewMode ? styles.previewMode : '',
-        isListenMode ? styles.listenMode : '',
+        isSlideMode ? styles.listenMode : '',
         mobileStyle ? 'flex-col' : 'h-screen flex-row',
         'flex',
       )}

@@ -249,6 +249,79 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
+  it('removes audio, subtitles, and custom listen actions in classroom mode', () => {
+    render(
+      <ListenModeSlideRenderer
+        variant='classroom'
+        items={[
+          {
+            type: 'content',
+            content: 'Slide',
+            element_bid: 'content-1',
+            is_speakable: true,
+            audio_url: '/tts.mp3',
+            audio_segments: [
+              {
+                segment_index: 0,
+                audio_data: 'abc',
+                duration_ms: 100,
+                is_final: true,
+              },
+            ],
+            payload: {
+              audio: {
+                subtitle_cues: [
+                  {
+                    text: 'caption',
+                    start_ms: 0,
+                    end_ms: 100,
+                  },
+                ],
+              },
+            },
+            ask_list: [
+              {
+                type: 'ask',
+                content: '',
+                element_bid: 'ask-1',
+              },
+            ],
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | {
+          disableLoadingOverlay?: boolean;
+          elementList?: Array<Record<string, unknown>>;
+          playerCustomActions?: unknown;
+        }
+      | undefined;
+    const contentElement = slideProps?.elementList?.find(
+      element => element.blockBid === 'content-1',
+    );
+
+    expect(contentElement).toEqual(
+      expect.objectContaining({
+        is_speakable: true,
+        audio_url: undefined,
+        audio_segments: undefined,
+        subtitle_cues: undefined,
+        ask_list: undefined,
+      }),
+    );
+    expect(slideProps?.disableLoadingOverlay).toBe(true);
+    expect(slideProps?.playerCustomActions).toBeNull();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.chat.listenPlaybackSpeedAriaLabel',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it('keeps the mobile ask block mounted and collapsed after closing the listen panel', async () => {
     render(
       <ListenModeSlideRenderer

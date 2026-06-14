@@ -2,6 +2,8 @@ import { UserInfo } from './index';
 
 export type SupportedLocale = 'zh-CN' | 'en-US' | 'fr-FR';
 
+export type LearningMode = 'listen' | 'read' | 'classroom';
+
 export interface LegalUrls {
   agreement: Record<SupportedLocale, string>;
   privacy: Record<SupportedLocale, string>;
@@ -71,16 +73,18 @@ export interface SystemStoreState {
   showVip: boolean;
   previewMode: boolean;
   skip: boolean;
-  learningMode: 'listen' | 'read';
+  learningMode: LearningMode;
   showLearningModeToggle: boolean;
+  canUseClassroomMode: boolean | null;
   updateLanguage: (language: string) => void;
   updateChannel: (channel: string) => void;
   updateWechatCode: (code: string) => void;
   setShowVip: (show: boolean) => void;
   updatePreviewMode: (mode: boolean) => void;
   updateSkip: (skip: boolean) => void;
-  updateLearningMode: (mode: 'listen' | 'read') => void;
+  updateLearningMode: (mode: LearningMode) => void;
   updateShowLearningModeToggle: (show: boolean) => void;
+  updateCanUseClassroomMode: (canUse: boolean | null) => void;
 }
 
 export interface CourseStoreState {

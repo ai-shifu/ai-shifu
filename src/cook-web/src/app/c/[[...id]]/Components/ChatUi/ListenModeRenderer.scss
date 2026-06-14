@@ -16,6 +16,11 @@
     padding-top: 136px !important;
   }
 
+  &.listen-reveal-wrapper--classroom {
+    padding: 0 !important;
+    background: var(--color-slide-desktop-bg);
+  }
+
   &.mobile {
     padding: 0 !important;
     height: 100%;
@@ -127,6 +132,67 @@
   min-height: 0;
   flex: 1 1 auto;
   background: var(--color-slide-desktop-bg);
+}
+
+.classroom-slide-root {
+  background: var(--color-slide-desktop-bg);
+}
+
+.classroom-slide-player .slide-player__toggle--playback {
+  display: none;
+}
+
+.classroom-slide-root .slide-element--interaction,
+.classroom-slide-root .slide-interaction-overlay {
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+.classroom-slide-root .slide-element--interaction button,
+.classroom-slide-root .slide-element--interaction input,
+.classroom-slide-root .slide-element--interaction textarea,
+.classroom-slide-root .slide-element--interaction select,
+.classroom-slide-root .slide-interaction-overlay button,
+.classroom-slide-root .slide-interaction-overlay input,
+.classroom-slide-root .slide-interaction-overlay textarea,
+.classroom-slide-root .slide-interaction-overlay select {
+  min-height: 44px;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.classroom-fullscreen-button {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 96;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--background) 94%, transparent);
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.14),
+    0 2px 8px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+  backdrop-filter: blur(16px);
+}
+
+.classroom-fullscreen-button:hover {
+  background: var(--background);
+}
+
+.classroom-fullscreen-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 45%, transparent);
+  outline-offset: 3px;
 }
 
 .listen-slide-mobile-ask-entry {

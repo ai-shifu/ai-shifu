@@ -10,6 +10,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
+import { Maximize2 } from 'lucide-react';
 import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
@@ -97,6 +98,7 @@ interface ListenModeSlideRendererProps {
   items: ChatContentItem[];
   mobileStyle: boolean;
   chatRef: React.RefObject<HTMLDivElement>;
+  variant?: 'listen' | 'classroom';
   isLoading?: boolean;
   sectionTitle?: string;
   courseName?: string;
@@ -346,6 +348,28 @@ const hasBlockingListenInteraction = (element?: SlideElement) => {
   );
 };
 
+type BrowserFullscreenTarget = HTMLElement & {
+  webkitRequestFullscreen?: HTMLElement['requestFullscreen'];
+};
+
+const requestBrowserFullscreen = async (element: HTMLElement) => {
+  const fullscreenTarget = element as BrowserFullscreenTarget;
+  const requestFullscreen =
+    fullscreenTarget.requestFullscreen ??
+    fullscreenTarget.webkitRequestFullscreen;
+
+  if (!requestFullscreen) {
+    return false;
+  }
+
+  try {
+    await requestFullscreen.call(fullscreenTarget);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const getListenPlaybackSequenceActive = ({
   currentStepIndex,
   totalStepCount,
@@ -398,6 +422,7 @@ const buildSlideElementList = ({
   lastInteractionBid,
   lastItemIsInteraction,
   resolveRenderSequence,
+  variant,
 }: {
   items: ChatContentItem[];
   askListByAnchorElementBid: Map<string, AskMessage[]>;
@@ -406,7 +431,9 @@ const buildSlideElementList = ({
   lastInteractionBid: string | null;
   lastItemIsInteraction: boolean;
   resolveRenderSequence: ResolveRenderSequence;
+  variant: 'listen' | 'classroom';
 }) => {
+  const isClassroomMode = variant === 'classroom';
   let pageCursor = 0;
   let sequenceNumber = 0;
   let hasResolvedFirstContentType = false;
@@ -419,7 +446,9 @@ const buildSlideElementList = ({
         resolveListenSlideAudioSource(item);
       const contentType = resolveListenSlideElementType(item);
       const subtitleCues = resolveListenSlideSubtitleCues(item);
-      const askList = askListByAnchorElementBid.get(item.element_bid);
+      const askList = isClassroomMode
+        ? undefined
+        : askListByAnchorElementBid.get(item.element_bid);
 
       if (!hasResolvedFirstContentType) {
         hasResolvedFirstContentType = true;
@@ -438,13 +467,16 @@ const buildSlideElementList = ({
         is_marker: item.is_marker ?? true,
         is_renderable: item.is_renderable ?? true,
         is_new: item.is_new ?? true,
-        is_speakable:
-          item.is_speakable ?? Boolean(audioUrl || audioSegments?.length),
-        audio_url: audioUrl,
-        is_audio_streaming: isAudioStreaming,
-        isAudioStreaming,
-        audio_segments: audioSegments,
-        subtitle_cues: subtitleCues,
+        // Keep classroom slides out of markdown-flow-ui's silent-step auto advance
+        // path while still stripping every audio source below.
+        is_speakable: isClassroomMode
+          ? true
+          : (item.is_speakable ?? Boolean(audioUrl || audioSegments?.length)),
+        audio_url: isClassroomMode ? undefined : audioUrl,
+        is_audio_streaming: isClassroomMode ? false : isAudioStreaming,
+        isAudioStreaming: isClassroomMode ? false : isAudioStreaming,
+        audio_segments: isClassroomMode ? undefined : audioSegments,
+        subtitle_cues: isClassroomMode ? undefined : subtitleCues,
         ask_list: askList,
         blockBid: item.element_bid,
         page: pageCursor,
@@ -468,7 +500,9 @@ const buildSlideElementList = ({
     const isPayInteraction = isPaySystemInteractionContent(item.content);
     const isLatestEditable =
       lastItemIsInteraction && item.element_bid === lastInteractionBid;
-    const askList = askListByAnchorElementBid.get(item.element_bid);
+    const askList = isClassroomMode
+      ? undefined
+      : askListByAnchorElementBid.get(item.element_bid);
 
     sequenceNumber += 1;
     elementList.push({
@@ -514,6 +548,7 @@ const ListenModeSlideRenderer = ({
   items,
   mobileStyle,
   chatRef,
+  variant = 'listen',
   isLoading = false,
   sectionTitle,
   courseName = '',
@@ -528,6 +563,7 @@ const ListenModeSlideRenderer = ({
   onMobileViewModeChange,
 }: ListenModeSlideRendererProps) => {
   const { t } = useTranslation();
+  const isClassroomMode = variant === 'classroom';
   const renderSequenceByStreamKeyRef = useRef<Map<string, number>>(new Map());
   const audioListenerCleanupMapRef = useRef<Map<HTMLAudioElement, () => void>>(
     new Map(),
@@ -557,6 +593,8 @@ const ListenModeSlideRenderer = ({
   const [isMobileAskPanelMounted, setIsMobileAskPanelMounted] = useState(false);
   const [mobileAskPanelElementBid, setMobileAskPanelElementBid] = useState('');
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
+  const [isClassroomFullscreenBlocked, setIsClassroomFullscreenBlocked] =
+    useState(false);
   const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>(
     DEFAULT_LISTEN_MOBILE_VIEW_MODE,
   );
@@ -708,11 +746,12 @@ const ListenModeSlideRenderer = ({
     const nextElementList = buildSlideElementList({
       items,
       askListByAnchorElementBid,
-      sectionTitle,
+      sectionTitle: isClassroomMode ? undefined : sectionTitle,
       interactionInputMap,
       lastInteractionBid,
       lastItemIsInteraction,
       resolveRenderSequence,
+      variant,
     });
 
     for (const streamKey of Array.from(sequenceMap.keys())) {
@@ -726,10 +765,12 @@ const ListenModeSlideRenderer = ({
   }, [
     askListByAnchorElementBid,
     interactionInputMap,
+    isClassroomMode,
     items,
     lastInteractionBid,
     lastItemIsInteraction,
     sectionTitle,
+    variant,
   ]);
   const markerStepCount = useMemo(
     () => elementList.filter(element => Boolean(element.is_marker)).length,
@@ -995,6 +1036,59 @@ const ListenModeSlideRenderer = ({
     },
     [onPlayerVisibilityChange],
   );
+
+  const requestClassroomFullscreen = useCallback(async () => {
+    const slideShellElement = slideShellRef.current;
+    if (!slideShellElement) {
+      return false;
+    }
+
+    const didEnterFullscreen =
+      Boolean(getDocumentFullscreenElement()) ||
+      (await requestBrowserFullscreen(slideShellElement));
+    setIsClassroomFullscreenBlocked(!didEnterFullscreen);
+
+    return didEnterFullscreen;
+  }, []);
+
+  useEffect(() => {
+    if (!isClassroomMode) {
+      setIsClassroomFullscreenBlocked(false);
+      return;
+    }
+
+    if (getDocumentFullscreenElement()) {
+      setIsClassroomFullscreenBlocked(false);
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      void requestClassroomFullscreen();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [isClassroomMode, lessonId, requestClassroomFullscreen]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (getDocumentFullscreenElement()) {
+        setIsClassroomFullscreenBlocked(false);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener(
+        'webkitfullscreenchange',
+        handleFullscreenChange,
+      );
+    };
+  }, []);
 
   const syncMediaPlaybackState = useCallback(() => {
     const trackedAudioElements = Array.from(
@@ -1406,6 +1500,10 @@ const ListenModeSlideRenderer = ({
 
   const playerCustomActions = useCallback(
     (context: SlidePlayerCustomActionContext) => {
+      if (isClassroomMode) {
+        return null;
+      }
+
       const playbackSpeedLabel = formatListenPlaybackSpeed(playbackSpeed);
       const playbackSpeedAction = (
         <ListenPlaybackSpeedPlayerAction
@@ -1454,6 +1552,7 @@ const ListenModeSlideRenderer = ({
       fullscreenPortalContainer,
       handleListenPlaybackSpeedChange,
       handlePlayerCustomActionContextChange,
+      isClassroomMode,
       isAskActionDisabled,
       mobileStyle,
       playbackSpeed,
@@ -1461,7 +1560,8 @@ const ListenModeSlideRenderer = ({
     ],
   );
 
-  const shouldRenderMobileAskEntry = mobileStyle && !shouldRenderEmptyPpt;
+  const shouldRenderMobileAskEntry =
+    !isClassroomMode && mobileStyle && !shouldRenderEmptyPpt;
   const isMobileFullscreen = mobileViewMode === 'fullscreen';
   const playerTexts = useMemo(
     () => ({
@@ -1597,9 +1697,16 @@ const ListenModeSlideRenderer = ({
   // console.log('elementlist', elementList);
 
   const shouldRenderDesktopAskOverlay =
-    isDesktopAskPanelMounted && !mobileStyle && !shouldRenderEmptyPpt;
+    !isClassroomMode &&
+    isDesktopAskPanelMounted &&
+    !mobileStyle &&
+    !shouldRenderEmptyPpt;
   const shouldRenderMobileAskPanel =
-    isMobileAskPanelMounted && !shouldRenderEmptyPpt;
+    !isClassroomMode && isMobileAskPanelMounted && !shouldRenderEmptyPpt;
+  const shouldRenderClassroomFullscreenButton =
+    isClassroomMode &&
+    isClassroomFullscreenBlocked &&
+    !Boolean(getDocumentFullscreenElement());
 
   const desktopAskOverlay = shouldRenderDesktopAskOverlay ? (
     <div
@@ -1635,6 +1742,7 @@ const ListenModeSlideRenderer = ({
     <div
       className={cn(
         'listen-reveal-wrapper',
+        isClassroomMode && 'listen-reveal-wrapper--classroom',
         previewMode && !mobileStyle && 'listen-reveal-wrapper--preview',
         mobileStyle ? 'mobile bg-white' : 'bg-[var(--color-slide-desktop-bg)]',
       )}
@@ -1704,6 +1812,7 @@ const ListenModeSlideRenderer = ({
           // playerAlwaysVisible={true}
           className={cn(
             'h-full w-full listen-slide-root',
+            isClassroomMode && 'classroom-slide-root',
             isMobileFullscreen && 'listen-slide-root--landscape',
           )}
           elementList={elementList}
@@ -1730,12 +1839,32 @@ const ListenModeSlideRenderer = ({
           fullscreenHeader={fullscreenHeader}
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
-          playerClassName={mobileStyle ? 'listen-slide-player-mobile' : ''}
-          playerCustomActionPauseOnActive={true}
-          playerCustomActions={playerCustomActions}
+          disableLoadingOverlay={isClassroomMode}
+          playerClassName={cn(
+            mobileStyle ? 'listen-slide-player-mobile' : '',
+            isClassroomMode && 'classroom-slide-player',
+          )}
+          playerCustomActionPauseOnActive={!isClassroomMode}
+          playerCustomActions={isClassroomMode ? null : playerCustomActions}
           playerTexts={playerTexts}
           showPlayer={!shouldRenderEmptyPpt}
         />
+        {shouldRenderClassroomFullscreenButton ? (
+          <button
+            type='button'
+            className='classroom-fullscreen-button'
+            onClick={() => {
+              void requestClassroomFullscreen();
+            }}
+          >
+            <Maximize2
+              aria-hidden='true'
+              size={22}
+              strokeWidth={2.2}
+            />
+            <span>{t('module.chat.classroomEnterFullscreen')}</span>
+          </button>
+        ) : null}
         {isLoading ? (
           <div
             className={cn(

@@ -5,11 +5,19 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { useSystemStore } from '@/c-store/useSystemStore';
+import { useCourseStore } from '@/c-store/useCourseStore';
 import {
+  getAvailableLearningModeOptions,
+  getLearningModeLabel,
   getLearningModeShortLabel,
-  LEARNING_MODE_OPTIONS,
+  type LearningMode,
 } from './learningModeOptions';
 import HeaderBetaBadge from './HeaderBetaBadge';
+import {
+  clearClassroomModeFromUrl,
+  enableClassroomModeInUrl,
+  requestClassroomBrowserFullscreen,
+} from './learningModeUrl';
 
 interface LearningModeSwitchProps {
   className?: string;
@@ -21,42 +29,62 @@ export const LearningModeSwitch = ({
   size = 'mobile',
 }: LearningModeSwitchProps) => {
   const { t } = useTranslation();
-  const { learningMode, updateLearningMode } = useSystemStore(
-    useShallow(state => ({
-      learningMode: state.learningMode,
-      updateLearningMode: state.updateLearningMode,
-    })),
-  );
-  const handleLearningModeToggle = () => {
-    const nextLearningMode = learningMode === 'listen' ? 'read' : 'listen';
+  const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
+  const { learningMode, updateLearningMode, canUseClassroomMode } =
+    useSystemStore(
+      useShallow(state => ({
+        learningMode: state.learningMode,
+        updateLearningMode: state.updateLearningMode,
+        canUseClassroomMode: state.canUseClassroomMode,
+      })),
+    );
+  const availableOptions = getAvailableLearningModeOptions({
+    courseTtsEnabled,
+    canUseClassroomMode,
+  });
+
+  const handleLearningModeSelect = (nextLearningMode: LearningMode) => {
+    if (nextLearningMode === 'classroom') {
+      void requestClassroomBrowserFullscreen();
+      enableClassroomModeInUrl();
+    } else {
+      clearClassroomModeFromUrl();
+    }
+
     updateLearningMode(nextLearningMode);
   };
 
+  if (availableOptions.length <= 1) {
+    return null;
+  }
+
   return (
-    <button
-      type='button'
+    <div
+      role='group'
       aria-label={t('module.chat.learningModeToggle')}
-      aria-pressed={learningMode === 'listen'}
       className={cn(
         styles.learningModeSwitch,
         size === 'desktop' ? styles.learningModeSwitchDesktop : '',
         className,
       )}
-      onClick={handleLearningModeToggle}
     >
-      {LEARNING_MODE_OPTIONS.map(option => {
+      {availableOptions.map(option => {
         const isActive = learningMode === option.mode;
         const isListenOption = option.mode === 'listen';
 
         return (
-          <span
+          <button
+            type='button'
             key={option.mode}
+            aria-label={getLearningModeLabel(t, option.mode)}
+            aria-pressed={isActive}
             className={cn(
               styles.segment,
               isListenOption ? styles.listenSegment : '',
               size === 'desktop' ? styles.segmentDesktop : '',
               isActive ? styles.segmentActive : '',
             )}
+            onClick={() => handleLearningModeSelect(option.mode)}
           >
             <span className={styles.segmentLabel}>
               {getLearningModeShortLabel(t, option.mode)}
@@ -67,10 +95,10 @@ export const LearningModeSwitch = ({
                 className={styles.betaBadge}
               />
             ) : null}
-          </span>
+          </button>
         );
       })}
-    </button>
+    </div>
   );
 };
 

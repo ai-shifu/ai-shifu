@@ -1,5 +1,6 @@
 {
   "__namespace__": "module.preview",
+  "classroomMode": "课堂模式",
   "debugDisabledBySoftLimit": "积分余额已低于提醒阈值，暂不能预览调试。",
   "llmError": "LLM 调用错误",
   "previewAll": "预览草稿",
