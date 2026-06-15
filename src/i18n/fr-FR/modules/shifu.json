@@ -27,6 +27,8 @@
   "previewArea": {
     "action": "Déboguer",
     "close": "Réduire la simulation d’apprentissage",
+    "copied": "Copié",
+    "copy": "Copier",
     "description": "Découvrez l’expérience apprenant et voyez comment les prompts personnalisent les cours",
     "disabled": "Sélectionnez une unité avant de déboguer.",
     "empty": "Saisissez les prompts pédagogiques à gauche, puis cliquez sur « Déboguer » pour tester la simulation d’apprentissage",

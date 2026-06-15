@@ -14,6 +14,7 @@ import { ChatContentItem, ChatContentItemType } from '@/c-types/chatUi';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { getAudioTrackByPosition } from '@/c-utils/audio-utils';
 import VariableList from './VariableList';
+import PreviewCopyButton from './PreviewCopyButton';
 import { type PreviewVariablesMap } from './variableStorage';
 import styles from './LessonPreview.module.scss';
 import { cn } from '@/lib/utils';
@@ -556,6 +557,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                       />
                     );
                   })()}
+                  {item.type === ChatContentItemType.CONTENT ? (
+                    <PreviewCopyButton content={item.content || ''} />
+                  ) : null}
                 </div>
               );
             })}
