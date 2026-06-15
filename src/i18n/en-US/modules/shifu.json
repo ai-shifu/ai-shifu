@@ -27,6 +27,8 @@
   "previewArea": {
     "action": "Debug",
     "close": "Collapse learning simulation",
+    "copied": "Copied",
+    "copy": "Copy",
     "description": "Feel the learner’s experience and see how prompts personalize courses",
     "disabled": "Select a unit before debugging.",
     "empty": "Enter teaching prompts on the left, then click \"Debug\" to experience learning simulation",

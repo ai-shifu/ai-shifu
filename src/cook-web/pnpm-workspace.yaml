@@ -1,0 +1,5 @@
+allowBuilds:
+  '@parcel/watcher': set this to true or false
+  es5-ext: set this to true or false
+  sharp: set this to true or false
+  unrs-resolver: set this to true or false
