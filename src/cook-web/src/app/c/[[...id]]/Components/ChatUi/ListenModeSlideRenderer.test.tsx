@@ -260,7 +260,7 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
-  it('strips audio data while hiding custom listen actions in classroom mode', async () => {
+  it('strips audio data and disables loading overlay in classroom mode', async () => {
     const requestFullscreen = jest
       .fn()
       .mockRejectedValue(new Error('fullscreen blocked'));
@@ -318,6 +318,7 @@ describe('ListenModeSlideRenderer', () => {
           elementList?: Array<Record<string, unknown>>;
           playerCustomActions?: unknown;
           playerClassName?: string;
+          disableLoadingOverlay?: boolean;
           showPlayer?: boolean;
         }
       | undefined;
@@ -327,7 +328,7 @@ describe('ListenModeSlideRenderer', () => {
 
     expect(contentElement).toEqual(
       expect.objectContaining({
-        is_speakable: false,
+        is_speakable: true,
         ask_list: expect.arrayContaining([
           expect.objectContaining({
             element_bid: 'ask-1',
@@ -341,6 +342,7 @@ describe('ListenModeSlideRenderer', () => {
     expect(contentElement).not.toHaveProperty('is_audio_streaming');
     expect(contentElement).not.toHaveProperty('isAudioStreaming');
     expect(slideProps?.playerCustomActions).toBeNull();
+    expect(slideProps?.disableLoadingOverlay).toBe(true);
     expect(slideProps?.showPlayer).toBe(true);
     expect(slideProps?.playerClassName ?? '').toContain(
       'classroom-slide-player',

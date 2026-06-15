@@ -521,7 +521,7 @@ const buildSlideElementList = ({
         is_new: item.is_new ?? true,
         is_speakable: includeAudio
           ? (item.is_speakable ?? Boolean(audioUrl || audioSegments?.length))
-          : false,
+          : true,
         ...(includeAudio
           ? {
               audio_url: audioUrl,
@@ -1908,6 +1908,7 @@ const ListenModeSlideRenderer = ({
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
           }
+          disableLoadingOverlay={isClassroomMode}
           fullscreenHeader={fullscreenHeader}
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
