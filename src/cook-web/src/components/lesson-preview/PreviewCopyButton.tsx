@@ -14,8 +14,16 @@ interface PreviewCopyButtonProps {
 const COPIED_RESET_MS = 1800;
 
 /**
+ * MarkdownFlow verbatim-block fence. The copied content is wrapped with this
+ * marker on its own line above and below so the result can be pasted directly
+ * into MarkdownFlow.
+ */
+const MARKDOWNFLOW_FENCE = '!===';
+
+/**
  * Copy button rendered under each generated element in the debug preview.
- * Copies the element's raw LLM output to the clipboard as-is.
+ * Copies the element's raw LLM output to the clipboard wrapped in MarkdownFlow
+ * `!===` fences so the result is ready to paste into MarkdownFlow.
  */
 const PreviewCopyButton: React.FC<PreviewCopyButtonProps> = ({ content }) => {
   const { t } = useTranslation();
@@ -35,7 +43,8 @@ const PreviewCopyButton: React.FC<PreviewCopyButtonProps> = ({ content }) => {
 
   const handleCopy = React.useCallback(async () => {
     if (!content) return;
-    await copyText(content);
+    const wrapped = `${MARKDOWNFLOW_FENCE}\n${content.trim()}\n${MARKDOWNFLOW_FENCE}`;
+    await copyText(wrapped);
     setCopied(true);
     if (resetTimerRef.current) {
       clearTimeout(resetTimerRef.current);
