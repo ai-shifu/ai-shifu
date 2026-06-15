@@ -1385,6 +1385,7 @@ class RunScriptContextV2:
         self.shifu_ids = []
         self.outline_item_ids = []
         self.current_outline_item = None
+        self._current_outline_item = None
         self._run_type = RunType.INPUT
         self._can_continue = True
         self._stop_event = stop_event
@@ -1719,6 +1720,21 @@ class RunScriptContextV2:
                 ):
                     raise UserNotLoginException()
             parent_path = find_node_with_parents(self._struct, outline_bid)
+            if not parent_path:
+                self.app.logger.warning(
+                    "outline not found in runtime struct; creating progress for current outline | shifu_bid=%s outline_bid=%s preview=%s",
+                    outline_item_info_db.shifu_bid,
+                    outline_bid,
+                    self._preview_mode,
+                )
+                parent_path = [
+                    HistoryItem(
+                        bid=outline_item_info_db.outline_item_bid,
+                        id=outline_item_info_db.id,
+                        type="outline",
+                        children=[],
+                    )
+                ]
             attend_info = None
             for item in parent_path:
                 if item.type == "outline":
@@ -1804,6 +1820,13 @@ class RunScriptContextV2:
     # get the outline items to start or complete
     def _get_next_outline_item(self) -> list[OutlineItemUpdateDTO]:
         res = []
+        if not self._current_outline_item:
+            self.app.logger.warning(
+                "current outline not found in runtime struct; skip outline progress updates | outline_bid=%s preview=%s",
+                getattr(self._outline_item_info, "bid", ""),
+                self._preview_mode,
+            )
+            return res
         q = queue.Queue()
         q.put(self._struct)
         outline_ids = []
@@ -1904,6 +1927,13 @@ class RunScriptContextV2:
             outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
         ):
             path = find_node_with_parents(self._struct, outline_item_info.bid)
+            if not path:
+                self.app.logger.warning(
+                    "outline not found in runtime struct while marking start | outline_bid=%s preview=%s",
+                    outline_item_info.bid,
+                    self._preview_mode,
+                )
+                return
             for item in path:
                 if item.type == "outline":
                     if item.children and item.children[0].type == "outline":

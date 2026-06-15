@@ -470,6 +470,24 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
             1,
         )
 
+    def test_get_next_outline_item_skips_when_current_outline_missing_from_struct(self):
+        ctx = _make_context()
+        ctx.app = Flask("runtime-outline-missing-tests")
+        ctx._preview_mode = False
+        ctx._outline_item_info = types.SimpleNamespace(bid="missing-outline")
+        ctx._current_outline_item = None
+
+        with patch.object(dao.db.session, "query") as query_mock:
+            self.assertEqual(ctx._get_next_outline_item(), [])
+
+        query_mock.assert_not_called()
+
+    def test_get_current_outline_block_count_returns_zero_when_current_outline_missing(self):
+        ctx = _make_context()
+        ctx._current_outline_item = None
+
+        self.assertEqual(ctx._get_current_outline_block_count(), 0)
+
     def test_get_run_script_info_uses_outline_row_id_from_struct(self):
         ctx = _make_context()
         ctx.app = Flask("runtime-outline-row-id-tests")
