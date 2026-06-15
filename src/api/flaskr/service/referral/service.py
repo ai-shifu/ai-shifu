@@ -345,10 +345,21 @@ def _normalize_origin(value: str) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
 
-def mask_mobile_snapshot(value: str) -> str:
+def mask_identifier_snapshot(value: str) -> str:
     raw_value = str(value or "").strip()
     if not raw_value:
         return ""
+    if "@" in raw_value:
+        local_part, domain = raw_value.split("@", 1)
+        if not domain:
+            return "****"
+        if len(local_part) > 2:
+            masked_local = f"{local_part[:2]}****{local_part[-1:]}"
+        elif local_part:
+            masked_local = f"{local_part[0]}****"
+        else:
+            masked_local = "****"
+        return f"{masked_local}@{domain}"
     digits = "".join(ch for ch in raw_value if ch.isdigit())
     if digits.startswith("0086") and len(digits) == 15:
         digits = digits[4:]
@@ -365,7 +376,7 @@ def _mask_reward_queue_mobile_snapshots(
     masked_queue: list[dict[str, Any]] = []
     for item in reward_queue:
         next_item = dict(item)
-        next_item["invitee_mobile_snapshot"] = mask_mobile_snapshot(
+        next_item["invitee_mobile_snapshot"] = mask_identifier_snapshot(
             str(next_item.get("invitee_mobile_snapshot") or "")
         )
         masked_queue.append(next_item)
@@ -443,7 +454,7 @@ def build_invite_preview(app: Flask, *, invite_code: str) -> InvitePreviewDTO:
         return InvitePreviewDTO(
             recognized=True,
             invite_code=code.invite_code,
-            inviter_mobile_masked=mask_mobile_snapshot(
+            inviter_mobile_masked=mask_identifier_snapshot(
                 _load_invitee_mobile_snapshot(code.inviter_user_bid)
             ),
         )

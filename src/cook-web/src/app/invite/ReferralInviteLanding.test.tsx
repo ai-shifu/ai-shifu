@@ -36,7 +36,7 @@ jest.mock('@/api', () => ({
   },
 }));
 
-const mockEnvState = {
+const mockEnvState: { officialSiteUrl?: string | null } = {
   officialSiteUrl: 'https://official.example.com',
 };
 
@@ -44,7 +44,7 @@ jest.mock('@/c-store', () => ({
   __esModule: true,
   useEnvStore: (
     selector: ((state: typeof mockEnvState) => unknown) | undefined,
-  ) => selector?.(mockEnvState) ?? mockEnvState,
+  ) => (selector ? selector(mockEnvState) : mockEnvState),
 }));
 
 jest.mock('@/components/contact/ContactSideRail', () => ({
@@ -116,6 +116,22 @@ describe('ReferralInviteLanding', () => {
     );
     expect(
       screen.queryByLabelText('module.referral.inviteLanding.codeLabel'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('renders without official site link when officialSiteUrl is unset', async () => {
+    mockEnvState.officialSiteUrl = undefined;
+
+    render(<ReferralInviteLanding initialInviteCode='ab12cd34' />);
+
+    await waitFor(() =>
+      expect(api.getReferralInvitePreview).toHaveBeenCalledWith(
+        { invite_code: 'AB12CD34' },
+        { skipErrorToast: true },
+      ),
+    );
+    expect(
+      screen.queryByRole('link', { name: 'AI-Shifu' }),
     ).not.toBeInTheDocument();
   });
 

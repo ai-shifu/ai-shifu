@@ -65,9 +65,13 @@ export function ReferralInviteLanding({
 }: ReferralInviteLandingProps) {
   const router = useRouter();
   const { t } = useTranslation('module.referral');
-  const officialSiteUrl = useEnvStore(
+  const officialSiteUrlValue = useEnvStore(
     (state: EnvStoreState) => state.officialSiteUrl,
-  ).trim();
+  );
+  const officialSiteUrl =
+    typeof officialSiteUrlValue === 'string'
+      ? officialSiteUrlValue.trim()
+      : '';
   const normalizedInitialCode = useMemo(
     () => normalizeReferralInviteCode(initialInviteCode),
     [initialInviteCode],

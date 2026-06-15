@@ -35,6 +35,7 @@ from flaskr.service.referral.service import (
     InviteEventInput,
     build_invite_profile,
     load_active_campaign,
+    mask_identifier_snapshot,
     process_referral_post_auth,
     record_invite_event,
     retry_pending_referral_rewards,
@@ -261,6 +262,55 @@ def test_invite_preview_route_returns_only_masked_inviter_mobile(
     assert "15512340064" not in str(payload)
     assert "inviter-preview" not in str(payload)
     assert "Private inviter name" not in str(payload)
+
+
+def test_invite_preview_route_masks_email_inviter_identifier(
+    referral_app,
+) -> None:
+    register_referral_routes(referral_app, "/api/referral")
+    with referral_app.app_context():
+        campaign, _rule = _seed_campaign(campaign_bid="ref-campaign-preview-email")
+        db.session.add_all(
+            [
+                UserEntity(
+                    user_bid="inviter-preview-email",
+                    user_identify="teacher@example.com",
+                    nickname="Private email inviter",
+                ),
+                ReferralInviteCode(
+                    invite_code_bid="ref-code-preview-email",
+                    campaign_bid=campaign.campaign_bid,
+                    inviter_user_bid="inviter-preview-email",
+                    invite_code="MAIL1234",
+                    status=REFERRAL_INVITE_CODE_STATUS_ACTIVE,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    response = referral_app.test_client().get(
+        "/api/referral/invite-preview?invite_code=mail1234"
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert response.status_code == 200
+    assert payload == {
+        "recognized": True,
+        "invite_code": "MAIL1234",
+        "inviter_mobile_masked": "te****r@example.com",
+    }
+    assert "teacher@example.com" not in str(payload)
+    assert "inviter-preview-email" not in str(payload)
+    assert "Private email inviter" not in str(payload)
+
+
+def test_mask_identifier_snapshot_handles_phone_email_and_short_values() -> None:
+    assert mask_identifier_snapshot("15512340064") == "155****0064"
+    assert mask_identifier_snapshot("+86 15512340064") == "155****0064"
+    assert mask_identifier_snapshot("teacher@example.com") == "te****r@example.com"
+    assert mask_identifier_snapshot("a@example.com") == "a****@example.com"
+    assert mask_identifier_snapshot("not-identifying") == "****"
+    assert mask_identifier_snapshot("") == ""
 
 
 def test_invite_preview_route_is_non_identifying_for_unknown_code(
