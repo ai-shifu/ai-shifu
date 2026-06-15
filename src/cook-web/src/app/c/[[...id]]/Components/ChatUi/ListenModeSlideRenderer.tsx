@@ -474,6 +474,7 @@ const buildSlideElementList = ({
   lastInteractionBid,
   lastItemIsInteraction,
   includeAudio,
+  showLeadingTextPlaceholder,
   resolveRenderSequence,
 }: {
   items: ChatContentItem[];
@@ -483,6 +484,7 @@ const buildSlideElementList = ({
   lastInteractionBid: string | null;
   lastItemIsInteraction: boolean;
   includeAudio: boolean;
+  showLeadingTextPlaceholder: boolean;
   resolveRenderSequence: ResolveRenderSequence;
 }) => {
   let pageCursor = 0;
@@ -585,7 +587,7 @@ const buildSlideElementList = ({
   }
 
   // Keep a leading placeholder when the first content payload is text.
-  if (hasLeadingTextContentElement) {
+  if (showLeadingTextPlaceholder && hasLeadingTextContentElement) {
     const firstSequenceNumber = Number(elementList[0]?.sequence_number ?? 1);
     elementList.unshift({
       ...createEmptyStateElement(sectionTitle),
@@ -803,6 +805,7 @@ const ListenModeSlideRenderer = ({
       lastInteractionBid,
       lastItemIsInteraction,
       includeAudio: !isClassroomMode,
+      showLeadingTextPlaceholder: !isClassroomMode,
       resolveRenderSequence,
     });
 

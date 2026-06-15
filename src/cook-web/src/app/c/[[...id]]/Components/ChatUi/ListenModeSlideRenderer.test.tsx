@@ -260,6 +260,62 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
+  it('skips the leading section-title placeholder in classroom mode', () => {
+    const items: ChatContentItem[] = [
+      {
+        type: 'content',
+        content: 'Opening narration',
+        element_bid: 'intro-text',
+        element_type: 'text',
+        is_speakable: true,
+      },
+      {
+        type: 'content',
+        content: '<section>First slide</section>',
+        element_bid: 'first-slide',
+        element_type: 'html',
+        is_speakable: true,
+      },
+    ];
+
+    const { unmount } = render(
+      <ListenModeSlideRenderer
+        variant='classroom'
+        items={items}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        sectionTitle='Section title'
+      />,
+    );
+
+    const classroomSlideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    expect(
+      classroomSlideProps?.elementList?.some(
+        element => element.blockBid === 'empty-ppt',
+      ),
+    ).toBe(false);
+    expect(classroomSlideProps?.elementList?.[0]?.blockBid).toBe('intro-text');
+
+    unmount();
+    getMockSlide().mockClear();
+
+    render(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        sectionTitle='Section title'
+      />,
+    );
+
+    const listenSlideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    expect(listenSlideProps?.elementList?.[0]?.blockBid).toBe('empty-ppt');
+  });
+
   it('strips audio data and disables loading overlay in classroom mode', async () => {
     const requestFullscreen = jest
       .fn()
