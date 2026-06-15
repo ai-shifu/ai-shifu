@@ -482,7 +482,9 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
 
         query_mock.assert_not_called()
 
-    def test_get_current_outline_block_count_returns_zero_when_current_outline_missing(self):
+    def test_get_current_outline_block_count_returns_zero_when_current_outline_missing(
+        self,
+    ):
         ctx = _make_context()
         ctx._current_outline_item = None
 
