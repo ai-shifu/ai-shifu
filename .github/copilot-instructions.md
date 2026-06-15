@@ -22,6 +22,10 @@
 - For complex design work, create an ExecPlan in `docs/exec-plans/active/` and
   maintain it according to `PLANS.md`.
 
+- When a branch already has an open PR, keep the PR title and description in
+  sync with the latest code changes so they accurately describe the current
+  implementation and verification state.
+
 - Regenerate repository knowledge indexes with
   `python scripts/build_repo_knowledge_index.py` after moving docs or changing
   required metadata.
