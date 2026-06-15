@@ -57,9 +57,10 @@ export const installReactDomNodeGuard = (): void => {
     this: Node,
     child: T,
   ): T {
-    if (child.parentNode !== this) {
+    if (child instanceof Node && child.parentNode !== this) {
       // The node was detached out from under React (e.g. translated). Native
       // contract returns the removed node, so we honor that without throwing.
+      // The `instanceof Node` guard keeps native TypeErrors for invalid args.
       warnOnce('removeChild');
       return child;
     }
@@ -71,9 +72,10 @@ export const installReactDomNodeGuard = (): void => {
     newNode: T,
     referenceNode: Node | null,
   ): T {
-    if (referenceNode && referenceNode.parentNode !== this) {
+    if (referenceNode instanceof Node && referenceNode.parentNode !== this) {
       // The anchor was destroyed by an external mutation. Appending matches
-      // React's effective intent for the lost reference.
+      // React's effective intent for the lost reference. The `instanceof Node`
+      // guard keeps native TypeErrors for invalid reference arguments.
       warnOnce('insertBefore');
       return this.appendChild(newNode) as unknown as T;
     }

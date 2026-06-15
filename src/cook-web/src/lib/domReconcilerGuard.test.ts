@@ -98,4 +98,30 @@ describe('installReactDomNodeGuard', () => {
       parent.insertBefore('not-a-node' as unknown as Node, anchor),
     ).toThrow();
   });
+
+  it('does not mask invalid (non-Node) referenceNode arguments', () => {
+    installReactDomNodeGuard();
+
+    const parent = document.createElement('div');
+    const newNode = document.createElement('span');
+
+    // A non-Node referenceNode must reach native insertBefore and throw,
+    // not be treated as a stale-node fallback and silently appended.
+    expect(() =>
+      parent.insertBefore(newNode, 'not-a-node' as unknown as Node),
+    ).toThrow();
+    expect(parent.childNodes.length).toBe(0);
+  });
+
+  it('does not mask invalid (non-Node) removeChild arguments', () => {
+    installReactDomNodeGuard();
+
+    const parent = document.createElement('div');
+
+    // A non-Node child must reach native removeChild and throw, not be
+    // returned as a stale node.
+    expect(() =>
+      parent.removeChild('not-a-node' as unknown as Node),
+    ).toThrow();
+  });
 });
