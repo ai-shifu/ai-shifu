@@ -23,6 +23,9 @@ to.
   before creating new abstractions.
 - Use ExecPlans for complex work. `PLANS.md` defines the format, and active
   plans live under `docs/exec-plans/active/`.
+- When a branch already has an open PR, keep the PR title and description in
+  sync with the latest code changes so they accurately describe the current
+  implementation and verification state.
 - Keep shared instruction surfaces aligned. When shared rules move, update the
   touched `AGENTS.md`, `CLAUDE.md`, generated `.cursor` rules, and generated
   `.github` instructions in the same change.
