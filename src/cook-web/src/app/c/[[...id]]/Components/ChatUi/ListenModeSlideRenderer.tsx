@@ -473,6 +473,7 @@ const buildSlideElementList = ({
   interactionInputMap,
   lastInteractionBid,
   lastItemIsInteraction,
+  includeAudio,
   resolveRenderSequence,
 }: {
   items: ChatContentItem[];
@@ -481,6 +482,7 @@ const buildSlideElementList = ({
   interactionInputMap: Record<string, string>;
   lastInteractionBid: string | null;
   lastItemIsInteraction: boolean;
+  includeAudio: boolean;
   resolveRenderSequence: ResolveRenderSequence;
 }) => {
   let pageCursor = 0;
@@ -491,10 +493,13 @@ const buildSlideElementList = ({
 
   items.forEach(item => {
     if (item.type === ChatContentItemType.CONTENT) {
-      const { audioSegments, audioUrl, isAudioStreaming } =
-        resolveListenSlideAudioSource(item);
+      const { audioSegments, audioUrl, isAudioStreaming } = includeAudio
+        ? resolveListenSlideAudioSource(item)
+        : {};
       const contentType = resolveListenSlideElementType(item);
-      const subtitleCues = resolveListenSlideSubtitleCues(item);
+      const subtitleCues = includeAudio
+        ? resolveListenSlideSubtitleCues(item)
+        : undefined;
       const askList = askListByAnchorElementBid.get(item.element_bid);
 
       if (!hasResolvedFirstContentType) {
@@ -514,13 +519,18 @@ const buildSlideElementList = ({
         is_marker: item.is_marker ?? true,
         is_renderable: item.is_renderable ?? true,
         is_new: item.is_new ?? true,
-        is_speakable:
-          item.is_speakable ?? Boolean(audioUrl || audioSegments?.length),
-        audio_url: audioUrl,
-        is_audio_streaming: isAudioStreaming,
-        isAudioStreaming,
-        audio_segments: audioSegments,
-        subtitle_cues: subtitleCues,
+        is_speakable: includeAudio
+          ? (item.is_speakable ?? Boolean(audioUrl || audioSegments?.length))
+          : false,
+        ...(includeAudio
+          ? {
+              audio_url: audioUrl,
+              is_audio_streaming: isAudioStreaming,
+              isAudioStreaming,
+              audio_segments: audioSegments,
+              subtitle_cues: subtitleCues,
+            }
+          : {}),
         ask_list: askList,
         blockBid: item.element_bid,
         page: pageCursor,
@@ -792,6 +802,7 @@ const ListenModeSlideRenderer = ({
       interactionInputMap,
       lastInteractionBid,
       lastItemIsInteraction,
+      includeAudio: !isClassroomMode,
       resolveRenderSequence,
     });
 
@@ -806,6 +817,7 @@ const ListenModeSlideRenderer = ({
   }, [
     askListByAnchorElementBid,
     interactionInputMap,
+    isClassroomMode,
     items,
     lastInteractionBid,
     lastItemIsInteraction,

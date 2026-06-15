@@ -260,7 +260,7 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
-  it('keeps listen slide data while hiding custom listen actions in classroom mode', async () => {
+  it('strips audio data while hiding custom listen actions in classroom mode', async () => {
     const requestFullscreen = jest
       .fn()
       .mockRejectedValue(new Error('fullscreen blocked'));
@@ -327,23 +327,7 @@ describe('ListenModeSlideRenderer', () => {
 
     expect(contentElement).toEqual(
       expect.objectContaining({
-        is_speakable: true,
-        audio_url: '/tts.mp3',
-        audio_segments: expect.arrayContaining([
-          expect.objectContaining({
-            segment_index: 0,
-            audio_data: 'abc',
-            duration_ms: 100,
-            is_final: true,
-          }),
-        ]),
-        subtitle_cues: expect.arrayContaining([
-          expect.objectContaining({
-            text: 'caption',
-            start_ms: 0,
-            end_ms: 100,
-          }),
-        ]),
+        is_speakable: false,
         ask_list: expect.arrayContaining([
           expect.objectContaining({
             element_bid: 'ask-1',
@@ -351,6 +335,11 @@ describe('ListenModeSlideRenderer', () => {
         ]),
       }),
     );
+    expect(contentElement).not.toHaveProperty('audio_url');
+    expect(contentElement).not.toHaveProperty('audio_segments');
+    expect(contentElement).not.toHaveProperty('subtitle_cues');
+    expect(contentElement).not.toHaveProperty('is_audio_streaming');
+    expect(contentElement).not.toHaveProperty('isAudioStreaming');
     expect(slideProps?.playerCustomActions).toBeNull();
     expect(slideProps?.showPlayer).toBe(true);
     expect(slideProps?.playerClassName ?? '').toContain(
