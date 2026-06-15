@@ -38,6 +38,12 @@ export type ReferralInviteProfile = {
   rules_copy_i18n_key?: string;
 };
 
+export type ReferralInvitePreview = {
+  recognized: boolean;
+  invite_code: string;
+  inviter_mobile_masked: string;
+};
+
 export type ReferralInviteEventType =
   | 'invite_link_clicked'
   | 'registration_page_viewed'

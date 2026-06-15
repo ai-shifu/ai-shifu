@@ -41,6 +41,9 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   updateHomeUrl: async (homeUrl: string) => set({ homeUrl }),
   contactUsUrl: environment.contactUsUrl,
   updateContactUsUrl: async (contactUsUrl: string) => set({ contactUsUrl }),
+  officialSiteUrl: environment.officialSiteUrl,
+  updateOfficialSiteUrl: async (officialSiteUrl: string) =>
+    set({ officialSiteUrl }),
   currencySymbol: environment.currencySymbol,
   updateCurrencySymbol: async (currencySymbol: string) =>
     set({ currencySymbol }),

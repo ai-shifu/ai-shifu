@@ -31,13 +31,32 @@ jest.mock('next/image', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
+    getReferralInvitePreview: jest.fn(),
     recordReferralInviteEvent: jest.fn(),
   },
 }));
 
+const mockEnvState: { officialSiteUrl?: string | null } = {
+  officialSiteUrl: 'https://official.example.com',
+};
+
+jest.mock('@/c-store', () => ({
+  __esModule: true,
+  useEnvStore: (
+    selector: ((state: typeof mockEnvState) => unknown) | undefined,
+  ) => (selector ? selector(mockEnvState) : mockEnvState),
+}));
+
+jest.mock('@/components/contact/ContactSideRail', () => ({
+  ContactSideRail: () => <div data-testid='contact-side-rail' />,
+}));
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => `module.referral.${key}`,
+    t: (key: string, values?: Record<string, unknown>) =>
+      values
+        ? `module.referral.${key}:${JSON.stringify(values)}`
+        : `module.referral.${key}`,
   }),
 }));
 
@@ -45,6 +64,12 @@ describe('ReferralInviteLanding', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     window.localStorage.clear();
+    mockEnvState.officialSiteUrl = 'https://official.example.com';
+    (api.getReferralInvitePreview as jest.Mock).mockResolvedValue({
+      recognized: true,
+      invite_code: 'AB12CD34',
+      inviter_mobile_masked: '155****0064',
+    });
     (api.recordReferralInviteEvent as jest.Mock).mockResolvedValue({
       success: true,
       session_id: 'session-1',
@@ -52,9 +77,15 @@ describe('ReferralInviteLanding', () => {
     });
   });
 
-  test('records link and page view events for invite-code route', async () => {
+  test('records link events and renders invite preview for invite-code route', async () => {
     render(<ReferralInviteLanding initialInviteCode='ab12cd34' />);
 
+    await waitFor(() =>
+      expect(api.getReferralInvitePreview).toHaveBeenCalledWith(
+        { invite_code: 'AB12CD34' },
+        { skipErrorToast: true },
+      ),
+    );
     await waitFor(() =>
       expect(api.recordReferralInviteEvent).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -73,6 +104,59 @@ describe('ReferralInviteLanding', () => {
       }),
       { skipErrorToast: true },
     );
+    expect(
+      screen.getByText(
+        'module.referral.inviteLanding.invitedTitle:{"maskedMobile":"155****0064"}',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('contact-side-rail')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'AI-Shifu' })).toHaveAttribute(
+      'href',
+      'https://official.example.com',
+    );
+    expect(
+      screen.queryByLabelText('module.referral.inviteLanding.codeLabel'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('renders without official site link when officialSiteUrl is unset', async () => {
+    mockEnvState.officialSiteUrl = undefined;
+
+    render(<ReferralInviteLanding initialInviteCode='ab12cd34' />);
+
+    await waitFor(() =>
+      expect(api.getReferralInvitePreview).toHaveBeenCalledWith(
+        { invite_code: 'AB12CD34' },
+        { skipErrorToast: true },
+      ),
+    );
+    expect(
+      screen.queryByRole('link', { name: 'AI-Shifu' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('redirects directly from invite-code route without re-entering code', async () => {
+    render(<ReferralInviteLanding initialInviteCode='ab12cd34' />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /module\.referral\.inviteLanding\.register/,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(api.recordReferralInviteEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'registration_submitted',
+          invite_code: 'AB12CD34',
+          entry_source: 'invite_link',
+        }),
+        { skipErrorToast: true },
+      ),
+    );
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/login\?invite_code=AB12CD34/),
+    );
   });
 
   test('stores manual invite code and redirects to login', async () => {
@@ -86,7 +170,7 @@ describe('ReferralInviteLanding', () => {
     );
     fireEvent.click(
       screen.getByRole('button', {
-        name: /module\.referral\.inviteLanding\.continue/,
+        name: /module\.referral\.inviteLanding\.register/,
       }),
     );
 

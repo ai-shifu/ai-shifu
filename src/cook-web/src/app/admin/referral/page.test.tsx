@@ -54,7 +54,7 @@ describe('AdminReferralPage', () => {
           queue_index: 1,
           reward_bid: 'reward-profile-queue',
           relation_bid: 'relation-profile-queue',
-          invitee_mobile_snapshot: '13521510781',
+          invitee_mobile_snapshot: '135****0781',
           reward_status: 7852,
           reward_credit_amount: '1000.0000000000',
           reward_product_code: 'creator-plan-monthly-pro',
@@ -68,17 +68,23 @@ describe('AdminReferralPage', () => {
     });
   });
 
-  test('renders invite link, invite code, and reward counters', async () => {
+  test('renders invite link, earned rewards, rules, and invite records', async () => {
     render(<AdminReferralPage />);
 
     await screen.findByDisplayValue('https://app.example.com/invite/AB12CD34');
 
     expect(screen.queryByText('common.core.home')).not.toBeInTheDocument();
-    expect(screen.getByText('AB12CD34')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('9')).toBeInTheDocument();
-    expect(screen.getByText('12')).toBeInTheDocument();
-    expect(screen.getByText(/"credits":"1,000"/)).toBeInTheDocument();
+    expect(screen.getByText('creator.inviteCardTitle')).toBeInTheDocument();
+    expect(screen.getByText('creator.rewardRulesTitle')).toBeInTheDocument();
+    expect(screen.getByText('creator.rules.unregistered')).toBeInTheDocument();
+    expect(screen.getByText('creator.queueTitle')).toBeInTheDocument();
+    expect(screen.getAllByText(/"credits":"1,000"/).length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText('creator.metrics.remaining'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('creator.metrics.cap')).not.toBeInTheDocument();
+    expect(screen.queryByText('AB12CD34')).not.toBeInTheDocument();
     expect(screen.queryByText('1000.0000000000')).not.toBeInTheDocument();
   });
 
@@ -90,23 +96,24 @@ describe('AdminReferralPage', () => {
 
     await waitFor(() =>
       expect(copyText).toHaveBeenCalledWith(
-        'https://app.example.com/invite/AB12CD34',
+        'creator.shareMessage:{"url":"https://app.example.com/invite/AB12CD34"}',
       ),
     );
   });
 
-  test('renders reward queue detail rows', async () => {
+  test('renders masked invite record rows', async () => {
     render(<AdminReferralPage />);
 
-    await screen.findByText('creator.queueColumns.index');
+    await screen.findByText('creator.queueColumns.invitee');
 
-    expect(screen.getByText('#1')).toBeInTheDocument();
-    expect(screen.getByText('13521510781')).toBeInTheDocument();
-    expect(screen.getByText('1,000')).toBeInTheDocument();
+    expect(screen.queryByText('#1')).not.toBeInTheDocument();
+    expect(screen.getByText('135****0781')).toBeInTheDocument();
+    expect(screen.queryByText('13521510781')).not.toBeInTheDocument();
+    expect(screen.getAllByText(/"credits":"1,000"/).length).toBeGreaterThan(0);
     expect(screen.getByText('2026-06-26T13:18:00')).toBeInTheDocument();
     expect(screen.getByText('2026-07-26T13:18:00')).toBeInTheDocument();
     expect(
-      screen.getByText('creator.ledgerStates.reserved'),
-    ).toBeInTheDocument();
+      screen.queryByText('creator.ledgerStates.reserved'),
+    ).not.toBeInTheDocument();
   });
 });

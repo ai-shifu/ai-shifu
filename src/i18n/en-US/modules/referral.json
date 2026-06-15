@@ -7,59 +7,57 @@
     "unknown": "Unknown abnormal status"
   },
   "creator": {
-    "capAvailableHint": "{remaining} automatic reward months remain.",
-    "capReached": "Automatic rewards capped",
-    "capReachedHint": "The automatic reward cap has been reached. Further valid invites are still tracked; contact the team for follow-up.",
     "copied": "Copied",
     "copyLink": "Copy link",
-    "description": "View your invite code, invite link, and awarded reward months.",
-    "emptyQueue": "No reward queue yet.",
-    "inviteCardDescription": "Share the link or code with a new user. After domestic mobile registration, rewards are granted from campaign configuration.",
-    "inviteCardTitle": "Your invite details",
-    "inviteCode": "Invite code",
+    "description": "Recommend AI Shifu to friends who may need it.",
+    "emptyQueue": "Share your invite link. Once a friend completes mobile registration, you will immediately receive 1 month of plan benefits.",
+    "inviteCardDescription": "Copy your invite link and share it with a new user who has not registered for AI Shifu. After your friend clicks the link and completes registration, you will receive the corresponding plan reward.",
+    "inviteCardTitle": "Share your invite link",
     "inviteLink": "Invite link",
-    "ledgerStates": {
-      "available": "Active",
-      "reserved": "Pending",
-      "unknown": "Not created"
-    },
     "metrics": {
-      "cap": "Reward cap",
-      "remaining": "Remaining",
       "rewarded": "Rewarded months"
     },
     "queueColumns": {
-      "credits": "Credits",
       "effectiveAt": "Starts",
       "expiresAt": "Ends",
-      "index": "Cycle",
-      "invitee": "Invitee",
-      "ledgerState": "Ledger state",
+      "invitee": "Invited friend",
+      "reward": "Reward",
       "status": "Status"
     },
-    "queueTitle": "Reward queue",
+    "queueTitle": "Invite records",
     "refresh": "Refresh",
-    "rewardRule": "Each valid invite rewards {cycles} plan cycle; configured credits per cycle: {credits}, valid for {days} days.",
+    "rewardRecordValue": "{cycles} month basic plan ({credits} credits included)",
     "rewardRulesTitle": "Campaign rules",
+    "rules": {
+      "cap": "Invite rewards are issued automatically and can accumulate up to {cap} months. For example, inviting 12 friends can earn 12 months of the basic plan.",
+      "defer": "If you currently have an active plan, invite rewards will automatically start after your current plan ends.",
+      "firstRegistration": "When a friend completes their first registration through your invite link, the invite counts as successful.",
+      "inviteeBenefit": "After registration, invited friends receive the new-user 1000-credit trial plan, valid for 15 days.",
+      "inviterReward": "For each friend who registers successfully, you receive {cycles} month of the basic plan ({credits} credits included, valued at RMB 199).",
+      "unregistered": "Share your invite link with new users who have not registered for AI Shifu before."
+    },
+    "shareMessage": "I am using AI Shifu to turn knowledge and experience into one-on-one interactive courses. I recommend trying AI Shifu too. Register to get a free 15-day trial plan: {url}",
     "title": "Invite Friends",
     "tooltips": {
-      "cap": "Automatic reward cap configured for the current campaign.",
-      "remaining": "Reward months still eligible for automatic grants.",
       "rewarded": "Months already counted in automatic rewards."
     }
   },
   "inviteLanding": {
     "badge": "Friend invite",
+    "brandName": "AI Shifu",
     "codeLabel": "Invite code",
     "codePlaceholder": "Enter invite code",
     "codeRequired": "Enter an invite code first.",
-    "continue": "Continue to sign up or log in",
-    "description": "Use your friend's invite code to enter AI Shifu. New-user benefits still follow existing platform rules.",
+    "descriptionAfterBrand": " become your all-purpose teaching partner and turn knowledge and experience into one-on-one interactive courses.",
+    "descriptionBeforeBrand": "Let ",
+    "fallbackTitle": "You are invited to try AI Shifu!",
     "formAria": "Invite-code registration entry",
     "formTitle": "Confirm invite code",
-    "noExtraBenefit": "Invited new users do not receive a referral-specific extra reward; existing new-user benefits still apply.",
+    "invitedTitle": "{maskedMobile} invited you to try AI Shifu!",
+    "register": "Register free and start",
     "submitFailed": "Invite code submission failed. Try again later.",
-    "title": "Start creating AI courses with an invite code"
+    "title": "You are invited to try AI Shifu!",
+    "trialHint": "Register to get a free 15-day trial plan"
   },
   "operator": {
     "actions": {

@@ -7,59 +7,57 @@
     "unknown": "未知异常状态"
   },
   "creator": {
-    "capAvailableHint": "当前还剩 {remaining} 个月自动奖励额度。",
-    "capReached": "自动奖励已满",
-    "capReachedHint": "已达到自动奖励上限，后续有效邀请会继续记录，可联系团队沟通后续安排。",
     "copied": "已复制",
     "copyLink": "复制链接",
-    "description": "查看你的专属邀请码、邀请链接和已获得的奖励月份。",
-    "emptyQueue": "暂无奖励队列。",
-    "inviteCardDescription": "把链接或邀请码发给新用户；新用户完成国内手机号注册后，会按活动配置为你发放奖励。",
-    "inviteCardTitle": "专属邀请信息",
-    "inviteCode": "邀请码",
+    "description": "欢迎把 AI 师傅推荐给你身边需要的朋友。",
+    "emptyQueue": "分享你的专属邀请链接，好友完成手机号注册后，你将立即获得 1 个月套餐权益。",
+    "inviteCardDescription": "请复制邀请链接分享给未注册过 AI 师傅的新用户，好友点击链接完成注册后，你将获得对应的套餐奖励。",
+    "inviteCardTitle": "分享专属邀请链接",
     "inviteLink": "邀请链接",
-    "ledgerStates": {
-      "available": "已生效",
-      "reserved": "待生效",
-      "unknown": "未生成"
-    },
     "metrics": {
-      "cap": "奖励上限",
-      "remaining": "剩余额度",
-      "rewarded": "已奖励月份"
+      "rewarded": "已获得奖励"
     },
     "queueColumns": {
-      "credits": "积分",
-      "effectiveAt": "开始时间",
-      "expiresAt": "结束时间",
-      "index": "期数",
-      "invitee": "被邀请人",
-      "ledgerState": "账务状态",
-      "status": "状态"
+      "effectiveAt": "生效时间",
+      "expiresAt": "到期时间",
+      "invitee": "邀请好友",
+      "reward": "获得奖励",
+      "status": "奖励状态"
     },
-    "queueTitle": "奖励队列",
+    "queueTitle": "邀请记录",
     "refresh": "刷新",
-    "rewardRule": "每个有效邀请奖励 {cycles} 个套餐周期；每周期配置积分 {credits}，有效期 {days} 天。",
+    "rewardRecordValue": "{cycles} 个月基础版套餐（含 {credits} 积分）",
     "rewardRulesTitle": "活动规则",
+    "rules": {
+      "cap": "邀请奖励自动发放，可累计获得，最多累计 {cap} 个月（例如邀请 12 位好友可获得 12 个月基础版套餐）。",
+      "defer": "若您当前已有有效套餐，邀请奖励将在当前套餐结束后自动顺延生效。",
+      "firstRegistration": "好友通过您的邀请链接完成首次注册后，即视为邀请成功。",
+      "inviteeBenefit": "受邀好友完成注册后，可获得新用户专享 1000 积分体验套餐，有效期 15 天。",
+      "inviterReward": "每成功邀请 1 位好友注册，可获得 {cycles} 个月基础版套餐（含 {credits} 积分，价值 199 元）。",
+      "unregistered": "将您的专属邀请链接分享给此前未注册过 AI 师傅的新用户。"
+    },
+    "shareMessage": "我正在用 AI 师傅把知识和经验做成一对一的互动课。推荐你也来试用 AI 师傅，注册后可免费获得15天体验套餐。注册：{url}",
     "title": "邀请好友",
     "tooltips": {
-      "cap": "当前活动配置的自动奖励上限。",
-      "remaining": "达到上限前还可以自动发放的奖励月份。",
       "rewarded": "已进入自动奖励统计的月份数量。"
     }
   },
   "inviteLanding": {
     "badge": "好友邀请",
+    "brandName": "AI 师傅",
     "codeLabel": "邀请码",
     "codePlaceholder": "输入邀请码",
     "codeRequired": "请先填写邀请码。",
-    "continue": "继续注册或登录",
-    "description": "使用好友提供的邀请码进入 AI 师傅。新用户注册福利仍按平台现有规则发放。",
+    "descriptionAfterBrand": "成为您的全能教学搭子，把知识和经验变成一对一互动课。",
+    "descriptionBeforeBrand": "让 ",
+    "fallbackTitle": "邀请您试用 AI 师傅！",
     "formAria": "邀请码注册入口",
     "formTitle": "确认邀请码",
-    "noExtraBenefit": "被邀请新用户不额外获得邀请专属奖励；注册后沿用平台已有的新用户福利。",
+    "invitedTitle": "{maskedMobile} 邀请您试用 AI 师傅！",
+    "register": "免费注册，开始体验",
     "submitFailed": "邀请码提交失败，请稍后重试。",
-    "title": "用邀请码开始创建你的 AI 课程"
+    "title": "邀请您试用 AI 师傅！",
+    "trialHint": "注册即可获得 15 天免费体验套餐"
   },
   "operator": {
     "actions": {

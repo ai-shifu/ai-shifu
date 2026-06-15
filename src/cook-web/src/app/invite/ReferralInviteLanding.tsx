@@ -14,6 +14,9 @@ import { ArrowRight, Loader2, Ticket, UserPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
+import { useEnvStore } from '@/c-store';
+import type { EnvStoreState } from '@/c-types/store';
+import { ContactSideRail } from '@/components/contact/ContactSideRail';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -24,6 +27,7 @@ import {
 import type {
   ReferralEntrySource,
   ReferralInviteEventType,
+  ReferralInvitePreview,
 } from '@/types/referral';
 
 type ReferralInviteLandingProps = {
@@ -33,16 +37,20 @@ type ReferralInviteLandingProps = {
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
  * t('module.referral.inviteLanding.badge')
+ * t('module.referral.inviteLanding.brandName')
  * t('module.referral.inviteLanding.codeLabel')
  * t('module.referral.inviteLanding.codePlaceholder')
  * t('module.referral.inviteLanding.codeRequired')
- * t('module.referral.inviteLanding.continue')
- * t('module.referral.inviteLanding.description')
+ * t('module.referral.inviteLanding.descriptionAfterBrand')
+ * t('module.referral.inviteLanding.descriptionBeforeBrand')
+ * t('module.referral.inviteLanding.fallbackTitle')
  * t('module.referral.inviteLanding.formAria')
  * t('module.referral.inviteLanding.formTitle')
- * t('module.referral.inviteLanding.noExtraBenefit')
+ * t('module.referral.inviteLanding.invitedTitle')
+ * t('module.referral.inviteLanding.register')
  * t('module.referral.inviteLanding.submitFailed')
  * t('module.referral.inviteLanding.title')
+ * t('module.referral.inviteLanding.trialHint')
  */
 
 const buildLandingPath = () => {
@@ -57,6 +65,11 @@ export function ReferralInviteLanding({
 }: ReferralInviteLandingProps) {
   const router = useRouter();
   const { t } = useTranslation('module.referral');
+  const officialSiteUrlValue = useEnvStore(
+    (state: EnvStoreState) => state.officialSiteUrl,
+  );
+  const officialSiteUrl =
+    typeof officialSiteUrlValue === 'string' ? officialSiteUrlValue.trim() : '';
   const normalizedInitialCode = useMemo(
     () => normalizeReferralInviteCode(initialInviteCode),
     [initialInviteCode],
@@ -64,6 +77,8 @@ export function ReferralInviteLanding({
   const [inviteCode, setInviteCode] = useState(normalizedInitialCode);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [invitePreview, setInvitePreview] =
+    useState<ReferralInvitePreview | null>(null);
   const recordedInitialCodeRef = useRef('');
   const referralSessionIdRef = useRef('');
 
@@ -114,6 +129,17 @@ export function ReferralInviteLanding({
       return;
     }
     setInviteCode(normalizedInitialCode);
+    void api
+      .getReferralInvitePreview(
+        { invite_code: normalizedInitialCode },
+        { skipErrorToast: true },
+      )
+      .then(response => {
+        setInvitePreview((response || null) as ReferralInvitePreview | null);
+      })
+      .catch(() => {
+        setInvitePreview(null);
+      });
     if (recordedInitialCodeRef.current === normalizedInitialCode) {
       return;
     }
@@ -136,9 +162,11 @@ export function ReferralInviteLanding({
     })();
   }, [normalizedInitialCode, recordInviteEvent]);
 
-  const submitInviteCode = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const normalizedCode = normalizeReferralInviteCode(inviteCode);
+  const continueWithInviteCode = async (
+    code: string,
+    source: ReferralEntrySource,
+  ) => {
+    const normalizedCode = normalizeReferralInviteCode(code);
     if (!normalizedCode) {
       setError(t('inviteLanding.codeRequired'));
       return;
@@ -147,10 +175,6 @@ export function ReferralInviteLanding({
     setSubmitting(true);
     setError('');
     try {
-      const source: ReferralEntrySource =
-        normalizedInitialCode && normalizedCode === normalizedInitialCode
-          ? 'invite_link'
-          : 'manual_code';
       const context = await recordInviteEvent(
         source === 'manual_code'
           ? 'invite_code_entered'
@@ -171,78 +195,158 @@ export function ReferralInviteLanding({
     }
   };
 
+  const submitInviteCode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await continueWithInviteCode(inviteCode, 'manual_code');
+  };
+
+  const submitInitialInviteCode = async () => {
+    await continueWithInviteCode(normalizedInitialCode, 'invite_link');
+  };
+
+  const logo = (
+    <Image
+      src={logoHorizontal}
+      alt='AI-Shifu'
+      width={180}
+      height={40}
+      priority
+    />
+  );
+  const linkedLogo = officialSiteUrl ? (
+    <a
+      href={officialSiteUrl}
+      target='_blank'
+      rel='noopener noreferrer'
+      aria-label='AI-Shifu'
+      className='inline-flex w-fit'
+    >
+      {logo}
+    </a>
+  ) : (
+    logo
+  );
+  const brandName = officialSiteUrl ? (
+    <a
+      href={officialSiteUrl}
+      target='_blank'
+      rel='noopener noreferrer'
+      className='font-medium text-primary underline-offset-4 hover:underline'
+    >
+      {t('inviteLanding.brandName')}
+    </a>
+  ) : (
+    <span className='font-medium text-foreground'>
+      {t('inviteLanding.brandName')}
+    </span>
+  );
+  const maskedMobile = invitePreview?.recognized
+    ? invitePreview.inviter_mobile_masked
+    : '';
+
   return (
     <main className='min-h-screen bg-stone-50 px-4 py-8'>
+      <ContactSideRail />
       <div className='mx-auto flex min-h-[calc(100vh-64px)] w-full max-w-5xl flex-col justify-center gap-8 lg:flex-row lg:items-center'>
         <section className='min-w-0 flex-1 space-y-6'>
-          <Image
-            src={logoHorizontal}
-            alt='AI-Shifu'
-            width={180}
-            height={40}
-            priority
-          />
+          {linkedLogo}
           <div className='space-y-3'>
             <div className='inline-flex items-center gap-2 rounded-md border border-border bg-white px-3 py-1 text-sm text-muted-foreground'>
               <UserPlus className='h-4 w-4' />
               <span>{t('inviteLanding.badge')}</span>
             </div>
             <h1 className='max-w-2xl text-3xl font-semibold leading-tight text-foreground sm:text-4xl'>
-              {t('inviteLanding.title')}
+              {maskedMobile
+                ? t('inviteLanding.invitedTitle', { maskedMobile })
+                : normalizedInitialCode
+                  ? t('inviteLanding.fallbackTitle')
+                  : t('inviteLanding.title')}
             </h1>
             <p className='max-w-2xl text-base leading-7 text-muted-foreground'>
-              {t('inviteLanding.description')}
+              {t('inviteLanding.descriptionBeforeBrand')}
+              {brandName}
+              {t('inviteLanding.descriptionAfterBrand')}
             </p>
           </div>
         </section>
 
-        <section
-          className='w-full rounded-lg border border-border bg-white p-5 shadow-sm lg:w-[380px]'
-          aria-label={t('inviteLanding.formAria')}
-        >
-          <form
-            className='space-y-4'
-            onSubmit={submitInviteCode}
+        {normalizedInitialCode ? (
+          <section
+            className='w-full rounded-lg border border-border bg-white p-5 shadow-sm lg:w-[380px]'
+            aria-label={t('inviteLanding.formAria')}
           >
-            <div className='flex items-center gap-2 text-sm font-medium text-foreground'>
-              <Ticket className='h-4 w-4' />
-              <span>{t('inviteLanding.formTitle')}</span>
-            </div>
-            <div className='space-y-2'>
-              <Label htmlFor='referral-invite-code'>
-                {t('inviteLanding.codeLabel')}
-              </Label>
-              <Input
-                id='referral-invite-code'
-                value={inviteCode}
-                onChange={event => {
-                  setInviteCode(event.target.value);
-                  if (error) {
-                    setError('');
-                  }
-                }}
-                placeholder={t('inviteLanding.codePlaceholder')}
-                autoComplete='off'
-                className='uppercase'
-              />
+            <div className='space-y-4'>
+              <Button
+                type='button'
+                className='w-full gap-2'
+                disabled={submitting}
+                onClick={submitInitialInviteCode}
+              >
+                {submitting ? (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                ) : null}
+                {t('inviteLanding.register')}
+                {!submitting ? <ArrowRight className='h-4 w-4' /> : null}
+              </Button>
+              <p className='text-sm leading-6 text-muted-foreground'>
+                {t('inviteLanding.trialHint')}
+              </p>
               {error ? (
                 <p className='text-sm text-destructive'>{error}</p>
               ) : null}
             </div>
-            <Button
-              type='submit'
-              className='w-full gap-2'
-              disabled={submitting}
+          </section>
+        ) : (
+          <section
+            className='w-full rounded-lg border border-border bg-white p-5 shadow-sm lg:w-[380px]'
+            aria-label={t('inviteLanding.formAria')}
+          >
+            <form
+              className='space-y-4'
+              onSubmit={submitInviteCode}
             >
-              {submitting ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
-              {t('inviteLanding.continue')}
-              {!submitting ? <ArrowRight className='h-4 w-4' /> : null}
-            </Button>
-            <p className='text-sm leading-6 text-muted-foreground'>
-              {t('inviteLanding.noExtraBenefit')}
-            </p>
-          </form>
-        </section>
+              <div className='flex items-center gap-2 text-sm font-medium text-foreground'>
+                <Ticket className='h-4 w-4' />
+                <span>{t('inviteLanding.formTitle')}</span>
+              </div>
+              <div className='space-y-2'>
+                <Label htmlFor='referral-invite-code'>
+                  {t('inviteLanding.codeLabel')}
+                </Label>
+                <Input
+                  id='referral-invite-code'
+                  value={inviteCode}
+                  onChange={event => {
+                    setInviteCode(event.target.value);
+                    if (error) {
+                      setError('');
+                    }
+                  }}
+                  placeholder={t('inviteLanding.codePlaceholder')}
+                  autoComplete='off'
+                  className='uppercase'
+                />
+                {error ? (
+                  <p className='text-sm text-destructive'>{error}</p>
+                ) : null}
+              </div>
+              <Button
+                type='submit'
+                className='w-full gap-2'
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                ) : null}
+                {t('inviteLanding.register')}
+                {!submitting ? <ArrowRight className='h-4 w-4' /> : null}
+              </Button>
+              <p className='text-sm leading-6 text-muted-foreground'>
+                {t('inviteLanding.trialHint')}
+              </p>
+            </form>
+          </section>
+        )}
       </div>
     </main>
   );

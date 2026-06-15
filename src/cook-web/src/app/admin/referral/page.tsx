@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -30,37 +29,31 @@ import {
 
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
- * t('module.referral.creator.capAvailableHint')
- * t('module.referral.creator.capReached')
- * t('module.referral.creator.capReachedHint')
  * t('module.referral.creator.copied')
  * t('module.referral.creator.copyLink')
  * t('module.referral.creator.description')
  * t('module.referral.creator.emptyQueue')
  * t('module.referral.creator.inviteCardDescription')
  * t('module.referral.creator.inviteCardTitle')
- * t('module.referral.creator.inviteCode')
  * t('module.referral.creator.inviteLink')
- * t('module.referral.creator.metrics.cap')
- * t('module.referral.creator.metrics.remaining')
  * t('module.referral.creator.metrics.rewarded')
- * t('module.referral.creator.queueColumns.credits')
  * t('module.referral.creator.queueColumns.effectiveAt')
  * t('module.referral.creator.queueColumns.expiresAt')
- * t('module.referral.creator.queueColumns.index')
  * t('module.referral.creator.queueColumns.invitee')
- * t('module.referral.creator.queueColumns.ledgerState')
+ * t('module.referral.creator.queueColumns.reward')
  * t('module.referral.creator.queueColumns.status')
  * t('module.referral.creator.queueTitle')
- * t('module.referral.creator.ledgerStates.available')
- * t('module.referral.creator.ledgerStates.reserved')
- * t('module.referral.creator.ledgerStates.unknown')
  * t('module.referral.creator.refresh')
- * t('module.referral.creator.rewardRule')
+ * t('module.referral.creator.rewardRecordValue')
  * t('module.referral.creator.rewardRulesTitle')
+ * t('module.referral.creator.rules.cap')
+ * t('module.referral.creator.rules.defer')
+ * t('module.referral.creator.rules.firstRegistration')
+ * t('module.referral.creator.rules.inviteeBenefit')
+ * t('module.referral.creator.rules.inviterReward')
+ * t('module.referral.creator.rules.unregistered')
+ * t('module.referral.creator.shareMessage')
  * t('module.referral.creator.title')
- * t('module.referral.creator.tooltips.cap')
- * t('module.referral.creator.tooltips.remaining')
  * t('module.referral.creator.tooltips.rewarded')
  * t('module.referral.rewardStatus.active')
  * t('module.referral.rewardStatus.canceled')
@@ -98,15 +91,6 @@ const formatCreditAmount = (
     : '-';
 };
 
-const formatQueueIndex = (value: number) => `#${value}`;
-
-const ledgerStateKey = (state: string | null | undefined) => {
-  if (state === 'available' || state === 'reserved') {
-    return state;
-  }
-  return 'unknown';
-};
-
 export default function AdminReferralPage() {
   const { t, i18n } = useTranslation('module.referral');
   const [profile, setProfile] = React.useState<ReferralInviteProfile | null>(
@@ -139,15 +123,10 @@ export default function AdminReferralPage() {
     if (!profile?.invite_url) {
       return;
     }
-    await copyText(profile.invite_url);
+    await copyText(t('creator.shareMessage', { url: profile.invite_url }));
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   };
-
-  const capReached =
-    profile?.reward_cap_count !== null &&
-    profile?.reward_cap_count !== undefined &&
-    Number(profile.reward_remaining_count || 0) <= 0;
 
   const rewardQueue = profile?.reward_queue || [];
   const locale = i18n.language || 'en-US';
@@ -187,25 +166,13 @@ export default function AdminReferralPage() {
       {profile ? (
         <div className='min-h-0 space-y-5'>
           <AdminMetricCardGroup
-            gridClassName='md:grid-cols-3'
+            gridClassName='md:grid-cols-1'
             items={[
               {
                 key: 'rewarded',
                 label: t('creator.metrics.rewarded'),
                 value: formatCount(profile.reward_granted_count),
                 tooltip: t('creator.tooltips.rewarded'),
-              },
-              {
-                key: 'remaining',
-                label: t('creator.metrics.remaining'),
-                value: formatCount(profile.reward_remaining_count),
-                tooltip: t('creator.tooltips.remaining'),
-              },
-              {
-                key: 'cap',
-                label: t('creator.metrics.cap'),
-                value: formatCount(profile.reward_cap_count),
-                tooltip: t('creator.tooltips.cap'),
               },
             ]}
           />
@@ -220,17 +187,9 @@ export default function AdminReferralPage() {
                   {t('creator.inviteCardDescription')}
                 </p>
               </div>
-              {capReached ? (
-                <Badge
-                  variant='outline'
-                  className='w-fit border-amber-300 bg-amber-50 text-amber-700'
-                >
-                  {t('creator.capReached')}
-                </Badge>
-              ) : null}
             </div>
 
-            <div className='grid gap-4 lg:grid-cols-[1fr_160px]'>
+            <div className='grid gap-4'>
               <div className='space-y-2'>
                 <label
                   htmlFor='referral-invite-url'
@@ -243,14 +202,6 @@ export default function AdminReferralPage() {
                   readOnly
                   value={profile.invite_url}
                 />
-              </div>
-              <div className='space-y-2'>
-                <div className='text-sm font-medium text-foreground'>
-                  {t('creator.inviteCode')}
-                </div>
-                <div className='flex h-10 items-center rounded-md border border-border bg-muted/30 px-3 font-mono text-sm font-semibold tracking-wide'>
-                  {profile.invite_code}
-                </div>
               </div>
             </div>
 
@@ -274,25 +225,26 @@ export default function AdminReferralPage() {
             <h2 className='text-base font-semibold text-foreground'>
               {t('creator.rewardRulesTitle')}
             </h2>
-            <div className='mt-3 grid gap-3 md:grid-cols-2'>
-              <div className='rounded-md border border-border/70 bg-muted/20 p-3 text-sm leading-6'>
-                {t('creator.rewardRule', {
+            <ul className='mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground'>
+              <li>{t('creator.rules.unregistered')}</li>
+              <li>{t('creator.rules.firstRegistration')}</li>
+              <li>
+                {t('creator.rules.inviterReward', {
                   cycles: profile.reward_cycle_count,
                   credits: formatCreditAmount(
                     profile.reward_credit_amount,
                     locale,
                   ),
-                  days: profile.reward_credit_validity_days || '-',
                 })}
-              </div>
-              <div className='rounded-md border border-border/70 bg-muted/20 p-3 text-sm leading-6'>
-                {capReached
-                  ? t('creator.capReachedHint')
-                  : t('creator.capAvailableHint', {
-                      remaining: formatCount(profile.reward_remaining_count),
-                    })}
-              </div>
-            </div>
+              </li>
+              <li>
+                {t('creator.rules.cap', {
+                  cap: formatCount(profile.reward_cap_count),
+                })}
+              </li>
+              <li>{t('creator.rules.defer')}</li>
+              <li>{t('creator.rules.inviteeBenefit')}</li>
+            </ul>
           </section>
 
           <section className='rounded-lg border border-border bg-white p-4'>
@@ -300,18 +252,16 @@ export default function AdminReferralPage() {
               {t('creator.queueTitle')}
             </h2>
             <Table
-              className='mt-3 min-w-[760px] table-auto'
+              className='mt-3 min-w-[680px] table-auto'
               containerClassName='mt-3 rounded-md border border-border/70'
             >
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('creator.queueColumns.index')}</TableHead>
-                  <TableHead>{t('creator.queueColumns.status')}</TableHead>
-                  <TableHead>{t('creator.queueColumns.credits')}</TableHead>
                   <TableHead>{t('creator.queueColumns.invitee')}</TableHead>
+                  <TableHead>{t('creator.queueColumns.reward')}</TableHead>
+                  <TableHead>{t('creator.queueColumns.status')}</TableHead>
                   <TableHead>{t('creator.queueColumns.effectiveAt')}</TableHead>
                   <TableHead>{t('creator.queueColumns.expiresAt')}</TableHead>
-                  <TableHead>{t('creator.queueColumns.ledgerState')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -319,7 +269,16 @@ export default function AdminReferralPage() {
                   rewardQueue.map(item => (
                     <TableRow key={item.reward_bid || item.queue_index}>
                       <TableCell className='whitespace-nowrap font-medium'>
-                        {formatQueueIndex(item.queue_index)}
+                        {item.invitee_mobile_snapshot || '-'}
+                      </TableCell>
+                      <TableCell className='whitespace-nowrap'>
+                        {t('creator.rewardRecordValue', {
+                          cycles: profile.reward_cycle_count,
+                          credits: formatCreditAmount(
+                            item.reward_credit_amount,
+                            locale,
+                          ),
+                        })}
                       </TableCell>
                       <TableCell className='whitespace-nowrap'>
                         {t(
@@ -329,29 +288,16 @@ export default function AdminReferralPage() {
                           }`,
                         )}
                       </TableCell>
-                      <TableCell className='whitespace-nowrap tabular-nums'>
-                        {formatCreditAmount(item.reward_credit_amount, locale)}
-                      </TableCell>
-                      <TableCell className='whitespace-nowrap'>
-                        {item.invitee_mobile_snapshot || '-'}
-                      </TableCell>
                       <TableCell className='whitespace-nowrap'>
                         {item.effective_at || '-'}
                       </TableCell>
                       <TableCell className='whitespace-nowrap'>
                         {item.expires_at || '-'}
                       </TableCell>
-                      <TableCell className='whitespace-nowrap'>
-                        {t(
-                          `creator.ledgerStates.${ledgerStateKey(
-                            item.ledger_credit_state,
-                          )}`,
-                        )}
-                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
-                  <TableEmpty colSpan={7}>{t('creator.emptyQueue')}</TableEmpty>
+                  <TableEmpty colSpan={5}>{t('creator.emptyQueue')}</TableEmpty>
                 )}
               </TableBody>
             </Table>
