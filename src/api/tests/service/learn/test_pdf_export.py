@@ -107,7 +107,12 @@ def test_filter_exportable_elements_keeps_historical_readable_content_flags():
 
     blocks = filter_exportable_elements(elements)
 
-    assert [block.block_type for block in blocks] == ["title", "text", "html", "interaction"]
+    assert [block.block_type for block in blocks] == [
+        "title",
+        "text",
+        "html",
+        "interaction",
+    ]
     assert [block.content for block in blocks] == [
         "春节文化之旅",
         "欢迎来到春节文化之旅",
@@ -228,8 +233,15 @@ def test_render_pdf_html_contains_text_interaction_input_value():
 def test_filter_exportable_elements_normalizes_interaction_type_enum_text_only():
     from enum import Enum
 
-    from flaskr.service.learn.learn_dtos import ElementDTO, ElementPayloadDTO, ElementType
-    from flaskr.service.learn.pdf_export import filter_exportable_elements, render_pdf_html
+    from flaskr.service.learn.learn_dtos import (
+        ElementDTO,
+        ElementPayloadDTO,
+        ElementType,
+    )
+    from flaskr.service.learn.pdf_export import (
+        filter_exportable_elements,
+        render_pdf_html,
+    )
     from flaskr.service.learn.pdf_export_models import (
         PdfExportDocument,
         PdfExportWatermark,

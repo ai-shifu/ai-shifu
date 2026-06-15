@@ -219,8 +219,13 @@ export const parseBusinessResponsePayload = (
   }
 };
 
-const parseDownloadFileName = (response: Response, fallbackName = 'download.pdf') => {
-  const header = String(response.headers.get('content-disposition') || '').trim();
+const parseDownloadFileName = (
+  response: Response,
+  fallbackName = 'download.pdf',
+) => {
+  const header = String(
+    response.headers.get('content-disposition') || '',
+  ).trim();
   if (!header) {
     return fallbackName;
   }

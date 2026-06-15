@@ -173,7 +173,9 @@ def build_pdf_export_document(
     )
 
 
-def resolve_lesson_title(*, shifu_bid: str, outline_bid: str, preview_mode: bool) -> str:
+def resolve_lesson_title(
+    *, shifu_bid: str, outline_bid: str, preview_mode: bool
+) -> str:
     model = DraftOutlineItem if preview_mode else PublishedOutlineItem
     outline_item = (
         model.query.filter(
@@ -478,7 +480,7 @@ def _sanitize_pdf_html_block(content: str) -> str:
         cleaned = cleaned.strip(" ;")
         if not cleaned:
             return ""
-        return f'style={quote}{cleaned}{quote}'
+        return f"style={quote}{cleaned}{quote}"
 
     sanitized = re.sub(
         r'style=(["\'])(.*?)\1',
@@ -928,7 +930,10 @@ def _render_pdf_block(block: PdfExportBlock) -> str:
             f'<section class="{class_attr}">{label_html}'
             f'<pre class="block-pre">{escape(block.content)}</pre></section>'
         )
-    if block.block_type == ElementType.INTERACTION.value and block.interaction is not None:
+    if (
+        block.block_type == ElementType.INTERACTION.value
+        and block.interaction is not None
+    ):
         return (
             f'<section class="{class_attr}">'
             f"{_render_pdf_interaction(block.interaction)}</section>"
@@ -963,7 +968,7 @@ def _render_pdf_interaction(interaction: PdfExportInteraction) -> str:
             f'<div class="interaction-shell"><div class="interaction-heading">'
             f"{escape(PDF_EXPORT_INTERACTION_CHOICE_LABEL)}</div>"
             f"{_render_pdf_interaction_buttons(interaction)}"
-            f'{_render_pdf_interaction_input(input_value=interaction.input_value, input_placeholder=interaction.input_placeholder, compact=True)}</div>'
+            f"{_render_pdf_interaction_input(input_value=interaction.input_value, input_placeholder=interaction.input_placeholder, compact=True)}</div>"
         )
     return (
         f'<div class="interaction-shell"><div class="interaction-heading">'
@@ -1030,12 +1035,14 @@ def build_pdf_file_name(document: PdfExportDocument) -> str:
     base = (
         f"{PDF_EXPORT_BRAND_NAME}--{document.course_name}--{document.lesson_name}"
     ).strip("-")
-    sanitized = sanitize_file_name(base) or f"{document.course_bid}-{document.lesson_bid}"
+    sanitized = (
+        sanitize_file_name(base) or f"{document.course_bid}-{document.lesson_bid}"
+    )
     return f"{sanitized}.pdf"
 
 
 def sanitize_file_name(value: str) -> str:
-    normalized = re.sub(r'[\\\\/:*?\"<>|]+', " ", str(value or ""))
+    normalized = re.sub(r"[\\\\/:*?\"<>|]+", " ", str(value or ""))
     normalized = re.sub(r"\s+", " ", normalized).strip()
     return normalized[:120]
 
