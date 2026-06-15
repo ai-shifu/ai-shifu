@@ -69,9 +69,7 @@ export function ReferralInviteLanding({
     (state: EnvStoreState) => state.officialSiteUrl,
   );
   const officialSiteUrl =
-    typeof officialSiteUrlValue === 'string'
-      ? officialSiteUrlValue.trim()
-      : '';
+    typeof officialSiteUrlValue === 'string' ? officialSiteUrlValue.trim() : '';
   const normalizedInitialCode = useMemo(
     () => normalizeReferralInviteCode(initialInviteCode),
     [initialInviteCode],
