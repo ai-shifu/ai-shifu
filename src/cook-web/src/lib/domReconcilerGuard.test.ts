@@ -120,8 +120,6 @@ describe('installReactDomNodeGuard', () => {
 
     // A non-Node child must reach native removeChild and throw, not be
     // returned as a stale node.
-    expect(() =>
-      parent.removeChild('not-a-node' as unknown as Node),
-    ).toThrow();
+    expect(() => parent.removeChild('not-a-node' as unknown as Node)).toThrow();
   });
 });
