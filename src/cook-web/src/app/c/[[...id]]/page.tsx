@@ -32,7 +32,12 @@ import {
   applyLessonSelection,
   resolveRequestedLessonId,
 } from './lessonNavigation';
-import { updateWxcode } from '@/c-api/user';
+import {
+  completeProfileOnboarding,
+  getProfileOnboarding,
+  updateWxcode,
+  type ProfileOnboardingStatus,
+} from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 import {
   buildLoginRedirectPath,
@@ -56,6 +61,8 @@ import ChatMobileHeader from './Components/ChatMobileHeader';
 import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
 import { trackCourseVisitIfNeeded } from './courseVisitTracking';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
+import ProfileOnboardingModal from '@/components/profile-onboarding/ProfileOnboardingModal';
+import { ErrorWithCode } from '@/lib/request';
 
 const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
   ssr: false,
@@ -115,6 +122,7 @@ export default function ChatPage() {
   const { trackEvent } = useTracking();
   const attemptedCourseVisitKeyRef = useRef<string | null>(null);
   const pendingCourseVisitKeyRef = useRef<string | null>(null);
+  const profileOnboardingRequestedRef = useRef(false);
   const initialCourseVisitEntryTypeRef = useRef<'catalog' | 'deep_link' | null>(
     null,
   );
@@ -373,6 +381,93 @@ export default function ChatPage() {
       updateChapterId: state.updateChapterId,
     })),
   );
+
+  const [profileOnboardingStatus, setProfileOnboardingStatus] =
+    useState<ProfileOnboardingStatus | null>(null);
+  const [profileOnboardingOpen, setProfileOnboardingOpen] = useState(false);
+  const [profileOnboardingSubmitting, setProfileOnboardingSubmitting] =
+    useState(false);
+  const [profileOnboardingError, setProfileOnboardingError] = useState('');
+
+  useEffect(() => {
+    if (
+      !initialized ||
+      !isLoggedIn ||
+      previewMode ||
+      !courseName ||
+      profileOnboardingRequestedRef.current
+    ) {
+      return;
+    }
+
+    const token = useUserStore.getState().getToken?.();
+    if (!token) {
+      return;
+    }
+
+    profileOnboardingRequestedRef.current = true;
+    void getProfileOnboarding()
+      .then(status => {
+        if (status?.should_show && status.markdownflow?.trim()) {
+          setProfileOnboardingStatus(status);
+          setProfileOnboardingOpen(true);
+          setProfileOnboardingError('');
+        }
+      })
+      .catch(error => {
+        // eslint-disable-next-line no-console
+        console.warn('Failed to load profile onboarding:', error);
+      });
+  }, [courseName, initialized, isLoggedIn, previewMode]);
+
+  const closeProfileOnboarding = useCallback(() => {
+    setProfileOnboardingOpen(false);
+    setProfileOnboardingStatus(null);
+    setProfileOnboardingError('');
+  }, []);
+
+  const resolveProfileOnboardingError = useCallback(
+    (error: unknown) => {
+      const typedError = error as Partial<ErrorWithCode>;
+      return typedError.message || t('module.profileOnboarding.submitFailed');
+    },
+    [t],
+  );
+
+  const handleProfileOnboardingComplete = useCallback(
+    async (variables: Record<string, string>) => {
+      setProfileOnboardingSubmitting(true);
+      setProfileOnboardingError('');
+      try {
+        await completeProfileOnboarding({
+          skipped: false,
+          variables,
+        });
+        closeProfileOnboarding();
+      } catch (error) {
+        setProfileOnboardingError(resolveProfileOnboardingError(error));
+      } finally {
+        setProfileOnboardingSubmitting(false);
+      }
+    },
+    [closeProfileOnboarding, resolveProfileOnboardingError],
+  );
+
+  const handleProfileOnboardingSkip = useCallback(async () => {
+    setProfileOnboardingSubmitting(true);
+    setProfileOnboardingError('');
+    try {
+      await completeProfileOnboarding({
+        skipped: true,
+        variables: {},
+      });
+      closeProfileOnboarding();
+    } catch (error) {
+      setProfileOnboardingError(resolveProfileOnboardingError(error));
+    } finally {
+      setProfileOnboardingSubmitting(false);
+    }
+  }, [closeProfileOnboarding, resolveProfileOnboardingError]);
 
   useEffect(() => {
     if (!courseName) {
@@ -854,6 +949,18 @@ export default function ChatPage() {
         ) : null}
 
         {initialized ? <TrackingVisit /> : null}
+
+        {profileOnboardingStatus ? (
+          <ProfileOnboardingModal
+            open={profileOnboardingOpen}
+            markdownflow={profileOnboardingStatus.markdownflow}
+            currentValues={profileOnboardingStatus.current_values}
+            errorMessage={profileOnboardingError}
+            submitting={profileOnboardingSubmitting}
+            onComplete={handleProfileOnboardingComplete}
+            onSkip={handleProfileOnboardingSkip}
+          />
+        ) : null}
 
         <FeedbackModal
           open={feedbackModalOpen}

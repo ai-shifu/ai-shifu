@@ -12,6 +12,21 @@ describe('auth api definitions', () => {
   });
 });
 
+describe('profile onboarding api definitions', () => {
+  test('exposes learner and operator profile onboarding endpoints', () => {
+    expect(api.getProfileOnboarding).toBe('GET /user/profile-onboarding');
+    expect(api.completeProfileOnboarding).toBe(
+      'POST /user/profile-onboarding/complete',
+    );
+    expect(api.getAdminOperationProfileOnboardingConfig).toBe(
+      'GET /shifu/admin/operations/profile-onboarding',
+    );
+    expect(api.updateAdminOperationProfileOnboardingConfig).toBe(
+      'POST /shifu/admin/operations/profile-onboarding',
+    );
+  });
+});
+
 describe('referral api definitions', () => {
   test('exposes creator and anonymous referral endpoints', () => {
     expect(api.getReferralInviteProfile).toBe('GET /referral/invite-profile');
