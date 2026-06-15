@@ -27,6 +27,13 @@ export type StreamCallback = (
   abort: () => void,
 ) => void;
 
+export type DownloadResponse = {
+  blob: Blob;
+  fileName: string;
+  requestId: string;
+  harnessRunId?: string;
+};
+
 export type BusinessResponse = {
   code: number;
   message?: string;
@@ -210,6 +217,29 @@ export const parseBusinessResponsePayload = (
   } catch {
     return null;
   }
+};
+
+const parseDownloadFileName = (response: Response, fallbackName = 'download.pdf') => {
+  const header = String(response.headers.get('content-disposition') || '').trim();
+  if (!header) {
+    return fallbackName;
+  }
+
+  const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]).trim() || fallbackName;
+    } catch {
+      return utf8Match[1].trim() || fallbackName;
+    }
+  }
+
+  const plainMatch = header.match(/filename=\"?([^\";]+)\"?/i);
+  if (plainMatch?.[1]) {
+    return plainMatch[1].trim() || fallbackName;
+  }
+
+  return fallbackName;
 };
 
 export const handleBusinessCode = async (
@@ -648,6 +678,76 @@ export class Request {
       body: JSON.stringify(body),
       ...config,
     });
+  }
+
+  async download(
+    url: string,
+    config: RequestConfig = {},
+  ): Promise<DownloadResponse> {
+    const {
+      url: fullUrl,
+      config: preparedConfig,
+      tokenUsed,
+      requestId,
+      harnessRunId,
+    } = await this.prepareConfig(url, config);
+
+    try {
+      const response = await fetch(fullUrl, {
+        ...preparedConfig,
+        method: String(preparedConfig.method || config.method || 'GET'),
+      });
+      const responseTraceHeaders = readTraceHeadersFromResponse(response);
+      const activeRequestId = responseTraceHeaders.requestId || requestId;
+      const activeHarnessRunId =
+        responseTraceHeaders.harnessRunId || harnessRunId;
+
+      if (!response.ok) {
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const errorMessage = isDevelopment
+          ? `Request failed with status ${response.status}`
+          : 'Network request failed';
+        const error = new ErrorWithCode(errorMessage, response.status);
+        error.status = response.status;
+        error.requestId = activeRequestId;
+        error.harnessRunId = activeHarnessRunId;
+        throw error;
+      }
+
+      const contentType = String(response.headers.get('content-type') || '')
+        .toLowerCase()
+        .trim();
+
+      if (contentType.includes('application/json')) {
+        const text = await response.text();
+        const parsed = parseBusinessResponsePayload(text);
+        if (parsed && parsed.code !== undefined) {
+          await handleBusinessCode(parsed, tokenUsed, {
+            url: fullUrl,
+            method: 'GET',
+            requestToken: tokenUsed,
+            httpStatus: response.status,
+            requestId: activeRequestId,
+            harnessRunId: activeHarnessRunId,
+          });
+        }
+      }
+
+      const blob = await response.blob();
+      return {
+        blob,
+        fileName: parseDownloadFileName(response),
+        requestId: activeRequestId,
+        harnessRunId: activeHarnessRunId,
+      };
+    } catch (error: any) {
+      if (error && typeof error === 'object') {
+        error.requestId = error.requestId || requestId;
+        error.harnessRunId = error.harnessRunId || harnessRunId;
+      }
+      handleApiError(error);
+      throw error;
+    }
   }
   // Stream request
   async stream(

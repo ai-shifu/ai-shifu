@@ -16,6 +16,16 @@ export const getScriptInfo = async (courseId: string, scriptId: string) => {
   );
 };
 
+export const downloadLessonPdf = async (
+  courseId: string,
+  lessonId: string,
+  previewMode: boolean,
+) => {
+  return request.download(
+    `/api/learn/shifu/${courseId}/records/${lessonId}/export-pdf?preview_mode=${previewMode}&learning_mode=read`,
+  );
+};
+
 export const resetChapter = async ({ lessonId: outline_bid }) => {
   const { courseId: shifu_bid } = useEnvStore.getState();
   return request.delete(`/api/learn/shifu/${shifu_bid}/records/${outline_bid}`);

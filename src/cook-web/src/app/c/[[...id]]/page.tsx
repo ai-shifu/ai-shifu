@@ -758,6 +758,9 @@ export default function ChatPage() {
             className={styles.chatMobileHeader}
             iconPopoverPayload={tree?.bannerInfo}
             onSettingClick={onNavToggle}
+            lessonId={resolvedLessonId}
+            lessonTitle={currentLessonTitle}
+            lessonStatus={currentLessonStatus}
           />
         ) : null}
 
@@ -796,7 +799,7 @@ export default function ChatPage() {
 
         {initialized ? (
           <ChatUi
-            lessonId={lessonId}
+            lessonId={resolvedLessonId}
             chapterId={chapterId}
             lessonTitle={currentLessonTitle}
             lessonStatus={currentLessonStatus}

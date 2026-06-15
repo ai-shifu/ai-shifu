@@ -37,6 +37,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
         BILLING_LOW_BALANCE_CRON="30 * * * *",
         BILLING_CREDIT_EXPIRING_CRON="45 * * * *",
         BILLING_DAILY_LEDGER_SUMMARY_CRON="45 1 * * *",
+        LEARN_PDF_EXPORT_CLEANUP_CRON="15 * * * *",
     )
 
     celery_app = celery_app_module.create_celery_app(flask_app=flask_app)
@@ -64,6 +65,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert "billing.finalize_daily_ledger_summary" in celery_app.tasks
     assert "billing.rebuild_daily_aggregates" in celery_app.tasks
     assert "billing.verify_domain_binding" in celery_app.tasks
+    assert "learn.cleanup_pdf_exports" in celery_app.tasks
 
     beat_schedule = celery_app.conf.beat_schedule
     assert beat_schedule["billing.dispatch_due_renewal_events.schedule"]["task"] == (
@@ -84,6 +86,9 @@ def test_create_celery_app_reuses_flask_config() -> None:
     )
     assert beat_schedule["billing.finalize_daily_ledger_summary.schedule"]["task"] == (
         "billing.finalize_daily_ledger_summary"
+    )
+    assert beat_schedule["learn.cleanup_pdf_exports.schedule"]["task"] == (
+        "learn.cleanup_pdf_exports"
     )
     _assert_cron_schedule(
         beat_schedule["billing.dispatch_due_renewal_events.schedule"]["schedule"],
@@ -116,6 +121,11 @@ def test_create_celery_app_reuses_flask_config() -> None:
         beat_schedule["billing.finalize_daily_ledger_summary.schedule"]["schedule"],
         minute="45",
         hour="1",
+    )
+    _assert_cron_schedule(
+        beat_schedule["learn.cleanup_pdf_exports.schedule"]["schedule"],
+        minute="15",
+        hour="*",
     )
 
 
@@ -353,4 +363,9 @@ def test_create_celery_app_uses_default_billing_beat_crons() -> None:
         beat_schedule["billing.finalize_daily_ledger_summary.schedule"]["schedule"],
         minute="30",
         hour="1",
+    )
+    _assert_cron_schedule(
+        beat_schedule["learn.cleanup_pdf_exports.schedule"]["schedule"],
+        minute="0",
+        hour="*",
     )

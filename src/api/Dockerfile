@@ -2,7 +2,7 @@ ARG SRC_ROOT=src
 ARG API_SRC=${SRC_ROOT}/api
 ARG I18N_SRC=${SRC_ROOT}/i18n
 
-FROM python:3.11 AS base
+FROM python:3.11-bookworm AS base
 
 # Re-declare build args within this stage for COPY path expansion
 ARG SRC_ROOT
@@ -35,7 +35,7 @@ RUN python -m pip install -r requirements.txt
 COPY ${API_SRC} ./
 COPY ${I18N_SRC} /app/i18n
 
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 ENV SHARED_I18N_ROOT=/app/i18n
 
