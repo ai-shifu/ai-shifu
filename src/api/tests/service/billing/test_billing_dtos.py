@@ -206,6 +206,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
         googleOauthRedirect="https://example.com/login/google-callback",
         homeUrl="/",
         contactUsUrl="https://ai-shifu.cn/contact.html",
+        officialSiteUrl="https://official.example.com",
         currencySymbol="¥",
         legalUrls=RuntimeLegalUrlsDTO(
             agreement=RuntimeLocalizedUrlDTO(
@@ -265,6 +266,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     assert payload["billingCreditPrecision"] == 2
     assert payload["branding"]["home_url"] == "https://creator.example.com"
     assert payload["contactUsUrl"] == "https://ai-shifu.cn/contact.html"
+    assert payload["officialSiteUrl"] == "https://official.example.com"
     assert (
         payload["branding"]["contact_us_url"] == "https://creator.example.com/contact"
     )

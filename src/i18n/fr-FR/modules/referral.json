@@ -7,59 +7,57 @@
     "unknown": "Statut d’anomalie inconnu"
   },
   "creator": {
-    "capAvailableHint": "Il reste {remaining} mois de récompense automatique.",
-    "capReached": "Récompenses automatiques au plafond",
-    "capReachedHint": "Le plafond automatique est atteint. Les invitations valides suivantes restent suivies ; contactez l’équipe pour la suite.",
     "copied": "Copié",
     "copyLink": "Copier le lien",
-    "description": "Consultez votre code, votre lien d’invitation et les mois de récompense obtenus.",
-    "emptyQueue": "Aucune file de récompense pour le moment.",
-    "inviteCardDescription": "Partagez le lien ou le code avec un nouvel utilisateur. Après inscription par mobile national, la récompense suit la configuration de campagne.",
-    "inviteCardTitle": "Vos informations d’invitation",
-    "inviteCode": "Code d’invitation",
+    "description": "Recommandez AI Shifu aux amis qui pourraient en avoir besoin.",
+    "emptyQueue": "Partagez votre lien d’invitation. Dès qu’un ami termine son inscription mobile, vous recevez immédiatement 1 mois d’avantages.",
+    "inviteCardDescription": "Copiez votre lien d’invitation et partagez-le avec un nouvel utilisateur qui n’a pas encore rejoint AI Shifu. Une fois l’inscription terminée via ce lien, vous recevrez la récompense d’abonnement correspondante.",
+    "inviteCardTitle": "Partager votre lien d’invitation",
     "inviteLink": "Lien d’invitation",
-    "ledgerStates": {
-      "available": "Active",
-      "reserved": "En attente",
-      "unknown": "Non créée"
-    },
     "metrics": {
-      "cap": "Plafond",
-      "remaining": "Restant",
       "rewarded": "Mois récompensés"
     },
     "queueColumns": {
-      "credits": "Crédits",
       "effectiveAt": "Début",
       "expiresAt": "Fin",
-      "index": "Cycle",
-      "invitee": "Invité",
-      "ledgerState": "État comptable",
+      "invitee": "Ami invité",
+      "reward": "Récompense",
       "status": "Statut"
     },
-    "queueTitle": "File de récompenses",
+    "queueTitle": "Invitations",
     "refresh": "Actualiser",
-    "rewardRule": "Chaque invitation valide récompense {cycles} cycle d’abonnement ; crédits configurés par cycle : {credits}, valables {days} jours.",
+    "rewardRecordValue": "{cycles} mois d’abonnement Basic ({credits} crédits inclus)",
     "rewardRulesTitle": "Règles de campagne",
+    "rules": {
+      "cap": "Les récompenses sont attribuées automatiquement et peuvent s’accumuler jusqu’à {cap} mois. Par exemple, 12 amis invités peuvent donner 12 mois d’abonnement Basic.",
+      "defer": "Si vous avez déjà un abonnement actif, la récompense commencera automatiquement après la fin de l’abonnement actuel.",
+      "firstRegistration": "Quand un ami termine sa première inscription via votre lien, l’invitation est considérée comme réussie.",
+      "inviteeBenefit": "Après inscription, l’ami invité reçoit l’offre d’essai nouvel utilisateur de 1000 crédits, valable 15 jours.",
+      "inviterReward": "Pour chaque ami inscrit avec succès, vous recevez {cycles} mois d’abonnement Basic ({credits} crédits inclus, valeur 199 RMB).",
+      "unregistered": "Partagez votre lien d’invitation avec de nouveaux utilisateurs qui ne se sont jamais inscrits à AI Shifu."
+    },
+    "shareMessage": "J’utilise AI Shifu pour transformer connaissances et expérience en cours interactifs individuels. Je vous recommande aussi d’essayer AI Shifu. Inscription avec 15 jours d’essai gratuit : {url}",
     "title": "Inviter des amis",
     "tooltips": {
-      "cap": "Plafond de récompense automatique configuré pour la campagne actuelle.",
-      "remaining": "Mois encore éligibles à une attribution automatique.",
       "rewarded": "Mois déjà comptés dans les récompenses automatiques."
     }
   },
   "inviteLanding": {
     "badge": "Invitation d’un ami",
+    "brandName": "AI Shifu",
     "codeLabel": "Code d’invitation",
     "codePlaceholder": "Saisir le code",
     "codeRequired": "Veuillez d’abord saisir un code d’invitation.",
-    "continue": "Continuer l’inscription ou la connexion",
-    "description": "Utilisez le code d’un ami pour accéder à AI Shifu. Les avantages nouvel utilisateur suivent les règles existantes de la plateforme.",
+    "descriptionAfterBrand": " devenir votre partenaire pédagogique polyvalent et transformer connaissances et expérience en cours interactifs individuels.",
+    "descriptionBeforeBrand": "Laissez ",
+    "fallbackTitle": "Vous êtes invité à essayer AI Shifu !",
     "formAria": "Entrée d’inscription par code d’invitation",
     "formTitle": "Confirmer le code",
-    "noExtraBenefit": "Les nouveaux utilisateurs invités ne reçoivent pas de récompense supplémentaire dédiée ; les avantages nouvel utilisateur existants s’appliquent.",
+    "invitedTitle": "{maskedMobile} vous invite à essayer AI Shifu !",
+    "register": "S’inscrire gratuitement",
     "submitFailed": "Échec de l’envoi du code. Réessayez plus tard.",
-    "title": "Commencer à créer des cours IA avec un code"
+    "title": "Vous êtes invité à essayer AI Shifu !",
+    "trialHint": "Inscription avec 15 jours d’essai gratuit"
   },
   "operator": {
     "actions": {

@@ -7,6 +7,7 @@ from decimal import Decimal
 from flask import Flask
 
 from flaskr.dao import db
+from flaskr.service.referral.routes import register_referral_routes
 from flaskr.service.referral.consts import (
     REFERRAL_CAMPAIGN_STATUS_ACTIVE,
     REFERRAL_INVITE_CODE_STATUS_ACTIVE,
@@ -39,6 +40,7 @@ from flaskr.service.referral.service import (
     retry_pending_referral_rewards,
 )
 from flaskr.service.user.post_auth import PostAuthContext
+from flaskr.service.user.models import UserInfo as UserEntity
 
 
 def _seed_campaign(
@@ -208,7 +210,7 @@ def test_invite_profile_includes_creator_reward_queue(
                 "queue_index": 1,
                 "reward_bid": "reward-profile-queue",
                 "relation_bid": "relation-profile-queue",
-                "invitee_mobile_snapshot": "13521510781",
+                "invitee_mobile_snapshot": "135****0781",
                 "reward_status": REFERRAL_REWARD_STATUS_PENDING_EFFECTIVE,
                 "reward_credit_amount": "1000.0000000000",
                 "reward_product_code": "creator-plan-monthly-pro",
@@ -218,6 +220,65 @@ def test_invite_profile_includes_creator_reward_queue(
                 "created_at": reward.created_at.isoformat(),
             }
         ]
+        assert "13521510781" not in str(queue)
+
+
+def test_invite_preview_route_returns_only_masked_inviter_mobile(
+    referral_app,
+) -> None:
+    register_referral_routes(referral_app, "/api/referral")
+    with referral_app.app_context():
+        campaign, _rule = _seed_campaign(campaign_bid="ref-campaign-preview")
+        db.session.add_all(
+            [
+                UserEntity(
+                    user_bid="inviter-preview",
+                    user_identify="15512340064",
+                    nickname="Private inviter name",
+                ),
+                ReferralInviteCode(
+                    invite_code_bid="ref-code-preview",
+                    campaign_bid=campaign.campaign_bid,
+                    inviter_user_bid="inviter-preview",
+                    invite_code="PREVIEW1",
+                    status=REFERRAL_INVITE_CODE_STATUS_ACTIVE,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    response = referral_app.test_client().get(
+        "/api/referral/invite-preview?invite_code=preview1"
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert response.status_code == 200
+    assert payload == {
+        "recognized": True,
+        "invite_code": "PREVIEW1",
+        "inviter_mobile_masked": "155****0064",
+    }
+    assert "15512340064" not in str(payload)
+    assert "inviter-preview" not in str(payload)
+    assert "Private inviter name" not in str(payload)
+
+
+def test_invite_preview_route_is_non_identifying_for_unknown_code(
+    referral_app,
+) -> None:
+    register_referral_routes(referral_app, "/api/referral")
+
+    response = referral_app.test_client().get(
+        "/api/referral/invite-preview?invite_code=missing"
+    )
+    payload = response.get_json(force=True)["data"]
+
+    assert response.status_code == 200
+    assert payload == {
+        "recognized": False,
+        "invite_code": "",
+        "inviter_mobile_masked": "",
+    }
 
 
 def test_record_invite_event_hashes_client_context(referral_app) -> None:

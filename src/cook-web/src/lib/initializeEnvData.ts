@@ -36,6 +36,7 @@ const loadRuntimeConfig = async () => {
     updateEnableWxcode,
     updateHomeUrl,
     updateContactUsUrl,
+    updateOfficialSiteUrl,
     updateCurrencySymbol,
     updateBillingEnabled,
     updateStripePublishableKey,
@@ -182,6 +183,7 @@ const loadRuntimeConfig = async () => {
   await updateDefaultLlmModel(runtimeConfig?.defaultLlmModel || '');
   await updateHomeUrl(runtimeConfig?.homeUrl || '/');
   await updateContactUsUrl(runtimeConfig?.contactUsUrl || '');
+  await updateOfficialSiteUrl(runtimeConfig?.officialSiteUrl || '');
   await updateCurrencySymbol(runtimeConfig?.currencySymbol || '¥');
   await updateBillingEnabled(
     runtimeConfig?.billingEnabled !== undefined

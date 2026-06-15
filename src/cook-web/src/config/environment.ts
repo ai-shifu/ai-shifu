@@ -48,6 +48,7 @@ interface EnvironmentConfig {
   // Redirect Configuration
   homeUrl: string;
   contactUsUrl: string;
+  officialSiteUrl: string;
 
   // Legal Documents Configuration
   legalUrls: {
@@ -312,6 +313,15 @@ function getContactUsUrl(): string {
 }
 
 /**
+ * Gets official site URL
+ */
+function getOfficialSiteUrl(): string {
+  return (
+    getRuntimeEnv('OFFICIAL_SITE_URL') || process.env.OFFICIAL_SITE_URL || ''
+  );
+}
+
+/**
  * Gets currency symbol
  */
 function getCurrencySymbol(): string {
@@ -400,6 +410,7 @@ export const environment: EnvironmentConfig = {
   // Redirect Configuration
   homeUrl: getHomeUrl(),
   contactUsUrl: getContactUsUrl(),
+  officialSiteUrl: getOfficialSiteUrl(),
   currencySymbol: getCurrencySymbol(),
 
   // Legal Documents Configuration

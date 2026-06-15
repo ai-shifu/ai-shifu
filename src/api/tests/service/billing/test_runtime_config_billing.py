@@ -57,6 +57,7 @@ def runtime_config_client(monkeypatch):
         "DEFAULT_LOGIN_METHOD": "phone",
         "HOME_URL": "/",
         "CONTACT_US_URL": "",
+        "OFFICIAL_SITE_URL": "https://official.example.com",
         "HOST_URL": "https://app.example.com",
         "CURRENCY_SYMBOL": "¥",
         "LEGAL_AGREEMENT_URL_ZH_CN": "/legal/agreement/zh",
@@ -176,6 +177,7 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
     assert payload["faviconUrl"] == "https://cdn.example.com/creator-favicon.ico"
     assert payload["homeUrl"] == "https://creator.example.com/home"
     assert payload["contactUsUrl"] == "https://creator.example.com/contact"
+    assert payload["officialSiteUrl"] == "https://official.example.com"
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 4
     assert payload["googleOauthRedirect"] == (
@@ -239,6 +241,26 @@ def test_runtime_config_uses_origin_header_for_google_redirect_when_host_url_mis
     assert payload["googleOauthRedirect"] == (
         "https://frontend-origin.example.com/login/google-callback"
     )
+
+
+def test_runtime_config_returns_empty_official_site_url_when_unconfigured(
+    runtime_config_client,
+    monkeypatch,
+) -> None:
+    original_route_get_config = config_route.get_config
+
+    def get_config_override(key, default=""):
+        if key == "OFFICIAL_SITE_URL":
+            return ""
+        return original_route_get_config(key, default)
+
+    monkeypatch.setattr(config_route, "get_config", get_config_override)
+
+    response = runtime_config_client.get("/api/runtime-config")
+    payload = response.get_json(force=True)["data"]
+
+    assert response.status_code == 200
+    assert payload["officialSiteUrl"] == ""
 
 
 def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective(
@@ -329,6 +351,7 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
 
     assert isinstance(config, RuntimeConfigDTO)
     assert config.billingEnabled is True
+    assert config.officialSiteUrl == "https://official.example.com"
     assert config.__json__()["legalUrls"]["privacy"] == {
         "zh-CN": "/legal/privacy/zh",
         "en-US": "/legal/privacy/en",

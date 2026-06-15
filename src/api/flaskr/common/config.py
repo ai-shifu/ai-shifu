@@ -169,6 +169,12 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Cook Web floating contact CTA URL (default: empty string to hide the CTA)",
         group="frontend",
     ),
+    "OFFICIAL_SITE_URL": EnvVar(
+        name="OFFICIAL_SITE_URL",
+        default="",
+        description="Official AI Shifu public website URL used by referral landing pages.",
+        group="frontend",
+    ),
     "HOST_URL": EnvVar(
         name="HOST_URL",
         default="",

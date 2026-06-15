@@ -40,7 +40,7 @@ from .consts import (
     REFERRAL_RULE_STATUS_ACTIVE,
     REFERRAL_TRIGGER_INVITED_REGISTRATION,
 )
-from .dtos import InviteProfileDTO
+from .dtos import InvitePreviewDTO, InviteProfileDTO
 from .models import (
     ReferralCampaign,
     ReferralCampaignRewardRule,
@@ -345,6 +345,33 @@ def _normalize_origin(value: str) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
 
+def mask_mobile_snapshot(value: str) -> str:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return ""
+    digits = "".join(ch for ch in raw_value if ch.isdigit())
+    if digits.startswith("0086") and len(digits) == 15:
+        digits = digits[4:]
+    elif digits.startswith("86") and len(digits) == 13:
+        digits = digits[2:]
+    if len(digits) >= 7:
+        return f"{digits[:3]}****{digits[-4:]}"
+    return "****"
+
+
+def _mask_reward_queue_mobile_snapshots(
+    reward_queue: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    masked_queue: list[dict[str, Any]] = []
+    for item in reward_queue:
+        next_item = dict(item)
+        next_item["invitee_mobile_snapshot"] = mask_mobile_snapshot(
+            str(next_item.get("invitee_mobile_snapshot") or "")
+        )
+        masked_queue.append(next_item)
+    return masked_queue
+
+
 def build_invite_profile(app: Flask, *, inviter_user_bid: str) -> InviteProfileDTO:
     with _with_app_context(app):
         normalized_inviter = str(inviter_user_bid or "").strip()
@@ -380,6 +407,12 @@ def build_invite_profile(app: Flask, *, inviter_user_bid: str) -> InviteProfileD
         if cap_count is not None:
             remaining = max(int(cap_count or 0) - granted_count, 0)
 
+        reward_queue = build_referral_reward_queue(
+            normalized_inviter,
+            include_billing_artifacts=False,
+            include_invitee_user_bid=False,
+        )
+
         return InviteProfileDTO(
             campaign_bid=campaign.campaign_bid,
             campaign_code=campaign.campaign_code,
@@ -394,12 +427,25 @@ def build_invite_profile(app: Flask, *, inviter_user_bid: str) -> InviteProfileD
             reward_granted_count=granted_count,
             reward_remaining_count=remaining,
             reward_queue_summary=_reward_queue_summary(normalized_inviter),
-            reward_queue=build_referral_reward_queue(
-                normalized_inviter,
-                include_billing_artifacts=False,
-                include_invitee_user_bid=False,
-            ),
+            reward_queue=_mask_reward_queue_mobile_snapshots(reward_queue),
             rules_copy_i18n_key=campaign.rules_copy_i18n_key,
+        )
+
+
+def build_invite_preview(app: Flask, *, invite_code: str) -> InvitePreviewDTO:
+    with _with_app_context(app):
+        normalized_code = str(invite_code or "").strip().upper()
+        if not normalized_code:
+            return InvitePreviewDTO(recognized=False)
+        code = _load_invite_code(normalized_code)
+        if code is None or load_campaign_by_bid(code.campaign_bid) is None:
+            return InvitePreviewDTO(recognized=False)
+        return InvitePreviewDTO(
+            recognized=True,
+            invite_code=code.invite_code,
+            inviter_mobile_masked=mask_mobile_snapshot(
+                _load_invitee_mobile_snapshot(code.inviter_user_bid)
+            ),
         )
 
 

@@ -47,3 +47,17 @@ class InviteProfileDTO:
             "reward_queue": [dict(item) for item in self.reward_queue],
             "rules_copy_i18n_key": self.rules_copy_i18n_key,
         }
+
+
+@dataclass(slots=True, frozen=True)
+class InvitePreviewDTO:
+    recognized: bool
+    invite_code: str = ""
+    inviter_mobile_masked: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "recognized": self.recognized,
+            "invite_code": self.invite_code,
+            "inviter_mobile_masked": self.inviter_mobile_masked,
+        }

@@ -7,7 +7,12 @@ from flask import Flask, request
 from flaskr.route.common import bypass_token_validation, make_common_response
 from flaskr.service.common.models import raise_param_error
 
-from .service import InviteEventInput, build_invite_profile, record_invite_event
+from .service import (
+    InviteEventInput,
+    build_invite_preview,
+    build_invite_profile,
+    record_invite_event,
+)
 
 
 def register_referral_routes(app: Flask, path_prefix: str = "/api/referral") -> None:
@@ -21,6 +26,15 @@ def register_referral_routes(app: Flask, path_prefix: str = "/api/referral") -> 
             raise_param_error("user")
         profile = build_invite_profile(app, inviter_user_bid=user_bid)
         return make_common_response(profile.to_dict())
+
+    @app.route(path_prefix + "/invite-preview", methods=["GET"])
+    @bypass_token_validation
+    def referral_invite_preview_api():
+        preview = build_invite_preview(
+            app,
+            invite_code=str(request.args.get("invite_code") or "").strip(),
+        )
+        return make_common_response(preview.to_dict())
 
     @app.route(path_prefix + "/invite-event", methods=["POST"])
     @bypass_token_validation

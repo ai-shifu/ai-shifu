@@ -33,6 +33,7 @@ const api = {
 
   // referral api
   getReferralInviteProfile: 'GET /referral/invite-profile',
+  getReferralInvitePreview: 'GET /referral/invite-preview',
   recordReferralInviteEvent: 'POST /referral/invite-event',
 
   // shifu api start

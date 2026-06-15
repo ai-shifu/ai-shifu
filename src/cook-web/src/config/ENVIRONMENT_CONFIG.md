@@ -63,7 +63,13 @@
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe前端可公开的Publishable Key | 空字符串 |
 | `NEXT_PUBLIC_STRIPE_ENABLED`         | 是否启用Stripe前端支付入口        | `false`  |
 
-### 9. 法律文档配置 (Legal Documents Configuration)
+### 9. 公开站点配置 (Public Site Configuration)
+
+| 变量名              | 用途                        | 默认值   | 说明                                         |
+| ------------------- | --------------------------- | -------- | -------------------------------------------- |
+| `OFFICIAL_SITE_URL` | AI 师傅官网链接，用于邀请页 | 空字符串 | 留空则邀请页品牌文案和 logo 不渲染为外部链接 |
+
+### 10. 法律文档配置 (Legal Documents Configuration)
 
 | 变量名                      | 用途            | 默认值   | 说明                           |
 | --------------------------- | --------------- | -------- | ------------------------------ |
