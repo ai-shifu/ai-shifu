@@ -1,9 +1,8 @@
-import os
 from pathlib import Path
 
 from flask import Flask
 
-from flaskr.i18n import load_translations
+from flaskr.i18n import _translations, load_translations
 from flaskr.route.common import register_common_handler
 
 
@@ -11,8 +10,10 @@ def _shared_i18n_root() -> Path:
     return Path(__file__).resolve().parents[3] / "i18n"
 
 
-def test_common_handler_returns_translated_operation_failed_for_unhandled_exceptions():
-    os.environ["SHARED_I18N_ROOT"] = str(_shared_i18n_root())
+def test_common_handler_returns_translated_operation_failed_for_unhandled_exceptions(
+    monkeypatch,
+):
+    monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
     app = Flask(__name__)
     load_translations(app)
     register_common_handler(app)
@@ -27,12 +28,12 @@ def test_common_handler_returns_translated_operation_failed_for_unhandled_except
     assert response.status_code == 200
     assert response.get_json() == {
         "code": -1,
-        "message": "Service error, please try again later",
+        "message": _translations["en-US"]["server.common.operationFailed"],
     }
 
 
-def test_common_handler_uses_request_language_for_unhandled_exceptions():
-    os.environ["SHARED_I18N_ROOT"] = str(_shared_i18n_root())
+def test_common_handler_uses_request_language_for_unhandled_exceptions(monkeypatch):
+    monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
     app = Flask(__name__)
     load_translations(app)
     register_common_handler(app)
@@ -50,7 +51,7 @@ def test_common_handler_uses_request_language_for_unhandled_exceptions():
     assert response.status_code == 200
     assert response.get_json() == {
         "code": -1,
-        "message": "服务异常，请稍后重试",
+        "message": _translations["zh-CN"]["server.common.operationFailed"],
     }
 
     with app.test_client() as client:
@@ -62,7 +63,7 @@ def test_common_handler_uses_request_language_for_unhandled_exceptions():
     assert response.status_code == 200
     assert response.get_json() == {
         "code": -1,
-        "message": "服务异常，请稍后重试",
+        "message": _translations["zh-CN"]["server.common.operationFailed"],
     }
 
     with app.test_client() as client:
@@ -74,12 +75,12 @@ def test_common_handler_uses_request_language_for_unhandled_exceptions():
     assert response.status_code == 200
     assert response.get_json() == {
         "code": -1,
-        "message": "服务异常，请稍后重试",
+        "message": _translations["zh-CN"]["server.common.operationFailed"],
     }
 
 
-def test_common_handler_uses_json_language_for_patch_requests():
-    os.environ["SHARED_I18N_ROOT"] = str(_shared_i18n_root())
+def test_common_handler_uses_json_language_for_patch_requests(monkeypatch):
+    monkeypatch.setenv("SHARED_I18N_ROOT", str(_shared_i18n_root()))
     app = Flask(__name__)
     load_translations(app)
     register_common_handler(app)
@@ -97,5 +98,5 @@ def test_common_handler_uses_json_language_for_patch_requests():
     assert response.status_code == 200
     assert response.get_json() == {
         "code": -1,
-        "message": "服务异常，请稍后重试",
+        "message": _translations["zh-CN"]["server.common.operationFailed"],
     }
