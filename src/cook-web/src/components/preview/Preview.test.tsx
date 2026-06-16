@@ -2,15 +2,10 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 import { useBillingOverview } from '@/hooks/useBillingData';
-import PreviewSettingsModal, { buildClassroomModeCourseUrl } from './Preview';
+import PreviewSettingsModal from './Preview';
 
 const mockSaveMdflow = jest.fn();
-const mockTrackEvent = jest.fn();
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
-let mockCurrentShifu: { bid: string; readonly: boolean } | null = {
-  bid: 'shifu-1',
-  readonly: false,
-};
 
 jest.mock('@/api', () => ({
   __esModule: true,
@@ -31,7 +26,10 @@ jest.mock('@/c-store', () => ({
 
 jest.mock('@/store', () => ({
   useShifu: () => ({
-    currentShifu: mockCurrentShifu,
+    currentShifu: {
+      bid: 'shifu-1',
+      readonly: false,
+    },
     actions: {
       saveMdflow: mockSaveMdflow,
     },
@@ -40,7 +38,7 @@ jest.mock('@/store', () => ({
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
   useTracking: () => ({
-    trackEvent: mockTrackEvent,
+    trackEvent: jest.fn(),
   }),
 }));
 
@@ -53,13 +51,8 @@ jest.mock('react-i18next', () => ({
 describe('PreviewSettingsModal', () => {
   beforeEach(() => {
     mockSaveMdflow.mockReset();
-    mockTrackEvent.mockReset();
     (api.previewShifu as jest.Mock).mockReset();
     mockUseBillingOverview.mockReset();
-    mockCurrentShifu = {
-      bid: 'shifu-1',
-      readonly: false,
-    };
   });
 
   it('disables preview when billing softlimit blocks debug', () => {
@@ -74,14 +67,9 @@ describe('PreviewSettingsModal', () => {
     const previewButton = screen.getByRole('button', {
       name: /module.preview.previewAll/,
     });
-    const classroomLink = screen.getByRole('link', {
-      name: /module.preview.classroomMode/,
-    });
     expect(previewButton).toBeDisabled();
-    expect(classroomLink).toHaveAttribute('href', '/c/shifu-1?mode=classroom');
 
     fireEvent.click(previewButton);
-    fireEvent.click(classroomLink);
 
     expect(mockSaveMdflow).not.toHaveBeenCalled();
     expect(api.previewShifu).not.toHaveBeenCalled();
@@ -99,11 +87,6 @@ describe('PreviewSettingsModal', () => {
         name: /module.preview.previewAll/,
       }),
     ).toBeDisabled();
-    expect(
-      screen.getByRole('link', {
-        name: /module.preview.classroomMode/,
-      }),
-    ).toHaveAttribute('href', '/c/shifu-1?mode=classroom');
   });
 
   it('starts preview when debug is allowed', async () => {
@@ -129,73 +112,8 @@ describe('PreviewSettingsModal', () => {
     await waitFor(() => {
       expect(mockSaveMdflow).toHaveBeenCalled();
       expect(api.previewShifu).toHaveBeenCalled();
-      expect(openSpy).toHaveBeenCalledWith(
-        'https://example.com/preview',
-        '_blank',
-        'noopener,noreferrer',
-      );
     });
 
     openSpy.mockRestore();
-  });
-
-  it('links classroom mode to the course classroom URL', () => {
-    mockUseBillingOverview.mockReturnValue({
-      data: {
-        debug_allowed: true,
-      },
-    });
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
-
-    render(<PreviewSettingsModal />);
-
-    const classroomLink = screen.getByRole('link', {
-      name: /module.preview.classroomMode/,
-    });
-
-    expect(classroomLink).toHaveAttribute('href', '/c/shifu-1?mode=classroom');
-    expect(classroomLink).toHaveAttribute('target', '_blank');
-    expect(classroomLink).toHaveAttribute('rel', 'noopener noreferrer');
-
-    fireEvent.click(classroomLink);
-
-    expect(mockSaveMdflow).not.toHaveBeenCalled();
-    expect(api.previewShifu).not.toHaveBeenCalled();
-    expect(openSpy).not.toHaveBeenCalled();
-    expect(mockTrackEvent).toHaveBeenCalledWith('creator_shifu_preview_click', {
-      shifu_bid: 'shifu-1',
-      open_mode: 'classroom',
-    });
-
-    openSpy.mockRestore();
-  });
-
-  it('hides classroom mode until a course id is available', () => {
-    mockCurrentShifu = null;
-    mockUseBillingOverview.mockReturnValue({
-      data: {
-        debug_allowed: true,
-      },
-    });
-
-    render(<PreviewSettingsModal />);
-
-    expect(
-      screen.queryByRole('link', {
-        name: /module.preview.classroomMode/,
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('builds classroom course URLs without preview mode', () => {
-    expect(buildClassroomModeCourseUrl('course-1')).toBe(
-      '/c/course-1?mode=classroom',
-    );
-    expect(buildClassroomModeCourseUrl(' course 1 ')).toBe(
-      '/c/course%201?mode=classroom',
-    );
-    expect(buildClassroomModeCourseUrl('')).toBe('');
-    expect(buildClassroomModeCourseUrl(null)).toBe('');
-    expect(buildClassroomModeCourseUrl(undefined)).toBe('');
   });
 });

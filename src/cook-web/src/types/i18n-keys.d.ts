@@ -2449,7 +2449,6 @@ export type I18nKey =
   | 'module.permission.permission.requestSuccess'
   | 'module.permission.permission.requestTitle'
   | 'module.permission.user.login'
-  | 'module.preview.classroomMode'
   | 'module.preview.debugDisabledBySoftLimit'
   | 'module.preview.llmError'
   | 'module.preview.previewAll'
