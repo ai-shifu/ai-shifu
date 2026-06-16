@@ -9,7 +9,7 @@
     "enabled": "Activer la fenêtre d’initialisation du profil",
     "enabledHint": "Une fois activée, elle s’affiche une seule fois pour les apprenants qui ne l’ont pas terminée ou ignorée.",
     "hidePreview": "Masquer l’aperçu",
-    "invalidVariables": "Variables non autorisées : {{keys}}",
+    "invalidVariables": "Variables non autorisées : {keys}",
     "loadFailed": "Échec du chargement de la configuration d’initialisation du profil",
     "markdownflow": "MarkdownFlow",
     "preview": "Aperçu",
@@ -30,5 +30,10 @@
   "skip": "Ignorer",
   "submitFailed": "Impossible d’enregistrer votre profil. Vérifiez vos réponses et réessayez.",
   "title": "Configurer votre profil d’apprentissage",
-  "variablePrompt": "Veuillez renseigner {{variable}}"
+  "variableLabels": {
+    "sys_user_background": "métier ou parcours",
+    "sys_user_nickname": "surnom",
+    "sys_user_style": "style d’enseignement"
+  },
+  "variablePrompt": "Veuillez renseigner {variable}"
 }

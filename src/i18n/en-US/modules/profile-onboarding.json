@@ -9,7 +9,7 @@
     "enabled": "Enable onboarding popup",
     "enabledHint": "When enabled, learners who have not completed or skipped this flow will see it once.",
     "hidePreview": "Hide Preview",
-    "invalidVariables": "Variables not allowed: {{keys}}",
+    "invalidVariables": "Variables not allowed: {keys}",
     "loadFailed": "Failed to load profile onboarding configuration",
     "markdownflow": "MarkdownFlow",
     "preview": "Preview",
@@ -30,5 +30,10 @@
   "skip": "Skip",
   "submitFailed": "Unable to save your profile. Please check your answers and try again.",
   "title": "Set Up Your Learning Profile",
-  "variablePrompt": "Please provide {{variable}}"
+  "variableLabels": {
+    "sys_user_background": "work or background",
+    "sys_user_nickname": "nickname",
+    "sys_user_style": "teaching style"
+  },
+  "variablePrompt": "Please provide {variable}"
 }

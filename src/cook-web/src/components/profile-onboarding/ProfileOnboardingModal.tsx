@@ -30,6 +30,22 @@ type ProfileOnboardingModalProps = {
   onSkip: () => void | Promise<void>;
 };
 
+const PROFILE_ONBOARDING_VARIABLE_LABEL_KEYS: Record<string, string> = {
+  sys_user_background:
+    'module.profileOnboarding.variableLabels.sys_user_background',
+  sys_user_nickname:
+    'module.profileOnboarding.variableLabels.sys_user_nickname',
+  sys_user_style: 'module.profileOnboarding.variableLabels.sys_user_style',
+};
+
+const getVariableLabel = (
+  t: ReturnType<typeof useTranslation>['t'],
+  variableKey: string,
+) => {
+  const labelKey = PROFILE_ONBOARDING_VARIABLE_LABEL_KEYS[variableKey];
+  return labelKey ? t(labelKey) : variableKey;
+};
+
 const normalizeValues = (
   steps: ProfileOnboardingStep[],
   currentValues?: ProfileOnboardingValues,
@@ -116,7 +132,7 @@ export default function ProfileOnboardingModal({
 
   const fallbackPrompt = activeStep
     ? t('module.profileOnboarding.variablePrompt', {
-        variable: activeStep.variableKey,
+        variable: getVariableLabel(t, activeStep.variableKey),
       })
     : '';
   const prompt = activeStep?.prompt || fallbackPrompt;

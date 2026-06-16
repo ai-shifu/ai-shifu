@@ -9,7 +9,7 @@
     "enabled": "启用画像初始化弹窗",
     "enabledHint": "启用后，尚未完成或跳过该流程的用户会看到一次弹窗。",
     "hidePreview": "收起预览",
-    "invalidVariables": "不允许写入的变量：{{keys}}",
+    "invalidVariables": "不允许写入的变量：{keys}",
     "loadFailed": "画像初始化配置加载失败",
     "markdownflow": "MarkdownFlow",
     "preview": "预览",
@@ -30,5 +30,10 @@
   "skip": "跳过",
   "submitFailed": "保存画像失败，请检查填写内容后重试。",
   "title": "设置你的学习画像",
-  "variablePrompt": "请填写 {{variable}}"
+  "variableLabels": {
+    "sys_user_background": "用户职业/背景",
+    "sys_user_nickname": "用户昵称",
+    "sys_user_style": "授课风格"
+  },
+  "variablePrompt": "请填写 {variable}"
 }

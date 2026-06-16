@@ -4,8 +4,22 @@ import ProfileOnboardingModal from './ProfileOnboardingModal';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, params?: Record<string, string>) =>
-      params?.variable ? `${key}:${params.variable}` : key,
+    t: (key: string, params?: Record<string, string>) => {
+      const translations: Record<string, string> = {
+        'module.profileOnboarding.variableLabels.sys_user_background':
+          '用户职业/背景',
+        'module.profileOnboarding.variableLabels.sys_user_nickname': '用户昵称',
+        'module.profileOnboarding.variableLabels.sys_user_style': '授课风格',
+        'module.profileOnboarding.variablePrompt': '请填写 {variable}',
+      };
+      const text = translations[key] || key;
+      return params
+        ? text.replace(
+            /\{([a-zA-Z0-9_]+)\}/g,
+            (_, name: string) => params[name] ?? `{${name}}`,
+          )
+        : text;
+    },
   }),
 }));
 
@@ -64,6 +78,30 @@ describe('ProfileOnboardingModal', () => {
         sys_user_background: '产品经理',
       });
     });
+  });
+
+  test('renders a localized fallback prompt for choice-only variables', () => {
+    render(
+      <ProfileOnboardingModal
+        open
+        markdownflow={FLOW}
+        currentValues={{}}
+        errorMessage=''
+        submitting={false}
+        onComplete={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: '小明' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.profileOnboarding.next' }),
+    );
+
+    expect(screen.getByText('请填写 授课风格')).toBeInTheDocument();
+    expect(screen.queryByText(/{{variable}}/)).not.toBeInTheDocument();
   });
 
   test('submits skip without collecting variables', () => {
