@@ -374,6 +374,7 @@ describe('ListenModeSlideRenderer', () => {
           elementList?: Array<Record<string, unknown>>;
           playerCustomActions?: unknown;
           playerClassName?: string;
+          className?: string;
           disableLoadingOverlay?: boolean;
           showPlayer?: boolean;
         }
@@ -403,6 +404,11 @@ describe('ListenModeSlideRenderer', () => {
     expect(slideProps?.playerClassName ?? '').toContain(
       'classroom-slide-player',
     );
+    expect(slideProps?.className ?? '').toContain('listen-slide-root');
+    expect(slideProps?.className ?? '').not.toContain('classroom-slide-root');
+    expect(
+      screen.getByTestId('mock-slide').closest('.listen-reveal-wrapper'),
+    ).not.toHaveClass('listen-reveal-wrapper--classroom');
     expect(
       screen.queryByRole('button', {
         name: 'module.chat.listenPlaybackSpeedAriaLabel',

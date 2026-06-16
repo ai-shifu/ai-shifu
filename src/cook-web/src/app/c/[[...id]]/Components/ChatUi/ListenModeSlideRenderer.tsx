@@ -204,8 +204,6 @@ interface ListenSlidePresentationProfile {
   showAskOverlays: boolean;
   showManualFullscreenButton: boolean;
   disableLoadingOverlay: boolean;
-  wrapperClassName?: string;
-  slideClassName?: string;
   playerClassName?: string;
 }
 
@@ -238,8 +236,6 @@ const LISTEN_SLIDE_PRESENTATION_PROFILES: Record<
     showAskOverlays: false,
     showManualFullscreenButton: true,
     disableLoadingOverlay: true,
-    wrapperClassName: 'listen-reveal-wrapper--classroom',
-    slideClassName: 'classroom-slide-root',
     playerClassName: 'classroom-slide-player',
   },
 };
@@ -686,8 +682,6 @@ const ListenModeSlideRenderer = ({
     showAskOverlays,
     showManualFullscreenButton,
     disableLoadingOverlay,
-    wrapperClassName,
-    slideClassName,
     playerClassName,
   } = presentationProfile;
   const renderSequenceByStreamKeyRef = useRef<Map<string, number>>(new Map());
@@ -1885,7 +1879,6 @@ const ListenModeSlideRenderer = ({
     <div
       className={cn(
         'listen-reveal-wrapper',
-        wrapperClassName,
         previewMode && !mobileStyle && 'listen-reveal-wrapper--preview',
         mobileStyle ? 'mobile bg-white' : 'bg-[var(--color-slide-desktop-bg)]',
       )}
@@ -1955,7 +1948,6 @@ const ListenModeSlideRenderer = ({
           // playerAlwaysVisible={true}
           className={cn(
             'h-full w-full listen-slide-root',
-            slideClassName,
             isMobileFullscreen && 'listen-slide-root--landscape',
           )}
           elementList={elementList}

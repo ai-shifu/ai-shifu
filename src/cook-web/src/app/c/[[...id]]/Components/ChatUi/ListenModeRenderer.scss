@@ -16,11 +16,6 @@
     padding-top: 136px !important;
   }
 
-  &.listen-reveal-wrapper--classroom {
-    padding: 0 !important;
-    background: var(--color-slide-desktop-bg);
-  }
-
   &.mobile {
     padding: 0 !important;
     height: 100%;
@@ -131,10 +126,6 @@
 .listen-slide-root {
   min-height: 0;
   flex: 1 1 auto;
-  background: var(--color-slide-desktop-bg);
-}
-
-.classroom-slide-root {
   background: var(--color-slide-desktop-bg);
 }
 
