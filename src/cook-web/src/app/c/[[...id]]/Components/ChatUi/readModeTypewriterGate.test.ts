@@ -129,6 +129,30 @@ describe('readModeTypewriterGate', () => {
     });
   });
 
+  it('can mark finalized classroom text as typed when syncing the read cache', () => {
+    const finalizedClassroomText = createTextItem({
+      is_final: true,
+      shouldUseTypewriter: true,
+    });
+    const secondHtml = createHtmlItem();
+
+    const cache = syncReadModeTypewriterCache(
+      [finalizedClassroomText, secondHtml],
+      {},
+      { markFinalTextItemsFinished: true },
+    );
+
+    expect(cache).toStrictEqual({
+      'text-1': {
+        content: 'First text',
+        isFinished: true,
+      },
+    });
+    expect(
+      buildVisibleReadModeItems([finalizedClassroomText, secondHtml], cache),
+    ).toStrictEqual([finalizedClassroomText, secondHtml]);
+  });
+
   it('keeps typewriter enabled when the current text content outgrows a finished cache entry', () => {
     const appendedText = createTextItem({
       content: 'First text\n\nSecond text',

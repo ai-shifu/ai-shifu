@@ -637,9 +637,11 @@ export const NewChatComponents = ({
 
   useEffect(() => {
     setReadModeTypewriterCache(prevCache =>
-      syncReadModeTypewriterCache(readModeItems, prevCache),
+      syncReadModeTypewriterCache(readModeItems, prevCache, {
+        markFinalTextItemsFinished: isClassroomMode,
+      }),
     );
-  }, [readModeItems]);
+  }, [isClassroomMode, readModeItems]);
 
   useEffect(() => {
     if (!isListenModeActive) {
