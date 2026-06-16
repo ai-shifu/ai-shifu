@@ -133,6 +133,7 @@ export default function ChatPage() {
   const userInfo = useUserStore(state => state.userInfo);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const isUserInitialized = useUserStore(state => state.isInitialized);
+  const refreshUserInfo = useUserStore(state => state.refreshUserInfo);
   const initialized = isUserInitialized;
 
   const { wechatCode, previewMode, learningMode } = useSystemStore(
@@ -385,26 +386,32 @@ export default function ChatPage() {
   const [profileOnboardingStatus, setProfileOnboardingStatus] =
     useState<ProfileOnboardingStatus | null>(null);
   const [profileOnboardingOpen, setProfileOnboardingOpen] = useState(false);
+  const [profileOnboardingRuntimeReady, setProfileOnboardingRuntimeReady] =
+    useState(false);
   const [profileOnboardingSubmitting, setProfileOnboardingSubmitting] =
     useState(false);
   const [profileOnboardingError, setProfileOnboardingError] = useState('');
 
   useEffect(() => {
-    if (
-      !initialized ||
-      !isLoggedIn ||
-      previewMode ||
-      !courseName ||
-      profileOnboardingRequestedRef.current
-    ) {
+    if (!initialized) {
+      setProfileOnboardingRuntimeReady(false);
+      return;
+    }
+    if (!isLoggedIn || previewMode) {
+      setProfileOnboardingRuntimeReady(true);
+      return;
+    }
+    if (!courseName || profileOnboardingRequestedRef.current) {
       return;
     }
 
     const token = useUserStore.getState().getToken?.();
     if (!token) {
+      setProfileOnboardingRuntimeReady(true);
       return;
     }
 
+    setProfileOnboardingRuntimeReady(false);
     profileOnboardingRequestedRef.current = true;
     void getProfileOnboarding()
       .then(status => {
@@ -412,11 +419,14 @@ export default function ChatPage() {
           setProfileOnboardingStatus(status);
           setProfileOnboardingOpen(true);
           setProfileOnboardingError('');
+          return;
         }
+        setProfileOnboardingRuntimeReady(true);
       })
       .catch(error => {
         // eslint-disable-next-line no-console
         console.warn('Failed to load profile onboarding:', error);
+        setProfileOnboardingRuntimeReady(true);
       });
   }, [courseName, initialized, isLoggedIn, previewMode]);
 
@@ -443,14 +453,19 @@ export default function ChatPage() {
           skipped: false,
           variables,
         });
+        await refreshUserInfo().catch(error => {
+          // eslint-disable-next-line no-console
+          console.warn('Failed to refresh user info after onboarding:', error);
+        });
         closeProfileOnboarding();
+        setProfileOnboardingRuntimeReady(true);
       } catch (error) {
         setProfileOnboardingError(resolveProfileOnboardingError(error));
       } finally {
         setProfileOnboardingSubmitting(false);
       }
     },
-    [closeProfileOnboarding, resolveProfileOnboardingError],
+    [closeProfileOnboarding, refreshUserInfo, resolveProfileOnboardingError],
   );
 
   const handleProfileOnboardingSkip = useCallback(async () => {
@@ -462,6 +477,7 @@ export default function ChatPage() {
         variables: {},
       });
       closeProfileOnboarding();
+      setProfileOnboardingRuntimeReady(true);
     } catch (error) {
       setProfileOnboardingError(resolveProfileOnboardingError(error));
     } finally {
@@ -889,7 +905,7 @@ export default function ChatPage() {
           />
         ) : null}
 
-        {initialized ? (
+        {initialized && profileOnboardingRuntimeReady ? (
           <ChatUi
             lessonId={lessonId}
             chapterId={chapterId}
