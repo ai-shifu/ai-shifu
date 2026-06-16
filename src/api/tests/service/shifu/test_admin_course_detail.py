@@ -2777,6 +2777,17 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
             answer_content="Because chapter one uses the base branch.",
             answer_created_at=datetime(2026, 4, 4, 10, 1, 3),
         )
+        _seed_teacher_output_block(
+            generated_block_bid="source-interaction-2",
+            shifu_bid="course-detail",
+            outline_item_bid="lesson-1",
+            progress_record_bid="progress-student-1-lesson-1-602",
+            user_bid="student-1",
+            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            position=2,
+            created_at=datetime(2026, 4, 4, 10, 1, 30),
+            block_content_conf="Please describe your understanding before step two.",
+        )
         _seed_follow_up_pair(
             shifu_bid="course-detail",
             outline_item_bid="lesson-1",
@@ -2827,9 +2838,12 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         "ask-1",
     ]
     assert payload["data"]["items"][0]["turn_index"] == 1
+    assert payload["data"]["items"][0]["has_source_output"] is False
     assert payload["data"]["items"][1]["turn_index"] == 2
+    assert payload["data"]["items"][1]["has_source_output"] is True
     assert payload["data"]["items"][1]["chapter_title"] == "Chapter 1"
     assert payload["data"]["items"][1]["lesson_title"] == "Lesson 1"
+    assert payload["data"]["items"][2]["has_source_output"] is False
 
     paged_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=2&page_size=1",
@@ -2850,6 +2864,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         "ask-2",
     ]
     assert paged_payload["data"]["items"][0]["turn_index"] == 2
+    assert paged_payload["data"]["items"][0]["has_source_output"] is True
 
     filtered_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
@@ -2868,6 +2883,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         "latest_follow_up_at": "2026-04-05T11:01:00Z",
     }
     assert filtered_payload["data"]["items"][0]["generated_block_bid"] == "ask-3"
+    assert filtered_payload["data"]["items"][0]["has_source_output"] is False
 
     lightweight_filtered_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
@@ -2902,6 +2918,38 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
     assert lesson_filtered_payload["code"] == 0
     assert lesson_filtered_payload["data"]["total"] == 1
     assert lesson_filtered_payload["data"]["items"][0]["generated_block_bid"] == "ask-3"
+
+    resolved_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
+        "&source_status=resolved",
+        headers={"Token": "test-token"},
+    )
+    resolved_filtered_payload = resolved_filtered_response.get_json(force=True)
+
+    assert resolved_filtered_response.status_code == 200
+    assert resolved_filtered_payload["code"] == 0
+    assert resolved_filtered_payload["data"]["total"] == 1
+    assert resolved_filtered_payload["data"]["items"][0]["generated_block_bid"] == (
+        "ask-2"
+    )
+
+    missing_filtered_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
+        "&source_status=missing",
+        headers={"Token": "test-token"},
+    )
+    missing_filtered_payload = missing_filtered_response.get_json(force=True)
+
+    assert missing_filtered_response.status_code == 200
+    assert missing_filtered_payload["code"] == 0
+    assert missing_filtered_payload["data"]["total"] == 2
+    assert [
+        item["generated_block_bid"]
+        for item in missing_filtered_payload["data"]["items"]
+    ] == [
+        "ask-3",
+        "ask-1",
+    ]
 
     phone_filtered_response = test_client.get(
         "/api/shifu/admin/operations/courses/course-detail/follow-ups?page=1&page_size=20"
@@ -2948,6 +2996,36 @@ def test_admin_operation_course_follow_ups_route_rejects_inverted_time_range(
     assert response.status_code == 200
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
     assert payload["message"] == "Params Error start_time"
+
+
+def test_admin_operation_course_follow_ups_route_rejects_invalid_source_status(
+    app,
+    test_client,
+    monkeypatch,
+):
+    _mock_operator(monkeypatch)
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/follow-ups"
+        "?page=1&page_size=20&source_status=invalid",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+    assert payload["message"] == "Params Error source_status"
 
 
 def test_admin_operation_course_follow_ups_route_supports_google_email_credentials(

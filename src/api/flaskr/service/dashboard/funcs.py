@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+import json
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from flask import Flask
 from sqlalchemy import and_, case, false, or_
@@ -36,6 +37,7 @@ from flaskr.service.dashboard.dtos import (
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
+    LearnGeneratedElement,
     LearnLessonFeedback,
     LearnProgressRecord,
 )
@@ -49,6 +51,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
 )
 from flaskr.service.shifu.demo_courses import is_builtin_demo_course
 from flaskr.service.shifu.models import (
@@ -86,6 +89,8 @@ DASHBOARD_COURSE_FOLLOW_UP_PAGE_SIZE_MAX = 100
 DASHBOARD_COURSE_RATING_PAGE_SIZE_MAX = 100
 COURSE_STATUS_PUBLISHED = "published"
 COURSE_STATUS_UNPUBLISHED = "unpublished"
+FOLLOW_UP_ELEMENT_TYPE_ASK = "ask"
+FOLLOW_UP_ELEMENT_TYPE_ANSWER = "answer"
 
 
 def _format_money(value: Decimal) -> str:
@@ -433,6 +438,288 @@ def _load_follow_up_groups_for_progress_record(
             }
         )
     return groups
+
+
+def _resolve_follow_up_source_from_element(
+    *,
+    shifu_bid: str,
+    user_bid: str,
+    progress_record_bid: str,
+    answer_generated_block_bid: str,
+    fallback_position: int,
+    ask_created_at: datetime | None,
+) -> dict[str, Any]:
+    normalized_answer_generated_block_bid = str(
+        answer_generated_block_bid or ""
+    ).strip()
+    normalized_user_bid = str(user_bid or "").strip()
+    normalized_shifu_bid = str(shifu_bid or "").strip()
+    normalized_progress_record_bid = str(progress_record_bid or "").strip()
+    if (
+        not normalized_answer_generated_block_bid
+        or not normalized_user_bid
+        or not normalized_shifu_bid
+        or not normalized_progress_record_bid
+    ):
+        return {}
+
+    follow_up_elements = (
+        LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.generated_block_bid
+            == normalized_answer_generated_block_bid,
+            LearnGeneratedElement.user_bid == normalized_user_bid,
+            LearnGeneratedElement.shifu_bid == normalized_shifu_bid,
+            LearnGeneratedElement.progress_record_bid == normalized_progress_record_bid,
+            LearnGeneratedElement.event_type == "element",
+            LearnGeneratedElement.element_type.in_(
+                [FOLLOW_UP_ELEMENT_TYPE_ASK, FOLLOW_UP_ELEMENT_TYPE_ANSWER]
+            ),
+            LearnGeneratedElement.deleted == 0,
+            LearnGeneratedElement.status == 1,
+        )
+        .order_by(
+            LearnGeneratedElement.sequence_number.asc(),
+            LearnGeneratedElement.run_event_seq.asc(),
+            LearnGeneratedElement.id.asc(),
+        )
+        .all()
+    )
+    if not follow_up_elements:
+        return {}
+
+    anchor_element_bid = ""
+    for row in follow_up_elements:
+        anchor_element_bid = _extract_anchor_element_bid(
+            str(getattr(row, "payload", "") or "")
+        )
+        if anchor_element_bid:
+            break
+    if not anchor_element_bid:
+        return {}
+
+    anchor_query = LearnGeneratedElement.query.filter(
+        LearnGeneratedElement.shifu_bid == normalized_shifu_bid,
+        LearnGeneratedElement.user_bid == normalized_user_bid,
+        LearnGeneratedElement.progress_record_bid == normalized_progress_record_bid,
+        LearnGeneratedElement.event_type == "element",
+        or_(
+            LearnGeneratedElement.element_bid == anchor_element_bid,
+            LearnGeneratedElement.target_element_bid == anchor_element_bid,
+        ),
+        LearnGeneratedElement.deleted == 0,
+    )
+    if ask_created_at is not None:
+        anchor_query = anchor_query.filter(
+            LearnGeneratedElement.created_at <= ask_created_at
+        )
+    anchor_element = anchor_query.order_by(
+        LearnGeneratedElement.created_at.desc(),
+        LearnGeneratedElement.sequence_number.desc(),
+        LearnGeneratedElement.run_event_seq.desc(),
+        LearnGeneratedElement.id.desc(),
+    ).first()
+    if anchor_element is None:
+        return {
+            "source_output_content": "",
+            "source_output_type": "element",
+            "source_position": int(fallback_position or 0),
+            "source_element_bid": anchor_element_bid,
+            "source_element_type": "",
+        }
+
+    return {
+        "source_output_content": str(getattr(anchor_element, "content_text", "") or ""),
+        "source_output_type": "element",
+        "source_position": int(fallback_position or 0),
+        "source_element_bid": anchor_element_bid,
+        "source_element_type": str(getattr(anchor_element, "element_type", "") or ""),
+    }
+
+
+def _resolve_follow_up_source_from_blocks(
+    ask_block: LearnGeneratedBlock,
+) -> dict[str, Any]:
+    progress_record_bid = str(
+        getattr(ask_block, "progress_record_bid", "") or ""
+    ).strip()
+    if not progress_record_bid:
+        return {}
+
+    position = int(getattr(ask_block, "position", 0) or 0)
+    query = LearnGeneratedBlock.query.filter(
+        LearnGeneratedBlock.progress_record_bid == progress_record_bid,
+        LearnGeneratedBlock.deleted == 0,
+        LearnGeneratedBlock.role == ROLE_TEACHER,
+        LearnGeneratedBlock.position == position,
+        LearnGeneratedBlock.type.in_(
+            [BLOCK_TYPE_MDINTERACTION_VALUE, BLOCK_TYPE_MDCONTENT_VALUE]
+        ),
+    )
+    ask_created_at = getattr(ask_block, "created_at", None)
+    ask_block_id = int(getattr(ask_block, "id", 0) or 0)
+    if ask_created_at is not None and ask_block_id > 0:
+        query = query.filter(
+            or_(
+                LearnGeneratedBlock.created_at < ask_created_at,
+                and_(
+                    LearnGeneratedBlock.created_at == ask_created_at,
+                    LearnGeneratedBlock.id < ask_block_id,
+                ),
+            )
+        )
+    elif ask_block_id > 0:
+        query = query.filter(LearnGeneratedBlock.id < ask_block_id)
+
+    source_block = query.order_by(
+        LearnGeneratedBlock.created_at.desc(),
+        LearnGeneratedBlock.id.desc(),
+    ).first()
+    if source_block is None:
+        return {}
+
+    source_type = (
+        "interaction"
+        if int(getattr(source_block, "type", 0) or 0) == BLOCK_TYPE_MDINTERACTION_VALUE
+        else "content"
+    )
+    if source_type == "interaction":
+        source_content = str(
+            getattr(source_block, "block_content_conf", "") or ""
+        ).strip()
+        if not source_content:
+            source_content = str(getattr(source_block, "generated_content", "") or "")
+    else:
+        source_content = str(
+            getattr(source_block, "generated_content", "") or ""
+        ).strip()
+        if not source_content:
+            source_content = str(getattr(source_block, "block_content_conf", "") or "")
+
+    return {
+        "source_output_content": source_content,
+        "source_output_type": source_type,
+        "source_position": int(getattr(source_block, "position", 0) or 0),
+        "source_element_bid": "",
+        "source_element_type": "",
+    }
+
+
+def _resolve_follow_up_source(
+    *,
+    ask_block: LearnGeneratedBlock,
+    answer_block: LearnGeneratedBlock | None,
+) -> dict[str, Any]:
+    fallback_position = int(getattr(ask_block, "position", 0) or 0)
+    if answer_block is not None:
+        source = _resolve_follow_up_source_from_element(
+            shifu_bid=str(getattr(ask_block, "shifu_bid", "") or ""),
+            user_bid=str(getattr(ask_block, "user_bid", "") or ""),
+            progress_record_bid=str(
+                getattr(ask_block, "progress_record_bid", "") or ""
+            ),
+            answer_generated_block_bid=str(
+                getattr(answer_block, "generated_block_bid", "") or ""
+            ),
+            fallback_position=fallback_position,
+            ask_created_at=getattr(ask_block, "created_at", None),
+        )
+        if source:
+            return source
+
+    source = _resolve_follow_up_source_from_blocks(ask_block)
+    if source:
+        return source
+
+    return {
+        "source_output_content": "",
+        "source_output_type": "",
+        "source_position": fallback_position,
+        "source_element_bid": "",
+        "source_element_type": "",
+    }
+
+
+def _extract_anchor_element_bid(raw_payload: str) -> str:
+    if not raw_payload:
+        return ""
+    try:
+        payload = json.loads(raw_payload)
+    except Exception:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("anchor_element_bid", "") or "").strip()
+
+
+def _build_follow_up_source_status_map(
+    *,
+    shifu_bid: str,
+    generated_block_bids: list[str],
+) -> dict[str, bool]:
+    normalized_generated_block_bids = sorted(
+        {
+            str(generated_block_bid or "").strip()
+            for generated_block_bid in generated_block_bids
+            if str(generated_block_bid or "").strip()
+        }
+    )
+    if not normalized_generated_block_bids:
+        return {}
+
+    ask_blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.shifu_bid == shifu_bid,
+            LearnGeneratedBlock.generated_block_bid.in_(
+                normalized_generated_block_bids
+            ),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+            LearnGeneratedBlock.role == ROLE_STUDENT,
+        )
+        .order_by(LearnGeneratedBlock.id.asc())
+        .all()
+    )
+    if not ask_blocks:
+        return {}
+
+    groups_cache: dict[str, list[dict[str, LearnGeneratedBlock | None]]] = {}
+    source_status_map: dict[str, bool] = {}
+
+    for ask_block in ask_blocks:
+        generated_block_bid = str(
+            getattr(ask_block, "generated_block_bid", "") or ""
+        ).strip()
+        progress_record_bid = str(
+            getattr(ask_block, "progress_record_bid", "") or ""
+        ).strip()
+        if not generated_block_bid:
+            continue
+
+        groups = groups_cache.get(progress_record_bid)
+        if groups is None:
+            groups = _load_follow_up_groups_for_progress_record(progress_record_bid)
+            groups_cache[progress_record_bid] = groups
+
+        answer_block = None
+        for group in groups:
+            group_ask_block = group.get("ask_block")
+            if (
+                str(getattr(group_ask_block, "generated_block_bid", "") or "").strip()
+                == generated_block_bid
+            ):
+                answer_block = group.get("answer_block")
+                break
+
+        source_info = _resolve_follow_up_source(
+            ask_block=ask_block,
+            answer_block=answer_block,
+        )
+        source_status_map[generated_block_bid] = bool(
+            str(source_info.get("source_output_content", "") or "").strip()
+        )
+
+    return source_status_map
 
 
 def _load_dashboard_course_user_contact_map(
@@ -1742,6 +2029,7 @@ def build_dashboard_course_follow_ups(
     keyword: Optional[str] = None,
     user_bid: Optional[str] = None,
     chapter_keyword: Optional[str] = None,
+    source_status: Optional[str] = None,
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
     timezone_name: Optional[str] = None,
@@ -1791,6 +2079,9 @@ def build_dashboard_course_follow_ups(
             outline_context_map,
             str(chapter_keyword or "").strip().lower(),
         )
+        normalized_source_status = str(source_status or "").strip().lower()
+        if normalized_source_status not in {"", "resolved", "missing"}:
+            raise_param_error("source_status")
 
         if chapter_keyword and not matching_outline_item_bids:
             return DashboardCourseFollowUpListDTO(
@@ -1841,8 +2132,32 @@ def build_dashboard_course_follow_ups(
                 follow_up_base.c.created_at < end_dt_exclusive
             )
 
-        filtered_follow_ups = filtered_query.subquery()
-        total = db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar() or 0
+        if normalized_source_status:
+            filtered_rows = filtered_query.order_by(
+                follow_up_base.c.created_at.desc(),
+                follow_up_base.c.id.desc(),
+            ).all()
+            source_status_map = _build_follow_up_source_status_map(
+                shifu_bid=normalized_shifu_bid,
+                generated_block_bids=[
+                    str(getattr(row, "generated_block_bid", "") or "")
+                    for row in filtered_rows
+                ],
+            )
+            filtered_rows = [
+                row
+                for row in filtered_rows
+                if source_status_map.get(
+                    str(getattr(row, "generated_block_bid", "") or "").strip(), False
+                )
+                == (normalized_source_status == "resolved")
+            ]
+            total = len(filtered_rows)
+        else:
+            filtered_follow_ups = filtered_query.subquery()
+            total = (
+                db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar() or 0
+            )
         if total == 0:
             return DashboardCourseFollowUpListDTO(
                 summary=full_summary,
@@ -1858,16 +2173,19 @@ def build_dashboard_course_follow_ups(
         )
         resolved_page = min(safe_page_index, max(page_count, 1))
         start = (resolved_page - 1) * safe_page_size
-        paged_rows = (
-            db.session.query(filtered_follow_ups)
-            .order_by(
-                filtered_follow_ups.c.created_at.desc(),
-                filtered_follow_ups.c.id.desc(),
+        if normalized_source_status:
+            paged_rows = filtered_rows[start : start + safe_page_size]
+        else:
+            paged_rows = (
+                db.session.query(filtered_follow_ups)
+                .order_by(
+                    filtered_follow_ups.c.created_at.desc(),
+                    filtered_follow_ups.c.id.desc(),
+                )
+                .offset(start)
+                .limit(safe_page_size)
+                .all()
             )
-            .offset(start)
-            .limit(safe_page_size)
-            .all()
-        )
         user_bids = sorted(
             {
                 str(getattr(row, "user_bid", "") or "").strip()
@@ -1877,6 +2195,12 @@ def build_dashboard_course_follow_ups(
         )
         user_map = _load_dashboard_course_user_map(user_bids)
         contact_map = _load_dashboard_course_user_contact_map(user_bids)
+        source_status_map = _build_follow_up_source_status_map(
+            shifu_bid=normalized_shifu_bid,
+            generated_block_bids=[
+                str(getattr(row, "generated_block_bid", "") or "") for row in paged_rows
+            ],
+        )
 
         items: List[DashboardCourseFollowUpItemDTO] = []
         for row in paged_rows:
@@ -1907,6 +2231,9 @@ def build_dashboard_course_follow_ups(
                     chapter_title=str(context.get("chapter_title", "") or ""),
                     lesson_title=str(context.get("lesson_title", "") or ""),
                     follow_up_content=str(getattr(row, "follow_up_content", "") or ""),
+                    has_source_output=bool(
+                        source_status_map.get(generated_block_bid, False)
+                    ),
                     turn_index=int(getattr(row, "turn_index", 0) or 0),
                     created_at=_format_dashboard_datetime_display(
                         app,

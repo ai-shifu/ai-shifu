@@ -106,6 +106,7 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
                 keyword=request.args.get("keyword"),
                 user_bid=request.args.get("user_bid"),
                 chapter_keyword=request.args.get("chapter_keyword"),
+                source_status=request.args.get("source_status"),
                 start_time=request.args.get("start_time"),
                 end_time=request.args.get("end_time"),
                 timezone_name=_get_timezone_name(),

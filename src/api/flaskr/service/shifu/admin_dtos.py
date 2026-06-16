@@ -1011,6 +1011,11 @@ class AdminOperationCourseFollowUpItemDTO(BaseModel):
     follow_up_content: str = Field(
         default="", description="Student follow-up content", required=False
     )
+    has_source_output: bool = Field(
+        default=False,
+        description="Whether the original output source could be resolved",
+        required=False,
+    )
     turn_index: int = Field(
         default=0, description="1-based follow-up turn index", required=False
     )
