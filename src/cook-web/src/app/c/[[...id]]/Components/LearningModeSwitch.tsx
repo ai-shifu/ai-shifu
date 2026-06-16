@@ -10,6 +10,7 @@ import {
   getAvailableLearningModeOptions,
   getLearningModeLabel,
   getLearningModeShortLabel,
+  LEARNING_MODE_OPTIONS,
   type LearningMode,
 } from './learningModeOptions';
 import HeaderBetaBadge from './HeaderBetaBadge';
@@ -38,13 +39,20 @@ export const LearningModeSwitch = ({
     courseTtsEnabled,
     canUseClassroomMode,
   });
+  const availableOptionModes = new Set(
+    availableOptions.map(option => option.mode),
+  );
+  const renderedOptions = LEARNING_MODE_OPTIONS.filter(
+    option =>
+      availableOptionModes.has(option.mode) || option.mode === learningMode,
+  );
 
   const handleLearningModeSelect = (nextLearningMode: LearningMode) => {
     setLearningModeInUrl(nextLearningMode);
     updateLearningMode(nextLearningMode);
   };
 
-  if (availableOptions.length <= 1) {
+  if (renderedOptions.length <= 1) {
     return null;
   }
 
@@ -58,7 +66,7 @@ export const LearningModeSwitch = ({
         className,
       )}
     >
-      {availableOptions.map(option => {
+      {renderedOptions.map(option => {
         const isActive = learningMode === option.mode;
         const isListenOption = option.mode === 'listen';
 

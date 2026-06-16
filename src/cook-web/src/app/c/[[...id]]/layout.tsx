@@ -42,6 +42,10 @@ import {
 } from './Components/learningModeUrl';
 
 const CLASSROOM_ACCESS_DENIAL_STATUSES = new Set([401, 403, 404]);
+const classroomAccessRequestByCourseId = new Map<
+  string,
+  Promise<boolean | null>
+>();
 
 const isDefinitiveClassroomAccessDenial = (error: unknown) => {
   const fetchError = error as {
@@ -56,6 +60,26 @@ const isDefinitiveClassroomAccessDenial = (error: unknown) => {
 
   const status = Number(fetchError?.status ?? fetchError?.code);
   return CLASSROOM_ACCESS_DENIAL_STATUSES.has(status);
+};
+
+const getClassroomAccessForCourse = (courseId: string) => {
+  const existingRequest = classroomAccessRequestByCourseId.get(courseId);
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const accessRequest = getCourseInfo(courseId, true, {
+    skipErrorToast: true,
+    trackErrors: false,
+  })
+    .then(() => true)
+    .catch(error => (isDefinitiveClassroomAccessDenial(error) ? false : null))
+    .finally(() => {
+      classroomAccessRequestByCourseId.delete(courseId);
+    });
+
+  classroomAccessRequestByCourseId.set(courseId, accessRequest);
+  return accessRequest;
 };
 
 export default function ChatLayout({
@@ -174,13 +198,6 @@ export default function ChatLayout({
     updateSkip(isSkipMode);
   }
 
-  if (
-    classroomAccessCourseId !== storageCourseId &&
-    canUseClassroomMode !== null
-  ) {
-    updateCanUseClassroomMode(null);
-  }
-
   useEffect(() => {
     if (!envDataInitialized) return;
     const wxcodeEnabled =
@@ -249,6 +266,20 @@ export default function ChatLayout({
   }, [listenModeParam, urlModeParam]);
 
   useEffect(() => {
+    if (
+      classroomAccessCourseId !== storageCourseId &&
+      canUseClassroomMode !== null
+    ) {
+      updateCanUseClassroomMode(null);
+    }
+  }, [
+    canUseClassroomMode,
+    classroomAccessCourseId,
+    storageCourseId,
+    updateCanUseClassroomMode,
+  ]);
+
+  useEffect(() => {
     if (!envDataInitialized || !storageCourseId) {
       setClassroomAccessCourseId(null);
       updateCanUseClassroomMode(null);
@@ -277,22 +308,17 @@ export default function ChatLayout({
     setClassroomAccessCourseId(storageCourseId);
     updateCanUseClassroomMode(null);
 
-    getCourseInfo(storageCourseId, true, {
-      skipErrorToast: true,
-      trackErrors: false,
-    })
-      .then(() => {
+    getClassroomAccessForCourse(storageCourseId)
+      .then(canUseClassroom => {
         if (!canceled) {
           setClassroomAccessCourseId(storageCourseId);
-          updateCanUseClassroomMode(true);
+          updateCanUseClassroomMode(canUseClassroom);
         }
       })
-      .catch(error => {
+      .catch(() => {
         if (!canceled) {
           setClassroomAccessCourseId(storageCourseId);
-          updateCanUseClassroomMode(
-            isDefinitiveClassroomAccessDenial(error) ? false : null,
-          );
+          updateCanUseClassroomMode(null);
         }
       });
 

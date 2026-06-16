@@ -7,6 +7,10 @@ import {
 } from '@/app/c/[[...id]]/events';
 
 const originalLocation = window.location;
+const originalRequestFullscreenDescriptor = Object.getOwnPropertyDescriptor(
+  document.documentElement,
+  'requestFullscreen',
+);
 
 const mockCourseStoreState: { courseTtsEnabled: boolean | null } = {
   courseTtsEnabled: true,
@@ -75,6 +79,15 @@ describe('LearningModeSwitch', () => {
       configurable: true,
       value: originalLocation,
     });
+    if (originalRequestFullscreenDescriptor) {
+      Object.defineProperty(
+        document.documentElement,
+        'requestFullscreen',
+        originalRequestFullscreenDescriptor,
+      );
+    } else {
+      Reflect.deleteProperty(document.documentElement, 'requestFullscreen');
+    }
   });
 
   it('switches presentation modes without stopping active lesson streams', () => {
@@ -120,6 +133,26 @@ describe('LearningModeSwitch', () => {
         name: 'module.chat.learningModeClassroom',
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it('keeps active classroom mode visible while classroom access is unresolved', () => {
+    useSystemStore.setState({
+      learningMode: 'classroom',
+      canUseClassroomMode: null,
+    });
+
+    render(<LearningModeSwitch />);
+
+    expect(
+      screen.getByRole('button', {
+        name: 'module.chat.learningModeClassroom',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      screen.getByRole('button', {
+        name: 'module.chat.learningModeRead',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('keeps listen mode available while course TTS availability is unknown', () => {
