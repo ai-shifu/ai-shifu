@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/button';
-import { Loader2, MonitorPlay, PlayIcon } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { useEnvStore } from '@/c-store';
 import { useShifu } from '@/store';
 import api from '@/api';
@@ -60,7 +60,7 @@ const PreviewSettingsModal = () => {
             : t('module.preview.debugDisabledBySoftLimit')
         }
       >
-        {loading ? null : <MonitorPlay className='h-4 w-4 mr-[5px]' />}{' '}
+        {loading ? null : <Eye className='h-4 w-4 mr-[5px]' />}{' '}
         <span className='title'>{t('module.preview.previewAll')}</span>
       </Button>
     </div>
