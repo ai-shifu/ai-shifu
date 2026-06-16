@@ -105,8 +105,8 @@ export const useCreatorRedemptionCodesList = ({
   );
 
   const handleSearch = useCallback(() => {
-    void fetchCodes(1, filters);
-  }, [fetchCodes, filters]);
+    void fetchCodes(1, filtersRef.current);
+  }, [fetchCodes]);
 
   const handleReset = useCallback(() => {
     const cleared = createDefaultFilters();

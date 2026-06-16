@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const useCreatorRedemptionEntry = ({
   onSuccess,
@@ -9,6 +9,11 @@ export const useCreatorRedemptionEntry = ({
 }) => {
   const [redemptionOpen, setRedemptionOpen] = useState(false);
   const [redemptionReloadKey, setRedemptionReloadKey] = useState(0);
+  const onSuccessRef = useRef(onSuccess);
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
 
   const openRedemptionDialog = useCallback(() => {
     setRedemptionOpen(true);
@@ -20,8 +25,8 @@ export const useCreatorRedemptionEntry = ({
 
   const handleRedemptionSuccess = useCallback(() => {
     setRedemptionReloadKey(current => current + 1);
-    onSuccess();
-  }, [onSuccess]);
+    onSuccessRef.current();
+  }, []);
 
   return {
     handleRedemptionOpenChange,
