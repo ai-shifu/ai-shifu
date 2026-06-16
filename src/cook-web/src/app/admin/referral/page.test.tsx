@@ -86,6 +86,9 @@ describe('AdminReferralPage', () => {
     expect(screen.queryByText('creator.metrics.cap')).not.toBeInTheDocument();
     expect(screen.queryByText('AB12CD34')).not.toBeInTheDocument();
     expect(screen.queryByText('1000.0000000000')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'creator.refresh' }),
+    ).not.toBeInTheDocument();
   });
 
   test('copies invite link', async () => {

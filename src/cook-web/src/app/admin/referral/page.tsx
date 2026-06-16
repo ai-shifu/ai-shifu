@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check, Copy, RefreshCcw } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
@@ -43,7 +43,6 @@ import {
  * t('module.referral.creator.queueColumns.reward')
  * t('module.referral.creator.queueColumns.status')
  * t('module.referral.creator.queueTitle')
- * t('module.referral.creator.refresh')
  * t('module.referral.creator.rewardRecordValue')
  * t('module.referral.creator.rewardRulesTitle')
  * t('module.referral.creator.rules.cap')
@@ -150,17 +149,6 @@ export default function AdminReferralPage() {
       <AdminTitle
         title={t('creator.title')}
         description={t('creator.description')}
-        actions={
-          <Button
-            type='button'
-            variant='outline'
-            className='gap-2'
-            onClick={loadProfile}
-          >
-            <RefreshCcw className='h-4 w-4' />
-            {t('creator.refresh')}
-          </Button>
-        }
       />
 
       {profile ? (
