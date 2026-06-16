@@ -55,7 +55,7 @@ const PreviewSettingsModal = () => {
         disabled={loading || !debugAllowed}
         loading={loading}
         icon={Eye}
-        iconClassName='h-4 w-4 mr-[5px]'
+        iconClassName='h-4 w-4'
         title={
           debugAllowed
             ? undefined
