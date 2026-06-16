@@ -444,6 +444,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
   const outlineColumnLabel = hasChapterHierarchy
     ? t('module.dashboard.detail.followUps.table.chapter')
     : t('module.dashboard.detail.followUps.table.lesson');
+  const sourceStatusSelectId = 'dashboard-follow-up-source-status-filter';
   const summaryCards = useMemo(
     () => [
       {
@@ -669,7 +670,10 @@ export default function AdminDashboardCourseFollowUpsPage() {
                     />
                   </div>
                   <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
+                    <label
+                      htmlFor={sourceStatusSelectId}
+                      className='text-xs font-medium text-muted-foreground'
+                    >
                       {t(
                         'module.dashboard.detail.followUps.filters.sourceStatus',
                       )}
@@ -683,7 +687,10 @@ export default function AdminDashboardCourseFollowUpsPage() {
                         }))
                       }
                     >
-                      <SelectTrigger className='h-9'>
+                      <SelectTrigger
+                        id={sourceStatusSelectId}
+                        className='h-9'
+                      >
                         <SelectValue
                           placeholder={t(
                             'module.dashboard.detail.followUps.filters.sourceStatusAll',

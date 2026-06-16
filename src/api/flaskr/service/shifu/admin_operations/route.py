@@ -2221,11 +2221,6 @@ def register_admin_operations_routes(
               type: string
               required: false
               description: Chapter or lesson keyword
-            - name: source_status
-              in: query
-              type: string
-              required: false
-              description: Original output source status filter (resolved or missing)
             - name: score
               in: query
               type: string
@@ -2351,6 +2346,11 @@ def register_admin_operations_routes(
               type: string
               required: false
               description: Chapter or lesson keyword
+            - name: source_status
+              in: query
+              type: string
+              required: false
+              description: Original output source status filter (resolved or missing)
             - name: start_time
               in: query
               type: string

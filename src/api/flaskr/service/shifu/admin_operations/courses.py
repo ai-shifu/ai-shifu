@@ -3211,6 +3211,75 @@ def _load_follow_up_groups_for_progress_record(
     return groups
 
 
+def _load_follow_up_groups_for_progress_records(
+    progress_record_bids: Sequence[str],
+) -> dict[str, list[dict[str, Any]]]:
+    normalized_progress_record_bids = sorted(
+        {
+            str(progress_record_bid or "").strip()
+            for progress_record_bid in progress_record_bids
+            if str(progress_record_bid or "").strip()
+        }
+    )
+    if not normalized_progress_record_bids:
+        return {}
+
+    blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.progress_record_bid.in_(
+                normalized_progress_record_bids
+            ),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+            or_(
+                and_(
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+                    LearnGeneratedBlock.role == ROLE_STUDENT,
+                ),
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDANSWER_VALUE,
+                and_(
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+                    LearnGeneratedBlock.role == ROLE_TEACHER,
+                ),
+            ),
+        )
+        .order_by(
+            LearnGeneratedBlock.progress_record_bid.asc(),
+            LearnGeneratedBlock.created_at.asc(),
+            LearnGeneratedBlock.id.asc(),
+        )
+        .all()
+    )
+    blocks_by_progress_record: dict[str, list[LearnGeneratedBlock]] = {}
+    for block in blocks:
+        progress_record_bid = str(
+            getattr(block, "progress_record_bid", "") or ""
+        ).strip()
+        if not progress_record_bid:
+            continue
+        blocks_by_progress_record.setdefault(progress_record_bid, []).append(block)
+
+    groups_by_progress_record: dict[str, list[dict[str, Any]]] = {}
+    for progress_record_bid, progress_blocks in blocks_by_progress_record.items():
+        groups: list[dict[str, Any]] = []
+        for index, block in enumerate(progress_blocks):
+            if (
+                int(block.type or 0) != BLOCK_TYPE_MDASK_VALUE
+                or int(block.role or 0) != ROLE_STUDENT
+            ):
+                continue
+            groups.append(
+                {
+                    "ask_block": block,
+                    "answer_block": _resolve_follow_up_answer_block(
+                        progress_blocks, index
+                    ),
+                }
+            )
+        groups_by_progress_record[progress_record_bid] = groups
+    return groups_by_progress_record
+
+
 def _resolve_follow_up_source_from_element(
     *,
     shifu_bid: str,
@@ -3443,37 +3512,34 @@ def _build_follow_up_source_status_map(
     if not ask_blocks:
         return {}
 
-    groups_cache: dict[str, list[dict[str, Any]]] = {}
+    groups_cache = _load_follow_up_groups_for_progress_records(
+        [
+            str(getattr(ask_block, "progress_record_bid", "") or "")
+            for ask_block in ask_blocks
+        ]
+    )
+    answer_block_map: dict[str, LearnGeneratedBlock | None] = {}
+    for groups in groups_cache.values():
+        for group in groups:
+            group_ask_block = group.get("ask_block")
+            group_generated_block_bid = str(
+                getattr(group_ask_block, "generated_block_bid", "") or ""
+            ).strip()
+            if not group_generated_block_bid:
+                continue
+            answer_block_map[group_generated_block_bid] = group.get("answer_block")
     source_status_map: dict[str, bool] = {}
 
     for ask_block in ask_blocks:
         generated_block_bid = str(
             getattr(ask_block, "generated_block_bid", "") or ""
         ).strip()
-        progress_record_bid = str(
-            getattr(ask_block, "progress_record_bid", "") or ""
-        ).strip()
         if not generated_block_bid:
             continue
 
-        groups = groups_cache.get(progress_record_bid)
-        if groups is None:
-            groups = _load_follow_up_groups_for_progress_record(progress_record_bid)
-            groups_cache[progress_record_bid] = groups
-
-        answer_block = None
-        for group in groups:
-            group_ask_block = group.get("ask_block")
-            if (
-                str(getattr(group_ask_block, "generated_block_bid", "") or "").strip()
-                == generated_block_bid
-            ):
-                answer_block = group.get("answer_block")
-                break
-
         source_info = _resolve_follow_up_source(
             ask_block=ask_block,
-            answer_block=answer_block,
+            answer_block=answer_block_map.get(generated_block_bid),
         )
         source_status_map[generated_block_bid] = bool(
             str(source_info.get("source_output_content", "") or "").strip()
@@ -4508,12 +4574,13 @@ def get_operator_course_follow_ups(
             )
 
         summary_row = None
+        filtered_source_status_map: dict[str, bool] | None = None
         if source_status:
             filtered_rows = filtered_query.order_by(
                 follow_up_base.c.created_at.desc(),
                 follow_up_base.c.id.desc(),
             ).all()
-            source_status_map = _build_follow_up_source_status_map(
+            filtered_source_status_map = _build_follow_up_source_status_map(
                 shifu_bid=normalized_shifu_bid,
                 generated_block_bids=[
                     str(getattr(row, "generated_block_bid", "") or "")
@@ -4523,7 +4590,7 @@ def get_operator_course_follow_ups(
             filtered_rows = [
                 row
                 for row in filtered_rows
-                if source_status_map.get(
+                if filtered_source_status_map.get(
                     str(getattr(row, "generated_block_bid", "") or "").strip(), False
                 )
                 == (source_status == "resolved")
@@ -4615,12 +4682,16 @@ def get_operator_course_follow_ups(
                 }
             )
         )
-        source_status_map = _build_follow_up_source_status_map(
-            shifu_bid=normalized_shifu_bid,
-            generated_block_bids=[
-                str(getattr(row, "generated_block_bid", "") or "") for row in paged_rows
-            ],
-        )
+        if source_status and filtered_source_status_map is not None:
+            source_status_map = filtered_source_status_map
+        else:
+            source_status_map = _build_follow_up_source_status_map(
+                shifu_bid=normalized_shifu_bid,
+                generated_block_bids=[
+                    str(getattr(row, "generated_block_bid", "") or "")
+                    for row in paged_rows
+                ],
+            )
 
         items: list[AdminOperationCourseFollowUpItemDTO] = []
         for row in paged_rows:

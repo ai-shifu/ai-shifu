@@ -533,6 +533,7 @@ export default function AdminOperationCourseFollowUpsPage() {
   );
   const userKeywordInputId = 'follow-up-user-keyword-filter';
   const outlineKeywordInputId = 'follow-up-outline-keyword-filter';
+  const sourceStatusSelectId = 'follow-up-source-status-filter';
   const followUpTimeFilterAriaLabel = tOperations(
     'detail.followUps.filters.followUpTime',
   );
@@ -797,7 +798,10 @@ export default function AdminOperationCourseFollowUpsPage() {
                       />
                     </div>
                     <div className='flex flex-col gap-2'>
-                      <label className='text-xs font-medium text-muted-foreground'>
+                      <label
+                        htmlFor={sourceStatusSelectId}
+                        className='text-xs font-medium text-muted-foreground'
+                      >
                         {tOperations('detail.followUps.filters.sourceStatus')}
                       </label>
                       <Select
@@ -809,7 +813,10 @@ export default function AdminOperationCourseFollowUpsPage() {
                           }))
                         }
                       >
-                        <SelectTrigger className='h-9'>
+                        <SelectTrigger
+                          id={sourceStatusSelectId}
+                          className='h-9'
+                        >
                           <SelectValue
                             placeholder={tOperations(
                               'detail.followUps.filters.sourceStatusAll',
