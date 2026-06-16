@@ -35,7 +35,12 @@ def create_app() -> Flask:
         app,
         resources={
             r"/api/*": {
-                "origins": ["http://localhost:3000", "http://127.0.0.1:3000"],
+                "origins": [
+                    "http://localhost:3000",
+                    "http://127.0.0.1:3000",
+                    "http://localhost:3001",
+                    "http://127.0.0.1:3001",
+                ],
                 "allow_headers": "*",
                 "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             }
