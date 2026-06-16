@@ -54,13 +54,14 @@ const PreviewSettingsModal = () => {
         onClick={handleStartPreview}
         disabled={loading || !debugAllowed}
         loading={loading}
+        icon={Eye}
+        iconClassName='h-4 w-4 mr-[5px]'
         title={
           debugAllowed
             ? undefined
             : t('module.preview.debugDisabledBySoftLimit')
         }
       >
-        {loading ? null : <Eye className='h-4 w-4 mr-[9px]' />}
         <span className='title'>{t('module.preview.previewAll')}</span>
       </Button>
     </div>
