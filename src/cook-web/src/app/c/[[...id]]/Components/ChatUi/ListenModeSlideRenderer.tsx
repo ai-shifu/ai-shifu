@@ -1182,6 +1182,10 @@ const ListenModeSlideRenderer = ({
   }, [lessonId, trackBrowserFullscreen]);
 
   useEffect(() => {
+    if (!trackBrowserFullscreen) {
+      return;
+    }
+
     const handleFullscreenChange = () => {
       setIsClassroomFullscreenActive(Boolean(getDocumentFullscreenElement()));
     };
@@ -1196,7 +1200,7 @@ const ListenModeSlideRenderer = ({
         handleFullscreenChange,
       );
     };
-  }, []);
+  }, [trackBrowserFullscreen]);
 
   useEffect(() => {
     if (!enablePageShortcutBridge) {

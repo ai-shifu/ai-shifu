@@ -1,17 +1,26 @@
 import {
   normalizeLegacyListenModeInUrl,
+  parseBooleanQueryParam,
   parseLearningModeQueryParam,
   requestClassroomBrowserFullscreen,
   setLearningModeInUrl,
 } from './learningModeUrl';
 
+const originalLocation = window.location;
+
 describe('learningModeUrl', () => {
   const setMockLocation = (href: string) => {
     const url = new URL(href);
-    window.location.href = url.toString();
-    window.location.pathname = url.pathname;
-    window.location.search = url.search;
-    window.location.hash = url.hash;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        href: url.toString(),
+        pathname: url.pathname,
+        search: url.search,
+        hash: url.hash,
+      },
+    });
   };
   const setFullscreenElement = (element: Element | null) => {
     Object.defineProperty(document, 'fullscreenElement', {
@@ -41,11 +50,27 @@ describe('learningModeUrl', () => {
     setMockLocation('http://localhost:3000/c/course-1?listen=true');
   });
 
+  afterEach(() => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
+    });
+  });
+
   it('parses supported learning mode values', () => {
     expect(parseLearningModeQueryParam('read')).toBe('read');
     expect(parseLearningModeQueryParam('LISTEN')).toBe('listen');
     expect(parseLearningModeQueryParam('classroom')).toBe('classroom');
     expect(parseLearningModeQueryParam('present')).toBeNull();
+  });
+
+  it('parses legacy boolean query values including numeric listen params', () => {
+    expect(parseBooleanQueryParam('true')).toBe(true);
+    expect(parseBooleanQueryParam('1')).toBe(true);
+    expect(parseBooleanQueryParam('false')).toBe(false);
+    expect(parseBooleanQueryParam('0')).toBe(false);
+    expect(parseBooleanQueryParam('listen')).toBeNull();
+    expect(parseBooleanQueryParam(undefined)).toBeNull();
   });
 
   it('sets learning mode while preserving preview mode, hash, and removing legacy listen mode', () => {
@@ -94,7 +119,7 @@ describe('learningModeUrl', () => {
     );
 
     normalizeLegacyListenModeInUrl({
-      listenModeParam: true,
+      listenModeParam: parseBooleanQueryParam('1'),
       urlModeParam: null,
     });
 
@@ -113,6 +138,22 @@ describe('learningModeUrl', () => {
     });
 
     expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalizes legacy numeric listen query params to listen mode', () => {
+    const replaceStateSpy = jest.spyOn(window.history, 'replaceState');
+    setMockLocation('http://localhost:3000/c/course-1?listen=1');
+
+    normalizeLegacyListenModeInUrl({
+      listenModeParam: true,
+      urlModeParam: null,
+    });
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/c/course-1?mode=listen',
+    );
   });
 
   it('normalizes legacy listen=false query params to read mode', () => {

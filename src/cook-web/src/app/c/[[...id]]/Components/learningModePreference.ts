@@ -18,7 +18,7 @@ export const resolveCourseLearningMode = ({
   storedLearningMode,
 }: ResolveCourseLearningModeArgs): LearningMode => {
   if (urlModeParam === 'classroom') {
-    return canUseClassroomMode === true ? 'classroom' : 'read';
+    return canUseClassroomMode === false ? 'read' : 'classroom';
   }
 
   if (urlModeParam === 'listen') {

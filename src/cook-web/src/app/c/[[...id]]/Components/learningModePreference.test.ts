@@ -61,11 +61,22 @@ describe('resolveCourseLearningMode', () => {
     ).toBe('read');
   });
 
-  it('respects a classroom URL mode only when preview access is available', () => {
+  it('respects a classroom URL mode unless access is denied', () => {
     expect(
       resolveCourseLearningMode({
         courseTtsEnabled: false,
         canUseClassroomMode: true,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        urlModeParam: 'classroom',
+        storedLearningMode: 'listen',
+      }),
+    ).toBe('classroom');
+
+    expect(
+      resolveCourseLearningMode({
+        courseTtsEnabled: true,
+        canUseClassroomMode: null,
         hasListenModeOverride: false,
         listenModeParam: null,
         urlModeParam: 'classroom',

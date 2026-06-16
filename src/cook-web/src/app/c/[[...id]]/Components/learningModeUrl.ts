@@ -7,6 +7,22 @@ type BrowserFullscreenElement = HTMLElement & {
   webkitRequestFullscreen?: HTMLElement['requestFullscreen'];
 };
 
+export const parseBooleanQueryParam = (value?: string) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalizedValue = value.trim().toLowerCase();
+  if (normalizedValue === 'true' || normalizedValue === '1') {
+    return true;
+  }
+  if (normalizedValue === 'false' || normalizedValue === '0') {
+    return false;
+  }
+
+  return null;
+};
+
 export const parseLearningModeQueryParam = (
   value?: string,
 ): LearningMode | null => {

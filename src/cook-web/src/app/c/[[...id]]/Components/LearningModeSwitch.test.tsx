@@ -6,6 +6,8 @@ import {
   EVENT_NAMES as BZ_EVENT_NAMES,
 } from '@/app/c/[[...id]]/events';
 
+const originalLocation = window.location;
+
 const mockCourseStoreState: { courseTtsEnabled: boolean | null } = {
   courseTtsEnabled: true,
 };
@@ -41,10 +43,16 @@ describe('LearningModeSwitch', () => {
   const requestFullscreen = jest.fn();
   const setMockLocation = (href: string) => {
     const url = new URL(href);
-    window.location.href = url.toString();
-    window.location.pathname = url.pathname;
-    window.location.search = url.search;
-    window.location.hash = url.hash;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        href: url.toString(),
+        pathname: url.pathname,
+        search: url.search,
+        hash: url.hash,
+      },
+    });
   };
 
   beforeEach(() => {
@@ -59,6 +67,13 @@ describe('LearningModeSwitch', () => {
     useSystemStore.setState({
       learningMode: 'read',
       canUseClassroomMode: null,
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
     });
   });
 
