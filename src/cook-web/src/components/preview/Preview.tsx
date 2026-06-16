@@ -60,7 +60,7 @@ const PreviewSettingsModal = () => {
             : t('module.preview.debugDisabledBySoftLimit')
         }
       >
-        {loading ? null : <Eye className='h-4 w-4 mr-[5px]' />}
+        {loading ? null : <Eye className='h-4 w-4 mr-[9px]' />}
         <span className='title'>{t('module.preview.previewAll')}</span>
       </Button>
     </div>
