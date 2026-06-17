@@ -42,9 +42,12 @@ def test_serialize_datetime_emits_explicit_utc_suffix():
     assert _serialize_datetime(datetime(2026, 6, 17, 12, 5, 0)) == (
         "2026-06-17T12:05:00Z"
     )
-    assert _serialize_datetime(
-        datetime(2026, 6, 17, 20, 5, 0, tzinfo=timezone(timedelta(hours=8)))
-    ) == "2026-06-17T12:05:00Z"
+    assert (
+        _serialize_datetime(
+            datetime(2026, 6, 17, 20, 5, 0, tzinfo=timezone(timedelta(hours=8)))
+        )
+        == "2026-06-17T12:05:00Z"
+    )
 
 
 def test_onboarding_status_returns_eligible_creator_scene_state(
