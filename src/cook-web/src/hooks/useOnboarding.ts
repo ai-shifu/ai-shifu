@@ -102,7 +102,9 @@ export function useOnboarding({
         return false;
       }
       const nextRect = element.getBoundingClientRect();
-      setTargetRect(nextRect.width > 0 && nextRect.height > 0 ? nextRect : null);
+      setTargetRect(
+        nextRect.width > 0 && nextRect.height > 0 ? nextRect : null,
+      );
       return nextRect.width > 0 && nextRect.height > 0;
     };
 

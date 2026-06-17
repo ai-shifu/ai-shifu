@@ -17,7 +17,7 @@ const replaceTemplate = (
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-const buildCourseCreationDescription = (t: Translate) => (
+const buildCourseCreationDescription = (t: Translate) =>
   React.createElement(
     React.Fragment,
     null,
@@ -28,8 +28,7 @@ const buildCourseCreationDescription = (t: Translate) => (
       t('adminHome.courseCreation.descriptionEmphasis'),
     ),
     t('adminHome.courseCreation.descriptionSuffix'),
-  )
-);
+  );
 
 type BuildAdminHomeStepsOptions = {
   t: Translate;
@@ -51,13 +50,10 @@ export function buildAdminHomeOnboardingSteps({
     steps.push({
       id: 'welcome_trial',
       title: t('adminHome.welcome.title'),
-      description: replaceTemplate(
-        t('adminHome.welcome.description'),
-        {
-          credits: trialOffer?.credit_amount || 0,
-          days: trialOffer?.valid_days || 0,
-        },
-      ),
+      description: replaceTemplate(t('adminHome.welcome.description'), {
+        credits: trialOffer?.credit_amount || 0,
+        days: trialOffer?.valid_days || 0,
+      }),
     });
   }
 

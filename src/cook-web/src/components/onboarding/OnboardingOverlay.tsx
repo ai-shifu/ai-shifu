@@ -44,7 +44,8 @@ function buildCardPosition(
     };
   }
 
-  const centeredLeft = targetRect.left + (targetRect.width - cardSize.width) / 2;
+  const centeredLeft =
+    targetRect.left + (targetRect.width - cardSize.width) / 2;
   const preferredLeft = Math.min(Math.max(centeredLeft, 16), maxLeft);
   const belowTop = targetRect.top + targetRect.height + CARD_GAP;
   const aboveTop = targetRect.top - cardSize.height - CARD_GAP;

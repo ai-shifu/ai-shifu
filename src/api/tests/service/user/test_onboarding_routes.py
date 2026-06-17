@@ -72,9 +72,11 @@ def test_onboarding_status_returns_eligible_creator_scene_state(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses._load_shifu_demo_metadata",
-        lambda app, shifu_bid: [("AI 师傅教学引导", "system")]
-        if shifu_bid == "demo-zh-course"
-        else [("AI-Shifu Creation Guide", "system")],
+        lambda app, shifu_bid: (
+            [("AI 师傅教学引导", "system")]
+            if shifu_bid == "demo-zh-course"
+            else [("AI-Shifu Creation Guide", "system")]
+        ),
     )
 
     response = test_client.get(
@@ -88,9 +90,7 @@ def test_onboarding_status_returns_eligible_creator_scene_state(
     assert payload["data"]["eligible"] is True
     assert payload["data"]["version"] == "v1"
     assert payload["data"]["scenes"]["admin_home_onboarding"]["completed"] is True
-    assert (
-        payload["data"]["scenes"]["course_editor_onboarding"]["completed"] is False
-    )
+    assert payload["data"]["scenes"]["course_editor_onboarding"]["completed"] is False
     assert payload["data"]["guide_course"]["bid"] == "demo-zh-course"
     assert payload["data"]["guide_course"]["language"] == "zh-CN"
 
@@ -118,9 +118,7 @@ def test_onboarding_status_excludes_operator_and_old_creator(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses.get_dynamic_config",
-        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(
-            key, default
-        ),
+        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(key, default),
     )
 
     response = test_client.get(
@@ -160,9 +158,7 @@ def test_onboarding_status_includes_old_user_newly_activated_as_creator(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses.get_dynamic_config",
-        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(
-            key, default
-        ),
+        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(key, default),
     )
 
     response = test_client.get(

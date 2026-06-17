@@ -111,17 +111,13 @@ const MainInterface = ({
     [isOperator, t],
   );
 
-  const {
-    data: billingOverview,
-    isLoading: billingOverviewLoading,
-  } = useBillingOverview();
+  const { data: billingOverview, isLoading: billingOverviewLoading } =
+    useBillingOverview();
   const billingEnabled = useEnvStore(
     (state: EnvStoreState) => state.billingEnabled === 'true',
   );
-  const {
-    data: onboardingStatus,
-    mutate: mutateOnboardingStatus,
-  } = useCreatorOnboardingStatus(menuReady);
+  const { data: onboardingStatus, mutate: mutateOnboardingStatus } =
+    useCreatorOnboardingStatus(menuReady);
 
   const adminHomeSteps = useMemo(
     () =>

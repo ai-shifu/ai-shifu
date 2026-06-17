@@ -40,7 +40,9 @@ class ShifuDto(BaseModel):
         "", description="owner user business id", required=False
     )
     is_guide_course: bool = Field(
-        False, description="whether this course is the built-in guide course", required=False
+        False,
+        description="whether this course is the built-in guide course",
+        required=False,
     )
 
     def __init__(

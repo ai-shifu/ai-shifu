@@ -105,7 +105,9 @@ def _is_user_eligible(user: UserEntity | None) -> bool:
     return eligible_at >= threshold
 
 
-def build_onboarding_status(app: Flask, user_bid: str, language: str | None) -> dict[str, Any]:
+def build_onboarding_status(
+    app: Flask, user_bid: str, language: str | None
+) -> dict[str, Any]:
     with app.app_context():
         user = _load_user_entity(user_bid)
         normalized_language = _normalize_language(

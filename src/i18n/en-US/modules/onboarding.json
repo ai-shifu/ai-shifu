@@ -1,30 +1,30 @@
 {
   "__namespace__": "module.onboarding",
-  "common": {
-    "continue": "Click anywhere to continue"
-  },
   "adminHome": {
-    "welcome": {
-      "title": "Welcome to AI-Shifu",
-      "description": "We have added {credits} trial credits to your account for {days} days. Let's take a quick tour of the key creation entry points."
-    },
     "balance": {
-      "title": "Check your credit balance here",
-      "description": "Your available credit balance is shown in the lower-left corner. Debug, preview, and publish actions are tied to credits."
-    },
-    "upgrade": {
-      "title": "Upgrade here when credits run low",
-      "description": "If your credits run low, you can purchase or upgrade here and keep creating without interruption."
-    },
-    "guideCourse": {
-      "title": "Start with the creation guide course",
-      "description": "This is the built-in creation guide course."
+      "description": "Your available credit balance is shown in the lower-left corner. Debug, preview, and publish actions are tied to credits.",
+      "title": "Check your credit balance here"
     },
     "courseCreation": {
-      "title": "Start creating from here",
-      "descriptionPrefix": "You can create a course from scratch or use ",
       "descriptionEmphasis": "Create courses with AI assistant",
-      "descriptionSuffix": " to generate a first draft faster."
+      "descriptionPrefix": "You can create a course from scratch or use ",
+      "descriptionSuffix": " to generate a first draft faster.",
+      "title": "Start creating from here"
+    },
+    "guideCourse": {
+      "description": "This is the built-in creation guide course.",
+      "title": "Start with the creation guide course"
+    },
+    "upgrade": {
+      "description": "If your credits run low, you can purchase or upgrade here and keep creating without interruption.",
+      "title": "Upgrade here when credits run low"
+    },
+    "welcome": {
+      "description": "We have added {credits} trial credits to your account for {days} days. Let's take a quick tour of the key creation entry points.",
+      "title": "Welcome to AI-Shifu"
     }
+  },
+  "common": {
+    "continue": "Click anywhere to continue"
   }
 }

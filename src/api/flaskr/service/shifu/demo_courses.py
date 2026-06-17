@@ -23,10 +23,18 @@ def load_demo_shifu_bids() -> Set[str]:
     return demo_bids
 
 
-def resolve_demo_course_for_language(app: Flask, language: str | None) -> dict[str, Any]:
+def resolve_demo_course_for_language(
+    app: Flask, language: str | None
+) -> dict[str, Any]:
     normalized_language = str(language or "").strip().lower()
-    preferred_key = "DEMO_SHIFU_BID" if normalized_language.startswith("zh") else "DEMO_EN_SHIFU_BID"
-    fallback_key = "DEMO_EN_SHIFU_BID" if preferred_key == "DEMO_SHIFU_BID" else "DEMO_SHIFU_BID"
+    preferred_key = (
+        "DEMO_SHIFU_BID"
+        if normalized_language.startswith("zh")
+        else "DEMO_EN_SHIFU_BID"
+    )
+    fallback_key = (
+        "DEMO_EN_SHIFU_BID" if preferred_key == "DEMO_SHIFU_BID" else "DEMO_SHIFU_BID"
+    )
 
     preferred_bid = str(get_dynamic_config(preferred_key, "") or "").strip()
     fallback_bid = str(get_dynamic_config(fallback_key, "") or "").strip()
@@ -43,7 +51,9 @@ def resolve_demo_course_for_language(app: Flask, language: str | None) -> dict[s
                 break
     if not title:
         title = (
-            "AI 师傅教学引导" if resolved_language == "zh-CN" else "AI-Shifu Creation Guide"
+            "AI 师傅教学引导"
+            if resolved_language == "zh-CN"
+            else "AI-Shifu Creation Guide"
         )
 
     return {

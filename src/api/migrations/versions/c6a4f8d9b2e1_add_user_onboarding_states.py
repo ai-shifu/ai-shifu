@@ -108,6 +108,10 @@ def upgrade():
 def downgrade():
     if not _table_exists("user_onboarding_states"):
         return
-    op.drop_index("ix_user_onboarding_states_scene_key", table_name="user_onboarding_states")
-    op.drop_index("ix_user_onboarding_states_user_bid", table_name="user_onboarding_states")
+    op.drop_index(
+        "ix_user_onboarding_states_scene_key", table_name="user_onboarding_states"
+    )
+    op.drop_index(
+        "ix_user_onboarding_states_user_bid", table_name="user_onboarding_states"
+    )
     op.drop_table("user_onboarding_states")

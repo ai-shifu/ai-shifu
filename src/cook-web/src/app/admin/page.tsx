@@ -225,8 +225,9 @@ const ScriptManagementPage = () => {
   const hasAuthenticatedAdminSession = isInitialized && isLoggedIn && !isGuest;
   const hasResolvedAdminSession =
     hasAuthenticatedAdminSession && Boolean(currentUserId);
-  const { data: onboardingStatus } =
-    useCreatorOnboardingStatus(hasResolvedAdminSession);
+  const { data: onboardingStatus } = useCreatorOnboardingStatus(
+    hasResolvedAdminSession,
+  );
   const [courseCreatorUrl, setCourseCreatorUrl] = useState<string | null>(null);
   const [adminReady, setAdminReady] = useState(false);
   const [permissionRetryNonce, setPermissionRetryNonce] = useState(0);
