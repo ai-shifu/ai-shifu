@@ -715,7 +715,7 @@ def _extract_anchor_element_bid(raw_payload: str) -> str:
         return ""
     try:
         payload = json.loads(raw_payload)
-    except Exception:
+    except json.JSONDecodeError:
         return ""
     if not isinstance(payload, dict):
         return ""
