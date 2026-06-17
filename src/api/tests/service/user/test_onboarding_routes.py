@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 
 from sqlalchemy.exc import IntegrityError
 
 from flaskr.dao import db
+from flaskr.service.user.onboarding import _serialize_datetime
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
 from flaskr.service.user.utils import generate_token
@@ -34,6 +35,16 @@ def _create_user(
     )
     db.session.add(user)
     return user
+
+
+def test_serialize_datetime_emits_explicit_utc_suffix():
+    assert _serialize_datetime(None) is None
+    assert _serialize_datetime(datetime(2026, 6, 17, 12, 5, 0)) == (
+        "2026-06-17T12:05:00Z"
+    )
+    assert _serialize_datetime(
+        datetime(2026, 6, 17, 20, 5, 0, tzinfo=timezone(timedelta(hours=8)))
+    ) == "2026-06-17T12:05:00Z"
 
 
 def test_onboarding_status_returns_eligible_creator_scene_state(
@@ -275,7 +286,7 @@ def test_complete_onboarding_scene_handles_integrity_error(
     payload = response.get_json(force=True)
     assert payload["code"] == 0
     assert payload["data"]["completed"] is True
-    assert payload["data"]["completed_at"] == completed_at.isoformat()
+    assert payload["data"]["completed_at"] == f"{completed_at.isoformat()}Z"
 
 
 def test_complete_onboarding_scene_rejects_ineligible_user(
