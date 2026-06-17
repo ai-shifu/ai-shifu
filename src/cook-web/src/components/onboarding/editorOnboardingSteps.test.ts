@@ -28,9 +28,9 @@ describe('buildCourseEditorOnboardingSteps', () => {
       'preview',
       'publish',
     ]);
-    expect(steps.slice(3, 6).every(step => step.panel === 'shifu_settings')).toBe(
-      true,
-    );
+    expect(
+      steps.slice(3, 6).every(step => step.panel === 'shifu_settings'),
+    ).toBe(true);
     expect(steps.slice(0, 3).every(step => !step.panel)).toBe(true);
   });
 });

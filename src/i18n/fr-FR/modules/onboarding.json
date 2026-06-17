@@ -37,41 +37,41 @@
       "title": "Bienvenue dans l'espace créateur AI Shifu"
     }
   },
-  "courseEditor": {
-    "settingsEntry": {
-      "title": "Ouvrez ici les parametres du cours",
-      "description": "Utilisez les parametres du cours pour regler le modele, le mode ecoute et le prix."
-    },
-    "prompt": {
-      "title": "Modifiez ici le prompt pedagogique",
-      "description": "Redigez ici le contenu de la lecon. Le debug, l'apercu et la publication sont generes a partir de ce contenu."
-    },
-    "debug": {
-      "title": "Lancez ici un apercu de debug",
-      "description": "Utilisez ce bouton pour verifier le rendu genere a partir du prompt actuel avant publication."
-    },
-    "model": {
-      "title": "Choisissez ici le modele du cours",
-      "description": "Le modele influence la qualite, le style et le cout du cours."
-    },
-    "listenMode": {
-      "title": "Activez ici le mode ecoute",
-      "description": "Une fois active, les apprenants pourront suivre ce cours en mode ecoute."
-    },
-    "price": {
-      "title": "Modifiez ici le prix du cours",
-      "description": "Verifiez le prix du cours avant publication."
-    },
-    "preview": {
-      "title": "Previsualisez ici l'ensemble du cours",
-      "description": "Avant la publication, previsualisez l'ensemble du cours pour verifier le parcours d'apprentissage et le rendu du contenu."
-    },
-    "publish": {
-      "title": "Publiez le cours ici",
-      "description": "Quand tout est pret, utilisez ce bouton pour publier officiellement le cours."
-    }
-  },
   "common": {
     "continue": "Cliquez n'importe où pour continuer"
+  },
+  "courseEditor": {
+    "debug": {
+      "description": "Utilisez ce bouton pour verifier le rendu genere a partir du prompt actuel avant publication.",
+      "title": "Lancez ici un apercu de debug"
+    },
+    "listenMode": {
+      "description": "Une fois active, les apprenants pourront suivre ce cours en mode ecoute.",
+      "title": "Activez ici le mode ecoute"
+    },
+    "model": {
+      "description": "Le modele influence la qualite, le style et le cout du cours.",
+      "title": "Choisissez ici le modele du cours"
+    },
+    "preview": {
+      "description": "Avant la publication, previsualisez l'ensemble du cours pour verifier le parcours d'apprentissage et le rendu du contenu.",
+      "title": "Previsualisez ici l'ensemble du cours"
+    },
+    "price": {
+      "description": "Verifiez le prix du cours avant publication.",
+      "title": "Modifiez ici le prix du cours"
+    },
+    "prompt": {
+      "description": "Redigez ici le contenu de la lecon. Le debug, l'apercu et la publication sont generes a partir de ce contenu.",
+      "title": "Modifiez ici le prompt pedagogique"
+    },
+    "publish": {
+      "description": "Quand tout est pret, utilisez ce bouton pour publier officiellement le cours.",
+      "title": "Publiez le cours ici"
+    },
+    "settingsEntry": {
+      "description": "Utilisez les parametres du cours pour regler le modele, le mode ecoute et le prix.",
+      "title": "Ouvrez ici les parametres du cours"
+    }
   }
 }

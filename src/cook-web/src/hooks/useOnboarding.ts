@@ -311,13 +311,7 @@ export function useOnboarding({
       window.removeEventListener('resize', handleViewportChange);
       window.removeEventListener('scroll', handleViewportChange, true);
     };
-  }, [
-    completeFlow,
-    currentStep,
-    currentStepIndex,
-    isOpen,
-    steps.length,
-  ]);
+  }, [completeFlow, currentStep, currentStepIndex, isOpen, steps.length]);
 
   const advance = async () => {
     if (!isOpen || !currentStep || isCompleting) {

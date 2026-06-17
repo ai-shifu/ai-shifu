@@ -278,13 +278,11 @@ const ScriptEditor = ({
   const isHistoryPage = initialViewMode === 'history';
   const isCourseOwner = Boolean(
     currentShifu?.created_user_bid &&
-      currentUserId &&
-      currentShifu.created_user_bid === currentUserId,
+    currentUserId &&
+    currentShifu.created_user_bid === currentUserId,
   );
-  const {
-    data: onboardingStatus,
-    mutate: mutateOnboardingStatus,
-  } = useCreatorOnboardingStatus(Boolean(currentUserId));
+  const { data: onboardingStatus, mutate: mutateOnboardingStatus } =
+    useCreatorOnboardingStatus(Boolean(currentUserId));
   const editorOnboardingSteps = useMemo(
     () =>
       buildCourseEditorOnboardingSteps({
@@ -377,7 +375,7 @@ const ScriptEditor = ({
   });
   const shouldRenderCourseEditorOnboardingOverlay = Boolean(
     courseEditorOnboardingStep &&
-      (!courseEditorOnboardingStep.targetId || courseEditorOnboardingTargetRect),
+    (!courseEditorOnboardingStep.targetId || courseEditorOnboardingTargetRect),
   );
 
   useEffect(() => {
@@ -401,7 +399,10 @@ const ScriptEditor = ({
   }, [currentShifu?.bid]);
 
   useEffect(() => {
-    if (!courseEditorOnboardingOpen || trackedEditorOnboardingStartRef.current) {
+    if (
+      !courseEditorOnboardingOpen ||
+      trackedEditorOnboardingStartRef.current
+    ) {
       return;
     }
     trackedEditorOnboardingStartRef.current = true;
@@ -460,7 +461,6 @@ const ScriptEditor = ({
     },
     [actions, currentNode?.bid, currentShifu?.bid],
   );
-
 
   const isLessonNode = (currentNode?.depth ?? 0) > 0;
   const shouldSkipConflictCheck =

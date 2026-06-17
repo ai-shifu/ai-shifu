@@ -2,11 +2,7 @@ import { NextResponse } from 'next/server';
 import { environment } from '@/config/environment';
 import { normalizeHost, shouldUseSameOriginApiBase } from './route-utils';
 
-const LOCALHOST_HOSTS = new Set([
-  'localhost',
-  '127.0.0.1',
-  '[::1]',
-]);
+const LOCALHOST_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 const normalizeHostname = (host: string) => {
   const trimmed = host.trim().toLowerCase();

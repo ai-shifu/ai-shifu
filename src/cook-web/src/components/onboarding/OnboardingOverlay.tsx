@@ -190,8 +190,7 @@ export function OnboardingOverlay({
               width: rect.width,
               height: rect.height,
               borderRadius: `${HIGHLIGHT_RADIUS}px`,
-              boxShadow:
-                `0 0 0 9999px ${OVERLAY_BG}, 0 0 0 1px rgba(255,255,255,0.55), 0 10px 32px rgba(255,255,255,0.10), 0 0 0 8px rgba(255,255,255,0.05)`,
+              boxShadow: `0 0 0 9999px ${OVERLAY_BG}, 0 0 0 1px rgba(255,255,255,0.55), 0 10px 32px rgba(255,255,255,0.10), 0 0 0 8px rgba(255,255,255,0.05)`,
             }}
           />
         </>
