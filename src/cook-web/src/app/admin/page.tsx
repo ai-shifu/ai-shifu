@@ -60,7 +60,6 @@ interface ShifuCardProps {
   onArchiveRequest?: () => void;
   onPermissionRequest?: () => void;
   onboardingTargetId?: string;
-  onCardClick?: () => void;
 }
 
 const CARD_CONTAINER_CLASS =
@@ -92,7 +91,6 @@ const ShifuCard = ({
   onArchiveRequest,
   onPermissionRequest,
   onboardingTargetId,
-  onCardClick,
 }: ShifuCardProps) => {
   const { t } = useTranslation();
   const showMenu = Boolean(canManageArchive || canManagePermissions);
@@ -109,7 +107,6 @@ const ShifuCard = ({
         target='_blank'
         rel='noopener noreferrer'
         className='block w-full h-full'
-        onClick={onCardClick}
       >
         <Card
           className={CARD_CONTAINER_CLASS}
@@ -256,9 +253,6 @@ const ScriptManagementPage = () => {
   const guideCourseTargetId = buildGuideCourseTargetId(
     onboardingStatus?.guide_course.bid,
   );
-  const isGuideCourseOnboardingActive =
-    Boolean(onboardingStatus?.eligible) &&
-    onboardingStatus?.scenes.admin_home_onboarding.completed === false;
 
   useEffect(() => {
     activeTabRef.current = activeTab;
@@ -701,20 +695,6 @@ const ScriptManagementPage = () => {
                       ? guideCourseTargetId
                       : undefined
                   }
-                  onCardClick={() => {
-                    if (
-                      !isGuideCourseOnboardingActive ||
-                      shifu.bid !== onboardingStatus?.guide_course.bid
-                    ) {
-                      return;
-                    }
-                    trackEvent('creator_onboarding_guide_course_clicked', {
-                      scene_key: 'admin_home_onboarding',
-                      version: onboardingStatus?.version || 'v1',
-                      guide_course_bid: shifu.bid,
-                      language: i18n.language,
-                    });
-                  }}
                 />
               ))}
             </div>

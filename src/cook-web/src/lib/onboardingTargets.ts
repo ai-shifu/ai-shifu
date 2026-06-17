@@ -29,7 +29,7 @@ const escapeAttributeValue = (value: string) => {
   if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
     return CSS.escape(value);
   }
-  return value.replace(/"/g, '\\"');
+  return value;
 };
 
 export const getOnboardingTargetElement = (id?: string | null) => {
@@ -37,7 +37,19 @@ export const getOnboardingTargetElement = (id?: string | null) => {
     return null;
   }
 
-  return document.querySelector<HTMLElement>(
-    `[${ONBOARDING_TARGET_ATTR}="${escapeAttributeValue(id)}"]`,
+  const escapedId = escapeAttributeValue(id);
+  if (escapedId !== id) {
+    return document.querySelector<HTMLElement>(
+      `[${ONBOARDING_TARGET_ATTR}="${escapedId}"]`,
+    );
+  }
+
+  const elements = document.querySelectorAll<HTMLElement>(
+    `[${ONBOARDING_TARGET_ATTR}]`,
+  );
+  return (
+    Array.from(elements).find(
+      element => element.getAttribute(ONBOARDING_TARGET_ATTR) === id,
+    ) || null
   );
 };

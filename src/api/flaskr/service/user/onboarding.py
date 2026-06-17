@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from flask import Flask
+from sqlalchemy.exc import IntegrityError
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -170,7 +171,7 @@ def complete_onboarding_scene(
             UserOnboardingState.scene_key == normalized_scene_key,
             UserOnboardingState.version == normalized_version,
         ).first()
-        now = datetime.now()
+        now = datetime.utcnow()
         if existing is None:
             existing = UserOnboardingState(
                 user_bid=normalized_user_bid,
@@ -187,10 +188,21 @@ def complete_onboarding_scene(
             if existing.completed_at is None:
                 existing.completed_at = now
 
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            existing = UserOnboardingState.query.filter(
+                UserOnboardingState.user_bid == normalized_user_bid,
+                UserOnboardingState.scene_key == normalized_scene_key,
+                UserOnboardingState.version == normalized_version,
+            ).first()
+
         return {
             "scene_key": normalized_scene_key,
             "version": normalized_version,
             "completed": True,
-            "completed_at": _serialize_datetime(existing.completed_at),
+            "completed_at": _serialize_datetime(
+                getattr(existing, "completed_at", None)
+            ),
         }

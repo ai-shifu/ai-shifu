@@ -94,7 +94,7 @@ def mark_creator_role_if_needed(user_id: str) -> bool:
         return False
 
     mark_user_roles(normalized_user_id, is_creator=True)
-    entity.creator_activated_at = datetime.now()
+    entity.creator_activated_at = datetime.utcnow()
     return True
 
 

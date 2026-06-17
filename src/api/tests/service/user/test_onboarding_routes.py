@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 import uuid
 
+from sqlalchemy.exc import IntegrityError
+
 from flaskr.dao import db
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
@@ -216,3 +218,59 @@ def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
             UserOnboardingState.version == "v1",
         ).all()
         assert len(rows) == 1
+
+
+def test_complete_onboarding_scene_handles_integrity_error(app, test_client, monkeypatch):
+    user_bid = uuid.uuid4().hex[:32]
+    completed_at = datetime(2026, 6, 17, 12, 5, 0)
+
+    with app.app_context():
+        _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
+        db.session.add(
+            UserOnboardingState(
+                user_bid=user_bid,
+                scene_key="admin_home_onboarding",
+                version="v1",
+                status="completed",
+                trigger_source="admin_entry",
+                completed_at=completed_at,
+            )
+        )
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": default,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": default,
+    )
+
+    original_commit = db.session.commit
+    state = {"raised": False}
+
+    def flaky_commit():
+        if not state["raised"]:
+            state["raised"] = True
+            raise IntegrityError("duplicate", None, None)
+        return original_commit()
+
+    monkeypatch.setattr(db.session, "commit", flaky_commit)
+
+    response = test_client.post(
+        "/api/user/onboarding/complete",
+        json={
+            "scene_key": "admin_home_onboarding",
+            "version": "v1",
+            "trigger_source": "admin_entry",
+        },
+        headers={"Token": token},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["completed"] is True
+    assert payload["data"]["completed_at"] == completed_at.isoformat()
