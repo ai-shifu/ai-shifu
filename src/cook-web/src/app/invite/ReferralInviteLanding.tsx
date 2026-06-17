@@ -20,6 +20,7 @@ import { ContactSideRail } from '@/components/contact/ContactSideRail';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import { resolveOfficialSiteUrl } from '@/config/environment';
 import {
   normalizeReferralInviteCode,
   saveReferralContext,
@@ -33,8 +34,6 @@ import type {
 type ReferralInviteLandingProps = {
   initialInviteCode?: string;
 };
-
-const DEFAULT_OFFICIAL_SITE_URL = 'https://ai-shifu.cn';
 
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
@@ -70,10 +69,7 @@ export function ReferralInviteLanding({
   const officialSiteUrlValue = useEnvStore(
     (state: EnvStoreState) => state.officialSiteUrl,
   );
-  const officialSiteUrl =
-    (typeof officialSiteUrlValue === 'string'
-      ? officialSiteUrlValue.trim()
-      : '') || DEFAULT_OFFICIAL_SITE_URL;
+  const officialSiteUrl = resolveOfficialSiteUrl(officialSiteUrlValue);
   const normalizedInitialCode = useMemo(
     () => normalizeReferralInviteCode(initialInviteCode),
     [initialInviteCode],

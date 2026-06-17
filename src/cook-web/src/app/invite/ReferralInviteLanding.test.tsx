@@ -36,7 +36,7 @@ jest.mock('@/api', () => ({
   },
 }));
 
-const mockEnvState: { officialSiteUrl?: string | null } = {
+const mockEnvState: { officialSiteUrl: string } = {
   officialSiteUrl: 'https://official.example.com',
 };
 
@@ -119,8 +119,8 @@ describe('ReferralInviteLanding', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('links the logo to the China official site when officialSiteUrl is unset', async () => {
-    mockEnvState.officialSiteUrl = undefined;
+  test('links the logo to the China official site when officialSiteUrl is blank', async () => {
+    mockEnvState.officialSiteUrl = '   ';
 
     render(<ReferralInviteLanding initialInviteCode='ab12cd34' />);
 

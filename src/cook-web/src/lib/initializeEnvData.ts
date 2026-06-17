@@ -4,7 +4,10 @@ import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { redirectToHomeUrlIfRootPath } from '@/lib/utils';
 import { getBoolEnv } from '@/c-utils/envUtils';
-import { getDynamicApiBaseUrl } from '@/config/environment';
+import {
+  getDynamicApiBaseUrl,
+  resolveOfficialSiteUrl,
+} from '@/config/environment';
 
 const normalizeStringArray = (value: unknown, fallback: string[]): string[] => {
   if (Array.isArray(value)) {
@@ -188,7 +191,9 @@ const loadRuntimeConfig = async () => {
   await updateDefaultLlmModel(runtimeConfig?.defaultLlmModel || '');
   await updateHomeUrl(runtimeConfig?.homeUrl || '/');
   await updateContactUsUrl(runtimeConfig?.contactUsUrl || '');
-  await updateOfficialSiteUrl(runtimeConfig?.officialSiteUrl || '');
+  await updateOfficialSiteUrl(
+    resolveOfficialSiteUrl(runtimeConfig?.officialSiteUrl),
+  );
   await updateCurrencySymbol(runtimeConfig?.currencySymbol || '¥');
   await updateBillingEnabled(
     runtimeConfig?.billingEnabled !== undefined
