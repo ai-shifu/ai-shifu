@@ -130,9 +130,10 @@ describe('ReferralInviteLanding', () => {
         { skipErrorToast: true },
       ),
     );
-    expect(
-      screen.getByRole('link', { name: 'AI-Shifu' }),
-    ).toHaveAttribute('href', 'https://ai-shifu.cn');
+    expect(screen.getByRole('link', { name: 'AI-Shifu' })).toHaveAttribute(
+      'href',
+      'https://ai-shifu.cn',
+    );
   });
 
   test('redirects directly from invite-code route without re-entering code', async () => {
