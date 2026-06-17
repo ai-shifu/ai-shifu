@@ -259,9 +259,10 @@ export const initializeEnvData = async (): Promise<void> => {
  * whose path has no shifu_bid, so the logged-in creator's branding can drive
  * the sidebar logo and its click-through target.
  *
- * Safe by design: fields are only overridden when the creator has a value, so
- * a creator without custom branding keeps the global defaults (never blanks
- * out the default logo). Any fetch/parse failure is swallowed.
+ * Branding fields are applied unconditionally (with sensible fallbacks),
+ * mirroring the bootstrap loader, so switching to a creator without custom
+ * branding resets to the backend-provided global defaults instead of leaving a
+ * previous creator's values behind. Any fetch/parse failure is swallowed.
  */
 export const applyCreatorBranding = async (
   creatorBid: string,
@@ -291,18 +292,10 @@ export const applyCreatorBranding = async (
       updateLogoSquareUrl,
       updateFaviconUrl,
     } = useEnvStore.getState() as EnvStoreState;
-    if (runtimeConfig.homeUrl) {
-      await updateHomeUrl(runtimeConfig.homeUrl);
-    }
-    if (runtimeConfig.logoWideUrl) {
-      await updateLogoWideUrl(runtimeConfig.logoWideUrl);
-    }
-    if (runtimeConfig.logoSquareUrl) {
-      await updateLogoSquareUrl(runtimeConfig.logoSquareUrl);
-    }
-    if (runtimeConfig.faviconUrl) {
-      await updateFaviconUrl(runtimeConfig.faviconUrl);
-    }
+    await updateHomeUrl(runtimeConfig.homeUrl || '/');
+    await updateLogoWideUrl(runtimeConfig.logoWideUrl || '');
+    await updateLogoSquareUrl(runtimeConfig.logoSquareUrl || '');
+    await updateFaviconUrl(runtimeConfig.faviconUrl || '');
   } catch (error) {
     console.warn('Failed to apply creator branding', error);
   }
