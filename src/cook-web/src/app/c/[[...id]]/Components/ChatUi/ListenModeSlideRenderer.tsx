@@ -1993,10 +1993,7 @@ const ListenModeSlideRenderer = ({
         {shouldRenderManualFullscreenButton ? (
           <button
             type='button'
-            className={cn(
-              'classroom-fullscreen-button',
-              previewMode ? 'classroom-fullscreen-button--preview' : '',
-            )}
+            className='classroom-fullscreen-button'
             onClick={() => {
               void requestClassroomFullscreen();
             }}

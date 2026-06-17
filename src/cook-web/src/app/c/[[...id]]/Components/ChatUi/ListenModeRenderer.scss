@@ -135,7 +135,7 @@
 
 .classroom-fullscreen-button {
   position: absolute;
-  top: 80px;
+  top: 24px;
   right: 24px;
   z-index: 96;
   display: inline-flex;
@@ -156,10 +156,6 @@
     0 2px 8px rgba(15, 23, 42, 0.08);
   cursor: pointer;
   backdrop-filter: blur(16px);
-}
-
-.classroom-fullscreen-button--preview {
-  top: 120px;
 }
 
 .classroom-fullscreen-button:hover {

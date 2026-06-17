@@ -462,7 +462,7 @@ describe('ListenModeSlideRenderer', () => {
     }
   });
 
-  it('moves the classroom fullscreen entry below the taller preview header', async () => {
+  it('keeps the classroom fullscreen entry aligned to the slide corner in preview', async () => {
     render(
       <ListenModeSlideRenderer
         variant='classroom'
@@ -484,7 +484,7 @@ describe('ListenModeSlideRenderer', () => {
       await screen.findByRole('button', {
         name: 'module.chat.classroomEnterFullscreen',
       }),
-    ).toHaveClass('classroom-fullscreen-button--preview');
+    ).not.toHaveClass('classroom-fullscreen-button--preview');
   });
 
   it('maps classroom space shortcuts to next slide without bubbling the original space key', () => {
