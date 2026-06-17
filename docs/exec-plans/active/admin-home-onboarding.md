@@ -18,6 +18,9 @@ with Umami, and persists per-user completion so each scene shows at most once.
       coverage, and final verification before commit / PR.
 - [x] 2026-06-17 14:40 CST: Added `creator_activated_at` so old users who
       become creators after rollout are still eligible for admin home onboarding.
+- [x] 2026-06-17 22:20 CST: Added owner-only course editor onboarding for
+      manual / lobster course creation and hardened the shared overlay for drawer
+      targets, rounded highlight holes, edge padding, and toast/onboarding overlap.
 - [x] 2026-06-18 10:30 CST: Updated the admin home onboarding to the new
       three-step flow: blank course creation, lobster AI course creation, and the
       full billing card with trial credit details.
@@ -33,6 +36,13 @@ with Umami, and persists per-user completion so each scene shows at most once.
 - Existing user `created_at` is not enough for eligibility because operators can
   later grant creator ability through transfer-creator, course copy, or shared
   edit/publish permissions.
+- Course editor settings live inside a Radix Sheet, so onboarding cannot rely on
+  static target coordinates. Drawer steps need explicit open/close ownership,
+  outside-click prevention, scroll-then-measure behavior, and short coordinate
+  stabilization before rendering the overlay.
+- Success toast and editor onboarding are both top-level feedback surfaces. They
+  should be sequenced rather than stacked, otherwise the toast can visibly bleed
+  through the onboarding overlay during route transition.
 
 ## Decision Log
 
@@ -60,9 +70,46 @@ with Umami, and persists per-user completion so each scene shows at most once.
   - Why: the existing homepage link may be highlighted, but the card copy also
     needs a direct way to open the same external course-creator URL in a new
     tab without advancing the overlay.
+- Decision: Keep a follow-up shared-permission onboarding variant as a later
+  iteration instead of forcing shared users through the owner flow.
+  - Why: shared collaborators usually need a lighter collaboration path focused
+    on prompt editing, debugging, and preview, while owner-oriented settings and
+    publish actions would add noise or mislead first-use expectations.
+- Decision: Resolve the guide course from the existing zh/en demo-course config
+  keys and expose `is_guide_course` through the creator course list.
+  - Why: the UI must spotlight the real course card without adding a separate
+    recommendation entry.
+- Decision: Keep a follow-up shared-permission onboarding variant as a later
+  iteration instead of forcing shared users through the owner flow.
+  - Why: shared collaborators usually need a lighter collaboration path focused
+    on prompt editing, debugging, and preview, while owner-oriented settings and
+    publish actions would add noise or mislead first-use expectations.
+- Decision: Resolve the guide course from the existing zh/en demo-course config
+  keys and expose `is_guide_course` through the creator course list.
+  - Why: the UI must spotlight the real course card without adding a separate
+    recommendation entry.
+- Decision: Keep guide-course resolution in the backend/list DTOs, but remove
+  the guide-course step from the admin home onboarding.
+  - Why: the revised product flow should only introduce course creation,
+    lobster-assisted course creation, and credit/package management.
+- Decision: The lobster-assisted creation step can include an action link inside
+  the onboarding card.
+  - Why: the existing homepage link may be highlighted, but the card copy also
+    needs a direct way to open the same external course-creator URL in a new
+    tab without advancing the overlay.
 - Decision: Keep the reusable onboarding overlay and target-resolution logic in
   shared frontend modules.
   - Why: PR2 will reuse the same flow mechanics for editor onboarding.
+- Decision: Preserve the create-course success toast, but delay navigation to
+  the editor until the short toast duration completes.
+  - Why: product wants the success feedback to remain, while the editor
+    onboarding must not visually overlap with a stale toast from the previous
+    route.
+- Decision: Use a shared rounded highlight implementation based on an outer
+  shadow around the target instead of SVG or rectangular mask slices.
+  - Why: it gives consistent rounded holes across admin home and editor targets,
+    including targets near viewport edges and targets inside portal-based
+    drawers.
 
 ## Outcomes & Retrospective
 
@@ -72,6 +119,29 @@ with Umami, and persists per-user completion so each scene shows at most once.
   enabled: create a blank course, open lobster AI course creation, and review
   the billing card for trial credits and package purchases. If billing is
   disabled or a target is not present, missing steps skip safely.
+- Follow-up: open a separate French i18n polish PR to normalize accented French
+  across `src/i18n/fr-FR/**`. This PR only fixes onboarding strings to avoid
+  mixing broad copy cleanup with the onboarding behavior change.
+- Deferred follow-up: add a shared-permission editor onboarding scene after the
+  owner flow lands. The first candidate scope is a lightweight three-step path
+  for prompt editing, debugging, and preview only, with course settings and
+  publish intentionally excluded.
+- PR2 owner editor onboarding now covers prompt editing, debug, settings entry,
+  model, listen mode, price, preview, and publish. Settings-drawer steps keep
+  the drawer open during onboarding and close it once the flow leaves the
+  settings panel.
+- Admin home onboarding now presents three product steps when billing is
+  enabled: create a blank course, open lobster AI course creation, and review
+  the billing card for trial credits and package purchases. If billing is
+  disabled or a target is not present, missing steps skip safely.
+- Deferred follow-up: add a shared-permission editor onboarding scene after the
+  owner flow lands. The first candidate scope is a lightweight three-step path
+  for prompt editing, debugging, and preview only, with course settings and
+  publish intentionally excluded.
+- PR2 owner editor onboarding now covers prompt editing, debug, settings entry,
+  model, listen mode, price, preview, and publish. Settings-drawer steps keep
+  the drawer open during onboarding and close it once the flow leaves the
+  settings panel.
 - Follow-up: open a separate French i18n polish PR to normalize accented French
   across `src/i18n/fr-FR/**`. This PR only fixes onboarding strings to avoid
   mixing broad copy cleanup with the onboarding behavior change.
@@ -120,6 +190,13 @@ with Umami, and persists per-user completion so each scene shows at most once.
 - The lobster and billing-card steps can silently skip if their targets are
   unavailable.
 - The overlay does not stay mounted after leaving the eligible scene.
+- The shared overlay uses rounded highlights consistently across admin home and
+  editor scenes, including targets close to viewport edges.
+- Editor settings steps keep the settings drawer open, prevent outside-click
+  closure from onboarding clicks, and render only after drawer target
+  coordinates stabilize.
+- Manual course creation still shows a short success toast, then transitions to
+  editor onboarding without overlapping visual layers.
 - Completing the final step persists `admin_home_onboarding` completion and
   prevents replay on refresh.
 - Focused backend pytest and frontend Jest/type-check commands pass.
@@ -132,6 +209,25 @@ with Umami, and persists per-user completion so each scene shows at most once.
   final step.
 - Missing optional targets should continue through the next step without an
   error state.
+
+## Shared-Permission Follow-up
+
+- Scope this as a separate post-PR2 iteration rather than widening the owner
+  rollout.
+- Reuse the same overlay / target-resolution primitives, but store a separate
+  scene key so owner completion and collaborator completion do not interfere.
+- Candidate step set:
+  - `prompt_edit`
+  - `debug`
+  - `preview`
+- Exclude owner-heavy actions from the shared variant:
+  - `course_settings`
+  - `publish`
+- Trigger once per eligible shared collaborator on their first entry to any
+  shared course editor, not once per course.
+- Open product question for the later iteration: if a shared collaborator also
+  has publish permission, decide whether that still belongs in the lightweight
+  collaborator flow or should remain owner-only.
 
 ## Interfaces and Dependencies
 

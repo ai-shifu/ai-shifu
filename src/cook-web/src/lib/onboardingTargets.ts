@@ -8,6 +8,14 @@ export const ONBOARDING_TARGET_IDS = {
   courseCreationEntry: 'course-creation-entry',
   blankCreateEntry: 'blank-create-entry',
   lobsterCreateEntry: 'lobster-create-entry',
+  editorSettingsEntry: 'editor-settings-entry',
+  editorPromptEdit: 'editor-prompt-edit',
+  editorDebug: 'editor-debug',
+  editorCourseModel: 'editor-course-model',
+  editorCourseListenMode: 'editor-course-listen-mode',
+  editorCoursePrice: 'editor-course-price',
+  editorPreview: 'editor-preview',
+  editorPublish: 'editor-publish',
 } as const;
 
 const GUIDE_COURSE_TARGET_PREFIX = `${ONBOARDING_TARGET_IDS.guideCourseCard}-`;

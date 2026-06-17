@@ -37,6 +37,40 @@
       "title": "Bienvenue dans l'espace créateur AI Shifu"
     }
   },
+  "courseEditor": {
+    "settingsEntry": {
+      "title": "Ouvrez ici les parametres du cours",
+      "description": "Utilisez les parametres du cours pour regler le modele, le mode ecoute et le prix."
+    },
+    "prompt": {
+      "title": "Modifiez ici le prompt pedagogique",
+      "description": "Redigez ici le contenu de la lecon. Le debug, l'apercu et la publication sont generes a partir de ce contenu."
+    },
+    "debug": {
+      "title": "Lancez ici un apercu de debug",
+      "description": "Utilisez ce bouton pour verifier le rendu genere a partir du prompt actuel avant publication."
+    },
+    "model": {
+      "title": "Choisissez ici le modele du cours",
+      "description": "Le modele influence la qualite, le style et le cout du cours."
+    },
+    "listenMode": {
+      "title": "Activez ici le mode ecoute",
+      "description": "Une fois active, les apprenants pourront suivre ce cours en mode ecoute."
+    },
+    "price": {
+      "title": "Modifiez ici le prix du cours",
+      "description": "Verifiez le prix du cours avant publication."
+    },
+    "preview": {
+      "title": "Previsualisez ici l'ensemble du cours",
+      "description": "Avant la publication, previsualisez l'ensemble du cours pour verifier le parcours d'apprentissage et le rendu du contenu."
+    },
+    "publish": {
+      "title": "Publiez le cours ici",
+      "description": "Quand tout est pret, utilisez ce bouton pour publier officiellement le cours."
+    }
+  },
   "common": {
     "continue": "Cliquez n'importe où pour continuer"
   }

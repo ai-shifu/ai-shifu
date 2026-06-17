@@ -37,6 +37,40 @@
       "title": "欢迎来到 AI 师傅后台"
     }
   },
+  "courseEditor": {
+    "settingsEntry": {
+      "title": "先从这里打开课程设置",
+      "description": "课程设置里可以配置模型、听课模式和价格等关键内容。"
+    },
+    "prompt": {
+      "title": "这里编辑授课提示词",
+      "description": "这里编写本节课的授课内容，调试、预览和发布都会基于这里生成输出。"
+    },
+    "debug": {
+      "title": "这里运行调试",
+      "description": "点击后可以查看当前提示词生成的课程输出，发布前先确认效果。"
+    },
+    "model": {
+      "title": "这里选择课程大模型",
+      "description": "模型会影响课程生成质量、风格和消耗。"
+    },
+    "listenMode": {
+      "title": "这里开启听课模式",
+      "description": "开启后，学员可以使用听课模式体验课程内容。"
+    },
+    "price": {
+      "title": "这里修改课程价格",
+      "description": "发布前记得确认课程价格。"
+    },
+    "preview": {
+      "title": "这里预览整门课程",
+      "description": "发布前先预览整门课程，确认学习链路和内容展示是否符合预期。"
+    },
+    "publish": {
+      "title": "最后从这里发布课程",
+      "description": "确认内容无误后，就可以从这里正式发布课程。"
+    }
+  },
   "common": {
     "continue": "点击屏幕任意位置继续"
   }

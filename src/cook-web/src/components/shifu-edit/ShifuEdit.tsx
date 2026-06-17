@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
 import { Rnd } from 'react-rnd';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEnvStore } from '@/c-store';
+import api from '@/api';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { EnvStoreState } from '@/c-types/store';
 import {
@@ -43,6 +45,8 @@ import ChapterSettingsDialog from '@/components/chapter-setting';
 import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { MdfConvertDialog } from '@/components/mdf-convert';
+import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
+import { buildCourseEditorOnboardingSteps } from '@/components/onboarding/editorOnboardingSteps';
 import OutlineTree from '@/components/outline-tree';
 import DraftConflictDialog from './DraftConflictDialog';
 import Loading from '../loading';
@@ -57,6 +61,14 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import {
+  useCreatorOnboardingStatus,
+  useOnboarding,
+} from '@/hooks/useOnboarding';
+import {
+  buildOnboardingTargetProps,
+  ONBOARDING_TARGET_IDS,
+} from '@/lib/onboardingTargets';
 import './shifuEdit.scss';
 
 const MarkdownFlowEditor = dynamic(
@@ -75,6 +87,10 @@ const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
 const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
 const TOOLBAR_ICON_SIZE = 18; // Match markdown-flow-ui toolbar icon size
+const SUPPORTED_EDITOR_TRIGGER_SOURCES = new Set([
+  'manual_create',
+  'lobster_create',
+]);
 
 const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
 type MarkdownFlowEditorLocale = 'en-US' | 'zh-CN';
@@ -123,7 +139,9 @@ const ScriptEditor = ({
   initialViewMode = 'edit',
 }: ScriptEditorProps) => {
   const { t } = useTranslation();
+  const { t: tOnboarding } = useTranslation('module.onboarding');
   const { trackEvent } = useTracking();
+  const searchParams = useSearchParams();
   const profile = useUserStore(state => state.userInfo);
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
@@ -250,7 +268,46 @@ const ScriptEditor = ({
     if (!profile) return '';
     return profile.user_bid || profile.user_id || '';
   }, [profile]);
+  const editorOnboardingTriggerSource = useMemo(() => {
+    const source =
+      searchParams?.get('onboarding_source') || searchParams?.get('onboarding');
+    return SUPPORTED_EDITOR_TRIGGER_SOURCES.has(String(source || '').trim())
+      ? String(source).trim()
+      : '';
+  }, [searchParams]);
   const isHistoryPage = initialViewMode === 'history';
+  const isCourseOwner = Boolean(
+    currentShifu?.created_user_bid &&
+      currentUserId &&
+      currentShifu.created_user_bid === currentUserId,
+  );
+  const {
+    data: onboardingStatus,
+    mutate: mutateOnboardingStatus,
+  } = useCreatorOnboardingStatus(Boolean(currentUserId));
+  const editorOnboardingSteps = useMemo(
+    () =>
+      buildCourseEditorOnboardingSteps({
+        t: tOnboarding,
+        targetIds: {
+          settingsEntry: ONBOARDING_TARGET_IDS.editorSettingsEntry,
+          promptEdit: ONBOARDING_TARGET_IDS.editorPromptEdit,
+          debug: ONBOARDING_TARGET_IDS.editorDebug,
+          model: ONBOARDING_TARGET_IDS.editorCourseModel,
+          listenMode: ONBOARDING_TARGET_IDS.editorCourseListenMode,
+          price: ONBOARDING_TARGET_IDS.editorCoursePrice,
+          preview: ONBOARDING_TARGET_IDS.editorPreview,
+          publish: ONBOARDING_TARGET_IDS.editorPublish,
+        },
+      }),
+    [tOnboarding],
+  );
+  const shouldShowCourseEditorOnboarding =
+    !isHistoryPage &&
+    Boolean(editorOnboardingTriggerSource) &&
+    Boolean(onboardingStatus?.eligible) &&
+    onboardingStatus?.scenes.course_editor_onboarding.completed === false &&
+    isCourseOwner;
   const actionsRef = useRef(actions);
   const baseRevisionRef = useRef<number | null>(null);
   const conflictStateRef = useRef({
@@ -261,6 +318,67 @@ const ScriptEditor = ({
   const currentShifuBidRef = useRef<string | null>(null);
   const initializedShifuRef = useRef<string | null>(null);
   const remoteDraftSyncingTargetsRef = useRef<Set<string>>(new Set());
+  const trackedEditorOnboardingStartRef = useRef(false);
+
+  const {
+    isOpen: courseEditorOnboardingOpen,
+    currentStep: courseEditorOnboardingStep,
+    currentStepIndex: courseEditorOnboardingStepIndex,
+    totalSteps: courseEditorOnboardingTotalSteps,
+    targetRect: courseEditorOnboardingTargetRect,
+    advance: advanceCourseEditorOnboarding,
+  } = useOnboarding({
+    enabled: shouldShowCourseEditorOnboarding,
+    steps: editorOnboardingSteps,
+    onStepResolved: (step, stepIndex) => {
+      trackEvent('creator_onboarding_step_viewed', {
+        scene_key: 'course_editor_onboarding',
+        version: onboardingStatus?.version || 'v1',
+        step_id: step.id,
+        step_index: stepIndex + 1,
+        trigger_source: editorOnboardingTriggerSource,
+        language: profile?.language || i18n.language,
+      });
+    },
+    onComplete: async () => {
+      await api.completeCreatorOnboarding({
+        scene_key: 'course_editor_onboarding',
+        version: onboardingStatus?.version || 'v1',
+        trigger_source: editorOnboardingTriggerSource,
+      });
+      trackEvent('creator_onboarding_completed', {
+        scene_key: 'course_editor_onboarding',
+        version: onboardingStatus?.version || 'v1',
+        trigger_source: editorOnboardingTriggerSource,
+        language: profile?.language || i18n.language,
+      });
+      await mutateOnboardingStatus(current => {
+        if (!current) {
+          return current;
+        }
+        return {
+          ...current,
+          scenes: {
+            ...current.scenes,
+            course_editor_onboarding: {
+              completed: true,
+              completed_at: new Date().toISOString(),
+            },
+          },
+        };
+      }, false);
+      if (typeof window !== 'undefined') {
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.delete('onboarding_source');
+        currentUrl.searchParams.delete('onboarding');
+        window.history.replaceState({}, '', currentUrl.toString());
+      }
+    },
+  });
+  const shouldRenderCourseEditorOnboardingOverlay = Boolean(
+    courseEditorOnboardingStep &&
+      (!courseEditorOnboardingStep.targetId || courseEditorOnboardingTargetRect),
+  );
 
   useEffect(() => {
     actionsRef.current = actions;
@@ -281,6 +399,32 @@ const ScriptEditor = ({
   useEffect(() => {
     currentShifuBidRef.current = currentShifu?.bid ?? null;
   }, [currentShifu?.bid]);
+
+  useEffect(() => {
+    if (!courseEditorOnboardingOpen || trackedEditorOnboardingStartRef.current) {
+      return;
+    }
+    trackedEditorOnboardingStartRef.current = true;
+    trackEvent('creator_onboarding_started', {
+      scene_key: 'course_editor_onboarding',
+      version: onboardingStatus?.version || 'v1',
+      trigger_source: editorOnboardingTriggerSource,
+      language: profile?.language || i18n.language,
+    });
+  }, [
+    courseEditorOnboardingOpen,
+    editorOnboardingTriggerSource,
+    onboardingStatus?.version,
+    profile?.language,
+    trackEvent,
+  ]);
+
+  useEffect(() => {
+    if (courseEditorOnboardingOpen) {
+      return;
+    }
+    trackedEditorOnboardingStartRef.current = false;
+  }, [courseEditorOnboardingOpen]);
 
   useEffect(() => {
     const scopeChanged = editorContentScopeRef.current !== editorScopeKey;
@@ -316,6 +460,7 @@ const ScriptEditor = ({
     },
     [actions, currentNode?.bid, currentShifu?.bid],
   );
+
 
   const isLessonNode = (currentNode?.depth ?? 0) > 0;
   const shouldSkipConflictCheck =
@@ -1426,7 +1571,37 @@ const ScriptEditor = ({
 
   return (
     <div className='flex flex-col h-screen bg-gray-50'>
-      <Header />
+      {courseEditorOnboardingStep ? (
+        <OnboardingOverlay
+          open={
+            courseEditorOnboardingOpen &&
+            shouldRenderCourseEditorOnboardingOverlay
+          }
+          advanceAriaLabel={tOnboarding('common.continue')}
+          title={courseEditorOnboardingStep.title}
+          description={courseEditorOnboardingStep.description}
+          stepIndex={courseEditorOnboardingStepIndex}
+          totalSteps={courseEditorOnboardingTotalSteps}
+          continueLabel={tOnboarding('common.continue')}
+          targetRect={courseEditorOnboardingTargetRect}
+          onAdvance={() => {
+            void advanceCourseEditorOnboarding();
+          }}
+        />
+      ) : null}
+      <Header
+        settingsTriggerTargetId={ONBOARDING_TARGET_IDS.editorSettingsEntry}
+        settingsOpenSignal={
+          courseEditorOnboardingStep?.panel === 'shifu_settings'
+            ? courseEditorOnboardingStep.id
+            : undefined
+        }
+        settingsShouldStayOpen={
+          courseEditorOnboardingStep?.panel === 'shifu_settings'
+        }
+        previewTargetId={ONBOARDING_TARGET_IDS.editorPreview}
+        publishTargetId={ONBOARDING_TARGET_IDS.editorPublish}
+      />
       <div className='flex flex-1 overflow-hidden'>
         <Rnd
           id='outline-panel'
@@ -1517,6 +1692,12 @@ const ScriptEditor = ({
             >
               {currentNode?.depth && currentNode.depth > 0 ? (
                 <>
+                  <div
+                    className='pointer-events-none absolute left-6 top-5 h-[148px] w-[520px] max-w-[calc(100%-260px)] rounded-2xl'
+                    {...buildOnboardingTargetProps(
+                      ONBOARDING_TARGET_IDS.editorPromptEdit,
+                    )}
+                  />
                   <div className='flex items-center gap-3 pb-2'>
                     <div className='flex flex-1 min-w-0 items-baseline gap-2'>
                       <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
@@ -1594,6 +1775,9 @@ const ScriptEditor = ({
                         onClick={handlePreview}
                         disabled={!canPreview || isPreviewPreparing}
                         title={!canPreview ? previewDisabledReason : undefined}
+                        {...buildOnboardingTargetProps(
+                          ONBOARDING_TARGET_IDS.editorDebug,
+                        )}
                       >
                         {isPreviewPreparing ? (
                           <Loader2 className='h-4 w-4 animate-spin' />
