@@ -1,8 +1,10 @@
 import { SYS_INTERACTION_TYPE } from '@/c-api/studyV2';
 
+const SYSTEM_INTERACTION_TYPES = Object.values(SYS_INTERACTION_TYPE);
+
 export const isSystemInteractionContent = (content?: string | null) =>
   typeof content === 'string' &&
-  Object.values(SYS_INTERACTION_TYPE).some(interactionType =>
+  SYSTEM_INTERACTION_TYPES.some(interactionType =>
     content.includes(interactionType),
   );
 

@@ -85,7 +85,7 @@ export const getCourseInfo = async (
     const encodedCourseId = encodeURIComponent(courseId);
     const res = await request.get(
       `/api/learn/shifu/${encodedCourseId}?preview_mode=${previewMode}`,
-      { skipErrorToast: options?.skipErrorToast },
+      { skipErrorToast: options.skipErrorToast },
       // `/api/course/get-course-info?course_id=${courseId}&preview_mode=${previewMode}`,
     );
 
@@ -103,7 +103,7 @@ export const getCourseInfo = async (
     };
   } catch (rawError: any) {
     const error = new CourseInfoFetchError(rawError);
-    if (options?.trackErrors !== false) {
+    if (options.trackErrors !== false) {
       const networkType =
         typeof navigator !== 'undefined' && (navigator as any).connection
           ? (navigator as any).connection.effectiveType || ''
