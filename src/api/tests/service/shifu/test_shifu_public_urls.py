@@ -233,3 +233,131 @@ def test_shifu_publish_url_builder_uses_public_base():
         _build_frontend_url("https://example.com/", "/c/course-1")
         == "https://example.com/c/course-1"
     )
+
+
+def _seed_white_label(
+    app,
+    *,
+    creator_bid: str,
+    host: str,
+    custom_domain_enabled: bool = True,
+    binding_status: int | None = None,
+) -> None:
+    from datetime import datetime, timedelta
+
+    from flaskr.service.billing.consts import (
+        BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+        BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
+        CREDIT_SOURCE_TYPE_MANUAL,
+    )
+    from flaskr.service.billing.models import (
+        BillingDomainBinding,
+        BillingEntitlement,
+    )
+
+    status = (
+        binding_status
+        if binding_status is not None
+        else BILLING_DOMAIN_BINDING_STATUS_VERIFIED
+    )
+    with app.app_context():
+        BillingDomainBinding.query.filter_by(creator_bid=creator_bid).delete()
+        BillingEntitlement.query.filter_by(creator_bid=creator_bid).delete()
+        now = datetime.now()
+        dao.db.session.add(
+            BillingEntitlement(
+                entitlement_bid=f"ent-{creator_bid}",
+                creator_bid=creator_bid,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid="",
+                branding_enabled=1,
+                custom_domain_enabled=1 if custom_domain_enabled else 0,
+                effective_from=now - timedelta(days=1),
+                effective_to=None,
+            )
+        )
+        dao.db.session.add(
+            BillingDomainBinding(
+                domain_binding_bid=f"bind-{creator_bid}",
+                creator_bid=creator_bid,
+                host=host,
+                status=status,
+                verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
+                verification_token="token-test",
+            )
+        )
+        dao.db.session.commit()
+
+
+def test_resolve_effective_custom_origin_returns_verified_host(app):
+    from flaskr.service.billing.domains import resolve_effective_custom_origin
+
+    creator_bid = "wl-owner-verified"
+    _seed_white_label(app, creator_bid=creator_bid, host="learn.acme.test")
+
+    assert (
+        resolve_effective_custom_origin(app, creator_bid) == "https://learn.acme.test"
+    )
+
+
+def test_resolve_effective_custom_origin_none_when_entitlement_disabled(app):
+    from flaskr.service.billing.domains import resolve_effective_custom_origin
+
+    creator_bid = "wl-owner-disabled"
+    _seed_white_label(
+        app,
+        creator_bid=creator_bid,
+        host="disabled.acme.test",
+        custom_domain_enabled=False,
+    )
+
+    assert resolve_effective_custom_origin(app, creator_bid) is None
+
+
+def test_resolve_effective_custom_origin_none_when_binding_pending(app):
+    from flaskr.service.billing.consts import (
+        BILLING_DOMAIN_BINDING_STATUS_PENDING,
+    )
+    from flaskr.service.billing.domains import resolve_effective_custom_origin
+
+    creator_bid = "wl-owner-pending"
+    _seed_white_label(
+        app,
+        creator_bid=creator_bid,
+        host="pending.acme.test",
+        binding_status=BILLING_DOMAIN_BINDING_STATUS_PENDING,
+    )
+
+    assert resolve_effective_custom_origin(app, creator_bid) is None
+
+
+def test_publish_base_url_prefers_custom_domain(app, monkeypatch):
+    from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
+    from flaskr.service.shifu.route import _resolve_publish_base_url
+
+    creator_bid = "wl-owner-publish"
+    _seed_white_label(app, creator_bid=creator_bid, host="pub.acme.test")
+    monkeypatch.setenv("HOST_URL", "https://example.com/")
+    _reset_config_cache("HOST_URL")
+
+    set_shifu_context("course-x", creator_bid)
+    try:
+        with app.app_context():
+            assert _resolve_publish_base_url(app) == "https://pub.acme.test"
+    finally:
+        clear_shifu_context()
+
+
+def test_publish_base_url_falls_back_without_custom_domain(app, monkeypatch):
+    from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
+    from flaskr.service.shifu.route import _resolve_publish_base_url
+
+    monkeypatch.setenv("HOST_URL", "https://example.com/")
+    _reset_config_cache("HOST_URL")
+
+    set_shifu_context("course-y", "wl-owner-without-domain")
+    try:
+        with app.app_context():
+            assert _resolve_publish_base_url(app) == "https://example.com"
+    finally:
+        clear_shifu_context()

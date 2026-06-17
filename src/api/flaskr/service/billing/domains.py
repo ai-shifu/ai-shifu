@@ -235,6 +235,40 @@ def resolve_creator_bid_by_host(app: Flask, host: Any) -> str | None:
         return _normalize_bid(binding.creator_bid) or None
 
 
+def resolve_effective_custom_origin(app: Flask, creator_bid: Any) -> str | None:
+    """Return the creator's effective custom-domain origin for building links.
+
+    A binding is effective only when it is verified and the creator still has
+    the ``custom_domain`` entitlement enabled. Returns ``https://<host>`` when a
+    usable binding exists, otherwise ``None`` so callers fall back to the
+    default public origin.
+    """
+
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        return None
+
+    with app.app_context():
+        entitlement_state = resolve_creator_entitlement_state(normalized_creator_bid)
+        if not bool(entitlement_state.custom_domain_enabled):
+            return None
+        binding = (
+            BillingDomainBinding.query.filter(
+                BillingDomainBinding.deleted == 0,
+                BillingDomainBinding.creator_bid == normalized_creator_bid,
+                BillingDomainBinding.status == BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+            )
+            .order_by(BillingDomainBinding.id.desc())
+            .first()
+        )
+        if binding is None:
+            return None
+        normalized_host = normalize_domain_host(binding.host, strict=False)
+        if not normalized_host:
+            return None
+        return f"https://{normalized_host}"
+
+
 def resolve_runtime_domain_result(
     app: Flask,
     host: Any,

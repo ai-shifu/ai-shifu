@@ -229,6 +229,36 @@ def _get_request_base_url() -> str:
     return resolve_public_origin()
 
 
+def _resolve_publish_base_url(app: Flask) -> str:
+    """Prefer the creator's verified custom domain for published/preview links.
+
+    Falls back to the default public origin when the current shifu's creator has
+    no effective custom domain binding or resolution fails.
+    """
+    # Use the thread-local context getter (no args), not the shifu.utils
+    # get_shifu_creator_bid(app, shifu_bid) imported elsewhere in this module.
+    from flaskr.common.shifu_context import (
+        get_shifu_creator_bid as get_context_creator_bid,
+    )
+
+    creator_bid = get_context_creator_bid()
+    if creator_bid:
+        try:
+            from flaskr.service.billing.api import (
+                resolve_effective_custom_origin,
+            )
+
+            custom_origin = resolve_effective_custom_origin(app, creator_bid)
+            if custom_origin:
+                return custom_origin
+        except Exception:
+            app.logger.exception(
+                "Failed to resolve custom domain for publish link; creator_bid=%s",
+                creator_bid,
+            )
+    return _get_request_base_url()
+
+
 @inject
 def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     """
@@ -1047,7 +1077,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     description: publish url
         """
         user_id = request.user.user_id
-        base_url = _get_request_base_url()
+        base_url = _resolve_publish_base_url(app)
         return make_common_response(
             publish_shifu_draft(app, user_id, shifu_bid, base_url)
         )
@@ -1093,7 +1123,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         user_id = request.user.user_id
         variables = request.get_json().get("variables")
-        base_url = _get_request_base_url()
+        base_url = _resolve_publish_base_url(app)
         _admit_creator_preview_usage_for_shifu(shifu_bid)
         return make_common_response(
             preview_shifu_draft(app, user_id, shifu_bid, variables, base_url)
