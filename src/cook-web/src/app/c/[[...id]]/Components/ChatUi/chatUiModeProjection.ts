@@ -16,7 +16,21 @@ interface ProjectReadModeItemsParams {
 interface ProjectListenModeItemsParams {
   items: ChatContentItem[];
   askButtonMarkup: string;
+  variant?: 'listen' | 'classroom';
 }
+
+const CLASSROOM_VISUAL_ELEMENT_TYPES = new Set<string>([
+  'html',
+  'tables',
+  'code',
+  'latex',
+  'md_img',
+  'mermaid',
+  'title',
+  'svg',
+  'diff',
+  'img',
+]);
 
 const projectContentButton = ({
   item,
@@ -89,6 +103,87 @@ const shouldProjectModeItem = (
   }
 
   return shouldProjectCanonicalItem(item);
+};
+
+const getItemElementType = (item: ChatContentItem) => {
+  if (typeof item.element_type === 'string') {
+    return item.element_type;
+  }
+
+  if (typeof item.type === 'string') {
+    return item.type;
+  }
+
+  return '';
+};
+
+const isClassroomVisualContentItem = (item: ChatContentItem) => {
+  if (item.type !== ChatContentItemType.CONTENT) {
+    return false;
+  }
+
+  if (item.is_renderable === false) {
+    return false;
+  }
+
+  return CLASSROOM_VISUAL_ELEMENT_TYPES.has(getItemElementType(item));
+};
+
+const shouldProjectClassroomModeItem = (
+  item: ChatContentItem,
+  hiddenContentElementBids: Set<string>,
+) => {
+  if (
+    item.type === ChatContentItemType.ASK ||
+    item.type === ChatContentItemType.LIKE_STATUS
+  ) {
+    return false;
+  }
+
+  if (item.type === ChatContentItemType.CONTENT) {
+    return isClassroomVisualContentItem(item);
+  }
+
+  return shouldProjectModeItem(item, hiddenContentElementBids);
+};
+
+const stripClassroomContentAudio = (item: ChatContentItem) => {
+  if (item.type !== ChatContentItemType.CONTENT) {
+    return item;
+  }
+
+  const sanitizedContent = syncCustomButtonAfterContent({
+    content: item.content,
+    buttonMarkup: '',
+    shouldShowButton: false,
+  });
+  const payload = item.payload ? { ...item.payload } : undefined;
+
+  if (payload && 'audio' in payload) {
+    delete payload.audio;
+  }
+
+  const nextItem: ChatContentItem = {
+    ...item,
+    content: sanitizedContent,
+    is_speakable: false,
+  };
+
+  delete nextItem.ask_list;
+  delete nextItem.audioUrl;
+  delete nextItem.audioTracks;
+  delete nextItem.isAudioStreaming;
+  delete nextItem.isAudioBackfillReady;
+  delete nextItem.audioDurationMs;
+  delete nextItem.audio_url;
+  delete nextItem.audio_segments;
+  delete nextItem.payload;
+
+  if (payload) {
+    nextItem.payload = payload;
+  }
+
+  return nextItem;
 };
 
 export const projectReadModeItems = ({
@@ -206,15 +301,22 @@ export const projectReadModeItems = ({
 export const projectListenModeItems = ({
   items,
   askButtonMarkup,
+  variant = 'listen',
 }: ProjectListenModeItemsParams) => {
   const hiddenContentElementBids = getHiddenContentElementBids(items);
   const projectableItems = items.filter(item =>
-    shouldProjectModeItem(item, hiddenContentElementBids),
+    variant === 'classroom'
+      ? shouldProjectClassroomModeItem(item, hiddenContentElementBids)
+      : shouldProjectModeItem(item, hiddenContentElementBids),
   );
   let hasChanges = projectableItems.length !== items.length;
   const nextItems = projectableItems.map(item => {
     if (item.type !== ChatContentItemType.CONTENT) {
       return item;
+    }
+    if (variant === 'classroom') {
+      hasChanges = true;
+      return stripClassroomContentAudio(item);
     }
     const sanitizedContent = syncCustomButtonAfterContent({
       content: item.content,
