@@ -10,6 +10,7 @@ import { useBillingOverview } from '@/hooks/useBillingData';
 import { useUserStore } from '@/store';
 import { WelcomeTrialDialog } from '@/components/billing/WelcomeTrialDialog';
 import { ContactSideRail } from '@/components/contact/ContactSideRail';
+import { applyCreatorBranding } from '@/lib/initializeEnvData';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';
 
@@ -50,6 +51,16 @@ const MainInterface = ({
   useEffect(() => {
     document.title = t('common.core.adminTitle');
   }, [t, i18n.language]);
+
+  // The /admin path carries no shifu_bid, so the bootstrap runtime-config
+  // cannot resolve a creator. Once the logged-in creator is known, re-fetch
+  // their branding so the sidebar logo and its click-through use the creator's
+  // own logo/home url (falls back to defaults when unconfigured).
+  useEffect(() => {
+    if (hasResolvedAdminSession && currentUserId) {
+      applyCreatorBranding(currentUserId);
+    }
+  }, [hasResolvedAdminSession, currentUserId]);
 
   useEffect(() => {
     const html = document.documentElement;

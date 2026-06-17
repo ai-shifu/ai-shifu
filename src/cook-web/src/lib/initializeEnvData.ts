@@ -21,6 +21,54 @@ const normalizeStringArray = (value: unknown, fallback: string[]): string[] => {
 
 let initPromise: Promise<void> | null = null;
 
+const resolveRuntimeBase = async (): Promise<string> => {
+  const apiBaseUrl = (await getDynamicApiBaseUrl()) || '';
+  const normalizedBase = apiBaseUrl.replace(/\/+$/, '');
+  return (
+    normalizedBase ||
+    ((useEnvStore.getState() as EnvStoreState).baseURL || '').replace(
+      /\/+$/,
+      '',
+    ) ||
+    ''
+  );
+};
+
+const buildRuntimeConfigUrl = (resolvedBase: string): string => {
+  // Absolute URL: respect whether path already includes /api
+  if (resolvedBase.startsWith('http')) {
+    try {
+      const parsed = new URL(resolvedBase);
+      const path = parsed.pathname.replace(/\/+$/, '');
+      const endsWithApi = path.endsWith('/api');
+      return `${resolvedBase}${
+        endsWithApi ? '/runtime-config' : '/api/runtime-config'
+      }`;
+    } catch {
+      // fall through to relative handling
+    }
+  }
+
+  // Handle empty base - use simple relative path
+  if (!resolvedBase) {
+    return '/api/runtime-config';
+  }
+
+  // Relative URL (e.g. "/api" or "/backend")
+  const cleanBase = resolvedBase;
+  const endsWithApi =
+    cleanBase === '/api' ||
+    cleanBase.endsWith('/api') ||
+    cleanBase === 'api' ||
+    cleanBase.endsWith('api');
+  const baseWithLeading = cleanBase.startsWith('/')
+    ? cleanBase
+    : `/${cleanBase}`;
+  return endsWithApi
+    ? `${baseWithLeading}/runtime-config`
+    : `${baseWithLeading}/api/runtime-config`;
+};
+
 const loadRuntimeConfig = async () => {
   const {
     updateAppId,
@@ -49,56 +97,13 @@ const loadRuntimeConfig = async () => {
     updateCourseId,
   } = useEnvStore.getState() as EnvStoreState;
 
-  const apiBaseUrl = (await getDynamicApiBaseUrl()) || '';
-  const normalizedBase = apiBaseUrl.replace(/\/+$/, '');
-  const resolvedBase =
-    normalizedBase ||
-    ((useEnvStore.getState() as EnvStoreState).baseURL || '').replace(
-      /\/+$/,
-      '',
-    ) ||
-    '';
+  const resolvedBase = await resolveRuntimeBase();
 
   if (resolvedBase) {
     await updateBaseURL(resolvedBase);
   }
 
-  const buildRuntimeUrl = () => {
-    // Absolute URL: respect whether path already includes /api
-    if (resolvedBase.startsWith('http')) {
-      try {
-        const parsed = new URL(resolvedBase);
-        const path = parsed.pathname.replace(/\/+$/, '');
-        const endsWithApi = path.endsWith('/api');
-        return `${resolvedBase}${
-          endsWithApi ? '/runtime-config' : '/api/runtime-config'
-        }`;
-      } catch {
-        // fall through to relative handling
-      }
-    }
-
-    // Handle empty base - use simple relative path
-    if (!resolvedBase) {
-      return '/api/runtime-config';
-    }
-
-    // Relative URL (e.g. "/api" or "/backend")
-    const cleanBase = resolvedBase;
-    const endsWithApi =
-      cleanBase === '/api' ||
-      cleanBase.endsWith('/api') ||
-      cleanBase === 'api' ||
-      cleanBase.endsWith('api');
-    const baseWithLeading = cleanBase.startsWith('/')
-      ? cleanBase
-      : `/${cleanBase}`;
-    return endsWithApi
-      ? `${baseWithLeading}/runtime-config`
-      : `${baseWithLeading}/api/runtime-config`;
-  };
-
-  const runtimeUrl = buildRuntimeUrl();
+  const runtimeUrl = buildRuntimeConfigUrl(resolvedBase);
 
   const pathShifuBid =
     typeof window !== 'undefined'
@@ -246,4 +251,59 @@ export const initializeEnvData = async (): Promise<void> => {
   }
 
   await initPromise;
+};
+
+/**
+ * Re-fetch runtime-config for an explicit creator and apply that creator's
+ * branding (logo + home url) to the env store. Used by the /admin backend,
+ * whose path has no shifu_bid, so the logged-in creator's branding can drive
+ * the sidebar logo and its click-through target.
+ *
+ * Safe by design: fields are only overridden when the creator has a value, so
+ * a creator without custom branding keeps the global defaults (never blanks
+ * out the default logo). Any fetch/parse failure is swallowed.
+ */
+export const applyCreatorBranding = async (
+  creatorBid: string,
+): Promise<void> => {
+  const normalizedCreatorBid = (creatorBid || '').trim();
+  if (!normalizedCreatorBid) {
+    return;
+  }
+  try {
+    const resolvedBase = await resolveRuntimeBase();
+    const runtimeUrl = buildRuntimeConfigUrl(resolvedBase);
+    const url = `${runtimeUrl}?creator_bid=${encodeURIComponent(
+      normalizedCreatorBid,
+    )}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) {
+      return;
+    }
+    const payload = await res.json();
+    const runtimeConfig = payload?.data ?? payload;
+    if (!runtimeConfig) {
+      return;
+    }
+    const {
+      updateHomeUrl,
+      updateLogoWideUrl,
+      updateLogoSquareUrl,
+      updateFaviconUrl,
+    } = useEnvStore.getState() as EnvStoreState;
+    if (runtimeConfig.homeUrl) {
+      await updateHomeUrl(runtimeConfig.homeUrl);
+    }
+    if (runtimeConfig.logoWideUrl) {
+      await updateLogoWideUrl(runtimeConfig.logoWideUrl);
+    }
+    if (runtimeConfig.logoSquareUrl) {
+      await updateLogoSquareUrl(runtimeConfig.logoSquareUrl);
+    }
+    if (runtimeConfig.faviconUrl) {
+      await updateFaviconUrl(runtimeConfig.faviconUrl);
+    }
+  } catch (error) {
+    console.warn('Failed to apply creator branding', error);
+  }
 };
