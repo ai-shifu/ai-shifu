@@ -124,6 +124,7 @@ def grant_creator_manual_entitlement(
             BillingEntitlement.deleted == 0,
             BillingEntitlement.creator_bid == normalized_creator_bid,
             BillingEntitlement.source_type == CREDIT_SOURCE_TYPE_MANUAL,
+            BillingEntitlement.effective_from <= now,
             (
                 (BillingEntitlement.effective_to.is_(None))
                 | (BillingEntitlement.effective_to > now)
