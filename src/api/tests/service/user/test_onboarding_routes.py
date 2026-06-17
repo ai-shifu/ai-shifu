@@ -220,7 +220,9 @@ def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
         assert len(rows) == 1
 
 
-def test_complete_onboarding_scene_handles_integrity_error(app, test_client, monkeypatch):
+def test_complete_onboarding_scene_handles_integrity_error(
+    app, test_client, monkeypatch
+):
     user_bid = uuid.uuid4().hex[:32]
     completed_at = datetime(2026, 6, 17, 12, 5, 0)
 
