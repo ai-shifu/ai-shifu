@@ -810,7 +810,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/ShifuDetailDto"
         """
         user_id = request.user.user_id
-        base_url = _get_request_base_url()
+        base_url = _resolve_publish_base_url(app)
         app.logger.info(f"get shifu detail, user_id: {user_id}, shifu_bid: {shifu_bid}")
         return make_common_response(
             get_shifu_draft_info(app, user_id, shifu_bid, base_url)
@@ -963,7 +963,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         use_learner_language = json_data.get("use_learner_language")
         if isinstance(use_learner_language, str):
             use_learner_language = use_learner_language.lower() == "true"
-        base_url = _get_request_base_url()
+        base_url = _resolve_publish_base_url(app)
         return make_common_response(
             save_shifu_draft_info(
                 app,

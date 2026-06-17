@@ -22,6 +22,10 @@ from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
 )
+from flaskr.service.profile.onboarding import (
+    complete_profile_onboarding,
+    get_profile_onboarding_status,
+)
 from ..service.user.common import validate_user, update_user_info
 from ..service.user.user import (
     generate_temp_user,
@@ -275,6 +279,44 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(
             update_user_info(app, request.user, name, email, mobile, language, avatar)
         )
+
+    @app.route(path_prefix + "/profile-onboarding", methods=["GET"])
+    def profile_onboarding_status_api():
+        """
+        Get platform-level profile onboarding state for current user.
+        ---
+        tags:
+            - user
+        responses:
+            200:
+                description: onboarding config and current user state
+        """
+        return make_common_response(
+            get_profile_onboarding_status(app, user_id=request.user.user_id)
+        )
+
+    @app.route(path_prefix + "/profile-onboarding/complete", methods=["POST"])
+    def complete_profile_onboarding_api():
+        """
+        Complete or skip platform-level profile onboarding.
+        ---
+        tags:
+            - user
+        responses:
+            200:
+                description: onboarding completion result
+        """
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("profile_onboarding")
+        result = complete_profile_onboarding(
+            app,
+            user_id=request.user.user_id,
+            skipped=bool(payload.get("skipped", False)),
+            variables=payload.get("variables") or {},
+        )
+        db.session.commit()
+        return make_common_response(result)
 
     @app.route(path_prefix + "/require_tmp", methods=["POST"])
     @bypass_token_validation

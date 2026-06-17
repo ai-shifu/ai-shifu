@@ -3211,6 +3211,75 @@ def _load_follow_up_groups_for_progress_record(
     return groups
 
 
+def _load_follow_up_groups_for_progress_records(
+    progress_record_bids: Sequence[str],
+) -> dict[str, list[dict[str, Any]]]:
+    normalized_progress_record_bids = sorted(
+        {
+            str(progress_record_bid or "").strip()
+            for progress_record_bid in progress_record_bids
+            if str(progress_record_bid or "").strip()
+        }
+    )
+    if not normalized_progress_record_bids:
+        return {}
+
+    blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.progress_record_bid.in_(
+                normalized_progress_record_bids
+            ),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+            or_(
+                and_(
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+                    LearnGeneratedBlock.role == ROLE_STUDENT,
+                ),
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDANSWER_VALUE,
+                and_(
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+                    LearnGeneratedBlock.role == ROLE_TEACHER,
+                ),
+            ),
+        )
+        .order_by(
+            LearnGeneratedBlock.progress_record_bid.asc(),
+            LearnGeneratedBlock.created_at.asc(),
+            LearnGeneratedBlock.id.asc(),
+        )
+        .all()
+    )
+    blocks_by_progress_record: dict[str, list[LearnGeneratedBlock]] = {}
+    for block in blocks:
+        progress_record_bid = str(
+            getattr(block, "progress_record_bid", "") or ""
+        ).strip()
+        if not progress_record_bid:
+            continue
+        blocks_by_progress_record.setdefault(progress_record_bid, []).append(block)
+
+    groups_by_progress_record: dict[str, list[dict[str, Any]]] = {}
+    for progress_record_bid, progress_blocks in blocks_by_progress_record.items():
+        groups: list[dict[str, Any]] = []
+        for index, block in enumerate(progress_blocks):
+            if (
+                int(block.type or 0) != BLOCK_TYPE_MDASK_VALUE
+                or int(block.role or 0) != ROLE_STUDENT
+            ):
+                continue
+            groups.append(
+                {
+                    "ask_block": block,
+                    "answer_block": _resolve_follow_up_answer_block(
+                        progress_blocks, index
+                    ),
+                }
+            )
+        groups_by_progress_record[progress_record_bid] = groups
+    return groups_by_progress_record
+
+
 def _resolve_follow_up_source_from_element(
     *,
     shifu_bid: str,
@@ -3409,6 +3478,74 @@ def _resolve_follow_up_source(
         "source_element_bid": "",
         "source_element_type": "",
     }
+
+
+def _build_follow_up_source_status_map(
+    *,
+    shifu_bid: str,
+    generated_block_bids: list[str],
+) -> dict[str, bool]:
+    normalized_generated_block_bids = sorted(
+        {
+            str(generated_block_bid or "").strip()
+            for generated_block_bid in generated_block_bids
+            if str(generated_block_bid or "").strip()
+        }
+    )
+    if not normalized_generated_block_bids:
+        return {}
+
+    ask_blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.shifu_bid == shifu_bid,
+            LearnGeneratedBlock.generated_block_bid.in_(
+                normalized_generated_block_bids
+            ),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+            LearnGeneratedBlock.role == ROLE_STUDENT,
+        )
+        .order_by(LearnGeneratedBlock.id.asc())
+        .all()
+    )
+    if not ask_blocks:
+        return {}
+
+    groups_cache = _load_follow_up_groups_for_progress_records(
+        [
+            str(getattr(ask_block, "progress_record_bid", "") or "")
+            for ask_block in ask_blocks
+        ]
+    )
+    answer_block_map: dict[str, LearnGeneratedBlock | None] = {}
+    for groups in groups_cache.values():
+        for group in groups:
+            group_ask_block = group.get("ask_block")
+            group_generated_block_bid = str(
+                getattr(group_ask_block, "generated_block_bid", "") or ""
+            ).strip()
+            if not group_generated_block_bid:
+                continue
+            answer_block_map[group_generated_block_bid] = group.get("answer_block")
+    source_status_map: dict[str, bool] = {}
+
+    for ask_block in ask_blocks:
+        generated_block_bid = str(
+            getattr(ask_block, "generated_block_bid", "") or ""
+        ).strip()
+        if not generated_block_bid:
+            continue
+
+        source_info = _resolve_follow_up_source(
+            ask_block=ask_block,
+            answer_block=answer_block_map.get(generated_block_bid),
+        )
+        source_status_map[generated_block_bid] = bool(
+            str(source_info.get("source_output_content", "") or "").strip()
+        )
+
+    return source_status_map
 
 
 def _load_course_related_user_bids(
@@ -4388,8 +4525,11 @@ def get_operator_course_follow_ups(
 
         keyword = str(filters.get("keyword", "") or "").strip()
         chapter_keyword = str(filters.get("chapter_keyword", "") or "").strip().lower()
+        source_status = str(filters.get("source_status", "") or "").strip().lower()
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
+        if source_status not in {"", "resolved", "missing"}:
+            raise_param_error("source_status")
         follow_up_base = _build_course_follow_up_base_subquery(normalized_shifu_bid)
         user_keyword_filter = _build_follow_up_user_keyword_filter(
             follow_up_base.c.user_bid,
@@ -4433,28 +4573,81 @@ def get_operator_course_follow_ups(
                 follow_up_base.c.created_at <= end_time
             )
 
-        filtered_follow_ups = filtered_query.subquery()
-        if include_summary:
-            summary_row = db.session.query(
-                db.func.count(filtered_follow_ups.c.id).label("follow_up_count"),
-                db.func.count(
-                    db.func.distinct(db.func.nullif(filtered_follow_ups.c.user_bid, ""))
-                ).label("user_count"),
-                db.func.count(
-                    db.func.distinct(
-                        db.func.nullif(filtered_follow_ups.c.outline_item_bid, "")
-                    )
-                ).label("lesson_count"),
-                db.func.max(filtered_follow_ups.c.created_at).label(
-                    "latest_follow_up_at"
-                ),
-            ).one()
-            total = int(getattr(summary_row, "follow_up_count", 0) or 0)
-        else:
-            summary_row = None
-            total = int(
-                db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar() or 0
+        summary_row = None
+        filtered_source_status_map: dict[str, bool] | None = None
+        if source_status:
+            filtered_rows = filtered_query.order_by(
+                follow_up_base.c.created_at.desc(),
+                follow_up_base.c.id.desc(),
+            ).all()
+            filtered_source_status_map = _build_follow_up_source_status_map(
+                shifu_bid=normalized_shifu_bid,
+                generated_block_bids=[
+                    str(getattr(row, "generated_block_bid", "") or "")
+                    for row in filtered_rows
+                ],
             )
+            filtered_rows = [
+                row
+                for row in filtered_rows
+                if filtered_source_status_map.get(
+                    str(getattr(row, "generated_block_bid", "") or "").strip(), False
+                )
+                == (source_status == "resolved")
+            ]
+            total = len(filtered_rows)
+            if include_summary:
+                unique_user_bids = {
+                    str(getattr(row, "user_bid", "") or "").strip()
+                    for row in filtered_rows
+                    if str(getattr(row, "user_bid", "") or "").strip()
+                }
+                unique_outline_item_bids = {
+                    str(getattr(row, "outline_item_bid", "") or "").strip()
+                    for row in filtered_rows
+                    if str(getattr(row, "outline_item_bid", "") or "").strip()
+                }
+                latest_follow_up_at = max(
+                    (
+                        getattr(row, "created_at", None)
+                        for row in filtered_rows
+                        if getattr(row, "created_at", None) is not None
+                    ),
+                    default=None,
+                )
+                summary = AdminOperationCourseFollowUpSummaryDTO(
+                    follow_up_count=total,
+                    user_count=len(unique_user_bids),
+                    lesson_count=len(unique_outline_item_bids),
+                    latest_follow_up_at=_format_operator_datetime(latest_follow_up_at),
+                )
+            else:
+                summary = AdminOperationCourseFollowUpSummaryDTO(follow_up_count=total)
+        else:
+            filtered_follow_ups = filtered_query.subquery()
+            if include_summary:
+                summary_row = db.session.query(
+                    db.func.count(filtered_follow_ups.c.id).label("follow_up_count"),
+                    db.func.count(
+                        db.func.distinct(
+                            db.func.nullif(filtered_follow_ups.c.user_bid, "")
+                        )
+                    ).label("user_count"),
+                    db.func.count(
+                        db.func.distinct(
+                            db.func.nullif(filtered_follow_ups.c.outline_item_bid, "")
+                        )
+                    ).label("lesson_count"),
+                    db.func.max(filtered_follow_ups.c.created_at).label(
+                        "latest_follow_up_at"
+                    ),
+                ).one()
+                total = int(getattr(summary_row, "follow_up_count", 0) or 0)
+            else:
+                total = int(
+                    db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar()
+                    or 0
+                )
 
         if total == 0:
             return AdminOperationCourseFollowUpListDTO(
@@ -4467,16 +4660,19 @@ def get_operator_course_follow_ups(
             )
 
         start = (safe_page_index - 1) * safe_page_size
-        paged_rows = (
-            db.session.query(filtered_follow_ups)
-            .order_by(
-                filtered_follow_ups.c.created_at.desc(),
-                filtered_follow_ups.c.id.desc(),
+        if source_status:
+            paged_rows = filtered_rows[start : start + safe_page_size]
+        else:
+            paged_rows = (
+                db.session.query(filtered_follow_ups)
+                .order_by(
+                    filtered_follow_ups.c.created_at.desc(),
+                    filtered_follow_ups.c.id.desc(),
+                )
+                .offset(start)
+                .limit(safe_page_size)
+                .all()
             )
-            .offset(start)
-            .limit(safe_page_size)
-            .all()
-        )
         user_map = _load_user_map(
             sorted(
                 {
@@ -4486,6 +4682,16 @@ def get_operator_course_follow_ups(
                 }
             )
         )
+        if source_status and filtered_source_status_map is not None:
+            source_status_map = filtered_source_status_map
+        else:
+            source_status_map = _build_follow_up_source_status_map(
+                shifu_bid=normalized_shifu_bid,
+                generated_block_bids=[
+                    str(getattr(row, "generated_block_bid", "") or "")
+                    for row in paged_rows
+                ],
+            )
 
         items: list[AdminOperationCourseFollowUpItemDTO] = []
         for row in paged_rows:
@@ -4524,11 +4730,14 @@ def get_operator_course_follow_ups(
                     ),
                     lesson_title=str(context.get("lesson_title", "") or ""),
                     follow_up_content=str(getattr(row, "follow_up_content", "") or ""),
+                    has_source_output=bool(
+                        source_status_map.get(generated_block_bid, False)
+                    ),
                     turn_index=int(getattr(row, "turn_index", 0) or 0),
                     created_at=_format_operator_datetime(created_at),
                 )
             )
-        if include_summary:
+        if not source_status and include_summary:
             summary = AdminOperationCourseFollowUpSummaryDTO(
                 follow_up_count=total,
                 user_count=int(getattr(summary_row, "user_count", 0) or 0),
@@ -4537,7 +4746,7 @@ def get_operator_course_follow_ups(
                     getattr(summary_row, "latest_follow_up_at", None)
                 ),
             )
-        else:
+        elif not source_status:
             summary = AdminOperationCourseFollowUpSummaryDTO(follow_up_count=total)
         return AdminOperationCourseFollowUpListDTO(
             summary=summary,

@@ -166,6 +166,56 @@ jest.mock('@/components/ui/Sheet', () => ({
   SheetTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
 }));
 
+jest.mock('@/components/ui/Select', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const SelectContext = ReactModule.createContext<{
+    value: string;
+    onValueChange: (value: string) => void;
+  }>({
+    value: '',
+    onValueChange: () => undefined,
+  });
+
+  return {
+    __esModule: true,
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange: (value: string) => void;
+    }>) => (
+      <SelectContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </SelectContext.Provider>
+    ),
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectItem: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(SelectContext);
+      return (
+        <button
+          type='button'
+          onClick={() => context.onValueChange(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+  };
+});
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -205,6 +255,7 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
           chapter_title: 'Chapter 1',
           lesson_title: 'Lesson 1',
           follow_up_content: 'Second follow-up question',
+          has_source_output: true,
           turn_index: 2,
           created_at: '2026-04-05 19:02:00',
         },
@@ -258,6 +309,9 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
     expect(
       screen.getByText('module.dashboard.detail.followUps.turnIndexHelp'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.dashboard.detail.followUps.summary.scopeHint'),
+    ).toBeInTheDocument();
 
     await waitFor(() => {
       expect(mockGetDashboardCourseFollowUps).toHaveBeenCalledWith({
@@ -267,6 +321,7 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
         user_bid: '',
         keyword: '',
         chapter_keyword: '',
+        source_status: '',
         start_time: '',
         end_time: '',
         timezone: 'Asia/Shanghai',
@@ -281,6 +336,11 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
     ).toHaveAttribute('href', '/admin/dashboard/course-1');
     expect(screen.getByText('Second follow-up question')).toBeInTheDocument();
     expect(screen.getAllByText('13900001235').length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        'module.dashboard.detail.followUps.table.sourceResolved',
+      ),
+    ).toBeInTheDocument();
   });
 
   test('submits filters and opens the detail drawer', async () => {
@@ -307,6 +367,11 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
     );
     fireEvent.click(
       screen.getByRole('button', {
+        name: 'module.dashboard.detail.followUps.filters.sourceStatusMissing',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
         name: 'module.dashboard.detail.followUps.filters.timePlaceholder',
       }),
     );
@@ -324,6 +389,7 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
         user_bid: '',
         keyword: 'student',
         chapter_keyword: 'Lesson 1',
+        source_status: 'missing',
         start_time: '2026-04-05',
         end_time: '2026-04-06',
         timezone: 'Asia/Shanghai',
@@ -430,6 +496,7 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
         user_bid: 'student-1',
         keyword: '13900001235',
         chapter_keyword: '',
+        source_status: '',
         start_time: '',
         end_time: '',
         timezone: 'Asia/Shanghai',

@@ -1,5 +1,6 @@
 {
   "__namespace__": "common.core",
+  "actionFailed": "操作未完成，请稍后重试",
   "adminTitle": "管理后台",
   "aiCourseCreator": "龙虾助理智能建课",
   "all": "全部",
@@ -33,8 +34,10 @@
   "ok": "确定",
   "operations": "运营",
   "orderManagement": "订单管理",
+  "profileOnboardingManagement": "画像初始化",
   "promotionManagement": "优惠活动",
   "referralInvitation": "邀请好友",
+  "requestFailed": "请求失败，请稍后重试",
   "retry": "重试",
   "selectModel": "模型",
   "settings": "设置",

@@ -22,8 +22,16 @@ import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
 import {
   Table,
   TableBody,
@@ -54,11 +62,13 @@ type ContactMode = 'phone' | 'email';
 type FollowUpFilters = {
   keyword: string;
   chapterKeyword: string;
+  sourceStatus: string;
   startTime: string;
   endTime: string;
 };
 
 const PAGE_SIZE = 20;
+const ALL_SOURCE_STATUS = 'all';
 const COLUMN_MIN_WIDTH = 80;
 const COLUMN_MAX_WIDTH = 420;
 const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationCourseFollowUpColumnWidths';
@@ -115,6 +125,7 @@ const EMPTY_FOLLOW_UP_DETAIL: AdminOperationCourseFollowUpDetailResponse = {
 const createFollowUpFilters = (): FollowUpFilters => ({
   keyword: '',
   chapterKeyword: '',
+  sourceStatus: ALL_SOURCE_STATUS,
   startTime: '',
   endTime: '',
 });
@@ -124,6 +135,10 @@ const normalizeFollowUpFilters = (
 ): FollowUpFilters => ({
   keyword: filters.keyword.trim(),
   chapterKeyword: filters.chapterKeyword.trim(),
+  sourceStatus:
+    filters.sourceStatus.trim() === ALL_SOURCE_STATUS
+      ? ''
+      : filters.sourceStatus.trim(),
   startTime: filters.startTime,
   endTime: filters.endTime,
 });
@@ -134,11 +149,15 @@ const areFollowUpFiltersEqual = (
 ) =>
   first.keyword === second.keyword &&
   first.chapterKeyword === second.chapterKeyword &&
+  first.sourceStatus === second.sourceStatus &&
   first.startTime === second.startTime &&
   first.endTime === second.endTime;
 
 const isDefaultFollowUpFilters = (filters: FollowUpFilters) =>
-  areFollowUpFiltersEqual(filters, createFollowUpFilters());
+  areFollowUpFiltersEqual(
+    normalizeFollowUpFilters(filters),
+    normalizeFollowUpFilters(createFollowUpFilters()),
+  );
 
 const formatCount = (value: number, locale: string): string =>
   formatAdminCount(value, locale);
@@ -204,6 +223,26 @@ const resolveDetailLessonDisplay = ({
   chapterTitle?: string;
   emptyValue: string;
 }) => formatValue(lessonTitle || chapterTitle, emptyValue);
+
+const resolveOutlineFieldLabelKey = ({
+  lessonTitle,
+  chapterTitle,
+  hasChapterLabel,
+  lessonLabel,
+}: {
+  lessonTitle?: string;
+  chapterTitle?: string;
+  hasChapterLabel: string;
+  lessonLabel: string;
+}) => {
+  const normalizedChapterTitle = chapterTitle?.trim() || '';
+  const normalizedLessonTitle = lessonTitle?.trim() || '';
+  return normalizedChapterTitle &&
+    normalizedLessonTitle &&
+    normalizedChapterTitle !== normalizedLessonTitle
+    ? hasChapterLabel
+    : lessonLabel;
+};
 
 const resolvePrimaryAccount = ({
   mobile,
@@ -353,6 +392,7 @@ export default function AdminOperationCourseFollowUpsPage() {
           include_summary: shouldRefreshFullSummary,
           keyword: resolvedFilters.keyword,
           chapter_keyword: resolvedFilters.chapterKeyword,
+          source_status: resolvedFilters.sourceStatus,
           start_time: resolvedFilters.startTime,
           end_time: resolvedFilters.endTime,
         })) as AdminOperationCourseFollowUpListResponse;
@@ -470,8 +510,30 @@ export default function AdminOperationCourseFollowUpsPage() {
     ? tOperations('detail.followUps.table.chapter')
     : tOperations('detail.followUps.table.lesson');
   const turnIndexHelpText = tOperations('detail.followUps.turnIndexHelp');
+  const tableScopeHint = tOperations('detail.followUps.table.scopeHint');
+  const resolveDetailOutlineFieldLabel = useCallback(
+    ({
+      lessonTitle,
+      chapterTitle,
+    }: {
+      lessonTitle?: string;
+      chapterTitle?: string;
+    }) => {
+      const fieldKey = resolveOutlineFieldLabelKey({
+        lessonTitle,
+        chapterTitle,
+        hasChapterLabel: 'detail.followUps.drawer.fields.chapter',
+        lessonLabel: 'detail.followUps.drawer.fields.lesson',
+      });
+      return fieldKey === 'detail.followUps.drawer.fields.lesson'
+        ? tOperations('detail.followUps.drawer.fields.lesson')
+        : tOperations('detail.followUps.drawer.fields.chapter');
+    },
+    [tOperations],
+  );
   const userKeywordInputId = 'follow-up-user-keyword-filter';
   const outlineKeywordInputId = 'follow-up-outline-keyword-filter';
+  const sourceStatusSelectId = 'follow-up-source-status-filter';
   const followUpTimeFilterAriaLabel = tOperations(
     'detail.followUps.filters.followUpTime',
   );
@@ -677,6 +739,9 @@ export default function AdminOperationCourseFollowUpsPage() {
                     {tOperations('detail.followUps.table.title')}
                   </CardTitle>
                   <p className='text-xs leading-5 text-muted-foreground/85'>
+                    {tableScopeHint}
+                  </p>
+                  <p className='text-xs leading-5 text-muted-foreground/85'>
                     {turnIndexHelpText}
                   </p>
                 </div>
@@ -733,6 +798,51 @@ export default function AdminOperationCourseFollowUpsPage() {
                       />
                     </div>
                     <div className='flex flex-col gap-2'>
+                      <label
+                        htmlFor={sourceStatusSelectId}
+                        className='text-xs font-medium text-muted-foreground'
+                      >
+                        {tOperations('detail.followUps.filters.sourceStatus')}
+                      </label>
+                      <Select
+                        value={filtersDraft.sourceStatus}
+                        onValueChange={value =>
+                          setFiltersDraft(previous => ({
+                            ...previous,
+                            sourceStatus: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger
+                          id={sourceStatusSelectId}
+                          className='h-9'
+                        >
+                          <SelectValue
+                            placeholder={tOperations(
+                              'detail.followUps.filters.sourceStatusAll',
+                            )}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ALL_SOURCE_STATUS}>
+                            {tOperations(
+                              'detail.followUps.filters.sourceStatusAll',
+                            )}
+                          </SelectItem>
+                          <SelectItem value='resolved'>
+                            {tOperations(
+                              'detail.followUps.filters.sourceStatusResolved',
+                            )}
+                          </SelectItem>
+                          <SelectItem value='missing'>
+                            {tOperations(
+                              'detail.followUps.filters.sourceStatusMissing',
+                            )}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className='flex flex-col gap-2'>
                       <label className='text-xs font-medium text-muted-foreground'>
                         {tOperations('detail.followUps.filters.followUpTime')}
                       </label>
@@ -758,12 +868,13 @@ export default function AdminOperationCourseFollowUpsPage() {
                     </div>
                   </div>
 
-                  <div className='mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3 xl:items-end'>
+                  <div className='mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end'>
                     <div className='pl-3 text-sm text-muted-foreground xl:self-center'>
                       {tOperations('detail.followUps.filters.resultCount', {
                         count: followUps.total,
                       })}
                     </div>
+                    <div className='hidden xl:block' />
                     <div className='hidden xl:block' />
                     <div className='flex min-h-9 items-center justify-start gap-2 md:justify-end'>
                       <Button
@@ -977,6 +1088,25 @@ export default function AdminOperationCourseFollowUpsPage() {
                                           emptyValue={emptyValue}
                                           className='mx-auto block max-w-full text-sm font-medium text-foreground transition-colors group-hover:text-primary'
                                         />
+                                        <div className='mt-2 flex justify-center'>
+                                          <Badge
+                                            variant='outline'
+                                            className={cn(
+                                              'border px-2 py-0.5 text-[11px] font-medium',
+                                              item.has_source_output
+                                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                                : 'border-amber-200 bg-amber-50 text-amber-700',
+                                            )}
+                                          >
+                                            {item.has_source_output
+                                              ? tOperations(
+                                                  'detail.followUps.table.sourceResolved',
+                                                )
+                                              : tOperations(
+                                                  'detail.followUps.table.sourceMissing',
+                                                )}
+                                          </Badge>
+                                        </div>
                                       </button>
                                     </TableCell>
                                     <TableCell
@@ -1041,6 +1171,7 @@ export default function AdminOperationCourseFollowUpsPage() {
         contactMode={contactMode}
         defaultUserName={defaultUserName}
         resolveLessonDisplay={resolveDetailLessonDisplay}
+        resolveOutlineFieldLabel={resolveDetailOutlineFieldLabel}
         onRetry={fetchFollowUpDetail}
         onOpenChange={handleDetailOpenChange}
       />

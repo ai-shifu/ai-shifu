@@ -32,6 +32,8 @@ const api = {
   setPassword: 'POST /user/set_password',
   changePassword: 'POST /user/change_password',
   resetPassword: 'POST /user/reset_password',
+  getProfileOnboarding: 'GET /user/profile-onboarding',
+  completeProfileOnboarding: 'POST /user/profile-onboarding/complete',
 
   // referral api
   getReferralInviteProfile: 'GET /referral/invite-profile',
@@ -200,6 +202,10 @@ const api = {
     'POST /shifu/admin/operations/credit-notifications/dry-run',
   requeueAdminOperationCreditNotification:
     'POST /shifu/admin/operations/credit-notifications/{notification_bid}/requeue',
+  getAdminOperationProfileOnboardingConfig:
+    'GET /shifu/admin/operations/profile-onboarding',
+  updateAdminOperationProfileOnboardingConfig:
+    'POST /shifu/admin/operations/profile-onboarding',
   getAdminOperationReferrals: 'GET /shifu/admin/operations/referrals',
   getAdminOperationReferralsOverview:
     'GET /shifu/admin/operations/referrals/overview',

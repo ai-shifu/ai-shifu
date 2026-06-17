@@ -72,6 +72,10 @@ from flaskr.service.shifu.admin_operations.credit_notifications import (
     sync_operator_credit_notification_template,
     update_operator_credit_notification_config,
 )
+from flaskr.service.shifu.admin_operations.profile_onboarding import (
+    get_operator_profile_onboarding_config,
+    update_operator_profile_onboarding_config,
+)
 from flaskr.service.shifu.admin_operations.user_credits import (
     get_operator_user_credit_usage_detail,
     get_operator_user_credits,
@@ -800,6 +804,33 @@ def register_admin_operations_routes(
             raise_param_error("credit_notification_config")
         return make_common_response(
             update_operator_credit_notification_config(
+                app,
+                payload=payload,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/profile-onboarding",
+        methods=["GET"],
+    )
+    def admin_operation_profile_onboarding_config():
+        """Get operator profile onboarding config."""
+        _require_operator()
+        return make_common_response(get_operator_profile_onboarding_config(app))
+
+    @app.route(
+        path_prefix + "/admin/operations/profile-onboarding",
+        methods=["POST"],
+    )
+    def admin_operation_update_profile_onboarding_config():
+        """Update operator profile onboarding config."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("profile_onboarding_config")
+        return make_common_response(
+            update_operator_profile_onboarding_config(
                 app,
                 payload=payload,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
@@ -2315,6 +2346,11 @@ def register_admin_operations_routes(
               type: string
               required: false
               description: Chapter or lesson keyword
+            - name: source_status
+              in: query
+              type: string
+              required: false
+              description: Original output source status filter (resolved or missing)
             - name: start_time
               in: query
               type: string
@@ -2348,6 +2384,7 @@ def register_admin_operations_routes(
         filters = {
             "keyword": request.args.get("keyword", ""),
             "chapter_keyword": request.args.get("chapter_keyword", ""),
+            "source_status": request.args.get("source_status", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
                 field_name="start_time",

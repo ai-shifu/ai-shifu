@@ -44,6 +44,29 @@ export const updateWxcode = ({ wxcode }) => {
   return request.post('/api/user/update_openid', { wxcode });
 };
 
+export type ProfileOnboardingStatus = {
+  enabled: boolean;
+  should_show: boolean;
+  markdownflow: string;
+  allowed_variable_keys: string[];
+  current_values: Record<string, string>;
+};
+
+export type CompleteProfileOnboardingPayload = {
+  skipped: boolean;
+  variables?: Record<string, string>;
+};
+
+export const getProfileOnboarding = (): Promise<ProfileOnboardingStatus> => {
+  return request.get('/api/user/profile-onboarding');
+};
+
+export const completeProfileOnboarding = (
+  payload: CompleteProfileOnboardingPayload,
+) => {
+  return request.post('/api/user/profile-onboarding/complete', payload);
+};
+
 /**
  * Send SMS verification code
  * @param {string} mobile Phone number

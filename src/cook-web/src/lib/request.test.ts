@@ -1,7 +1,9 @@
 import { waitFor } from '@testing-library/react';
 import { toast } from '@/hooks/useToast';
 import {
+  Request,
   attachSseBusinessResponseFallback,
+  handleBusinessCode,
   parseBusinessResponsePayload,
 } from './request';
 import {
@@ -109,6 +111,48 @@ describe('request SSE business fallback', () => {
         harnessRunId: 'fallback-run-id',
       });
     });
+  });
+
+  test('falls back to actionFailed for business errors without a message', async () => {
+    await expect(
+      handleBusinessCode({
+        code: 2301,
+      }),
+    ).rejects.toMatchObject({
+      code: 2301,
+      message: 'common.core.actionFailed',
+    });
+
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'common.core.actionFailed',
+        variant: 'destructive',
+      }),
+    );
+  });
+
+  test('falls back to requestFailed for HTTP request failures', async () => {
+    const request = new Request();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      headers: new Headers(),
+    }) as jest.Mock;
+
+    await expect(
+      request.get('http://example.com/api/demo'),
+    ).rejects.toMatchObject({
+      code: 503,
+      message: 'common.core.requestFailed',
+      status: 503,
+    });
+
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'common.core.requestFailed',
+        variant: 'destructive',
+      }),
+    );
   });
 
   test('ignores normal SSE transcript payloads', async () => {

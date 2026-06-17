@@ -58,3 +58,10 @@ def test_flat_section_namespace_loading():
     # __flat__ keys should be exposed under their declared namespace
     set_language("en-US")
     assert t("server.common.unknownError") == "Unknown Error"
+    assert t("server.common.operationFailed") == "Service error, please try again later"
+
+    set_language("fr-FR")
+    assert (
+        t("server.common.operationFailed")
+        == "Erreur du service, veuillez réessayer plus tard"
+    )

@@ -83,6 +83,11 @@ export const buildAdminMenuItems = ({
           label: t('common.core.creditNotificationManagement'),
           href: '/admin/operations/credit-notifications',
         },
+        {
+          id: 'operations-profile-onboarding',
+          label: t('common.core.profileOnboardingManagement'),
+          href: '/admin/operations/profile-onboarding',
+        },
       ],
     });
   }
