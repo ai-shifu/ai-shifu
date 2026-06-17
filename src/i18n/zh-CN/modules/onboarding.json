@@ -6,9 +6,7 @@
       "title": "这里查看积分余额"
     },
     "courseCreation": {
-      "descriptionEmphasis": "龙虾助理智能建课",
-      "descriptionPrefix": "你可以直接新建课程，也可以使用",
-      "descriptionSuffix": "，更快生成课程初稿。",
+      "description": "你可以直接新建课程，也可以使用<strong>龙虾助理智能建课</strong>，更快生成课程初稿。",
       "title": "从这里开始创建课程"
     },
     "guideCourse": {

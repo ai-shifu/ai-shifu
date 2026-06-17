@@ -6,9 +6,7 @@
       "title": "Check your credit balance here"
     },
     "courseCreation": {
-      "descriptionEmphasis": "Create courses with AI assistant",
-      "descriptionPrefix": "You can create a course from scratch or use ",
-      "descriptionSuffix": " to generate a first draft faster.",
+      "description": "You can create a course from scratch or use <strong>Create courses with AI assistant</strong> to generate a first draft faster.",
       "title": "Start creating from here"
     },
     "guideCourse": {

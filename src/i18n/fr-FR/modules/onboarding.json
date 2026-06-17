@@ -6,9 +6,7 @@
       "title": "Consultez votre solde de credits ici"
     },
     "courseCreation": {
-      "descriptionEmphasis": "Creer des cours avec l'assistant IA",
-      "descriptionPrefix": "Vous pouvez creer un cours a partir de zero ou utiliser ",
-      "descriptionSuffix": " pour generer plus rapidement une premiere ebauche.",
+      "description": "Vous pouvez creer un cours a partir de zero ou utiliser <strong>Creer des cours avec l'assistant IA</strong> pour generer plus rapidement une premiere ebauche.",
       "title": "Commencez a creer ici"
     },
     "guideCourse": {

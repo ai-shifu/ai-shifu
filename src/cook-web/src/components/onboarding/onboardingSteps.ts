@@ -4,6 +4,7 @@ import {
   ONBOARDING_TARGET_IDS,
 } from '@/lib/onboardingTargets';
 import React from 'react';
+import { Trans } from 'react-i18next';
 import type { OnboardingStep } from './onboardingTypes';
 
 const replaceTemplate = (
@@ -17,18 +18,12 @@ const replaceTemplate = (
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-const buildCourseCreationDescription = (t: Translate) =>
-  React.createElement(
-    React.Fragment,
-    null,
-    t('adminHome.courseCreation.descriptionPrefix'),
-    React.createElement(
-      'strong',
-      null,
-      t('adminHome.courseCreation.descriptionEmphasis'),
-    ),
-    t('adminHome.courseCreation.descriptionSuffix'),
-  );
+const buildCourseCreationDescription = () =>
+  React.createElement(Trans, {
+    ns: 'module.onboarding',
+    i18nKey: 'adminHome.courseCreation.description',
+    components: { strong: React.createElement('strong') },
+  });
 
 type BuildAdminHomeStepsOptions = {
   t: Translate;
@@ -88,7 +83,7 @@ export function buildAdminHomeOnboardingSteps({
     {
       id: 'course_creation_entry',
       title: t('adminHome.courseCreation.title'),
-      description: buildCourseCreationDescription(t),
+      description: buildCourseCreationDescription(),
       targetId: ONBOARDING_TARGET_IDS.courseCreationEntry,
       skipWhenTargetMissing: true,
     },
