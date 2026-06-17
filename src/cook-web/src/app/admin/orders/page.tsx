@@ -49,6 +49,7 @@ import {
   ORDER_TABS_LIST_CLASSNAME,
   ORDER_TABS_TRIGGER_CLASSNAME,
 } from '@/app/admin/operations/orders/orderUiShared';
+import { useCreatorRedemptionEntry } from './useCreatorRedemptionEntry';
 
 const OrdersPage = () => {
   const { t, i18n } = useTranslation();
@@ -96,8 +97,6 @@ const OrdersPage = () => {
   const [total, setTotal] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<OrderSummary | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [redemptionOpen, setRedemptionOpen] = useState(false);
-  const [redemptionReloadKey, setRedemptionReloadKey] = useState(0);
   const [importOpen, setImportOpen] = useState(false);
   const [courses, setCourses] = useState<Shifu[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
@@ -222,6 +221,15 @@ const OrdersPage = () => {
     },
     [pathname, router, searchParamsString],
   );
+  const {
+    handleRedemptionOpenChange,
+    handleRedemptionSuccess,
+    openRedemptionDialog,
+    redemptionOpen,
+    redemptionReloadKey,
+  } = useCreatorRedemptionEntry({
+    onSuccess: () => updateTab('redemptionCodes'),
+  });
 
   useEffect(() => {
     filtersRef.current = filters;
@@ -604,7 +612,7 @@ const OrdersPage = () => {
                 <Button
                   variant='ghost'
                   className='h-9 gap-1.5 px-0 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] hover:bg-transparent hover:text-[var(--base-foreground,#0A0A0A)]'
-                  onClick={() => setRedemptionOpen(true)}
+                  onClick={openRedemptionDialog}
                 >
                   <Ticket className='h-4 w-4' />
                   {t('module.order.redemptionCodes.action')}
@@ -683,11 +691,8 @@ const OrdersPage = () => {
         />
         <CreatorRedemptionCodeDialog
           open={redemptionOpen}
-          onOpenChange={setRedemptionOpen}
-          onSuccess={() => {
-            setRedemptionReloadKey(current => current + 1);
-            updateTab('redemptionCodes');
-          }}
+          onOpenChange={handleRedemptionOpenChange}
+          onSuccess={handleRedemptionSuccess}
         />
       </div>
     </div>

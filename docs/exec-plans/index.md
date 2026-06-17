@@ -6,7 +6,6 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 ## Active
 
-- [Admin Orders Page Slimming](./active/admin-orders-page-slimming.md)
 - [Agent-First Harness Phase 2](./active/agent-first-harness-phase-2.md)
 - [ExecPlan: Billing Credit Notifications](./active/billing-credit-notifications.md)
 - [Creator Dashboard Course Ownership Optimization](./active/creator-dashboard-course-ownership-optimization.md)
@@ -16,16 +15,17 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Creator Dashboard Request Splitting](./active/creator-dashboard-request-splitting.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./active/observability-artifacts-consistency-frontend-trace.md)
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)
-- [Operator User Detail Page Slimming](./active/operator-user-detail-page-slimming.md)
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 
 ## Completed
 
+- [Admin Orders Page Slimming](./completed/admin-orders-page-slimming.md)
 - [Agent-First Harness Migration](./completed/agent-first-harness-migration.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
 - [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)
+- [Operator User Detail Page Slimming](./completed/operator-user-detail-page-slimming.md)
 
 ## Supporting Tracker
 
