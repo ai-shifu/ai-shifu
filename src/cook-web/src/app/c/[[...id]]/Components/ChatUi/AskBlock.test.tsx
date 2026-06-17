@@ -73,7 +73,7 @@ jest.mock('@/c-store/useCourseStore', () => ({
 
 const mockSystemState: {
   showLearningModeToggle: boolean;
-  learningMode: 'read' | 'listen';
+  learningMode: 'read' | 'listen' | 'classroom';
 } = {
   showLearningModeToggle: true,
   learningMode: 'read',

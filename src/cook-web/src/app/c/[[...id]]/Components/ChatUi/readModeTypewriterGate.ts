@@ -17,6 +17,10 @@ export type ReadModeTypewriterCache = Record<
   ReadModeTypewriterCacheEntry
 >;
 
+export interface SyncReadModeTypewriterCacheOptions {
+  markFinalTextItemsFinished?: boolean;
+}
+
 export const normalizeReadModeTypewriterContent = (content?: string | null) =>
   stripCustomButtonAfterContent(content) || '';
 
@@ -91,6 +95,7 @@ export const resolveReadModeTypewriterKeepAliveElementBid = ({
 export const syncReadModeTypewriterCache = (
   items: ChatContentItem[],
   previousCache: ReadModeTypewriterCache,
+  options: SyncReadModeTypewriterCacheOptions = {},
 ): ReadModeTypewriterCache => {
   const nextCache: ReadModeTypewriterCache = {};
 
@@ -107,13 +112,21 @@ export const syncReadModeTypewriterCache = (
 
     const content = getItemContent(item);
     if (previousEntry?.content === content) {
-      nextCache[itemBid] = previousEntry;
+      nextCache[itemBid] =
+        options.markFinalTextItemsFinished &&
+        item.is_final &&
+        !previousEntry.isFinished
+          ? {
+              ...previousEntry,
+              isFinished: true,
+            }
+          : previousEntry;
       return;
     }
 
     nextCache[itemBid] = {
       content,
-      isFinished: false,
+      isFinished: Boolean(options.markFinalTextItemsFinished && item.is_final),
     };
   });
 
