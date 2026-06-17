@@ -34,6 +34,8 @@ type ReferralInviteLandingProps = {
   initialInviteCode?: string;
 };
 
+const DEFAULT_OFFICIAL_SITE_URL = 'https://ai-shifu.cn';
+
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
  * t('module.referral.inviteLanding.badge')
@@ -69,7 +71,9 @@ export function ReferralInviteLanding({
     (state: EnvStoreState) => state.officialSiteUrl,
   );
   const officialSiteUrl =
-    typeof officialSiteUrlValue === 'string' ? officialSiteUrlValue.trim() : '';
+    (typeof officialSiteUrlValue === 'string'
+      ? officialSiteUrlValue.trim()
+      : '') || DEFAULT_OFFICIAL_SITE_URL;
   const normalizedInitialCode = useMemo(
     () => normalizeReferralInviteCode(initialInviteCode),
     [initialInviteCode],

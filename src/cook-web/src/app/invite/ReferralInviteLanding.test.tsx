@@ -119,7 +119,7 @@ describe('ReferralInviteLanding', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('renders without official site link when officialSiteUrl is unset', async () => {
+  test('links the logo to the China official site when officialSiteUrl is unset', async () => {
     mockEnvState.officialSiteUrl = undefined;
 
     render(<ReferralInviteLanding initialInviteCode='ab12cd34' />);
@@ -131,8 +131,8 @@ describe('ReferralInviteLanding', () => {
       ),
     );
     expect(
-      screen.queryByRole('link', { name: 'AI-Shifu' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('link', { name: 'AI-Shifu' }),
+    ).toHaveAttribute('href', 'https://ai-shifu.cn');
   });
 
   test('redirects directly from invite-code route without re-entering code', async () => {
