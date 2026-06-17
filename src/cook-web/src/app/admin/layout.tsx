@@ -237,6 +237,7 @@ const MainInterface = ({
       {adminHomeOnboardingStep ? (
         <OnboardingOverlay
           open={adminHomeOnboardingOpen}
+          advanceAriaLabel={tOnboarding('common.continue')}
           title={adminHomeOnboardingStep.title}
           description={adminHomeOnboardingStep.description}
           stepIndex={adminHomeOnboardingStepIndex}

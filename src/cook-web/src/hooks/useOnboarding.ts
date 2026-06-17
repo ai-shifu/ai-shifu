@@ -36,6 +36,7 @@ export function useOnboarding({
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
   const startedRef = useRef(false);
+  const completingRef = useRef(false);
   const resolvedStepIdsRef = useRef<Set<string>>(new Set());
   const missingStepIdsRef = useRef<Set<string>>(new Set());
 
@@ -49,14 +50,20 @@ export function useOnboarding({
     setCurrentStepIndex(0);
     setTargetRect(null);
     setIsCompleting(false);
+    completingRef.current = false;
   }, []);
 
   const completeFlow = useCallback(async () => {
+    if (completingRef.current) {
+      return;
+    }
+    completingRef.current = true;
     setIsCompleting(true);
     try {
       await onComplete();
       setIsOpen(false);
     } finally {
+      completingRef.current = false;
       setIsCompleting(false);
     }
   }, [onComplete]);

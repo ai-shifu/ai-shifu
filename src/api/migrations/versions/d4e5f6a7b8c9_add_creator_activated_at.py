@@ -22,7 +22,7 @@ def _column_exists(table_name: str, column_name: str) -> bool:
     inspector = sa.inspect(bind)
     try:
         columns = inspector.get_columns(table_name)
-    except Exception:
+    except (sa.exc.NoSuchTableError, sa.exc.DatabaseError):
         return False
     return any(column.get("name") == column_name for column in columns)
 

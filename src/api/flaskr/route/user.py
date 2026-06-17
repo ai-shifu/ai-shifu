@@ -215,7 +215,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/onboarding/complete", methods=["POST"])
     def complete_onboarding():
-        payload = request.get_json(silent=True) or {}
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            payload = {}
         return make_common_response(
             complete_onboarding_scene(
                 app,

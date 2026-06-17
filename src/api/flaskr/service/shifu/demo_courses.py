@@ -36,8 +36,14 @@ def resolve_demo_course_for_language(
         "DEMO_EN_SHIFU_BID" if preferred_key == "DEMO_SHIFU_BID" else "DEMO_SHIFU_BID"
     )
 
-    preferred_bid = str(get_dynamic_config(preferred_key, "") or "").strip()
-    fallback_bid = str(get_dynamic_config(fallback_key, "") or "").strip()
+    try:
+        preferred_bid = str(get_dynamic_config(preferred_key, "") or "").strip()
+    except Exception:
+        preferred_bid = ""
+    try:
+        fallback_bid = str(get_dynamic_config(fallback_key, "") or "").strip()
+    except Exception:
+        fallback_bid = ""
     resolved_bid = preferred_bid or fallback_bid
     resolved_language = "zh-CN" if preferred_key == "DEMO_SHIFU_BID" else "en-US"
     if not preferred_bid and fallback_bid:

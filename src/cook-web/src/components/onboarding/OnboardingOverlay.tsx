@@ -10,6 +10,7 @@ type RectLike = {
 
 type OnboardingOverlayProps = {
   open: boolean;
+  advanceAriaLabel: string;
   title: React.ReactNode;
   description: React.ReactNode;
   stepIndex: number;
@@ -84,6 +85,7 @@ function buildCardPosition(
 
 export function OnboardingOverlay({
   open,
+  advanceAriaLabel,
   title,
   description,
   stepIndex,
@@ -137,7 +139,7 @@ export function OnboardingOverlay({
         <>
           <button
             type='button'
-            aria-label='Advance onboarding'
+            aria-label={advanceAriaLabel}
             onClick={onAdvance}
             className='absolute inset-0'
           />
@@ -181,7 +183,7 @@ export function OnboardingOverlay({
       ) : (
         <button
           type='button'
-          aria-label='Advance onboarding'
+          aria-label={advanceAriaLabel}
           onClick={onAdvance}
           className='absolute inset-0'
           style={{ backgroundColor: OVERLAY_BG }}

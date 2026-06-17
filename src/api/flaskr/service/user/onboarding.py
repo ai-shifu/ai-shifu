@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from flask import Flask
@@ -54,7 +54,11 @@ def _parse_rollout_threshold(value: Any) -> datetime | None:
     ):
         try:
             parsed = datetime.fromisoformat(candidate)
-            return parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+            return (
+                parsed.astimezone(timezone.utc).replace(tzinfo=None)
+                if parsed.tzinfo
+                else parsed
+            )
         except ValueError:
             continue
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
@@ -102,7 +106,7 @@ def _is_user_eligible(user: UserEntity | None) -> bool:
     if eligible_at is None:
         return False
     if getattr(eligible_at, "tzinfo", None) is not None:
-        eligible_at = eligible_at.replace(tzinfo=None)
+        eligible_at = eligible_at.astimezone(timezone.utc).replace(tzinfo=None)
     return eligible_at >= threshold
 
 
@@ -166,6 +170,10 @@ def complete_onboarding_scene(
         raise_param_error("trigger_source")
 
     with app.app_context():
+        user = _load_user_entity(normalized_user_bid)
+        if not _is_user_eligible(user):
+            raise_error("server.user.userNotPermission")
+
         existing = UserOnboardingState.query.filter(
             UserOnboardingState.user_bid == normalized_user_bid,
             UserOnboardingState.scene_key == normalized_scene_key,
