@@ -105,7 +105,7 @@ describe('LearningModeSwitch', () => {
       render(<LearningModeSwitch />);
 
       fireEvent.click(
-        screen.getByRole('button', {
+        screen.getByRole('radio', {
           name: 'module.chat.learningModeListen',
         }),
       );
@@ -129,7 +129,7 @@ describe('LearningModeSwitch', () => {
     render(<LearningModeSwitch />);
 
     expect(
-      screen.queryByRole('button', {
+      screen.queryByRole('radio', {
         name: 'module.chat.learningModeClassroom',
       }),
     ).not.toBeInTheDocument();
@@ -144,12 +144,17 @@ describe('LearningModeSwitch', () => {
     render(<LearningModeSwitch />);
 
     expect(
-      screen.getByRole('button', {
+      screen.getByRole('radiogroup', {
+        name: 'module.chat.learningModeToggle',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('radio', {
         name: 'module.chat.learningModeClassroom',
       }),
-    ).toHaveAttribute('aria-pressed', 'true');
+    ).toHaveAttribute('aria-checked', 'true');
     expect(
-      screen.getByRole('button', {
+      screen.getByRole('radio', {
         name: 'module.chat.learningModeRead',
       }),
     ).toBeInTheDocument();
@@ -161,7 +166,7 @@ describe('LearningModeSwitch', () => {
     render(<LearningModeSwitch />);
 
     expect(
-      screen.getByRole('button', {
+      screen.getByRole('radio', {
         name: 'module.chat.learningModeListen',
       }),
     ).toBeInTheDocument();
@@ -174,7 +179,7 @@ describe('LearningModeSwitch', () => {
     render(<LearningModeSwitch />);
 
     fireEvent.click(
-      screen.getByRole('button', {
+      screen.getByRole('radio', {
         name: 'module.chat.learningModeClassroom',
       }),
     );
@@ -199,7 +204,7 @@ describe('LearningModeSwitch', () => {
     render(<LearningModeSwitch />);
 
     fireEvent.click(
-      screen.getByRole('button', {
+      screen.getByRole('radio', {
         name: 'module.chat.learningModeRead',
       }),
     );
@@ -220,7 +225,7 @@ describe('LearningModeSwitch', () => {
     render(<LearningModeSwitch />);
 
     fireEvent.click(
-      screen.getByRole('button', {
+      screen.getByRole('radio', {
         name: 'module.chat.learningModeClassroom',
       }),
     );

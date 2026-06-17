@@ -30,6 +30,7 @@ const CLASSROOM_VISUAL_ELEMENT_TYPES = new Set<string>([
   'svg',
   'diff',
   'img',
+  'image',
 ]);
 
 const projectContentButton = ({

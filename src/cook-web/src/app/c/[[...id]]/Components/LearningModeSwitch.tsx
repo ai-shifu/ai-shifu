@@ -58,7 +58,7 @@ export const LearningModeSwitch = ({
 
   return (
     <div
-      role='group'
+      role='radiogroup'
       aria-label={t('module.chat.learningModeToggle')}
       className={cn(
         styles.learningModeSwitch,
@@ -73,9 +73,10 @@ export const LearningModeSwitch = ({
         return (
           <button
             type='button'
+            role='radio'
             key={option.mode}
             aria-label={getLearningModeLabel(t, option.mode)}
-            aria-pressed={isActive}
+            aria-checked={isActive}
             className={cn(
               styles.segment,
               isListenOption ? styles.listenSegment : '',

@@ -96,6 +96,13 @@ describe('chatUiModeProjection', () => {
         ],
       },
       {
+        type: ChatContentItemType.CONTENT,
+        element_bid: 'image-slide-1',
+        element_type: 'image',
+        content: '![slide](/slide.png)',
+        is_renderable: true,
+      },
+      {
         type: ChatContentItemType.INTERACTION,
         element_bid: 'interaction-1',
         content: '?[%{{choice}} A | B]',
@@ -117,6 +124,7 @@ describe('chatUiModeProjection', () => {
       'narration-1',
       'narration-with-slide-metadata',
       'slide-1',
+      'image-slide-1',
       'interaction-1',
       'ask-2',
     ]);
@@ -184,6 +192,13 @@ describe('chatUiModeProjection', () => {
         ],
       },
       {
+        type: ChatContentItemType.CONTENT,
+        element_bid: 'image-slide-1',
+        element_type: 'image',
+        content: '![slide](/slide.png)',
+        is_renderable: true,
+      },
+      {
         type: ChatContentItemType.INTERACTION,
         element_bid: 'interaction-1',
         content: '?[%{{choice}} A | B]',
@@ -209,6 +224,7 @@ describe('chatUiModeProjection', () => {
 
     expect(projectedItems.map(item => item.element_bid)).toEqual([
       'slide-1',
+      'image-slide-1',
       'interaction-1',
     ]);
 

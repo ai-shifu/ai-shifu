@@ -21,6 +21,7 @@ export const ELEMENT_TYPE = {
   SVG: 'svg',
   DIFF: 'diff',
   IMG: 'img',
+  IMAGE: 'image',
 } as const;
 
 export type ElementType = (typeof ELEMENT_TYPE)[keyof typeof ELEMENT_TYPE];
