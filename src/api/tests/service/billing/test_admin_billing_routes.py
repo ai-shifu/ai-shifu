@@ -8,7 +8,7 @@ from flask import Flask, jsonify, request
 import pytest
 
 import flaskr.dao as dao
-from flaskr.i18n import load_translations
+from flaskr.i18n import _translations, load_translations, set_language
 import flaskr.service.billing.campaigns as billing_campaigns_module
 from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.billing.consts import (
@@ -129,6 +129,7 @@ def admin_billing_client(monkeypatch):
             is_creator=request.headers.get("X-Creator", "1") == "1",
             is_operator=request.headers.get("X-Operator", "1") == "1",
         )
+        set_language(request.user.language)
 
     monkeypatch.setattr(
         billing_routes_module,
@@ -648,7 +649,7 @@ class TestAdminBillingRoutes:
         payload = response.get_json(force=True)
 
         assert payload["code"] == 401
-        assert payload["message"] == "No permission"
+        assert payload["message"] == _translations["en-US"]["server.shifu.noPermission"]
 
     def test_admin_billing_campaign_rejects_zero_campaign_price(
         self,
@@ -763,7 +764,7 @@ class TestAdminBillingRoutes:
         assert update_payload["code"] == 7117
         assert (
             update_payload["message"]
-            == "This package campaign already has paid hit orders. Campaign products and benefit rules can no longer be changed."
+            == _translations["en-US"]["server.billing.campaignLockedAfterHit"]
         )
 
     def test_admin_billing_routes_require_creator(self, admin_billing_client) -> None:
@@ -776,7 +777,7 @@ class TestAdminBillingRoutes:
         payload = response.get_json(force=True)
 
         assert payload["code"] == 401
-        assert payload["message"] == "No permission"
+        assert payload["message"] == _translations["en-US"]["server.shifu.noPermission"]
 
     def test_admin_billing_public_builders_return_dto_instances(
         self,

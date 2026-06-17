@@ -1,5 +1,6 @@
 {
   "__namespace__": "common.core",
+  "actionFailed": "L'opération n'a pas pu être effectuée, veuillez réessayer plus tard",
   "adminTitle": "Administration",
   "aiCourseCreator": "Créer des cours avec l’assistant IA",
   "all": "Tous",
@@ -35,6 +36,7 @@
   "orderManagement": "Gestion des commandes",
   "promotionManagement": "Promotions",
   "referralInvitation": "Inviter des amis",
+  "requestFailed": "Échec de la requête, veuillez réessayer plus tard",
   "retry": "Réessayer",
   "selectModel": "Modèle",
   "settings": "Paramètres",
