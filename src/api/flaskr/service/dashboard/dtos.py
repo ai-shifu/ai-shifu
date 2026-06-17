@@ -328,6 +328,11 @@ class DashboardCourseFollowUpItemDTO(BaseModel):
     follow_up_content: str = Field(
         default="", description="Follow-up content", required=False
     )
+    has_source_output: bool = Field(
+        default=False,
+        description="Whether the original output source could be resolved",
+        required=False,
+    )
     turn_index: int = Field(default=0, description="Turn index", required=False)
     created_at: str = Field(
         default="",
@@ -346,6 +351,7 @@ class DashboardCourseFollowUpItemDTO(BaseModel):
             "chapter_title": self.chapter_title,
             "lesson_title": self.lesson_title,
             "follow_up_content": self.follow_up_content,
+            "has_source_output": bool(self.has_source_output),
             "turn_index": int(self.turn_index),
             "created_at": self.created_at,
         }

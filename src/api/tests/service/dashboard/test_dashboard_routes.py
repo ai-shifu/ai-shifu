@@ -1784,6 +1784,23 @@ class TestDashboardRoutes:
             db.session.add_all(
                 [
                     LearnGeneratedBlock(
+                        generated_block_bid="followup-source-1",
+                        progress_record_bid="followup-progress-1",
+                        user_bid="learner-followup-1",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-followups",
+                        type=BLOCK_TYPE_MDCONTENT_VALUE,
+                        role=ROLE_TEACHER,
+                        generated_content="Start by reviewing the lesson objective.",
+                        position=1,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now - timedelta(hours=2, minutes=5),
+                        updated_at=now - timedelta(hours=2, minutes=5),
+                    ),
+                    LearnGeneratedBlock(
                         generated_block_bid="followup-ask-1",
                         progress_record_bid="followup-progress-1",
                         user_bid="learner-followup-1",
@@ -1817,6 +1834,40 @@ class TestDashboardRoutes:
                         created_at=now - timedelta(hours=1, minutes=55),
                         updated_at=now - timedelta(hours=1, minutes=55),
                     ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="followup-ask-2",
+                        progress_record_bid="followup-progress-1",
+                        user_bid="learner-followup-1",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-followups",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="What if I still do not understand?",
+                        position=2,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now - timedelta(hours=1),
+                        updated_at=now - timedelta(hours=1),
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="followup-answer-2",
+                        progress_record_bid="followup-progress-1",
+                        user_bid="learner-followup-1",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-followups",
+                        type=BLOCK_TYPE_MDCONTENT_VALUE,
+                        role=ROLE_TEACHER,
+                        generated_content="Review the worked example once more.",
+                        position=2,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now - timedelta(minutes=55),
+                        updated_at=now - timedelta(minutes=55),
+                    ),
                 ]
             )
             db.session.commit()
@@ -1828,24 +1879,32 @@ class TestDashboardRoutes:
 
         assert list_resp.status_code == 200
         assert list_payload["code"] == 0
-        assert list_payload["data"]["summary"]["follow_up_count"] == 1
+        assert list_payload["data"]["summary"]["follow_up_count"] == 2
         assert list_payload["data"]["summary"]["user_count"] == 1
         assert list_payload["data"]["summary"]["lesson_count"] == 1
         assert list_payload["data"]["summary"]["latest_follow_up_at"] == (
-            now - timedelta(hours=2)
+            now - timedelta(hours=1)
         ).strftime("%Y-%m-%d %H:%M:%S")
+        assert (
+            list_payload["data"]["items"][0]["generated_block_bid"] == "followup-ask-2"
+        )
+        assert list_payload["data"]["items"][0]["has_source_output"] is False
         assert list_payload["data"]["items"][0]["user_bid"] == "learner-followup-1"
         assert list_payload["data"]["items"][0]["mobile"] == "13800138000"
         assert list_payload["data"]["items"][0]["nickname"] == "Alice"
         assert list_payload["data"]["items"][0]["chapter_title"] == "Chapter 1"
         assert list_payload["data"]["items"][0]["lesson_title"] == "Lesson 1"
         assert list_payload["data"]["items"][0]["follow_up_content"] == (
-            "How should I start lesson 1?"
+            "What if I still do not understand?"
         )
-        assert list_payload["data"]["items"][0]["turn_index"] == 1
+        assert list_payload["data"]["items"][0]["turn_index"] == 2
         assert list_payload["data"]["items"][0]["created_at"] == (
-            now - timedelta(hours=2)
+            now - timedelta(hours=1)
         ).strftime("%Y-%m-%d %H:%M:%S")
+        assert (
+            list_payload["data"]["items"][1]["generated_block_bid"] == "followup-ask-1"
+        )
+        assert list_payload["data"]["items"][1]["has_source_output"] is True
 
         filtered_list_resp = test_client.get(
             "/api/dashboard/shifus/course-followups/follow-ups"
@@ -1855,12 +1914,36 @@ class TestDashboardRoutes:
 
         assert filtered_list_resp.status_code == 200
         assert filtered_list_payload["code"] == 0
-        assert filtered_list_payload["data"]["summary"]["follow_up_count"] == 1
+        assert filtered_list_payload["data"]["summary"]["follow_up_count"] == 2
         assert filtered_list_payload["data"]["summary"]["user_count"] == 1
         assert filtered_list_payload["data"]["summary"]["lesson_count"] == 1
-        assert filtered_list_payload["data"]["total"] == 1
+        assert filtered_list_payload["data"]["total"] == 2
         assert filtered_list_payload["data"]["items"][0]["user_bid"] == (
             "learner-followup-1"
+        )
+
+        resolved_list_resp = test_client.get(
+            "/api/dashboard/shifus/course-followups/follow-ups?source_status=resolved"
+        )
+        resolved_list_payload = resolved_list_resp.get_json(force=True)
+
+        assert resolved_list_resp.status_code == 200
+        assert resolved_list_payload["code"] == 0
+        assert resolved_list_payload["data"]["total"] == 1
+        assert resolved_list_payload["data"]["items"][0]["generated_block_bid"] == (
+            "followup-ask-1"
+        )
+
+        missing_list_resp = test_client.get(
+            "/api/dashboard/shifus/course-followups/follow-ups?source_status=missing"
+        )
+        missing_list_payload = missing_list_resp.get_json(force=True)
+
+        assert missing_list_resp.status_code == 200
+        assert missing_list_payload["code"] == 0
+        assert missing_list_payload["data"]["total"] == 1
+        assert missing_list_payload["data"]["items"][0]["generated_block_bid"] == (
+            "followup-ask-2"
         )
 
         detail_resp = test_client.get(
@@ -2025,6 +2108,30 @@ class TestDashboardRoutes:
 
         assert response.status_code == 200
         assert payload["message"] == f"Params Error {expected_param}"
+
+    def test_course_follow_ups_reject_invalid_source_status(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        with app.app_context():
+            self._seed_dashboard_course(
+                shifu_bid="course-followups-invalid-source",
+                title="Follow-up Invalid Source Course",
+            )
+            db.session.commit()
+
+        response = test_client.get(
+            "/api/dashboard/shifus/course-followups-invalid-source/follow-ups"
+            "?source_status=invalid"
+        )
+        payload = response.get_json(force=True)
+
+        assert response.status_code == 200
+        assert payload["message"] == "Params Error source_status"
 
     def test_course_detail_returns_timezone_adjusted_created_at_fields(
         self,
