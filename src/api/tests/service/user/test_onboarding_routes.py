@@ -278,7 +278,9 @@ def test_complete_onboarding_scene_handles_integrity_error(
     assert payload["data"]["completed_at"] == completed_at.isoformat()
 
 
-def test_complete_onboarding_scene_rejects_ineligible_user(app, test_client, monkeypatch):
+def test_complete_onboarding_scene_rejects_ineligible_user(
+    app, test_client, monkeypatch
+):
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(
@@ -309,7 +311,9 @@ def test_complete_onboarding_scene_rejects_ineligible_user(app, test_client, mon
     assert payload["code"] != 0
 
 
-def test_complete_onboarding_scene_handles_non_object_payload(app, test_client, monkeypatch):
+def test_complete_onboarding_scene_handles_non_object_payload(
+    app, test_client, monkeypatch
+):
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
