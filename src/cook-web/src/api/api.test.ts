@@ -10,6 +10,13 @@ describe('auth api definitions', () => {
       false,
     );
   });
+
+  test('exposes admin onboarding endpoints', () => {
+    expect(api.getCreatorOnboardingStatus).toBe('GET /user/onboarding/status');
+    expect(api.completeCreatorOnboarding).toBe(
+      'POST /user/onboarding/complete',
+    );
+  });
 });
 
 describe('referral api definitions', () => {

@@ -1,0 +1,222 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+import uuid
+
+from flaskr.dao import db
+from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.user.models import UserOnboardingState
+from flaskr.service.user.utils import generate_token
+
+
+def _create_user(
+    *,
+    user_bid: str,
+    language: str = "zh-CN",
+    is_creator: bool = True,
+    is_operator: bool = False,
+    created_at: datetime | None = None,
+    creator_activated_at: datetime | None = None,
+) -> UserEntity:
+    user = UserEntity(
+        user_bid=user_bid,
+        user_identify=f"{user_bid}@example.com",
+        nickname="Onboarding User",
+        language=language,
+        state=1,
+        is_creator=1 if is_creator else 0,
+        is_operator=1 if is_operator else 0,
+        created_at=created_at or datetime.now(),
+        creator_activated_at=creator_activated_at,
+        updated_at=created_at or datetime.now(),
+    )
+    db.session.add(user)
+    return user
+
+
+def test_onboarding_status_returns_eligible_creator_scene_state(
+    app, test_client, monkeypatch
+):
+    user_bid = uuid.uuid4().hex[:32]
+    now = datetime(2026, 6, 17, 12, 0, 0)
+
+    with app.app_context():
+        _create_user(user_bid=user_bid, created_at=now)
+        db.session.add(
+            UserOnboardingState(
+                user_bid=user_bid,
+                scene_key="admin_home_onboarding",
+                version="v1",
+                status="completed",
+                trigger_source="admin_entry",
+                completed_at=now + timedelta(minutes=3),
+            )
+        )
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": {
+            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+            "DEMO_SHIFU_BID": "demo-zh-course",
+            "DEMO_EN_SHIFU_BID": "demo-en-course",
+        }.get(key, default),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": {
+            "DEMO_SHIFU_BID": "demo-zh-course",
+            "DEMO_EN_SHIFU_BID": "demo-en-course",
+        }.get(key, default),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses._load_shifu_demo_metadata",
+        lambda app, shifu_bid: [("AI 师傅教学引导", "system")]
+        if shifu_bid == "demo-zh-course"
+        else [("AI-Shifu Creation Guide", "system")],
+    )
+
+    response = test_client.get(
+        "/api/user/onboarding/status",
+        headers={"Token": token},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["eligible"] is True
+    assert payload["data"]["version"] == "v1"
+    assert payload["data"]["scenes"]["admin_home_onboarding"]["completed"] is True
+    assert (
+        payload["data"]["scenes"]["course_editor_onboarding"]["completed"] is False
+    )
+    assert payload["data"]["guide_course"]["bid"] == "demo-zh-course"
+    assert payload["data"]["guide_course"]["language"] == "zh-CN"
+
+
+def test_onboarding_status_excludes_operator_and_old_creator(
+    app, test_client, monkeypatch
+):
+    user_bid = uuid.uuid4().hex[:32]
+    with app.app_context():
+        _create_user(
+            user_bid=user_bid,
+            is_creator=True,
+            is_operator=True,
+            created_at=datetime(2026, 6, 1, 12, 0, 0),
+        )
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": {
+            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+            "DEMO_SHIFU_BID": "demo-zh-course",
+        }.get(key, default),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(
+            key, default
+        ),
+    )
+
+    response = test_client.get(
+        "/api/user/onboarding/status",
+        headers={"Token": token},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["eligible"] is False
+
+
+def test_onboarding_status_includes_old_user_newly_activated_as_creator(
+    app, test_client, monkeypatch
+):
+    user_bid = uuid.uuid4().hex[:32]
+    created_at = datetime(2026, 6, 1, 12, 0, 0)
+    creator_activated_at = datetime(2026, 6, 12, 9, 30, 0)
+
+    with app.app_context():
+        _create_user(
+            user_bid=user_bid,
+            is_creator=True,
+            created_at=created_at,
+            creator_activated_at=creator_activated_at,
+        )
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": {
+            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+            "DEMO_SHIFU_BID": "demo-zh-course",
+        }.get(key, default),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(
+            key, default
+        ),
+    )
+
+    response = test_client.get(
+        "/api/user/onboarding/status",
+        headers={"Token": token},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["eligible"] is True
+
+
+def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
+    user_bid = uuid.uuid4().hex[:32]
+    with app.app_context():
+        _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": default,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": default,
+    )
+
+    payload = {
+        "scene_key": "admin_home_onboarding",
+        "version": "v1",
+        "trigger_source": "admin_entry",
+    }
+    first = test_client.post(
+        "/api/user/onboarding/complete",
+        json=payload,
+        headers={"Token": token},
+    )
+    second = test_client.post(
+        "/api/user/onboarding/complete",
+        json=payload,
+        headers={"Token": token},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.get_json(force=True)["data"]["completed"] is True
+    assert second.get_json(force=True)["data"]["completed"] is True
+
+    with app.app_context():
+        rows = UserOnboardingState.query.filter(
+            UserOnboardingState.user_bid == user_bid,
+            UserOnboardingState.scene_key == "admin_home_onboarding",
+            UserOnboardingState.version == "v1",
+        ).all()
+        assert len(rows) == 1

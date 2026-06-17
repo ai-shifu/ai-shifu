@@ -1,0 +1,30 @@
+{
+  "__namespace__": "module.onboarding",
+  "common": {
+    "continue": "点击屏幕任意位置继续"
+  },
+  "adminHome": {
+    "welcome": {
+      "title": "欢迎来到 AI 师傅后台",
+      "description": "我们已为你发放 {credits} 体验积分，有效期 {days} 天。接下来用几步带你快速认识最常用的创作入口。"
+    },
+    "balance": {
+      "title": "这里查看积分余额",
+      "description": "左下角会显示你当前可用的积分余额，调试、预览和发布等操作都会和积分相关。"
+    },
+    "upgrade": {
+      "title": "积分不足时从这里升级",
+      "description": "如果积分不够，可以从这里购买或升级套餐，继续完成课程创作。"
+    },
+    "guideCourse": {
+      "title": "先看这门创作指导课",
+      "description": "这里是系统为你准备的创作指导课。"
+    },
+    "courseCreation": {
+      "title": "从这里开始创建课程",
+      "descriptionPrefix": "你可以直接新建课程，也可以使用",
+      "descriptionEmphasis": "龙虾助理智能建课",
+      "descriptionSuffix": "，更快生成课程初稿。"
+    }
+  }
+}

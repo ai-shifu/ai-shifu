@@ -12,6 +12,10 @@ import {
   BILLING_DETAILS_HREF,
   BILLING_PACKAGES_HREF,
 } from '@/lib/billingNavigation';
+import {
+  buildOnboardingTargetProps,
+  ONBOARDING_TARGET_IDS,
+} from '@/lib/onboardingTargets';
 
 type BillingSidebarCardProps = {
   overview?: CreatorBillingOverview;
@@ -71,12 +75,18 @@ export function BillingSidebarCard({
             {t('module.billing.sidebar.summaryTitle')}
           </p>
         </div>
-        <span className='inline-flex h-6 min-h-6 shrink-0 items-center whitespace-nowrap rounded-full bg-slate-950 px-4 py-0 text-sm font-semibold leading-5 text-white'>
+        <span
+          className='inline-flex h-6 min-h-6 shrink-0 items-center whitespace-nowrap rounded-full bg-slate-950 px-4 py-0 text-sm font-semibold leading-5 text-white'
+          {...buildOnboardingTargetProps(ONBOARDING_TARGET_IDS.billingUpgrade)}
+        >
           {t('module.billing.sidebar.upgradeCta')}
         </span>
       </div>
       <div className='pt-3'>
-        <div className='flex min-w-0 items-center justify-between gap-3 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-card-foreground,#0A0A0A)]'>
+        <div
+          className='flex min-w-0 items-center justify-between gap-3 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-normal,400)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-card-foreground,#0A0A0A)]'
+          {...buildOnboardingTargetProps(ONBOARDING_TARGET_IDS.billingBalance)}
+        >
           <span className='shrink-0'>
             {t('module.billing.sidebar.nonMemberBalanceTitle')}
           </span>

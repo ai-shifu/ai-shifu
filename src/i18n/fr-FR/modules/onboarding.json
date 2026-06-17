@@ -1,0 +1,30 @@
+{
+  "__namespace__": "module.onboarding",
+  "common": {
+    "continue": "Cliquez n'importe ou pour continuer"
+  },
+  "adminHome": {
+    "welcome": {
+      "title": "Bienvenue dans l'espace creator AI Shifu",
+      "description": "Nous avons ajoute {credits} credits d'essai a votre compte, valables pendant {days} jours. Nous allons maintenant vous presenter rapidement les principaux points d'entree de creation."
+    },
+    "balance": {
+      "title": "Consultez votre solde de credits ici",
+      "description": "Votre solde de credits disponible s'affiche en bas a gauche. Les actions comme le debogage, l'aperçu et la publication sont liees aux credits."
+    },
+    "upgrade": {
+      "title": "Passez a l'offre superieure ici si vos credits sont insuffisants",
+      "description": "Si vos credits sont insuffisants, vous pouvez acheter des credits ou mettre votre offre a niveau ici pour continuer a creer votre cours."
+    },
+    "guideCourse": {
+      "title": "Commencez par ce cours guide de creation",
+      "description": "Voici le cours guide de creation prepare par le systeme."
+    },
+    "courseCreation": {
+      "title": "Commencez a creer ici",
+      "descriptionPrefix": "Vous pouvez creer un cours a partir de zero ou utiliser ",
+      "descriptionEmphasis": "Creer des cours avec l'assistant IA",
+      "descriptionSuffix": " pour generer plus rapidement une premiere ebauche."
+    }
+  }
+}

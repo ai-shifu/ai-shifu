@@ -41,6 +41,7 @@ from ..common.dtos import PageNationDTO
 from ...service.config import get_config
 from .funcs import shifu_permission_verification
 from .shifu_outline_funcs import create_outline
+from .demo_courses import is_builtin_demo_course
 from flaskr.i18n import _
 from ..tts.validation import validate_tts_settings_strict
 
@@ -805,6 +806,11 @@ def get_shifu_draft_list(
                 can_manage_archive=True,
                 can_manage_permissions=(shifu_draft.created_user_bid == user_id),
                 created_user_bid=shifu_draft.created_user_bid or "",
+                is_guide_course=is_builtin_demo_course(
+                    shifu_bid=shifu_draft.shifu_bid,
+                    title=shifu_draft.title,
+                    created_user_bid=shifu_draft.created_user_bid,
+                ),
             )
             for shifu_draft in shifu_drafts
         ]
@@ -898,6 +904,11 @@ def get_shifu_published_list(
                 can_manage_archive=True,
                 can_manage_permissions=(shifu.created_user_bid == user_id),
                 created_user_bid=shifu.created_user_bid or "",
+                is_guide_course=is_builtin_demo_course(
+                    shifu_bid=shifu.shifu_bid,
+                    title=shifu.title,
+                    created_user_bid=shifu.created_user_bid,
+                ),
             )
             for shifu in shifus
         ]

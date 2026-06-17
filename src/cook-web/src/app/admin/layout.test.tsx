@@ -140,9 +140,39 @@ jest.mock('@/hooks/useBillingData', () => ({
   useBillingOverview: jest.fn(),
 }));
 
-jest.mock('@/components/billing/WelcomeTrialDialog', () => ({
+jest.mock('@/c-common/hooks/useTracking', () => ({
   __esModule: true,
-  WelcomeTrialDialog: () => null,
+  useTracking: () => ({
+    trackEvent: jest.fn(),
+  }),
+}));
+
+jest.mock('@/hooks/useOnboarding', () => ({
+  __esModule: true,
+  useCreatorOnboardingStatus: () => ({
+    data: {
+      eligible: false,
+      version: 'v1',
+      scenes: {
+        admin_home_onboarding: { completed: true, completed_at: null },
+        course_editor_onboarding: { completed: true, completed_at: null },
+      },
+      guide_course: {
+        bid: '',
+        title: '',
+        language: 'en-US',
+      },
+    },
+    mutate: jest.fn(),
+  }),
+  useOnboarding: () => ({
+    isOpen: false,
+    currentStep: null,
+    currentStepIndex: 0,
+    totalSteps: 0,
+    targetRect: null,
+    advance: jest.fn(),
+  }),
 }));
 
 const mockUseBillingOverview = useBillingOverview as jest.Mock;

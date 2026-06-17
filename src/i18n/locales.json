@@ -41,6 +41,7 @@
     "module.operationsPromotion",
     "module.operationsUser",
     "module.order",
+    "module.onboarding",
     "module.pay",
     "module.permission",
     "module.preview",

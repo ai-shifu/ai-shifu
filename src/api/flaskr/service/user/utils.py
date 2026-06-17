@@ -1,4 +1,5 @@
 from flask import Flask, has_app_context
+from datetime import datetime
 import jwt
 import time
 import string
@@ -93,6 +94,7 @@ def mark_creator_role_if_needed(user_id: str) -> bool:
         return False
 
     mark_user_roles(normalized_user_id, is_creator=True)
+    entity.creator_activated_at = datetime.now()
     return True
 
 
