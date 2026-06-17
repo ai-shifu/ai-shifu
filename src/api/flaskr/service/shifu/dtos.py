@@ -7,12 +7,21 @@ Author: yfge
 Date: 2025-08-07
 """
 
+from flask import Flask
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
 )
 from typing import Any
 from pydantic import BaseModel, Field
+
+
+def resolve_demo_course_for_language(app: Flask, language: str | None) -> dict[str, Any]:
+    from flaskr.service.shifu.demo_courses import (
+        resolve_demo_course_for_language as _resolve_demo_course_for_language,
+    )
+
+    return _resolve_demo_course_for_language(app, language)
 
 
 @register_schema_to_swagger

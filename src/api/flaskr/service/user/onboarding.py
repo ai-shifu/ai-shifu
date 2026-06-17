@@ -9,7 +9,7 @@ from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config.funcs import get_config as get_dynamic_config
-from flaskr.service.shifu.demo_courses import resolve_demo_course_for_language
+from flaskr.service.shifu.dtos import resolve_demo_course_for_language
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
 
