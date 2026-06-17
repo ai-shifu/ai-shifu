@@ -503,6 +503,284 @@ class TestGeneratedBlockListenTtsElementFirst:
             assert records[0].subtitle_cues[0]["text"] == "First."
             assert records[1].subtitle_cues[0]["text"] == "Second."
 
+    def test_stream_generated_block_audio_listen_uses_block_progress_for_elements(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "owner-user-1"
+        element_user_bid = "runtime-user-1"
+        shifu_bid = "shifu-progress-scope-1"
+        generated_block_bid = "gen-progress-scope-1"
+        progress_record_bid = "progress-scope-1"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid=progress_record_bid,
+                    user_bid=user_bid,
+                    block_bid="block-progress-scope-1",
+                    outline_item_bid="outline-progress-scope-1",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content="Persisted listen text.",
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.add_all(
+                [
+                    self.LearnGeneratedElement(
+                        element_bid="el-progress-scope-1",
+                        progress_record_bid=progress_record_bid,
+                        user_bid=element_user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-progress-scope-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-progress-scope-1",
+                        run_event_seq=1,
+                        event_type="element",
+                        role="teacher",
+                        element_index=0,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=1,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text="Persisted listen text.",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                    self.LearnGeneratedElement(
+                        element_bid="el-progress-scope-decoy-1",
+                        progress_record_bid="other-progress-scope-1",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-progress-scope-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-progress-scope-1",
+                        run_event_seq=2,
+                        event_type="element",
+                        role="teacher",
+                        element_index=1,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=2,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text="Wrong progress text.",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=True,
+            )
+        )
+
+        assert synthesized_texts == ["Persisted listen text."]
+        assert [event.type for event in events] == [
+            GeneratedType.AUDIO_SEGMENT,
+            GeneratedType.AUDIO_COMPLETE,
+            GeneratedType.DONE,
+        ]
+
+        with self.app.app_context():
+            records = self.LearnGeneratedAudio.query.filter(
+                self.LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                self.LearnGeneratedAudio.deleted == 0,
+            ).all()
+            assert len(records) == 1
+            assert records[0].user_bid == user_bid
+            assert records[0].progress_record_bid == progress_record_bid
+
+    def test_stream_generated_block_audio_listen_no_speakable_finishes_stream(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "user-no-speakable-1"
+        shifu_bid = "shifu-no-speakable-1"
+        generated_block_bid = "gen-no-speakable-1"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-no-speakable-1",
+                    user_bid=user_bid,
+                    block_bid="block-no-speakable-1",
+                    outline_item_bid="outline-no-speakable-1",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content="<svg><text>chart</text></svg>",
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.add(
+                self.LearnGeneratedElement(
+                    element_bid="el-no-speakable-1",
+                    progress_record_bid="progress-no-speakable-1",
+                    user_bid=user_bid,
+                    generated_block_bid=generated_block_bid,
+                    outline_item_bid="outline-no-speakable-1",
+                    shifu_bid=shifu_bid,
+                    run_session_bid="run-no-speakable-1",
+                    run_event_seq=1,
+                    event_type="element",
+                    role="teacher",
+                    element_index=0,
+                    element_type="svg",
+                    change_type="render",
+                    is_renderable=1,
+                    is_new=1,
+                    is_marker=0,
+                    sequence_number=1,
+                    is_speakable=0,
+                    is_navigable=1,
+                    is_final=1,
+                    content_text="",
+                    payload="",
+                    status=1,
+                    deleted=0,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=True,
+            )
+        )
+
+        assert synthesized_texts == []
+        assert [event.type for event in events] == [GeneratedType.DONE]
+
+        with self.app.app_context():
+            records = (
+                self.LearnGeneratedAudio.query.filter(
+                    self.LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                    self.LearnGeneratedAudio.user_bid == user_bid,
+                    self.LearnGeneratedAudio.shifu_bid == shifu_bid,
+                    self.LearnGeneratedAudio.deleted == 0,
+                )
+                .order_by(self.LearnGeneratedAudio.position.asc())
+                .all()
+            )
+            assert records == []
+
+    def test_stream_generated_block_audio_non_listen_no_speakable_finishes_stream(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "user-no-speakable-single-1"
+        shifu_bid = "shifu-no-speakable-single-1"
+        generated_block_bid = "gen-no-speakable-single-1"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-no-speakable-single-1",
+                    user_bid=user_bid,
+                    block_bid="block-no-speakable-single-1",
+                    outline_item_bid="outline-no-speakable-single-1",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content="<svg><text>chart</text></svg>",
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=False,
+            )
+        )
+
+        assert synthesized_texts == []
+        assert [event.type for event in events] == [GeneratedType.DONE]
+
+        with self.app.app_context():
+            records = (
+                self.LearnGeneratedAudio.query.filter(
+                    self.LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                    self.LearnGeneratedAudio.user_bid == user_bid,
+                    self.LearnGeneratedAudio.shifu_bid == shifu_bid,
+                    self.LearnGeneratedAudio.deleted == 0,
+                )
+                .order_by(self.LearnGeneratedAudio.position.asc())
+                .all()
+            )
+            assert records == []
+
     def test_stream_generated_block_audio_listen_preserves_position_after_short_text(
         self, monkeypatch
     ):
