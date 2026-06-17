@@ -111,7 +111,8 @@ jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
 }));
 
 jest.mock('@/c-utils/system-interaction', () => ({
-  isPaySystemInteractionContent: () => false,
+  isSystemInteractionContent: (content?: string) =>
+    content?.includes('_sys_') ?? false,
 }));
 
 jest.mock('@/c-api/studyV2', () => ({
@@ -256,6 +257,51 @@ describe('ListenModeSlideRenderer', () => {
         type: 'interaction',
         user_input: '比较熟悉',
         readonly: true,
+      }),
+    );
+  });
+
+  it('keeps the next lesson system interaction clickable when lesson feedback follows', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Finished lesson',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+          {
+            type: 'interaction',
+            content: '?[下一节//_sys_next_chapter]',
+            element_bid: 'next-lesson',
+            is_renderable: false,
+            user_input: 'stale-system-value',
+          },
+          {
+            type: 'interaction',
+            content: '?[%{{lesson_feedback}} lesson_feedback]',
+            element_bid: 'lesson-feedback',
+            is_renderable: false,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    const nextLessonElement = slideProps?.elementList?.find(
+      element => element.blockBid === 'next-lesson',
+    );
+
+    expect(nextLessonElement).toEqual(
+      expect.objectContaining({
+        type: 'interaction',
+        readonly: false,
+        user_input: '',
       }),
     );
   });

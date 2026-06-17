@@ -23,8 +23,7 @@ import {
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
-import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
-import { SYS_INTERACTION_TYPE } from '@/c-api/studyV2';
+import { isSystemInteractionContent } from '@/c-utils/system-interaction';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
@@ -463,15 +462,12 @@ const hasBlockingListenInteraction = (element?: SlideElement) => {
     typeof interactionElement?.content === 'string'
       ? interactionElement.content
       : '';
-  const isSystemInteraction = Object.values(SYS_INTERACTION_TYPE).some(
-    interactionType => interactionContent.includes(interactionType),
-  );
 
   return (
     !Boolean(interactionElement?.readonly) &&
     !hasUserInput &&
     !isLessonFeedbackInteractionContent(interactionContent) &&
-    !isSystemInteraction
+    !isSystemInteractionContent(interactionContent)
   );
 };
 
@@ -606,7 +602,7 @@ const buildSlideElementList = ({
     // Prefer in-memory interaction state, then fall back to persisted user_input.
     const currentUserInput =
       interactionInputMap[item.element_bid] ?? item.user_input ?? '';
-    const isPayInteraction = isPaySystemInteractionContent(item.content);
+    const isSystemInteraction = isSystemInteractionContent(item.content);
     const isLatestEditable =
       lastItemIsInteraction && item.element_bid === lastInteractionBid;
     const askList = askListByAnchorElementBid.get(item.element_bid);
@@ -625,10 +621,10 @@ const buildSlideElementList = ({
       is_new: item.is_new ?? true,
       blockBid: item.element_bid,
       page: Math.max(pageCursor - 1, 0),
-      user_input: isPayInteraction ? '' : currentUserInput,
+      user_input: isSystemInteraction ? '' : currentUserInput,
       ask_list: askList,
       readonly:
-        !isPayInteraction &&
+        !isSystemInteraction &&
         (Boolean(item.readonly) ||
           Boolean(currentUserInput) ||
           !isLatestEditable),
