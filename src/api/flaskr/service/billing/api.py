@@ -30,9 +30,11 @@ from flaskr.service.billing.read_models import (
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
 )
+from flaskr.service.billing.domains import resolve_effective_custom_origin
 
 __all__ = [
     "build_billing_catalog",
+    "resolve_effective_custom_origin",
     "build_operator_credit_orders_overview",
     "build_operator_credit_orders_page",
     "dry_run_credit_notifications",

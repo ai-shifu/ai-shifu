@@ -14,6 +14,7 @@ from .consts import (
     BILLING_ENTITLEMENT_SUPPORT_TIER_LABELS,
     BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE,
     CREDIT_SOURCE_TYPE_LABELS,
+    CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
 from .dtos import BillingEntitlementsDTO
@@ -23,6 +24,10 @@ from .queries import (
 )
 from .primitives import normalize_bid as _normalize_bid
 from .value_objects import JsonObjectMap
+
+from flaskr.dao import db
+from flaskr.service.common.models import raise_param_error
+from flaskr.util.uuid import generate_id
 
 
 @dataclass(slots=True, frozen=True)
@@ -89,6 +94,76 @@ def serialize_creator_entitlements(
     """Return the public creator entitlement projection."""
 
     return BillingEntitlementsDTO(**state.to_public_payload())
+
+
+def grant_creator_manual_entitlement(
+    app,
+    creator_bid: str,
+    *,
+    branding_enabled: bool | None = None,
+    custom_domain_enabled: bool | None = None,
+    branding: dict[str, Any] | None = None,
+    commit: bool = True,
+) -> CreatorEntitlementState:
+    """Upsert a manual entitlement snapshot for a creator (operator action).
+
+    Reuses a single open manual snapshot per creator instead of stacking new
+    rows, so repeated grants stay idempotent. ``branding`` keys (e.g.
+    ``logo_wide_url``) are merged into ``feature_payload.branding`` and only
+    overwrite existing values when not ``None``. Returns the freshly resolved
+    entitlement state for verification.
+    """
+
+    normalized_creator_bid = _normalize_bid(creator_bid)
+    if not normalized_creator_bid:
+        raise_param_error("creator_bid")
+
+    now = datetime.now()
+    row = (
+        BillingEntitlement.query.filter(
+            BillingEntitlement.deleted == 0,
+            BillingEntitlement.creator_bid == normalized_creator_bid,
+            BillingEntitlement.source_type == CREDIT_SOURCE_TYPE_MANUAL,
+            (
+                (BillingEntitlement.effective_to.is_(None))
+                | (BillingEntitlement.effective_to > now)
+            ),
+        )
+        .order_by(
+            BillingEntitlement.effective_from.desc(),
+            BillingEntitlement.id.desc(),
+        )
+        .first()
+    )
+    if row is None:
+        row = BillingEntitlement(
+            entitlement_bid=generate_id(app),
+            creator_bid=normalized_creator_bid,
+            source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            source_bid="",
+            effective_from=now,
+            effective_to=None,
+            branding_enabled=0,
+            custom_domain_enabled=0,
+        )
+        db.session.add(row)
+
+    if branding_enabled is not None:
+        row.branding_enabled = 1 if branding_enabled else 0
+    if custom_domain_enabled is not None:
+        row.custom_domain_enabled = 1 if custom_domain_enabled else 0
+    if branding is not None:
+        payload = dict(row.feature_payload or {})
+        merged_branding = dict(payload.get("branding") or {})
+        merged_branding.update(
+            {key: value for key, value in branding.items() if value is not None}
+        )
+        payload["branding"] = merged_branding
+        row.feature_payload = payload
+
+    if commit:
+        db.session.commit()
+    return resolve_creator_entitlement_state(normalized_creator_bid)
 
 
 def _load_active_entitlement_snapshot(
