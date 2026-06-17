@@ -57,6 +57,12 @@ interface EnvironmentConfig {
   };
 }
 
+export const DEFAULT_OFFICIAL_SITE_URL = 'https://ai-shifu.cn';
+
+export function resolveOfficialSiteUrl(value?: string): string {
+  return (value || '').trim() || DEFAULT_OFFICIAL_SITE_URL;
+}
+
 /**
  * Runtime helper for reading environment variables
  * Executed on the server during SSR
@@ -316,8 +322,8 @@ function getContactUsUrl(): string {
  * Gets official site URL
  */
 function getOfficialSiteUrl(): string {
-  return (
-    getRuntimeEnv('OFFICIAL_SITE_URL') || process.env.OFFICIAL_SITE_URL || ''
+  return resolveOfficialSiteUrl(
+    getRuntimeEnv('OFFICIAL_SITE_URL') || process.env.OFFICIAL_SITE_URL,
   );
 }
 
