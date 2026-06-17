@@ -53,6 +53,11 @@ describe('buildAdminMenuItems', () => {
           label: 'common.core.creditNotificationManagement',
           href: '/admin/operations/credit-notifications',
         },
+        {
+          id: 'operations-profile-onboarding',
+          label: 'common.core.profileOnboardingManagement',
+          href: '/admin/operations/profile-onboarding',
+        },
       ],
     });
   });
