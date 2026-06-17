@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from .consts import (
@@ -142,7 +142,11 @@ def grant_creator_manual_entitlement(
             creator_bid=normalized_creator_bid,
             source_type=CREDIT_SOURCE_TYPE_MANUAL,
             source_bid="",
-            effective_from=now,
+            # Back-date slightly so the row is immediately active. Using the
+            # exact "now" races with same-second reads: MySQL DATETIME rounds
+            # sub-second values up, so effective_from could land just after a
+            # resolve() that runs microseconds later, making the snapshot miss.
+            effective_from=now - timedelta(minutes=1),
             effective_to=None,
             branding_enabled=0,
             custom_domain_enabled=0,
