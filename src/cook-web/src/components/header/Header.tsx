@@ -1,7 +1,6 @@
 'use client';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 import { useShifu } from '@/store';
@@ -9,22 +8,82 @@ import Loading from '../loading';
 import { useAlert } from '@/components/ui/UseAlert';
 import api from '@/api';
 import {
+  BookOpen,
+  ChevronDown,
   ChevronLeft,
   CircleAlert,
   CircleCheck,
-  TrendingUp,
+  Copy,
+  Headphones,
+  Presentation,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import Preivew from '@/components/preview';
 import ShifuSetting from '@/components/shifu-setting';
 import { useTranslation } from 'react-i18next';
 import s from './header.module.scss';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/DropdownMenu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useToast } from '@/hooks/useToast';
+import type { LearningMode } from '@/c-types/store';
+import {
+  buildCourseLearningUrl,
+  buildLearningModeUrl,
+  PUBLISH_LEARNING_MODES,
+} from './publishLearningMode';
+
+type ShifuWithLearningUrl = {
+  bid?: string;
+  url?: string;
+};
+
+const publishModeIcons: Record<LearningMode, LucideIcon> = {
+  read: BookOpen,
+  listen: Headphones,
+  classroom: Presentation,
+};
+
+const writeClipboardText = async (text: string) => {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.style.position = 'fixed';
+  textArea.style.left = '-9999px';
+  textArea.style.top = '0';
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  try {
+    const copied = document.execCommand('copy');
+    if (!copied) {
+      throw new Error('Copy command failed');
+    }
+  } finally {
+    document.body.removeChild(textArea);
+  }
+};
 
 const Header = () => {
   const { t } = useTranslation();
   const alert = useAlert();
-  const router = useRouter();
   const [publishing, setPublishing] = useState(false);
+  const { toast } = useToast();
   const { trackEvent } = useTracking();
   const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
   // Only allow publish when backend grants explicit publish permission.
@@ -35,12 +94,66 @@ const Header = () => {
       await actions.loadShifu(currentShifu.bid, { silent: true });
     }
   };
-  const publish = async () => {
+  const getCourseUrl = () => {
+    const shifu = currentShifu as ShifuWithLearningUrl | null;
+    return buildCourseLearningUrl(shifu?.bid || '', shifu?.url);
+  };
+  const getLearningModeUrl = (mode: LearningMode) =>
+    buildLearningModeUrl(getCourseUrl(), mode);
+  const getPublishModeLabel = (mode: LearningMode) => {
+    if (mode === 'classroom') {
+      return t('component.header.publishAndOpenClassroomMode');
+    }
+    if (mode === 'listen') {
+      return t('component.header.publishAndOpenListenMode');
+    }
+    return t('component.header.publishAndOpenReadMode');
+  };
+  const getCopyModeLabel = (mode: LearningMode) => {
+    if (mode === 'classroom') {
+      return t('component.header.copyClassroomModeLink');
+    }
+    if (mode === 'listen') {
+      return t('component.header.copyListenModeLink');
+    }
+    return t('component.header.copyReadModeLink');
+  };
+  const copyLearningModeUrl = async (mode: LearningMode) => {
+    try {
+      await writeClipboardText(getLearningModeUrl(mode));
+      trackEvent('creator_publish_link_copy', {
+        shifu_bid: currentShifu?.bid || '',
+        learning_mode: mode,
+      });
+      toast({ title: t('component.header.copyLinkSuccess') });
+    } catch {
+      toast({
+        title: t('component.header.copyLinkFailed'),
+        variant: 'destructive',
+      });
+    }
+  };
+  const openLearningModeUrl = (
+    courseUrl: string,
+    mode: LearningMode,
+    pendingWindow?: Window | null,
+  ) => {
+    const targetUrl = buildLearningModeUrl(courseUrl, mode);
+    if (pendingWindow && !pendingWindow.closed) {
+      pendingWindow.opener = null;
+      pendingWindow.location.href = targetUrl;
+      return;
+    }
+
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  };
+  const publish = async (mode?: LearningMode) => {
     if (!canPublish || publishing || !currentShifu?.bid) {
       return;
     }
     trackEvent('creator_publish_click', {
       shifu_bid: currentShifu?.bid || '',
+      learning_mode: mode || '',
     });
     // TODO: publish
     // actions.publishScenario();
@@ -54,37 +167,53 @@ const Header = () => {
       async onConfirm() {
         trackEvent('creator_publish_confirm', {
           shifu_bid: currentShifu?.bid || '',
+          learning_mode: mode || '',
         });
+        const pendingWindow = mode
+          ? window.open('about:blank', '_blank')
+          : null;
         setPublishing(true);
-        const result = await api.publishShifu({
-          shifu_bid: currentShifu?.bid || '',
-        });
-        setPublishing(false);
-        alert.showAlert({
-          title: t('component.header.publishSuccess'),
-          confirmText: t('component.header.goToView'),
-          cancelText: t('component.header.close'),
-          description: (
-            <div className='flex flex-col space-y-2'>
-              <span>{t('component.header.publishSuccessDescription')}</span>
-              <a
-                href={result}
-                target='_blank'
-                rel='noreferrer'
-                className='text-blue-500 hover:underline'
-              >
-                {result}
-              </a>
-            </div>
-          ),
-          onConfirm() {
-            window.open(result, '_blank');
-          },
-        });
+        try {
+          const result = await api.publishShifu({
+            shifu_bid: currentShifu?.bid || '',
+          });
+          if (mode) {
+            openLearningModeUrl(result, mode, pendingWindow);
+            return;
+          }
+
+          alert.showAlert({
+            title: t('component.header.publishSuccess'),
+            confirmText: t('component.header.goToView'),
+            cancelText: t('component.header.close'),
+            description: (
+              <div className='flex flex-col space-y-2'>
+                <span>{t('component.header.publishSuccessDescription')}</span>
+                <a
+                  href={result}
+                  target='_blank'
+                  rel='noreferrer'
+                  className='text-blue-500 hover:underline'
+                >
+                  {result}
+                </a>
+              </div>
+            ),
+            onConfirm() {
+              window.open(result, '_blank');
+            },
+          });
+        } catch (error) {
+          pendingWindow?.close();
+          throw error;
+        } finally {
+          setPublishing(false);
+        }
       },
       onCancel() {
         trackEvent('creator_publish_cancel', {
           shifu_bid: currentShifu?.bid || '',
+          learning_mode: mode || '',
         });
       },
     });
@@ -165,17 +294,91 @@ const Header = () => {
       <div className='flex flex-row items-center'>
         <Preivew />
         <div className='flex items-center justify-center h-9 rounded-lg cursor-pointer shifu-setting-icon-container ml-2'>
-          <Button
-            size='sm'
-            className=''
-            disabled={!canPublish || publishing}
-            onClick={publish}
-          >
-            {publishing && <Loading className='h-4 w-4 mr-1' />}
-            <span className='title text-white'>
-              {t('component.header.publish')}
-            </span>
-          </Button>
+          <DropdownMenu>
+            <div className='flex items-center'>
+              <Button
+                size='sm'
+                className='rounded-r-none'
+                disabled={!canPublish || publishing}
+                onClick={() => {
+                  void publish();
+                }}
+              >
+                {publishing && <Loading className='h-4 w-4 mr-1' />}
+                <span className='title text-white'>
+                  {t('component.header.publish')}
+                </span>
+              </Button>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size='sm'
+                  className='rounded-l-none border-l border-white/25 px-2'
+                  disabled={!canPublish || publishing}
+                  aria-label={t('component.header.publishMenuLabel')}
+                >
+                  <ChevronDown className='h-4 w-4' />
+                </Button>
+              </DropdownMenuTrigger>
+            </div>
+            <DropdownMenuContent
+              align='end'
+              className='w-[17rem] rounded-lg p-1.5'
+            >
+              <TooltipProvider delayDuration={200}>
+                {PUBLISH_LEARNING_MODES.map(mode => {
+                  const ModeIcon = publishModeIcons[mode];
+                  return (
+                    <div
+                      key={mode}
+                      className='group flex items-center rounded-md hover:bg-accent focus-within:bg-accent'
+                    >
+                      <DropdownMenuItem
+                        asChild
+                        disabled={!canPublish || publishing}
+                        className='min-w-0 flex-1 cursor-pointer bg-transparent px-3 py-2 text-sm focus:bg-transparent'
+                        onSelect={() => {
+                          void publish(mode);
+                        }}
+                      >
+                        <button
+                          type='button'
+                          className='flex min-w-0 items-center gap-2 text-left'
+                        >
+                          <ModeIcon className='h-4 w-4 shrink-0 text-muted-foreground' />
+                          <span className='truncate'>
+                            {getPublishModeLabel(mode)}
+                          </span>
+                        </button>
+                      </DropdownMenuItem>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type='button'
+                            aria-label={getCopyModeLabel(mode)}
+                            className='mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30'
+                            disabled={!canPublish || publishing}
+                            onClick={event => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              void copyLearningModeUrl(mode);
+                            }}
+                          >
+                            <Copy className='h-4 w-4' />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side='left'
+                          className='z-[113]'
+                        >
+                          {getCopyModeLabel(mode)}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  );
+                })}
+              </TooltipProvider>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>
