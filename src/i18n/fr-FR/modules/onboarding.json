@@ -41,6 +41,10 @@
     "continue": "Cliquez n'importe où pour continuer"
   },
   "courseEditor": {
+    "addLesson": {
+      "description": "Utilisez le bouton plus a cote d'un chapitre pour ajouter une nouvelle lecon dans ce chapitre.",
+      "title": "Ajoutez des lecons ici"
+    },
     "debug": {
       "description": "Utilisez ce bouton pour verifier le rendu genere a partir du prompt actuel avant publication.",
       "title": "Lancez ici un apercu de debug"

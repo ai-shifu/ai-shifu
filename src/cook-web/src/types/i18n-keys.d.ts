@@ -960,6 +960,8 @@ export type I18nKey =
   | 'module.onboarding.adminHome.welcome.description'
   | 'module.onboarding.adminHome.welcome.title'
   | 'module.onboarding.common.continue'
+  | 'module.onboarding.courseEditor.addLesson.description'
+  | 'module.onboarding.courseEditor.addLesson.title'
   | 'module.onboarding.courseEditor.debug.description'
   | 'module.onboarding.courseEditor.debug.title'
   | 'module.onboarding.courseEditor.listenMode.description'

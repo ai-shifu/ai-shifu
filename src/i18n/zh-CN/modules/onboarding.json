@@ -41,6 +41,10 @@
     "continue": "点击屏幕任意位置继续"
   },
   "courseEditor": {
+    "addLesson": {
+      "description": "点击章节右侧的加号，可以在该章下添加新的小节。",
+      "title": "这里添加小节"
+    },
     "debug": {
       "description": "点击后可以查看当前提示词生成的课程输出，发布前先确认效果。",
       "title": "这里运行调试"

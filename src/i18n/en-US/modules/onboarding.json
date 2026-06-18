@@ -41,6 +41,10 @@
     "continue": "Click anywhere to continue"
   },
   "courseEditor": {
+    "addLesson": {
+      "description": "Use the plus button beside a chapter to add a new lesson under it.",
+      "title": "Add lessons from here"
+    },
     "debug": {
       "description": "Use this to inspect the course output generated from the current prompt before publishing.",
       "title": "Run a debug preview here"

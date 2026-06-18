@@ -11,6 +11,7 @@ export const ONBOARDING_TARGET_IDS = {
   editorSettingsEntry: 'editor-settings-entry',
   editorPromptEdit: 'editor-prompt-edit',
   editorDebug: 'editor-debug',
+  editorAddLesson: 'editor-add-lesson',
   editorCourseModel: 'editor-course-model',
   editorCourseListenMode: 'editor-course-listen-mode',
   editorCoursePrice: 'editor-course-price',

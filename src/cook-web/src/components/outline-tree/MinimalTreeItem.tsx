@@ -39,6 +39,8 @@ export type TreeItemProps = {
   currentNode?: Outline;
   onChange?: (node: Outline, value: string) => void;
   onChapterSelect?: () => void;
+  addLessonTargetId?: string;
+  forceShowAddLessonAction?: boolean;
 };
 
 const MinimalTreeItemComponent = React.forwardRef<
@@ -46,6 +48,8 @@ const MinimalTreeItemComponent = React.forwardRef<
   TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
   const { actions, cataData, currentNode, currentShifu } = useShifu();
+  const addLessonTargetId = props.addLessonTargetId;
+  const forceShowAddLessonAction = props.forceShowAddLessonAction;
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [addLessonDialogOpen, setAddLessonDialogOpen] = useState(false);
@@ -291,6 +295,11 @@ const MinimalTreeItemComponent = React.forwardRef<
                 onSettingsClick: handleChapterSettingsClick,
                 onAddClick: showChapter ? handleAddSectionClick : undefined,
                 showAdd: showChapter,
+                forceShowActions: showChapter && forceShowAddLessonAction,
+                addActionTargetProps:
+                  showChapter && addLessonTargetId
+                    ? { 'data-onboarding-id': addLessonTargetId }
+                    : undefined,
               }
             : undefined
         }

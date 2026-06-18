@@ -10,6 +10,7 @@ describe('buildCourseEditorOnboardingSteps', () => {
         settingsEntry: 'settings-entry',
         promptEdit: 'prompt-edit',
         debug: 'debug',
+        addLesson: 'add-lesson',
         model: 'model',
         listenMode: 'listen-mode',
         price: 'price',
@@ -21,6 +22,7 @@ describe('buildCourseEditorOnboardingSteps', () => {
     expect(steps.map(step => step.id)).toEqual([
       'prompt_edit',
       'debug',
+      'add_lesson',
       'course_settings_entry',
       'course_settings_model',
       'course_settings_listen_mode',
@@ -29,8 +31,8 @@ describe('buildCourseEditorOnboardingSteps', () => {
       'publish',
     ]);
     expect(
-      steps.slice(3, 6).every(step => step.panel === 'shifu_settings'),
+      steps.slice(4, 7).every(step => step.panel === 'shifu_settings'),
     ).toBe(true);
-    expect(steps.slice(0, 3).every(step => !step.panel)).toBe(true);
+    expect(steps.slice(0, 4).every(step => !step.panel)).toBe(true);
   });
 });

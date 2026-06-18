@@ -291,6 +291,7 @@ const ScriptEditor = ({
           settingsEntry: ONBOARDING_TARGET_IDS.editorSettingsEntry,
           promptEdit: ONBOARDING_TARGET_IDS.editorPromptEdit,
           debug: ONBOARDING_TARGET_IDS.editorDebug,
+          addLesson: ONBOARDING_TARGET_IDS.editorAddLesson,
           model: ONBOARDING_TARGET_IDS.editorCourseModel,
           listenMode: ONBOARDING_TARGET_IDS.editorCourseListenMode,
           price: ONBOARDING_TARGET_IDS.editorCoursePrice,
@@ -388,6 +389,9 @@ const ScriptEditor = ({
     courseEditorOnboardingStep &&
     (!courseEditorOnboardingStep.targetId || courseEditorOnboardingTargetRect),
   );
+  const shouldForceShowAddLessonAction =
+    courseEditorOnboardingOpen &&
+    courseEditorOnboardingStep?.id === 'add_lesson';
 
   useEffect(() => {
     actionsRef.current = actions;
@@ -1672,6 +1676,8 @@ const ScriptEditor = ({
                       actions.setChapters([...newChapters]);
                     }}
                     onChapterSelect={handleChapterSelect}
+                    addLessonTargetId={ONBOARDING_TARGET_IDS.editorAddLesson}
+                    forceShowAddLessonAction={shouldForceShowAddLessonAction}
                   />
                 </ol>
               </div>

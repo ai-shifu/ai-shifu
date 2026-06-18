@@ -8,6 +8,7 @@ type BuildCourseEditorStepsOptions = {
     settingsEntry: string;
     promptEdit: string;
     debug: string;
+    addLesson: string;
     model: string;
     listenMode: string;
     price: string;
@@ -34,6 +35,14 @@ export function buildCourseEditorOnboardingSteps({
       title: t('courseEditor.debug.title'),
       description: t('courseEditor.debug.description'),
       targetId: targetIds.debug,
+      skipWhenTargetMissing: true,
+      waitForTargetMs: 800,
+    },
+    {
+      id: 'add_lesson',
+      title: t('courseEditor.addLesson.title'),
+      description: t('courseEditor.addLesson.description'),
+      targetId: targetIds.addLesson,
       skipWhenTargetMissing: true,
       waitForTargetMs: 800,
     },
