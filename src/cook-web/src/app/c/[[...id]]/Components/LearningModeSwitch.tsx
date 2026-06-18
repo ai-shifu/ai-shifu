@@ -7,9 +7,16 @@ import { cn } from '@/lib/utils';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   getAvailableLearningModeOptions,
   getLearningModeLabel,
   getLearningModeShortLabel,
+  getLearningModeTooltip,
   LEARNING_MODE_OPTIONS,
   type LearningMode,
 } from './learningModeOptions';
@@ -57,47 +64,55 @@ export const LearningModeSwitch = ({
   }
 
   return (
-    <div
-      role='radiogroup'
-      aria-label={t('module.chat.learningModeToggle')}
-      className={cn(
-        styles.learningModeSwitch,
-        size === 'desktop' ? styles.learningModeSwitchDesktop : '',
-        className,
-      )}
-    >
-      {renderedOptions.map(option => {
-        const isActive = learningMode === option.mode;
-        const isListenOption = option.mode === 'listen';
+    <TooltipProvider delayDuration={0}>
+      <div
+        role='radiogroup'
+        aria-label={t('module.chat.learningModeToggle')}
+        className={cn(
+          styles.learningModeSwitch,
+          size === 'desktop' ? styles.learningModeSwitchDesktop : '',
+          className,
+        )}
+      >
+        {renderedOptions.map(option => {
+          const isActive = learningMode === option.mode;
+          const isListenOption = option.mode === 'listen';
 
-        return (
-          <button
-            type='button'
-            role='radio'
-            key={option.mode}
-            aria-label={getLearningModeLabel(t, option.mode)}
-            aria-checked={isActive}
-            className={cn(
-              styles.segment,
-              isListenOption ? styles.listenSegment : '',
-              size === 'desktop' ? styles.segmentDesktop : '',
-              isActive ? styles.segmentActive : '',
-            )}
-            onClick={() => handleLearningModeSelect(option.mode)}
-          >
-            <span className={styles.segmentLabel}>
-              {getLearningModeShortLabel(t, option.mode)}
-            </span>
-            {isListenOption ? (
-              <HeaderBetaBadge
-                variant='inline'
-                className={styles.betaBadge}
-              />
-            ) : null}
-          </button>
-        );
-      })}
-    </div>
+          return (
+            <Tooltip key={option.mode}>
+              <TooltipTrigger asChild>
+                <button
+                  type='button'
+                  role='radio'
+                  aria-label={getLearningModeLabel(t, option.mode)}
+                  aria-checked={isActive}
+                  className={cn(
+                    styles.segment,
+                    isListenOption ? styles.listenSegment : '',
+                    size === 'desktop' ? styles.segmentDesktop : '',
+                    isActive ? styles.segmentActive : '',
+                  )}
+                  onClick={() => handleLearningModeSelect(option.mode)}
+                >
+                  <span className={styles.segmentLabel}>
+                    {getLearningModeShortLabel(t, option.mode)}
+                  </span>
+                  {isListenOption ? (
+                    <HeaderBetaBadge
+                      variant='inline'
+                      className={styles.betaBadge}
+                    />
+                  ) : null}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {getLearningModeTooltip(t, option.mode)}
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 };
 
