@@ -69,6 +69,10 @@ import {
   buildOnboardingTargetProps,
   ONBOARDING_TARGET_IDS,
 } from '@/lib/onboardingTargets';
+import {
+  clearCourseEditorOnboardingIntent,
+  getPendingCourseEditorOnboardingSource,
+} from '@/lib/courseEditorOnboardingIntent';
 import './shifuEdit.scss';
 
 const MarkdownFlowEditor = dynamic(
@@ -272,8 +276,14 @@ const ScriptEditor = ({
   const editorOnboardingTriggerSource = useMemo(() => {
     const source =
       searchParams?.get('onboarding_source') || searchParams?.get('onboarding');
-    return SUPPORTED_EDITOR_TRIGGER_SOURCES.has(String(source || '').trim())
-      ? String(source).trim()
+    const explicitSource = String(source || '').trim();
+    if (SUPPORTED_EDITOR_TRIGGER_SOURCES.has(explicitSource)) {
+      return explicitSource;
+    }
+
+    const pendingSource = getPendingCourseEditorOnboardingSource();
+    return SUPPORTED_EDITOR_TRIGGER_SOURCES.has(pendingSource)
+      ? pendingSource
       : '';
   }, [searchParams]);
   const [editorOnboardingReady, setEditorOnboardingReady] = useState(false);
@@ -395,6 +405,7 @@ const ScriptEditor = ({
         };
       }, false);
       if (typeof window !== 'undefined') {
+        clearCourseEditorOnboardingIntent();
         const currentUrl = new URL(window.location.href);
         currentUrl.searchParams.delete('onboarding_source');
         currentUrl.searchParams.delete('onboarding');
@@ -458,6 +469,12 @@ const ScriptEditor = ({
     }
     trackedEditorOnboardingStartRef.current = false;
   }, [courseEditorOnboardingOpen]);
+
+  useEffect(() => {
+    if (onboardingStatus?.scenes.course_editor_onboarding.completed === true) {
+      clearCourseEditorOnboardingIntent();
+    }
+  }, [onboardingStatus?.scenes.course_editor_onboarding.completed]);
 
   useEffect(() => {
     const scopeChanged = editorContentScopeRef.current !== editorScopeKey;
