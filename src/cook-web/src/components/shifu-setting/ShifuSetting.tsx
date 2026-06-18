@@ -88,7 +88,9 @@ import {
   buildMiniMaxVoiceOptions,
   isMiniMaxProvider,
   isValidMiniMaxCustomVoiceId,
+  loadMiniMaxVoiceRefreshData,
   shouldPreserveCustomMiniMaxVoice,
+  type MiniMaxCloneCost,
   type MiniMaxClonedVoice,
 } from '@/components/shifu-setting/minimax-voice-clone';
 
@@ -233,12 +235,8 @@ export default function ShifuSettingDialog({
   const [minimaxClonedVoices, setMinimaxClonedVoices] = useState<
     MiniMaxClonedVoice[]
   >([]);
-  const [minimaxCloneCost, setMinimaxCloneCost] = useState<{
-    estimated_credits?: string;
-    available_credits?: string;
-    can_submit?: boolean;
-    billing_enabled?: boolean;
-  } | null>(null);
+  const [minimaxCloneCost, setMinimaxCloneCost] =
+    useState<MiniMaxCloneCost | null>(null);
   const [minimaxCloneDialogOpen, setMinimaxCloneDialogOpen] = useState(false);
   const [minimaxManualVoiceId, setMinimaxManualVoiceId] = useState('');
   const ttsProviderToastShownRef = useRef(false);
@@ -465,23 +463,27 @@ export default function ShifuSettingDialog({
 
   const refreshMinimaxVoiceData = useCallback(async () => {
     if (!shifuId) return;
-    try {
-      const [voicesResponse, costResponse] = await Promise.all([
-        api.listMinimaxTtsVoices({ shifu_bid: shifuId }),
-        api.getMinimaxTtsCloneCost({ shifu_bid: shifuId }),
-      ]);
-      const voicesPayload = voicesResponse as { voices?: MiniMaxClonedVoice[] };
-      setMinimaxClonedVoices(voicesPayload?.voices || []);
-      setMinimaxCloneCost(
-        (costResponse as {
-          estimated_credits?: string;
-          available_credits?: string;
-          can_submit?: boolean;
-          billing_enabled?: boolean;
-        }) || null,
+    const result = await loadMiniMaxVoiceRefreshData({
+      fetchVoices: () =>
+        api.listMinimaxTtsVoices({ shifu_bid: shifuId }) as Promise<{
+          voices?: MiniMaxClonedVoice[];
+        }>,
+      fetchCloneCost: () =>
+        api.getMinimaxTtsCloneCost({
+          shifu_bid: shifuId,
+        }) as Promise<MiniMaxCloneCost>,
+    });
+    if (result.voices !== null) {
+      setMinimaxClonedVoices(result.voices);
+    }
+    if (result.cloneCost !== null) {
+      setMinimaxCloneCost(result.cloneCost);
+    }
+    if (result.errors.length > 0) {
+      console.error(
+        'Failed to refresh MiniMax voice clone data:',
+        result.errors,
       );
-    } catch (error) {
-      console.error('Failed to fetch MiniMax cloned voices:', error);
     }
   }, [shifuId]);
 

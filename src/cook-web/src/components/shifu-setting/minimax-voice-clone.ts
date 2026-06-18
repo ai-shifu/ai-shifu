@@ -26,6 +26,13 @@ export interface MiniMaxClonedVoice {
   billing_status?: string;
 }
 
+export interface MiniMaxCloneCost {
+  estimated_credits?: string;
+  available_credits?: string;
+  can_submit?: boolean;
+  billing_enabled?: boolean;
+}
+
 export interface MiniMaxVoiceOption extends TTSVoiceOptionBase {
   source: 'built_in' | 'cloned' | 'manual';
   status?: string;
@@ -151,6 +158,43 @@ export function buildMiniMaxVoiceOptions({
   }
 
   return options;
+}
+
+export async function loadMiniMaxVoiceRefreshData({
+  fetchVoices,
+  fetchCloneCost,
+}: {
+  fetchVoices: () => Promise<
+    { voices?: MiniMaxClonedVoice[] } | MiniMaxClonedVoice[]
+  >;
+  fetchCloneCost: () => Promise<MiniMaxCloneCost | null | undefined>;
+}): Promise<{
+  voices: MiniMaxClonedVoice[] | null;
+  cloneCost: MiniMaxCloneCost | null;
+  errors: unknown[];
+}> {
+  const [voicesResult, costResult] = await Promise.allSettled([
+    fetchVoices(),
+    fetchCloneCost(),
+  ]);
+  const errors: unknown[] = [];
+  let voices: MiniMaxClonedVoice[] | null = null;
+  let cloneCost: MiniMaxCloneCost | null = null;
+
+  if (voicesResult.status === 'fulfilled') {
+    const payload = voicesResult.value;
+    voices = Array.isArray(payload) ? payload : payload?.voices || [];
+  } else {
+    errors.push(voicesResult.reason);
+  }
+
+  if (costResult.status === 'fulfilled') {
+    cloneCost = costResult.value || null;
+  } else {
+    errors.push(costResult.reason);
+  }
+
+  return { voices, cloneCost, errors };
 }
 
 export function getMiniMaxCloneSubmitBlockReason({

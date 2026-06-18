@@ -2,6 +2,7 @@ import {
   buildMiniMaxVoiceOptions,
   getMiniMaxCloneSubmitBlockReason,
   isValidMiniMaxCustomVoiceId,
+  loadMiniMaxVoiceRefreshData,
   shouldPreserveCustomMiniMaxVoice,
 } from './minimax-voice-clone';
 
@@ -113,6 +114,26 @@ describe('minimax voice clone helpers', () => {
       source: 'manual',
       disabled: false,
     });
+  });
+
+  it('keeps cloned voices when clone cost refresh fails', async () => {
+    const readyVoice = {
+      voice_bid: 'voice-1',
+      voice_id: 'AiShifu_ready_voice',
+      display_name: 'Ready Voice',
+      status: 'ready',
+    };
+
+    const result = await loadMiniMaxVoiceRefreshData({
+      fetchVoices: jest.fn().mockResolvedValue({ voices: [readyVoice] }),
+      fetchCloneCost: jest
+        .fn()
+        .mockRejectedValue(new Error('clone cost unavailable')),
+    });
+
+    expect(result.voices).toEqual([readyVoice]);
+    expect(result.cloneCost).toBeNull();
+    expect(result.errors).toHaveLength(1);
   });
 
   it('allows clone submission once source recording is long enough', () => {
