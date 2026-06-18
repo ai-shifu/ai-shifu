@@ -43,6 +43,7 @@ describe('minimax voice clone helpers', () => {
           voice_id: 'AiShifu_ready_voice',
           display_name: 'Ready Voice',
           status: 'ready',
+          minimax_demo_audio_url: 'https://cdn.example.com/ready.mp3',
         },
         {
           voice_bid: 'voice-2',
@@ -68,6 +69,8 @@ describe('minimax voice clone helpers', () => {
       label: 'Ready Voice',
       source: 'cloned',
       disabled: false,
+      voice_bid: 'voice-1',
+      minimax_demo_audio_url: 'https://cdn.example.com/ready.mp3',
     });
     expect(options[2]).toMatchObject({
       source: 'cloned',
@@ -76,6 +79,37 @@ describe('minimax voice clone helpers', () => {
     });
     expect(options[3]).toMatchObject({
       label: 'Manual custom voice',
+      source: 'manual',
+      disabled: false,
+    });
+  });
+
+  it('adds a manual option only for unknown current MiniMax custom voices', () => {
+    const knownOptions = buildMiniMaxVoiceOptions({
+      builtInVoices: [{ value: 'male-qn-qingse', label: 'Male' }],
+      clonedVoices: [
+        {
+          voice_bid: 'voice-1',
+          voice_id: 'AiShifu_ready_voice',
+          display_name: 'Ready Voice',
+          status: 'ready',
+        },
+      ],
+      currentVoiceId: 'AiShifu_ready_voice',
+      manualLabel: 'Manual custom voice',
+    });
+
+    expect(knownOptions.some(option => option.source === 'manual')).toBe(false);
+
+    const unknownOptions = buildMiniMaxVoiceOptions({
+      builtInVoices: [{ value: 'male-qn-qingse', label: 'Male' }],
+      clonedVoices: [],
+      currentVoiceId: 'AiShifu_unknown_voice',
+      manualLabel: 'Manual custom voice',
+    });
+
+    expect(unknownOptions.at(-1)).toMatchObject({
+      value: 'AiShifu_unknown_voice',
       source: 'manual',
       disabled: false,
     });

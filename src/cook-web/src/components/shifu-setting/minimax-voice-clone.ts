@@ -30,6 +30,7 @@ export interface MiniMaxVoiceOption extends TTSVoiceOptionBase {
   source: 'built_in' | 'cloned' | 'manual';
   status?: string;
   voice_bid?: string;
+  minimax_demo_audio_url?: string;
   disabled?: boolean;
 }
 
@@ -129,6 +130,7 @@ export function buildMiniMaxVoiceOptions({
       source: 'cloned',
       status,
       voice_bid: voice.voice_bid,
+      minimax_demo_audio_url: voice.minimax_demo_audio_url || '',
       disabled: !ready,
     });
   }

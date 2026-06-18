@@ -274,3 +274,73 @@ def test_minimax_voice_clone_submit_rejects_insufficient_credits(
             ).count()
             == 0
         )
+
+
+def test_minimax_voice_routes_only_expose_current_owner_voices(
+    app,
+    test_client,
+    monkeypatch,
+):
+    from flaskr.service.tts.models import (
+        TTSMiniMaxClonedVoice,
+        TTS_MINIMAX_CLONE_STATUS_FAILED,
+        TTS_MINIMAX_CLONE_STATUS_READY,
+    )
+
+    _prepare_minimax_tables(app)
+    _auth(monkeypatch, user_bid="creator-route")
+
+    with app.app_context():
+        _seed_course_and_wallet(rate=None)
+        db.session.query(TTSMiniMaxClonedVoice).filter(
+            TTSMiniMaxClonedVoice.shifu_bid == "shifu-route"
+        ).delete(synchronize_session=False)
+        db.session.add_all(
+            [
+                TTSMiniMaxClonedVoice(
+                    voice_bid="owned-voice-bid",
+                    owner_user_bid="creator-route",
+                    shifu_bid="shifu-route",
+                    display_name="Owned Voice",
+                    voice_id="AiShifu_owned_voice",
+                    status=TTS_MINIMAX_CLONE_STATUS_READY,
+                    minimax_demo_audio_url="https://cdn.example.com/owned.mp3",
+                ),
+                TTSMiniMaxClonedVoice(
+                    voice_bid="other-voice-bid",
+                    owner_user_bid="other-creator",
+                    shifu_bid="shifu-route",
+                    display_name="Other Voice",
+                    voice_id="AiShifu_other_voice",
+                    status=TTS_MINIMAX_CLONE_STATUS_FAILED,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    list_resp = test_client.get(
+        "/api/shifu/tts/minimax/voices",
+        query_string={"shifu_bid": "shifu-route"},
+        headers={"Token": "test-token"},
+    )
+    list_payload = list_resp.get_json(force=True)
+
+    assert list_payload["code"] == 0
+    assert [voice["voice_bid"] for voice in list_payload["data"]["voices"]] == [
+        "owned-voice-bid"
+    ]
+    assert list_payload["data"]["voices"][0]["minimax_demo_audio_url"] == (
+        "https://cdn.example.com/owned.mp3"
+    )
+
+    for method, path in [
+        ("get", "/api/shifu/tts/minimax/voices/other-voice-bid"),
+        ("post", "/api/shifu/tts/minimax/voices/other-voice-bid/retry"),
+        ("delete", "/api/shifu/tts/minimax/voices/other-voice-bid"),
+    ]:
+        response = getattr(test_client, method)(
+            path,
+            headers={"Token": "test-token"},
+        )
+        payload = response.get_json(force=True)
+        assert payload["code"] == ERROR_CODE["server.shifu.noPermission"]

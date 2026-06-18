@@ -575,6 +575,7 @@ export default function MiniMaxVoiceCloneDialog({
             type='button'
             disabled={!canSubmit}
             onClick={submitClone}
+            title={submitBlockText || undefined}
           >
             {submitting ? (
               <Loader2 className='mr-2 h-4 w-4 animate-spin' />
