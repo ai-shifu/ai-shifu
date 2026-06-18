@@ -40,6 +40,9 @@
   "common": {
     "continue": "Click anywhere to continue"
   },
+  "guideCourseFallback": {
+    "title": "AI-Shifu Creation Guide"
+  },
   "courseEditor": {
     "debug": {
       "description": "Use this to inspect the course output generated from the current prompt before publishing.",

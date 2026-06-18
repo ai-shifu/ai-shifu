@@ -40,6 +40,9 @@
   "common": {
     "continue": "Cliquez n'importe où pour continuer"
   },
+  "guideCourseFallback": {
+    "title": "Guide de creation AI Shifu"
+  },
   "courseEditor": {
     "debug": {
       "description": "Utilisez ce bouton pour verifier le rendu genere a partir du prompt actuel avant publication.",

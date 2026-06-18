@@ -95,8 +95,8 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_TRIAL,
 )
 from flaskr.service.shifu.demo_courses import (
-    BUILTIN_DEMO_TITLES,
     is_builtin_demo_course,
+    load_builtin_demo_titles,
     load_demo_shifu_bids,
 )
 from flaskr.service.shifu.shifu_draft_funcs import (
@@ -1423,7 +1423,7 @@ def _build_operator_visible_course_filter(
         not_(
             and_(
                 normalized_created_user_bid == "system",
-                normalized_title.in_(sorted(BUILTIN_DEMO_TITLES)),
+                normalized_title.in_(sorted(load_builtin_demo_titles())),
             )
         ),
     ]

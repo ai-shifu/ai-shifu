@@ -3,14 +3,19 @@ from __future__ import annotations
 from flask import Flask
 from typing import Any, Set
 
+from flaskr.i18n import _translations, translate_for_language
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 
-DEFAULT_ZH_GUIDE_COURSE_TITLE = "AI Shifu Guide Course"
-DEFAULT_EN_GUIDE_COURSE_TITLE = "AI-Shifu Creation Guide"
-BUILTIN_DEMO_TITLES: Set[str] = {
-    DEFAULT_ZH_GUIDE_COURSE_TITLE,
-    DEFAULT_EN_GUIDE_COURSE_TITLE,
-}
+GUIDE_COURSE_TITLE_KEY = "module.onboarding.guideCourseFallback.title"
+
+
+def load_builtin_demo_titles() -> Set[str]:
+    titles: Set[str] = set()
+    for translations in _translations.values():
+        title = str(translations.get(GUIDE_COURSE_TITLE_KEY) or "").strip()
+        if title:
+            titles.add(title)
+    return titles
 
 
 def load_demo_shifu_bids() -> Set[str]:
@@ -58,10 +63,9 @@ def resolve_demo_course_for_language(
                 title = candidate_title
                 break
     if not title:
-        title = (
-            DEFAULT_ZH_GUIDE_COURSE_TITLE
-            if resolved_language == "zh-CN"
-            else DEFAULT_EN_GUIDE_COURSE_TITLE
+        title = translate_for_language(
+            GUIDE_COURSE_TITLE_KEY,
+            resolved_language,
         )
 
     return {
@@ -78,7 +82,8 @@ def is_builtin_demo_course(
     normalized_title = str(title or "").strip()
     normalized_creator = str(created_user_bid or "").strip()
     return normalized_bid in load_demo_shifu_bids() or (
-        normalized_creator == "system" and normalized_title in BUILTIN_DEMO_TITLES
+        normalized_creator == "system"
+        and normalized_title in load_builtin_demo_titles()
     )
 
 
