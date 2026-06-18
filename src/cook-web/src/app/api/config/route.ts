@@ -21,7 +21,19 @@ export async function GET(request: Request) {
         .split(',')[0]
         .trim()
         .toLowerCase();
-      if (requestHost && requestHost !== configuredHost) {
+      const requestHostname = requestHost.split(':')[0];
+      const isLocalDevelopmentHost =
+        requestHostname === 'localhost' ||
+        requestHostname === '127.0.0.1' ||
+        requestHostname === '0.0.0.0' ||
+        requestHostname === '[::1]' ||
+        requestHostname.endsWith('.localhost');
+
+      if (
+        requestHost &&
+        requestHost !== configuredHost &&
+        !isLocalDevelopmentHost
+      ) {
         return NextResponse.json({ apiBaseUrl: '' });
       }
     } catch {
