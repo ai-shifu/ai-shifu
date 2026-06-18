@@ -55,11 +55,16 @@ def test_existing_language_missing_key_falls_back_to_default():
 
     load_translations(app)
 
-    _translations["fr-FR"].pop("module.chat.ask")
-    _translations["fr-FR"].pop("MODULE.CHAT.ASK")
+    fr_translations = _translations["fr-FR"]
+    removed_normal = fr_translations.pop("module.chat.ask")
+    removed_upper = fr_translations.pop("MODULE.CHAT.ASK")
 
-    set_language("fr-FR")
-    assert t("module.chat.ask") == "Ask"
+    try:
+        set_language("fr-FR")
+        assert t("module.chat.ask") == "Ask"
+    finally:
+        fr_translations["module.chat.ask"] = removed_normal
+        fr_translations["MODULE.CHAT.ASK"] = removed_upper
 
 
 def test_flat_section_namespace_loading():
