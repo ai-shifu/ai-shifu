@@ -55,3 +55,5 @@ def test_serialize_with_app_timezone_accepts_mysql_datetime_bytes() -> None:
         )
         == "2026-05-20 08:40:51"
     )
+    assert serialize_with_app_timezone(app, b"invalid-date", "UTC") is None
+    assert format_with_app_timezone(app, b"invalid-date", "%Y-%m-%d", "UTC") is None
