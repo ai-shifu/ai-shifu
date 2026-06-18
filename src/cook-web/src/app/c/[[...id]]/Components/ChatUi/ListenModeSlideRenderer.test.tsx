@@ -15,6 +15,7 @@ import {
   isListenLessonFeedbackPromptReady,
   shouldDelayListenFeedbackPromptForTailInteraction,
 } from './lessonFeedbackPromptState';
+import type { ChatContentItem } from '@/c-types/chatUi';
 
 const mockIsLessonFeedbackInteractionContent = jest.fn(
   (content?: string) => content?.includes('lesson_feedback') ?? false,
@@ -110,7 +111,8 @@ jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
 }));
 
 jest.mock('@/c-utils/system-interaction', () => ({
-  isPaySystemInteractionContent: () => false,
+  isSystemInteractionContent: (content?: string) =>
+    content?.includes('_sys_') ?? false,
 }));
 
 jest.mock('@/c-api/studyV2', () => ({
@@ -125,6 +127,8 @@ const createChatRef = () =>
 const getMockSlide = () =>
   jest.requireMock('markdown-flow-ui/slide').Slide as jest.Mock;
 
+const originalRequestFullscreen = HTMLElement.prototype.requestFullscreen;
+
 describe('ListenModeSlideRenderer', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -135,6 +139,14 @@ describe('ListenModeSlideRenderer', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    if (originalRequestFullscreen) {
+      Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+        configurable: true,
+        value: originalRequestFullscreen,
+      });
+    } else {
+      delete (HTMLElement.prototype as Partial<HTMLElement>).requestFullscreen;
+    }
   });
 
   it('does not show the audio preparation text for normal loading', () => {
@@ -247,6 +259,391 @@ describe('ListenModeSlideRenderer', () => {
         readonly: true,
       }),
     );
+  });
+
+  it('keeps the next lesson system interaction clickable when lesson feedback follows', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Finished lesson',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+          {
+            type: 'interaction',
+            content: '?[下一节//_sys_next_chapter]',
+            element_bid: 'next-lesson',
+            is_renderable: false,
+            user_input: 'stale-system-value',
+          },
+          {
+            type: 'interaction',
+            content: '?[%{{lesson_feedback}} lesson_feedback]',
+            element_bid: 'lesson-feedback',
+            is_renderable: false,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    const nextLessonElement = slideProps?.elementList?.find(
+      element => element.blockBid === 'next-lesson',
+    );
+
+    expect(nextLessonElement).toEqual(
+      expect.objectContaining({
+        type: 'interaction',
+        readonly: false,
+        user_input: '',
+      }),
+    );
+  });
+
+  it('skips the leading section-title placeholder in classroom mode', () => {
+    const items: ChatContentItem[] = [
+      {
+        type: 'content',
+        content: 'Opening narration',
+        element_bid: 'intro-text',
+        element_type: 'text',
+        is_speakable: true,
+      },
+      {
+        type: 'content',
+        content: '<section>First slide</section>',
+        element_bid: 'first-slide',
+        element_type: 'html',
+        is_speakable: true,
+      },
+    ];
+
+    const { unmount } = render(
+      <ListenModeSlideRenderer
+        variant='classroom'
+        items={items}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        sectionTitle='Section title'
+      />,
+    );
+
+    const classroomSlideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    expect(
+      classroomSlideProps?.elementList?.some(
+        element => element.blockBid === 'empty-ppt',
+      ),
+    ).toBe(false);
+    expect(classroomSlideProps?.elementList?.[0]?.blockBid).toBe('intro-text');
+
+    unmount();
+    getMockSlide().mockClear();
+
+    render(
+      <ListenModeSlideRenderer
+        items={items}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        sectionTitle='Section title'
+      />,
+    );
+
+    const listenSlideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    expect(listenSlideProps?.elementList?.[0]?.blockBid).toBe('empty-ppt');
+  });
+
+  it('strips audio data and disables loading overlay in classroom mode', async () => {
+    const requestFullscreen = jest
+      .fn()
+      .mockRejectedValue(new Error('fullscreen blocked'));
+    Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+      configurable: true,
+      value: requestFullscreen,
+    });
+
+    render(
+      <ListenModeSlideRenderer
+        variant='classroom'
+        items={[
+          {
+            type: 'content',
+            content: 'Slide',
+            element_bid: 'content-1',
+            is_speakable: true,
+            audio_url: '/tts.mp3',
+            audio_segments: [
+              {
+                segment_index: 0,
+                audio_data: 'abc',
+                duration_ms: 100,
+                is_final: true,
+              },
+            ],
+            payload: {
+              audio: {
+                subtitle_cues: [
+                  {
+                    text: 'caption',
+                    start_ms: 0,
+                    end_ms: 100,
+                  },
+                ],
+              },
+            },
+            ask_list: [
+              {
+                type: 'ask',
+                content: '',
+                element_bid: 'ask-1',
+                anchor_element_bid: 'content-1',
+              } as ChatContentItem & { anchor_element_bid: string },
+            ],
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | {
+          elementList?: Array<Record<string, unknown>>;
+          playerCustomActions?: unknown;
+          playerClassName?: string;
+          className?: string;
+          disableLoadingOverlay?: boolean;
+          showPlayer?: boolean;
+        }
+      | undefined;
+    const contentElement = slideProps?.elementList?.find(
+      element => element.blockBid === 'content-1',
+    );
+
+    expect(contentElement).toEqual(
+      expect.objectContaining({
+        is_speakable: true,
+        ask_list: expect.arrayContaining([
+          expect.objectContaining({
+            element_bid: 'ask-1',
+          }),
+        ]),
+      }),
+    );
+    expect(contentElement).not.toHaveProperty('audio_url');
+    expect(contentElement).not.toHaveProperty('audio_segments');
+    expect(contentElement).not.toHaveProperty('subtitle_cues');
+    expect(contentElement).not.toHaveProperty('is_audio_streaming');
+    expect(contentElement).not.toHaveProperty('isAudioStreaming');
+    expect(slideProps?.playerCustomActions).toBeNull();
+    expect(slideProps?.disableLoadingOverlay).toBe(true);
+    expect(slideProps?.showPlayer).toBe(true);
+    expect(slideProps?.playerClassName ?? '').toContain(
+      'classroom-slide-player',
+    );
+    expect(slideProps?.className ?? '').toContain('listen-slide-root');
+    expect(slideProps?.className ?? '').not.toContain('classroom-slide-root');
+    expect(
+      screen.getByTestId('mock-slide').closest('.listen-reveal-wrapper'),
+    ).not.toHaveClass('listen-reveal-wrapper--classroom');
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.chat.listenPlaybackSpeedAriaLabel',
+      }),
+    ).not.toBeInTheDocument();
+
+    const fullscreenButton = await screen.findByRole('button', {
+      name: 'module.chat.classroomEnterFullscreen',
+    });
+    expect(requestFullscreen).not.toHaveBeenCalled();
+
+    fireEvent.click(fullscreenButton);
+
+    await waitFor(() => {
+      expect(requestFullscreen).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('maps classroom vertical page shortcuts to slide player navigation shortcuts', () => {
+    const forwardedKeys: string[] = [];
+    const handleForwardedShortcut = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        forwardedKeys.push(event.key);
+      }
+    };
+    document.addEventListener('keydown', handleForwardedShortcut);
+
+    try {
+      render(
+        <ListenModeSlideRenderer
+          variant='classroom'
+          items={[
+            {
+              type: 'content',
+              content: 'Slide',
+              element_bid: 'content-1',
+              is_speakable: true,
+            },
+          ]}
+          mobileStyle={false}
+          chatRef={createChatRef()}
+        />,
+      );
+
+      fireEvent.keyDown(document, { key: 'ArrowDown' });
+      fireEvent.keyDown(document, { key: 'PageUp' });
+
+      expect(forwardedKeys).toEqual(['ArrowRight', 'ArrowLeft']);
+    } finally {
+      document.removeEventListener('keydown', handleForwardedShortcut);
+    }
+  });
+
+  it('keeps the classroom fullscreen entry aligned to the slide corner in preview', async () => {
+    render(
+      <ListenModeSlideRenderer
+        variant='classroom'
+        previewMode={true}
+        items={[
+          {
+            type: 'content',
+            content: 'Slide',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'module.chat.classroomEnterFullscreen',
+      }),
+    ).not.toHaveClass('classroom-fullscreen-button--preview');
+  });
+
+  it('maps classroom space shortcuts to next slide without bubbling the original space key', () => {
+    const observedKeys: string[] = [];
+    const handleKeyDown = (event: KeyboardEvent) => {
+      observedKeys.push(event.key);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+
+    try {
+      render(
+        <ListenModeSlideRenderer
+          variant='classroom'
+          items={[
+            {
+              type: 'content',
+              content: 'Slide',
+              element_bid: 'content-1',
+              is_speakable: true,
+            },
+          ]}
+          mobileStyle={false}
+          chatRef={createChatRef()}
+        />,
+      );
+
+      fireEvent.keyDown(document, { code: 'Space', key: ' ' });
+
+      expect(observedKeys).toEqual(['ArrowRight']);
+    } finally {
+      document.removeEventListener('keydown', handleKeyDown);
+    }
+  });
+
+  it('does not map space shortcuts outside classroom mode', () => {
+    const forwardedKeys: string[] = [];
+    const handleForwardedShortcut = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight') {
+        forwardedKeys.push(event.key);
+      }
+    };
+    document.addEventListener('keydown', handleForwardedShortcut);
+
+    try {
+      render(
+        <ListenModeSlideRenderer
+          variant='listen'
+          items={[
+            {
+              type: 'content',
+              content: 'Slide',
+              element_bid: 'content-1',
+              is_speakable: true,
+            },
+          ]}
+          mobileStyle={false}
+          chatRef={createChatRef()}
+        />,
+      );
+
+      fireEvent.keyDown(document, { code: 'Space', key: ' ' });
+
+      expect(forwardedKeys).toEqual([]);
+    } finally {
+      document.removeEventListener('keydown', handleForwardedShortcut);
+    }
+  });
+
+  it('does not map classroom space shortcuts from native interactive targets', async () => {
+    const forwardedKeys: string[] = [];
+    const handleForwardedShortcut = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight') {
+        forwardedKeys.push(event.key);
+      }
+    };
+    document.addEventListener('keydown', handleForwardedShortcut);
+
+    try {
+      render(
+        <ListenModeSlideRenderer
+          variant='classroom'
+          items={[
+            {
+              type: 'content',
+              content: 'Slide',
+              element_bid: 'content-1',
+              is_speakable: true,
+            },
+          ]}
+          mobileStyle={false}
+          chatRef={createChatRef()}
+        />,
+      );
+
+      fireEvent.keyDown(
+        await screen.findByRole('button', {
+          name: 'module.chat.classroomEnterFullscreen',
+        }),
+        { code: 'Space', key: ' ' },
+      );
+
+      const input = document.createElement('input');
+      document.body.append(input);
+      try {
+        fireEvent.keyDown(input, { code: 'Space', key: ' ' });
+      } finally {
+        input.remove();
+      }
+
+      expect(forwardedKeys).toEqual([]);
+    } finally {
+      document.removeEventListener('keydown', handleForwardedShortcut);
+    }
   });
 
   it('keeps the mobile ask block mounted and collapsed after closing the listen panel', async () => {

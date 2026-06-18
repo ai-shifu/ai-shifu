@@ -1,4 +1,10 @@
-const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+const LOCAL_HOSTNAMES = new Set([
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0',
+  '::1',
+  '[::1]',
+]);
 
 export const normalizeHost = (value: string): string => {
   return value.split(',')[0].trim().toLowerCase();

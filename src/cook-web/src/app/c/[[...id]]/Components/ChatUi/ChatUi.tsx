@@ -76,17 +76,19 @@ export const ChatUi = ({
   );
 
   const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
-  const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const showModeToggle = showLearningModeToggle;
   const isListenMode = learningMode === 'listen';
+  const isClassroomMode = learningMode === 'classroom';
+  const isSlideMode = isListenMode || isClassroomMode;
+  const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const footerSeparator = String.fromCharCode(124);
   const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(false);
 
   useEffect(() => {
-    if (!isListenMode) {
+    if (!isSlideMode) {
       setIsListenPlayerVisible(false);
     }
-  }, [isListenMode]);
+  }, [isSlideMode]);
 
   return (
     <div
@@ -96,11 +98,12 @@ export const ChatUi = ({
         previewMode && frameLayout !== FRAME_LAYOUT_MOBILE
           ? styles.previewModeDesktop
           : '',
-        isListenMode ? styles.listenMode : '',
+        isSlideMode ? styles.listenMode : '',
+        isClassroomMode ? styles.classroomMode : '',
         isListenMode && isListenPlayerVisible
           ? styles.listenModeWithPlayer
           : '',
-        isListenMode && !isListenPlayerVisible
+        isSlideMode && !isListenPlayerVisible
           ? styles.listenModeWithoutPlayer
           : '',
         hideMobileFooter ? styles.hideMobileFooter : '',

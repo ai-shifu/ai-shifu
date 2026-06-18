@@ -132,6 +132,7 @@
     "emptyList": "暂无兑换码",
     "loadCoursesFailed": "课程列表加载失败，请稍后重试",
     "loadFailed": "兑换码列表加载失败，请刷新后重试",
+    "opsState": "状态标记",
     "submitting": "创建中...",
     "tooManyCourses": "当前仅展示前部分已发布课程，如需更多课程请缩小筛选范围。",
     "totalCount": "兑换码数：{count}",

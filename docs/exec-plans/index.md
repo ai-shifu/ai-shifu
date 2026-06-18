@@ -16,6 +16,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Creator Dashboard Request Splitting](./active/creator-dashboard-request-splitting.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./active/observability-artifacts-consistency-frontend-trace.md)
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)
+- [ExecPlan: Operator Promotion Ops State Rules](./active/operator-promotion-ops-state-rules.md)
 - [ExecPlan: Package Campaigns](./active/package-campaigns.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
 
