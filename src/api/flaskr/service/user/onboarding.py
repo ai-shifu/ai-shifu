@@ -24,6 +24,7 @@ SUPPORTED_SCENES = {
 }
 SUPPORTED_TRIGGER_SOURCES = {
     "admin_entry",
+    "editor_entry",
     "manual_create",
     "lobster_create",
 }

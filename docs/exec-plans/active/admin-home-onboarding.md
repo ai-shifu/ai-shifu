@@ -18,8 +18,9 @@ with Umami, and persists per-user completion so each scene shows at most once.
       coverage, and final verification before commit / PR.
 - [x] 2026-06-17 14:40 CST: Added `creator_activated_at` so old users who
       become creators after rollout are still eligible for admin home onboarding.
-- [x] 2026-06-17 22:20 CST: Added owner-only course editor onboarding for
-      manual / lobster course creation and hardened the shared overlay for drawer
+      become creators after rollout are still eligible for admin home onboarding.
+- [x] 2026-06-17 22:20 CST: Added owner-only course editor onboarding for the
+      first eligible owner editor entry and hardened the shared overlay for drawer
       targets, rounded highlight holes, edge padding, and toast/onboarding overlap.
 - [x] 2026-06-18 10:30 CST: Updated the admin home onboarding to the new
       three-step flow: blank course creation, lobster AI course creation, and the
@@ -57,28 +58,13 @@ with Umami, and persists per-user completion so each scene shows at most once.
   - Why: old regular users can become creators after rollout through admin
     login, operator transfer-creator, operator course copy, or shared
     edit/publish permissions.
-- Decision: PR2 editor onboarding is owner-only for manual create / lobster
-  create. Shared-permission users do not see the editor onboarding in PR2.
-  - Why: the editor steps include owner-oriented settings such as model, listen
-    mode, pricing, preview, and publish.
-- Decision: Keep guide-course resolution in the backend/list DTOs, but remove
-  the guide-course step from the admin home onboarding.
-  - Why: the revised product flow should only introduce course creation,
-    lobster-assisted course creation, and credit/package management.
-- Decision: The lobster-assisted creation step can include an action link inside
-  the onboarding card.
-  - Why: the existing homepage link may be highlighted, but the card copy also
-    needs a direct way to open the same external course-creator URL in a new
-    tab without advancing the overlay.
-- Decision: Keep a follow-up shared-permission onboarding variant as a later
-  iteration instead of forcing shared users through the owner flow.
-  - Why: shared collaborators usually need a lighter collaboration path focused
-    on prompt editing, debugging, and preview, while owner-oriented settings and
-    publish actions would add noise or mislead first-use expectations.
-- Decision: Resolve the guide course from the existing zh/en demo-course config
-  keys and expose `is_guide_course` through the creator course list.
-  - Why: the UI must spotlight the real course card without adding a separate
-    recommendation entry.
+- Decision: PR2 editor onboarding is owner-only for the first eligible owner
+  editor entry, regardless of whether the user arrived from manual course
+  creation, lobster course creation, the course list, or a direct editor link.
+  Shared-permission users do not see the editor onboarding in PR2.
+  - Why: external lobster entry points may not return a reliable source
+    parameter, while the editor steps are still owner-oriented settings such as
+    model, listen mode, pricing, preview, and publish.
 - Decision: Keep a follow-up shared-permission onboarding variant as a later
   iteration instead of forcing shared users through the owner flow.
   - Why: shared collaborators usually need a lighter collaboration path focused
@@ -119,29 +105,16 @@ with Umami, and persists per-user completion so each scene shows at most once.
   enabled: create a blank course, open lobster AI course creation, and review
   the billing card for trial credits and package purchases. If billing is
   disabled or a target is not present, missing steps skip safely.
-- Follow-up: open a separate French i18n polish PR to normalize accented French
-  across `src/i18n/fr-FR/**`. This PR only fixes onboarding strings to avoid
-  mixing broad copy cleanup with the onboarding behavior change.
 - Deferred follow-up: add a shared-permission editor onboarding scene after the
   owner flow lands. The first candidate scope is a lightweight three-step path
   for prompt editing, debugging, and preview only, with course settings and
   publish intentionally excluded.
-- PR2 owner editor onboarding now covers prompt editing, debug, settings entry,
-  model, listen mode, price, preview, and publish. Settings-drawer steps keep
-  the drawer open during onboarding and close it once the flow leaves the
-  settings panel.
-- Admin home onboarding now presents three product steps when billing is
-  enabled: create a blank course, open lobster AI course creation, and review
-  the billing card for trial credits and package purchases. If billing is
-  disabled or a target is not present, missing steps skip safely.
-- Deferred follow-up: add a shared-permission editor onboarding scene after the
-  owner flow lands. The first candidate scope is a lightweight three-step path
-  for prompt editing, debugging, and preview only, with course settings and
-  publish intentionally excluded.
-- PR2 owner editor onboarding now covers prompt editing, debug, settings entry,
-  model, listen mode, price, preview, and publish. Settings-drawer steps keep
-  the drawer open during onboarding and close it once the flow leaves the
-  settings panel.
+- PR2 owner editor onboarding now covers prompt editing, debug, adding a
+  lesson, settings entry, model, listen mode, price, preview, and publish.
+  Settings-drawer steps keep the drawer open during onboarding and close it
+  once the flow leaves the settings panel. Direct editor entries are recorded
+  with `trigger_source=editor_entry`; manual and lobster source parameters are
+  still preserved when present.
 - Follow-up: open a separate French i18n polish PR to normalize accented French
   across `src/i18n/fr-FR/**`. This PR only fixes onboarding strings to avoid
   mixing broad copy cleanup with the onboarding behavior change.

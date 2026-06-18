@@ -69,10 +69,6 @@ import {
   buildOnboardingTargetProps,
   ONBOARDING_TARGET_IDS,
 } from '@/lib/onboardingTargets';
-import {
-  clearCourseEditorOnboardingIntent,
-  getPendingCourseEditorOnboardingSource,
-} from '@/lib/courseEditorOnboardingIntent';
 import './shifuEdit.scss';
 
 const MarkdownFlowEditor = dynamic(
@@ -92,12 +88,23 @@ const OUTLINE_COLLAPSED_WIDTH = 60;
 const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
 const TOOLBAR_ICON_SIZE = 18; // Match markdown-flow-ui toolbar icon size
 const SUPPORTED_EDITOR_TRIGGER_SOURCES = new Set([
+  'editor_entry',
   'manual_create',
   'lobster_create',
 ]);
+const DEFAULT_EDITOR_TRIGGER_SOURCE = 'editor_entry';
 const CREATED_COURSE_ONBOARDING_DELAY_MS = 900;
 
 const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
+
+export const resolveEditorOnboardingTriggerSource = (
+  source: string | null | undefined,
+) => {
+  const explicitSource = String(source || '').trim();
+  return SUPPORTED_EDITOR_TRIGGER_SOURCES.has(explicitSource)
+    ? explicitSource
+    : DEFAULT_EDITOR_TRIGGER_SOURCE;
+};
 type MarkdownFlowEditorLocale = 'en-US' | 'zh-CN';
 
 const resolveMarkdownFlowEditorLocale = (
@@ -276,15 +283,7 @@ const ScriptEditor = ({
   const editorOnboardingTriggerSource = useMemo(() => {
     const source =
       searchParams?.get('onboarding_source') || searchParams?.get('onboarding');
-    const explicitSource = String(source || '').trim();
-    if (SUPPORTED_EDITOR_TRIGGER_SOURCES.has(explicitSource)) {
-      return explicitSource;
-    }
-
-    const pendingSource = getPendingCourseEditorOnboardingSource();
-    return SUPPORTED_EDITOR_TRIGGER_SOURCES.has(pendingSource)
-      ? pendingSource
-      : '';
+    return resolveEditorOnboardingTriggerSource(source);
   }, [searchParams]);
   const [editorOnboardingReady, setEditorOnboardingReady] = useState(false);
   useEffect(() => {
@@ -330,7 +329,6 @@ const ScriptEditor = ({
   const shouldShowCourseEditorOnboarding =
     !isHistoryPage &&
     editorOnboardingReady &&
-    Boolean(editorOnboardingTriggerSource) &&
     Boolean(onboardingStatus?.eligible) &&
     onboardingStatus?.scenes.course_editor_onboarding.completed === false &&
     isCourseOwner;
@@ -405,7 +403,6 @@ const ScriptEditor = ({
         };
       }, false);
       if (typeof window !== 'undefined') {
-        clearCourseEditorOnboardingIntent();
         const currentUrl = new URL(window.location.href);
         currentUrl.searchParams.delete('onboarding_source');
         currentUrl.searchParams.delete('onboarding');
@@ -469,12 +466,6 @@ const ScriptEditor = ({
     }
     trackedEditorOnboardingStartRef.current = false;
   }, [courseEditorOnboardingOpen]);
-
-  useEffect(() => {
-    if (onboardingStatus?.scenes.course_editor_onboarding.completed === true) {
-      clearCourseEditorOnboardingIntent();
-    }
-  }, [onboardingStatus?.scenes.course_editor_onboarding.completed]);
 
   useEffect(() => {
     const scopeChanged = editorContentScopeRef.current !== editorScopeKey;

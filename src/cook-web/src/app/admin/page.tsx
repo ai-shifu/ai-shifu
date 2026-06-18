@@ -39,7 +39,6 @@ import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
 import { useCreatorOnboardingStatus } from '@/hooks/useOnboarding';
-import { markLobsterCourseEditorOnboardingIntent } from '@/lib/courseEditorOnboardingIntent';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
 import {
   buildGuideCourseTargetId,
@@ -686,7 +685,6 @@ const ScriptManagementPage = () => {
                     target='_blank'
                     rel='noopener noreferrer'
                     className='text-xs text-muted-foreground underline hover:text-foreground'
-                    onClick={markLobsterCourseEditorOnboardingIntent}
                     {...buildOnboardingTargetProps(
                       ONBOARDING_TARGET_IDS.lobsterCreateEntry,
                     )}

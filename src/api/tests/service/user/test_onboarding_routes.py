@@ -234,6 +234,45 @@ def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
         assert len(rows) == 1
 
 
+def test_complete_course_editor_onboarding_accepts_direct_editor_entry(
+    app, test_client, monkeypatch
+):
+    user_bid = uuid.uuid4().hex[:32]
+    with app.app_context():
+        _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": default,
+    )
+
+    response = test_client.post(
+        "/api/user/onboarding/complete",
+        json={
+            "scene_key": "course_editor_onboarding",
+            "version": "v1",
+            "trigger_source": "editor_entry",
+        },
+        headers={"Token": token},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["completed"] is True
+
+    with app.app_context():
+        row = UserOnboardingState.query.filter(
+            UserOnboardingState.user_bid == user_bid,
+            UserOnboardingState.scene_key == "course_editor_onboarding",
+            UserOnboardingState.version == "v1",
+        ).first()
+        assert row is not None
+        assert row.trigger_source == "editor_entry"
+
+
 def test_complete_onboarding_scene_handles_integrity_error(
     app, test_client, monkeypatch
 ):
