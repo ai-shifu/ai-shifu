@@ -52,7 +52,9 @@ export const getPendingCourseEditorOnboardingSource = (): string => {
   }
 
   try {
-    const intent = JSON.parse(rawIntent) as Partial<CourseEditorOnboardingIntent>;
+    const intent = JSON.parse(
+      rawIntent,
+    ) as Partial<CourseEditorOnboardingIntent>;
     const isValidSource = intent.source === LOBSTER_CREATE_SOURCE;
     const createdAt =
       typeof intent.createdAt === 'number' && Number.isFinite(intent.createdAt)
