@@ -5,9 +5,11 @@ from typing import Any, Set
 
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 
+DEFAULT_ZH_GUIDE_COURSE_TITLE = "AI Shifu Guide Course"
+DEFAULT_EN_GUIDE_COURSE_TITLE = "AI-Shifu Creation Guide"
 BUILTIN_DEMO_TITLES: Set[str] = {
-    "AI 师傅教学引导",
-    "AI-Shifu Creation Guide",
+    DEFAULT_ZH_GUIDE_COURSE_TITLE,
+    DEFAULT_EN_GUIDE_COURSE_TITLE,
 }
 
 
@@ -57,9 +59,9 @@ def resolve_demo_course_for_language(
                 break
     if not title:
         title = (
-            "AI 师傅教学引导"
+            DEFAULT_ZH_GUIDE_COURSE_TITLE
             if resolved_language == "zh-CN"
-            else "AI-Shifu Creation Guide"
+            else DEFAULT_EN_GUIDE_COURSE_TITLE
         )
 
     return {

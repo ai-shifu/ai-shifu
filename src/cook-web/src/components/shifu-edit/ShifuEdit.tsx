@@ -339,17 +339,28 @@ const ScriptEditor = ({
       });
     },
     onComplete: async () => {
-      await api.completeCreatorOnboarding({
-        scene_key: 'course_editor_onboarding',
-        version: onboardingStatus?.version || 'v1',
-        trigger_source: editorOnboardingTriggerSource,
-      });
-      trackEvent('creator_onboarding_completed', {
-        scene_key: 'course_editor_onboarding',
-        version: onboardingStatus?.version || 'v1',
-        trigger_source: editorOnboardingTriggerSource,
-        language: profile?.language || i18n.language,
-      });
+      const version = onboardingStatus?.version || 'v1';
+      const language = profile?.language || i18n.language;
+      try {
+        await api.completeCreatorOnboarding({
+          scene_key: 'course_editor_onboarding',
+          version,
+          trigger_source: editorOnboardingTriggerSource,
+        });
+        trackEvent('creator_onboarding_completed', {
+          scene_key: 'course_editor_onboarding',
+          version,
+          trigger_source: editorOnboardingTriggerSource,
+          language,
+        });
+      } catch {
+        trackEvent('creator_onboarding_complete_failed', {
+          scene_key: 'course_editor_onboarding',
+          version,
+          trigger_source: editorOnboardingTriggerSource,
+          language,
+        });
+      }
       await mutateOnboardingStatus(current => {
         if (!current) {
           return current;

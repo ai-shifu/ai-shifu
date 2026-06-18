@@ -52,8 +52,17 @@ function buildCardPosition(
 
   if (!targetRect) {
     return {
-      left: Math.max((window.innerWidth - cardSize.width) / 2, VIEWPORT_MARGIN),
-      top: Math.max((window.innerHeight - 180) / 2, VIEWPORT_MARGIN),
+      left: Math.max(
+        (window.innerWidth - cardSize.width) / 2,
+        VIEWPORT_MARGIN,
+      ),
+      top: Math.min(
+        Math.max(
+          (window.innerHeight - cardSize.height) / 2,
+          VIEWPORT_MARGIN,
+        ),
+        maxTop,
+      ),
     };
   }
 

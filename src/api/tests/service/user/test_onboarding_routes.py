@@ -89,7 +89,7 @@ def test_onboarding_status_returns_eligible_creator_scene_state(
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses._load_shifu_demo_metadata",
         lambda app, shifu_bid: (
-            [("AI 师傅教学引导", "system")]
+            [("AI Shifu Guide Course", "system")]
             if shifu_bid == "demo-zh-course"
             else [("AI-Shifu Creation Guide", "system")]
         ),

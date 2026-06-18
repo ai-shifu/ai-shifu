@@ -167,17 +167,28 @@ const MainInterface = ({
       });
     },
     onComplete: async () => {
-      await api.completeCreatorOnboarding({
-        scene_key: 'admin_home_onboarding',
-        version: onboardingStatus?.version || 'v1',
-        trigger_source: 'admin_entry',
-      });
-      trackEvent('creator_onboarding_completed', {
-        scene_key: 'admin_home_onboarding',
-        version: onboardingStatus?.version || 'v1',
-        trigger_source: 'admin_entry',
-        language: currentLanguage || i18n.language,
-      });
+      const version = onboardingStatus?.version || 'v1';
+      const language = currentLanguage || i18n.language;
+      try {
+        await api.completeCreatorOnboarding({
+          scene_key: 'admin_home_onboarding',
+          version,
+          trigger_source: 'admin_entry',
+        });
+        trackEvent('creator_onboarding_completed', {
+          scene_key: 'admin_home_onboarding',
+          version,
+          trigger_source: 'admin_entry',
+          language,
+        });
+      } catch {
+        trackEvent('creator_onboarding_complete_failed', {
+          scene_key: 'admin_home_onboarding',
+          version,
+          trigger_source: 'admin_entry',
+          language,
+        });
+      }
       await mutateOnboardingStatus(current => {
         if (!current) {
           return current;

@@ -100,6 +100,8 @@ export function useOnboarding({
     try {
       await onCompleteRef.current();
       setIsOpen(false);
+    } catch {
+      // Keep the flow open so users can retry when completion persistence fails.
     } finally {
       completingRef.current = false;
       setIsCompleting(false);

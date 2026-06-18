@@ -249,6 +249,9 @@ const ScriptManagementPage = () => {
   const loadingRef = useRef(false);
   const hasMoreRef = useRef(true);
   const listVersionRef = useRef(0);
+  const createRedirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const activeTabRef = useRef<'all' | 'archived'>(activeTab);
   const guideCourseTargetId = buildGuideCourseTargetId(
@@ -263,10 +266,33 @@ const ScriptManagementPage = () => {
     setCourseCreatorUrl(getCourseCreatorUrl());
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (createRedirectTimeoutRef.current) {
+        clearTimeout(createRedirectTimeoutRef.current);
+        createRedirectTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const setHasMoreState = useCallback((value: boolean) => {
     hasMoreRef.current = value;
     setHasMore(value);
   }, []);
+
+  const waitForCreateSuccessToast = useCallback(
+    () =>
+      new Promise<void>(resolve => {
+        if (createRedirectTimeoutRef.current) {
+          clearTimeout(createRedirectTimeoutRef.current);
+        }
+        createRedirectTimeoutRef.current = setTimeout(() => {
+          createRedirectTimeoutRef.current = null;
+          resolve();
+        }, CREATE_SUCCESS_TOAST_DURATION_MS);
+      }),
+    [],
+  );
 
   const fetchShifus = useCallback(async () => {
     if (loadingRef.current || !hasMoreRef.current) return;
@@ -354,12 +380,14 @@ const ScriptManagementPage = () => {
         shifu_bid: response.bid,
         shifu_name: response.name,
       });
-      await new Promise(resolve =>
-        setTimeout(resolve, CREATE_SUCCESS_TOAST_DURATION_MS),
-      );
+      await waitForCreateSuccessToast();
       // Redirect to edit page instead of refreshing list
       router.push(`/shifu/${response.bid}?onboarding_source=manual_create`);
     } catch (error) {
+      if (createRedirectTimeoutRef.current) {
+        clearTimeout(createRedirectTimeoutRef.current);
+        createRedirectTimeoutRef.current = null;
+      }
       toast({
         title: t('common.core.createFailed'),
         description:
