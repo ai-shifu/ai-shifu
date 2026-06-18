@@ -1,10 +1,7 @@
 const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
 export const normalizeHost = (value: string): string => {
-  return value
-    .split(',')[0]
-    .trim()
-    .toLowerCase();
+  return value.split(',')[0].trim().toLowerCase();
 };
 
 const getHostname = (host: string): string => {
@@ -13,7 +10,9 @@ const getHostname = (host: string): string => {
   }
 
   try {
-    return new URL(`http://${host}`).hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    return new URL(`http://${host}`).hostname
+      .toLowerCase()
+      .replace(/^\[|\]$/g, '');
   } catch {
     if (host === '::1' || host.startsWith('::1:')) {
       return '::1';
