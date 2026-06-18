@@ -296,10 +296,18 @@ class MiniMaxVoiceCloneClient:
                 )
             )
         data = message.get("data") or {}
-        file_id = str(data.get("file_id") or message.get("file_id") or "")
+        file_data = message.get("file") or {}
+        if not isinstance(file_data, dict):
+            file_data = {}
+        file_id = str(
+            data.get("file_id")
+            or file_data.get("file_id")
+            or message.get("file_id")
+            or ""
+        )
         if not file_id:
             raise ValueError("MiniMax file upload did not return file_id")
-        extra_info = message.get("extra_info") or data.get("extra_info") or {}
+        extra_info = message.get("extra_info") or data.get("extra_info") or file_data
         return MiniMaxUploadedFile(
             file_id=file_id,
             extra_info=extra_info if isinstance(extra_info, dict) else {},

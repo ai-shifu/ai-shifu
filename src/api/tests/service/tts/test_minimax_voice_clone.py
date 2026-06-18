@@ -172,6 +172,54 @@ def test_normalize_audio_blob_validates_duration_and_exports_wav(monkeypatch) ->
     assert result.audio_bytes == b"WAV-BYTES"
 
 
+def test_minimax_upload_file_accepts_official_file_response(monkeypatch) -> None:
+    from flaskr.service.tts import minimax_voice_clone
+    from flaskr.service.tts.minimax_voice_clone import MiniMaxVoiceCloneClient
+
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "get_config",
+        lambda key: {
+            "MINIMAX_API_KEY": "test-api-key",
+            "MINIMAX_GROUP_ID": "test-group",
+        }.get(key, ""),
+    )
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "file": {
+                    "file_id": 123456789012345680,
+                    "bytes": 5896337,
+                    "filename": "audio_sample.wav",
+                    "purpose": "voice_clone",
+                },
+                "base_resp": {"status_code": 0, "status_msg": "success"},
+            }
+
+    def fake_post(url, headers, data, files, timeout):
+        assert url.endswith("/v1/files/upload?GroupId=test-group")
+        assert headers["Authorization"] == "Bearer test-api-key"
+        assert data == {"purpose": "voice_clone"}
+        assert files["file"][0] == "audio_sample.wav"
+        assert timeout == (10, 120)
+        return FakeResponse()
+
+    monkeypatch.setattr(minimax_voice_clone.requests, "post", fake_post)
+
+    result = MiniMaxVoiceCloneClient().upload_clone_audio(
+        b"WAV",
+        filename="audio_sample.wav",
+        content_type="audio/wav",
+    )
+
+    assert result.file_id == "123456789012345680"
+    assert result.extra_info["purpose"] == "voice_clone"
+
+
 def test_run_minimax_voice_clone_success_captures_credit_once(
     minimax_clone_app: Flask,
     monkeypatch,
