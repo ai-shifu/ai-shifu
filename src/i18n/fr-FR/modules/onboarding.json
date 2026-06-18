@@ -41,41 +41,21 @@
     "continue": "Cliquez n'importe où pour continuer"
   },
   "courseEditor": {
-    "addLesson": {
-      "description": "Utilisez le bouton plus a cote d'un chapitre pour ajouter une nouvelle lecon dans ce chapitre.",
-      "title": "Ajoutez des lecons ici"
-    },
-    "debug": {
-      "description": "Utilisez ce bouton pour verifier le rendu genere a partir du prompt actuel avant publication.",
-      "title": "Lancez ici un apercu de debug"
+    "backHome": {
+      "description": "Utilisez ce bouton pour changer de cours ou revenir à l'accueil de l'administration.",
+      "title": "Revenir à la liste des cours"
     },
     "listenMode": {
-      "description": "Une fois active, les apprenants pourront suivre ce cours en mode ecoute.",
-      "title": "Activez ici le mode ecoute"
-    },
-    "model": {
-      "description": "Le modele influence la qualite, le style et le cout du cours.",
-      "title": "Choisissez ici le modele du cours"
-    },
-    "preview": {
-      "description": "Avant la publication, previsualisez l'ensemble du cours pour verifier le parcours d'apprentissage et le rendu du contenu.",
-      "title": "Previsualisez ici l'ensemble du cours"
-    },
-    "price": {
-      "description": "Verifiez le prix du cours avant publication.",
-      "title": "Modifiez ici le prix du cours"
-    },
-    "prompt": {
-      "description": "Redigez ici le contenu de la lecon. Le debug, l'apercu et la publication sont generes a partir de ce contenu.",
-      "title": "Modifiez ici le prompt pedagogique"
+      "description": "Activez le mode écoute dans les paramètres du cours pour permettre aux apprenants d'étudier avec l'audio.",
+      "title": "Activer le mode écoute"
     },
     "publish": {
-      "description": "Quand tout est pret, utilisez ce bouton pour publier officiellement le cours.",
-      "title": "Publiez le cours ici"
+      "description": "Une fois le contenu prêt, publiez le cours ici pour permettre aux apprenants de commencer.",
+      "title": "Publier le cours"
     },
     "settingsEntry": {
-      "description": "Utilisez les parametres du cours pour regler le modele, le mode ecoute et le prix.",
-      "title": "Ouvrez ici les parametres du cours"
+      "description": "Utilisez l'entrée des paramètres à côté du nom du cours pour ajuster le modèle, le mode écoute, le prix et les autres options.",
+      "title": "Ouvrir les paramètres du cours"
     }
   },
   "guideCourseFallback": {

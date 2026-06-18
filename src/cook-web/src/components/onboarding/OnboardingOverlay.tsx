@@ -128,6 +128,8 @@ export function OnboardingOverlay({
     width: DEFAULT_CARD_WIDTH,
     height: DEFAULT_CARD_HEIGHT,
   });
+  const contentKey = `${stepIndex}-${totalSteps}`;
+  const [measuredContentKey, setMeasuredContentKey] = React.useState('');
 
   React.useEffect(() => {
     setMounted(true);
@@ -148,7 +150,8 @@ export function OnboardingOverlay({
         ? current
         : nextSize,
     );
-  }, [description, open, title, totalSteps]);
+    setMeasuredContentKey(contentKey);
+  }, [contentKey, description, open, title, totalSteps]);
 
   if (!open || !mounted) {
     return null;
@@ -180,6 +183,7 @@ export function OnboardingOverlay({
       })()
     : null;
   const cardStyle = buildCardPosition(rect, cardSize);
+  const isCardMeasured = measuredContentKey === contentKey;
 
   return createPortal(
     <div className='fixed inset-0 z-[2147483640]'>
@@ -215,7 +219,10 @@ export function OnboardingOverlay({
       <div
         ref={cardRef}
         className='pointer-events-auto absolute z-20'
-        style={cardStyle}
+        style={{
+          ...cardStyle,
+          visibility: isCardMeasured ? 'visible' : 'hidden',
+        }}
         onClick={onAdvance}
       >
         <OnboardingCard

@@ -5,14 +5,9 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 type BuildCourseEditorStepsOptions = {
   t: Translate;
   targetIds: {
+    backHome: string;
     settingsEntry: string;
-    promptEdit: string;
-    debug: string;
-    addLesson: string;
-    model: string;
     listenMode: string;
-    price: string;
-    preview: string;
     publish: string;
   };
 };
@@ -23,26 +18,10 @@ export function buildCourseEditorOnboardingSteps({
 }: BuildCourseEditorStepsOptions): OnboardingStep[] {
   return [
     {
-      id: 'prompt_edit',
-      title: t('courseEditor.prompt.title'),
-      description: t('courseEditor.prompt.description'),
-      targetId: targetIds.promptEdit,
-      skipWhenTargetMissing: true,
-      waitForTargetMs: 800,
-    },
-    {
-      id: 'debug',
-      title: t('courseEditor.debug.title'),
-      description: t('courseEditor.debug.description'),
-      targetId: targetIds.debug,
-      skipWhenTargetMissing: true,
-      waitForTargetMs: 800,
-    },
-    {
-      id: 'add_lesson',
-      title: t('courseEditor.addLesson.title'),
-      description: t('courseEditor.addLesson.description'),
-      targetId: targetIds.addLesson,
+      id: 'back_home',
+      title: t('courseEditor.backHome.title'),
+      description: t('courseEditor.backHome.description'),
+      targetId: targetIds.backHome,
       skipWhenTargetMissing: true,
       waitForTargetMs: 800,
     },
@@ -55,39 +34,13 @@ export function buildCourseEditorOnboardingSteps({
       waitForTargetMs: 800,
     },
     {
-      id: 'course_settings_model',
-      title: t('courseEditor.model.title'),
-      description: t('courseEditor.model.description'),
-      targetId: targetIds.model,
-      panel: 'shifu_settings',
-      skipWhenTargetMissing: true,
-      waitForTargetMs: 1400,
-    },
-    {
       id: 'course_settings_listen_mode',
       title: t('courseEditor.listenMode.title'),
       description: t('courseEditor.listenMode.description'),
       targetId: targetIds.listenMode,
       panel: 'shifu_settings',
-      skipWhenTargetMissing: true,
-      waitForTargetMs: 1400,
-    },
-    {
-      id: 'course_settings_price',
-      title: t('courseEditor.price.title'),
-      description: t('courseEditor.price.description'),
-      targetId: targetIds.price,
-      panel: 'shifu_settings',
-      skipWhenTargetMissing: true,
-      waitForTargetMs: 1400,
-    },
-    {
-      id: 'preview',
-      title: t('courseEditor.preview.title'),
-      description: t('courseEditor.preview.description'),
-      targetId: targetIds.preview,
-      skipWhenTargetMissing: true,
-      waitForTargetMs: 1000,
+      skipWhenTargetMissing: false,
+      waitForTargetMs: 3000,
     },
     {
       id: 'publish',

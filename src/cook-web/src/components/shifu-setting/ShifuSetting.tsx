@@ -1503,13 +1503,17 @@ export default function ShifuSettingDialog({
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
+      if (isOnboardingOpen && !nextOpen) {
+        updateOpen(true);
+        return;
+      }
       if (!nextOpen) {
         submitForm(true, 'manual');
         return;
       }
       updateOpen(true);
     },
-    [submitForm, updateOpen],
+    [isOnboardingOpen, submitForm, updateOpen],
   );
 
   const adjustTemperature = (delta: number) => {
@@ -1794,12 +1798,7 @@ export default function ShifuSettingDialog({
                   control={form.control}
                   name='model'
                   render={({ field }) => (
-                    <FormItem
-                      className='space-y-2 mb-4'
-                      {...buildOnboardingTargetProps(
-                        ONBOARDING_TARGET_IDS.editorCourseModel,
-                      )}
-                    >
+                    <FormItem className='space-y-2 mb-4'>
                       <FormLabel className='text-sm font-medium text-foreground'>
                         {t('common.core.selectModel')}
                       </FormLabel>
@@ -2652,12 +2651,7 @@ export default function ShifuSettingDialog({
                   control={form.control}
                   name='price'
                   render={({ field }) => (
-                    <FormItem
-                      className='space-y-2 mb-4'
-                      {...buildOnboardingTargetProps(
-                        ONBOARDING_TARGET_IDS.editorCoursePrice,
-                      )}
-                    >
+                    <FormItem className='space-y-2 mb-4'>
                       <FormLabel className='text-sm font-medium text-foreground'>
                         <span className='flex items-center gap-2'>
                           <span>

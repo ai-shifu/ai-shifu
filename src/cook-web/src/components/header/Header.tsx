@@ -79,6 +79,7 @@ const writeClipboardText = async (text: string) => {
 };
 
 type HeaderProps = {
+  backHomeTargetId?: string;
   settingsTriggerTargetId?: string;
   settingsOpenSignal?: string;
   settingsShouldStayOpen?: boolean;
@@ -87,6 +88,7 @@ type HeaderProps = {
 };
 
 const Header = ({
+  backHomeTargetId,
   settingsTriggerTargetId,
   settingsOpenSignal,
   settingsShouldStayOpen,
@@ -304,7 +306,12 @@ const Header = ({
   return (
     <div className='flex items-center w-full h-16 px-4 py-[11px] bg-white border-b border-gray-200'>
       <div className='flex items-center space-x-4'>
-        <Link href={'/admin'}>
+        <Link
+          href={'/admin'}
+          {...(backHomeTargetId
+            ? buildOnboardingTargetProps(backHomeTargetId)
+            : {})}
+        >
           <ChevronLeft size={24} />
         </Link>
 

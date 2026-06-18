@@ -65,10 +65,7 @@ import {
   useCreatorOnboardingStatus,
   useOnboarding,
 } from '@/hooks/useOnboarding';
-import {
-  buildOnboardingTargetProps,
-  ONBOARDING_TARGET_IDS,
-} from '@/lib/onboardingTargets';
+import { ONBOARDING_TARGET_IDS } from '@/lib/onboardingTargets';
 import './shifuEdit.scss';
 
 const MarkdownFlowEditor = dynamic(
@@ -313,14 +310,9 @@ const ScriptEditor = ({
       buildCourseEditorOnboardingSteps({
         t: tOnboarding,
         targetIds: {
+          backHome: ONBOARDING_TARGET_IDS.editorBackHome,
           settingsEntry: ONBOARDING_TARGET_IDS.editorSettingsEntry,
-          promptEdit: ONBOARDING_TARGET_IDS.editorPromptEdit,
-          debug: ONBOARDING_TARGET_IDS.editorDebug,
-          addLesson: ONBOARDING_TARGET_IDS.editorAddLesson,
-          model: ONBOARDING_TARGET_IDS.editorCourseModel,
           listenMode: ONBOARDING_TARGET_IDS.editorCourseListenMode,
-          price: ONBOARDING_TARGET_IDS.editorCoursePrice,
-          preview: ONBOARDING_TARGET_IDS.editorPreview,
           publish: ONBOARDING_TARGET_IDS.editorPublish,
         },
       }),
@@ -414,9 +406,6 @@ const ScriptEditor = ({
     courseEditorOnboardingStep &&
     (!courseEditorOnboardingStep.targetId || courseEditorOnboardingTargetRect),
   );
-  const shouldForceShowAddLessonAction =
-    courseEditorOnboardingOpen &&
-    courseEditorOnboardingStep?.id === 'add_lesson';
 
   useEffect(() => {
     actionsRef.current = actions;
@@ -1630,6 +1619,7 @@ const ScriptEditor = ({
         />
       ) : null}
       <Header
+        backHomeTargetId={ONBOARDING_TARGET_IDS.editorBackHome}
         settingsTriggerTargetId={ONBOARDING_TARGET_IDS.editorSettingsEntry}
         settingsOpenSignal={
           courseEditorOnboardingStep?.panel === 'shifu_settings'
@@ -1639,7 +1629,6 @@ const ScriptEditor = ({
         settingsShouldStayOpen={
           courseEditorOnboardingStep?.panel === 'shifu_settings'
         }
-        previewTargetId={ONBOARDING_TARGET_IDS.editorPreview}
         publishTargetId={ONBOARDING_TARGET_IDS.editorPublish}
       />
       <div className='flex flex-1 overflow-hidden'>
@@ -1701,8 +1690,6 @@ const ScriptEditor = ({
                       actions.setChapters([...newChapters]);
                     }}
                     onChapterSelect={handleChapterSelect}
-                    addLessonTargetId={ONBOARDING_TARGET_IDS.editorAddLesson}
-                    forceShowAddLessonAction={shouldForceShowAddLessonAction}
                   />
                 </ol>
               </div>
@@ -1734,12 +1721,6 @@ const ScriptEditor = ({
             >
               {currentNode?.depth && currentNode.depth > 0 ? (
                 <>
-                  <div
-                    className='pointer-events-none absolute left-6 top-5 h-[148px] w-[520px] max-w-[calc(100%-260px)] rounded-2xl'
-                    {...buildOnboardingTargetProps(
-                      ONBOARDING_TARGET_IDS.editorPromptEdit,
-                    )}
-                  />
                   <div className='flex items-center gap-3 pb-2'>
                     <div className='flex flex-1 min-w-0 items-baseline gap-2'>
                       <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
@@ -1817,9 +1798,6 @@ const ScriptEditor = ({
                         onClick={handlePreview}
                         disabled={!canPreview || isPreviewPreparing}
                         title={!canPreview ? previewDisabledReason : undefined}
-                        {...buildOnboardingTargetProps(
-                          ONBOARDING_TARGET_IDS.editorDebug,
-                        )}
                       >
                         {isPreviewPreparing ? (
                           <Loader2 className='h-4 w-4 animate-spin' />

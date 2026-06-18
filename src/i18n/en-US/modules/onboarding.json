@@ -41,41 +41,21 @@
     "continue": "Click anywhere to continue"
   },
   "courseEditor": {
-    "addLesson": {
-      "description": "Use the plus button beside a chapter to add a new lesson under it.",
-      "title": "Add lessons from here"
-    },
-    "debug": {
-      "description": "Use this to inspect the course output generated from the current prompt before publishing.",
-      "title": "Run a debug preview here"
+    "backHome": {
+      "description": "Use this when you need to switch courses or return to the admin home page.",
+      "title": "Back to the course list"
     },
     "listenMode": {
-      "description": "Once enabled, learners can experience this course in listen mode.",
-      "title": "Turn on listen mode here"
-    },
-    "model": {
-      "description": "The model affects course quality, style, and usage cost.",
-      "title": "Choose the course model here"
-    },
-    "preview": {
-      "description": "Before publishing, preview the full course to confirm the learning flow and content presentation.",
-      "title": "Preview the full course here"
-    },
-    "price": {
-      "description": "Confirm the course price before publishing.",
-      "title": "Adjust the course price here"
-    },
-    "prompt": {
-      "description": "Write the lesson content here. Debug, preview, and publishing output are generated from this content.",
-      "title": "Edit the teaching prompt here"
+      "description": "Turn on listen mode in course settings so learners can study with audio.",
+      "title": "Enable listen mode"
     },
     "publish": {
-      "description": "Once everything looks right, use this button to publish the course.",
-      "title": "Publish the course from here"
+      "description": "When the content is ready, publish it here so learners can start the course.",
+      "title": "Publish your course"
     },
     "settingsEntry": {
-      "description": "Use course settings to configure the model, listen mode, and pricing.",
-      "title": "Start by opening course settings here"
+      "description": "Use the settings entry beside the course name to adjust the model, listen mode, pricing, and other course options.",
+      "title": "Open course settings"
     }
   },
   "guideCourseFallback": {

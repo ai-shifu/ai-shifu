@@ -9,13 +9,8 @@ export const ONBOARDING_TARGET_IDS = {
   blankCreateEntry: 'blank-create-entry',
   lobsterCreateEntry: 'lobster-create-entry',
   editorSettingsEntry: 'editor-settings-entry',
-  editorPromptEdit: 'editor-prompt-edit',
-  editorDebug: 'editor-debug',
-  editorAddLesson: 'editor-add-lesson',
-  editorCourseModel: 'editor-course-model',
+  editorBackHome: 'editor-back-home',
   editorCourseListenMode: 'editor-course-listen-mode',
-  editorCoursePrice: 'editor-course-price',
-  editorPreview: 'editor-preview',
   editorPublish: 'editor-publish',
 } as const;
 

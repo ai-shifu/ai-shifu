@@ -41,41 +41,21 @@
     "continue": "点击屏幕任意位置继续"
   },
   "courseEditor": {
-    "addLesson": {
-      "description": "点击章节右侧的加号，可以在该章下添加新的小节。",
-      "title": "这里添加小节"
-    },
-    "debug": {
-      "description": "点击后可以查看当前提示词生成的课程输出，发布前先确认效果。",
-      "title": "这里运行调试"
+    "backHome": {
+      "description": "需要切换课程或回到后台首页时，点击这里返回课程列表。",
+      "title": "回到课程列表"
     },
     "listenMode": {
-      "description": "开启后，学员可以使用听课模式体验课程内容。",
-      "title": "这里开启听课模式"
-    },
-    "model": {
-      "description": "模型会影响课程生成质量、风格和消耗。",
-      "title": "这里选择课程大模型"
-    },
-    "preview": {
-      "description": "发布前先预览整门课程，确认学习链路和内容展示是否符合预期。",
-      "title": "这里预览整门课程"
-    },
-    "price": {
-      "description": "发布前记得确认课程价格。",
-      "title": "这里修改课程价格"
-    },
-    "prompt": {
-      "description": "这里编写本节课的授课内容，调试、预览和发布都会基于这里生成输出。",
-      "title": "这里编辑授课提示词"
+      "description": "在课程设置里开启听课模式后，学员可以用音频方式学习课程内容。",
+      "title": "开启听课模式"
     },
     "publish": {
-      "description": "确认内容无误后，就可以从这里正式发布课程。",
-      "title": "最后从这里发布课程"
+      "description": "内容确认无误后，点击这里发布课程。发布后，学员就可以进入学习。",
+      "title": "发布课程"
     },
     "settingsEntry": {
-      "description": "课程设置里可以配置模型、听课模式和价格等关键内容。",
-      "title": "先从这里打开课程设置"
+      "description": "课程名称旁边的设置入口，可以调整课程模型、听课模式和价格等配置。",
+      "title": "打开课程设置"
     }
   },
   "guideCourseFallback": {
