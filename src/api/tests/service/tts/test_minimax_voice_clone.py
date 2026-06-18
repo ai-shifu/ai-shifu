@@ -1,0 +1,333 @@
+from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal
+from types import SimpleNamespace
+
+from flask import Flask
+import pytest
+
+import flaskr.dao as dao
+from flaskr.service.billing.consts import (
+    BILLING_METRIC_TTS_REQUEST_COUNT,
+    CREDIT_BUCKET_CATEGORY_FREE,
+    CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_ROUNDING_MODE_CEIL,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
+)
+from flaskr.service.billing.models import (
+    CreditUsageRate,
+    CreditWallet,
+    CreditWalletBucket,
+)
+from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
+from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu.models import DraftShifu
+
+
+@pytest.fixture
+def minimax_clone_app(monkeypatch):
+    app = Flask(__name__)
+    app.testing = True
+    app.config.update(
+        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": "sqlite:///:memory:",
+            "ai_shifu_admin": "sqlite:///:memory:",
+        },
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        REDIS_KEY_PREFIX="minimax-clone-test",
+        TZ="UTC",
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.admission.is_billing_enabled",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.billing.primitives.is_billing_enabled",
+        lambda: True,
+    )
+    dao.db.init_app(app)
+    with app.app_context():
+        from flaskr.service.tts.models import TTSMiniMaxClonedVoice  # noqa: F401
+
+        dao.db.create_all()
+        yield app
+        dao.db.session.remove()
+        dao.db.drop_all()
+
+
+def _seed_course_wallet_and_rate(app: Flask) -> None:
+    with app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-creator-1",
+            creator_bid="creator-1",
+            available_credits=Decimal("10.0000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("10.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            version=0,
+        )
+        bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-creator-1",
+            wallet_bid=wallet.wallet_bid,
+            creator_bid="creator-1",
+            bucket_category=CREDIT_BUCKET_CATEGORY_FREE,
+            source_type=0,
+            source_bid="manual",
+            priority=10,
+            original_credits=Decimal("10.0000000000"),
+            available_credits=Decimal("10.0000000000"),
+            reserved_credits=Decimal("0"),
+            consumed_credits=Decimal("0"),
+            expired_credits=Decimal("0"),
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+        )
+        rate = CreditUsageRate(
+            rate_bid="rate-minimax-clone-test",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider="minimax",
+            model="voice_clone",
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
+            billing_metric=BILLING_METRIC_TTS_REQUEST_COUNT,
+            unit_size=1,
+            credits_per_unit=Decimal("3.0000000000"),
+            rounding_mode=CREDIT_ROUNDING_MODE_CEIL,
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+            effective_to=None,
+            status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
+        )
+        course = DraftShifu(
+            shifu_bid="shifu-1",
+            title="Course",
+            created_user_bid="creator-1",
+            updated_user_bid="creator-1",
+        )
+        dao.db.session.add_all([wallet, bucket, rate, course])
+        dao.db.session.commit()
+
+
+def test_validate_minimax_custom_voice_id_rules() -> None:
+    from flaskr.service.tts.minimax_voice_clone import (
+        is_valid_minimax_custom_voice_id,
+    )
+    from flaskr.service.tts.validation import validate_tts_settings_strict
+
+    assert is_valid_minimax_custom_voice_id("AiShifu_voice_123")
+    assert not is_valid_minimax_custom_voice_id("1starts-with-digit")
+    assert not is_valid_minimax_custom_voice_id("AiShifu_voice_")
+
+    settings = validate_tts_settings_strict(
+        provider="minimax",
+        model="speech-2.8-turbo",
+        voice_id="AiShifu_voice_123",
+        speed=1.0,
+        pitch=0,
+        emotion="neutral",
+    )
+
+    assert settings.voice_id == "AiShifu_voice_123"
+
+    with pytest.raises(AppException) as exc_info:
+        validate_tts_settings_strict(
+            provider="baidu",
+            model="",
+            voice_id="AiShifu_voice_123",
+            speed=5.0,
+            pitch=5,
+            emotion="",
+        )
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+
+
+def test_normalize_audio_blob_validates_duration_and_exports_wav(monkeypatch) -> None:
+    from flaskr.service.tts import minimax_voice_clone
+
+    class FakeSegment:
+        def __len__(self):
+            return 12_000
+
+        def export(self, out, format="wav"):
+            assert format == "wav"
+            out.write(b"WAV-BYTES")
+
+    monkeypatch.setattr(
+        minimax_voice_clone.AudioSegment,
+        "from_file",
+        lambda _stream, format=None: FakeSegment(),
+        raising=False,
+    )
+
+    result = minimax_voice_clone.normalize_audio_blob(
+        b"RAW",
+        filename="recording.webm",
+        purpose="source",
+    )
+
+    assert result.duration_ms == 12_000
+    assert result.extension == "wav"
+    assert result.content_type == "audio/wav"
+    assert result.audio_bytes == b"WAV-BYTES"
+
+
+def test_run_minimax_voice_clone_success_captures_credit_once(
+    minimax_clone_app: Flask,
+    monkeypatch,
+) -> None:
+    from flaskr.service.tts.minimax_voice_clone import (
+        TTS_MINIMAX_CLONE_STATUS_READY,
+        TTS_MINIMAX_CLONE_STATUS_QUEUED,
+        submit_minimax_voice_clone,
+        run_minimax_voice_clone,
+    )
+    from flaskr.service.tts.models import TTSMiniMaxClonedVoice
+
+    _seed_course_wallet_and_rate(minimax_clone_app)
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone._enqueue_minimax_clone_task",
+        lambda _app, *, voice_bid: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone._store_resource_bytes",
+        lambda app, **kwargs: SimpleNamespace(
+            resource_bid=f"res-{kwargs['resource_kind']}",
+            url=f"/resource/{kwargs['resource_kind']}",
+            object_key=f"key/{kwargs['resource_kind']}",
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone._delete_resource_object",
+        lambda app, resource_bid: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone.normalize_audio_blob",
+        lambda data, filename, purpose: SimpleNamespace(
+            audio_bytes=b"WAV",
+            duration_ms=12_000,
+            extension="wav",
+            content_type="audio/wav",
+        ),
+    )
+
+    class FakeClient:
+        def upload_clone_audio(self, audio_bytes, filename, content_type):
+            assert audio_bytes == b"WAV"
+            assert filename.endswith(".wav")
+            assert content_type == "audio/wav"
+            return SimpleNamespace(file_id="file-source")
+
+        def upload_prompt_audio(self, audio_bytes, filename, content_type):
+            raise AssertionError("prompt upload should not be called")
+
+        def clone_voice(self, **kwargs):
+            assert kwargs["file_id"] == "file-source"
+            return SimpleNamespace(
+                voice_id=kwargs["voice_id"],
+                demo_audio="https://example.test/demo.mp3",
+                status_code=0,
+                status_msg="success",
+                input_sensitive=False,
+                input_sensitive_type=None,
+                extra_info={"usage_characters": 20},
+                trace_id="trace-1",
+            )
+
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone.MiniMaxVoiceCloneClient",
+        lambda: FakeClient(),
+    )
+
+    submitted = submit_minimax_voice_clone(
+        minimax_clone_app,
+        owner_user_bid="creator-1",
+        shifu_bid="shifu-1",
+        display_name="Teacher Voice",
+        voice_id="AiShifu_teacher_1",
+        source_audio_bytes=b"RAW",
+        source_filename="recording.webm",
+        source_content_type="audio/webm",
+        source_capture_method="recording",
+    )
+    assert submitted.status == TTS_MINIMAX_CLONE_STATUS_QUEUED
+
+    first_run = run_minimax_voice_clone(
+        minimax_clone_app, voice_bid=submitted.voice_bid
+    )
+    second_run = run_minimax_voice_clone(
+        minimax_clone_app, voice_bid=submitted.voice_bid
+    )
+
+    assert first_run.status == "ready"
+    assert second_run.status == "already_ready"
+    with minimax_clone_app.app_context():
+        row = TTSMiniMaxClonedVoice.query.filter_by(voice_bid=submitted.voice_bid).one()
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+        usage = BillUsageRecord.query.filter_by(usage_bid=row.clone_usage_bid).one()
+        assert row.status == TTS_MINIMAX_CLONE_STATUS_READY
+        assert row.billing_status == "charged"
+        assert row.charged_credits == Decimal("3.0000000000")
+        assert wallet.available_credits == Decimal("7.0000000000")
+        assert wallet.reserved_credits == Decimal("0E-10")
+        assert usage.provider == "minimax"
+        assert usage.model == "voice_clone"
+        assert usage.extra["usage_source"] == "minimax_voice_clone"
+
+
+def test_run_minimax_voice_clone_releases_credit_on_normalization_failure(
+    minimax_clone_app: Flask,
+    monkeypatch,
+) -> None:
+    from flaskr.service.tts.minimax_voice_clone import (
+        TTS_MINIMAX_CLONE_STATUS_FAILED,
+        submit_minimax_voice_clone,
+        run_minimax_voice_clone,
+    )
+    from flaskr.service.tts.models import TTSMiniMaxClonedVoice
+
+    _seed_course_wallet_and_rate(minimax_clone_app)
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone._enqueue_minimax_clone_task",
+        lambda _app, *, voice_bid: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone._store_resource_bytes",
+        lambda app, **kwargs: SimpleNamespace(
+            resource_bid=f"res-{kwargs['resource_kind']}",
+            url=f"/resource/{kwargs['resource_kind']}",
+            object_key=f"key/{kwargs['resource_kind']}",
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone._delete_resource_object",
+        lambda app, resource_bid: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone.normalize_audio_blob",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("too short")),
+    )
+
+    submitted = submit_minimax_voice_clone(
+        minimax_clone_app,
+        owner_user_bid="creator-1",
+        shifu_bid="shifu-1",
+        display_name="Teacher Voice",
+        voice_id="AiShifu_teacher_2",
+        source_audio_bytes=b"RAW",
+        source_filename="recording.webm",
+        source_content_type="audio/webm",
+        source_capture_method="recording",
+    )
+
+    result = run_minimax_voice_clone(minimax_clone_app, voice_bid=submitted.voice_bid)
+
+    assert result.status == "failed"
+    with minimax_clone_app.app_context():
+        row = TTSMiniMaxClonedVoice.query.filter_by(voice_bid=submitted.voice_bid).one()
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+        assert row.status == TTS_MINIMAX_CLONE_STATUS_FAILED
+        assert row.billing_status == "released"
+        assert "too short" in row.status_msg
+        assert wallet.available_credits == Decimal("10.0000000000")
+        assert wallet.reserved_credits == Decimal("0E-10")

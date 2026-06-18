@@ -567,4 +567,6 @@ class MinimaxTTSProvider(BaseTTSProvider):
             models=MINIMAX_MODELS,
             voices=MINIMAX_VOICES,
             emotions=MINIMAX_EMOTIONS,
+            supports_custom_voice_id=True,
+            supports_voice_cloning=True,
         )

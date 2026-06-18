@@ -104,6 +104,12 @@ const api = {
   askPreview: 'POST /shifu/ask/preview',
   ttsPreview: 'POST /shifu/tts/preview',
   ttsConfig: 'GET /shifu/tts/config',
+  listMinimaxTtsVoices: 'GET /shifu/tts/minimax/voices',
+  getMinimaxTtsVoice: 'GET /shifu/tts/minimax/voices/{voice_bid}',
+  retryMinimaxTtsVoice: 'POST /shifu/tts/minimax/voices/{voice_bid}/retry',
+  deleteMinimaxTtsVoice: 'DELETE /shifu/tts/minimax/voices/{voice_bid}',
+  getMinimaxTtsCloneCost: 'GET /shifu/tts/minimax/voices/clone-cost',
+  validateMinimaxTtsVoiceId: 'POST /shifu/tts/minimax/voices/validate-id',
   // admin order api
   getAdminOrders: 'GET /order/admin/orders',
   getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',

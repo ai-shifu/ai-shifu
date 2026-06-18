@@ -5,6 +5,7 @@ from typing import Any
 
 from flaskr.api.tts import get_tts_provider
 from flaskr.service.common.models import raise_error_with_args
+from flaskr.service.tts.minimax_voice_clone import is_valid_minimax_custom_voice_id
 
 
 SUPPORTED_TTS_PROVIDERS = {
@@ -103,9 +104,14 @@ def validate_tts_settings_strict(
         if (v.get("value") or "").strip()
     }
     if allowed_voices and normalized_voice_id not in allowed_voices:
-        _raise_param_error(
-            f"Invalid TTS voice_id for provider '{normalized_provider}': {normalized_voice_id}"
-        )
+        if normalized_provider == "minimax" and is_valid_minimax_custom_voice_id(
+            normalized_voice_id
+        ):
+            pass
+        else:
+            _raise_param_error(
+                f"Invalid TTS voice_id for provider '{normalized_provider}': {normalized_voice_id}"
+            )
 
     if cfg.models:
         allowed_models = {

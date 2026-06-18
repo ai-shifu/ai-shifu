@@ -15,6 +15,9 @@ import {
   Volume2,
   Loader2,
   Square,
+  Mic,
+  RotateCw,
+  Trash2,
 } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -77,6 +80,14 @@ import {
   buildAskProviderConfigForSubmit as buildAskProviderConfigBySchema,
 } from '@/components/shifu-setting/ask-provider-schema';
 import AskSettingsSection from '@/components/shifu-setting/AskSettingsSection';
+import MiniMaxVoiceCloneDialog from '@/components/shifu-setting/MiniMaxVoiceCloneDialog';
+import {
+  buildMiniMaxVoiceOptions,
+  isMiniMaxProvider,
+  isValidMiniMaxCustomVoiceId,
+  shouldPreserveCustomMiniMaxVoice,
+  type MiniMaxClonedVoice,
+} from '@/components/shifu-setting/minimax-voice-clone';
 
 interface Shifu {
   description: string;
@@ -209,6 +220,17 @@ export default function ShifuSettingDialog({
   const [ttsPitch, setTtsPitch] = useState<number | null>(0);
   const [ttsPitchInput, setTtsPitchInput] = useState<string>('0');
   const [ttsEmotion, setTtsEmotion] = useState('');
+  const [minimaxClonedVoices, setMinimaxClonedVoices] = useState<
+    MiniMaxClonedVoice[]
+  >([]);
+  const [minimaxCloneCost, setMinimaxCloneCost] = useState<{
+    estimated_credits?: string;
+    available_credits?: string;
+    can_submit?: boolean;
+    billing_enabled?: boolean;
+  } | null>(null);
+  const [minimaxCloneDialogOpen, setMinimaxCloneDialogOpen] = useState(false);
+  const [minimaxManualVoiceId, setMinimaxManualVoiceId] = useState('');
   const ttsProviderToastShownRef = useRef(false);
 
   // Language Output Configuration state
@@ -366,6 +388,8 @@ export default function ShifuSettingDialog({
     speed: { min: number; max: number; step: number; default: number };
     pitch: { min: number; max: number; step: number; default: number };
     supports_emotion: boolean;
+    supports_custom_voice_id?: boolean;
+    supports_voice_cloning?: boolean;
     models: { value: string; label: string }[];
     voices: { value: string; label: string; resource_id?: string }[];
     emotions: { value: string; label: string }[];
@@ -415,6 +439,28 @@ export default function ShifuSettingDialog({
     fetchConfig();
   }, [normalizeAskProviders, normalizeTtsProviders]);
 
+  const refreshMinimaxVoiceData = useCallback(async () => {
+    if (!shifuId) return;
+    try {
+      const [voicesResponse, costResponse] = await Promise.all([
+        api.listMinimaxTtsVoices({ shifu_bid: shifuId }),
+        api.getMinimaxTtsCloneCost({ shifu_bid: shifuId }),
+      ]);
+      const voicesPayload = voicesResponse as { voices?: MiniMaxClonedVoice[] };
+      setMinimaxClonedVoices(voicesPayload?.voices || []);
+      setMinimaxCloneCost(
+        (costResponse as {
+          estimated_credits?: string;
+          available_credits?: string;
+          can_submit?: boolean;
+          billing_enabled?: boolean;
+        }) || null,
+      );
+    } catch (error) {
+      console.error('Failed to fetch MiniMax cloned voices:', error);
+    }
+  }, [shifuId]);
+
   const resolvedProvider = (() => {
     const provider = (ttsProvider || '').trim();
     if (!provider) {
@@ -449,7 +495,49 @@ export default function ShifuSettingDialog({
   const ttsModelOptions = currentProviderConfig?.models || [];
 
   // Get voices for current provider
-  const ttsVoiceOptions = currentProviderConfig?.voices || [];
+  const ttsVoiceOptions = useMemo(
+    () => currentProviderConfig?.voices || [],
+    [currentProviderConfig?.voices],
+  );
+  const isMiniMaxTtsProvider = isMiniMaxProvider(resolvedProvider);
+  const supportsMiniMaxVoiceCloning =
+    isMiniMaxTtsProvider &&
+    currentProviderConfig?.supports_voice_cloning === true;
+  const minimaxStatusLabels = useMemo(
+    () => ({
+      queued: t('module.shifuSetting.minimaxCloneStatus.queued'),
+      processing: t('module.shifuSetting.minimaxCloneStatus.processing'),
+      billing_pending: t(
+        'module.shifuSetting.minimaxCloneStatus.billing_pending',
+      ),
+      failed: t('module.shifuSetting.minimaxCloneStatus.failed'),
+      ready: t('module.shifuSetting.minimaxCloneStatus.ready'),
+    }),
+    [t],
+  );
+  const mergedTtsVoiceOptions = useMemo(() => {
+    if (!isMiniMaxTtsProvider) {
+      return ttsVoiceOptions.map(option => ({
+        ...option,
+        source: 'built_in' as const,
+        disabled: false,
+      }));
+    }
+    return buildMiniMaxVoiceOptions({
+      builtInVoices: ttsVoiceOptions,
+      clonedVoices: minimaxClonedVoices,
+      currentVoiceId: ttsVoiceId,
+      manualLabel: t('module.shifuSetting.minimaxManualVoiceLabel'),
+      statusLabels: minimaxStatusLabels,
+    });
+  }, [
+    isMiniMaxTtsProvider,
+    minimaxClonedVoices,
+    minimaxStatusLabels,
+    t,
+    ttsVoiceId,
+    ttsVoiceOptions,
+  ]);
 
   // Get emotions for current provider
   const ttsEmotionOptions =
@@ -460,6 +548,35 @@ export default function ShifuSettingDialog({
           ...currentProviderConfig.emotions,
         ]
       : [];
+  useEffect(() => {
+    if (!open || !ttsEnabled || !isMiniMaxTtsProvider) {
+      return;
+    }
+    refreshMinimaxVoiceData();
+  }, [isMiniMaxTtsProvider, open, refreshMinimaxVoiceData, ttsEnabled]);
+
+  useEffect(() => {
+    if (!open || !isMiniMaxTtsProvider) {
+      return;
+    }
+    const hasPendingVoice = minimaxClonedVoices.some(voice =>
+      ['queued', 'processing', 'billing_pending'].includes(
+        String(voice.status || ''),
+      ),
+    );
+    if (!hasPendingVoice) {
+      return;
+    }
+    const timer = setInterval(() => {
+      refreshMinimaxVoiceData();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [
+    isMiniMaxTtsProvider,
+    minimaxClonedVoices,
+    open,
+    refreshMinimaxVoiceData,
+  ]);
   const normalizeSpeed = useCallback(
     (value: number) => {
       const min = currentProviderConfig?.speed.min ?? 0.5;
@@ -549,6 +666,19 @@ export default function ShifuSettingDialog({
     [getAskProviderDefaultConfig],
   );
 
+  const applyMinimaxManualVoiceId = useCallback(() => {
+    const normalizedVoiceId = minimaxManualVoiceId.trim();
+    if (!isValidMiniMaxCustomVoiceId(normalizedVoiceId)) {
+      toast({
+        title: t('module.shifuSetting.minimaxManualVoiceInvalid'),
+        variant: 'destructive',
+      });
+      return;
+    }
+    setTtsVoiceId(normalizedVoiceId);
+    setMinimaxManualVoiceId('');
+  }, [minimaxManualVoiceId, t, toast]);
+
   useEffect(() => {
     if (!askConfigMeta?.providers?.length) return;
     const provider = (askProvider || '').trim().toLowerCase();
@@ -635,17 +765,31 @@ export default function ShifuSettingDialog({
       }
     }
 
-    if (provider.voices?.length > 0) {
-      const voiceValues = new Set(provider.voices.map(v => v.value));
-      const fallbackVoice = provider.voices[0]?.value || '';
+    if (provider.voices?.length > 0 || mergedTtsVoiceOptions.length > 0) {
+      const selectableVoiceOptions = mergedTtsVoiceOptions.filter(
+        option => !option.disabled,
+      );
+      const voiceValues = new Set(selectableVoiceOptions.map(v => v.value));
+      const fallbackVoice = selectableVoiceOptions[0]?.value || '';
+      const preserveCustomVoice = shouldPreserveCustomMiniMaxVoice({
+        providerName: provider.name,
+        supportsCustomVoiceId: provider.supports_custom_voice_id,
+        voiceId: ttsVoiceId,
+        builtInVoices: provider.voices || [],
+      });
       if (ttsEnabled) {
-        const nextVoice = voiceValues.has(ttsVoiceId)
-          ? ttsVoiceId
-          : fallbackVoice;
+        const nextVoice =
+          voiceValues.has(ttsVoiceId) || preserveCustomVoice
+            ? ttsVoiceId
+            : fallbackVoice;
         if (nextVoice && nextVoice !== ttsVoiceId) {
           setTtsVoiceId(nextVoice);
         }
-      } else if (ttsVoiceId && !voiceValues.has(ttsVoiceId)) {
+      } else if (
+        ttsVoiceId &&
+        !voiceValues.has(ttsVoiceId) &&
+        !preserveCustomVoice
+      ) {
         setTtsVoiceId('');
       }
     }
@@ -675,6 +819,7 @@ export default function ShifuSettingDialog({
     ttsVoiceId,
     ttsEmotion,
     ttsEnabled,
+    mergedTtsVoiceOptions,
   ]);
   // Define the validation schema using Zod
   const shifuSchema = z.object({
@@ -1868,16 +2013,161 @@ export default function ShifuSettingDialog({
                             />
                           </SelectTrigger>
                           <SelectContent>
-                            {ttsVoiceOptions.map(option => (
+                            {mergedTtsVoiceOptions.map(option => (
                               <SelectItem
                                 key={option.value}
                                 value={option.value}
+                                disabled={option.disabled}
                               >
-                                {option.label}
+                                <span className='flex min-w-0 items-center justify-between gap-2'>
+                                  <span className='truncate'>
+                                    {option.label}
+                                  </span>
+                                  {option.source === 'manual' ? (
+                                    <Badge
+                                      variant='secondary'
+                                      className='shrink-0'
+                                    >
+                                      {t(
+                                        'module.shifuSetting.minimaxManualVoiceBadge',
+                                      )}
+                                    </Badge>
+                                  ) : null}
+                                </span>
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
+
+                        {isMiniMaxTtsProvider &&
+                          currentProviderConfig?.supports_custom_voice_id && (
+                            <div className='flex gap-2'>
+                              <Input
+                                value={minimaxManualVoiceId}
+                                onChange={event =>
+                                  setMinimaxManualVoiceId(event.target.value)
+                                }
+                                placeholder={t(
+                                  'module.shifuSetting.minimaxManualVoicePlaceholder',
+                                )}
+                                disabled={currentShifu?.readonly}
+                                className='h-9 flex-1'
+                              />
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='sm'
+                                onClick={applyMinimaxManualVoiceId}
+                                disabled={currentShifu?.readonly}
+                              >
+                                {t(
+                                  'module.shifuSetting.minimaxManualVoiceApply',
+                                )}
+                              </Button>
+                            </div>
+                          )}
+
+                        {supportsMiniMaxVoiceCloning && (
+                          <div className='space-y-2 rounded-md border p-3'>
+                            <div className='flex items-center justify-between gap-2'>
+                              <div className='min-w-0'>
+                                <p className='text-sm font-medium'>
+                                  {t(
+                                    'module.shifuSetting.minimaxCloneSectionTitle',
+                                  )}
+                                </p>
+                                <p className='truncate text-xs text-muted-foreground'>
+                                  {minimaxCloneCost?.estimated_credits &&
+                                  minimaxCloneCost.estimated_credits !== '0'
+                                    ? t(
+                                        'module.shifuSetting.minimaxCloneCostCredits',
+                                        {
+                                          credits:
+                                            minimaxCloneCost.estimated_credits,
+                                        },
+                                      )
+                                    : t(
+                                        'module.shifuSetting.minimaxCloneCostFree',
+                                      )}
+                                </p>
+                              </div>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='sm'
+                                onClick={() => setMinimaxCloneDialogOpen(true)}
+                                disabled={currentShifu?.readonly}
+                              >
+                                <Mic className='mr-2 h-4 w-4' />
+                                {t('module.shifuSetting.minimaxCloneCreate')}
+                              </Button>
+                            </div>
+
+                            {minimaxClonedVoices.length > 0 && (
+                              <div className='space-y-2'>
+                                {minimaxClonedVoices.map(voice => (
+                                  <div
+                                    key={voice.voice_bid}
+                                    className='flex items-center justify-between gap-2 text-sm'
+                                  >
+                                    <div className='min-w-0'>
+                                      <p className='truncate'>
+                                        {voice.display_name || voice.voice_id}
+                                      </p>
+                                      <p className='truncate text-xs text-muted-foreground'>
+                                        {voice.voice_id}
+                                      </p>
+                                    </div>
+                                    <div className='flex shrink-0 items-center gap-1'>
+                                      <Badge variant='secondary'>
+                                        {t(
+                                          `module.shifuSetting.minimaxCloneStatus.${voice.status}`,
+                                        )}
+                                      </Badge>
+                                      {voice.status === 'failed' && (
+                                        <Button
+                                          type='button'
+                                          variant='ghost'
+                                          size='icon'
+                                          className='h-7 w-7'
+                                          onClick={async () => {
+                                            await api.retryMinimaxTtsVoice({
+                                              voice_bid: voice.voice_bid,
+                                            });
+                                            refreshMinimaxVoiceData();
+                                          }}
+                                          disabled={currentShifu?.readonly}
+                                        >
+                                          <RotateCw className='h-4 w-4' />
+                                        </Button>
+                                      )}
+                                      <Button
+                                        type='button'
+                                        variant='ghost'
+                                        size='icon'
+                                        className='h-7 w-7'
+                                        onClick={async () => {
+                                          await api.deleteMinimaxTtsVoice({
+                                            voice_bid: voice.voice_bid,
+                                          });
+                                          if (ttsVoiceId === voice.voice_id) {
+                                            setTtsVoiceId(
+                                              ttsVoiceOptions[0]?.value || '',
+                                            );
+                                          }
+                                          refreshMinimaxVoiceData();
+                                        }}
+                                        disabled={currentShifu?.readonly}
+                                      >
+                                        <Trash2 className='h-4 w-4' />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Speed Adjustment */}
@@ -2180,6 +2470,30 @@ export default function ShifuSettingDialog({
           </Form>
         </SheetContent>
       </Sheet>
+      <MiniMaxVoiceCloneDialog
+        open={minimaxCloneDialogOpen}
+        onOpenChange={setMinimaxCloneDialogOpen}
+        shifuId={shifuId}
+        cloneCost={minimaxCloneCost}
+        onRefreshCost={refreshMinimaxVoiceData}
+        onVoiceChange={voice => {
+          setMinimaxClonedVoices(prev => {
+            const next = prev.filter(
+              item => item.voice_bid !== voice.voice_bid,
+            );
+            return [voice, ...next];
+          });
+        }}
+        onVoiceReady={voice => {
+          setTtsVoiceId(voice.voice_id);
+          setMinimaxClonedVoices(prev => {
+            const next = prev.filter(
+              item => item.voice_bid !== voice.voice_bid,
+            );
+            return [voice, ...next];
+          });
+        }}
+      />
     </>
   );
 }
