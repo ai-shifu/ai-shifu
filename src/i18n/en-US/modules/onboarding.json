@@ -40,9 +40,6 @@
   "common": {
     "continue": "Click anywhere to continue"
   },
-  "guideCourseFallback": {
-    "title": "AI-Shifu Creation Guide"
-  },
   "courseEditor": {
     "debug": {
       "description": "Use this to inspect the course output generated from the current prompt before publishing.",
@@ -76,5 +73,8 @@
       "description": "Use course settings to configure the model, listen mode, and pricing.",
       "title": "Start by opening course settings here"
     }
+  },
+  "guideCourseFallback": {
+    "title": "AI-Shifu Creation Guide"
   }
 }

@@ -40,9 +40,6 @@
   "common": {
     "continue": "Cliquez n'importe où pour continuer"
   },
-  "guideCourseFallback": {
-    "title": "Guide de creation AI Shifu"
-  },
   "courseEditor": {
     "debug": {
       "description": "Utilisez ce bouton pour verifier le rendu genere a partir du prompt actuel avant publication.",
@@ -76,5 +73,8 @@
       "description": "Utilisez les parametres du cours pour regler le modele, le mode ecoute et le prix.",
       "title": "Ouvrez ici les parametres du cours"
     }
+  },
+  "guideCourseFallback": {
+    "title": "Guide de creation AI Shifu"
   }
 }

@@ -40,9 +40,6 @@
   "common": {
     "continue": "点击屏幕任意位置继续"
   },
-  "guideCourseFallback": {
-    "title": "AI 师傅教学引导"
-  },
   "courseEditor": {
     "debug": {
       "description": "点击后可以查看当前提示词生成的课程输出，发布前先确认效果。",
@@ -76,5 +73,8 @@
       "description": "课程设置里可以配置模型、听课模式和价格等关键内容。",
       "title": "先从这里打开课程设置"
     }
+  },
+  "guideCourseFallback": {
+    "title": "AI 师傅教学引导"
   }
 }
