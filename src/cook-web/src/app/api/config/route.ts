@@ -21,7 +21,18 @@ export async function GET(request: Request) {
         .split(',')[0]
         .trim()
         .toLowerCase();
-      if (requestHost && requestHost !== configuredHost) {
+      // Local development serves the frontend on localhost while pointing at a
+      // remote API (e.g. dev.sh sets NEXT_PUBLIC_API_BASE_URL to a remote
+      // host). There is no same-origin /api proxy on localhost, so always
+      // return the configured absolute base instead of treating the host
+      // mismatch as a white-label domain.
+      const requestHostname = requestHost.split(':')[0];
+      const isLocalhost =
+        requestHostname === 'localhost' ||
+        requestHostname === '127.0.0.1' ||
+        requestHostname === '0.0.0.0' ||
+        requestHostname === '::1';
+      if (!isLocalhost && requestHost && requestHost !== configuredHost) {
         return NextResponse.json({ apiBaseUrl: '' });
       }
     } catch {
