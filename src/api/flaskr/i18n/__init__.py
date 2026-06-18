@@ -263,8 +263,15 @@ def load_translations(app: Flask, translations_dir=None):
 
 def translate_for_language(text: str, language: str | None = None):
     language = language or getattr(_thread_local, "language", "en-US")
-    translations = _translations.get(language) or _translations.get("en-US", {})
-    return translations.get(text) or translations.get(text.upper(), text)
+    translations = _translations.get(language) or {}
+    default_translations = _translations.get("en-US", {})
+    return (
+        translations.get(text)
+        or translations.get(text.upper())
+        or default_translations.get(text)
+        or default_translations.get(text.upper())
+        or text
+    )
 
 
 def _(text: str):
