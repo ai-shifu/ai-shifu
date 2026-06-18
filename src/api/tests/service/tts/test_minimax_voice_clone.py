@@ -220,6 +220,52 @@ def test_minimax_upload_file_accepts_official_file_response(monkeypatch) -> None
     assert result.extra_info["purpose"] == "voice_clone"
 
 
+def test_minimax_clone_voice_sends_numeric_file_id(monkeypatch) -> None:
+    from flaskr.service.tts import minimax_voice_clone
+    from flaskr.service.tts.minimax_voice_clone import MiniMaxVoiceCloneClient
+
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "get_config",
+        lambda key: {
+            "MINIMAX_API_KEY": "test-api-key",
+            "MINIMAX_GROUP_ID": "test-group",
+        }.get(key, ""),
+    )
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "input_sensitive": False,
+                "demo_audio": "https://example.test/demo.mp3",
+                "extra_info": {"usage_characters": 10},
+                "base_resp": {"status_code": 0, "status_msg": "success"},
+            }
+
+    def fake_post(url, headers, json, timeout):
+        assert url.endswith("/v1/voice_clone?GroupId=test-group")
+        assert headers["Authorization"] == "Bearer test-api-key"
+        assert headers["Content-Type"] == "application/json"
+        assert json["file_id"] == 123456789012345680
+        assert isinstance(json["file_id"], int)
+        assert json["voice_id"] == "AiShifu_teacher_1"
+        assert timeout == (10, 120)
+        return FakeResponse()
+
+    monkeypatch.setattr(minimax_voice_clone.requests, "post", fake_post)
+
+    result = MiniMaxVoiceCloneClient().clone_voice(
+        file_id="123456789012345680",
+        voice_id="AiShifu_teacher_1",
+    )
+
+    assert result.voice_id == "AiShifu_teacher_1"
+    assert result.demo_audio == "https://example.test/demo.mp3"
+
+
 def test_run_minimax_voice_clone_success_captures_credit_once(
     minimax_clone_app: Flask,
     monkeypatch,

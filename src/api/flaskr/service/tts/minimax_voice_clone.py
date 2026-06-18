@@ -214,13 +214,15 @@ class MiniMaxVoiceCloneClient:
         preview_model: str = MINIMAX_CLONE_PREVIEW_MODEL,
     ) -> MiniMaxVoiceCloneResult:
         payload: dict[str, Any] = {
-            "file_id": file_id,
+            "file_id": _minimax_file_id_payload(file_id),
             "voice_id": voice_id,
             "text": preview_text,
             "model": preview_model,
         }
         if prompt_file_id:
-            payload["clone_prompt"] = {"prompt_audio": prompt_file_id}
+            payload["clone_prompt"] = {
+                "prompt_audio": _minimax_file_id_payload(prompt_file_id)
+            }
 
         response = requests.post(
             _with_group_id(MINIMAX_VOICE_CLONE_URL, self.group_id),
@@ -1101,6 +1103,13 @@ def _with_group_id(url: str, group_id: str) -> str:
         return url
     separator = "&" if "?" in url else "?"
     return f"{url}{separator}{urlencode({'GroupId': group_id})}"
+
+
+def _minimax_file_id_payload(file_id: str) -> int | str:
+    normalized = str(file_id or "").strip()
+    if normalized.isdigit():
+        return int(normalized)
+    return normalized
 
 
 def _format_minimax_error(
