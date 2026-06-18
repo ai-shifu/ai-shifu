@@ -6,7 +6,9 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import ScriptEditor, { resolveEditorOnboardingTriggerSource } from './ShifuEdit';
+import ScriptEditor, {
+  resolveEditorOnboardingTriggerSource,
+} from './ShifuEdit';
 
 const refreshLabel = 'refresh';
 const mockMarkdownFlowEditor = jest.fn();
@@ -340,7 +342,9 @@ describe('ShifuEdit draft conflict checks', () => {
   test('defaults editor onboarding trigger source for direct editor entry', () => {
     expect(resolveEditorOnboardingTriggerSource(null)).toBe('editor_entry');
     expect(resolveEditorOnboardingTriggerSource('')).toBe('editor_entry');
-    expect(resolveEditorOnboardingTriggerSource('unknown')).toBe('editor_entry');
+    expect(resolveEditorOnboardingTriggerSource('unknown')).toBe(
+      'editor_entry',
+    );
     expect(resolveEditorOnboardingTriggerSource('manual_create')).toBe(
       'manual_create',
     );
