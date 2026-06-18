@@ -275,6 +275,123 @@ def test_run_minimax_voice_clone_success_captures_credit_once(
         assert usage.extra["usage_source"] == "minimax_voice_clone"
 
 
+def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misses(
+    minimax_clone_app: Flask,
+    monkeypatch,
+) -> None:
+    from flaskr.service.resource.models import Resource
+    from flaskr.service.tts import minimax_voice_clone
+    from flaskr.service.tts.minimax_voice_clone import (
+        TTS_MINIMAX_CLONE_STATUS_READY,
+        run_minimax_voice_clone,
+        submit_minimax_voice_clone,
+    )
+    from flaskr.service.tts.models import TTSMiniMaxClonedVoice
+
+    _seed_course_wallet_and_rate(minimax_clone_app)
+    stored_objects: dict[str, bytes] = {}
+    read_calls: list[tuple[str, str]] = []
+
+    def fake_upload_to_storage(_app, *, file_content, object_key, **_kwargs):
+        if hasattr(file_content, "seek"):
+            file_content.seek(0)
+        stored_objects[object_key] = file_content.read()
+        return SimpleNamespace(
+            bucket="resource-bucket",
+            object_key=object_key,
+            url=f"https://cdn.example/{object_key}",
+        )
+
+    def fake_read_storage_bytes(*, object_key, profile, bucket_name):
+        read_calls.append((object_key, bucket_name))
+        return stored_objects[object_key]
+
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone._enqueue_minimax_clone_task",
+        lambda _app, *, voice_bid: True,
+    )
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "upload_to_storage",
+        fake_upload_to_storage,
+    )
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "read_storage_bytes",
+        fake_read_storage_bytes,
+    )
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "normalize_audio_blob",
+        lambda data, filename, purpose: SimpleNamespace(
+            audio_bytes=b"WAV",
+            duration_ms=12_000,
+            extension="wav",
+            content_type="audio/wav",
+        ),
+    )
+
+    class FakeClient:
+        def upload_clone_audio(self, audio_bytes, filename, content_type):
+            assert audio_bytes == b"WAV"
+            return SimpleNamespace(file_id="file-source")
+
+        def upload_prompt_audio(self, audio_bytes, filename, content_type):
+            raise AssertionError("prompt upload should not be called")
+
+        def clone_voice(self, **kwargs):
+            return SimpleNamespace(
+                voice_id=kwargs["voice_id"],
+                demo_audio="https://example.test/demo.mp3",
+                status_code=0,
+                status_msg="success",
+                input_sensitive=False,
+                input_sensitive_type=None,
+                extra_info={},
+                trace_id="trace-storage",
+            )
+
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "MiniMaxVoiceCloneClient",
+        lambda: FakeClient(),
+    )
+
+    submitted = submit_minimax_voice_clone(
+        minimax_clone_app,
+        owner_user_bid="creator-1",
+        shifu_bid="shifu-1",
+        display_name="Teacher Voice",
+        voice_id="AiShifu_teacher_storage_1",
+        source_audio_bytes=b"RAW-FROM-API",
+        source_filename="recording.webm",
+        source_content_type="audio/webm",
+        source_capture_method="recording",
+    )
+
+    with minimax_clone_app.app_context():
+        row = TTSMiniMaxClonedVoice.query.filter_by(voice_bid=submitted.voice_bid).one()
+        resource = Resource.query.filter_by(
+            resource_id=row.source_audio_resource_bid
+        ).one()
+        source_object_key = resource.oss_name
+        minimax_voice_clone._PENDING_AUDIO_BLOBS.pop(resource.resource_id, None)
+        minimax_voice_clone._temp_resource_path(resource.resource_id).unlink(
+            missing_ok=True
+        )
+
+    result = run_minimax_voice_clone(
+        minimax_clone_app,
+        voice_bid=submitted.voice_bid,
+    )
+
+    assert result.status == "ready"
+    with minimax_clone_app.app_context():
+        row = TTSMiniMaxClonedVoice.query.filter_by(voice_bid=submitted.voice_bid).one()
+        assert row.status == TTS_MINIMAX_CLONE_STATUS_READY
+        assert read_calls[0] == (source_object_key, "resource-bucket")
+
+
 def test_run_minimax_voice_clone_releases_credit_on_normalization_failure(
     minimax_clone_app: Flask,
     monkeypatch,
@@ -331,3 +448,80 @@ def test_run_minimax_voice_clone_releases_credit_on_normalization_failure(
         assert "too short" in row.status_msg
         assert wallet.available_credits == Decimal("10.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
+
+
+def test_retry_minimax_voice_clone_re_reserves_after_released_failure(
+    minimax_clone_app: Flask,
+    monkeypatch,
+) -> None:
+    from flaskr.service.tts import minimax_voice_clone
+    from flaskr.service.tts.minimax_voice_clone import (
+        retry_minimax_voice_clone,
+        run_minimax_voice_clone,
+        submit_minimax_voice_clone,
+    )
+    from flaskr.service.tts.models import TTSMiniMaxClonedVoice
+
+    _seed_course_wallet_and_rate(minimax_clone_app)
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "_enqueue_minimax_clone_task",
+        lambda _app, *, voice_bid: True,
+    )
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "_store_resource_bytes",
+        lambda app, **kwargs: SimpleNamespace(
+            resource_bid=f"res-{kwargs['resource_kind']}",
+            url=f"/resource/{kwargs['resource_kind']}",
+            object_key=f"key/{kwargs['resource_kind']}",
+        ),
+    )
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "_delete_resource_object",
+        lambda app, resource_bid: None,
+    )
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "normalize_audio_blob",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("too short")),
+    )
+
+    submitted = submit_minimax_voice_clone(
+        minimax_clone_app,
+        owner_user_bid="creator-1",
+        shifu_bid="shifu-1",
+        display_name="Teacher Voice",
+        voice_id="AiShifu_teacher_retry_1",
+        source_audio_bytes=b"RAW",
+        source_filename="recording.webm",
+        source_content_type="audio/webm",
+        source_capture_method="recording",
+    )
+    result = run_minimax_voice_clone(minimax_clone_app, voice_bid=submitted.voice_bid)
+    assert result.status == "failed"
+
+    with minimax_clone_app.app_context():
+        failed = TTSMiniMaxClonedVoice.query.filter_by(
+            voice_bid=submitted.voice_bid
+        ).one()
+        released_reservation_bid = failed.billing_reservation_bid
+        assert failed.billing_status == "released"
+
+    retried = retry_minimax_voice_clone(
+        minimax_clone_app,
+        owner_user_bid="creator-1",
+        voice_bid=submitted.voice_bid,
+    )
+
+    assert retried["status"] == "queued"
+    with minimax_clone_app.app_context():
+        row = TTSMiniMaxClonedVoice.query.filter_by(voice_bid=submitted.voice_bid).one()
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+        assert row.retry_count == 1
+        assert row.billing_status == "reserved"
+        assert row.billing_reservation_bid
+        assert row.billing_reservation_bid != released_reservation_bid
+        assert wallet.available_credits == Decimal("7.0000000000")
+        assert wallet.reserved_credits == Decimal("3.0000000000")

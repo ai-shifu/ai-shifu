@@ -39,7 +39,7 @@ from flaskr.service.billing.api import (
 )
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
-from flaskr.service.common.storage import get_local_storage_path, upload_to_storage
+from flaskr.service.common.storage import read_storage_bytes, upload_to_storage
 from flaskr.service.metering.api import UsageContext, record_tts_usage
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.resource.models import Resource
@@ -578,6 +578,7 @@ def retry_minimax_voice_clone(
             TTS_MINIMAX_CLONE_STATUS_BILLING_PENDING,
         }:
             raise_param_error("voice is not retryable")
+        _prepare_retry_billing(app, row)
         row.status = TTS_MINIMAX_CLONE_STATUS_QUEUED
         row.status_msg = ""
         row.failure_reason = ""
@@ -842,6 +843,55 @@ def _mark_clone_failed(
         _cleanup_raw_resources(app, row)
 
 
+def _prepare_retry_billing(app: Flask, row: TTSMiniMaxClonedVoice) -> None:
+    estimate = estimate_voice_clone_operation_credits(app)
+    billing_enabled = is_billing_enabled()
+    should_bill = billing_enabled and estimate.consumed_credits > _ZERO()
+    if not should_bill:
+        row.billing_status = TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
+        row.estimated_credits = estimate.consumed_credits
+        row.billing_reservation_bid = ""
+        row.billing_ledger_bid = ""
+        row.charged_credits = _ZERO()
+        return
+
+    if (
+        row.billing_reservation_bid
+        and row.billing_status != TTS_MINIMAX_CLONE_BILLING_RELEASED
+    ):
+        row.estimated_credits = estimate.consumed_credits
+        return
+
+    admit_creator_usage(
+        app,
+        creator_bid=row.owner_user_bid,
+        shifu_bid=row.shifu_bid,
+        usage_scene=BILL_USAGE_SCENE_PREVIEW,
+    )
+    operation_bid = (
+        generate_id(app)
+        if row.billing_reservation_bid
+        else str(row.voice_bid or "").strip()
+    )
+    reservation = reserve_operation_credits(
+        app,
+        creator_bid=row.owner_user_bid,
+        amount=estimate.consumed_credits,
+        operation_type="voice_clone",
+        operation_bid=operation_bid,
+        metadata={
+            "voice_bid": row.voice_bid,
+            "voice_id": row.voice_id,
+            "retry_count": int(row.retry_count or 0) + 1,
+        },
+    )
+    row.billing_status = TTS_MINIMAX_CLONE_BILLING_RESERVED
+    row.estimated_credits = estimate.consumed_credits
+    row.charged_credits = _ZERO()
+    row.billing_reservation_bid = reservation.reservation_bid
+    row.billing_ledger_bid = reservation.ledger_bid
+
+
 def _load_voice_row(voice_bid: str) -> TTSMiniMaxClonedVoice:
     row = (
         TTSMiniMaxClonedVoice.query.filter(TTSMiniMaxClonedVoice.voice_bid == voice_bid)
@@ -942,9 +992,11 @@ def _read_resource_bytes(resource_bid: str) -> bytes:
     resource = Resource.query.filter(Resource.resource_id == normalized).first()
     if resource is not None and resource.oss_name:
         try:
-            path = get_local_storage_path(OSS_PROFILE_COURSES, resource.oss_name)
-            if path.exists():
-                return path.read_bytes()
+            return read_storage_bytes(
+                profile=OSS_PROFILE_COURSES,
+                object_key=resource.oss_name,
+                bucket_name=resource.oss_bucket or "",
+            )
         except Exception:
             pass
     raise ValueError("source audio is no longer available")
