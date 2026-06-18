@@ -20,7 +20,15 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 
-import type { MiniMaxClonedVoice } from './minimax-voice-clone';
+import {
+  MINIMAX_PROMPT_MAX_SECONDS,
+  MINIMAX_SOURCE_MAX_SECONDS,
+  MINIMAX_SOURCE_MIN_SECONDS,
+  MINIMAX_SUPPORTED_UPLOAD_TYPES,
+  getMiniMaxCloneSubmitBlockReason,
+  type MiniMaxCloneSubmitBlockReason,
+  type MiniMaxClonedVoice,
+} from './minimax-voice-clone';
 
 interface MiniMaxCloneCost {
   estimated_credits?: string;
@@ -38,11 +46,6 @@ interface MiniMaxVoiceCloneDialogProps {
   onVoiceChange: (voice: MiniMaxClonedVoice) => void;
   onVoiceReady: (voice: MiniMaxClonedVoice) => void;
 }
-
-const SOURCE_MIN_SECONDS = 10;
-const SOURCE_MAX_SECONDS = 300;
-const PROMPT_MAX_SECONDS = 8;
-const SUPPORTED_UPLOAD_TYPES = '.mp3,.m4a,.wav';
 
 export default function MiniMaxVoiceCloneDialog({
   open,
@@ -78,18 +81,49 @@ export default function MiniMaxVoiceCloneDialog({
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const sourceReady = useMemo(() => {
-    if (!sourceFile) return false;
-    if (sourceCaptureMethod === 'upload') return true;
-    return sourceElapsed >= SOURCE_MIN_SECONDS;
-  }, [sourceCaptureMethod, sourceElapsed, sourceFile]);
+  const submitBlockReason = useMemo(
+    () =>
+      getMiniMaxCloneSubmitBlockReason({
+        sourceFileSelected: Boolean(sourceFile),
+        sourceCaptureMethod,
+        sourceElapsed,
+        recordingKind,
+        submitting,
+        cloneInProgress: Boolean(pollingVoice),
+        canSubmitByCredits: cloneCost?.can_submit !== false,
+      }),
+    [
+      cloneCost?.can_submit,
+      pollingVoice,
+      recordingKind,
+      sourceCaptureMethod,
+      sourceElapsed,
+      sourceFile,
+      submitting,
+    ],
+  );
 
-  const canSubmit =
-    Boolean(displayName.trim()) &&
-    sourceReady &&
-    !submitting &&
-    !recordingKind &&
-    cloneCost?.can_submit !== false;
+  const canSubmit = submitBlockReason === null;
+  const sourceMaxMinutes = Math.floor(MINIMAX_SOURCE_MAX_SECONDS / 60);
+
+  const sourceStatusText =
+    sourceCaptureMethod === 'upload' && sourceFile
+      ? t('module.shifuSetting.minimaxCloneUploadReady')
+      : t('module.shifuSetting.minimaxCloneSeconds', {
+          seconds: sourceElapsed,
+        });
+  const promptStatusText =
+    promptFile && promptElapsed === 0
+      ? t('module.shifuSetting.minimaxCloneUploadReady')
+      : t('module.shifuSetting.minimaxCloneSeconds', {
+          seconds: promptElapsed,
+        });
+  const submitBlockText = getSubmitBlockText({
+    reason: submitBlockReason,
+    currentSeconds: sourceElapsed,
+    minSeconds: MINIMAX_SOURCE_MIN_SECONDS,
+    t,
+  });
 
   const costText =
     cloneCost?.estimated_credits && cloneCost.estimated_credits !== '0'
@@ -180,7 +214,7 @@ export default function MiniMaxVoiceCloneDialog({
           setSourceElapsed(elapsed);
         } else {
           setPromptFile(file);
-          setPromptElapsed(Math.min(elapsed, PROMPT_MAX_SECONDS));
+          setPromptElapsed(Math.min(elapsed, MINIMAX_PROMPT_MAX_SECONDS));
         }
       };
       recorder.start();
@@ -191,12 +225,12 @@ export default function MiniMaxVoiceCloneDialog({
         );
         if (kind === 'source') {
           setSourceElapsed(elapsed);
-          if (elapsed >= SOURCE_MAX_SECONDS) {
+          if (elapsed >= MINIMAX_SOURCE_MAX_SECONDS) {
             stopRecording();
           }
         } else {
-          setPromptElapsed(Math.min(elapsed, PROMPT_MAX_SECONDS));
-          if (elapsed >= PROMPT_MAX_SECONDS) {
+          setPromptElapsed(Math.min(elapsed, MINIMAX_PROMPT_MAX_SECONDS));
+          if (elapsed >= MINIMAX_PROMPT_MAX_SECONDS) {
             stopRecording();
           }
         }
@@ -243,8 +277,16 @@ export default function MiniMaxVoiceCloneDialog({
     setErrorMessage('');
     try {
       const formData = new FormData();
+      const normalizedDisplayName =
+        displayName.trim() ||
+        buildDefaultCloneDisplayName(
+          t('module.shifuSetting.minimaxCloneDefaultDisplayName'),
+        );
       formData.append('shifu_bid', shifuId);
-      formData.append('display_name', displayName.trim());
+      formData.append('display_name', normalizedDisplayName);
+      if (!displayName.trim()) {
+        setDisplayName(normalizedDisplayName);
+      }
       if (voiceId.trim()) {
         formData.append('voice_id', voiceId.trim());
       }
@@ -327,7 +369,13 @@ export default function MiniMaxVoiceCloneDialog({
               value={displayName}
               maxLength={64}
               onChange={event => setDisplayName(event.target.value)}
+              placeholder={t(
+                'module.shifuSetting.minimaxCloneDisplayNamePlaceholder',
+              )}
             />
+            <p className='text-xs leading-5 text-muted-foreground'>
+              {t('module.shifuSetting.minimaxCloneDisplayNameHint')}
+            </p>
           </div>
 
           <div className='space-y-2'>
@@ -349,14 +397,19 @@ export default function MiniMaxVoiceCloneDialog({
               <label className='text-sm font-medium'>
                 {t('module.shifuSetting.minimaxCloneSourceAudio')}
               </label>
-              <Badge variant='secondary'>
-                {sourceCaptureMethod === 'recording'
-                  ? t('module.shifuSetting.minimaxCloneSeconds', {
-                      seconds: sourceElapsed,
-                    })
-                  : t('module.shifuSetting.minimaxCloneUploadMode')}
-              </Badge>
+              <div className='flex items-center gap-2'>
+                <Badge variant='secondary'>
+                  {t('module.shifuSetting.minimaxCloneRequired')}
+                </Badge>
+                <Badge variant='secondary'>{sourceStatusText}</Badge>
+              </div>
             </div>
+            <p className='text-xs leading-5 text-muted-foreground'>
+              {t('module.shifuSetting.minimaxCloneSourceAudioDescription', {
+                maxMinutes: sourceMaxMinutes,
+                minSeconds: MINIMAX_SOURCE_MIN_SECONDS,
+              })}
+            </p>
             <div className='grid grid-cols-2 gap-2'>
               <Button
                 type='button'
@@ -390,7 +443,7 @@ export default function MiniMaxVoiceCloneDialog({
             <input
               id='minimax-source-upload'
               type='file'
-              accept={SUPPORTED_UPLOAD_TYPES}
+              accept={MINIMAX_SUPPORTED_UPLOAD_TYPES}
               className='hidden'
               onChange={event => {
                 const file = event.target.files?.[0] || null;
@@ -403,7 +456,9 @@ export default function MiniMaxVoiceCloneDialog({
             />
             {sourceFile ? (
               <p className='truncate text-xs text-muted-foreground'>
-                {sourceFile.name}
+                {t('module.shifuSetting.minimaxCloneAudioSelected', {
+                  name: sourceFile.name,
+                })}
               </p>
             ) : null}
           </div>
@@ -413,12 +468,18 @@ export default function MiniMaxVoiceCloneDialog({
               <label className='text-sm font-medium'>
                 {t('module.shifuSetting.minimaxClonePromptAudio')}
               </label>
-              <Badge variant='secondary'>
-                {t('module.shifuSetting.minimaxCloneSeconds', {
-                  seconds: promptElapsed,
-                })}
-              </Badge>
+              <div className='flex items-center gap-2'>
+                <Badge variant='outline'>
+                  {t('module.shifuSetting.minimaxCloneOptional')}
+                </Badge>
+                <Badge variant='secondary'>{promptStatusText}</Badge>
+              </div>
             </div>
+            <p className='text-xs leading-5 text-muted-foreground'>
+              {t('module.shifuSetting.minimaxClonePromptAudioDescription', {
+                seconds: MINIMAX_PROMPT_MAX_SECONDS,
+              })}
+            </p>
             <div className='grid grid-cols-2 gap-2'>
               <Button
                 type='button'
@@ -452,7 +513,7 @@ export default function MiniMaxVoiceCloneDialog({
             <input
               id='minimax-prompt-upload'
               type='file'
-              accept={SUPPORTED_UPLOAD_TYPES}
+              accept={MINIMAX_SUPPORTED_UPLOAD_TYPES}
               className='hidden'
               onChange={event => {
                 const file = event.target.files?.[0] || null;
@@ -464,7 +525,9 @@ export default function MiniMaxVoiceCloneDialog({
             />
             {promptFile ? (
               <p className='truncate text-xs text-muted-foreground'>
-                {promptFile.name}
+                {t('module.shifuSetting.minimaxCloneAudioSelected', {
+                  name: promptFile.name,
+                })}
               </p>
             ) : null}
           </div>
@@ -491,6 +554,12 @@ export default function MiniMaxVoiceCloneDialog({
 
           {errorMessage ? (
             <p className='text-sm text-destructive'>{errorMessage}</p>
+          ) : null}
+
+          {submitBlockText ? (
+            <p className='text-xs leading-5 text-muted-foreground'>
+              {submitBlockText}
+            </p>
           ) : null}
         </div>
 
@@ -526,4 +595,49 @@ function pickRecordingMimeType(): string {
     'audio/wav',
   ];
   return candidates.find(type => MediaRecorder.isTypeSupported(type)) || '';
+}
+
+function buildDefaultCloneDisplayName(prefix: string): string {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const stamp = `${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(
+    now.getHours(),
+  )}:${pad(now.getMinutes())}`;
+  return `${prefix} ${stamp}`.trim();
+}
+
+function getSubmitBlockText({
+  reason,
+  currentSeconds,
+  minSeconds,
+  t,
+}: {
+  reason: MiniMaxCloneSubmitBlockReason;
+  currentSeconds: number;
+  minSeconds: number;
+  t: ReturnType<typeof useTranslation>['t'];
+}): string {
+  switch (reason) {
+    case 'clone_in_progress':
+      return t('module.shifuSetting.minimaxCloneSubmitReasonCloneInProgress');
+    case 'insufficient_credits':
+      return t(
+        'module.shifuSetting.minimaxCloneSubmitReasonInsufficientCredits',
+      );
+    case 'missing_source_audio':
+      return t('module.shifuSetting.minimaxCloneSubmitReasonMissingSource', {
+        seconds: minSeconds,
+      });
+    case 'recording_in_progress':
+      return t('module.shifuSetting.minimaxCloneSubmitReasonRecording');
+    case 'source_recording_too_short':
+      return t('module.shifuSetting.minimaxCloneSubmitReasonSourceTooShort', {
+        currentSeconds,
+        minSeconds,
+      });
+    case 'submitting':
+      return t('module.shifuSetting.minimaxCloneSubmitReasonSubmitting');
+    default:
+      return '';
+  }
 }

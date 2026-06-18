@@ -1,5 +1,6 @@
 import {
   buildMiniMaxVoiceOptions,
+  getMiniMaxCloneSubmitBlockReason,
   isValidMiniMaxCustomVoiceId,
   shouldPreserveCustomMiniMaxVoice,
 } from './minimax-voice-clone';
@@ -78,5 +79,59 @@ describe('minimax voice clone helpers', () => {
       source: 'manual',
       disabled: false,
     });
+  });
+
+  it('allows clone submission once source recording is long enough', () => {
+    expect(
+      getMiniMaxCloneSubmitBlockReason({
+        sourceFileSelected: true,
+        sourceCaptureMethod: 'recording',
+        sourceElapsed: 12,
+        recordingKind: null,
+        submitting: false,
+        cloneInProgress: false,
+        canSubmitByCredits: true,
+      }),
+    ).toBeNull();
+  });
+
+  it('explains source audio submission blockers', () => {
+    expect(
+      getMiniMaxCloneSubmitBlockReason({
+        sourceFileSelected: false,
+        sourceCaptureMethod: 'recording',
+        sourceElapsed: 0,
+        recordingKind: null,
+        submitting: false,
+        cloneInProgress: false,
+        canSubmitByCredits: true,
+      }),
+    ).toBe('missing_source_audio');
+
+    expect(
+      getMiniMaxCloneSubmitBlockReason({
+        sourceFileSelected: true,
+        sourceCaptureMethod: 'recording',
+        sourceElapsed: 8,
+        recordingKind: null,
+        submitting: false,
+        cloneInProgress: false,
+        canSubmitByCredits: true,
+      }),
+    ).toBe('source_recording_too_short');
+  });
+
+  it('blocks duplicate submission while a clone job is polling', () => {
+    expect(
+      getMiniMaxCloneSubmitBlockReason({
+        sourceFileSelected: true,
+        sourceCaptureMethod: 'upload',
+        sourceElapsed: 0,
+        recordingKind: null,
+        submitting: false,
+        cloneInProgress: true,
+        canSubmitByCredits: true,
+      }),
+    ).toBe('clone_in_progress');
   });
 });

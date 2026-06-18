@@ -33,6 +33,20 @@ export interface MiniMaxVoiceOption extends TTSVoiceOptionBase {
   disabled?: boolean;
 }
 
+export const MINIMAX_SOURCE_MIN_SECONDS = 10;
+export const MINIMAX_SOURCE_MAX_SECONDS = 300;
+export const MINIMAX_PROMPT_MAX_SECONDS = 8;
+export const MINIMAX_SUPPORTED_UPLOAD_TYPES = '.mp3,.m4a,.wav';
+
+export type MiniMaxCloneSubmitBlockReason =
+  | 'clone_in_progress'
+  | 'insufficient_credits'
+  | 'missing_source_audio'
+  | 'recording_in_progress'
+  | 'source_recording_too_short'
+  | 'submitting'
+  | null;
+
 const MINIMAX_CUSTOM_VOICE_ID_PATTERN =
   /^[A-Za-z](?=.{7,63}$)[A-Za-z0-9_-]*[A-Za-z0-9]$/;
 
@@ -135,4 +149,51 @@ export function buildMiniMaxVoiceOptions({
   }
 
   return options;
+}
+
+export function getMiniMaxCloneSubmitBlockReason({
+  sourceFileSelected,
+  sourceCaptureMethod,
+  sourceElapsed,
+  recordingKind,
+  submitting,
+  cloneInProgress,
+  canSubmitByCredits,
+}: {
+  sourceFileSelected: boolean;
+  sourceCaptureMethod: 'recording' | 'upload';
+  sourceElapsed: number;
+  recordingKind: 'source' | 'prompt' | null;
+  submitting: boolean;
+  cloneInProgress: boolean;
+  canSubmitByCredits: boolean;
+}): MiniMaxCloneSubmitBlockReason {
+  if (cloneInProgress) {
+    return 'clone_in_progress';
+  }
+  if (submitting) {
+    return 'submitting';
+  }
+  if (!canSubmitByCredits) {
+    return 'insufficient_credits';
+  }
+  if (recordingKind) {
+    if (
+      recordingKind === 'source' &&
+      sourceElapsed < MINIMAX_SOURCE_MIN_SECONDS
+    ) {
+      return 'source_recording_too_short';
+    }
+    return 'recording_in_progress';
+  }
+  if (!sourceFileSelected) {
+    return 'missing_source_audio';
+  }
+  if (
+    sourceCaptureMethod === 'recording' &&
+    sourceElapsed < MINIMAX_SOURCE_MIN_SECONDS
+  ) {
+    return 'source_recording_too_short';
+  }
+  return null;
 }
