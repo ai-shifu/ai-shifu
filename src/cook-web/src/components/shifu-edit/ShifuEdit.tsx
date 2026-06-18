@@ -91,6 +91,7 @@ const SUPPORTED_EDITOR_TRIGGER_SOURCES = new Set([
   'manual_create',
   'lobster_create',
 ]);
+const CREATED_COURSE_ONBOARDING_DELAY_MS = 1800;
 
 const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
 type MarkdownFlowEditorLocale = 'en-US' | 'zh-CN';
@@ -275,6 +276,21 @@ const ScriptEditor = ({
       ? String(source).trim()
       : '';
   }, [searchParams]);
+  const [editorOnboardingReady, setEditorOnboardingReady] = useState(false);
+  useEffect(() => {
+    if (!editorOnboardingTriggerSource) {
+      setEditorOnboardingReady(false);
+      return;
+    }
+
+    setEditorOnboardingReady(false);
+    const timeoutId = window.setTimeout(() => {
+      setEditorOnboardingReady(true);
+    }, CREATED_COURSE_ONBOARDING_DELAY_MS);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [editorOnboardingTriggerSource]);
   const isHistoryPage = initialViewMode === 'history';
   const isCourseOwner = Boolean(
     currentShifu?.created_user_bid &&
@@ -303,6 +319,7 @@ const ScriptEditor = ({
   );
   const shouldShowCourseEditorOnboarding =
     !isHistoryPage &&
+    editorOnboardingReady &&
     Boolean(editorOnboardingTriggerSource) &&
     Boolean(onboardingStatus?.eligible) &&
     onboardingStatus?.scenes.course_editor_onboarding.completed === false &&
