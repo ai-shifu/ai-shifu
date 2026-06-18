@@ -28,6 +28,7 @@
 | `docs/exec-plans/active/creator-dashboard-request-splitting.md` | Creator Dashboard Request Splitting | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/observability-artifacts-consistency-frontend-trace.md` | Observability Artifacts, Consistency Probes, and Frontend Trace IDs | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/operator-credit-grant-package.md` | ExecPlan: Operator Credit Grant Package | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/operator-promotion-ops-state-rules.md` | ExecPlan: Operator Promotion Ops State Rules | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/package-campaigns.md` | ExecPlan: Package Campaigns | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `true` |

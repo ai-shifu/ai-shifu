@@ -258,6 +258,7 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
     assert list_payload["data"]["summary"]["usage_count"] == 1
     assert list_payload["data"]["items"][0]["name"] == "Spring Batch"
     assert list_payload["data"]["items"][0]["course_name"] == "Coupon Course"
+    assert list_payload["data"]["items"][0]["ops_states"] == ["expiring_soon"]
 
     filtered_list_response = test_client.get(
         "/api/shifu/admin/operations/promotions/coupons",
@@ -290,6 +291,9 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
     assert expiring_coupon_payload["code"] == 0
     assert expiring_coupon_payload["data"]["total"] == 1
     assert expiring_coupon_payload["data"]["items"][0]["coupon_bid"] == coupon_bid
+    assert expiring_coupon_payload["data"]["items"][0]["ops_states"] == [
+        "expiring_soon"
+    ]
 
     non_matching_expiring_response = test_client.get(
         "/api/shifu/admin/operations/promotions/coupons",
@@ -404,6 +408,10 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
     assert used_up_payload["code"] == 0
     assert used_up_payload["data"]["total"] == 1
     assert used_up_payload["data"]["items"][0]["coupon_bid"] == coupon_bid
+    assert set(used_up_payload["data"]["items"][0]["ops_states"]) == {
+        "used_up",
+        "expiring_soon",
+    }
 
     status_response = test_client.post(
         f"/api/shifu/admin/operations/promotions/coupons/{coupon_bid}/status",
@@ -417,6 +425,51 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
         coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
         assert coupon is not None
         assert coupon.status == 0
+
+
+def test_admin_promotions_coupon_list_returns_empty_ops_states_by_default(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.promo.admin._now_local_naive",
+        lambda: datetime(2026, 5, 20, 12, 0, 0),
+    )
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_course("course-1", "Coupon Course")
+
+        coupon = Coupon()
+        coupon.coupon_bid = "stable-coupon"
+        coupon.name = "Stable Coupon"
+        coupon.code = "STABLE"
+        coupon.usage_type = COUPON_APPLY_TYPE_ALL
+        coupon.discount_type = COUPON_TYPE_FIXED
+        coupon.value = Decimal("20")
+        coupon.filter = '{"course_id": "course-1"}'
+        coupon.total_count = 10
+        coupon.used_count = 1
+        coupon.status = 1
+        coupon.created_user_bid = "operator-1"
+        coupon.updated_user_bid = "operator-1"
+        coupon.start = datetime(2026, 4, 24, 10, 0, 0)
+        coupon.end = datetime(2026, 8, 24, 10, 0, 0)
+        db.session.add(coupon)
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons",
+        query_string={"page_index": 1, "page_size": 20},
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["total"] == 1
+    assert payload["data"]["items"][0]["coupon_bid"] == "stable-coupon"
+    assert payload["data"]["items"][0]["ops_states"] == []
 
 
 def test_creator_redemption_code_route_creates_course_scoped_coupon(
@@ -569,6 +622,7 @@ def test_creator_redemption_code_list_shows_only_owned_course_batches(
     assert payload["data"]["items"][0]["course_name"] == "Creator Course"
     assert payload["data"]["items"][0]["created_user_bid"] == "creator-1"
     assert payload["data"]["items"][0]["created_user_name"] == "Creator"
+    assert payload["data"]["items"][0]["ops_states"] == []
 
     all_response = test_client.get(
         "/api/order/admin/orders/redemption-codes",
@@ -580,6 +634,7 @@ def test_creator_redemption_code_list_shows_only_owned_course_batches(
     assert all_payload["code"] == 0
     assert all_payload["data"]["total"] == 1
     assert all_payload["data"]["items"][0]["coupon_bid"] != "other-coupon"
+    assert all_payload["data"]["items"][0]["ops_states"] == []
 
 
 def test_creator_redemption_code_usage_route_requires_owned_course_coupon(

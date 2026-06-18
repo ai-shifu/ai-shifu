@@ -52,6 +52,56 @@ jest.mock('@/components/loading', () => ({
   default: () => <div data-testid='loading-indicator' />,
 }));
 
+jest.mock('@/components/ui/Select', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const SelectContext = ReactModule.createContext<{
+    value: string;
+    onValueChange: (value: string) => void;
+  }>({
+    value: '',
+    onValueChange: () => undefined,
+  });
+
+  return {
+    __esModule: true,
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange: (value: string) => void;
+    }>) => (
+      <SelectContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </SelectContext.Provider>
+    ),
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectItem: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(SelectContext);
+      return (
+        <button
+          type='button'
+          onClick={() => context.onValueChange(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+  };
+});
+
 const CONFIRM_STATUS_LABEL = 'confirm-status';
 
 jest.mock('@/app/admin/components/AdminRowActions', () => ({
@@ -522,5 +572,39 @@ describe('CreatorRedemptionCodesTab', () => {
     expect(screen.queryByText('Batch A')).not.toBeInTheDocument();
     expect(screen.queryByText('Batch B')).not.toBeInTheDocument();
     expect(screen.queryByText('3/20')).not.toBeInTheDocument();
+  });
+
+  test('passes ops state filters to the redemption code list request', async () => {
+    render(<CreatorRedemptionCodesTab />);
+
+    await screen.findByText('Batch A');
+    fireEvent.click(screen.getByText('common.core.expand'));
+    fireEvent.click(screen.getByText('opsState.usedUp'));
+    fireEvent.click(screen.getByText('module.order.filters.search'));
+
+    await waitFor(() => {
+      expect(mockGetCreatorCourseRedemptionCodes).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        keyword: '',
+        name: '',
+        course_query: '',
+        usage_type: '',
+        ops_state: 'used_up',
+        discount_type: '',
+        status: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+  });
+
+  test('does not expose ended as a creator redemption status filter option', async () => {
+    render(<CreatorRedemptionCodesTab />);
+
+    await screen.findByText('Batch A');
+    fireEvent.click(screen.getByText('common.core.expand'));
+
+    expect(screen.queryByText('status.ended')).not.toBeInTheDocument();
   });
 });

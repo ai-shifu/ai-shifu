@@ -32,6 +32,7 @@ export type AdminPromotionCouponItem = {
   end_at: string;
   total_count: number;
   used_count: number;
+  ops_states?: string[];
   enabled?: boolean;
   computed_status: string;
   computed_status_key: string;

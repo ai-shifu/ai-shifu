@@ -1956,6 +1956,7 @@ describe('AdminOperationPromotionsPage', () => {
           end_at: soonEndAt,
           total_count: 10,
           used_count: 10,
+          ops_states: ['used_up', 'expiring_soon'],
           computed_status: 'active',
           computed_status_key: 'module.operationsPromotion.status.active',
           created_at: '2026-04-24T10:00:00Z',
@@ -2010,6 +2011,7 @@ describe('AdminOperationPromotionsPage', () => {
           end_at: soonEndAt,
           total_count: 10,
           used_count: 0,
+          ops_states: ['expiring_soon'],
           computed_status: 'not_started',
           computed_status_key: 'module.operationsPromotion.status.notStarted',
           created_at: '2026-04-24T10:00:00Z',
@@ -2031,6 +2033,7 @@ describe('AdminOperationPromotionsPage', () => {
           end_at: soonEndAt,
           total_count: 10,
           used_count: 10,
+          ops_states: ['used_up', 'expiring_soon'],
           computed_status: 'inactive',
           computed_status_key: 'module.operationsPromotion.status.inactive',
           created_at: '2026-04-24T10:00:00Z',
@@ -2047,6 +2050,58 @@ describe('AdminOperationPromotionsPage', () => {
 
     await screen.findByText('Upcoming Coupon');
     await screen.findByText('Inactive Coupon');
+
+    expect(
+      screen.queryByText('module.operationsPromotion.opsState.usedUp'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsPromotion.opsState.expiringSoon'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not show coupon attention badges when an active coupon has no ops states', async () => {
+    mockGetCoupons.mockResolvedValueOnce({
+      summary: {
+        total: 1,
+        active: 1,
+        usage_count: 0,
+        latest_usage_at: '',
+        covered_courses: 1,
+        discount_amount: '0',
+      },
+      items: [
+        {
+          coupon_bid: 'coupon-stable',
+          name: 'Stable Coupon',
+          code: 'STABLE',
+          usage_type: 801,
+          usage_type_key: 'module.operationsPromotion.usageType.generic',
+          discount_type: 701,
+          discount_type_key: 'module.operationsPromotion.discountType.fixed',
+          value: '20',
+          scope_type: 'single_course',
+          shifu_bid: 'course-1',
+          course_name: 'Coupon Course',
+          start_at: '2026-04-24T10:00:00Z',
+          end_at: '2026-08-24T10:00:00Z',
+          total_count: 10,
+          used_count: 1,
+          ops_states: [],
+          computed_status: 'active',
+          computed_status_key: 'module.operationsPromotion.status.active',
+          created_at: '2026-04-24T10:00:00Z',
+          updated_at: '2026-04-24T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationPromotionsPage />);
+
+    await screen.findByText('Stable Coupon');
 
     expect(
       screen.queryByText('module.operationsPromotion.opsState.usedUp'),

@@ -132,6 +132,7 @@
     "emptyList": "No redemption codes",
     "loadCoursesFailed": "Failed to load courses. Please try again later.",
     "loadFailed": "Failed to load redemption codes. Please refresh and try again.",
+    "opsState": "Status Flag",
     "submitting": "Creating...",
     "tooManyCourses": "Only the first published courses are shown. Please refine the course list if needed.",
     "totalCount": "Redemption codes: {count}",
