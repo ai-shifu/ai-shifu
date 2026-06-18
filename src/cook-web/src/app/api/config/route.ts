@@ -31,7 +31,9 @@ export async function GET(request: Request) {
       // is not a valid authority, so fall back to a plain split.
       let requestHostname: string;
       try {
-        requestHostname = new URL(`http://${requestHost}`).hostname.toLowerCase();
+        requestHostname = new URL(
+          `http://${requestHost}`,
+        ).hostname.toLowerCase();
       } catch {
         requestHostname = requestHost.split(':')[0];
       }
