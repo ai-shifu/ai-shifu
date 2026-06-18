@@ -11,5 +11,7 @@
   "login": "登录",
   "loginMainButton": "登录/注册",
   "logout": "退出登录",
-  "notLogin": "未登录"
+  "myCourses": "我的课程",
+  "notLogin": "未登录",
+  "owned": "自有"
 }

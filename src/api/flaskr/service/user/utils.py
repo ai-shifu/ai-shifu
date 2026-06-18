@@ -303,15 +303,24 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
             ip=ip,
         )
 
+        server = None
         try:
-            # Connect to the SMTP server
-            server = smtplib.SMTP(app.config["SMTP_SERVER"], app.config["SMTP_PORT"])
-            server.starttls()
-            server.login(app.config["SMTP_USERNAME"], app.config["SMTP_PASSWORD"])
+            smtp_port = int(app.config["SMTP_PORT"])
+            smtp_server = app.config["SMTP_SERVER"]
+            smtp_username = app.config["SMTP_USERNAME"]
+            smtp_password = app.config["SMTP_PASSWORD"]
+            smtp_sender = app.config["SMTP_SENDER"]
+
+            # Port 465 uses implicit SSL; 587 uses STARTTLS
+            if smtp_port == 465:
+                server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+            else:
+                server = smtplib.SMTP(smtp_server, smtp_port)
+                server.starttls()
+            server.login(smtp_username, smtp_password)
 
             # Send the email
-            server.sendmail(app.config["SMTP_SENDER"], email, msg.as_string())
-            server.quit()
+            server.sendmail(smtp_sender, email, msg.as_string())
 
             app.logger.info(f"Verification code sent to {email}")
             user_verify_code.verify_code_send = 1
@@ -319,6 +328,12 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
         except Exception as e:
             app.logger.error(f"Failed to send verification code to {email}: {str(e)}")
             raise_error("server.user.emailSendFailed")
+        finally:
+            if server:
+                try:
+                    server.quit()
+                except Exception:
+                    pass
         return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
 
 

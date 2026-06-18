@@ -297,16 +297,16 @@ export default function AuthPage() {
     document.title = t('module.auth.title');
   }, [language, ready, t]);
 
-  // useEffect(() => {
-  //   if (!isInitialized || !isLoggedIn) {
-  //     return;
-  //   }
+  useEffect(() => {
+    if (!isInitialized || !isLoggedIn) {
+      return;
+    }
 
-  // const target = resolveRedirectPath();
-  // if (window.location.pathname !== target) {
-  //   router.replace(target);
-  // }
-  // }, [isInitialized, isLoggedIn, resolveRedirectPath, router]);
+    const target = resolveRedirectPath();
+    if (window.location.pathname !== target) {
+      router.replace(target);
+    }
+  }, [isInitialized, isLoggedIn, resolveRedirectPath, router]);
 
   const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
