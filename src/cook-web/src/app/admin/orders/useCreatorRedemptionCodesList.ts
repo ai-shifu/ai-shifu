@@ -57,6 +57,7 @@ export const useCreatorRedemptionCodesList = ({
           name: resolvedFilters.name.trim(),
           course_query: resolvedFilters.course_query.trim(),
           usage_type: resolvedFilters.usage_type,
+          ops_state: resolvedFilters.ops_state,
           discount_type: resolvedFilters.discount_type,
           status: resolvedFilters.status,
           start_time: resolvedFilters.start_time,

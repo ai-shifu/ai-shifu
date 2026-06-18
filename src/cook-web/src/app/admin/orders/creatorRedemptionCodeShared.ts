@@ -14,6 +14,7 @@ export type RedemptionCodeFilters = {
   name: string;
   course_query: string;
   usage_type: string;
+  ops_state: string;
   discount_type: string;
   status: string;
   start_time: string;
@@ -31,6 +32,7 @@ export const createDefaultFilters = (): RedemptionCodeFilters => ({
   name: '',
   course_query: '',
   usage_type: '',
+  ops_state: '',
   discount_type: '',
   status: '',
   start_time: '',

@@ -132,6 +132,7 @@
     "emptyList": "Aucun code",
     "loadCoursesFailed": "Échec du chargement des cours. Veuillez réessayer plus tard.",
     "loadFailed": "Échec du chargement des codes. Veuillez actualiser et réessayer.",
+    "opsState": "Marqueur d'état",
     "submitting": "Création...",
     "tooManyCourses": "Seuls les premiers cours publiés sont affichés. Veuillez affiner la liste des cours si nécessaire.",
     "totalCount": "Codes: {count}",

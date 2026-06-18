@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
+import { COUPON_OPS_STATE_OPTIONS } from '@/app/admin/operations/promotions/promotionPageShared';
 import { cn } from '@/lib/utils';
 import {
   FILTER_LABEL_CLASS,
@@ -69,7 +70,17 @@ export default function CreatorRedemptionCodesFilterPanel({
       { value: 'not_started', label: tPromotion('status.notStarted') },
       { value: 'inactive', label: tPromotion('status.inactive') },
       { value: 'expired', label: tPromotion('status.expired') },
-      { value: 'ended', label: tPromotion('status.ended') },
+    ],
+    [t, tPromotion],
+  );
+
+  const opsStateOptions = useMemo(
+    () => [
+      { value: '', label: t('module.order.filters.all') },
+      ...COUPON_OPS_STATE_OPTIONS.map(option => ({
+        value: option.value,
+        label: tPromotion(option.labelKey),
+      })),
     ],
     [t, tPromotion],
   );
@@ -142,6 +153,36 @@ export default function CreatorRedemptionCodesFilterPanel({
           </SelectTrigger>
           <SelectContent>
             {statusOptions.map(option => (
+              <SelectItem
+                key={option.value || 'all'}
+                value={toSelectValue(option.value)}
+                className={SINGLE_SELECT_ITEM_CLASS}
+                indicatorClassName={SINGLE_SELECT_INDICATOR_CLASS}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'ops_state',
+      label: t('module.order.redemptionCodes.opsState'),
+      component: (
+        <Select
+          value={toSelectValue(filters.ops_state)}
+          onValueChange={value =>
+            onFilterChange('ops_state', fromSelectValue(value))
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue
+              placeholder={t('module.order.redemptionCodes.opsState')}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {opsStateOptions.map(option => (
               <SelectItem
                 key={option.value || 'all'}
                 value={toSelectValue(option.value)}
