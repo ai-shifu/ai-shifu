@@ -26,12 +26,21 @@ export async function GET(request: Request) {
       // host). There is no same-origin /api proxy on localhost, so always
       // return the configured absolute base instead of treating the host
       // mismatch as a white-label domain.
-      const requestHostname = requestHost.split(':')[0];
+      // Parse the host as an authority so the port is stripped correctly for
+      // both IPv4 and bracketed IPv6 forms (e.g. "[::1]:3000"). A bare "::1"
+      // is not a valid authority, so fall back to a plain split.
+      let requestHostname: string;
+      try {
+        requestHostname = new URL(`http://${requestHost}`).hostname.toLowerCase();
+      } catch {
+        requestHostname = requestHost.split(':')[0];
+      }
       const isLocalhost =
         requestHostname === 'localhost' ||
         requestHostname === '127.0.0.1' ||
         requestHostname === '0.0.0.0' ||
-        requestHostname === '::1';
+        requestHostname === '::1' ||
+        requestHostname === '[::1]';
       if (!isLocalhost && requestHost && requestHost !== configuredHost) {
         return NextResponse.json({ apiBaseUrl: '' });
       }
