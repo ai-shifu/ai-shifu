@@ -24,6 +24,21 @@ type UseOnboardingOptions = {
   onStepMissing?: (step: OnboardingStep, stepIndex: number) => void;
 };
 
+const rectEquals = (current: DOMRect | null, next: DOMRect | null) => {
+  if (current === next) {
+    return true;
+  }
+  if (!current || !next) {
+    return false;
+  }
+  return (
+    current.top === next.top &&
+    current.left === next.left &&
+    current.width === next.width &&
+    current.height === next.height
+  );
+};
+
 export function useOnboarding({
   enabled,
   steps,
@@ -39,6 +54,13 @@ export function useOnboarding({
   const completingRef = useRef(false);
   const resolvedStepIdsRef = useRef<Set<string>>(new Set());
   const missingStepIdsRef = useRef<Set<string>>(new Set());
+  const onCompleteRef = useRef(onComplete);
+  const onStepResolvedRef = useRef(onStepResolved);
+  const onStepMissingRef = useRef(onStepMissing);
+
+  onCompleteRef.current = onComplete;
+  onStepResolvedRef.current = onStepResolved;
+  onStepMissingRef.current = onStepMissing;
 
   const currentStep = steps[currentStepIndex] || null;
 
@@ -60,13 +82,13 @@ export function useOnboarding({
     completingRef.current = true;
     setIsCompleting(true);
     try {
-      await onComplete();
+      await onCompleteRef.current();
       setIsOpen(false);
     } finally {
       completingRef.current = false;
       setIsCompleting(false);
     }
-  }, [onComplete]);
+  }, []);
 
   useEffect(() => {
     if (!enabled || steps.length === 0) {
@@ -93,7 +115,7 @@ export function useOnboarding({
       setTargetRect(null);
       if (!resolvedStepIdsRef.current.has(currentStep.id)) {
         resolvedStepIdsRef.current.add(currentStep.id);
-        onStepResolved?.(currentStep, currentStepIndex);
+        onStepResolvedRef.current?.(currentStep, currentStepIndex);
       }
       return;
     }
@@ -105,12 +127,14 @@ export function useOnboarding({
     const syncRect = () => {
       const element = getOnboardingTargetElement(currentStep.targetId);
       if (!element) {
-        setTargetRect(null);
+        setTargetRect(current => (current === null ? current : null));
         return false;
       }
       const nextRect = element.getBoundingClientRect();
-      setTargetRect(
-        nextRect.width > 0 && nextRect.height > 0 ? nextRect : null,
+      const visibleRect =
+        nextRect.width > 0 && nextRect.height > 0 ? nextRect : null;
+      setTargetRect(current =>
+        rectEquals(current, visibleRect) ? current : visibleRect,
       );
       return nextRect.width > 0 && nextRect.height > 0;
     };
@@ -118,7 +142,7 @@ export function useOnboarding({
     const handleResolved = () => {
       if (!resolvedStepIdsRef.current.has(currentStep.id)) {
         resolvedStepIdsRef.current.add(currentStep.id);
-        onStepResolved?.(currentStep, currentStepIndex);
+        onStepResolvedRef.current?.(currentStep, currentStepIndex);
       }
       if (intervalId) {
         clearInterval(intervalId);
@@ -149,7 +173,7 @@ export function useOnboarding({
           }
           if (!missingStepIdsRef.current.has(currentStep.id)) {
             missingStepIdsRef.current.add(currentStep.id);
-            onStepMissing?.(currentStep, currentStepIndex);
+            onStepMissingRef.current?.(currentStep, currentStepIndex);
           }
           if (currentStepIndex >= steps.length - 1) {
             void completeFlow();
@@ -178,15 +202,7 @@ export function useOnboarding({
       window.removeEventListener('resize', handleViewportChange);
       window.removeEventListener('scroll', handleViewportChange, true);
     };
-  }, [
-    completeFlow,
-    currentStep,
-    currentStepIndex,
-    isOpen,
-    onStepMissing,
-    onStepResolved,
-    steps.length,
-  ]);
+  }, [completeFlow, currentStep, currentStepIndex, isOpen, steps.length]);
 
   const advance = async () => {
     if (!isOpen || !currentStep || isCompleting) {

@@ -5,6 +5,15 @@
       "description": "左下角会显示你当前可用的积分余额，调试、预览和发布等操作都会和积分相关。",
       "title": "这里查看积分余额"
     },
+    "billingCard": {
+      "descriptionWithDays": "系统已为你发放 {credits} 体验积分，有效期 {days} 天。你可以在这里查看积分余额，也可以购买或升级套餐。",
+      "descriptionWithExpiry": "系统已为你发放 {credits} 体验积分，有效期至 {expiresAt}。你可以在这里查看积分余额，也可以购买或升级套餐。",
+      "title": "这里查看积分和购买套餐"
+    },
+    "blankCourse": {
+      "description": "你可以直接新建课程，从空白课程开始搭建内容。",
+      "title": "从这里新建课程"
+    },
     "courseCreation": {
       "description": "你可以直接新建课程，也可以使用<strong>龙虾助理智能建课</strong>，更快生成课程初稿。",
       "title": "从这里开始创建课程"
@@ -12,6 +21,12 @@
     "guideCourse": {
       "description": "这里是系统为你准备的创作指导课。",
       "title": "先看这门创作指导课"
+    },
+    "lobsterCourse": {
+      "descriptionLink": "龙虾助理智能建课",
+      "descriptionPrefix": "也可以使用",
+      "descriptionSuffix": "，更快生成课程初稿。",
+      "title": "使用龙虾助理智能建课"
     },
     "upgrade": {
       "description": "如果积分不够，可以从这里购买或升级套餐，继续完成课程创作。",

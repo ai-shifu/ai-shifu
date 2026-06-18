@@ -1,10 +1,7 @@
-import type { BillingTrialOffer } from '@/types/billing';
-import {
-  buildGuideCourseTargetId,
-  ONBOARDING_TARGET_IDS,
-} from '@/lib/onboardingTargets';
 import React from 'react';
-import { Trans } from 'react-i18next';
+import type { BillingTrialOffer } from '@/types/billing';
+import { ONBOARDING_TARGET_IDS } from '@/lib/onboardingTargets';
+import { formatBillingDate } from '@/lib/billing';
 import type { OnboardingStep } from './onboardingTypes';
 
 const replaceTemplate = (
@@ -18,76 +15,102 @@ const replaceTemplate = (
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-const buildCourseCreationDescription = () =>
-  React.createElement(Trans, {
-    ns: 'module.onboarding',
-    i18nKey: 'adminHome.courseCreation.description',
-    components: { strong: React.createElement('strong') },
-  });
-
 type BuildAdminHomeStepsOptions = {
   t: Translate;
   billingEnabled: boolean;
   trialOffer?: BillingTrialOffer | null;
-  guideCourseBid?: string | null;
+  courseCreatorUrl?: string | null;
+  locale?: string;
+};
+
+const buildBillingDescription = (
+  t: Translate,
+  trialOffer: BillingTrialOffer | null | undefined,
+  locale?: string,
+) => {
+  const credits = trialOffer?.credit_amount || 0;
+  const expiresAt = formatBillingDate(
+    trialOffer?.expires_at,
+    locale || 'zh-CN',
+  );
+  const days = trialOffer?.valid_days || 0;
+  const key = expiresAt
+    ? 'adminHome.billingCard.descriptionWithExpiry'
+    : 'adminHome.billingCard.descriptionWithDays';
+
+  return replaceTemplate(t(key), {
+    credits,
+    expiresAt,
+    days,
+  });
+};
+
+const buildLobsterDescription = (
+  t: Translate,
+  courseCreatorUrl?: string | null,
+): React.ReactNode => {
+  const linkLabel = t('adminHome.lobsterCourse.descriptionLink');
+  if (!courseCreatorUrl) {
+    return `${t('adminHome.lobsterCourse.descriptionPrefix')}${linkLabel}${t(
+      'adminHome.lobsterCourse.descriptionSuffix',
+    )}`;
+  }
+
+  return React.createElement(
+    React.Fragment,
+    null,
+    t('adminHome.lobsterCourse.descriptionPrefix'),
+    React.createElement(
+      'a',
+      {
+        href: courseCreatorUrl,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        onClick: (event: React.MouseEvent<HTMLAnchorElement>) =>
+          event.stopPropagation(),
+        className:
+          'inline font-medium text-blue-600 underline-offset-4 transition-colors hover:text-blue-700 hover:underline',
+      },
+      linkLabel,
+    ),
+    t('adminHome.lobsterCourse.descriptionSuffix'),
+  );
 };
 
 export function buildAdminHomeOnboardingSteps({
   t,
   billingEnabled,
   trialOffer,
-  guideCourseBid,
+  courseCreatorUrl,
+  locale,
 }: BuildAdminHomeStepsOptions): OnboardingStep[] {
-  const steps: OnboardingStep[] = [];
-  const grantedTrial = billingEnabled && trialOffer?.status === 'granted';
-
-  if (grantedTrial) {
-    steps.push({
-      id: 'welcome_trial',
-      title: t('adminHome.welcome.title'),
-      description: replaceTemplate(t('adminHome.welcome.description'), {
-        credits: trialOffer?.credit_amount || 0,
-        days: trialOffer?.valid_days || 0,
-      }),
-    });
-  }
+  const steps: OnboardingStep[] = [
+    {
+      id: 'blank_course_creation',
+      title: t('adminHome.blankCourse.title'),
+      description: t('adminHome.blankCourse.description'),
+      targetId: ONBOARDING_TARGET_IDS.blankCreateEntry,
+      skipWhenTargetMissing: true,
+    },
+    {
+      id: 'lobster_course_creation',
+      title: t('adminHome.lobsterCourse.title'),
+      description: buildLobsterDescription(t, courseCreatorUrl),
+      targetId: ONBOARDING_TARGET_IDS.lobsterCreateEntry,
+      skipWhenTargetMissing: true,
+    },
+  ];
 
   if (billingEnabled) {
-    steps.push(
-      {
-        id: 'billing_balance',
-        title: t('adminHome.balance.title'),
-        description: t('adminHome.balance.description'),
-        targetId: ONBOARDING_TARGET_IDS.billingBalance,
-        skipWhenTargetMissing: true,
-      },
-      {
-        id: 'billing_upgrade',
-        title: t('adminHome.upgrade.title'),
-        description: t('adminHome.upgrade.description'),
-        targetId: ONBOARDING_TARGET_IDS.billingUpgrade,
-        skipWhenTargetMissing: true,
-      },
-    );
+    steps.push({
+      id: 'billing_card',
+      title: t('adminHome.billingCard.title'),
+      description: buildBillingDescription(t, trialOffer, locale),
+      targetId: ONBOARDING_TARGET_IDS.billingCard,
+      skipWhenTargetMissing: true,
+      highlightPadding: 4,
+    });
   }
-
-  steps.push(
-    {
-      id: 'guide_course',
-      title: t('adminHome.guideCourse.title'),
-      description: t('adminHome.guideCourse.description'),
-      targetId: buildGuideCourseTargetId(guideCourseBid),
-      skipWhenTargetMissing: true,
-      waitForTargetMs: 700,
-    },
-    {
-      id: 'course_creation_entry',
-      title: t('adminHome.courseCreation.title'),
-      description: buildCourseCreationDescription(),
-      targetId: ONBOARDING_TARGET_IDS.courseCreationEntry,
-      skipWhenTargetMissing: true,
-    },
-  );
 
   return steps;
 }

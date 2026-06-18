@@ -3,6 +3,7 @@ export const ONBOARDING_TARGET_ATTR = 'data-onboarding-id';
 export const ONBOARDING_TARGET_IDS = {
   billingBalance: 'billing-balance',
   billingUpgrade: 'billing-upgrade',
+  billingCard: 'billing-card',
   guideCourseCard: 'guide-course-card',
   courseCreationEntry: 'course-creation-entry',
   blankCreateEntry: 'blank-create-entry',

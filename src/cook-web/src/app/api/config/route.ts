@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { environment } from '@/config/environment';
+import { normalizeHost, shouldUseSameOriginApiBase } from './route-utils';
 
 export async function GET(request: Request) {
   const configured = environment.apiBaseUrl || '';
@@ -13,15 +14,12 @@ export async function GET(request: Request) {
   if (configured) {
     try {
       const configuredHost = new URL(configured).host.toLowerCase();
-      const requestHost = (
+      const requestHost = normalizeHost(
         request.headers.get('x-forwarded-host') ||
-        request.headers.get('host') ||
-        ''
-      )
-        .split(',')[0]
-        .trim()
-        .toLowerCase();
-      if (requestHost && requestHost !== configuredHost) {
+          request.headers.get('host') ||
+          '',
+      );
+      if (shouldUseSameOriginApiBase(configuredHost, requestHost)) {
         return NextResponse.json({ apiBaseUrl: '' });
       }
     } catch {

@@ -16,7 +16,10 @@ type OnboardingOverlayProps = {
   stepIndex: number;
   totalSteps: number;
   continueLabel: React.ReactNode;
+  actionLabel?: React.ReactNode;
+  actionHref?: string;
   targetRect: RectLike | null;
+  highlightPadding?: number;
   onAdvance: () => void;
 };
 
@@ -26,60 +29,71 @@ const OVERLAY_BG = 'rgba(15,23,42,0.62)';
 const DEFAULT_CARD_WIDTH = 340;
 const DEFAULT_CARD_HEIGHT = 220;
 const CARD_GAP = 18;
+const VIEWPORT_MARGIN = 8;
 
 function buildCardPosition(
   targetRect: RectLike | null,
   cardSize: { width: number; height: number },
 ): React.CSSProperties {
   if (typeof window === 'undefined') {
-    return { left: 16, top: 16 };
+    return { left: VIEWPORT_MARGIN, top: VIEWPORT_MARGIN };
   }
 
-  const maxLeft = Math.max(window.innerWidth - cardSize.width - 16, 16);
-  const maxTop = Math.max(window.innerHeight - cardSize.height - 16, 16);
+  const maxLeft = Math.max(
+    window.innerWidth - cardSize.width - VIEWPORT_MARGIN,
+    VIEWPORT_MARGIN,
+  );
+  const maxTop = Math.max(
+    window.innerHeight - cardSize.height - VIEWPORT_MARGIN,
+    VIEWPORT_MARGIN,
+  );
 
   if (!targetRect) {
     return {
-      left: Math.max((window.innerWidth - cardSize.width) / 2, 16),
-      top: Math.max((window.innerHeight - 180) / 2, 16),
+      left: Math.max((window.innerWidth - cardSize.width) / 2, VIEWPORT_MARGIN),
+      top: Math.max((window.innerHeight - 180) / 2, VIEWPORT_MARGIN),
     };
   }
 
   const centeredLeft =
     targetRect.left + (targetRect.width - cardSize.width) / 2;
-  const preferredLeft = Math.min(Math.max(centeredLeft, 16), maxLeft);
+  const preferredLeft =
+    centeredLeft <= VIEWPORT_MARGIN
+      ? Math.min(Math.max(targetRect.left, VIEWPORT_MARGIN), maxLeft)
+      : Math.min(Math.max(centeredLeft, VIEWPORT_MARGIN), maxLeft);
   const belowTop = targetRect.top + targetRect.height + CARD_GAP;
   const aboveTop = targetRect.top - cardSize.height - CARD_GAP;
 
   if (belowTop <= maxTop) {
-    return { left: Math.max(preferredLeft, 16), top: belowTop };
+    return { left: Math.max(preferredLeft, VIEWPORT_MARGIN), top: belowTop };
   }
 
-  if (aboveTop >= 16) {
-    return { left: Math.max(preferredLeft, 16), top: aboveTop };
+  if (aboveTop >= VIEWPORT_MARGIN) {
+    return { left: Math.max(preferredLeft, VIEWPORT_MARGIN), top: aboveTop };
   }
 
   const fitsRight =
     targetRect.left + targetRect.width + CARD_GAP + cardSize.width <=
-    window.innerWidth - 16;
+    window.innerWidth - VIEWPORT_MARGIN;
   if (fitsRight) {
     return {
       left: targetRect.left + targetRect.width + CARD_GAP,
-      top: Math.min(Math.max(targetRect.top, 16), maxTop),
+      top: Math.min(Math.max(targetRect.top, VIEWPORT_MARGIN), maxTop),
     };
   }
 
-  const fitsLeft = targetRect.left - CARD_GAP - cardSize.width >= 16;
+  const fitsLeft =
+    targetRect.left - CARD_GAP - cardSize.width >= VIEWPORT_MARGIN;
   if (fitsLeft) {
     return {
       left: targetRect.left - CARD_GAP - cardSize.width,
-      top: Math.min(Math.max(targetRect.top, 16), maxTop),
+      top: Math.min(Math.max(targetRect.top, VIEWPORT_MARGIN), maxTop),
     };
   }
 
   return {
-    left: Math.max(preferredLeft, 16),
-    top: Math.min(Math.max(belowTop, 16), maxTop),
+    left: Math.max(preferredLeft, VIEWPORT_MARGIN),
+    top: Math.min(Math.max(belowTop, VIEWPORT_MARGIN), maxTop),
   };
 }
 
@@ -91,7 +105,10 @@ export function OnboardingOverlay({
   stepIndex,
   totalSteps,
   continueLabel,
+  actionLabel,
+  actionHref,
   targetRect,
+  highlightPadding = PADDING,
   onAdvance,
 }: OnboardingOverlayProps) {
   const cardRef = React.useRef<HTMLDivElement | null>(null);
@@ -123,10 +140,10 @@ export function OnboardingOverlay({
 
   const rect = targetRect
     ? {
-        top: Math.max(targetRect.top - PADDING, 8),
-        left: Math.max(targetRect.left - PADDING, 8),
-        width: targetRect.width + PADDING * 2,
-        height: targetRect.height + PADDING * 2,
+        top: Math.max(targetRect.top - highlightPadding, 8),
+        left: Math.max(targetRect.left - highlightPadding, 8),
+        width: targetRect.width + highlightPadding * 2,
+        height: targetRect.height + highlightPadding * 2,
       }
     : null;
   const cardStyle = buildCardPosition(rect, cardSize);
@@ -191,8 +208,9 @@ export function OnboardingOverlay({
       )}
       <div
         ref={cardRef}
-        className='pointer-events-none absolute'
+        className='pointer-events-auto absolute'
         style={cardStyle}
+        onClick={onAdvance}
       >
         <OnboardingCard
           title={title}
@@ -200,6 +218,8 @@ export function OnboardingOverlay({
           stepIndex={stepIndex}
           totalSteps={totalSteps}
           continueLabel={continueLabel}
+          actionLabel={actionLabel}
+          actionHref={actionHref}
         />
       </div>
     </div>

@@ -9,21 +9,24 @@ with Umami, and persists per-user completion so each scene shows at most once.
 ## Progress
 
 - [x] 2026-06-17 13:10 CST: Added backend onboarding persistence model, service,
-  route handlers, and focused pytest coverage.
+      route handlers, and focused pytest coverage.
 - [x] 2026-06-17 13:25 CST: Added guide-course resolution plus `is_guide_course`
-  flags on creator course list DTOs and coverage for the new list flag.
+      flags on creator course list DTOs and coverage for the new list flag.
 - [x] 2026-06-17 13:45 CST: Replaced admin layout trial dialog usage with the
-  shared onboarding overlay, step builder, API wiring, and Umami event hooks.
+      shared onboarding overlay, step builder, API wiring, and Umami event hooks.
 - [x] 2026-06-17 14:05 CST: Finished PR1 runtime hardening, focused frontend
-  coverage, and final verification before commit / PR.
+      coverage, and final verification before commit / PR.
 - [x] 2026-06-17 14:40 CST: Added `creator_activated_at` so old users who
-  become creators after rollout are still eligible for admin home onboarding.
+      become creators after rollout are still eligible for admin home onboarding.
+- [x] 2026-06-18 10:30 CST: Updated the admin home onboarding to the new
+      three-step flow: blank course creation, lobster AI course creation, and the
+      full billing card with trial credit details.
 
 ## Surprises & Discoveries
 
-- The admin home flow depends on real course-card anchors rather than a fake
-  recommendation slot, so the guide-course step must tolerate missing targets
-  and silently continue.
+- The admin home flow no longer includes the guide-course card step. The guide
+  course metadata remains available for course-list labeling, but the visible
+  onboarding now focuses on creation and billing entry points.
 - The shared onboarding hook also needs to close itself when the scene becomes
   disabled mid-session, otherwise route changes can leave the overlay mounted on
   unrelated admin pages.
@@ -48,10 +51,15 @@ with Umami, and persists per-user completion so each scene shows at most once.
   create. Shared-permission users do not see the editor onboarding in PR2.
   - Why: the editor steps include owner-oriented settings such as model, listen
     mode, pricing, preview, and publish.
-- Decision: Resolve the guide course from the existing zh/en demo-course config
-  keys and expose `is_guide_course` through the creator course list.
-  - Why: the UI must spotlight the real course card without adding a separate
-    recommendation entry.
+- Decision: Keep guide-course resolution in the backend/list DTOs, but remove
+  the guide-course step from the admin home onboarding.
+  - Why: the revised product flow should only introduce course creation,
+    lobster-assisted course creation, and credit/package management.
+- Decision: The lobster-assisted creation step can include an action link inside
+  the onboarding card.
+  - Why: the existing homepage link may be highlighted, but the card copy also
+    needs a direct way to open the same external course-creator URL in a new
+    tab without advancing the overlay.
 - Decision: Keep the reusable onboarding overlay and target-resolution logic in
   shared frontend modules.
   - Why: PR2 will reuse the same flow mechanics for editor onboarding.
@@ -60,6 +68,13 @@ with Umami, and persists per-user completion so each scene shows at most once.
 
 - Pending completion. PR1 should leave the backend contract, admin home UI
   wiring, and shared onboarding primitives ready for reuse by PR2.
+- Admin home onboarding now presents three product steps when billing is
+  enabled: create a blank course, open lobster AI course creation, and review
+  the billing card for trial credits and package purchases. If billing is
+  disabled or a target is not present, missing steps skip safely.
+- Follow-up: open a separate French i18n polish PR to normalize accented French
+  across `src/i18n/fr-FR/**`. This PR only fixes onboarding strings to avoid
+  mixing broad copy cleanup with the onboarding behavior change.
 
 ## Context and Orientation
 
@@ -102,7 +117,8 @@ with Umami, and persists per-user completion so each scene shows at most once.
 - Old regular users who become creators after rollout are eligible based on
   `creator_activated_at`.
 - Operators and old pre-rollout creators do not auto-see onboarding.
-- The guide-course step can silently skip if the card is missing.
+- The lobster and billing-card steps can silently skip if their targets are
+  unavailable.
 - The overlay does not stay mounted after leaving the eligible scene.
 - Completing the final step persists `admin_home_onboarding` completion and
   prevents replay on refresh.
@@ -114,8 +130,8 @@ with Umami, and persists per-user completion so each scene shows at most once.
   `(user_bid, scene_key, version)` constraint.
 - Frontend target-missing steps must skip safely and must not dead-end on the
   final step.
-- If guide-course resolution fails to find a card in the list, the user should
-  continue through the next step without an error state.
+- Missing optional targets should continue through the next step without an
+  error state.
 
 ## Interfaces and Dependencies
 
@@ -130,6 +146,3 @@ with Umami, and persists per-user completion so each scene shows at most once.
   - `creator_onboarding_started`
   - `creator_onboarding_step_viewed`
   - `creator_onboarding_completed`
-  - `creator_onboarding_guide_course_exposed`
-  - `creator_onboarding_guide_course_clicked`
-  - `creator_onboarding_guide_course_missing`

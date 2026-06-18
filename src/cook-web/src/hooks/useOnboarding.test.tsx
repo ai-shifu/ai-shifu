@@ -146,4 +146,58 @@ describe('useOnboarding', () => {
       expect(onComplete).not.toHaveBeenCalled();
     });
   });
+
+  test('does not resync target rect when only callback identities change', async () => {
+    const target = document.createElement('div');
+    target.getBoundingClientRect = jest.fn(
+      () =>
+        ({
+          top: 10,
+          left: 20,
+          width: 120,
+          height: 40,
+          bottom: 50,
+          right: 140,
+          x: 20,
+          y: 10,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    );
+    getOnboardingTargetElement.mockReturnValue(target);
+    const steps = [
+      {
+        id: 'create',
+        title: 'Create',
+        description: 'Create course',
+        targetId: 'create-course',
+      },
+    ];
+
+    const { result, rerender } = renderHook(
+      ({ marker }: { marker: number }) =>
+        useOnboarding({
+          enabled: true,
+          steps,
+          onComplete: jest.fn(() => {
+            void marker;
+          }),
+          onStepResolved: jest.fn(() => {
+            void marker;
+          }),
+        }),
+      {
+        initialProps: { marker: 1 },
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.targetRect).not.toBeNull();
+    });
+    const firstRect = result.current.targetRect;
+
+    rerender({ marker: 2 });
+
+    expect(result.current.targetRect).toBe(firstRect);
+    expect(target.getBoundingClientRect).toHaveBeenCalledTimes(1);
+  });
 });

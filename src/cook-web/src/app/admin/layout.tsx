@@ -20,6 +20,7 @@ import { buildAdminHomeOnboardingSteps } from '@/components/onboarding/onboardin
 import { applyCreatorBranding } from '@/lib/initializeEnvData';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';
+import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
 
 const MainInterface = ({
   children,
@@ -118,6 +119,7 @@ const MainInterface = ({
   );
   const { data: onboardingStatus, mutate: mutateOnboardingStatus } =
     useCreatorOnboardingStatus(menuReady);
+  const courseCreatorUrl = useMemo(() => getCourseCreatorUrl(), []);
 
   const adminHomeSteps = useMemo(
     () =>
@@ -125,12 +127,15 @@ const MainInterface = ({
         t: tOnboarding,
         billingEnabled,
         trialOffer: billingOverview?.trial_offer,
-        guideCourseBid: onboardingStatus?.guide_course.bid,
+        courseCreatorUrl,
+        locale: currentLanguage || i18n.language,
       }),
     [
       billingEnabled,
+      courseCreatorUrl,
       billingOverview?.trial_offer,
-      onboardingStatus?.guide_course.bid,
+      currentLanguage,
+      i18n.language,
       tOnboarding,
     ],
   );
@@ -159,27 +164,6 @@ const MainInterface = ({
         step_index: stepIndex + 1,
         trigger_source: 'admin_entry',
         language: currentLanguage || i18n.language,
-      });
-      if (step.id === 'guide_course') {
-        trackEvent('creator_onboarding_guide_course_exposed', {
-          scene_key: 'admin_home_onboarding',
-          version: onboardingStatus?.version || 'v1',
-          guide_course_bid: onboardingStatus?.guide_course.bid || '',
-          language: onboardingStatus?.guide_course.language || i18n.language,
-        });
-      }
-    },
-    onStepMissing: (step, stepIndex) => {
-      if (step.id !== 'guide_course') {
-        return;
-      }
-      trackEvent('creator_onboarding_guide_course_missing', {
-        scene_key: 'admin_home_onboarding',
-        version: onboardingStatus?.version || 'v1',
-        step_id: step.id,
-        step_index: stepIndex + 1,
-        guide_course_bid: onboardingStatus?.guide_course.bid || '',
-        language: onboardingStatus?.guide_course.language || i18n.language,
       });
     },
     onComplete: async () => {
@@ -243,7 +227,10 @@ const MainInterface = ({
           stepIndex={adminHomeOnboardingStepIndex}
           totalSteps={adminHomeOnboardingTotalSteps}
           continueLabel={tOnboarding('common.continue')}
+          actionLabel={adminHomeOnboardingStep.actionLabel}
+          actionHref={adminHomeOnboardingStep.actionHref}
           targetRect={adminHomeOnboardingTargetRect}
+          highlightPadding={adminHomeOnboardingStep.highlightPadding}
           onAdvance={() => {
             void advanceAdminHomeOnboarding();
           }}

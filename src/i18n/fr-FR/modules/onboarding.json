@@ -2,27 +2,42 @@
   "__namespace__": "module.onboarding",
   "adminHome": {
     "balance": {
-      "description": "Votre solde de credits disponible s'affiche en bas a gauche. Les actions comme le debogage, l'aperçu et la publication sont liees aux credits.",
-      "title": "Consultez votre solde de credits ici"
+      "description": "Votre solde de crédits disponible s'affiche en bas à gauche. Les actions comme le débogage, l'aperçu et la publication sont liées aux crédits.",
+      "title": "Consultez votre solde de crédits ici"
+    },
+    "billingCard": {
+      "descriptionWithDays": "Nous avons ajouté {credits} crédits d'essai à votre compte, valables pendant {days} jours. Consultez ici votre solde de crédits, ou achetez et mettez votre offre à niveau si nécessaire.",
+      "descriptionWithExpiry": "Nous avons ajouté {credits} crédits d'essai à votre compte, valables jusqu'au {expiresAt}. Consultez ici votre solde de crédits, ou achetez et mettez votre offre à niveau si nécessaire.",
+      "title": "Consultez vos crédits et achetez une offre ici"
+    },
+    "blankCourse": {
+      "description": "Créez ici un cours vide et commencez à construire votre contenu.",
+      "title": "Créez un nouveau cours ici"
     },
     "courseCreation": {
-      "description": "Vous pouvez creer un cours a partir de zero ou utiliser <strong>Creer des cours avec l'assistant IA</strong> pour generer plus rapidement une premiere ebauche.",
-      "title": "Commencez a creer ici"
+      "description": "Vous pouvez créer un cours à partir de zéro ou utiliser <strong>Créer des cours avec l'assistant IA</strong> pour générer plus rapidement une première ébauche.",
+      "title": "Commencez à créer ici"
     },
     "guideCourse": {
-      "description": "Voici le cours guide de creation prepare par le systeme.",
-      "title": "Commencez par ce cours guide de creation"
+      "description": "Voici le cours guide de création préparé par le système.",
+      "title": "Commencez par ce cours guide de création"
+    },
+    "lobsterCourse": {
+      "descriptionLink": "Créer des cours avec l'assistant IA",
+      "descriptionPrefix": "Vous pouvez aussi utiliser ",
+      "descriptionSuffix": " pour générer plus rapidement une première ébauche.",
+      "title": "Créer des cours avec l'assistant IA"
     },
     "upgrade": {
-      "description": "Si vos credits sont insuffisants, vous pouvez acheter des credits ou mettre votre offre a niveau ici pour continuer a creer votre cours.",
-      "title": "Passez a l'offre superieure ici si vos credits sont insuffisants"
+      "description": "Si vos crédits sont insuffisants, vous pouvez acheter des crédits ou mettre votre offre à niveau ici pour continuer à créer votre cours.",
+      "title": "Passez à l'offre supérieure ici si vos crédits sont insuffisants"
     },
     "welcome": {
-      "description": "Nous avons ajoute {credits} credits d'essai a votre compte, valables pendant {days} jours. Nous allons maintenant vous presenter rapidement les principaux points d'entree de creation.",
-      "title": "Bienvenue dans l'espace creator AI Shifu"
+      "description": "Nous avons ajouté {credits} crédits d'essai à votre compte, valables pendant {days} jours. Nous allons maintenant vous présenter rapidement les principaux points d'entrée de création.",
+      "title": "Bienvenue dans l'espace créateur AI Shifu"
     }
   },
   "common": {
-    "continue": "Cliquez n'importe ou pour continuer"
+    "continue": "Cliquez n'importe où pour continuer"
   }
 }

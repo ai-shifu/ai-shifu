@@ -7,4 +7,7 @@ export type OnboardingStep = {
   targetId?: string;
   skipWhenTargetMissing?: boolean;
   waitForTargetMs?: number;
+  highlightPadding?: number;
+  actionLabel?: React.ReactNode;
+  actionHref?: string;
 };
