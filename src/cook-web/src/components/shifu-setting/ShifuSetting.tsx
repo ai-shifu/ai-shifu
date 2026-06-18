@@ -85,6 +85,7 @@ import {
 import AskSettingsSection from '@/components/shifu-setting/AskSettingsSection';
 import MiniMaxVoiceCloneDialog from '@/components/shifu-setting/MiniMaxVoiceCloneDialog';
 import {
+  buildMiniMaxClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
   isMiniMaxProvider,
   isValidMiniMaxCustomVoiceId,
@@ -465,7 +466,9 @@ export default function ShifuSettingDialog({
     if (!shifuId) return;
     const result = await loadMiniMaxVoiceRefreshData({
       fetchVoices: () =>
-        api.listMinimaxTtsVoices({ shifu_bid: shifuId }) as Promise<{
+        api.listMinimaxTtsVoices(
+          buildMiniMaxClonedVoiceListParams(shifuId),
+        ) as Promise<{
           voices?: MiniMaxClonedVoice[];
         }>,
       fetchCloneCost: () =>

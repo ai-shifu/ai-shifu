@@ -66,6 +66,13 @@ export function isValidMiniMaxCustomVoiceId(voiceId: string): boolean {
   return MINIMAX_CUSTOM_VOICE_ID_PATTERN.test((voiceId || '').trim());
 }
 
+export function buildMiniMaxClonedVoiceListParams(
+  shifuId?: string,
+): Record<string, never> {
+  void shifuId;
+  return {};
+}
+
 export function shouldPreserveCustomMiniMaxVoice({
   providerName,
   supportsCustomVoiceId,

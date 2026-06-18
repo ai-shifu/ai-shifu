@@ -1,4 +1,5 @@
 import {
+  buildMiniMaxClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
   getMiniMaxCloneSubmitBlockReason,
   isValidMiniMaxCustomVoiceId,
@@ -134,6 +135,12 @@ describe('minimax voice clone helpers', () => {
     expect(result.voices).toEqual([readyVoice]);
     expect(result.cloneCost).toBeNull();
     expect(result.errors).toHaveLength(1);
+  });
+
+  it('requests owner-wide cloned voices without current shifu filtering', () => {
+    expect(
+      buildMiniMaxClonedVoiceListParams('3aab99292889400f9f3c935a45ab2b0e'),
+    ).toEqual({});
   });
 
   it('allows clone submission once source recording is long enough', () => {
