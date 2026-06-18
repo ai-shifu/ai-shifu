@@ -43,11 +43,6 @@ import {
   PUBLISH_LEARNING_MODES,
 } from './publishLearningMode';
 
-type ShifuWithLearningUrl = {
-  bid?: string;
-  url?: string;
-};
-
 const publishModeIcons: Record<LearningMode, LucideIcon> = {
   read: BookOpen,
   listen: Headphones,
@@ -94,10 +89,8 @@ const Header = () => {
       await actions.loadShifu(currentShifu.bid, { silent: true });
     }
   };
-  const getCourseUrl = () => {
-    const shifu = currentShifu as ShifuWithLearningUrl | null;
-    return buildCourseLearningUrl(shifu?.bid || '', shifu?.url);
-  };
+  const getCourseUrl = () =>
+    buildCourseLearningUrl(currentShifu?.bid || '', currentShifu?.url);
   const getLearningModeUrl = (mode: LearningMode) =>
     buildLearningModeUrl(getCourseUrl(), mode);
   const getPublishModeLabel = (mode: LearningMode) => {
@@ -200,7 +193,7 @@ const Header = () => {
               </div>
             ),
             onConfirm() {
-              window.open(result, '_blank');
+              window.open(result, '_blank', 'noopener,noreferrer');
             },
           });
         } catch (error) {
