@@ -11,6 +11,7 @@
   "copyListenModeLink": "Copier le lien du mode Écouter",
   "copyReadModeLink": "Copier le lien du mode Lire",
   "goToView": "Voir",
+  "listenModeRequiresTts": "Activez le mode Écouter dans les paramètres du cours pour utiliser cette option",
   "publish": "Publier",
   "publishAndOpenClassroomMode": "Publier et ouvrir le mode Classe",
   "publishAndOpenListenMode": "Publier et ouvrir le mode Écouter",

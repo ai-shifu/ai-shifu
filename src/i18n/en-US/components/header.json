@@ -11,6 +11,7 @@
   "copyListenModeLink": "Copy Listen mode link",
   "copyReadModeLink": "Copy Read mode link",
   "goToView": "Go to View",
+  "listenModeRequiresTts": "Enable Listen mode in course settings to use this option",
   "publish": "Publish",
   "publishAndOpenClassroomMode": "Publish and open Classroom mode",
   "publishAndOpenListenMode": "Publish and open Listen mode",

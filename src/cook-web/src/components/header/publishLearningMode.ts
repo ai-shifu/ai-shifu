@@ -6,6 +6,14 @@ export const PUBLISH_LEARNING_MODES = [
   'classroom',
 ] as const satisfies readonly LearningMode[];
 
+export const isPublishLearningModeAvailable = ({
+  mode,
+  ttsEnabled,
+}: {
+  mode: LearningMode;
+  ttsEnabled?: boolean | null;
+}) => mode !== 'listen' || ttsEnabled !== false;
+
 export const buildCourseLearningUrl = (
   courseId: string,
   publishedUrl?: string | null,

@@ -37,9 +37,11 @@ import {
 } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/useToast';
 import type { LearningMode } from '@/c-types/store';
+import { cn } from '@/lib/utils';
 import {
   buildCourseLearningUrl,
   buildLearningModeUrl,
+  isPublishLearningModeAvailable,
   PUBLISH_LEARNING_MODES,
 } from './publishLearningMode';
 
@@ -93,6 +95,18 @@ const Header = () => {
     buildCourseLearningUrl(currentShifu?.bid || '', currentShifu?.url);
   const getLearningModeUrl = (mode: LearningMode) =>
     buildLearningModeUrl(getCourseUrl(), mode);
+  const isLearningModeAvailable = (mode: LearningMode) =>
+    isPublishLearningModeAvailable({
+      mode,
+      ttsEnabled: currentShifu?.tts_enabled,
+    });
+  const getPublishModeUnavailableLabel = (mode: LearningMode) => {
+    if (!isLearningModeAvailable(mode) && mode === 'listen') {
+      return t('component.header.listenModeRequiresTts');
+    }
+
+    return null;
+  };
   const getPublishModeLabel = (mode: LearningMode) => {
     if (mode === 'classroom') {
       return t('component.header.publishAndOpenClassroomMode');
@@ -112,6 +126,10 @@ const Header = () => {
     return t('component.header.copyReadModeLink');
   };
   const copyLearningModeUrl = async (mode: LearningMode) => {
+    if (!isLearningModeAvailable(mode)) {
+      return;
+    }
+
     try {
       await writeClipboardText(getLearningModeUrl(mode));
       trackEvent('creator_publish_link_copy', {
@@ -141,7 +159,12 @@ const Header = () => {
     window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
   const publish = async (mode?: LearningMode) => {
-    if (!canPublish || publishing || !currentShifu?.bid) {
+    if (
+      !canPublish ||
+      publishing ||
+      !currentShifu?.bid ||
+      (mode && !isLearningModeAvailable(mode))
+    ) {
       return;
     }
     trackEvent('creator_publish_click', {
@@ -320,22 +343,38 @@ const Header = () => {
               <TooltipProvider delayDuration={200}>
                 {PUBLISH_LEARNING_MODES.map(mode => {
                   const ModeIcon = publishModeIcons[mode];
-                  return (
+                  const unavailableLabel = getPublishModeUnavailableLabel(mode);
+                  const modeDisabled =
+                    !canPublish || publishing || Boolean(unavailableLabel);
+                  const rowContent = (
                     <div
-                      key={mode}
-                      className='group flex items-center rounded-md hover:bg-accent focus-within:bg-accent'
+                      className={cn(
+                        'group flex items-center rounded-md',
+                        unavailableLabel
+                          ? 'cursor-not-allowed opacity-50'
+                          : 'hover:bg-accent focus-within:bg-accent',
+                      )}
                     >
                       <DropdownMenuItem
                         asChild
-                        disabled={!canPublish || publishing}
-                        className='min-w-0 flex-1 cursor-pointer bg-transparent px-3 py-2 text-sm focus:bg-transparent'
+                        disabled={modeDisabled}
+                        className={cn(
+                          'min-w-0 flex-1 bg-transparent px-3 py-2 text-sm focus:bg-transparent',
+                          unavailableLabel
+                            ? 'cursor-not-allowed'
+                            : 'cursor-pointer',
+                        )}
                         onSelect={() => {
                           void publish(mode);
                         }}
                       >
                         <button
                           type='button'
-                          className='flex min-w-0 items-center gap-2 text-left'
+                          disabled={modeDisabled}
+                          className={cn(
+                            'flex min-w-0 items-center gap-2 text-left',
+                            unavailableLabel ? 'cursor-not-allowed' : '',
+                          )}
                         >
                           <ModeIcon className='h-4 w-4 shrink-0 text-muted-foreground' />
                           <span className='truncate'>
@@ -348,8 +387,13 @@ const Header = () => {
                           <button
                             type='button'
                             aria-label={getCopyModeLabel(mode)}
-                            className='mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30'
-                            disabled={!canPublish || publishing}
+                            className={cn(
+                              'mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+                              modeDisabled
+                                ? 'cursor-not-allowed opacity-50 hover:bg-transparent hover:text-muted-foreground'
+                                : '',
+                            )}
+                            disabled={modeDisabled}
                             onClick={event => {
                               event.preventDefault();
                               event.stopPropagation();
@@ -363,10 +407,28 @@ const Header = () => {
                           side='left'
                           className='z-[113]'
                         >
-                          {getCopyModeLabel(mode)}
+                          {unavailableLabel || getCopyModeLabel(mode)}
                         </TooltipContent>
                       </Tooltip>
                     </div>
+                  );
+
+                  if (unavailableLabel) {
+                    return (
+                      <Tooltip key={mode}>
+                        <TooltipTrigger asChild>{rowContent}</TooltipTrigger>
+                        <TooltipContent
+                          side='left'
+                          className='z-[113]'
+                        >
+                          {unavailableLabel}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+
+                  return (
+                    <React.Fragment key={mode}>{rowContent}</React.Fragment>
                   );
                 })}
               </TooltipProvider>
