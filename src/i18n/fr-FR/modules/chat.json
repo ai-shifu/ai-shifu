@@ -9,7 +9,7 @@
   "generating": "Génération du diagramme...",
   "learningModeClassroom": "Classe",
   "learningModeClassroomShort": "Classe",
-  "learningModeClassroomTooltip": "Présenter les diapositives et les interactions sur un écran partagé",
+  "learningModeClassroomTooltip": "Présenter les diapositives et les interactions sur un écran partagé (enseignant uniquement)",
   "learningModeListen": "Écouter",
   "learningModeListenShort": "Écouter",
   "learningModeListenTooltip": "Lancer automatiquement la narration et les diapositives pour apprendre en écoutant",

@@ -9,7 +9,7 @@
   "generating": "插图生成中...",
   "learningModeClassroom": "课堂模式",
   "learningModeClassroomShort": "课堂",
-  "learningModeClassroomTooltip": "投屏展示幻灯片和互动",
+  "learningModeClassroomTooltip": "投屏展示幻灯片和互动（仅限老师）",
   "learningModeListen": "听课",
   "learningModeListenShort": "听",
   "learningModeListenTooltip": "自动播放语音和幻灯片，边听边学",
