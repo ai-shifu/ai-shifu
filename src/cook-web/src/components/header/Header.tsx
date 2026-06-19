@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   CircleAlert,
   CircleCheck,
+  CircleHelp,
   Copy,
   Headphones,
   Presentation,
@@ -144,6 +145,86 @@ const Header = () => {
       });
     }
   };
+  const copyPublishedUrl = async (
+    publishedUrl: string,
+    mode?: LearningMode,
+  ) => {
+    try {
+      await writeClipboardText(publishedUrl);
+      trackEvent('creator_publish_link_copy', {
+        shifu_bid: currentShifu?.bid || '',
+        learning_mode: mode || '',
+      });
+      toast({ title: t('component.header.copyLinkSuccess') });
+    } catch {
+      toast({
+        title: t('component.header.copyLinkFailed'),
+        variant: 'destructive',
+      });
+    }
+  };
+  const showPublishSuccessAlert = (
+    publishedUrl: string,
+    mode?: LearningMode,
+  ) => {
+    alert.showAlert({
+      title: t('component.header.publishSuccess'),
+      cancelText: t('component.header.close'),
+      showConfirm: false,
+      descriptionAsChild: true,
+      description: (
+        <div className='space-y-4 text-left'>
+          <div className='space-y-1'>
+            <div className='flex items-center gap-1.5 font-medium text-foreground'>
+              <span>{t('component.header.publishSuccessDescription')}</span>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type='button'
+                      aria-label={t('component.header.publishSuccessDraftHelp')}
+                      className='inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-blue-300'
+                    >
+                      <CircleHelp className='h-3.5 w-3.5' />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className='z-[112] max-w-xs text-left leading-5'>
+                    {t('component.header.publishSuccessDraftHelp')}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <p>{t('component.header.publishSuccessAudienceDescription')}</p>
+          </div>
+          <div className='space-y-1.5'>
+            <div className='text-xs font-medium text-foreground'>
+              {t('component.header.learningLink')}
+            </div>
+            <div className='flex items-center gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2'>
+              <a
+                href={publishedUrl}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='min-w-0 flex-1 break-all text-sm font-medium text-blue-600 hover:underline'
+              >
+                {publishedUrl}
+              </a>
+              <button
+                type='button'
+                aria-label={t('component.header.copyLearningLink')}
+                className='flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300'
+                onClick={() => {
+                  void copyPublishedUrl(publishedUrl, mode);
+                }}
+              >
+                <Copy className='h-4 w-4' />
+              </button>
+            </div>
+          </div>
+        </div>
+      ),
+    });
+  };
   const openLearningModeUrl = (
     courseUrl: string,
     mode: LearningMode,
@@ -174,52 +255,36 @@ const Header = () => {
     // TODO: publish
     // actions.publishScenario();
     // await actions.saveBlocks(currentShifu?.bid || '');
-    await actions.saveMdflow();
-    alert.showAlert({
-      confirmText: t('component.header.confirmPublishAction'),
-      cancelText: t('component.header.cancel'),
-      title: t('component.header.confirmPublish'),
-      description: t('component.header.confirmPublishDescription'),
-      async onConfirm() {
-        trackEvent('creator_publish_confirm', {
-          shifu_bid: currentShifu?.bid || '',
-          learning_mode: mode || '',
-        });
-        const pendingWindow = mode
-          ? window.open('about:blank', '_blank')
-          : null;
-        setPublishing(true);
-        try {
-          const result = await api.publishShifu({
-            shifu_bid: currentShifu?.bid || '',
-          });
-          if (mode) {
-            if (openLearningModeUrl(result, mode, pendingWindow)) {
-              return;
-            }
-
-            toast({ title: t('component.header.publishSuccess') });
-            return;
-          }
-
-          toast({ title: t('component.header.publishSuccess') });
-        } catch {
-          pendingWindow?.close();
-          toast({
-            title: t('common.core.actionFailed'),
-            variant: 'destructive',
-          });
-        } finally {
-          setPublishing(false);
+    const pendingWindow = mode ? window.open('about:blank', '_blank') : null;
+    setPublishing(true);
+    try {
+      await actions.saveMdflow();
+      trackEvent('creator_publish_confirm', {
+        shifu_bid: currentShifu?.bid || '',
+        learning_mode: mode || '',
+      });
+      const result = await api.publishShifu({
+        shifu_bid: currentShifu?.bid || '',
+      });
+      if (mode) {
+        if (openLearningModeUrl(result, mode, pendingWindow)) {
+          return;
         }
-      },
-      onCancel() {
-        trackEvent('creator_publish_cancel', {
-          shifu_bid: currentShifu?.bid || '',
-          learning_mode: mode || '',
-        });
-      },
-    });
+
+        showPublishSuccessAlert(buildLearningModeUrl(result, mode), mode);
+        return;
+      }
+
+      showPublishSuccessAlert(result);
+    } catch {
+      pendingWindow?.close();
+      toast({
+        title: t('common.core.actionFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setPublishing(false);
+    }
   };
   return (
     <div className='flex items-center w-full h-16 px-4 py-[11px] bg-white border-b border-gray-200'>

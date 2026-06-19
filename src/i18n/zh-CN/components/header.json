@@ -1,15 +1,13 @@
 {
   "__namespace__": "component.header",
-  "cancel": "取消",
   "close": "关闭",
-  "confirmPublish": "发布草稿？",
-  "confirmPublishAction": "发布草稿",
-  "confirmPublishDescription": "发布后，当前草稿将成为学习者看到的正式课程内容。请确认授课提示词、课程和章节设置已检查无误，再发布出去。",
   "copyClassroomModeLink": "复制课堂模式链接",
+  "copyLearningLink": "复制学习链接",
   "copyLinkFailed": "复制失败，请手动复制链接",
   "copyLinkSuccess": "复制成功",
   "copyListenModeLink": "复制听课模式链接",
   "copyReadModeLink": "复制阅读模式链接",
+  "learningLink": "学习链接",
   "listenModeRequiresTts": "请先在课程设置中开启听课模式",
   "publish": "发布",
   "publishAndOpenClassroomMode": "发布并打开课堂模式",
@@ -17,6 +15,9 @@
   "publishAndOpenReadMode": "发布并打开阅读模式",
   "publishMenuLabel": "发布选项",
   "publishSuccess": "发布成功",
+  "publishSuccessAudienceDescription": "学生可通过下面链接学习，老师可用同一链接进入课堂模式授课",
+  "publishSuccessDescription": "已将草稿的最新版发布",
+  "publishSuccessDraftHelp": "后台会保存草稿的多个版本，可以按需发布",
   "readonly": "只读",
   "saved": "已保存"
 }

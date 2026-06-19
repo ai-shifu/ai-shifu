@@ -1,15 +1,13 @@
 {
   "__namespace__": "component.header",
-  "cancel": "Annuler",
   "close": "Fermer",
-  "confirmPublish": "Publier le brouillon ?",
-  "confirmPublishAction": "Publier le brouillon",
-  "confirmPublishDescription": "Après publication, le brouillon actuel deviendra le contenu officiel du cours visible par les apprenants. Vérifiez le prompt d'enseignement, les paramètres du cours et les paramètres des chapitres avant de le publier.",
   "copyClassroomModeLink": "Copier le lien du mode Classe",
+  "copyLearningLink": "Copier le lien d'apprentissage",
   "copyLinkFailed": "Impossible de copier le lien",
   "copyLinkSuccess": "Lien copié",
   "copyListenModeLink": "Copier le lien du mode Écouter",
   "copyReadModeLink": "Copier le lien du mode Lire",
+  "learningLink": "Lien d'apprentissage",
   "listenModeRequiresTts": "Activez le mode Écouter dans les paramètres du cours pour utiliser cette option",
   "publish": "Publier",
   "publishAndOpenClassroomMode": "Publier et ouvrir le mode Classe",
@@ -17,6 +15,9 @@
   "publishAndOpenReadMode": "Publier et ouvrir le mode Lire",
   "publishMenuLabel": "Options de publication",
   "publishSuccess": "Publication réussie",
+  "publishSuccessAudienceDescription": "Les élèves peuvent utiliser le lien ci-dessous pour apprendre, et les enseignants peuvent utiliser le même lien pour enseigner en mode Classe.",
+  "publishSuccessDescription": "La dernière version du brouillon a été publiée.",
+  "publishSuccessDraftHelp": "L'administration conserve plusieurs versions du brouillon, que vous pouvez publier selon vos besoins.",
   "readonly": "Lecture seule",
   "saved": "Enregistré"
 }
