@@ -338,7 +338,7 @@ const Header = () => {
             </div>
             <DropdownMenuContent
               align='end'
-              className='w-[17rem] rounded-lg p-1.5'
+              className='w-64 rounded-lg p-1'
             >
               <TooltipProvider delayDuration={200}>
                 {PUBLISH_LEARNING_MODES.map(mode => {
@@ -349,7 +349,7 @@ const Header = () => {
                   const rowContent = (
                     <div
                       className={cn(
-                        'group flex items-center rounded-md',
+                        'group flex items-center rounded-md transition-colors',
                         unavailableLabel
                           ? 'cursor-not-allowed opacity-50'
                           : 'hover:bg-accent focus-within:bg-accent',
@@ -372,11 +372,11 @@ const Header = () => {
                           type='button'
                           disabled={modeDisabled}
                           className={cn(
-                            'flex min-w-0 items-center gap-2 text-left',
+                            'flex min-w-0 items-center gap-2.5 text-left',
                             unavailableLabel ? 'cursor-not-allowed' : '',
                           )}
                         >
-                          <ModeIcon className='h-4 w-4 shrink-0 text-muted-foreground' />
+                          <ModeIcon className='h-4 w-4 shrink-0 text-muted-foreground/70' />
                           <span className='truncate'>
                             {getPublishModeLabel(mode)}
                           </span>
@@ -388,9 +388,9 @@ const Header = () => {
                             type='button'
                             aria-label={getCopyModeLabel(mode)}
                             className={cn(
-                              'mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+                              'mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 opacity-50 transition-all hover:bg-background hover:text-foreground hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 group-hover:opacity-100 group-focus-within:opacity-100',
                               modeDisabled
-                                ? 'cursor-not-allowed opacity-50 hover:bg-transparent hover:text-muted-foreground'
+                                ? 'cursor-not-allowed opacity-30 hover:bg-transparent hover:text-muted-foreground/60 group-hover:opacity-30'
                                 : '',
                             )}
                             disabled={modeDisabled}
@@ -400,7 +400,7 @@ const Header = () => {
                               void copyLearningModeUrl(mode);
                             }}
                           >
-                            <Copy className='h-4 w-4' />
+                            <Copy className='h-3.5 w-3.5' />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent
