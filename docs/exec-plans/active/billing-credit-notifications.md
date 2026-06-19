@@ -21,6 +21,8 @@
 - [x] 2026-05-21 17:07 CST: Added teacher-facing balance state and softlimit debug blocking on frontend and backend preview/debug paths.
 - [x] 2026-05-21 17:07 CST: Added focused backend/task/frontend tests and ran validation; architecture boundary check is blocked only by unrelated pre-existing untracked route-support files.
 - [x] 2026-05-22 18:35 CST: Extended low-balance notifications with estimated-days thresholds based on finalized daily ledger consumption, structured operator form fields, dry-run details, and focused tests.
+- [ ] 2026-06-19 21:20 CST: Start the follow-up PR on `refactor/billing-credit-notifications`, focused on records/config request-state cleanup, requeue refresh behavior, and config-side experience polish without changing the notification-center core model.
+- [ ] 2026-06-19 21:36 CST: Defer the next-step `CreditNotificationConfigTab.tsx` split (dry-run, template sync, managed-list dialog state isolation) to a separate follow-up PR so the current branch stays scoped to request-state and records-tab polish.
 
 ## Surprises & Discoveries
 

@@ -1,9 +1,5 @@
 import React from 'react';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
-import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
@@ -17,13 +13,6 @@ import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableCol
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select';
-import {
   Table,
   TableBody,
   TableCell,
@@ -31,31 +20,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import type {
   AdminOperationCreditNotificationItem,
   AdminOperationCreditNotificationOverview,
 } from '../operation-credit-notification-types';
 import {
-  ALL_OPTION_VALUE,
   EMPTY_LABEL,
   type ErrorState,
   type NotificationFilters,
   type NotificationOverviewCardKey,
-  NOTIFICATION_DELIVERY_STATUSES,
-  NOTIFICATION_SOURCE_TYPES,
-  NOTIFICATION_SKIP_REASONS,
-  NOTIFICATION_TYPES,
   resolveCreditNotificationErrorText,
   resolveNotificationDeliveryStatus,
   resolveNotificationSkipReason,
 } from './creditNotificationUtils';
 import { CreditNotificationDetailSheet } from './CreditNotificationDetailSheet';
+import { CreditNotificationOverviewCards } from './CreditNotificationOverviewCards';
+import { CreditNotificationRecordsFilter } from './CreditNotificationRecordsFilter';
 
 const COLUMN_MIN_WIDTH = 90;
 const COLUMN_MAX_WIDTH = 460;
@@ -74,8 +54,6 @@ const TABLE_CELL_CLASS =
   'border-r border-border px-3 py-2 align-middle last:border-r-0';
 const TABLE_TEXT_CELL_CLASS =
   'overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis last:border-r-0';
-const SELECT_ITEM_CLASS = 'pl-3 pr-8';
-const SELECT_ITEM_INDICATOR_CLASS = 'left-auto right-2';
 const TABLE_INLINE_ACTION_BUTTON_CLASS =
   'inline-flex h-8 items-center justify-center rounded-md px-2.5 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
 
@@ -155,178 +133,26 @@ export function CreditNotificationRecordsTab({
     [getResizeHandleProps],
   );
 
-  const [filtersExpanded, setFiltersExpanded] = React.useState(false);
   const [detailNotificationBid, setDetailNotificationBid] = React.useState('');
-  const clearLabel = t('common.core.close');
-
-  const overviewItems = React.useMemo(
-    () => [
-      {
-        key: 'total',
-        label: t('module.operationsCreditNotifications.overview.total'),
-        value: overview.total,
-        tooltip: t(
-          'module.operationsCreditNotifications.overview.totalTooltip',
-        ),
-        onClick: () => applyOverviewFilter('total'),
-      },
-      {
-        key: 'pending',
-        label: t('module.operationsCreditNotifications.overview.pending'),
-        value: overview.pending,
-        tooltip: t(
-          'module.operationsCreditNotifications.overview.pendingTooltip',
-        ),
-        onClick: () => applyOverviewFilter('pending'),
-      },
-      {
-        key: 'sent',
-        label: t('module.operationsCreditNotifications.overview.sent'),
-        value: overview.sent,
-        tooltip: t('module.operationsCreditNotifications.overview.sentTooltip'),
-        onClick: () => applyOverviewFilter('sent'),
-      },
-      {
-        key: 'failed',
-        label: t('module.operationsCreditNotifications.overview.failed'),
-        value: overview.failed,
-        tooltip: t(
-          'module.operationsCreditNotifications.overview.failedTooltip',
-        ),
-        onClick: () => applyOverviewFilter('failed'),
-      },
-      {
-        key: 'skipped',
-        label: t('module.operationsCreditNotifications.overview.skipped'),
-        value: overview.skipped,
-        tooltip: t(
-          'module.operationsCreditNotifications.overview.skippedTooltip',
-        ),
-        onClick: () => applyOverviewFilter('skipped'),
-      },
-    ],
-    [applyOverviewFilter, overview, t],
-  );
 
   const activeOverviewItem = React.useMemo(
     () =>
       activeOverviewCardKey
-        ? overviewItems.find(item => item.key === activeOverviewCardKey) || null
+        ? (
+            {
+              total: t('module.operationsCreditNotifications.overview.total'),
+              pending: t(
+                'module.operationsCreditNotifications.overview.pending',
+              ),
+              sent: t('module.operationsCreditNotifications.overview.sent'),
+              failed: t('module.operationsCreditNotifications.overview.failed'),
+              skipped: t(
+                'module.operationsCreditNotifications.overview.skipped',
+              ),
+            } as Record<NotificationOverviewCardKey, string>
+          )[activeOverviewCardKey] || ''
         : null,
-    [activeOverviewCardKey, overviewItems],
-  );
-
-  const renderTypeSelect = () => (
-    <Select
-      value={draftFilters.notification_type || ALL_OPTION_VALUE}
-      onValueChange={value =>
-        updateDraftFilter(
-          'notification_type',
-          value === ALL_OPTION_VALUE ? '' : value,
-        )
-      }
-    >
-      <SelectTrigger className='h-9'>
-        <SelectValue
-          placeholder={t(
-            'module.operationsCreditNotifications.filters.notificationType',
-          )}
-        />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem
-          value={ALL_OPTION_VALUE}
-          className={SELECT_ITEM_CLASS}
-          indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
-        >
-          {t('module.operationsCreditNotifications.filters.all')}
-        </SelectItem>
-        {NOTIFICATION_TYPES.map(type => (
-          <SelectItem
-            key={type}
-            value={type}
-            className={SELECT_ITEM_CLASS}
-            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
-          >
-            {resolveTypeLabel(type)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-
-  const renderStatusSelect = () => (
-    <Select
-      value={draftFilters.delivery_status || ALL_OPTION_VALUE}
-      onValueChange={value => {
-        const nextValue = value === ALL_OPTION_VALUE ? '' : value;
-        updateDraftFilter('delivery_status', nextValue);
-      }}
-    >
-      <SelectTrigger className='h-9'>
-        <SelectValue
-          placeholder={t('module.operationsCreditNotifications.filters.status')}
-        />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem
-          value={ALL_OPTION_VALUE}
-          className={SELECT_ITEM_CLASS}
-          indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
-        >
-          {t('module.operationsCreditNotifications.filters.all')}
-        </SelectItem>
-        {NOTIFICATION_DELIVERY_STATUSES.map(status => (
-          <SelectItem
-            key={status}
-            value={status}
-            className={SELECT_ITEM_CLASS}
-            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
-          >
-            {resolveDeliveryStatusLabel(status)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-
-  const renderSkipReasonSelect = () => (
-    <Select
-      value={draftFilters.skip_reason || ALL_OPTION_VALUE}
-      onValueChange={value =>
-        updateDraftFilter(
-          'skip_reason',
-          value === ALL_OPTION_VALUE ? '' : value,
-        )
-      }
-    >
-      <SelectTrigger className='h-9'>
-        <SelectValue
-          placeholder={t(
-            'module.operationsCreditNotifications.filters.skipReason',
-          )}
-        />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem
-          value={ALL_OPTION_VALUE}
-          className={SELECT_ITEM_CLASS}
-          indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
-        >
-          {t('module.operationsCreditNotifications.filters.all')}
-        </SelectItem>
-        {NOTIFICATION_SKIP_REASONS.map(reason => (
-          <SelectItem
-            key={reason}
-            value={reason}
-            className={SELECT_ITEM_CLASS}
-            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
-          >
-            {resolveSkipReasonLabel(reason)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    [activeOverviewCardKey, t],
   );
 
   const resolveSourceTypeLabel = (value: string) =>
@@ -334,109 +160,6 @@ export function CreditNotificationRecordsTab({
       `module.operationsCreditNotifications.sourceType.${value}`,
       value || EMPTY_LABEL,
     );
-
-  const renderSourceTypeSelect = () => (
-    <Select
-      value={draftFilters.source_type || ALL_OPTION_VALUE}
-      onValueChange={value =>
-        updateDraftFilter(
-          'source_type',
-          value === ALL_OPTION_VALUE ? '' : value,
-        )
-      }
-    >
-      <SelectTrigger className='h-9'>
-        <SelectValue
-          placeholder={t(
-            'module.operationsCreditNotifications.filters.sourceType',
-          )}
-        />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem
-          value={ALL_OPTION_VALUE}
-          className={SELECT_ITEM_CLASS}
-          indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
-        >
-          {t('module.operationsCreditNotifications.filters.all')}
-        </SelectItem>
-        {NOTIFICATION_SOURCE_TYPES.map(sourceType => (
-          <SelectItem
-            key={sourceType}
-            value={sourceType}
-            className={SELECT_ITEM_CLASS}
-            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
-          >
-            {resolveSourceTypeLabel(sourceType)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-
-  const renderCreatedAtRange = () => (
-    <AdminDateRangeFilter
-      startValue={draftFilters.start_time}
-      endValue={draftFilters.end_time}
-      onChange={range => {
-        updateDraftFilter('start_time', range.start);
-        updateDraftFilter('end_time', range.end);
-      }}
-      placeholder={t(
-        'module.operationsCreditNotifications.filters.timeRangePlaceholder',
-      )}
-      resetLabel={t('module.operationsCreditNotifications.actions.reset')}
-      clearLabel={clearLabel}
-    />
-  );
-
-  const renderCreatorInput = () => (
-    <AdminClearableInput
-      value={draftFilters.creator_keyword}
-      placeholder={t(
-        'module.operationsCreditNotifications.filters.creatorPlaceholder',
-      )}
-      clearLabel={clearLabel}
-      onChange={value => updateDraftFilter('creator_keyword', value)}
-    />
-  );
-
-  const filterItems = [
-    {
-      key: 'notification_type',
-      label: t('module.operationsCreditNotifications.filters.notificationType'),
-      component: renderTypeSelect(),
-    },
-    {
-      key: 'status',
-      label: t('module.operationsCreditNotifications.filters.status'),
-      component: renderStatusSelect(),
-    },
-    ...(draftFilters.delivery_status === 'not_sent'
-      ? [
-          {
-            key: 'skip_reason',
-            label: t('module.operationsCreditNotifications.filters.skipReason'),
-            component: renderSkipReasonSelect(),
-          },
-        ]
-      : []),
-    {
-      key: 'creator_keyword',
-      label: t('module.operationsCreditNotifications.filters.creator'),
-      component: renderCreatorInput(),
-    },
-    {
-      key: 'source_type',
-      label: t('module.operationsCreditNotifications.filters.sourceType'),
-      component: renderSourceTypeSelect(),
-    },
-    {
-      key: 'created_at',
-      label: t('module.operationsCreditNotifications.filters.createdTime'),
-      component: renderCreatedAtRange(),
-    },
-  ];
 
   const resolveReasonDisplay = React.useCallback(
     (item: AdminOperationCreditNotificationItem) => {
@@ -456,72 +179,23 @@ export function CreditNotificationRecordsTab({
 
   return (
     <div className='flex min-h-0 flex-col gap-4'>
-      <TooltipProvider delayDuration={150}>
-        <div className='grid gap-3 md:grid-cols-3 xl:grid-cols-5'>
-          {overviewItems.map(item => (
-            <div
-              key={item.key}
-              className='rounded-lg border border-border/70 bg-muted/20 p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
-            >
-              <div className='flex items-start justify-between gap-2'>
-                <button
-                  type='button'
-                  aria-label={item.label}
-                  className='group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
-                  onClick={item.onClick}
-                >
-                  <div className='text-sm text-muted-foreground'>
-                    {item.label}
-                  </div>
-                  <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
-                    {item.value}
-                  </div>
-                </button>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type='button'
-                      aria-label={item.tooltip}
-                      className='inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
-                    >
-                      <QuestionMarkCircleIcon className='h-4 w-4' />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className='max-w-56 text-left leading-5'>
-                    {item.tooltip}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-          ))}
-        </div>
-      </TooltipProvider>
+      <CreditNotificationOverviewCards
+        overview={overview}
+        applyOverviewFilter={applyOverviewFilter}
+      />
 
-      <AdminFilter
-        items={filterItems}
-        expanded={filtersExpanded}
-        onExpandedChange={setFiltersExpanded}
-        onReset={resetRecords}
-        onSearch={searchRecords}
-        resetLabel={t('module.operationsCreditNotifications.actions.reset')}
-        searchLabel={t('module.operationsCreditNotifications.actions.search')}
-        expandLabel={t('common.core.expand')}
-        collapseLabel={t('common.core.collapse')}
-        collapsedCount={3}
-        surface='card'
-        layoutPreset='operations'
-        activeFilter={
-          activeOverviewItem
-            ? {
-                label: t(
-                  'module.operationsCreditNotifications.overview.activeFilter',
-                ),
-                value: activeOverviewItem.label,
-                clearAriaLabel: `${activeOverviewItem.label} ${clearLabel}`,
-                onClear: clearOverviewFilter,
-              }
-            : null
-        }
+      <CreditNotificationRecordsFilter
+        draftFilters={draftFilters}
+        updateDraftFilter={updateDraftFilter}
+        searchRecords={searchRecords}
+        resetRecords={resetRecords}
+        activeOverviewCardKey={activeOverviewCardKey}
+        activeOverviewLabel={activeOverviewItem || ''}
+        clearOverviewFilter={clearOverviewFilter}
+        resolveDeliveryStatusLabel={resolveDeliveryStatusLabel}
+        resolveSkipReasonLabel={resolveSkipReasonLabel}
+        resolveTypeLabel={resolveTypeLabel}
+        resolveSourceTypeLabel={resolveSourceTypeLabel}
       />
 
       {error ? (
