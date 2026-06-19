@@ -171,6 +171,7 @@ const Header = () => {
       title: t('component.header.publishSuccess'),
       cancelText: t('component.header.close'),
       showConfirm: false,
+      descriptionAsChild: true,
       description: (
         <div className='space-y-4 text-left'>
           <div className='space-y-1'>
@@ -203,7 +204,7 @@ const Header = () => {
               <a
                 href={publishedUrl}
                 target='_blank'
-                rel='noreferrer'
+                rel='noopener noreferrer'
                 className='min-w-0 flex-1 break-all text-sm font-medium text-blue-600 hover:underline'
               >
                 {publishedUrl}

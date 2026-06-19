@@ -14,6 +14,7 @@ import {
 interface AlertOptions {
   title: string;
   description: React.ReactNode;
+  descriptionAsChild?: boolean;
   confirmText?: string;
   cancelText?: string;
   showConfirm?: boolean;
@@ -70,17 +71,24 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{options.title}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {options.description}
-            </AlertDialogDescription>
+            {options.descriptionAsChild &&
+            React.isValidElement(options.description) ? (
+              <AlertDialogDescription asChild>
+                {options.description}
+              </AlertDialogDescription>
+            ) : (
+              <AlertDialogDescription>
+                {options.description}
+              </AlertDialogDescription>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             {options.showConfirm === false ? (
               <AlertDialogAction
                 className='h-8'
-                onClick={handleCancel}
+                onClick={handleConfirm}
               >
-                {options.cancelText || 'Close'}
+                {options.confirmText || options.cancelText || 'Close'}
               </AlertDialogAction>
             ) : (
               <>
