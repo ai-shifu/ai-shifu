@@ -144,29 +144,6 @@ const Header = () => {
       });
     }
   };
-  const showPublishSuccessAlert = (publishedUrl: string) => {
-    alert.showAlert({
-      title: t('component.header.publishSuccess'),
-      confirmText: t('component.header.goToView'),
-      cancelText: t('component.header.close'),
-      description: (
-        <div className='flex flex-col space-y-2'>
-          <span>{t('component.header.publishSuccessDescription')}</span>
-          <a
-            href={publishedUrl}
-            target='_blank'
-            rel='noreferrer'
-            className='text-blue-500 hover:underline'
-          >
-            {publishedUrl}
-          </a>
-        </div>
-      ),
-      onConfirm() {
-        window.open(publishedUrl, '_blank', 'noopener,noreferrer');
-      },
-    });
-  };
   const openLearningModeUrl = (
     courseUrl: string,
     mode: LearningMode,
@@ -221,11 +198,11 @@ const Header = () => {
               return;
             }
 
-            showPublishSuccessAlert(buildLearningModeUrl(result, mode));
+            toast({ title: t('component.header.publishSuccess') });
             return;
           }
 
-          showPublishSuccessAlert(result);
+          toast({ title: t('component.header.publishSuccess') });
         } catch {
           pendingWindow?.close();
           toast({
