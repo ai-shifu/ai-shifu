@@ -176,7 +176,7 @@ const Header = () => {
     // await actions.saveBlocks(currentShifu?.bid || '');
     await actions.saveMdflow();
     alert.showAlert({
-      confirmText: t('component.header.confirm'),
+      confirmText: t('component.header.confirmPublishAction'),
       cancelText: t('component.header.cancel'),
       title: t('component.header.confirmPublish'),
       description: t('component.header.confirmPublishDescription'),
