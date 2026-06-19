@@ -17,7 +17,7 @@
   "publishSuccess": "Publication réussie",
   "publishSuccessAudienceDescription": "Les élèves peuvent utiliser le lien ci-dessous pour apprendre, et les enseignants peuvent utiliser le même lien pour enseigner en mode Classe.",
   "publishSuccessDescription": "La dernière version du brouillon a été publiée.",
-  "publishSuccessDraftHelp": "L'administration conserve le brouillon. Vous pourrez le publier à nouveau après modification.",
+  "publishSuccessDraftHelp": "L'administration conserve plusieurs versions du brouillon, que vous pouvez publier selon vos besoins.",
   "readonly": "Lecture seule",
   "saved": "Enregistré"
 }
