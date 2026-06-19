@@ -1233,10 +1233,17 @@ def stream_generated_block_audio(
                 str(element.content_text or "") for element in speakable_elements
             ]
             if not speakable_segments:
-                raise_error_with_args(
-                    "server.common.paramsError",
-                    param_message="No speakable text elements available for TTS synthesis",
+                app.logger.info(
+                    "skip listen-mode TTS for non-speakable generated block | shifu_bid=%s | generated_block_bid=%s | user_bid=%s",
+                    shifu_bid,
+                    generated_block_bid,
+                    user_bid,
                 )
+                yield _build_tts_done_message(
+                    outline_bid=generated_block.outline_item_bid or "",
+                    generated_block_bid=generated_block_bid,
+                )
+                return
 
             expected_segment_count = len(speakable_segments)
             existing_by_position: dict[int, LearnGeneratedAudio] = {}
