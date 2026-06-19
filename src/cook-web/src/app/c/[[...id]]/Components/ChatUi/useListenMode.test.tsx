@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type Reveal from 'reveal.js';
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 import {
@@ -60,6 +60,62 @@ describe('useListenContentData', () => {
 });
 
 describe('useListenAudioSequence', () => {
+  it('starts the listen audio sequence in preview mode when playback is requested', async () => {
+    let currentPage = 0;
+    const slide = jest.fn((page: number) => {
+      currentPage = page;
+    });
+    const deckRef = {
+      current: {
+        getIndices: () => ({ h: currentPage }),
+        slide,
+      } as unknown as Reveal.Api,
+    };
+    const currentPptPageRef = { current: 0 };
+    const activeElementBidRef = { current: null };
+    const pendingAutoNextRef = { current: false };
+    const shouldStartSequenceRef = { current: false };
+    const content = createContentItem();
+    const contentByBid = new Map<string, ChatContentItem>([
+      ['content-1', content],
+    ]);
+    const audioContentByBid = new Map<string, ChatContentItem>([
+      ['content-1', content],
+    ]);
+    const setIsAudioPlaying = jest.fn();
+
+    const { result } = renderHook(() =>
+      useListenAudioSequence({
+        audioAndInteractionList: [createAudioItem({ page: 0 })],
+        deckRef,
+        currentPptPageRef,
+        activeElementBidRef,
+        pendingAutoNextRef,
+        shouldStartSequenceRef,
+        sequenceStartSignal: 0,
+        contentByBid,
+        audioContentByBid,
+        shouldRenderEmptyPpt: false,
+        getNextContentBid: () => null,
+        goToBlock: () => false,
+        resolveContentBid: resolveListenAudioSourceBid,
+        allowAutoPlayback: true,
+        isAudioPlaying: false,
+        setIsAudioPlaying,
+      }),
+    );
+
+    act(() => {
+      result.current.handlePlay();
+    });
+
+    await waitFor(() =>
+      expect(result.current.activeSequenceElementBid).toBe(
+        buildListenAudioSequenceBid('content-1', 0),
+      ),
+    );
+  });
+
   it('resyncs the active slide when a buffering item receives its final page', async () => {
     let currentPage = 0;
     const slide = jest.fn((page: number) => {
@@ -101,7 +157,6 @@ describe('useListenAudioSequence', () => {
           sequenceStartSignal,
           contentByBid,
           audioContentByBid,
-          previewMode: false,
           shouldRenderEmptyPpt: false,
           getNextContentBid: () => null,
           goToBlock: () => false,
@@ -176,7 +231,6 @@ describe('useListenAudioSequence', () => {
           sequenceStartSignal,
           contentByBid,
           audioContentByBid,
-          previewMode: false,
           shouldRenderEmptyPpt: false,
           getNextContentBid: () => null,
           goToBlock: () => false,
@@ -266,7 +320,6 @@ describe('useListenAudioSequence', () => {
           sequenceStartSignal,
           contentByBid,
           audioContentByBid,
-          previewMode: false,
           shouldRenderEmptyPpt: false,
           getNextContentBid: () => null,
           goToBlock: () => false,

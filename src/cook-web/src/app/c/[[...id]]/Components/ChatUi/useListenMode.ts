@@ -734,7 +734,6 @@ interface UseListenAudioSequenceParams {
   sequenceStartSignal: number;
   contentByBid: Map<string, ChatContentItem>;
   audioContentByBid: Map<string, ChatContentItem>;
-  previewMode: boolean;
   shouldRenderEmptyPpt: boolean;
   getNextContentBid: (currentBid: string | null) => string | null;
   goToBlock: (blockBid: string) => boolean;
@@ -754,7 +753,6 @@ export const useListenAudioSequence = ({
   sequenceStartSignal,
   contentByBid,
   audioContentByBid,
-  previewMode,
   shouldRenderEmptyPpt,
   getNextContentBid,
   goToBlock,
@@ -962,7 +960,7 @@ export const useListenAudioSequence = ({
     const prevLength = prevAudioSequenceLengthRef.current;
     const nextLength = audioAndInteractionList.length;
     prevAudioSequenceLengthRef.current = nextLength;
-    if (previewMode || !nextLength) {
+    if (!nextLength) {
       return;
     }
     if (!allowAutoPlayback) {
@@ -1095,7 +1093,6 @@ export const useListenAudioSequence = ({
   }, [
     audioAndInteractionList,
     playAudioSequenceFromIndex,
-    previewMode,
     allowAutoPlayback,
     sequenceInteraction,
     deckRef,
@@ -1108,7 +1105,7 @@ export const useListenAudioSequence = ({
   ]);
 
   useEffect(() => {
-    if (previewMode || !allowAutoPlayback || !activeAudioBid) {
+    if (!allowAutoPlayback || !activeAudioBid) {
       return;
     }
     if (isSequencePausedRef.current) {
@@ -1143,7 +1140,6 @@ export const useListenAudioSequence = ({
     activeAudioBid,
     audioAndInteractionList,
     allowAutoPlayback,
-    previewMode,
     syncToSequencePage,
   ]);
 
@@ -1343,9 +1339,6 @@ export const useListenAudioSequence = ({
   }, [playAudioSequenceFromIndex, tryAdvanceToNextBlock]);
 
   const handlePlay = useCallback(() => {
-    if (previewMode) {
-      return;
-    }
     isSequencePausedRef.current = false;
     if (!activeAudioBid && audioSequenceListRef.current.length) {
       const currentPage =
@@ -1355,7 +1348,6 @@ export const useListenAudioSequence = ({
     }
     audioPlayerRef.current?.play();
   }, [
-    previewMode,
     activeAudioBid,
     startSequenceFromPage,
     deckRef,
@@ -1364,14 +1356,11 @@ export const useListenAudioSequence = ({
 
   const handlePause = useCallback(
     (traceId?: string) => {
-      if (previewMode) {
-        return;
-      }
       isSequencePausedRef.current = true;
       clearAudioSequenceTimer();
       audioPlayerRef.current?.pause({ traceId });
     },
-    [previewMode, clearAudioSequenceTimer],
+    [clearAudioSequenceTimer],
   );
 
   useEffect(() => {

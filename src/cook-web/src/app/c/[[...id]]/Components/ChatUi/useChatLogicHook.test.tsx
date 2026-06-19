@@ -369,6 +369,56 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
+  it('allows preview listen mode to request generated-block audio backfill', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'Preview history content without audio',
+          generated_block_bid: 'preview-content-1',
+          element_bid: 'preview-content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+    mockStreamGeneratedBlockAudio.mockReturnValue({
+      close: jest.fn(),
+    });
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          previewMode: true,
+          listenRequestEnabled: true,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      void result.current.requestAudioForBlock('preview-content-1', {
+        listen: true,
+      });
+      await Promise.resolve();
+    });
+
+    expect(mockStreamGeneratedBlockAudio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generated_block_bid: 'preview-content-1',
+        preview_mode: true,
+        listen: true,
+      }),
+    );
+  });
+
   it('uses generated_block_bid for audio backfill and writes audio to speakable elements by history order', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',

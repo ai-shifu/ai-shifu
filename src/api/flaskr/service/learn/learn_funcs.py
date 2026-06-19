@@ -1179,7 +1179,8 @@ def stream_generated_block_audio(
             raise_error("server.learn.generatedBlockNotFound")
 
         raw_text = generated_block.generated_content or ""
-        if not listen:
+
+        def _resolve_existing_single_block_audio():
             existing_audios = (
                 LearnGeneratedAudio.query.filter(
                     LearnGeneratedAudio.generated_block_bid == generated_block_bid,
@@ -1191,23 +1192,30 @@ def stream_generated_block_audio(
                 .order_by(LearnGeneratedAudio.id.desc())
                 .all()
             )
-            existing_audio = next(
+            return next(
                 (
                     audio
                     for audio in existing_audios
                     if _audio_record_matches_speakable_text(audio, raw_text)
+                    and audio.oss_url
                 ),
                 None,
             )
-            if existing_audio and existing_audio.oss_url:
-                yield _build_audio_complete_message(
-                    outline_bid=generated_block.outline_item_bid or "",
-                    generated_block_bid=generated_block_bid,
-                    audio_url=existing_audio.oss_url,
-                    audio_bid=existing_audio.audio_bid,
-                    duration_ms=existing_audio.duration_ms or 0,
-                    subtitle_cues=_subtitle_cues_from_audio_record(existing_audio),
-                )
+
+        def _yield_existing_single_block_audio(existing_audio: LearnGeneratedAudio):
+            yield _build_audio_complete_message(
+                outline_bid=generated_block.outline_item_bid or "",
+                generated_block_bid=generated_block_bid,
+                audio_url=existing_audio.oss_url,
+                audio_bid=existing_audio.audio_bid,
+                duration_ms=existing_audio.duration_ms or 0,
+                subtitle_cues=_subtitle_cues_from_audio_record(existing_audio),
+            )
+
+        if not listen:
+            existing_audio = _resolve_existing_single_block_audio()
+            if existing_audio:
+                yield from _yield_existing_single_block_audio(existing_audio)
                 return
 
         provider, tts_model, voice_settings, _audio_settings = (
@@ -1217,6 +1225,33 @@ def stream_generated_block_audio(
                 preview_mode=preview_mode,
             )
         )
+
+        def _yield_single_block_audio():
+            cleaned_text = preprocess_for_tts(raw_text)
+            if not cleaned_text or len(cleaned_text.strip()) < 2:
+                raise_error_with_args(
+                    "server.common.paramsError",
+                    param_message="No speakable text available for TTS synthesis",
+                )
+
+            def _generate_single_audio():
+                yield from _yield_run_tts_audio_events(
+                    app=app,
+                    text=raw_text,
+                    provider=provider,
+                    tts_model=tts_model,
+                    voice_settings=voice_settings,
+                    generated_block=generated_block,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    preview_mode=preview_mode,
+                )
+
+            yield from _yield_with_tts_error_mapping(
+                app,
+                unknown_error_log="TTS streaming synthesis failed",
+                body=_generate_single_audio,
+            )
 
         if listen:
             from flaskr.service.learn.listen_element_history import (
@@ -1233,6 +1268,13 @@ def stream_generated_block_audio(
                 str(element.content_text or "") for element in speakable_elements
             ]
             if not speakable_segments:
+                if preview_mode:
+                    existing_audio = _resolve_existing_single_block_audio()
+                    if existing_audio:
+                        yield from _yield_existing_single_block_audio(existing_audio)
+                        return
+                    yield from _yield_single_block_audio()
+                    return
                 raise_error_with_args(
                     "server.common.paramsError",
                     param_message="No speakable text elements available for TTS synthesis",
@@ -1340,31 +1382,7 @@ def stream_generated_block_audio(
 
             return
 
-        cleaned_text = preprocess_for_tts(raw_text)
-        if not cleaned_text or len(cleaned_text.strip()) < 2:
-            raise_error_with_args(
-                "server.common.paramsError",
-                param_message="No speakable text available for TTS synthesis",
-            )
-
-        def _generate_single_audio():
-            yield from _yield_run_tts_audio_events(
-                app=app,
-                text=raw_text,
-                provider=provider,
-                tts_model=tts_model,
-                voice_settings=voice_settings,
-                generated_block=generated_block,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                preview_mode=preview_mode,
-            )
-
-        yield from _yield_with_tts_error_mapping(
-            app,
-            unknown_error_log="TTS streaming synthesis failed",
-            body=_generate_single_audio,
-        )
+        yield from _yield_single_block_audio()
 
 
 def stream_preview_tts_audio(

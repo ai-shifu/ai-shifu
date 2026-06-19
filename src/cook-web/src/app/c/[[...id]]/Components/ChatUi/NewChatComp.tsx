@@ -653,10 +653,6 @@ export const NewChatComponents = ({
       return;
     }
 
-    if (previewMode) {
-      return;
-    }
-
     const contentItems = items.filter(isContentItemWithElementBid);
 
     if (!contentItems.length) {
@@ -857,7 +853,7 @@ export const NewChatComponents = ({
   }, [lessonId]);
 
   const autoPlayTargetBlockBid = useMemo(() => {
-    if (!autoPlayAudio || previewMode) {
+    if (!autoPlayAudio) {
       return null;
     }
 
@@ -887,7 +883,7 @@ export const NewChatComponents = ({
     }
 
     return null;
-  }, [autoPlayAudio, currentPlayingBlockBid, items, previewMode]);
+  }, [autoPlayAudio, currentPlayingBlockBid, items]);
 
   const mobileInteractionPrimaryTrack = useMemo(
     () =>
