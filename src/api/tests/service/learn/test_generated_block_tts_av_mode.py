@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from types import SimpleNamespace
 
 import pytest
@@ -20,6 +21,21 @@ if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
 
+@dataclass
+class _FakeVoiceSettings:
+    voice_id: str = "voice"
+    speed: float = 1.0
+    pitch: int = 0
+    emotion: str = ""
+    volume: float = 1.0
+
+
+@dataclass
+class _FakeAudioSettings:
+    format: str = "mp3"
+    sample_rate: int = 24000
+
+
 def _patch_run_tts_processor(monkeypatch):
     synthesized_texts = []
 
@@ -28,22 +44,16 @@ def _patch_run_tts_processor(monkeypatch):
         lambda *_args, **_kwargs: (
             "minimax",
             "test-model",
-            type(
-                "Voice",
-                (),
-                {
-                    "voice_id": "voice",
-                    "speed": 1.0,
-                    "pitch": 0,
-                    "emotion": "",
-                    "volume": 1.0,
-                },
-            )(),
-            type("Audio", (), {"format": "mp3", "sample_rate": 24000})(),
+            _FakeVoiceSettings(),
+            _FakeAudioSettings(),
         ),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.is_tts_configured",
+        lambda _provider: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.is_tts_configured",
         lambda _provider: True,
     )
     monkeypatch.setattr(
@@ -64,7 +74,15 @@ def _patch_run_tts_processor(monkeypatch):
         _fake_synthesize_text,
     )
     monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.synthesize_text",
+        _fake_synthesize_text,
+    )
+    monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
+        lambda parts: b"".join(parts),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
         lambda parts: b"".join(parts),
     )
     monkeypatch.setattr(
@@ -72,7 +90,18 @@ def _patch_run_tts_processor(monkeypatch):
         lambda *_args, **_kwargs: 1000,
     )
     monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.get_audio_duration_ms",
+        lambda *_args, **_kwargs: 1000,
+    )
+    monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
+        lambda _app, _audio_bytes, audio_bid: (
+            f"https://example.com/{audio_bid}.mp3",
+            "test-bucket",
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.upload_audio_to_oss",
         lambda _app, _audio_bytes, audio_bid: (
             f"https://example.com/{audio_bid}.mp3",
             "test-bucket",
@@ -85,6 +114,10 @@ def _patch_run_tts_processor(monkeypatch):
     monkeypatch.setattr(
         "flaskr.service.tts.tts_usage_recorder.record_tts_aggregated_usage",
         lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.record_tts_usage",
+        lambda *_args, **_kwargs: None,
     )
 
     return synthesized_texts
@@ -563,6 +596,19 @@ class TestGeneratedBlockListenTtsElementFirst:
             generated_content
         )
         assert events[-1].type == GeneratedType.DONE
+
+        with self.app.app_context():
+            records = (
+                self.LearnGeneratedAudio.query.filter(
+                    self.LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                    self.LearnGeneratedAudio.user_bid == user_bid,
+                    self.LearnGeneratedAudio.shifu_bid == shifu_bid,
+                    self.LearnGeneratedAudio.deleted == 0,
+                )
+                .order_by(self.LearnGeneratedAudio.position.asc())
+                .all()
+            )
+            assert records == []
 
     def test_stream_generated_block_audio_preview_listen_reuses_cached_block_audio(
         self, monkeypatch
