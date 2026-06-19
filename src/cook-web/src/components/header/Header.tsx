@@ -211,11 +211,8 @@ const Header = () => {
           });
           if (mode) {
             const targetUrl = buildLearningModeUrl(result, mode);
-            if (openLearningModeUrl(result, mode, pendingWindow)) {
-              return;
-            }
-
-            showPublishSuccessToast(targetUrl);
+            const opened = openLearningModeUrl(result, mode, pendingWindow);
+            showPublishSuccessToast(opened ? undefined : targetUrl);
             return;
           }
 
