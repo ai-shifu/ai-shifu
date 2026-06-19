@@ -144,6 +144,29 @@ const Header = () => {
       });
     }
   };
+  const showPublishSuccessAlert = (publishedUrl: string) => {
+    alert.showAlert({
+      title: t('component.header.publishSuccess'),
+      confirmText: t('component.header.goToView'),
+      cancelText: t('component.header.close'),
+      description: (
+        <div className='flex flex-col space-y-2'>
+          <span>{t('component.header.publishSuccessDescription')}</span>
+          <a
+            href={publishedUrl}
+            target='_blank'
+            rel='noreferrer'
+            className='text-blue-500 hover:underline'
+          >
+            {publishedUrl}
+          </a>
+        </div>
+      ),
+      onConfirm() {
+        window.open(publishedUrl, '_blank', 'noopener,noreferrer');
+      },
+    });
+  };
   const openLearningModeUrl = (
     courseUrl: string,
     mode: LearningMode,
@@ -153,10 +176,10 @@ const Header = () => {
     if (pendingWindow && !pendingWindow.closed) {
       pendingWindow.opener = null;
       pendingWindow.location.href = targetUrl;
-      return;
+      return true;
     }
 
-    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    return Boolean(window.open(targetUrl, '_blank', 'noopener,noreferrer'));
   };
   const publish = async (mode?: LearningMode) => {
     if (
@@ -194,34 +217,21 @@ const Header = () => {
             shifu_bid: currentShifu?.bid || '',
           });
           if (mode) {
-            openLearningModeUrl(result, mode, pendingWindow);
+            if (openLearningModeUrl(result, mode, pendingWindow)) {
+              return;
+            }
+
+            showPublishSuccessAlert(buildLearningModeUrl(result, mode));
             return;
           }
 
-          alert.showAlert({
-            title: t('component.header.publishSuccess'),
-            confirmText: t('component.header.goToView'),
-            cancelText: t('component.header.close'),
-            description: (
-              <div className='flex flex-col space-y-2'>
-                <span>{t('component.header.publishSuccessDescription')}</span>
-                <a
-                  href={result}
-                  target='_blank'
-                  rel='noreferrer'
-                  className='text-blue-500 hover:underline'
-                >
-                  {result}
-                </a>
-              </div>
-            ),
-            onConfirm() {
-              window.open(result, '_blank', 'noopener,noreferrer');
-            },
-          });
-        } catch (error) {
+          showPublishSuccessAlert(result);
+        } catch {
           pendingWindow?.close();
-          throw error;
+          toast({
+            title: t('common.core.actionFailed'),
+            variant: 'destructive',
+          });
         } finally {
           setPublishing(false);
         }
@@ -346,6 +356,26 @@ const Header = () => {
                   const unavailableLabel = getPublishModeUnavailableLabel(mode);
                   const modeDisabled =
                     !canPublish || publishing || Boolean(unavailableLabel);
+                  const copyButton = (
+                    <button
+                      type='button'
+                      aria-label={getCopyModeLabel(mode)}
+                      className={cn(
+                        'mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 opacity-50 transition-all hover:bg-background hover:text-foreground hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 group-hover:opacity-100 group-focus-within:opacity-100',
+                        modeDisabled
+                          ? 'cursor-not-allowed opacity-30 hover:bg-transparent hover:text-muted-foreground/60 group-hover:opacity-30'
+                          : '',
+                      )}
+                      disabled={modeDisabled}
+                      onClick={event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void copyLearningModeUrl(mode);
+                      }}
+                    >
+                      <Copy className='h-3.5 w-3.5' />
+                    </button>
+                  );
                   const rowContent = (
                     <div
                       className={cn(
@@ -382,34 +412,19 @@ const Header = () => {
                           </span>
                         </button>
                       </DropdownMenuItem>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type='button'
-                            aria-label={getCopyModeLabel(mode)}
-                            className={cn(
-                              'mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 opacity-50 transition-all hover:bg-background hover:text-foreground hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 group-hover:opacity-100 group-focus-within:opacity-100',
-                              modeDisabled
-                                ? 'cursor-not-allowed opacity-30 hover:bg-transparent hover:text-muted-foreground/60 group-hover:opacity-30'
-                                : '',
-                            )}
-                            disabled={modeDisabled}
-                            onClick={event => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              void copyLearningModeUrl(mode);
-                            }}
+                      {unavailableLabel ? (
+                        copyButton
+                      ) : (
+                        <Tooltip>
+                          <TooltipTrigger asChild>{copyButton}</TooltipTrigger>
+                          <TooltipContent
+                            side='left'
+                            className='z-[113]'
                           >
-                            <Copy className='h-3.5 w-3.5' />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side='left'
-                          className='z-[113]'
-                        >
-                          {unavailableLabel || getCopyModeLabel(mode)}
-                        </TooltipContent>
-                      </Tooltip>
+                            {getCopyModeLabel(mode)}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                   );
 
