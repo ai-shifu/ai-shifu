@@ -562,7 +562,7 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert audio_complete_events[0].content.subtitle_cues[0].text == (
             generated_content
         )
-        assert events[-1].type == GeneratedType.AUDIO_COMPLETE
+        assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_preview_listen_reuses_cached_block_audio(
         self, monkeypatch
@@ -659,7 +659,7 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert audio_complete_events[0].content.subtitle_cues[0].text == (
             generated_content
         )
-        assert events[-1].type == GeneratedType.AUDIO_COMPLETE
+        assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_listen_preserves_position_after_short_text(
         self, monkeypatch

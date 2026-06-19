@@ -1272,8 +1272,16 @@ def stream_generated_block_audio(
                     existing_audio = _resolve_existing_single_block_audio()
                     if existing_audio:
                         yield from _yield_existing_single_block_audio(existing_audio)
+                        yield _build_tts_done_message(
+                            outline_bid=generated_block.outline_item_bid or "",
+                            generated_block_bid=generated_block_bid,
+                        )
                         return
                     yield from _yield_single_block_audio()
+                    yield _build_tts_done_message(
+                        outline_bid=generated_block.outline_item_bid or "",
+                        generated_block_bid=generated_block_bid,
+                    )
                     return
                 raise_error_with_args(
                     "server.common.paramsError",
