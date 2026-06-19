@@ -1347,12 +1347,7 @@ export const useListenAudioSequence = ({
       return;
     }
     audioPlayerRef.current?.play();
-  }, [
-    activeAudioBid,
-    startSequenceFromPage,
-    deckRef,
-    currentPptPageRef,
-  ]);
+  }, [activeAudioBid, startSequenceFromPage, deckRef, currentPptPageRef]);
 
   const handlePause = useCallback(
     (traceId?: string) => {
