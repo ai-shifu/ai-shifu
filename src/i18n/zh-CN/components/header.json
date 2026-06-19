@@ -15,7 +15,7 @@
   "publishAndOpenReadMode": "发布并打开阅读模式",
   "publishMenuLabel": "发布选项",
   "publishSuccess": "发布成功",
-  "publishSuccessDescription": "已将草稿的最新版本发布，学生将通过下面的学习链接学习刚发布的内容",
+  "publishSuccessDescription": "已将草稿的最新版本发布，学生可通过下面链接学习",
   "publishSuccessDraftDescription": "后台里显示的是草稿，后续修改需要再次发布，学生才会看到新版本",
   "readonly": "只读",
   "saved": "已保存"
