@@ -144,17 +144,65 @@ const Header = () => {
       });
     }
   };
-  const showPublishSuccessAlert = (publishedUrl: string) => {
+  const copyPublishedUrl = async (
+    publishedUrl: string,
+    mode?: LearningMode,
+  ) => {
+    try {
+      await writeClipboardText(publishedUrl);
+      trackEvent('creator_publish_link_copy', {
+        shifu_bid: currentShifu?.bid || '',
+        learning_mode: mode || '',
+      });
+      toast({ title: t('component.header.copyLinkSuccess') });
+    } catch {
+      toast({
+        title: t('component.header.copyLinkFailed'),
+        variant: 'destructive',
+      });
+    }
+  };
+  const showPublishSuccessAlert = (
+    publishedUrl: string,
+    mode?: LearningMode,
+  ) => {
     alert.showAlert({
       title: t('component.header.publishSuccess'),
-      confirmText: t('component.header.openLearnerCourseLink'),
       cancelText: t('component.header.close'),
+      showConfirm: false,
       description: (
-        <span>{t('component.header.publishSuccessDescription')}</span>
+        <div className='space-y-4 text-left'>
+          <p>{t('component.header.publishSuccessDescription')}</p>
+          <div className='space-y-1.5'>
+            <div className='text-xs font-medium text-foreground'>
+              {t('component.header.learningLink')}
+            </div>
+            <div className='flex items-center gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2'>
+              <a
+                href={publishedUrl}
+                target='_blank'
+                rel='noreferrer'
+                className='min-w-0 flex-1 break-all text-sm font-medium text-blue-600 hover:underline'
+              >
+                {publishedUrl}
+              </a>
+              <button
+                type='button'
+                aria-label={t('component.header.copyLearningLink')}
+                className='flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300'
+                onClick={() => {
+                  void copyPublishedUrl(publishedUrl, mode);
+                }}
+              >
+                <Copy className='h-4 w-4' />
+              </button>
+            </div>
+          </div>
+          <p className='text-xs leading-5 text-muted-foreground'>
+            {t('component.header.publishSuccessDraftDescription')}
+          </p>
+        </div>
       ),
-      onConfirm() {
-        window.open(publishedUrl, '_blank', 'noopener,noreferrer');
-      },
     });
   };
   const openLearningModeUrl = (
@@ -187,52 +235,36 @@ const Header = () => {
     // TODO: publish
     // actions.publishScenario();
     // await actions.saveBlocks(currentShifu?.bid || '');
-    await actions.saveMdflow();
-    alert.showAlert({
-      confirmText: t('component.header.confirmPublishAction'),
-      cancelText: t('component.header.cancel'),
-      title: t('component.header.confirmPublish'),
-      description: t('component.header.confirmPublishDescription'),
-      async onConfirm() {
-        trackEvent('creator_publish_confirm', {
-          shifu_bid: currentShifu?.bid || '',
-          learning_mode: mode || '',
-        });
-        const pendingWindow = mode
-          ? window.open('about:blank', '_blank')
-          : null;
-        setPublishing(true);
-        try {
-          const result = await api.publishShifu({
-            shifu_bid: currentShifu?.bid || '',
-          });
-          if (mode) {
-            if (openLearningModeUrl(result, mode, pendingWindow)) {
-              return;
-            }
-
-            showPublishSuccessAlert(buildLearningModeUrl(result, mode));
-            return;
-          }
-
-          showPublishSuccessAlert(result);
-        } catch {
-          pendingWindow?.close();
-          toast({
-            title: t('common.core.actionFailed'),
-            variant: 'destructive',
-          });
-        } finally {
-          setPublishing(false);
+    const pendingWindow = mode ? window.open('about:blank', '_blank') : null;
+    setPublishing(true);
+    try {
+      await actions.saveMdflow();
+      trackEvent('creator_publish_confirm', {
+        shifu_bid: currentShifu?.bid || '',
+        learning_mode: mode || '',
+      });
+      const result = await api.publishShifu({
+        shifu_bid: currentShifu?.bid || '',
+      });
+      if (mode) {
+        if (openLearningModeUrl(result, mode, pendingWindow)) {
+          return;
         }
-      },
-      onCancel() {
-        trackEvent('creator_publish_cancel', {
-          shifu_bid: currentShifu?.bid || '',
-          learning_mode: mode || '',
-        });
-      },
-    });
+
+        showPublishSuccessAlert(buildLearningModeUrl(result, mode), mode);
+        return;
+      }
+
+      showPublishSuccessAlert(result);
+    } catch {
+      pendingWindow?.close();
+      toast({
+        title: t('common.core.actionFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setPublishing(false);
+    }
   };
   return (
     <div className='flex items-center w-full h-16 px-4 py-[11px] bg-white border-b border-gray-200'>

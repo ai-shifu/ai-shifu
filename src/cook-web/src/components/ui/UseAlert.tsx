@@ -16,6 +16,7 @@ interface AlertOptions {
   description: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
+  showConfirm?: boolean;
   onConfirm?: () => void;
   onCancel?: () => void;
 }
@@ -80,12 +81,14 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
             >
               {options.cancelText || 'Cancel'}
             </AlertDialogCancel>
-            <AlertDialogAction
-              className='h-8'
-              onClick={handleConfirm}
-            >
-              {options.confirmText || 'Confirm'}
-            </AlertDialogAction>
+            {options.showConfirm !== false && (
+              <AlertDialogAction
+                className='h-8'
+                onClick={handleConfirm}
+              >
+                {options.confirmText || 'Confirm'}
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
