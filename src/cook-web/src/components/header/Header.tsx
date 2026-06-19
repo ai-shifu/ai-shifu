@@ -172,7 +172,12 @@ const Header = () => {
       showConfirm: false,
       description: (
         <div className='space-y-4 text-left'>
-          <p>{t('component.header.publishSuccessDescription')}</p>
+          <div className='space-y-1'>
+            <p className='font-medium text-foreground'>
+              {t('component.header.publishSuccessDescription')}
+            </p>
+            <p>{t('component.header.publishSuccessAudienceDescription')}</p>
+          </div>
           <div className='space-y-1.5'>
             <div className='text-xs font-medium text-foreground'>
               {t('component.header.learningLink')}
@@ -198,9 +203,14 @@ const Header = () => {
               </button>
             </div>
           </div>
-          <p className='text-xs leading-5 text-muted-foreground'>
-            {t('component.header.publishSuccessDraftDescription')}
-          </p>
+          <div className='rounded-md border border-gray-200 bg-gray-50 px-3 py-2'>
+            <div className='text-xs font-medium text-foreground'>
+              {t('component.header.publishSuccessDraftTitle')}
+            </div>
+            <p className='mt-1 text-xs leading-5 text-muted-foreground'>
+              {t('component.header.publishSuccessDraftDescription')}
+            </p>
+          </div>
         </div>
       ),
     });

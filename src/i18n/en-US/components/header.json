@@ -15,8 +15,10 @@
   "publishAndOpenReadMode": "Publish and open Read mode",
   "publishMenuLabel": "Publish options",
   "publishSuccess": "Published Successfully",
-  "publishSuccessDescription": "The latest draft version has been published. Students will use the learning link below to study the published content.",
-  "publishSuccessDraftDescription": "The admin view still shows your draft. Future edits must be published again before students can see the new version.",
+  "publishSuccessAudienceDescription": "Students can use the link below to learn, and teachers can use the same link to teach in Classroom mode.",
+  "publishSuccessDescription": "The latest draft version has been published.",
+  "publishSuccessDraftDescription": "Future edits must be published again before students can see the new version.",
+  "publishSuccessDraftTitle": "The admin view shows the draft",
   "readonly": "Readonly",
   "saved": "Saved"
 }
