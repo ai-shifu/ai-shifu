@@ -10,7 +10,6 @@
   "copyLinkSuccess": "Link copied",
   "copyListenModeLink": "Copy Listen mode link",
   "copyReadModeLink": "Copy Read mode link",
-  "goToView": "Go to View",
   "listenModeRequiresTts": "Enable Listen mode in course settings to use this option",
   "publish": "Publish",
   "publishAndOpenClassroomMode": "Publish and open Classroom mode",
@@ -18,7 +17,6 @@
   "publishAndOpenReadMode": "Publish and open Read mode",
   "publishMenuLabel": "Publish options",
   "publishSuccess": "Published Successfully",
-  "publishSuccessDescription": "Published successfully, please go to view",
   "readonly": "Readonly",
   "saved": "Saved"
 }
