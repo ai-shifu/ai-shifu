@@ -94,7 +94,6 @@ export type I18nKey =
   | 'component.header.copyListenModeLink'
   | 'component.header.copyReadModeLink'
   | 'component.header.listenModeRequiresTts'
-  | 'component.header.openPublishedCourse'
   | 'component.header.publish'
   | 'component.header.publishAndOpenClassroomMode'
   | 'component.header.publishAndOpenListenMode'
