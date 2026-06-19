@@ -9,7 +9,7 @@
   "generating": "Generating diagram...",
   "learningModeClassroom": "Classroom",
   "learningModeClassroomShort": "Classroom",
-  "learningModeClassroomTooltip": "Present slides and interactions on a shared screen",
+  "learningModeClassroomTooltip": "Present slides and interactions on a shared screen (teacher only)",
   "learningModeListen": "Listen",
   "learningModeListenShort": "Listen",
   "learningModeListenTooltip": "Automatically play narration and slides, learning as you listen",
