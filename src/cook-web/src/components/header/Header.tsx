@@ -38,6 +38,7 @@ import {
 import { useToast } from '@/hooks/useToast';
 import type { LearningMode } from '@/c-types/store';
 import { cn } from '@/lib/utils';
+import { ToastAction } from '@/components/ui/Toast';
 import {
   buildCourseLearningUrl,
   buildLearningModeUrl,
@@ -144,6 +145,21 @@ const Header = () => {
       });
     }
   };
+  const showPublishSuccessToast = (publishedUrl?: string) => {
+    toast({
+      title: t('component.header.publishSuccess'),
+      action: publishedUrl ? (
+        <ToastAction
+          altText={t('component.header.openPublishedCourse')}
+          onClick={() => {
+            window.open(publishedUrl, '_blank', 'noopener,noreferrer');
+          }}
+        >
+          {t('component.header.openPublishedCourse')}
+        </ToastAction>
+      ) : undefined,
+    });
+  };
   const openLearningModeUrl = (
     courseUrl: string,
     mode: LearningMode,
@@ -194,15 +210,13 @@ const Header = () => {
             shifu_bid: currentShifu?.bid || '',
           });
           if (mode) {
-            if (openLearningModeUrl(result, mode, pendingWindow)) {
-              return;
-            }
-
-            toast({ title: t('component.header.publishSuccess') });
+            const targetUrl = buildLearningModeUrl(result, mode);
+            const opened = openLearningModeUrl(result, mode, pendingWindow);
+            showPublishSuccessToast(opened ? undefined : targetUrl);
             return;
           }
 
-          toast({ title: t('component.header.publishSuccess') });
+          showPublishSuccessToast();
         } catch {
           pendingWindow?.close();
           toast({
