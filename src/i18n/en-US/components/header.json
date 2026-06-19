@@ -17,8 +17,7 @@
   "publishSuccess": "Published Successfully",
   "publishSuccessAudienceDescription": "Students can use the link below to learn, and teachers can use the same link to teach in Classroom mode.",
   "publishSuccessDescription": "The latest draft version has been published.",
-  "publishSuccessDraftDescription": "Future edits must be published again before students can see the new version.",
-  "publishSuccessDraftTitle": "The admin view shows the draft",
+  "publishSuccessDraftHelp": "The admin view still keeps the draft. You can publish again after making changes.",
   "readonly": "Readonly",
   "saved": "Saved"
 }

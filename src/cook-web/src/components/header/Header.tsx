@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   CircleAlert,
   CircleCheck,
+  CircleHelp,
   Copy,
   Headphones,
   Presentation,
@@ -173,9 +174,25 @@ const Header = () => {
       description: (
         <div className='space-y-4 text-left'>
           <div className='space-y-1'>
-            <p className='font-medium text-foreground'>
-              {t('component.header.publishSuccessDescription')}
-            </p>
+            <div className='flex items-center gap-1.5 font-medium text-foreground'>
+              <span>{t('component.header.publishSuccessDescription')}</span>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      aria-label={t('component.header.publishSuccessDraftHelp')}
+                      className='inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-blue-300'
+                      tabIndex={0}
+                    >
+                      <CircleHelp className='h-3.5 w-3.5' />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className='max-w-xs'>
+                    {t('component.header.publishSuccessDraftHelp')}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <p>{t('component.header.publishSuccessAudienceDescription')}</p>
           </div>
           <div className='space-y-1.5'>
@@ -202,14 +219,6 @@ const Header = () => {
                 <Copy className='h-4 w-4' />
               </button>
             </div>
-          </div>
-          <div className='rounded-md border border-gray-200 bg-gray-50 px-3 py-2'>
-            <div className='text-xs font-medium text-foreground'>
-              {t('component.header.publishSuccessDraftTitle')}
-            </div>
-            <p className='mt-1 text-xs leading-5 text-muted-foreground'>
-              {t('component.header.publishSuccessDraftDescription')}
-            </p>
           </div>
         </div>
       ),

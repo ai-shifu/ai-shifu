@@ -17,8 +17,7 @@
   "publishSuccess": "发布成功",
   "publishSuccessAudienceDescription": "学生可通过下面链接学习，老师可用同一链接进入课堂模式授课",
   "publishSuccessDescription": "已将草稿的最新版本发布",
-  "publishSuccessDraftDescription": "后续修改需要再次发布，学生才会看到新版本",
-  "publishSuccessDraftTitle": "后台里显示的是草稿",
+  "publishSuccessDraftHelp": "后台仍会保留草稿，修改后可再次发布",
   "readonly": "只读",
   "saved": "已保存"
 }
