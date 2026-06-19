@@ -10,15 +10,15 @@
   "copyLinkSuccess": "复制成功",
   "copyListenModeLink": "复制听课模式链接",
   "copyReadModeLink": "复制阅读模式链接",
-  "goToView": "去查看",
   "listenModeRequiresTts": "请先在课程设置中开启听课模式",
+  "openLearnerCourseLink": "打开学习者课程链接",
   "publish": "发布",
   "publishAndOpenClassroomMode": "发布并打开课堂模式",
   "publishAndOpenListenMode": "发布并打开听课模式",
   "publishAndOpenReadMode": "发布并打开阅读模式",
   "publishMenuLabel": "发布选项",
   "publishSuccess": "发布成功",
-  "publishSuccessDescription": "发布成功，请前往查看",
+  "publishSuccessDescription": "发布成功，点击下方按钮打开学习者看到的正式课程链接",
   "readonly": "只读",
   "saved": "已保存"
 }

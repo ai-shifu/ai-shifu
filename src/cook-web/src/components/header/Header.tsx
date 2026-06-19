@@ -147,20 +147,10 @@ const Header = () => {
   const showPublishSuccessAlert = (publishedUrl: string) => {
     alert.showAlert({
       title: t('component.header.publishSuccess'),
-      confirmText: t('component.header.goToView'),
+      confirmText: t('component.header.openLearnerCourseLink'),
       cancelText: t('component.header.close'),
       description: (
-        <div className='flex flex-col space-y-2'>
-          <span>{t('component.header.publishSuccessDescription')}</span>
-          <a
-            href={publishedUrl}
-            target='_blank'
-            rel='noreferrer'
-            className='text-blue-500 hover:underline'
-          >
-            {publishedUrl}
-          </a>
-        </div>
+        <span>{t('component.header.publishSuccessDescription')}</span>
       ),
       onConfirm() {
         window.open(publishedUrl, '_blank', 'noopener,noreferrer');
