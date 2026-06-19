@@ -75,19 +75,28 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel
-              className='h-8'
-              onClick={handleCancel}
-            >
-              {options.cancelText || 'Cancel'}
-            </AlertDialogCancel>
-            {options.showConfirm !== false && (
+            {options.showConfirm === false ? (
               <AlertDialogAction
                 className='h-8'
-                onClick={handleConfirm}
+                onClick={handleCancel}
               >
-                {options.confirmText || 'Confirm'}
+                {options.cancelText || 'Close'}
               </AlertDialogAction>
+            ) : (
+              <>
+                <AlertDialogCancel
+                  className='h-8'
+                  onClick={handleCancel}
+                >
+                  {options.cancelText || 'Cancel'}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  className='h-8'
+                  onClick={handleConfirm}
+                >
+                  {options.confirmText || 'Confirm'}
+                </AlertDialogAction>
+              </>
             )}
           </AlertDialogFooter>
         </AlertDialogContent>
