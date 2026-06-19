@@ -179,15 +179,15 @@ const Header = () => {
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span
+                    <button
+                      type='button'
                       aria-label={t('component.header.publishSuccessDraftHelp')}
-                      className='inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-blue-300'
-                      tabIndex={0}
+                      className='inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-blue-300'
                     >
                       <CircleHelp className='h-3.5 w-3.5' />
-                    </span>
+                    </button>
                   </TooltipTrigger>
-                  <TooltipContent className='max-w-xs'>
+                  <TooltipContent className='z-[112] max-w-xs text-left leading-5'>
                     {t('component.header.publishSuccessDraftHelp')}
                   </TooltipContent>
                 </Tooltip>
