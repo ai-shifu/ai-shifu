@@ -359,7 +359,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
       }
 
       if (!forceRefresh) {
-        const cachedDetail = detailCacheRef.current.get(selectedGeneratedBlockBid);
+        const cachedDetail = detailCacheRef.current.get(
+          selectedGeneratedBlockBid,
+        );
         if (cachedDetail) {
           detailCacheRef.current.delete(selectedGeneratedBlockBid);
           detailCacheRef.current.set(selectedGeneratedBlockBid, cachedDetail);
@@ -559,7 +561,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
 
       detailRequestIdRef.current += 1;
       setSelectedGeneratedBlockBid(normalizedGeneratedBlockBid);
-      setDetail(detailCacheRef.current.get(normalizedGeneratedBlockBid) ?? null);
+      setDetail(
+        detailCacheRef.current.get(normalizedGeneratedBlockBid) ?? null,
+      );
       setDetailError(null);
       setDetailLoading(
         !detailCacheRef.current.has(normalizedGeneratedBlockBid),
