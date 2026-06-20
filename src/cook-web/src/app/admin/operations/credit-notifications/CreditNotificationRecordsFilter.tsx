@@ -98,6 +98,9 @@ export function CreditNotificationRecordsFilter({
         onValueChange={value => {
           const nextValue = value === ALL_OPTION_VALUE ? '' : value;
           updateDraftFilter('delivery_status', nextValue);
+          if (nextValue !== 'not_sent') {
+            updateDraftFilter('skip_reason', '');
+          }
         }}
       >
         <SelectTrigger className='h-9'>

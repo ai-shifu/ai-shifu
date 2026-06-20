@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import ErrorDisplay from '@/components/ErrorDisplay';
 import { Button } from '@/components/ui/Button';
 import type { AdminOperationCreditNotificationDryRunResponse } from '../operation-credit-notification-types';
 import { CreditNotificationConfigSection as ConfigSection } from './CreditNotificationFormPrimitives';
@@ -75,10 +74,12 @@ export function CreditNotificationDryRunPanel({
         </Button>
       </div>
       {dryRunError ? (
-        <ErrorDisplay
-          errorCode={0}
-          errorMessage={dryRunError}
-        />
+        <div
+          role='alert'
+          className='rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive'
+        >
+          {dryRunError}
+        </div>
       ) : null}
       {dryRunResult ? (
         <details className='rounded-md border border-border bg-white p-3 text-xs text-muted-foreground'>
