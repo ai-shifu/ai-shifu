@@ -365,9 +365,6 @@ export default function AdminDashboardCourseFollowUpsPage() {
         if (cachedDetail) {
           detailCacheRef.current.delete(selectedGeneratedBlockBid);
           detailCacheRef.current.set(selectedGeneratedBlockBid, cachedDetail);
-          setDetail(cachedDetail);
-          setDetailError(null);
-          setDetailLoading(false);
           return;
         }
       }
