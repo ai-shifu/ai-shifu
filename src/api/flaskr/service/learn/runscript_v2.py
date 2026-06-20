@@ -440,6 +440,32 @@ def _to_sse_chunk(payload: object) -> str:
     )
 
 
+def _log_run_script_stream_error(app: Flask, stream_error: Exception) -> None:
+    error_traceback = "".join(
+        traceback.format_exception(
+            type(stream_error),
+            stream_error,
+            stream_error.__traceback__,
+        )
+    )
+    error_info = {
+        "name": type(stream_error).__name__,
+        "description": str(stream_error),
+        "traceback": error_traceback,
+    }
+
+    if isinstance(stream_error, AppException):
+        # AppException is already a handled, user-facing business error (for example,
+        # a stale lesson URL after a course republish). Keep it out of ERROR-level
+        # operational alerts while preserving enough context for diagnostics.
+        app.logger.info("run_script handled app exception")
+        app.logger.info(error_info)
+        return
+
+    app.logger.error("run_script error")
+    app.logger.error(error_info)
+
+
 def _make_terminal_event(
     *,
     outline_bid: str,
@@ -769,26 +795,10 @@ def run_script(
 
             if stream_error and not client_disconnected:
                 if isinstance(stream_error, Exception):
-                    app.logger.error("run_script error")
-                    app.logger.error(stream_error)
-                    error_traceback = "".join(
-                        traceback.format_exception(
-                            type(stream_error),
-                            stream_error,
-                            stream_error.__traceback__,
-                        )
-                    )
-                    error_info = {
-                        "name": type(stream_error).__name__,
-                        "description": str(stream_error),
-                        "traceback": error_traceback,
-                    }
-
+                    _log_run_script_stream_error(app, stream_error)
                     if isinstance(stream_error, AppException):
-                        app.logger.info(error_info)
                         error_content = str(stream_error)
                     else:
-                        app.logger.error(error_info)
                         error_content = str(_("server.common.unknownError"))
                     yield _to_sse_chunk(
                         _make_terminal_event(
