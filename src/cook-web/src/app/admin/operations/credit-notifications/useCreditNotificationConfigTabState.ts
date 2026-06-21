@@ -375,8 +375,7 @@ export function useCreditNotificationConfigTabState({
     [blockedCreatorDetails, managedListDialog, optedOutCreatorDetails],
   );
   const filteredManagedListDetails = useMemo(
-    () =>
-      filterListDetails(managedListDetails, managedListSearch, contactMode),
+    () => filterListDetails(managedListDetails, managedListSearch, contactMode),
     [contactMode, managedListDetails, managedListSearch],
   );
   const managedListTitle =

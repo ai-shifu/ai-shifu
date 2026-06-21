@@ -26,9 +26,7 @@ import type {
 } from '../operation-credit-notification-types';
 import { CreditNotificationCreatorListsSection } from './CreditNotificationCreatorListsSection';
 import { CreditNotificationDryRunPanel } from './CreditNotificationDryRunPanel';
-import {
-  CreditNotificationManagedListDialog,
-} from './CreditNotificationManagedListDialog';
+import { CreditNotificationManagedListDialog } from './CreditNotificationManagedListDialog';
 import {
   CreditNotificationTypeConfigCard,
   getTemplateOptionsForType,
