@@ -209,8 +209,7 @@ export default function AdminOperationCreditNotificationsPage() {
     templateSyncLoading,
     templateSyncResults,
   } = useCreditNotificationTemplateSyncState({
-    getTemplateCode: notificationType =>
-      policy.types[notificationType].template_code,
+    policyTypes: policy.types,
     setTemplateOptions,
     t,
   });

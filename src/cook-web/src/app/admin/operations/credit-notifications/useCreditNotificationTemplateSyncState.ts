@@ -9,11 +9,11 @@ import type {
 import type { KnownNotificationType } from './creditNotificationUtils';
 
 export function useCreditNotificationTemplateSyncState({
-  getTemplateCode,
+  policyTypes,
   setTemplateOptions,
   t,
 }: {
-  getTemplateCode: (notificationType: KnownNotificationType) => string;
+  policyTypes: Record<KnownNotificationType, { template_code: string }>;
   setTemplateOptions: React.Dispatch<
     React.SetStateAction<AdminOperationCreditNotificationTemplateOption[]>
   >;
@@ -38,7 +38,7 @@ export function useCreditNotificationTemplateSyncState({
       templateCodeOverride?: string,
     ) => {
       const templateCode = (
-        templateCodeOverride ?? getTemplateCode(notificationType)
+        templateCodeOverride ?? policyTypes[notificationType].template_code
       ).trim();
       if (!templateCode) {
         setTemplateSyncError(
@@ -85,7 +85,11 @@ export function useCreditNotificationTemplateSyncState({
           return [
             nextOption,
             ...current.filter(
-              option => option.template_code !== response.template_code,
+              option =>
+                option.template_code !== response.template_code ||
+                !option.compatible_notification_types?.includes(
+                  notificationType,
+                ),
             ),
           ];
         });
@@ -107,7 +111,7 @@ export function useCreditNotificationTemplateSyncState({
         }));
       }
     },
-    [getTemplateCode, setTemplateOptions, t],
+    [policyTypes, setTemplateOptions, t],
   );
 
   const clearTemplateSyncResult = React.useCallback(
