@@ -200,11 +200,8 @@ export default function AdminOperationCreditNotificationsPage() {
     [],
   );
 
-  const {
-    dryRunError,
-    dryRunResult,
-    runDryRun,
-  } = useCreditNotificationDryRun(t);
+  const { dryRunError, dryRunResult, runDryRun } =
+    useCreditNotificationDryRun(t);
   const {
     clearTemplateSyncResult,
     syncTemplate,
