@@ -31,17 +31,31 @@ jest.mock('@/components/ui/UseAlert', () => ({
   }),
 }));
 
-jest.mock('@/components/ui/tooltip', () => ({
-  Tooltip: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TooltipContent: ({ children }: { children: React.ReactNode }) => (
-    <div role='tooltip'>{children}</div>
-  ),
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-}));
+jest.mock('@/components/ui/tooltip', () => {
+  const React = jest.requireActual('react');
+  const TooltipProviderContext = React.createContext(false);
+
+  return {
+    TooltipProvider: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(
+        TooltipProviderContext.Provider,
+        { value: true },
+        children,
+      ),
+    Tooltip: ({ children }: { children: React.ReactNode }) => {
+      if (!React.useContext(TooltipProviderContext)) {
+        throw new Error('`Tooltip` must be used within `TooltipProvider`');
+      }
+      return <div>{children}</div>;
+    },
+    TooltipContent: ({ children }: { children: React.ReactNode }) => (
+      <div role='tooltip'>{children}</div>
+    ),
+    TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
+      <>{children}</>
+    ),
+  };
+});
 
 jest.mock('@/c-utils/textutils', () => {
   const actual = jest.requireActual('@/c-utils/textutils');

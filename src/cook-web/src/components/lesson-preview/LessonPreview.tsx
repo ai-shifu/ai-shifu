@@ -29,6 +29,7 @@ import {
 import { useAlert } from '@/components/ui/UseAlert';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
 import { Button } from '@/components/ui/Button';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   buildVisiblePreviewItems,
   normalizePreviewTypewriterContent,
@@ -372,168 +373,118 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           </div>
         )}
 
-        <div className={styles.previewAreaContent}>
-          {loading && items.length === 0 && (
-            <div className='flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground'>
-              <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
-              <span>{t('module.shifu.previewArea.loading')}</span>
-            </div>
-          )}
+        <TooltipProvider delayDuration={150}>
+          <div className={styles.previewAreaContent}>
+            {loading && items.length === 0 && (
+              <div className='flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground'>
+                <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
+                <span>{t('module.shifu.previewArea.loading')}</span>
+              </div>
+            )}
 
-          {showEmpty && !loading && (
-            <div className='h-full flex flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
-              <Image
-                src={ScrollText.src}
-                alt='scroll-text'
-                width={64}
-                height={64}
-              />
-              <span>{t('module.shifu.previewArea.empty')}</span>
-            </div>
-          )}
+            {showEmpty && !loading && (
+              <div className='h-full flex flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
+                <Image
+                  src={ScrollText.src}
+                  alt='scroll-text'
+                  width={64}
+                  height={64}
+                />
+                <span>{t('module.shifu.previewArea.empty')}</span>
+              </div>
+            )}
 
-          {!showEmpty &&
-            visibleItems.map((item, idx) => {
-              if (item.type === ChatContentItemType.LIKE_STATUS) {
-                const parentElementBid = item.parent_element_bid || '';
-                const parentBlockBid = item.parent_block_bid || '';
-                const parentContentItem =
-                  (parentElementBid
-                    ? itemByElementBid.get(parentElementBid)
-                    : undefined) ||
-                  (parentBlockBid
-                    ? itemByElementBid.get(parentBlockBid) ||
-                      itemByGeneratedBlockBid.get(parentBlockBid)
-                    : undefined);
-                const parentActionBid =
-                  parentContentItem?.element_bid ||
-                  parentElementBid ||
-                  parentBlockBid;
-                const isTextParent =
-                  parentContentItem?.type === ChatContentItemType.CONTENT &&
-                  parentContentItem?.element_type === 'text';
-                // Hide preview audio action when backend marks this element as non-speakable.
-                const shouldRenderAudioAction =
-                  isTextParent && parentContentItem?.is_speakable !== false;
-                const parentPrimaryTrack = getAudioTrackByPosition(
-                  parentContentItem?.audioTracks ?? [],
-                );
-                const shouldRenderGenerateAction = Boolean(
-                  showGenerateBtn &&
-                  isRegeneratablePreviewParent(parentContentItem) &&
-                  parentActionBid,
-                );
-                const hasPreviewAudioCapability = Boolean(
-                  onRequestAudioForBlock && parentActionBid,
-                );
-                if (
-                  !shouldRenderGenerateAction &&
-                  (!shouldRenderAudioAction || !hasPreviewAudioCapability)
-                ) {
-                  return null;
+            {!showEmpty &&
+              visibleItems.map((item, idx) => {
+                if (item.type === ChatContentItemType.LIKE_STATUS) {
+                  const parentElementBid = item.parent_element_bid || '';
+                  const parentBlockBid = item.parent_block_bid || '';
+                  const parentContentItem =
+                    (parentElementBid
+                      ? itemByElementBid.get(parentElementBid)
+                      : undefined) ||
+                    (parentBlockBid
+                      ? itemByElementBid.get(parentBlockBid) ||
+                        itemByGeneratedBlockBid.get(parentBlockBid)
+                      : undefined);
+                  const parentActionBid =
+                    parentContentItem?.element_bid ||
+                    parentElementBid ||
+                    parentBlockBid;
+                  const isTextParent =
+                    parentContentItem?.type === ChatContentItemType.CONTENT &&
+                    parentContentItem?.element_type === 'text';
+                  // Hide preview audio action when backend marks this element as non-speakable.
+                  const shouldRenderAudioAction =
+                    isTextParent && parentContentItem?.is_speakable !== false;
+                  const parentPrimaryTrack = getAudioTrackByPosition(
+                    parentContentItem?.audioTracks ?? [],
+                  );
+                  const shouldRenderGenerateAction = Boolean(
+                    showGenerateBtn &&
+                    isRegeneratablePreviewParent(parentContentItem) &&
+                    parentActionBid,
+                  );
+                  const hasPreviewAudioCapability = Boolean(
+                    onRequestAudioForBlock && parentActionBid,
+                  );
+                  if (
+                    !shouldRenderGenerateAction &&
+                    (!shouldRenderAudioAction || !hasPreviewAudioCapability)
+                  ) {
+                    return null;
+                  }
+                  return (
+                    <div
+                      key={resolveLessonPreviewItemKey(item, idx)}
+                      className='p-0'
+                      style={{ maxWidth: '100%' }}
+                    >
+                      <InteractionBlock
+                        shifu_bid={shifuBid}
+                        element_bid={parentActionBid}
+                        onRefresh={onRefresh}
+                        onToggleAskExpanded={noop}
+                        disableAskButton
+                        disableInteractionButtons
+                        showGenerateBtn={shouldRenderGenerateAction}
+                        extraActions={
+                          onRequestAudioForBlock && shouldRenderAudioAction ? (
+                            <AudioPlayer
+                              audioUrl={parentPrimaryTrack?.audioUrl}
+                              streamingSegments={
+                                parentPrimaryTrack?.audioSegments
+                              }
+                              isStreaming={Boolean(
+                                parentPrimaryTrack?.isAudioStreaming,
+                              )}
+                              alwaysVisible={true}
+                              onRequestAudio={() =>
+                                onRequestAudioForBlock({
+                                  shifuBid,
+                                  blockId: parentActionBid,
+                                  text: parentContentItem?.content || '',
+                                })
+                              }
+                              className='interaction-icon-btn'
+                              size={16}
+                            />
+                          ) : undefined
+                        }
+                      />
+                    </div>
+                  );
                 }
-                return (
-                  <div
-                    key={resolveLessonPreviewItemKey(item, idx)}
-                    className='p-0'
-                    style={{ maxWidth: '100%' }}
-                  >
-                    <InteractionBlock
-                      shifu_bid={shifuBid}
-                      element_bid={parentActionBid}
-                      onRefresh={onRefresh}
-                      onToggleAskExpanded={noop}
-                      disableAskButton
-                      disableInteractionButtons
-                      showGenerateBtn={shouldRenderGenerateAction}
-                      extraActions={
-                        onRequestAudioForBlock && shouldRenderAudioAction ? (
-                          <AudioPlayer
-                            audioUrl={parentPrimaryTrack?.audioUrl}
-                            streamingSegments={
-                              parentPrimaryTrack?.audioSegments
-                            }
-                            isStreaming={Boolean(
-                              parentPrimaryTrack?.isAudioStreaming,
-                            )}
-                            alwaysVisible={true}
-                            onRequestAudio={() =>
-                              onRequestAudioForBlock({
-                                shifuBid,
-                                blockId: parentActionBid,
-                                text: parentContentItem?.content || '',
-                              })
-                            }
-                            className='interaction-icon-btn'
-                            size={16}
-                          />
-                        ) : undefined
-                      }
-                    />
-                  </div>
-                );
-              }
 
-              if (item.type === ChatContentItemType.ERROR) {
-                const isCreditInsufficient =
-                  item.business_code === CREDIT_INSUFFICIENT_BUSINESS_CODE;
-                return (
-                  <div
-                    key={resolveLessonPreviewItemKey(item, idx)}
-                    className='p-0 relative'
-                    style={{ maxWidth: '100%' }}
-                  >
-                    <ContentBlock
-                      item={item}
-                      mobileStyle={false}
-                      blockBid={
-                        item.element_bid || item.generated_block_bid || ''
-                      }
-                      contentRenderKey={resolveLessonPreviewContentRenderKey(
-                        item,
-                        false,
-                      )}
-                      confirmButtonText={confirmButtonText}
-                      copyButtonText={copyButtonText}
-                      copiedButtonText={copiedButtonText}
-                      onSend={onSend}
-                      onTypeFinished={
-                        ENABLE_PREVIEW_TYPEWRITER
-                          ? handlePreviewTypeFinished
-                          : undefined
-                      }
-                    />
-                    {isCreditInsufficient ? (
-                      <Button
-                        type='button'
-                        size='sm'
-                        onClick={handleGoToBilling}
-                      >
-                        {t('module.shifu.previewArea.goToBilling')}
-                      </Button>
-                    ) : null}
-                  </div>
-                );
-              }
-
-              return (
-                <div
-                  key={resolveLessonPreviewItemKey(item, idx)}
-                  className='p-0 relative'
-                  style={{
-                    maxWidth: '100%',
-                    margin: !idx ? '0' : '40px 0 0 0',
-                  }}
-                >
-                  {(() => {
-                    const enableStreamingTypewriter =
-                      ENABLE_PREVIEW_TYPEWRITER &&
-                      shouldEnablePreviewTypewriter(
-                        item,
-                        previewTypewriterCache[item.element_bid || ''],
-                      );
-
-                    return (
+                if (item.type === ChatContentItemType.ERROR) {
+                  const isCreditInsufficient =
+                    item.business_code === CREDIT_INSUFFICIENT_BUSINESS_CODE;
+                  return (
+                    <div
+                      key={resolveLessonPreviewItemKey(item, idx)}
+                      className='p-0 relative'
+                      style={{ maxWidth: '100%' }}
+                    >
                       <ContentBlock
                         item={item}
                         mobileStyle={false}
@@ -542,9 +493,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                         }
                         contentRenderKey={resolveLessonPreviewContentRenderKey(
                           item,
-                          enableStreamingTypewriter,
+                          false,
                         )}
-                        enableStreamingTypewriter={enableStreamingTypewriter}
                         confirmButtonText={confirmButtonText}
                         copyButtonText={copyButtonText}
                         copiedButtonText={copiedButtonText}
@@ -555,15 +505,68 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                             : undefined
                         }
                       />
-                    );
-                  })()}
-                  {item.type === ChatContentItemType.CONTENT ? (
-                    <PreviewCopyButton content={item.content || ''} />
-                  ) : null}
-                </div>
-              );
-            })}
-        </div>
+                      {isCreditInsufficient ? (
+                        <Button
+                          type='button'
+                          size='sm'
+                          onClick={handleGoToBilling}
+                        >
+                          {t('module.shifu.previewArea.goToBilling')}
+                        </Button>
+                      ) : null}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={resolveLessonPreviewItemKey(item, idx)}
+                    className='p-0 relative'
+                    style={{
+                      maxWidth: '100%',
+                      margin: !idx ? '0' : '40px 0 0 0',
+                    }}
+                  >
+                    {(() => {
+                      const enableStreamingTypewriter =
+                        ENABLE_PREVIEW_TYPEWRITER &&
+                        shouldEnablePreviewTypewriter(
+                          item,
+                          previewTypewriterCache[item.element_bid || ''],
+                        );
+
+                      return (
+                        <ContentBlock
+                          item={item}
+                          mobileStyle={false}
+                          blockBid={
+                            item.element_bid || item.generated_block_bid || ''
+                          }
+                          contentRenderKey={resolveLessonPreviewContentRenderKey(
+                            item,
+                            enableStreamingTypewriter,
+                          )}
+                          enableStreamingTypewriter={enableStreamingTypewriter}
+                          confirmButtonText={confirmButtonText}
+                          copyButtonText={copyButtonText}
+                          copiedButtonText={copiedButtonText}
+                          onSend={onSend}
+                          onTypeFinished={
+                            ENABLE_PREVIEW_TYPEWRITER
+                              ? handlePreviewTypeFinished
+                              : undefined
+                          }
+                        />
+                      );
+                    })()}
+                    {item.type === ChatContentItemType.CONTENT ? (
+                      <PreviewCopyButton content={item.content || ''} />
+                    ) : null}
+                  </div>
+                );
+              })}
+          </div>
+        </TooltipProvider>
       </div>
 
       <Dialog
