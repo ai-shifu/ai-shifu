@@ -6,16 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { SSE } from 'sse.js';
-import {
-  Copy,
-  Check,
-  Plus,
-  Minus,
-  Settings,
-  Volume2,
-  Loader2,
-  Square,
-} from 'lucide-react';
+import { Plus, Minus, Settings, Volume2, Loader2, Square } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -123,15 +114,6 @@ const ASK_PROVIDER_LLM = 'llm';
 const ASK_PROVIDER_MODE_PROVIDER_ONLY = 'provider_only';
 const ASK_TEMPERATURE_MIN = 0;
 const ASK_TEMPERATURE_MAX = 2;
-type CopyingState = {
-  previewUrl: boolean;
-  url: boolean;
-};
-
-const defaultCopyingState: CopyingState = {
-  previewUrl: false,
-  url: false,
-};
 
 export default function ShifuSettingDialog({
   shifuId,
@@ -167,13 +149,6 @@ export default function ShifuSettingDialog({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState('');
-  const [copying, setCopying] = useState<CopyingState>(defaultCopyingState);
-  const copyTimeoutRef = useRef<
-    Record<keyof CopyingState, ReturnType<typeof setTimeout> | null>
-  >({
-    previewUrl: null,
-    url: null,
-  });
   const { trackEvent } = useTracking();
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   // Ask configuration state
@@ -678,8 +653,6 @@ export default function ShifuSettingDialog({
   ]);
   // Define the validation schema using Zod
   const shifuSchema = z.object({
-    previewUrl: z.string(),
-    url: z.string(),
     name: z
       .string()
       .min(1, t('module.shifuSetting.shifuNameEmpty'))
@@ -718,8 +691,6 @@ export default function ShifuSettingDialog({
   const form = useForm({
     resolver: zodResolver(shifuSchema),
     defaultValues: {
-      previewUrl: '',
-      url: '',
       name: '',
       description: '',
       model: '',
@@ -729,31 +700,6 @@ export default function ShifuSettingDialog({
     },
   });
   const isDirty = form.formState.isDirty;
-  useEffect(() => {
-    return () => {
-      Object.values(copyTimeoutRef.current).forEach(timeout => {
-        if (timeout) {
-          clearTimeout(timeout);
-        }
-      });
-    };
-  }, []);
-
-  // Handle copy to clipboard
-  const handleCopy = (field: keyof CopyingState) => {
-    const existingTimeout = copyTimeoutRef.current[field];
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-      copyTimeoutRef.current[field] = null;
-    }
-    navigator.clipboard.writeText(form.getValues(field));
-    setCopying(prev => ({ ...prev, [field]: true }));
-
-    copyTimeoutRef.current[field] = setTimeout(() => {
-      setCopying(prev => ({ ...prev, [field]: false }));
-      copyTimeoutRef.current[field] = null;
-    }, 2000);
-  };
 
   // Handle keyword addition
   const handleAddKeyword = () => {
@@ -955,8 +901,6 @@ export default function ShifuSettingDialog({
         description: result.description,
         price: (result.price ?? 0).toFixed(2),
         model: result.model || '',
-        previewUrl: result.preview_url,
-        url: result.url,
         temperature: result.temperature + '',
         systemPrompt: result.system_prompt || '',
       });
@@ -1482,90 +1426,6 @@ export default function ShifuSettingDialog({
                       )}
                   </div>
                 </div>
-
-                <FormField
-                  control={form.control}
-                  name='previewUrl'
-                  render={({ field }) => (
-                    <FormItem className='space-y-2 mb-4'>
-                      <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.previewUrl')}
-                      </FormLabel>
-                      <FormControl>
-                        <div className='flex items-center gap-2'>
-                          <input
-                            type='hidden'
-                            {...field}
-                          />
-                          <span
-                            className='flex-1 text-sm underline whitespace-nowrap overflow-hidden text-ellipsis'
-                            style={{
-                              color: 'var(--base-muted-foreground, #737373)',
-                            }}
-                            title={field.value}
-                          >
-                            {field.value}
-                          </span>
-                          <button
-                            type='button'
-                            onClick={() => handleCopy('previewUrl')}
-                            className='flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none'
-                            style={{ width: 20, height: 20 }}
-                          >
-                            {copying.previewUrl ? (
-                              <Check className='w-[14px] h-[14px]' />
-                            ) : (
-                              <Copy className='w-[14px] h-[14px]' />
-                            )}
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='url'
-                  render={({ field }) => (
-                    <FormItem className='space-y-2 mb-4'>
-                      <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.learningUrl')}
-                      </FormLabel>
-                      <FormControl>
-                        <div className='flex items-center gap-2'>
-                          <input
-                            type='hidden'
-                            {...field}
-                          />
-                          <span
-                            className='flex-1 text-sm underline whitespace-nowrap overflow-hidden text-ellipsis'
-                            style={{
-                              color: 'var(--base-muted-foreground, #737373)',
-                            }}
-                            title={field.value}
-                          >
-                            {field.value}
-                          </span>
-                          <button
-                            type='button'
-                            onClick={() => handleCopy('url')}
-                            className='flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none'
-                            style={{ width: 20, height: 20 }}
-                          >
-                            {copying.url ? (
-                              <Check className='w-[14px] h-[14px]' />
-                            ) : (
-                              <Copy className='w-[14px] h-[14px]' />
-                            )}
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={form.control}
