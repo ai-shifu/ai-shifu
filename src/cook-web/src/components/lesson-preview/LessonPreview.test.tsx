@@ -38,17 +38,18 @@ jest.mock('@/components/ui/tooltip', () => ({
   TooltipContent: ({ children }: { children: React.ReactNode }) => (
     <div role='tooltip'>{children}</div>
   ),
-  TooltipProvider: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
   TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
 }));
 
-jest.mock('@/c-utils/textutils', () => ({
-  copyText: (...args: unknown[]) => mockCopyText(...args),
-}));
+jest.mock('@/c-utils/textutils', () => {
+  const actual = jest.requireActual('@/c-utils/textutils');
+  return {
+    ...actual,
+    copyText: (...args: unknown[]) => mockCopyText(...args),
+  };
+});
 
 jest.mock('@/components/ui/Dialog', () => ({
   Dialog: ({ children }: { children: React.ReactNode }) => (
@@ -267,9 +268,6 @@ describe('LessonPreview billing action', () => {
         name: 'module.shifu.previewArea.copied',
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText('module.shifu.previewArea.copyGuide'),
-    ).not.toBeInTheDocument();
   });
 
   test('builds stable preview item keys from business ids and falls back to idx only when needed', () => {

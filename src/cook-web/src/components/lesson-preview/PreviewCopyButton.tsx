@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
@@ -64,35 +63,33 @@ const PreviewCopyButton: React.FC<PreviewCopyButtonProps> = ({ content }) => {
 
   return (
     <div className='flex justify-end mt-2'>
-      <TooltipProvider delayDuration={150}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type='button'
-              onClick={handleCopy}
-              className={cn(
-                'inline-flex items-center justify-center gap-1',
-                'rounded-full px-2.5 py-1 text-xs font-medium text-white',
-                'bg-[#55575e] transition-colors hover:bg-primary',
-              )}
-            >
-              {copied ? (
-                <Check className='h-3.5 w-3.5' />
-              ) : (
-                <Copy className='h-3.5 w-3.5' />
-              )}
-              <span>
-                {copied
-                  ? t('module.shifu.previewArea.copied')
-                  : t('module.shifu.previewArea.copy')}
-              </span>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className='max-w-[220px] text-center'>
-            {t('module.shifu.previewArea.copyTooltip')}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type='button'
+            onClick={handleCopy}
+            className={cn(
+              'inline-flex items-center justify-center gap-1',
+              'rounded-full px-2.5 py-1 text-xs font-medium text-white',
+              'bg-[#55575e] transition-colors hover:bg-primary',
+            )}
+          >
+            {copied ? (
+              <Check className='h-3.5 w-3.5' />
+            ) : (
+              <Copy className='h-3.5 w-3.5' />
+            )}
+            <span>
+              {copied
+                ? t('module.shifu.previewArea.copied')
+                : t('module.shifu.previewArea.copy')}
+            </span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className='max-w-[220px] text-center'>
+          {t('module.shifu.previewArea.copyTooltip')}
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 };
