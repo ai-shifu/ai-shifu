@@ -1261,8 +1261,11 @@ describe('AdminOperationCreditNotificationsPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows dry-run failures inside config without polluting records error state', async () => {
-    mockDryRun.mockRejectedValueOnce(new Error('dry run unavailable'));
+  it('shows dry-run failures inside the config tab without reusing records errors', async () => {
+    mockDryRun.mockRejectedValueOnce({
+      message: 'dry-run failed',
+      code: 5001,
+    });
 
     render(<AdminOperationCreditNotificationsPage />);
 
@@ -1275,9 +1278,13 @@ describe('AdminOperationCreditNotificationsPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('dry run unavailable')).toBeInTheDocument();
+      expect(mockDryRun).toHaveBeenCalledWith({
+        notification_type: '',
+        creator_bid: '',
+      });
     });
-    expect(mockGetRecords).toHaveBeenCalledTimes(1);
+
+    expect(screen.getByText('dry-run failed')).toBeInTheDocument();
     expect(
       screen.queryByText('module.operationsCreditNotifications.loadError'),
     ).not.toBeInTheDocument();

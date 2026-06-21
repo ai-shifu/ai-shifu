@@ -21,11 +21,11 @@
 - [x] 2026-05-21 17:07 CST: Added teacher-facing balance state and softlimit debug blocking on frontend and backend preview/debug paths.
 - [x] 2026-05-21 17:07 CST: Added focused backend/task/frontend tests and ran validation; architecture boundary check is blocked only by unrelated pre-existing untracked route-support files.
 - [x] 2026-05-22 18:35 CST: Extended low-balance notifications with estimated-days thresholds based on finalized daily ledger consumption, structured operator form fields, dry-run details, and focused tests.
-<<<<<<< HEAD
 - [x] 2026-06-19 21:20 CST: Follow-up work on `refactor/billing-credit-notifications` cleaned up records/config request-state handling, requeue refresh behavior, and config-side experience without changing the notification-center core model.
 - [x] 2026-06-19 21:36 CST: Deferred the next-step `CreditNotificationConfigTab.tsx` split (dry-run, template sync, managed-list dialog state isolation) to a separate follow-up PR so the request-state polish branch stayed reviewable.
 - [x] 2026-06-21 16:10 CST: Follow-up admin refinements split the records overview/filter UI and then moved `CreditNotificationConfigTab` local template/input/managed-list state into a dedicated hook so the config tab stays orchestration-focused without changing backend contracts.
 - [x] 2026-06-21 16:24 CST: Stopped this follow-up round after the local-state extraction; `dry-run` and template-sync deeper hook splits remain explicitly deferred to a later credit-notification follow-up PR to keep the scope reviewable.
+- [x] 2026-06-21 17:05 CST: A config-tab follow-up extracted `dry-run` and template-sync state into dedicated frontend hooks so their errors stay local to the config area instead of reusing page-level state.
 
 ## Surprises & Discoveries
 
@@ -63,7 +63,7 @@ Implemented v1 of the积分通知中心:
 - Low-balance reminders can optionally trigger by estimated remaining days, using finalized daily consume summaries. Fixed-threshold fallback only applies when there is partial valid consumption history; missing or zero daily consumption summaries do not send estimated-days reminders.
 - Billing overview exposes `credit_status`, `debug_allowed`, and `softlimit_threshold`; preview/debug paths enforce softlimit in both frontend and backend.
 - Focused backend, task, and frontend tests cover staging, dedupe, skip, provider retry, scan windows, softlimit, Celery schedule/config, operator page rendering, and frontend preview blocking.
-- Follow-up operator refinements now scope records/config/dry-run errors separately, refresh records plus overview in parallel after requeue, and keep the credit notification config tab maintainable by isolating its local editor and managed-list state in a dedicated frontend hook.
+- Follow-up operator refinements now scope records/config/dry-run errors separately, refresh records plus overview in parallel after requeue, keep the credit notification config tab maintainable by isolating its local editor and managed-list state in a dedicated frontend hook, and move `dry-run` plus template-sync state into dedicated frontend hooks so config actions stay local to the config experience without changing contracts or records-tab behavior.
 
 ## Context and Orientation
 
