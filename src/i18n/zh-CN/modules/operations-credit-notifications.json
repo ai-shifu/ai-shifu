@@ -20,9 +20,9 @@
     "emptyOptedOutCreators": "暂无已退订老师。",
     "fieldTips": {
       "blockedCreatorList": "展示当前屏蔽名单中的老师，修改左侧输入后需保存配置才会生效。",
-      "creatorIdentifierList": "支持填写手机号或老师ID，多个值用逗号分割。",
-      "creatorIdentifierListEmail": "支持填写邮箱或老师ID，多个值用逗号分割。",
-      "creatorIdentifierListPhone": "支持填写手机号或老师ID，多个值用逗号分割。",
+      "creatorIdentifierList": "支持填写手机号或老师ID，多个值用逗号分隔。",
+      "creatorIdentifierListEmail": "支持填写邮箱或老师ID，多个值用逗号分隔。",
+      "creatorIdentifierListPhone": "支持填写手机号或老师ID，多个值用逗号分隔。",
       "creatorList": "填写老师ID，多个值用逗号分隔。",
       "dailySmsLimit": "超过每日上限后，当天不再继续发送新短信。",
       "enabled": "控制积分短信通知的启用状态，仅对后续通知生效。",
@@ -79,8 +79,8 @@
       "windows": "到期提醒窗口"
     },
     "inputPlaceholders": {
-      "blockedCreatorsEmail": "输入老师邮箱或ID，多个值用逗号分割",
-      "blockedCreatorsPhone": "输入老师手机号或ID，多个值用逗号分割"
+      "blockedCreatorsEmail": "输入老师邮箱或ID，多个值用逗号分隔",
+      "blockedCreatorsPhone": "输入老师手机号或ID，多个值用逗号分隔"
     },
     "invalidConfig": "配置保存失败，请检查表单内容。",
     "listDialog": {
