@@ -164,7 +164,7 @@
   },
   "capabilities": {
     "description": "Ce résumé indique quelles surfaces de facturation sont actives dans l’interface et lesquelles restent limitées à des flux internes ou protégés par configuration.",
-    "fallbackDescription": "Le statut des capacités est suivi depuis le registre de facturation.",
+    "fallbackDescription": "Le statut des capacités est suivi depuis le grand livre de facturation.",
     "fallbackTitle": "Capacité de facturation",
     "items": {
       "adminDomains": {
@@ -208,7 +208,7 @@
         "title": "Cycle de vie de l’abonnement enseignant"
       },
       "creatorWalletLedger": {
-        "description": "Les réserves de crédits du compte et les modèles de lecture du registre restent activés.",
+        "description": "Les réserves de crédits du compte et les modèles de lecture du grand livre restent activés.",
         "title": "Compte créateur et grand livre"
       },
       "dailyAggregateRebuild": {

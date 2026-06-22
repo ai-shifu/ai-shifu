@@ -317,7 +317,7 @@
     "referralCampaignCapInvalid": "Le plafond de récompense doit être un entier supérieur à 0",
     "referralCampaignCodeRequired": "Saisir le code de campagne",
     "referralCampaignCreditInvalid": "Les crédits de récompense doivent être supérieurs à 0",
-    "referralCampaignCycleInvalid": "Les cycles de récompense doivent être un entier supérieur à 0",
+    "referralCampaignCycleInvalid": "Le nombre de cycles de récompense doit être un entier supérieur à 0",
     "referralCampaignJsonInvalid": "Le JSON d’éligibilité doit être un objet ou vide",
     "referralCampaignNameRequired": "Saisir le nom de la campagne d’invitation",
     "referralCampaignPriorityInvalid": "La priorité doit être un entier",
