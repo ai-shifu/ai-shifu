@@ -8,7 +8,7 @@ from flaskr.dao import db
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response, bypass_token_validation
 from flaskr.service.billing.admission import admit_creator_usage
-from flaskr.service.common.models import raise_param_error
+from flaskr.service.common.models import AppException, raise_param_error
 from flaskr.service.learn.learn_funcs import (
     get_shifu_info,
     get_outline_item_tree,
@@ -96,6 +96,13 @@ def _stream_sse_response(
         except GeneratorExit:
             app.logger.info(close_log)
             raise
+        except AppException as exc:
+            app.logger.warning("%s: %s", error_log, exc)
+            if error_event_factory is None:
+                raise
+            yield _to_sse_data_line(error_event_factory(exc))
+            if terminal_event_factory is not None:
+                yield _to_sse_data_line(terminal_event_factory())
         except Exception as exc:
             app.logger.error(error_log, exc_info=True)
             if error_event_factory is None:
@@ -946,6 +953,13 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             ),
             close_log="client closed tts stream early",
             error_log="synthesize generated block audio failed",
+            error_event_factory=lambda exc: RunElementSSEMessageDTO(
+                type="error",
+                event_type="error",
+                generated_block_bid=generated_block_bid,
+                is_terminal=False,
+                content=str(exc),
+            ),
         )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/tts/preview", methods=["POST"])
@@ -1007,6 +1021,13 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             ),
             close_log="client closed preview tts stream early",
             error_log="preview tts stream failed",
+            error_event_factory=lambda exc: RunElementSSEMessageDTO(
+                type="error",
+                event_type="error",
+                generated_block_bid=None,
+                is_terminal=False,
+                content=str(exc),
+            ),
         )
 
     return app

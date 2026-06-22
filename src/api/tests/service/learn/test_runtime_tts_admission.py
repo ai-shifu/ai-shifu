@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import logging
 from pathlib import Path
 import sys
 from types import ModuleType
@@ -203,24 +204,98 @@ def test_stream_passthrough_ignores_request_db_session_remove_failure(monkeypatc
     assert calls == ["remove", "iterate", "remove"]
 
 
+def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
+    from flaskr.service.common.models import AppException
+    from flaskr.service.learn import routes
+
+    app = Flask(__name__)
+    monkeypatch.setattr(
+        routes,
+        "db",
+        SimpleNamespace(session=SimpleNamespace(remove=lambda: None)),
+    )
+
+    def _messages():
+        raise AppException("TTS provider quota exceeded", 45000292)
+        yield  # pragma: no cover
+
+    with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):
+        resp = routes._stream_sse_response(
+            app,
+            message_iter_factory=_messages,
+            close_log="closed",
+            error_log="synthesize generated block audio failed",
+        )
+        with caplog.at_level(logging.WARNING):
+            try:
+                list(resp.response)
+            except AppException:
+                pass
+
+    assert (
+        "synthesize generated block audio failed: TTS provider quota exceeded"
+        in caplog.text
+    )
+    assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
+
+
+def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog):
+    from flaskr.service.learn import routes
+
+    app = Flask(__name__)
+    monkeypatch.setattr(
+        routes,
+        "db",
+        SimpleNamespace(session=SimpleNamespace(remove=lambda: None)),
+    )
+
+    def _messages():
+        raise RuntimeError("tts worker crashed")
+        yield  # pragma: no cover
+
+    with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):
+        resp = routes._stream_sse_response(
+            app,
+            message_iter_factory=_messages,
+            close_log="closed",
+            error_log="synthesize generated block audio failed",
+        )
+        with caplog.at_level(logging.ERROR):
+            try:
+                list(resp.response)
+            except RuntimeError:
+                pass
+
+    assert "synthesize generated block audio failed" in caplog.text
+    assert [record for record in caplog.records if record.levelno >= logging.ERROR]
+
+
 def test_generated_block_tts_route_keeps_admission_but_skips_runtime_slot() -> None:
     route_fn = _find_nested_route("synthesize_generated_block_audio_api")
     called_names = _collect_called_names(route_fn)
+    stream_call = _find_call_by_name(route_fn, "_stream_sse_response")
 
     assert "_admit_creator_usage_for_shifu" in called_names
     assert "reserve_creator_runtime_slot" not in called_names
     assert "_stream_sse_response" in called_names
     assert "stream_generated_block_audio" in called_names
+    assert any(
+        keyword.arg == "error_event_factory" for keyword in stream_call.keywords
+    )
 
 
 def test_preview_tts_route_keeps_admission_but_skips_runtime_slot() -> None:
     route_fn = _find_nested_route("synthesize_preview_tts_audio_api")
     called_names = _collect_called_names(route_fn)
+    stream_call = _find_call_by_name(route_fn, "_stream_sse_response")
 
     assert "_admit_creator_usage_for_shifu" in called_names
     assert "reserve_creator_runtime_slot" not in called_names
     assert "_stream_sse_response" in called_names
     assert "stream_preview_tts_audio" in called_names
+    assert any(
+        keyword.arg == "error_event_factory" for keyword in stream_call.keywords
+    )
 
 
 def test_run_route_passes_admission_payload_to_run_script() -> None:
