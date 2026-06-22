@@ -42,19 +42,19 @@
   },
   "courseEditor": {
     "backHome": {
-      "description": "Use this when you need to switch courses or return to the admin home page.",
-      "title": "Back to the course list"
+      "description": "Click here to return to the admin console for platform management and settings.",
+      "title": "Back to the admin console"
     },
     "listenMode": {
-      "description": "Turn on listen mode in course settings so learners can study with audio.",
+      "description": "Once listen mode is on, learners study with slides and voice.",
       "title": "Enable listen mode"
     },
     "publish": {
-      "description": "When the content is ready, publish it here so learners can start the course.",
+      "description": "Click here to update the course's draft content into the official published version, so learners see your latest content.",
       "title": "Publish your course"
     },
     "settingsEntry": {
-      "description": "Use the settings entry beside the course name to adjust the model, listen mode, pricing, and other course options.",
+      "description": "Click here to adjust course settings such as the teaching prompt, AI model, and pricing.",
       "title": "Open course settings"
     }
   },

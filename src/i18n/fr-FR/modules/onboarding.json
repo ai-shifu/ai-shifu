@@ -42,19 +42,19 @@
   },
   "courseEditor": {
     "backHome": {
-      "description": "Utilisez ce bouton pour changer de cours ou revenir à l'accueil de l'administration.",
-      "title": "Revenir à la liste des cours"
+      "description": "Cliquez ici pour revenir à la console d'administration afin de gérer et configurer la plateforme.",
+      "title": "Revenir à la console d'administration"
     },
     "listenMode": {
-      "description": "Activez le mode écoute dans les paramètres du cours pour permettre aux apprenants d'étudier avec l'audio.",
+      "description": "Une fois le mode écoute activé, les apprenants étudient avec des diapositives et la voix.",
       "title": "Activer le mode écoute"
     },
     "publish": {
-      "description": "Une fois le contenu prêt, publiez le cours ici pour permettre aux apprenants de commencer.",
+      "description": "Cliquez ici pour mettre à jour le contenu brouillon du cours vers la version officielle ; les apprenants verront alors votre contenu le plus récent.",
       "title": "Publier le cours"
     },
     "settingsEntry": {
-      "description": "Utilisez l'entrée des paramètres à côté du nom du cours pour ajuster le modèle, le mode écoute, le prix et les autres options.",
+      "description": "Cliquez ici pour ajuster les paramètres du cours, comme l'invite pédagogique, le modèle d'IA et le prix.",
       "title": "Ouvrir les paramètres du cours"
     }
   },
