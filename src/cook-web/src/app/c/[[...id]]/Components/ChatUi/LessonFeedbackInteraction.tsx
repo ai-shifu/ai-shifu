@@ -79,7 +79,7 @@ export default function LessonFeedbackInteraction({
                 selected
                   ? 'border-primary bg-primary text-white'
                   : 'border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]',
-                readonly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                readonly ? 'cursor-not-allowed opacity-60' : '',
               )}
             >
               {score}

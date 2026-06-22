@@ -125,7 +125,11 @@ body.listen-mode-vh-fallback #root {
     @apply bg-background text-foreground;
   }
   button {
+    cursor: pointer;
     outline: none;
+  }
+  button:disabled {
+    cursor: not-allowed;
   }
   button:focus {
     outline: none;
