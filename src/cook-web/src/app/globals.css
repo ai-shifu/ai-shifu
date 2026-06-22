@@ -115,9 +115,6 @@ body.listen-mode-vh-fallback #root {
   body {
     @apply bg-background text-foreground;
   }
-}
-
-@layer base {
   button {
     cursor: pointer;
     outline: none;
