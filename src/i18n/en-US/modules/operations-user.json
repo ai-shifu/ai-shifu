@@ -48,7 +48,7 @@
         "all": "All",
         "manual": "Manual Grant",
         "subscription": "Subscription",
-        "topup": "Top-up",
+        "topup": "Credit pack",
         "trial_subscription": "Trial Credits"
       },
       "time": "Time Range",
@@ -91,9 +91,9 @@
       "subscription_grant": "Credits granted from subscription",
       "subscription_purchase": "Credits granted from subscription purchase",
       "subscription_renewal": "Credits granted from subscription renewal",
-      "topup_expire": "Top-up credits expired",
-      "topup_grant": "Credits granted from top-up",
-      "topup_purchase": "Credits granted from top-up purchase",
+      "topup_expire": "Credit pack credits expired",
+      "topup_grant": "Credits granted from credit pack",
+      "topup_purchase": "Credits granted from credit pack purchase",
       "trial_bootstrap": "Credits granted from trial activation",
       "trial_subscription_grant": "Credits granted from trial subscription"
     },
@@ -107,7 +107,7 @@
       "refund": "Refund",
       "reward": "Reward",
       "subscription": "Subscription",
-      "topup": "Top-up",
+      "topup": "Credit pack",
       "trial_subscription": "Trial Subscription",
       "usage": "Usage"
     },
@@ -130,8 +130,8 @@
       "release": "Credit Release",
       "subscription_expire": "Subscription Credit Expiry",
       "subscription_grant": "Subscription Grant",
-      "topup_expire": "Top-up Expiry",
-      "topup_grant": "Top-up Grant",
+      "topup_expire": "Credit Pack Expiry",
+      "topup_grant": "Credit Pack Grant",
       "trial_subscription_grant": "Trial Subscription Grant"
     },
     "creditLedgerUsageSceneLabels": {
@@ -170,7 +170,7 @@
       "availableCredits": "Total Credit Balance",
       "creditsExpireAt": "Credits Validity",
       "subscriptionCredits": "Subscription Credit Balance",
-      "topupCredits": "Top-up Credit Balance"
+      "topupCredits": "Credit Pack Credit Balance"
     },
     "emptyCourses": "No courses",
     "emptyCredits": "No credit entries",
@@ -215,7 +215,7 @@
       "validityPreset": "Validity"
     },
     "confirmTitle": "Confirm Credit Grant",
-    "description": "Use this dialog to grant credits or a package to creator or operator users from Operations.",
+    "description": "Use this dialog to grant credits or a package to teacher or operator users from Operations.",
     "fields": {
       "amount": "Credits",
       "mode": "Grant Type",
@@ -304,7 +304,7 @@
   "overview": {
     "activeFilter": "Quick Filter",
     "metrics": {
-      "creators": "Creators",
+      "creators": "Teachers",
       "guests": "Guests",
       "learners": "Learners",
       "learningActive30d": "Active Learners (30d)",
@@ -318,7 +318,7 @@
     "staleData": "Overview refresh failed. Showing the last successful snapshot.",
     "title": "Overview",
     "tooltips": {
-      "creators": "Creator users",
+      "creators": "Teacher users",
       "guests": "Guest users",
       "learners": "Users with learning records",
       "learningActive30d": "Users with learning activity in the last 30 days",
@@ -339,7 +339,7 @@
     "wechat": "WeChat"
   },
   "roleLabels": {
-    "creator": "Creator",
+    "creator": "Teacher",
     "learner": "Learner",
     "operator": "Operator",
     "regular": "Regular",
@@ -369,7 +369,7 @@
     "role": "Role",
     "status": "Status",
     "subscriptionCredits": "Subscription Credits",
-    "topupCredits": "Top-up Credits",
+    "topupCredits": "Credit Pack Credits",
     "totalPaidAmount": "Total Paid",
     "updatedAt": "Updated At",
     "userId": "User ID"

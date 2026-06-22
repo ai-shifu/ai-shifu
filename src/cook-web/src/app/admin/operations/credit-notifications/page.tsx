@@ -55,6 +55,8 @@ import {
   type NotificationFilters,
   type PageTab,
 } from './creditNotificationUtils';
+import { useCreditNotificationDryRun } from './useCreditNotificationDryRun';
+import { useCreditNotificationTemplateSyncState } from './useCreditNotificationTemplateSyncState';
 
 const normalizeResolvedPolicyLists = (
   payload: unknown,
@@ -106,25 +108,14 @@ export default function AdminOperationCreditNotificationsPage() {
     });
   const [activeOverviewCardKey, setActiveOverviewCardKey] =
     React.useState<NotificationOverviewCardKey | null>(null);
-  const [error, setError] = React.useState<ErrorState | null>(null);
+  const [recordsError, setRecordsError] = React.useState<ErrorState | null>(
+    null,
+  );
   const [policy, setPolicy] =
     React.useState<AdminOperationCreditNotificationPolicy>(createDefaultPolicy);
   const [configError, setConfigError] = React.useState('');
   const [configLoaded, setConfigLoaded] = React.useState(false);
   const [configLoading, setConfigLoading] = React.useState(false);
-  const [dryRunResult, setDryRunResult] =
-    React.useState<AdminOperationCreditNotificationDryRunResponse | null>(null);
-  const [templateSyncResults, setTemplateSyncResults] = React.useState<
-    Partial<
-      Record<
-        KnownNotificationType,
-        AdminOperationCreditNotificationTemplateSyncResponse
-      >
-    >
-  >({});
-  const [templateSyncLoading, setTemplateSyncLoading] = React.useState<
-    Partial<Record<KnownNotificationType, boolean>>
-  >({});
   const [templateOptions, setTemplateOptions] = React.useState<
     AdminOperationCreditNotificationTemplateOption[]
   >([]);
@@ -209,6 +200,20 @@ export default function AdminOperationCreditNotificationsPage() {
     [],
   );
 
+  const { dryRunError, dryRunResult, runDryRun } =
+    useCreditNotificationDryRun(t);
+  const {
+    clearTemplateSyncResult,
+    syncTemplate,
+    templateSyncError,
+    templateSyncLoading,
+    templateSyncResults,
+  } = useCreditNotificationTemplateSyncState({
+    policyTypes: policy.types,
+    setTemplateOptions,
+    t,
+  });
+
   const fetchConfig = React.useCallback(async () => {
     const response = await api.getAdminOperationCreditNotificationConfig({});
     const nextPolicy = normalizePolicy(response);
@@ -255,7 +260,7 @@ export default function AdminOperationCreditNotificationsPage() {
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
       setLoading(true);
-      setError(null);
+      setRecordsError(null);
       try {
         const response = (await api.getAdminOperationCreditNotifications({
           page_index: targetPage,
@@ -284,7 +289,7 @@ export default function AdminOperationCreditNotificationsPage() {
           return;
         }
         const resolvedError = requestError as ErrorWithCode;
-        setError({
+        setRecordsError({
           message:
             resolvedError.message ||
             t('module.operationsCreditNotifications.loadError'),
@@ -310,8 +315,7 @@ export default function AdminOperationCreditNotificationsPage() {
     setConfigLoading(true);
     setConfigError('');
     try {
-      await fetchConfig();
-      void fetchTemplateOptions();
+      await Promise.all([fetchConfig(), fetchTemplateOptions()]);
     } catch (requestError) {
       configLoadStartedRef.current = false;
       const resolvedError = requestError as ErrorWithCode;
@@ -330,10 +334,12 @@ export default function AdminOperationCreditNotificationsPage() {
       return;
     }
     const initialFilters = createDefaultFilters();
-    fetchOverview().catch(() => {
-      setOverview({ total: 0, pending: 0, sent: 0, failed: 0, skipped: 0 });
-    });
-    void fetchRecords(1, initialFilters);
+    void Promise.all([
+      fetchOverview().catch(() => {
+        setOverview({ total: 0, pending: 0, sent: 0, failed: 0, skipped: 0 });
+      }),
+      fetchRecords(1, initialFilters),
+    ]);
   }, [fetchOverview, fetchRecords, isReady]);
 
   React.useEffect(() => {
@@ -547,114 +553,9 @@ export default function AdminOperationCreditNotificationsPage() {
       document.removeEventListener('click', handleDocumentClick, true);
   }, [activeTab, isConfigDirty]);
 
-  const syncTemplate = React.useCallback(
-    async (
-      notificationType: KnownNotificationType,
-      templateCodeOverride?: string,
-    ) => {
-      const templateCode = (
-        templateCodeOverride ?? policy.types[notificationType].template_code
-      ).trim();
-      if (!templateCode) {
-        setConfigError(
-          t(
-            'module.operationsCreditNotifications.config.templateSync.templateCodeRequired',
-          ),
-        );
-        return false;
-      }
-      setTemplateSyncLoading(current => ({
-        ...current,
-        [notificationType]: true,
-      }));
-      try {
-        const response =
-          (await api.syncAdminOperationCreditNotificationTemplate({
-            notification_type: notificationType,
-            template_code: templateCode,
-          })) as AdminOperationCreditNotificationTemplateSyncResponse;
-        setTemplateSyncResults(current => ({
-          ...current,
-          [notificationType]: response,
-        }));
-        setTemplateOptions(current => {
-          const nextOption: AdminOperationCreditNotificationTemplateOption = {
-            notification_template_bid: response.notification_template_bid,
-            channel: response.channel,
-            provider: response.provider,
-            template_code: response.template_code,
-            template_name: response.template_name,
-            template_content: response.template_content,
-            template_status: response.template_status,
-            template_type: response.template_type,
-            sync_status: response.sync_status,
-            error_code: response.error_code,
-            error_message: response.error_message,
-            placeholders: response.placeholders,
-            compatible_notification_types: response.compatible
-              ? [notificationType]
-              : [],
-            last_synced_at: response.last_synced_at,
-            source: 'local',
-          };
-          return [
-            nextOption,
-            ...current.filter(
-              option => option.template_code !== response.template_code,
-            ),
-          ];
-        });
-        setConfigError('');
-        return Boolean(response.compatible);
-      } catch (requestError) {
-        const resolvedError = requestError as ErrorWithCode;
-        setConfigError(
-          resolvedError.message ||
-            t(
-              'module.operationsCreditNotifications.config.templateSync.syncFailed',
-            ),
-        );
-        return false;
-      } finally {
-        setTemplateSyncLoading(current => ({
-          ...current,
-          [notificationType]: false,
-        }));
-      }
-    },
-    [policy.types, t],
-  );
-
-  const clearTemplateSyncResult = React.useCallback(
-    (notificationType: KnownNotificationType) => {
-      setTemplateSyncResults(current => {
-        if (current[notificationType] === undefined) {
-          return current;
-        }
-        return {
-          ...current,
-          [notificationType]: undefined,
-        };
-      });
-    },
-    [],
-  );
-
   const dryRun = React.useCallback(async () => {
-    try {
-      const response = (await api.dryRunAdminOperationCreditNotifications({
-        notification_type: draftFilters.notification_type.trim(),
-        creator_bid: '',
-      })) as AdminOperationCreditNotificationDryRunResponse;
-      setDryRunResult(response);
-    } catch (requestError) {
-      const resolvedError = requestError as ErrorWithCode;
-      setError({
-        message: resolvedError.message || t('common.core.submitFailed'),
-        code: resolvedError.code,
-      });
-    }
-  }, [draftFilters.notification_type, t]);
+    await runDryRun(draftFilters.notification_type);
+  }, [draftFilters.notification_type, runDryRun]);
 
   const requeue = React.useCallback(
     async (notificationBid: string) => {
@@ -677,8 +578,10 @@ export default function AdminOperationCreditNotificationsPage() {
         toast({
           title: t('module.operationsCreditNotifications.messages.requeueDone'),
         });
-        await fetchRecords(pageIndex, appliedFilters);
-        await fetchOverview();
+        await Promise.all([
+          fetchRecords(pageIndex, appliedFilters),
+          fetchOverview().catch(() => undefined),
+        ]);
       } catch (requestError) {
         const resolvedError = requestError as ErrorWithCode;
         toast({
@@ -745,7 +648,7 @@ export default function AdminOperationCreditNotificationsPage() {
           <CreditNotificationRecordsTab
             items={items}
             loading={loading}
-            error={error}
+            error={recordsError}
             total={total}
             overview={overview}
             activeOverviewCardKey={activeOverviewCardKey}
@@ -775,6 +678,8 @@ export default function AdminOperationCreditNotificationsPage() {
             configLoading={configLoading}
             configError={configError}
             dryRunResult={dryRunResult}
+            dryRunError={dryRunError}
+            templateSyncError={templateSyncError}
             templateSyncResults={templateSyncResults}
             templateSyncLoading={templateSyncLoading}
             templateOptions={templateOptions}

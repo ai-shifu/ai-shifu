@@ -21,6 +21,8 @@ export interface Shifu {
   name?: string;
   description?: string;
   avatar?: string;
+  preview_url?: string;
+  url?: string;
   state?: number;
   is_favorite?: boolean;
   readonly?: boolean;

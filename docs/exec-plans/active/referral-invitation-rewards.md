@@ -12,7 +12,7 @@
 - [x] 2026-06-09 16:15 CST：再次对照飞书需求，补齐手动输入邀请码、通用邀请事件、30 天积分过期、运营人工调整和活动统计覆盖。
 - [x] 2026-06-09 17:10 CST：按协作要求把设计文档和本 ExecPlan 的正文改为中文；保留 `PLANS.md` 要求的英文 section 锚点。
 - [x] 2026-06-09 17:45 CST：实现后端 referral domain models、migration、services、routes、post-auth hook、billing reward helper 和重点 tests。
-- [x] 2026-06-09 17:48 CST：实现创作者邀请页、被邀请人落地页、登录 payload 透传、前端 API/types 和共享 i18n 文案。
+- [x] 2026-06-09 17:48 CST：实现老师邀请页、被邀请人落地页、登录 payload 透传、前端 API/types 和共享 i18n 文案。
 - [x] 2026-06-09 17:50 CST：实现运营 referral 监控页、列表/详情/overview/status API、人工 adjustment API 和 reward grant retry helper。
 - [x] 2026-06-11 14:55 CST：按 dev02 对账反馈修正 billing reward helper：免费/试用等任何当前有效权益窗口均不提前加账，邀请奖励进入 renewal reserved 队列，到期后自动释放并顺延。
 - [ ] 2026-06-08 22:45 CST：在 dev02 使用真实 billing product 配置和数据库行完成验证。
@@ -42,7 +42,7 @@
 
 - 后端可以从 `referral_campaigns` 与 `referral_campaign_reward_rules` 读取活动、cap、产品、积分有效期和生效策略。
 - SMS 新用户注册时，post-auth 会按邀请码绑定 relation，并在 cap 内生成 reward 和 billing artifacts；达到 cap 时保留关系但跳过 billing side effects。
-- 创作者侧可以查看邀请码/邀请链接/奖励数量；被邀请人侧可以通过链接或手动输入邀请码进入同一 SMS 登录 payload。
+- 老师侧可以查看邀请码/邀请链接/奖励数量；被邀请人侧可以通过链接或手动输入邀请码进入同一 SMS 登录 payload。
 - 运营侧可以查看 overview、筛选关系列表、打开详情、标记异常、取消关系/奖励、冻结奖励并写入备注。
 - 本地验证覆盖 py_compile、ruff、后端重点 pytest、前端 type-check、前端重点 jest 和 targeted lint。
 
@@ -78,10 +78,10 @@
 3. 新增 invite profile、invite event 和 relation binding helpers。
 4. 扩展 SMS 登录 post-auth context，并加入 referral post-auth handler。
 5. 新增 billing referral plan reward helper，支持顺延和延后生效。
-6. 新增创作者侧 referral APIs。
+6. 新增老师侧 referral APIs。
 7. 新增运营侧 referral APIs 和 read models。
 8. 增加后端重点测试，覆盖 campaign config、关系绑定、cap、billing artifacts 和运营状态变更。
-9. 增加创作者邀请页和被邀请人落地页。
+9. 增加老师邀请页和被邀请人落地页。
 10. 增加运营 referral 监控 UI。
 11. 重新生成 i18n/type surface，并运行验证。
 12. 在 feature flag 后面完成 dev02 验证。
@@ -290,7 +290,7 @@
 - Billing 调用失败时 relation 保留且 reward 可重试。
 - Repair helper 修复 pending reward 时不重复创建 relation 或 order。
 
-### 步骤 9：增加创作者 Referral APIs
+### 步骤 9：增加老师 Referral APIs
 
 文件：
 
@@ -360,13 +360,13 @@
 - API endpoint string 测试包含新 routes。
 - TypeScript type-check 通过。
 
-### 步骤 12：增加创作者邀请页
+### 步骤 12：增加老师邀请页
 
 文件：
 
-- 在 `src/cook-web/src/app/admin/` 的创作者/后台区域增加 route。
+- 在 `src/cook-web/src/app/admin/` 的老师/后台区域增加 route。
 - 组件放在 route 附近；如果会复用，再放到 `src/cook-web/src/components/`。
-- 只更新现有创作者/后台导航路径。
+- 只更新现有老师/后台导航路径。
 - 增加页面渲染和复制动作测试。
 
 实现要求：
@@ -468,7 +468,7 @@
 
 前端验收：
 
-- 创作者邀请页展示邀请码、链接、复制动作、奖励数量、待生效状态和 cap 文案。
+- 老师邀请页展示邀请码、链接、复制动作、奖励数量、待生效状态和 cap 文案。
 - 邀请落地页和手动输入邀请码入口都能把 invite context 传到 SMS 登录。
 - 运营 referral 页面支持列表、筛选、详情和异常动作。
 - 用户可见文案都在共享 i18n JSON。
@@ -489,7 +489,7 @@ Dev02 验证：
 - 跑手动输入邀请码注册合成用例。
 - 查询 dev02 DB 的 relation、reward、billing order、subscription、wallet bucket 和 ledger。
 - 查询 dev02 event rows，确认 link click、registration page visit、manual code entry、registration submit 都落表。
-- 确认创作者邀请页和运营 referral 页面展示同一份奖励状态。
+- 确认老师邀请页和运营 referral 页面展示同一份奖励状态。
 
 ## Idempotence and Recovery
 
@@ -509,7 +509,7 @@ Dev02 验证：
 
 - 新增 campaign-aware referral tables 和 Alembic migration。
 - 首发 campaign 与 reward-rule seed，或文档化运营配置步骤。
-- 新增 `/api/referral` 创作者/匿名 endpoints。
+- 新增 `/api/referral` 老师/匿名 endpoints。
 - 新增 `/api/shifu/admin/operations/referrals` 运营 endpoints。
 - 扩展 `PostAuthContext` 可选字段。
 - 新增 referral plan rewards billing helper。
@@ -518,7 +518,7 @@ Dev02 验证：
 
 前端：
 
-- 创作者邀请页。
+- 老师邀请页。
 - 被邀请人落地页。
 - 注册前手动输入邀请码入口。
 - 登录 payload 传递。

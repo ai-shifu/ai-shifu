@@ -8,7 +8,7 @@ import logging
 import html
 
 # Import models to ensure they are registered with SQLAlchemy
-from .models import LearnGeneratedAudio  # noqa: F401
+from .models import LearnGeneratedAudio, TTSMiniMaxClonedVoice  # noqa: F401
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts.patterns import (
     ANY_HTML_TAG,

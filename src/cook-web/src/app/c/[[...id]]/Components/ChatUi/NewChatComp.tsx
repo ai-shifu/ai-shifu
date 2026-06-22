@@ -306,8 +306,11 @@ export const NewChatComponents = ({
   }`;
   const [settledPromptContextKey, setSettledPromptContextKey] =
     useState(promptContextKey);
+  const isPreviewReadMode = previewMode && learningMode === 'read';
   const shouldShowAudioAction =
-    !isClassroomMode && (previewMode || isListenModeActive);
+    !isClassroomMode &&
+    (previewMode || isListenModeActive) &&
+    !isPreviewReadMode;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
@@ -653,10 +656,6 @@ export const NewChatComponents = ({
       return;
     }
 
-    if (previewMode) {
-      return;
-    }
-
     const contentItems = items.filter(isContentItemWithElementBid);
 
     if (!contentItems.length) {
@@ -857,7 +856,7 @@ export const NewChatComponents = ({
   }, [lessonId]);
 
   const autoPlayTargetBlockBid = useMemo(() => {
-    if (!autoPlayAudio || previewMode) {
+    if (!autoPlayAudio) {
       return null;
     }
 
@@ -887,7 +886,7 @@ export const NewChatComponents = ({
     }
 
     return null;
-  }, [autoPlayAudio, currentPlayingBlockBid, items, previewMode]);
+  }, [autoPlayAudio, currentPlayingBlockBid, items]);
 
   const mobileInteractionPrimaryTrack = useMemo(
     () =>

@@ -441,6 +441,10 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(mockToast).toHaveBeenCalledWith({
       title: 'module.operationsCreditNotifications.messages.requeueDone',
     });
+    await waitFor(() => {
+      expect(mockGetRecords).toHaveBeenCalledTimes(2);
+      expect(mockGetOverview).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('surfaces requeue failures without refreshing records as success', async () => {
@@ -925,7 +929,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     );
 
     fireEvent.change(blockedCreatorsInput, {
-      target: { value: '无法识别的创作者' },
+      target: { value: '无法识别的老师' },
     });
     fireEvent.click(
       screen.getByRole('button', {
@@ -1255,6 +1259,35 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(
       screen.getByText(/"notification_type": "low_balance"/),
     ).toBeInTheDocument();
+  });
+
+  it('shows dry-run failures inside the config tab without reusing records errors', async () => {
+    mockDryRun.mockRejectedValueOnce({
+      message: 'dry-run failed',
+      code: 5001,
+    });
+
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.dryRun',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockDryRun).toHaveBeenCalledWith({
+        notification_type: '',
+        creator_bid: '',
+      });
+    });
+
+    expect(screen.getByText('dry-run failed')).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsCreditNotifications.loadError'),
+    ).not.toBeInTheDocument();
   });
 
   it('saves estimated-days low balance thresholds from the structured form', async () => {
