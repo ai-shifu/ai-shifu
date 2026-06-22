@@ -169,7 +169,7 @@ const Header = () => {
   ) => {
     alert.showAlert({
       title: t('component.header.publishSuccess'),
-      cancelText: t('component.header.close'),
+      cancelText: t('component.header.publishSuccessDone'),
       showConfirm: false,
       descriptionAsChild: true,
       description: (
