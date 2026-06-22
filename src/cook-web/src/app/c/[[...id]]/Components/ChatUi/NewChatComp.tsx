@@ -306,8 +306,11 @@ export const NewChatComponents = ({
   }`;
   const [settledPromptContextKey, setSettledPromptContextKey] =
     useState(promptContextKey);
+  const isPreviewReadMode = previewMode && learningMode === 'read';
   const shouldShowAudioAction =
-    !isClassroomMode && (previewMode || isListenModeActive);
+    !isClassroomMode &&
+    (previewMode || isListenModeActive) &&
+    !isPreviewReadMode;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
