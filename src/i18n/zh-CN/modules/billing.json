@@ -3,7 +3,7 @@
   "admin": {
     "adjust": {
       "cancel": "取消",
-      "description": "输入正数十进制表示补发积分，输入负数十进制表示按标准 bucket 扣减顺序人工扣减积分。",
+      "description": "输入正数十进制表示补发积分，输入负数十进制表示按标准积分桶扣减顺序人工扣减积分。",
       "errors": {
         "amountInvalid": "请输入非 0 的十进制金额，最多保留 10 位小数。",
         "creatorBidRequired": "必须填写 creator bid。"
@@ -122,7 +122,7 @@
       "title": "报表"
     },
     "subscriptions": {
-      "description": "查看创作者订阅状态、钱包余额和最近一次续费上下文。",
+      "description": "查看创作者订阅状态、账户余额和最近一次续费上下文。",
       "empty": "当前还没有订阅记录。",
       "loadError": "后台订阅数据读取失败，请刷新后重试。",
       "preorderTarget": "预购：{product}",
@@ -152,12 +152,12 @@
   },
   "alerts": {
     "actions": {
-      "checkoutTopup": "立即充值",
+      "checkoutTopup": "购买积分",
       "openOrders": "查看付款记录",
       "resumeSubscription": "恢复订阅"
     },
     "cancelScheduled": "当前订阅已设置为周期结束后取消，如需继续按周期发放积分，请恢复订阅。",
-    "lowBalance": "当前创作者钱包已经没有可用积分，请在下一次结算前完成充值。",
+    "lowBalance": "当前创作者账户已经没有可用积分，请在下一次结算前开通订阅或购买积分。",
     "lowBalanceDescription": "积分已经用完啦，无法继续体验AI生产的内容。",
     "lowBalanceTitle": "您的积分已耗尽，AI罢工啦",
     "subscriptionPastDue": "订阅续费当前处于异常状态，请先检查付款记录并同步最新 provider 状态。"
@@ -196,7 +196,7 @@
         "title": "Billing 功能开关"
       },
       "creatorCatalog": {
-        "description": "套餐与充值包目录当前仍为 active。",
+        "description": "套餐与积分包目录当前仍为 active。",
         "title": "创作者商品目录"
       },
       "creatorOrders": {
@@ -208,8 +208,8 @@
         "title": "创作者订阅生命周期"
       },
       "creatorWalletLedger": {
-        "description": "钱包 bucket 与账本视图当前仍启用。",
-        "title": "创作者钱包与账本"
+        "description": "账户积分桶与账本视图当前仍启用。",
+        "title": "创作者账户与账本"
       },
       "dailyAggregateRebuild": {
         "description": "日报表重建与 finalize 仍属于内部能力。",
@@ -244,8 +244,8 @@
         "title": "Usage 结算"
       },
       "walletBucketExpiration": {
-        "description": "wallet bucket 过期扫描仍属于内部能力。",
-        "title": "余额桶过期扫描"
+        "description": "账户积分桶过期扫描仍属于内部能力。",
+        "title": "积分桶过期扫描"
       }
     },
     "status": {
@@ -337,7 +337,7 @@
       }
     },
     "title": "确认购买",
-    "topupDescription": "你将进入一次性积分充值的支付确认流程。",
+    "topupDescription": "你将进入一次性积分包购买的支付确认流程。",
     "unsupported": "当前支付方式暂不可用。",
     "upgradeDescription": "本次升级会立即生效。",
     "upgradeWithPreorderDescription": "本次升级会立即生效，已存在的预购付款将作为抵扣。"
@@ -413,12 +413,12 @@
     }
   },
   "ledger": {
-    "bucketDescription": "查看积分来源 bucket、当前余额，以及后续实际扣减时会采用的顺序。",
+    "bucketDescription": "查看积分来源积分桶、当前余额，以及后续实际扣减时会采用的顺序。",
     "category": {
       "subscription": "套餐积分",
       "topup": "积分包"
     },
-    "empty": "当前还没有积分来源 bucket，首次发放后会展示在这里。",
+    "empty": "当前还没有积分来源积分桶，首次发放后会展示在这里。",
     "entriesDescription": "grant / consume / refund / expire 等账本流水会在下一项 billing 任务中接入。",
     "entriesTitle": "账本流水",
     "entryType": {
@@ -445,7 +445,7 @@
       "usage": "用量结算"
     },
     "summary": {
-      "activeBuckets": "生效 bucket",
+      "activeBuckets": "生效积分桶",
       "nextExpiry": "最近过期",
       "totalAvailable": "来源积分总额"
     },
@@ -485,7 +485,7 @@
       "subscriptionRenewal": "订阅续费",
       "subscriptionStart": "订阅开通",
       "subscriptionUpgrade": "订阅升级",
-      "topup": "充值订单"
+      "topup": "积分包订单"
     }
   },
   "overview": {

@@ -92,7 +92,7 @@
       "subscription_purchase": "套餐购买发放积分",
       "subscription_renewal": "套餐续费发放积分",
       "topup_expire": "积分包到期失效",
-      "topup_grant": "积分包充值后发放积分",
+      "topup_grant": "积分包购买后发放积分",
       "topup_purchase": "积分包购买发放积分",
       "trial_bootstrap": "体验套餐开通发放积分",
       "trial_subscription_grant": "体验套餐发放积分"

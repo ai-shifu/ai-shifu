@@ -48,7 +48,7 @@
         "all": "Tout",
         "manual": "Attribution manuelle",
         "subscription": "Abonnement",
-        "topup": "Recharge",
+        "topup": "Pack de crédits",
         "trial_subscription": "Crédits d’essai"
       },
       "time": "Période",
@@ -91,9 +91,9 @@
       "subscription_grant": "Crédits attribués par l’abonnement",
       "subscription_purchase": "Crédits attribués lors de l’achat d’abonnement",
       "subscription_renewal": "Crédits attribués lors du renouvellement d’abonnement",
-      "topup_expire": "Crédits de recharge expirés",
-      "topup_grant": "Crédits attribués par recharge",
-      "topup_purchase": "Crédits attribués lors de l’achat d’une recharge",
+      "topup_expire": "Crédits du pack de crédits expirés",
+      "topup_grant": "Crédits attribués par le pack de crédits",
+      "topup_purchase": "Crédits attribués lors de l’achat d’un pack de crédits",
       "trial_bootstrap": "Crédits attribués lors de l’activation de l’essai",
       "trial_subscription_grant": "Crédits attribués par l’abonnement d’essai"
     },
@@ -107,7 +107,7 @@
       "refund": "Remboursement",
       "reward": "Récompense",
       "subscription": "Abonnement",
-      "topup": "Recharge",
+      "topup": "Pack de crédits",
       "trial_subscription": "Abonnement d’essai",
       "usage": "Utilisation"
     },
@@ -130,8 +130,8 @@
       "release": "Libération de crédits",
       "subscription_expire": "Expiration des crédits d’abonnement",
       "subscription_grant": "Attribution d’abonnement",
-      "topup_expire": "Expiration recharge",
-      "topup_grant": "Attribution recharge",
+      "topup_expire": "Expiration du pack de crédits",
+      "topup_grant": "Attribution du pack de crédits",
       "trial_subscription_grant": "Attribution d’abonnement d’essai"
     },
     "creditLedgerUsageSceneLabels": {
@@ -170,7 +170,7 @@
       "availableCredits": "Solde total de crédits",
       "creditsExpireAt": "Validité des crédits",
       "subscriptionCredits": "Solde de crédits d’abonnement",
-      "topupCredits": "Solde de crédits de recharge"
+      "topupCredits": "Solde de crédits du pack de crédits"
     },
     "emptyCourses": "Aucun cours",
     "emptyCredits": "Aucune entrée de crédit",
@@ -369,7 +369,7 @@
     "role": "Rôle",
     "status": "Statut",
     "subscriptionCredits": "Crédits d’abonnement",
-    "topupCredits": "Crédits de recharge",
+    "topupCredits": "Crédits du pack de crédits",
     "totalPaidAmount": "Total payé",
     "updatedAt": "Mis à jour le",
     "userId": "ID utilisateur"

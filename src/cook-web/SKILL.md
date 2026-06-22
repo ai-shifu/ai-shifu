@@ -17,11 +17,12 @@
 - 做 i18n key usage 排查时，不要把 `*.test.*`、`*.spec.*`、`__tests__` 里的断言文案、namespace 字符串或拼接后的展示文本当成真实翻译 key；优先统计生产代码里的 `t()`、`i18n.t()`、`Trans` 和符合完整 key 结构的常量。
 - 积分套餐权益文案优先以 `BillingOverviewCards` 里的共享 feature key 列表作为单一来源；删除某项权益时，要同时清理 `billing.json`、预注册翻译使用代码、相关测试数据和 `i18n-keys.d.ts` 残留。
 - 账务/积分页面如果同一类时间展示同时出现在卡片、表格或 tooltip 中，优先抽到 `src/lib/billing.ts` 的共享格式化方法；涉及多语言文案时，同步更新所有支持的 locale、`i18n-keys.d.ts` 和对应组件测试，避免只改页面不改类型与回归用例。
+- 账务/积分相关用户可见文案必须遵守产品命名边界：不要使用“充值”或 top-up / recharge 语义；覆盖套餐和积分包两种补充积分路径的正文，使用“开通订阅或购买积分”，且订阅优先；明确只指 `topup` 商品、订单、账本来源或 checkout 时使用“积分包”；按钮和短 CTA 保持简洁，使用“购买积分”；用户可见文案使用“账户”而不是“钱包”。内部 `topup` / `wallet` 字段、路由、枚举和 i18n key 可保留技术命名，但不得直接作为展示文案。
 - 积分详情页的“积分消耗明细”表格优先复用 `src/app/admin/components/AdminTableShell.tsx` 和标准 `Table` 组件；分页走 `AdminTableShell.pagination`，不要在 billing 组件里另写卡片表格和独立分页外壳。
 - 仅服务后台路由且依赖 `src/app/admin/components/*` 的 billing 组件，应放在 `src/app/admin/billing/components/` 这类同路由作用域下；`src/components/*` 里的共享组件不要直接 import `src/app/*` 的 route-internal 实现，避免触发架构边界校验。
 - `AdminTableShell` 内的表头默认保持左对齐；如果某些 body 单元格需要右对齐，只在 body 内容层处理，不要把表头也右对齐。自定义骨架屏行放进 `AdminTableShell` 时要禁用 hover 背景，避免加载翻页时出现整行灰色条。
-- 钱包余额、可用积分、侧边会员卡余额这类“积分余额”展示统一只保留整数部分且不加千分位分隔；套餐赠送额度、购买额度、消耗量等非余额数字继续使用通用积分格式化方法，避免把两类数字口径混用。
-- 当产品要求把套餐赠送积分数、免费体验积分和积分充值包额度也统一成整数展示时，优先复用 `src/lib/billing.ts` 的共享积分数量格式化方法，确保套餐卡、免费卡、充值卡和对应测试口径一致。
+- 账户余额、可用积分、侧边会员卡余额这类“积分余额”展示统一只保留整数部分且不加千分位分隔；套餐赠送额度、购买额度、消耗量等非余额数字继续使用通用积分格式化方法，避免把两类数字口径混用。
+- 当产品要求把套餐赠送积分数、免费体验积分和积分包额度也统一成整数展示时，优先复用 `src/lib/billing.ts` 的共享积分数量格式化方法，确保套餐卡、免费卡、积分包卡和对应测试口径一致。
 - 积分购买页的当前页面标题优先通过后台面包屑承载；页面主体不要再重复展示同名大标题，避免“首页 > 积分购买”下方再次出现“积分购买”。
 - 积分消耗明细表格迁移到 `AdminTableShell` 后，列宽优先让“消耗项”占最大宽度，时间列居中偏右，数量列贴近最右侧对齐；不要在时间列保留旧版 grid 表格里的 `text-right`、`justify-end` 或 `ml-auto` 残留，数量列如需靠右可只在该列内容层使用 `justify-end`/`ml-auto`。加载骨架屏行需要同时禁用 `tr:hover` 和 `td:hover` 背景，避免翻页 loading 时出现整行灰色条。
 - admin 侧边会员卡如果改成双层信息布局，保持整卡点击跳转 `packages`、底部“查看详情”独立跳转 `details`，并把积分余额与到期时间放在同一信息层；卡片整体内边距优先保持 `py-14px / pl-16px`，右侧需要贴设计微调时可收敛成 `pr-12px`。若设计稿要求顶部“积分 + 升级”这一整行整体左收 `4px`，优先给这一行的外层容器补 `padding-right`，不要误加到升级按钮本身；`查看详情` 默认不要额外补右侧内边距。头部与信息层之间优先用弱分隔线 `rgba(0,0,0,0.05)`，分隔线下余额行 `pt-3`、到期/详情行 `pt-2.5`，正文颜色优先复用 `--base-card-foreground` 和既有 `text-sm` typography token。
@@ -61,7 +62,7 @@
 - `/c/:id` 页面 preview 模式如果要在 learner header 增加提示 banner，优先作为 header 内部第二行渲染，并同步抬高 mobile sticky header 高度、desktop header 占位和正文 top padding，不要把 banner 放成 header 同级导致吸顶和内容错位。
 - 学习页初始化排查如果需要给 QA 或运营直接复现链路，优先提供 `debug=1` 这类显式 URL 开关，把请求层、`1001` 鉴权恢复链路和页面初始化日志同步显示在页内调试面板，而不是只依赖远程控制台。
 - 预览/调试 SSE 如果在开始流式输出前就返回业务错误（如 `7101`），前端不要只停留在 `loading` 占位；应把后端返回的 `message` 直接落到聊天列表里替换 loading，保证作者侧能看到真实失败原因。
-- 作者侧预览区如果要对特定业务错误提供后续操作，优先把错误码挂在预览错误项上，再由 `LessonPreview` 按错误码渲染定向 CTA；像 `7101` 积分不足这类场景，应直接提供跳转 `/admin/billing?tab=packages` 的充值入口，而不是靠文案匹配做分支。
+- 作者侧预览区如果要对特定业务错误提供后续操作，优先把错误码挂在预览错误项上，再由 `LessonPreview` 按错误码渲染定向 CTA；像 `7101` 积分不足这类场景，应直接提供跳转 `/admin/billing?tab=packages` 的订阅或积分购买入口，而不是靠文案匹配做分支。
 - 作者侧预览/调试模式如果要补阅读模式风格的打字机节奏，优先在 `src/components/lesson-preview/` 下独立维护一套 preview gate 和缓存完成态，不要直接复用 learner 页 `readModeTypewriterGate`，避免作者侧交互节奏与学习页状态机互相耦合。
 - 作者侧预览里的喇叭辅助行要视作正文 text element 的后置 helper：只有父级是 `text` element 且该正文块打字机完成后才显示；父级是 `html`、`interaction` 等非 text element 时不要渲染这行辅助能力。
 - cook-web App Router 错误兜底页应同时覆盖 `src/app/error.tsx` 与 `src/app/global-error.tsx`，并在页面上直接展示错误 `name/message/digest/cause/URL/stack` 等排障信息；复制错误信息时还要带上当前链接、来源链接和简要浏览器环境（浏览器名称、操作系统），但不要复制用户信息、token 或密码。
