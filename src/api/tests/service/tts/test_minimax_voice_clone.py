@@ -486,6 +486,203 @@ def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misse
         assert read_calls[0] == (source_object_key, "resource-bucket")
 
 
+def test_execute_clone_processing_uses_row_values_inside_app_context(monkeypatch):
+    from flaskr.service.tts import minimax_voice_clone
+
+    in_context = False
+    stored_calls: list[dict[str, str]] = []
+
+    class FakeApp:
+        def app_context(self):
+            class Context:
+                def __enter__(self):
+                    nonlocal in_context
+                    in_context = True
+                    return self
+
+                def __exit__(self, *_args):
+                    nonlocal in_context
+                    in_context = False
+                    return False
+
+            return Context()
+
+    class DetachedSensitiveRow:
+        def __init__(self):
+            self.voice_bid = "voice-detached"
+            self.voice_id = "AiShifu_detached_1"
+            self.owner_user_bid = "creator-1"
+            self.shifu_bid = "shifu-1"
+            self.source_audio_resource_bid = "source-resource"
+            self.prompt_audio_resource_bid = ""
+            self.source_audio_filename = "source.webm"
+            self.prompt_audio_filename = ""
+            self.billing_reservation_bid = ""
+            self.estimated_credits = Decimal("0")
+
+        def __getattribute__(self, name):
+            protected = {
+                "voice_bid",
+                "voice_id",
+                "owner_user_bid",
+                "source_audio_resource_bid",
+                "prompt_audio_resource_bid",
+                "source_audio_filename",
+                "prompt_audio_filename",
+            }
+            if name in protected and not in_context:
+                raise RuntimeError(f"{name} accessed outside app context")
+            return object.__getattribute__(self, name)
+
+    row = DetachedSensitiveRow()
+
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "_load_voice_row",
+        lambda voice_bid: row,
+    )
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "_read_resource_bytes",
+        lambda resource_bid: b"RAW",
+    )
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "normalize_audio_blob",
+        lambda data, filename, purpose: SimpleNamespace(
+            audio_bytes=b"WAV",
+            duration_ms=12_000,
+            content_type="audio/wav",
+        ),
+    )
+
+    def fake_store_resource_bytes(_app, **kwargs):
+        stored_calls.append(
+            {
+                "owner_user_bid": kwargs["owner_user_bid"],
+                "filename": kwargs["filename"],
+                "object_key": kwargs["object_key"],
+            }
+        )
+        return SimpleNamespace(
+            resource_bid="normalized-resource",
+            url="/normalized.wav",
+            object_key=kwargs["object_key"],
+        )
+
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "_store_resource_bytes",
+        fake_store_resource_bytes,
+    )
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "_record_voice_clone_usage",
+        lambda _app, _row, _result: "usage-1",
+    )
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "_cleanup_raw_resources",
+        lambda _app, _row: None,
+    )
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "db",
+        SimpleNamespace(session=SimpleNamespace(commit=lambda: None)),
+    )
+
+    class FakeClient:
+        def upload_clone_audio(self, audio_bytes, filename, content_type):
+            return SimpleNamespace(file_id="file-source")
+
+        def upload_prompt_audio(self, audio_bytes, filename, content_type):
+            raise AssertionError("prompt upload should not be called")
+
+        def clone_voice(self, **kwargs):
+            return SimpleNamespace(
+                voice_id=kwargs["voice_id"],
+                demo_audio="https://example.test/demo.mp3",
+                status_code=0,
+                status_msg="success",
+                input_sensitive=False,
+                extra_info={},
+                trace_id="trace-detached",
+            )
+
+    monkeypatch.setattr(
+        minimax_voice_clone,
+        "MiniMaxVoiceCloneClient",
+        lambda: FakeClient(),
+    )
+
+    result = minimax_voice_clone._execute_clone_processing(
+        FakeApp(),
+        "voice-detached",
+    )
+
+    assert result.status == "ready"
+    assert stored_calls == [
+        {
+            "owner_user_bid": "creator-1",
+            "filename": "AiShifu_detached_1.wav",
+            "object_key": "tts/minimax/voice-clone/voice-detached/normalized/AiShifu_detached_1.wav",
+        }
+    ]
+
+
+def test_soft_deleted_minimax_voice_id_can_be_reused(
+    minimax_clone_app: Flask,
+    monkeypatch,
+) -> None:
+    from flaskr.service.tts.minimax_voice_clone import submit_minimax_voice_clone
+    from flaskr.service.tts.models import TTSMiniMaxClonedVoice
+
+    _seed_course_wallet_and_rate(minimax_clone_app)
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone._enqueue_minimax_clone_task",
+        lambda _app, *, voice_bid: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.minimax_voice_clone._store_resource_bytes",
+        lambda app, **kwargs: SimpleNamespace(
+            resource_bid=f"res-{kwargs['resource_kind']}-{kwargs['filename']}",
+            url=f"/resource/{kwargs['resource_kind']}",
+            object_key=f"key/{kwargs['resource_kind']}",
+        ),
+    )
+
+    first = submit_minimax_voice_clone(
+        minimax_clone_app,
+        owner_user_bid="creator-1",
+        shifu_bid="shifu-1",
+        display_name="Teacher Voice",
+        voice_id="AiShifu_reusable_1",
+        source_audio_bytes=b"RAW",
+        source_filename="recording.webm",
+        source_content_type="audio/webm",
+        source_capture_method="recording",
+    )
+    with minimax_clone_app.app_context():
+        row = TTSMiniMaxClonedVoice.query.filter_by(voice_bid=first.voice_bid).one()
+        row.deleted = 1
+        dao.db.session.commit()
+
+    second = submit_minimax_voice_clone(
+        minimax_clone_app,
+        owner_user_bid="creator-1",
+        shifu_bid="shifu-1",
+        display_name="Teacher Voice 2",
+        voice_id="AiShifu_reusable_1",
+        source_audio_bytes=b"RAW",
+        source_filename="recording.webm",
+        source_content_type="audio/webm",
+        source_capture_method="recording",
+    )
+
+    assert second.voice_bid != first.voice_bid
+    assert second.voice_id == "AiShifu_reusable_1"
+
+
 def test_run_minimax_voice_clone_releases_credit_on_normalization_failure(
     minimax_clone_app: Flask,
     monkeypatch,

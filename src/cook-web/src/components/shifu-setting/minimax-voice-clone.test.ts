@@ -1,6 +1,7 @@
 import {
   buildMiniMaxClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
+  executeMiniMaxVoiceAction,
   getMiniMaxCloneSubmitBlockReason,
   getMiniMaxRecordingElapsedSeconds,
   isValidMiniMaxCustomVoiceId,
@@ -81,7 +82,7 @@ describe('minimax voice clone helpers', () => {
       status: 'processing',
     });
     expect(options[3]).toMatchObject({
-      label: 'Manual custom voice',
+      label: 'Manual custom voice (AiShifu_manual_voice)',
       source: 'manual',
       disabled: false,
     });
@@ -113,9 +114,40 @@ describe('minimax voice clone helpers', () => {
 
     expect(unknownOptions.at(-1)).toMatchObject({
       value: 'AiShifu_unknown_voice',
+      label: 'Manual custom voice (AiShifu_unknown_voice)',
       source: 'manual',
       disabled: false,
     });
+  });
+
+  it('reports MiniMax voice action failures without running success callbacks', async () => {
+    const onError = jest.fn();
+    const onSuccess = jest.fn();
+
+    const result = await executeMiniMaxVoiceAction({
+      action: jest.fn().mockRejectedValue(new Error('retry failed')),
+      onSuccess,
+      onError,
+    });
+
+    expect(result).toBe(false);
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith(new Error('retry failed'));
+  });
+
+  it('runs MiniMax voice action success callbacks after the action succeeds', async () => {
+    const onError = jest.fn();
+    const onSuccess = jest.fn();
+
+    const result = await executeMiniMaxVoiceAction({
+      action: jest.fn().mockResolvedValue(undefined),
+      onSuccess,
+      onError,
+    });
+
+    expect(result).toBe(true);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
   });
 
   it('keeps cloned voices when clone cost refresh fails', async () => {

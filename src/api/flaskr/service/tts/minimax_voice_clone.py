@@ -681,14 +681,19 @@ def _execute_clone_processing(
 ) -> MiniMaxVoiceCloneRunResult:
     with app.app_context():
         row = _load_voice_row(voice_bid)
-        source_bytes = _read_resource_bytes(row.source_audio_resource_bid)
-        prompt_bytes = (
-            _read_resource_bytes(row.prompt_audio_resource_bid)
-            if row.prompt_audio_resource_bid
-            else None
-        )
+        row_voice_bid = row.voice_bid
+        row_voice_id = row.voice_id
+        owner_user_bid = row.owner_user_bid
+        source_audio_resource_bid = row.source_audio_resource_bid
+        prompt_audio_resource_bid = row.prompt_audio_resource_bid
         source_filename = row.source_audio_filename or "source.webm"
         prompt_filename = row.prompt_audio_filename or "prompt.webm"
+        source_bytes = _read_resource_bytes(source_audio_resource_bid)
+        prompt_bytes = (
+            _read_resource_bytes(prompt_audio_resource_bid)
+            if prompt_audio_resource_bid
+            else None
+        )
 
     source_audio = normalize_audio_blob(
         source_bytes,
@@ -697,12 +702,12 @@ def _execute_clone_processing(
     )
     normalized_resource = _store_resource_bytes(
         app,
-        owner_user_bid=row.owner_user_bid,
+        owner_user_bid=owner_user_bid,
         resource_kind="minimax_voice_clone_source_wav",
-        filename=f"{row.voice_id}.wav",
+        filename=f"{row_voice_id}.wav",
         data=source_audio.audio_bytes,
         content_type=source_audio.content_type,
-        object_key=f"tts/minimax/voice-clone/{row.voice_bid}/normalized/{row.voice_id}.wav",
+        object_key=f"tts/minimax/voice-clone/{row_voice_bid}/normalized/{row_voice_id}.wav",
     )
     prompt_audio: NormalizedAudioBlob | None = None
     if prompt_bytes is not None:
@@ -715,21 +720,21 @@ def _execute_clone_processing(
     client = MiniMaxVoiceCloneClient()
     source_file = client.upload_clone_audio(
         source_audio.audio_bytes,
-        filename=f"{row.voice_id}.wav",
+        filename=f"{row_voice_id}.wav",
         content_type=source_audio.content_type,
     )
     prompt_file_id = ""
     if prompt_audio is not None:
         prompt_file = client.upload_prompt_audio(
             prompt_audio.audio_bytes,
-            filename=f"{row.voice_id}_prompt.wav",
+            filename=f"{row_voice_id}_prompt.wav",
             content_type=prompt_audio.content_type,
         )
         prompt_file_id = prompt_file.file_id
 
     clone_result = client.clone_voice(
         file_id=source_file.file_id,
-        voice_id=row.voice_id,
+        voice_id=row_voice_id,
         prompt_file_id=prompt_file_id,
     )
     if clone_result.input_sensitive:

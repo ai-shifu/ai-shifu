@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import MiniMaxVoiceCloneDialog from './MiniMaxVoiceCloneDialog';
 
@@ -49,6 +49,10 @@ function renderDialog() {
 }
 
 describe('MiniMaxVoiceCloneDialog', () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+  });
+
   test('does not render prompt audio controls', () => {
     const { container } = renderDialog();
 
@@ -61,5 +65,28 @@ describe('MiniMaxVoiceCloneDialog', () => {
       ),
     ).not.toBeInTheDocument();
     expect(container.querySelector('#minimax-prompt-upload')).toBeNull();
+  });
+
+  test('shows a friendly error when source recording permission fails', async () => {
+    const getUserMedia = jest
+      .fn()
+      .mockRejectedValue(new Error('Permission denied'));
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia },
+    });
+    Object.defineProperty(window, 'MediaRecorder', {
+      configurable: true,
+      value: jest.fn(),
+    });
+
+    renderDialog();
+
+    fireEvent.click(screen.getByText('module.shifuSetting.minimaxCloneRecord'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Permission denied')).toBeInTheDocument();
+    });
+    expect(getUserMedia).toHaveBeenCalledWith({ audio: true });
   });
 });

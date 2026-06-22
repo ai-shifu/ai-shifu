@@ -157,7 +157,7 @@ export function buildMiniMaxVoiceOptions({
     seen.add(normalizedCurrent);
     options.push({
       value: normalizedCurrent,
-      label: manualLabel,
+      label: `${manualLabel} (${normalizedCurrent})`,
       source: 'manual',
       disabled: false,
     });
@@ -201,6 +201,25 @@ export async function loadMiniMaxVoiceRefreshData({
   }
 
   return { voices, cloneCost, errors };
+}
+
+export async function executeMiniMaxVoiceAction({
+  action,
+  onSuccess,
+  onError,
+}: {
+  action: () => Promise<unknown>;
+  onSuccess?: () => void | Promise<void>;
+  onError: (error: unknown) => void;
+}): Promise<boolean> {
+  try {
+    await action();
+    await onSuccess?.();
+    return true;
+  } catch (error) {
+    onError(error);
+    return false;
+  }
 }
 
 export function getMiniMaxRecordingElapsedSeconds(

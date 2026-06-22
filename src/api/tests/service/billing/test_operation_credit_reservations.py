@@ -293,3 +293,83 @@ def test_reserve_operation_credits_rejects_insufficient_balance(
         )
 
     assert exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"]
+
+
+def test_operation_credit_mutations_request_wallet_and_bucket_locks(
+    operation_credit_app: Flask,
+    monkeypatch,
+) -> None:
+    from flaskr.service.billing import operation_credits
+    from flaskr.service.billing.operation_credits import (
+        capture_reserved_operation_credits,
+        release_reserved_operation_credits,
+        reserve_operation_credits,
+    )
+
+    with operation_credit_app.app_context():
+        _seed_wallet("creator-locks", "10.0000000000")
+        dao.db.session.commit()
+
+    wallet_lock_calls: list[bool] = []
+    active_bucket_lock_calls: list[bool] = []
+    hold_bucket_lock_calls: list[bool] = []
+    real_load_wallet = operation_credits._load_wallet
+    real_load_active_buckets = operation_credits._load_active_buckets
+    real_iter_hold_buckets = operation_credits._iter_hold_buckets
+
+    def spy_load_wallet(creator_bid: str, *, lock: bool = False):
+        wallet_lock_calls.append(lock)
+        return real_load_wallet(creator_bid)
+
+    def spy_load_active_buckets(wallet, operation_at, *, lock: bool = False):
+        active_bucket_lock_calls.append(lock)
+        return real_load_active_buckets(wallet, operation_at)
+
+    def spy_iter_hold_buckets(hold, *, lock: bool = False):
+        hold_bucket_lock_calls.append(lock)
+        return real_iter_hold_buckets(hold)
+
+    monkeypatch.setattr(operation_credits, "_load_wallet", spy_load_wallet)
+    monkeypatch.setattr(
+        operation_credits,
+        "_load_active_buckets",
+        spy_load_active_buckets,
+    )
+    monkeypatch.setattr(operation_credits, "_iter_hold_buckets", spy_iter_hold_buckets)
+
+    reservation = reserve_operation_credits(
+        operation_credit_app,
+        creator_bid="creator-locks",
+        amount=Decimal("3.0000000000"),
+        operation_type="voice_clone",
+        operation_bid="voice-bid-locks",
+        metadata={},
+    )
+    capture_reserved_operation_credits(
+        operation_credit_app,
+        reservation_bid=reservation.reservation_bid,
+        usage_bid="usage-locks",
+        metadata={},
+    )
+
+    with operation_credit_app.app_context():
+        _seed_wallet("creator-locks-release", "10.0000000000")
+        dao.db.session.commit()
+
+    release_reservation = reserve_operation_credits(
+        operation_credit_app,
+        creator_bid="creator-locks-release",
+        amount=Decimal("2.0000000000"),
+        operation_type="voice_clone",
+        operation_bid="voice-bid-locks-release",
+        metadata={},
+    )
+    release_reserved_operation_credits(
+        operation_credit_app,
+        reservation_bid=release_reservation.reservation_bid,
+        reason="test",
+    )
+
+    assert wallet_lock_calls == [True, True, True, True]
+    assert active_bucket_lock_calls == [True, True]
+    assert hold_bucket_lock_calls == [True, True]

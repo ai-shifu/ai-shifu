@@ -131,8 +131,8 @@ def reserve_operation_credits(
         if existing is not None:
             return _reservation_result_from_hold(existing)
 
-        wallet = _load_wallet(normalized_creator_bid)
-        buckets = _load_active_buckets(wallet, datetime.now())
+        wallet = _load_wallet(normalized_creator_bid, lock=True)
+        buckets = _load_active_buckets(wallet, datetime.now(), lock=True)
         available = sum(
             (
                 billing_primitives.to_decimal(bucket.available_credits)
@@ -253,9 +253,9 @@ def capture_reserved_operation_credits(
                 amount=_ZERO,
             )
 
-        wallet = _load_wallet(creator_bid)
+        wallet = _load_wallet(creator_bid, lock=True)
         amount = billing_primitives.quantize_credit_amount(hold.amount)
-        _apply_capture_to_buckets(hold, amount)
+        _apply_capture_to_buckets(hold, amount, lock=True)
 
         wallet.reserved_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(wallet.reserved_credits) - amount
@@ -329,9 +329,9 @@ def release_reserved_operation_credits(
                 amount=billing_primitives.to_decimal(existing.amount),
             )
 
-        wallet = _load_wallet(creator_bid)
+        wallet = _load_wallet(creator_bid, lock=True)
         amount = billing_primitives.quantize_credit_amount(hold.amount)
-        _apply_release_to_buckets(hold, amount)
+        _apply_release_to_buckets(hold, amount, lock=True)
 
         wallet.available_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(wallet.available_credits) + amount
@@ -408,15 +408,14 @@ def _load_ledger_by_idempotency(
     )
 
 
-def _load_wallet(creator_bid: str) -> CreditWallet:
-    wallet = (
-        CreditWallet.query.filter(
-            CreditWallet.deleted == 0,
-            CreditWallet.creator_bid == creator_bid,
-        )
-        .order_by(CreditWallet.id.desc())
-        .first()
+def _load_wallet(creator_bid: str, *, lock: bool = False) -> CreditWallet:
+    query = CreditWallet.query.filter(
+        CreditWallet.deleted == 0,
+        CreditWallet.creator_bid == creator_bid,
     )
+    if lock:
+        query = query.with_for_update()
+    wallet = query.order_by(CreditWallet.id.desc()).first()
     if wallet is None:
         raise_error("server.billing.creditInsufficient")
     return wallet
@@ -440,21 +439,24 @@ def _load_hold(reservation_bid: str) -> CreditLedgerEntry:
 def _load_active_buckets(
     wallet: CreditWallet,
     operation_at: datetime,
+    *,
+    lock: bool = False,
 ) -> list[CreditWalletBucket]:
-    rows = (
-        CreditWalletBucket.query.filter(
-            CreditWalletBucket.deleted == 0,
-            CreditWalletBucket.wallet_bid == wallet.wallet_bid,
-            CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
-            CreditWalletBucket.effective_from <= operation_at,
-            or_(
-                CreditWalletBucket.effective_to.is_(None),
-                CreditWalletBucket.effective_to > operation_at,
-            ),
-        )
-        .order_by(CreditWalletBucket.priority.asc(), CreditWalletBucket.id.asc())
-        .all()
+    query = CreditWalletBucket.query.filter(
+        CreditWalletBucket.deleted == 0,
+        CreditWalletBucket.wallet_bid == wallet.wallet_bid,
+        CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
+        CreditWalletBucket.effective_from <= operation_at,
+        or_(
+            CreditWalletBucket.effective_to.is_(None),
+            CreditWalletBucket.effective_to > operation_at,
+        ),
     )
+    if lock:
+        query = query.with_for_update()
+    rows = query.order_by(
+        CreditWalletBucket.priority.asc(), CreditWalletBucket.id.asc()
+    ).all()
     candidates = [
         row
         for row in rows
@@ -525,8 +527,10 @@ def _reservation_has_release(creator_bid: str, reservation_bid: str) -> bool:
     )
 
 
-def _apply_capture_to_buckets(hold: CreditLedgerEntry, amount: Decimal) -> None:
-    for bucket, item_amount in _iter_hold_buckets(hold):
+def _apply_capture_to_buckets(
+    hold: CreditLedgerEntry, amount: Decimal, *, lock: bool = False
+) -> None:
+    for bucket, item_amount in _iter_hold_buckets(hold, lock=lock):
         bucket.reserved_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(bucket.reserved_credits) - item_amount
         )
@@ -536,8 +540,10 @@ def _apply_capture_to_buckets(hold: CreditLedgerEntry, amount: Decimal) -> None:
         sync_credit_bucket_status(bucket)
 
 
-def _apply_release_to_buckets(hold: CreditLedgerEntry, amount: Decimal) -> None:
-    for bucket, item_amount in _iter_hold_buckets(hold):
+def _apply_release_to_buckets(
+    hold: CreditLedgerEntry, amount: Decimal, *, lock: bool = False
+) -> None:
+    for bucket, item_amount in _iter_hold_buckets(hold, lock=lock):
         bucket.available_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(bucket.available_credits) + item_amount
         )
@@ -549,6 +555,8 @@ def _apply_release_to_buckets(hold: CreditLedgerEntry, amount: Decimal) -> None:
 
 def _iter_hold_buckets(
     hold: CreditLedgerEntry,
+    *,
+    lock: bool = False,
 ) -> list[tuple[CreditWalletBucket, Decimal]]:
     items = _bucket_breakdown_from_hold(hold)
     bucket_pairs: list[tuple[CreditWalletBucket, Decimal]] = []
@@ -556,14 +564,13 @@ def _iter_hold_buckets(
         wallet_bucket_bid = str(item.get("wallet_bucket_bid") or "").strip()
         if not wallet_bucket_bid:
             continue
-        bucket = (
-            CreditWalletBucket.query.filter(
-                CreditWalletBucket.deleted == 0,
-                CreditWalletBucket.wallet_bucket_bid == wallet_bucket_bid,
-            )
-            .order_by(CreditWalletBucket.id.desc())
-            .first()
+        query = CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.wallet_bucket_bid == wallet_bucket_bid,
         )
+        if lock:
+            query = query.with_for_update()
+        bucket = query.order_by(CreditWalletBucket.id.desc()).first()
         if bucket is None:
             continue
         item_amount = billing_primitives.quantize_credit_amount(item.get("amount", 0))
@@ -576,14 +583,13 @@ def _iter_hold_buckets(
         return bucket_pairs
 
     if hold.wallet_bucket_bid:
-        fallback_bucket = (
-            CreditWalletBucket.query.filter(
-                CreditWalletBucket.deleted == 0,
-                CreditWalletBucket.wallet_bucket_bid == hold.wallet_bucket_bid,
-            )
-            .order_by(CreditWalletBucket.id.desc())
-            .first()
+        query = CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.wallet_bucket_bid == hold.wallet_bucket_bid,
         )
+        if lock:
+            query = query.with_for_update()
+        fallback_bucket = query.order_by(CreditWalletBucket.id.desc()).first()
         if fallback_bucket is not None:
             return [(fallback_bucket, expected)]
     return []

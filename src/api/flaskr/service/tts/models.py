@@ -246,10 +246,6 @@ class TTSMiniMaxClonedVoice(db.Model):
             "voice_bid",
             name="uq_tts_minimax_cloned_voices_voice_bid",
         ),
-        UniqueConstraint(
-            "voice_id",
-            name="uq_tts_minimax_cloned_voices_voice_id",
-        ),
         Index(
             "ix_tts_minimax_cloned_voices_owner_status",
             "owner_user_bid",

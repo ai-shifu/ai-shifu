@@ -87,6 +87,7 @@ import MiniMaxVoiceCloneDialog from '@/components/shifu-setting/MiniMaxVoiceClon
 import {
   buildMiniMaxClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
+  executeMiniMaxVoiceAction,
   isMiniMaxProvider,
   isValidMiniMaxCustomVoiceId,
   loadMiniMaxVoiceRefreshData,
@@ -528,6 +529,59 @@ export default function ShifuSettingDialog({
     () => currentProviderConfig?.voices || [],
     [currentProviderConfig?.voices],
   );
+
+  const showMiniMaxVoiceActionError = useCallback(
+    (error: unknown) => {
+      toast({
+        title: t('common.core.actionFailed'),
+        description:
+          error instanceof Error
+            ? error.message
+            : t('common.core.unknownError'),
+        variant: 'destructive',
+      });
+    },
+    [t, toast],
+  );
+
+  const retryMiniMaxVoice = useCallback(
+    async (voiceBid: string) => {
+      await executeMiniMaxVoiceAction({
+        action: () =>
+          api.retryMinimaxTtsVoice({
+            voice_bid: voiceBid,
+          }),
+        onSuccess: refreshMinimaxVoiceData,
+        onError: showMiniMaxVoiceActionError,
+      });
+    },
+    [refreshMinimaxVoiceData, showMiniMaxVoiceActionError],
+  );
+
+  const deleteMiniMaxVoice = useCallback(
+    async (voice: MiniMaxClonedVoice) => {
+      await executeMiniMaxVoiceAction({
+        action: () =>
+          api.deleteMinimaxTtsVoice({
+            voice_bid: voice.voice_bid,
+          }),
+        onSuccess: () => {
+          if (ttsVoiceId === voice.voice_id) {
+            setTtsVoiceId(ttsVoiceOptions[0]?.value || '');
+          }
+          refreshMinimaxVoiceData();
+        },
+        onError: showMiniMaxVoiceActionError,
+      });
+    },
+    [
+      refreshMinimaxVoiceData,
+      showMiniMaxVoiceActionError,
+      ttsVoiceId,
+      ttsVoiceOptions,
+    ],
+  );
+
   const isMiniMaxTtsProvider = isMiniMaxProvider(resolvedProvider);
   const supportsMiniMaxVoiceCloning =
     isMiniMaxTtsProvider &&
@@ -2365,12 +2419,9 @@ export default function ShifuSettingDialog({
                                             variant='ghost'
                                             size='icon'
                                             className='h-7 w-7'
-                                            onClick={async () => {
-                                              await api.retryMinimaxTtsVoice({
-                                                voice_bid: voice.voice_bid,
-                                              });
-                                              refreshMinimaxVoiceData();
-                                            }}
+                                            onClick={() =>
+                                              retryMiniMaxVoice(voice.voice_bid)
+                                            }
                                             disabled={currentShifu?.readonly}
                                           >
                                             <RotateCw className='h-4 w-4' />
@@ -2381,17 +2432,9 @@ export default function ShifuSettingDialog({
                                           variant='ghost'
                                           size='icon'
                                           className='h-7 w-7'
-                                          onClick={async () => {
-                                            await api.deleteMinimaxTtsVoice({
-                                              voice_bid: voice.voice_bid,
-                                            });
-                                            if (ttsVoiceId === voice.voice_id) {
-                                              setTtsVoiceId(
-                                                ttsVoiceOptions[0]?.value || '',
-                                              );
-                                            }
-                                            refreshMinimaxVoiceData();
-                                          }}
+                                          onClick={() =>
+                                            deleteMiniMaxVoice(voice)
+                                          }
                                           disabled={currentShifu?.readonly}
                                         >
                                           <Trash2 className='h-4 w-4' />

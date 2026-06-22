@@ -161,13 +161,23 @@ export default function MiniMaxVoiceCloneDialog({
     stopRecording();
     setErrorMessage('');
     chunksRef.current = [];
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaStreamRef.current = stream;
     const mimeType = pickRecordingMimeType();
-    const recorder = new MediaRecorder(
-      stream,
-      mimeType ? { mimeType } : undefined,
-    );
+    let recorder: MediaRecorder;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    } catch (error) {
+      mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+      setRecordingKind(null);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : t('module.shifuSetting.minimaxCloneRecordingUnsupported'),
+      );
+      return;
+    }
     mediaRecorderRef.current = recorder;
     recordingStartedAtRef.current = Date.now();
     setRecordingKind('source');
@@ -478,6 +488,12 @@ export default function MiniMaxVoiceCloneDialog({
 }
 
 function pickRecordingMimeType(): string {
+  if (
+    typeof MediaRecorder === 'undefined' ||
+    typeof MediaRecorder.isTypeSupported !== 'function'
+  ) {
+    return '';
+  }
   const candidates = [
     'audio/webm;codecs=opus',
     'audio/webm',
