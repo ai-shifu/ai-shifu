@@ -239,6 +239,7 @@ export function CreditNotificationConfigTab({
   configLoading,
   configError,
   dryRunResult,
+  dryRunError,
   templateSyncResults,
   templateSyncLoading,
   templateOptions,
@@ -257,6 +258,7 @@ export function CreditNotificationConfigTab({
   configLoading: boolean;
   configError: string;
   dryRunResult: AdminOperationCreditNotificationDryRunResponse | null;
+  dryRunError: string;
   templateSyncResults: Partial<
     Record<
       KnownNotificationType,
@@ -997,6 +999,7 @@ export function CreditNotificationConfigTab({
 
         <CreditNotificationDryRunPanel
           dryRunResult={dryRunResult}
+          dryRunError={dryRunError}
           dryRun={dryRun}
         />
 

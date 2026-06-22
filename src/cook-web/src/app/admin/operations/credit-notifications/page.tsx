@@ -106,7 +106,9 @@ export default function AdminOperationCreditNotificationsPage() {
     });
   const [activeOverviewCardKey, setActiveOverviewCardKey] =
     React.useState<NotificationOverviewCardKey | null>(null);
-  const [error, setError] = React.useState<ErrorState | null>(null);
+  const [recordsError, setRecordsError] = React.useState<ErrorState | null>(
+    null,
+  );
   const [policy, setPolicy] =
     React.useState<AdminOperationCreditNotificationPolicy>(createDefaultPolicy);
   const [configError, setConfigError] = React.useState('');
@@ -114,6 +116,7 @@ export default function AdminOperationCreditNotificationsPage() {
   const [configLoading, setConfigLoading] = React.useState(false);
   const [dryRunResult, setDryRunResult] =
     React.useState<AdminOperationCreditNotificationDryRunResponse | null>(null);
+  const [dryRunError, setDryRunError] = React.useState('');
   const [templateSyncResults, setTemplateSyncResults] = React.useState<
     Partial<
       Record<
@@ -255,7 +258,7 @@ export default function AdminOperationCreditNotificationsPage() {
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
       setLoading(true);
-      setError(null);
+      setRecordsError(null);
       try {
         const response = (await api.getAdminOperationCreditNotifications({
           page_index: targetPage,
@@ -284,7 +287,7 @@ export default function AdminOperationCreditNotificationsPage() {
           return;
         }
         const resolvedError = requestError as ErrorWithCode;
-        setError({
+        setRecordsError({
           message:
             resolvedError.message ||
             t('module.operationsCreditNotifications.loadError'),
@@ -310,8 +313,7 @@ export default function AdminOperationCreditNotificationsPage() {
     setConfigLoading(true);
     setConfigError('');
     try {
-      await fetchConfig();
-      void fetchTemplateOptions();
+      await Promise.all([fetchConfig(), fetchTemplateOptions()]);
     } catch (requestError) {
       configLoadStartedRef.current = false;
       const resolvedError = requestError as ErrorWithCode;
@@ -330,10 +332,12 @@ export default function AdminOperationCreditNotificationsPage() {
       return;
     }
     const initialFilters = createDefaultFilters();
-    fetchOverview().catch(() => {
-      setOverview({ total: 0, pending: 0, sent: 0, failed: 0, skipped: 0 });
-    });
-    void fetchRecords(1, initialFilters);
+    void Promise.all([
+      fetchOverview().catch(() => {
+        setOverview({ total: 0, pending: 0, sent: 0, failed: 0, skipped: 0 });
+      }),
+      fetchRecords(1, initialFilters),
+    ]);
   }, [fetchOverview, fetchRecords, isReady]);
 
   React.useEffect(() => {
@@ -642,6 +646,7 @@ export default function AdminOperationCreditNotificationsPage() {
 
   const dryRun = React.useCallback(async () => {
     try {
+      setDryRunError('');
       const response = (await api.dryRunAdminOperationCreditNotifications({
         notification_type: draftFilters.notification_type.trim(),
         creator_bid: '',
@@ -649,10 +654,8 @@ export default function AdminOperationCreditNotificationsPage() {
       setDryRunResult(response);
     } catch (requestError) {
       const resolvedError = requestError as ErrorWithCode;
-      setError({
-        message: resolvedError.message || t('common.core.submitFailed'),
-        code: resolvedError.code,
-      });
+      setDryRunResult(null);
+      setDryRunError(resolvedError.message || t('common.core.submitFailed'));
     }
   }, [draftFilters.notification_type, t]);
 
@@ -677,8 +680,10 @@ export default function AdminOperationCreditNotificationsPage() {
         toast({
           title: t('module.operationsCreditNotifications.messages.requeueDone'),
         });
-        await fetchRecords(pageIndex, appliedFilters);
-        await fetchOverview();
+        await Promise.all([
+          fetchRecords(pageIndex, appliedFilters),
+          fetchOverview().catch(() => undefined),
+        ]);
       } catch (requestError) {
         const resolvedError = requestError as ErrorWithCode;
         toast({
@@ -745,7 +750,7 @@ export default function AdminOperationCreditNotificationsPage() {
           <CreditNotificationRecordsTab
             items={items}
             loading={loading}
-            error={error}
+            error={recordsError}
             total={total}
             overview={overview}
             activeOverviewCardKey={activeOverviewCardKey}
@@ -775,6 +780,7 @@ export default function AdminOperationCreditNotificationsPage() {
             configLoading={configLoading}
             configError={configError}
             dryRunResult={dryRunResult}
+            dryRunError={dryRunError}
             templateSyncResults={templateSyncResults}
             templateSyncLoading={templateSyncLoading}
             templateOptions={templateOptions}
