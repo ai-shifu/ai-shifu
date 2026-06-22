@@ -279,9 +279,7 @@ def test_generated_block_tts_route_keeps_admission_but_skips_runtime_slot() -> N
     assert "reserve_creator_runtime_slot" not in called_names
     assert "_stream_sse_response" in called_names
     assert "stream_generated_block_audio" in called_names
-    assert any(
-        keyword.arg == "error_event_factory" for keyword in stream_call.keywords
-    )
+    assert any(keyword.arg == "error_event_factory" for keyword in stream_call.keywords)
 
 
 def test_preview_tts_route_keeps_admission_but_skips_runtime_slot() -> None:
@@ -293,9 +291,7 @@ def test_preview_tts_route_keeps_admission_but_skips_runtime_slot() -> None:
     assert "reserve_creator_runtime_slot" not in called_names
     assert "_stream_sse_response" in called_names
     assert "stream_preview_tts_audio" in called_names
-    assert any(
-        keyword.arg == "error_event_factory" for keyword in stream_call.keywords
-    )
+    assert any(keyword.arg == "error_event_factory" for keyword in stream_call.keywords)
 
 
 def test_run_route_passes_admission_payload_to_run_script() -> None:
