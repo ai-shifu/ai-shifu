@@ -2725,6 +2725,7 @@ export type I18nKey =
   | 'module.shifu.previewArea.close'
   | 'module.shifu.previewArea.copied'
   | 'module.shifu.previewArea.copy'
+  | 'module.shifu.previewArea.copyTooltip'
   | 'module.shifu.previewArea.description'
   | 'module.shifu.previewArea.disabled'
   | 'module.shifu.previewArea.empty'
