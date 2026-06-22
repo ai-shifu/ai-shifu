@@ -15,6 +15,7 @@ import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import CourseHeaderSummary from '../CourseHeaderSummary';
 import LearningModeSwitch from '../LearningModeSwitch';
 import PreviewHeaderBanner from '../PreviewHeaderBanner';
+import CoursePdfExportButton from '../CoursePdfExportButton';
 
 interface ChatUiProps {
   chapterId: string;
@@ -129,9 +130,18 @@ export const ChatUi = ({
                   titleClassName={styles.courseSummaryTitle}
                 />
               </div>
-              {showModeToggle ? (
+              {showModeToggle || !isListenMode ? (
                 <div className={styles.headerActions}>
-                  <LearningModeSwitch size='desktop' />
+                  {!isListenMode ? (
+                    <CoursePdfExportButton
+                      lessonId={lessonId}
+                      lessonTitle={lessonTitle}
+                      lessonStatus={lessonStatus}
+                    />
+                  ) : null}
+                  {showModeToggle ? (
+                    <LearningModeSwitch size='desktop' />
+                  ) : null}
                 </div>
               ) : null}
             </div>

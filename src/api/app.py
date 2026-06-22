@@ -40,6 +40,11 @@ def create_app() -> Flask:
                     "http://127.0.0.1:3000",
                 ],
                 "allow_headers": "*",
+                "expose_headers": [
+                    "Content-Disposition",
+                    "X-Request-ID",
+                    "X-Harness-Run-ID",
+                ],
                 "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             }
         },

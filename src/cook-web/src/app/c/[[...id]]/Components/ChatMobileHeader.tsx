@@ -12,13 +12,27 @@ import { shifu } from '@/c-service/Shifu';
 import CourseHeaderSummary from './CourseHeaderSummary';
 import LearningModeSwitch from './LearningModeSwitch';
 import PreviewHeaderBanner from './PreviewHeaderBanner';
+import CoursePdfExportButton from './CoursePdfExportButton';
+
+type ChatMobileHeaderProps = {
+  className?: string;
+  onSettingClick: () => void;
+  navOpen: boolean;
+  iconPopoverPayload?: unknown;
+  lessonId?: string;
+  lessonTitle?: string;
+  lessonStatus?: string;
+};
 
 export const ChatMobileHeader = ({
   className,
   onSettingClick,
   navOpen,
   iconPopoverPayload,
-}) => {
+  lessonId = '',
+  lessonTitle = '',
+  lessonStatus = '',
+}: ChatMobileHeaderProps) => {
   const { t } = useTranslation();
   const { onOpen: onIconPopoverOpen, onClose: onIconPopoverClose } =
     useDisclosure();
@@ -54,6 +68,12 @@ export const ChatMobileHeader = ({
         <CourseHeaderSummary />
 
         <div className={styles.actionGroup}>
+          <CoursePdfExportButton
+            variant='mobile'
+            lessonId={lessonId}
+            lessonTitle={lessonTitle}
+            lessonStatus={lessonStatus}
+          />
           {showLearningModeToggle ? <LearningModeSwitch /> : null}
 
           <button

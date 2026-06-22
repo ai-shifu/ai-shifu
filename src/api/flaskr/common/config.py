@@ -100,6 +100,19 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Filesystem directory used for local storage provider (relative to app working dir if not absolute).",
         group="storage",
     ),
+    "PDF_EXPORT_TEMP_DIR": EnvVar(
+        name="PDF_EXPORT_TEMP_DIR",
+        default="",
+        description="Optional filesystem root for lesson PDF export temp directories. Empty uses the system temp dir.",
+        group="storage",
+    ),
+    "PDF_EXPORT_TTL_SECONDS": EnvVar(
+        name="PDF_EXPORT_TTL_SECONDS",
+        default=10800,
+        type=int,
+        description="How long lesson PDF export temp files are retained before cleanup (seconds). Default: 10800 (3 hours).",
+        group="storage",
+    ),
     "ASK_MAX_HISTORY_LEN": EnvVar(
         name="ASK_MAX_HISTORY_LEN",
         default=10,
@@ -699,6 +712,12 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description=(
             "Cron expression for finalizing the previous day's billing ledger summary."
         ),
+        group="celery",
+    ),
+    "LEARN_PDF_EXPORT_CLEANUP_CRON": EnvVar(
+        name="LEARN_PDF_EXPORT_CLEANUP_CRON",
+        default="0 * * * *",
+        description="Cron expression for cleaning up expired lesson PDF export temp files.",
         group="celery",
     ),
     # Authentication Configuration

@@ -17,6 +17,7 @@ _DEFAULT_BILLING_BUCKET_EXPIRE_CRON = "* * * * *"
 _DEFAULT_BILLING_LOW_BALANCE_CRON = "0 * * * *"
 _DEFAULT_BILLING_CREDIT_EXPIRING_CRON = "0 * * * *"
 _DEFAULT_BILLING_DAILY_LEDGER_SUMMARY_CRON = "30 1 * * *"
+_DEFAULT_LEARN_PDF_EXPORT_CLEANUP_CRON = "0 * * * *"
 
 __CELERY_APP__: Celery | None = None
 
@@ -36,7 +37,7 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
     celery_app = Celery(
         resolved_flask_app.import_name,
         task_cls=FlaskTask,
-        include=("flaskr.service.billing.tasks",),
+        include=("flaskr.service.billing.tasks", "flaskr.service.learn.tasks"),
     )
     celery_app.conf.update(_build_celery_config(resolved_flask_app))
     celery_app.flask_app = resolved_flask_app  # type: ignore[attr-defined]
@@ -81,7 +82,7 @@ def _build_celery_config(flask_app: Flask) -> dict[str, Any]:
         "task_ignore_result": False,
         "broker_connection_retry_on_startup": True,
         "timezone": flask_app.config.get("TZ", "UTC"),
-        "imports": ("flaskr.service.billing.tasks",),
+        "imports": ("flaskr.service.billing.tasks", "flaskr.service.learn.tasks"),
         "beat_schedule": _build_billing_beat_schedule(flask_app),
     }
 
@@ -134,6 +135,14 @@ def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, Any]:
                 flask_app,
                 "BILLING_DAILY_LEDGER_SUMMARY_CRON",
                 _DEFAULT_BILLING_DAILY_LEDGER_SUMMARY_CRON,
+            ),
+        },
+        "learn.cleanup_pdf_exports.schedule": {
+            "task": "learn.cleanup_pdf_exports",
+            "schedule": _resolve_billing_crontab(
+                flask_app,
+                "LEARN_PDF_EXPORT_CLEANUP_CRON",
+                _DEFAULT_LEARN_PDF_EXPORT_CLEANUP_CRON,
             ),
         },
     }

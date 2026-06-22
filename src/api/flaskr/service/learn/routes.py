@@ -1,7 +1,7 @@
 import json
 import uuid
 
-from flask import Flask, Response, request, stream_with_context
+from flask import Flask, Response, request, send_file, stream_with_context
 from pydantic import ValidationError
 
 from flaskr.dao import db
@@ -23,6 +23,7 @@ from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
     list_lesson_feedbacks,
 )
+from flaskr.service.learn.pdf_export import export_lesson_pdf
 from flaskr.service.learn.preview_permissions import (
     require_shifu_preview_permission,
     resolve_preview_request_user,
@@ -676,6 +677,69 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         user_bid = request.user.user_id
         return make_common_response(
             reset_learn_record(app, shifu_bid, outline_bid, user_bid)
+        )
+
+    @app.route(
+        path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>/export-pdf",
+        methods=["GET"],
+    )
+    @with_shifu_context()
+    def export_lesson_pdf_api(shifu_bid: str, outline_bid: str):
+        """
+        export lesson record as pdf
+        ---
+        tags:
+            - learn
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - name: outline_bid
+              type: string
+              required: true
+            - name: preview_mode
+              type: boolean
+              required: false
+            - name: learning_mode
+              type: string
+              required: false
+              description: must be read for pdf export
+        responses:
+            200:
+                description: export lesson pdf success
+                content:
+                    application/pdf:
+                        schema:
+                            type: string
+                            format: binary
+        """
+        preview_mode = request.args.get("preview_mode", "False")
+        learning_mode = str(request.args.get("learning_mode", "read") or "read").strip()
+        app.logger.info(
+            "export lesson pdf, shifu_bid: %s, outline_bid: %s, preview_mode: %s, learning_mode: %s",
+            shifu_bid,
+            outline_bid,
+            preview_mode,
+            learning_mode,
+        )
+        preview_mode = preview_mode.lower() == "true"
+        if learning_mode != "read":
+            raise_param_error("learning_mode")
+        user_bid = request.user.user_id
+        if preview_mode:
+            require_shifu_preview_permission(app, user_bid, shifu_bid)
+        export_result = export_lesson_pdf(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=preview_mode,
+        )
+        return send_file(
+            export_result.file_path,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=export_result.download_name,
         )
 
     @app.route(
