@@ -452,7 +452,9 @@ function useChatLogicHook({
     [lessonRunContentCacheKey],
   );
 
-  const allowTtsStreaming = !effectivePreviewMode;
+  // Learner preview uses the same generated-block TTS contract as live courses.
+  // Keep preview-specific request params, but do not disable audio streaming.
+  const allowTtsStreaming = true;
 
   const resolveElementItemBid = useCallback(
     (
