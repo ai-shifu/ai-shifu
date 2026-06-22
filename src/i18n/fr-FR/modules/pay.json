@@ -29,7 +29,7 @@
   "stripeResultMissingOrder": "Impossible de trouver la commande correspondante. Veuillez rouvrir le chat ou contacter le support.",
   "stripeResultPending": "Votre commande sera synchronisée lorsque Stripe aura terminé le traitement.",
   "stripeResultPendingTitle": "Paiement en attente",
-  "stripeResultRedirectCountDown": "Retour au cours dans {seconds} s...",
+  "stripeResultRedirectCountDown": "Retour au cours dans {seconds} s…",
   "stripeResultSuccessTitle": "Paiement confirmé",
   "title": "Paiement",
   "userPrivacyPolicy": "Politique de confidentialité utilisateur",

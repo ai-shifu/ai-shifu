@@ -155,7 +155,7 @@
     },
     "followUps": {
       "drawer": {
-        "currentRecordHint": "Lire dans l’ordre : sortie originale -> suivi actuel -> réponse système actuelle.",
+        "currentRecordHint": "Lire dans l’ordre : sortie d’origine -> suivi actuel -> réponse système actuelle.",
         "fields": {
           "chapter": "Chapitre / Leçon",
           "currentAnswer": "Réponse système actuelle",
@@ -163,17 +163,17 @@
           "followUpTime": "Heure de suivi",
           "lesson": "Leçon",
           "nickname": "Pseudonyme",
-          "sourceOutput": "Sortie originale",
+          "sourceOutput": "Sortie d’origine",
           "turnIndex": "Tour",
           "user": "Utilisateur",
-          "userId": "ID utilisateur"
+          "userId": "ID d’utilisateur"
         },
         "sections": {
           "basicInfo": "Informations de base",
           "currentRecord": "Détail du suivi actuel",
           "timeline": "Chronologie"
         },
-        "sourceUnavailable": "Impossible de localiser la sortie originale de cet enregistrement historique.",
+        "sourceUnavailable": "Impossible de localiser la sortie d’origine de cet enregistrement historique.",
         "timeline": {
           "current": "Tour actuel",
           "student": "Apprenant",
@@ -183,23 +183,23 @@
       },
       "emptyValue": "--",
       "filters": {
-        "chapterKeyword": "Recherche chapitre / leçon",
-        "chapterKeywordPlaceholder": "Saisissez le titre du chapitre / de la leçon",
+        "chapterKeyword": "Rechercher un chapitre / une leçon",
+        "chapterKeywordPlaceholder": "Saisissez le titre du chapitre ou de la leçon",
         "followUpTime": "Heure de suivi",
-        "lessonKeyword": "Recherche de leçon",
+        "lessonKeyword": "Rechercher une leçon",
         "lessonKeywordPlaceholder": "Saisissez le titre de la leçon",
         "reset": "Réinitialiser",
         "resultCount": "{count, plural, one {# résultat} other {# résultats}}",
         "search": "Rechercher",
-        "sourceStatus": "Statut de la sortie originale",
+        "sourceStatus": "Statut de la sortie d’origine",
         "sourceStatusAll": "Tous les statuts",
-        "sourceStatusMissing": "Sortie originale introuvable",
-        "sourceStatusResolved": "Sortie originale localisée",
+        "sourceStatusMissing": "Sortie d’origine introuvable",
+        "sourceStatusResolved": "Sortie d’origine localisée",
         "timePlaceholder": "Début / fin du suivi",
-        "userKeyword": "Recherche utilisateur",
-        "userKeywordPlaceholder": "Téléphone / E-mail / Pseudonyme",
+        "userKeyword": "Rechercher un utilisateur",
+        "userKeywordPlaceholder": "Téléphone / e-mail / pseudonyme",
         "userKeywordPlaceholderEmail": "E-mail / Pseudonyme",
-        "userKeywordPlaceholderPhone": "Téléphone / Pseudonyme"
+        "userKeywordPlaceholderPhone": "Téléphone / pseudonyme"
       },
       "openMetric": "Ouvrir les données de suivi",
       "summary": {
@@ -217,8 +217,8 @@
         "empty": "Aucune donnée de suivi",
         "lesson": "Leçon",
         "scopeHint": "Consultez les suivis des apprenants autour du contenu du cours pour repérer les points de blocage fréquents et les leçons à améliorer.",
-        "sourceMissing": "Sortie originale introuvable",
-        "sourceResolved": "Sortie originale localisée",
+        "sourceMissing": "Sortie d’origine introuvable",
+        "sourceResolved": "Sortie d’origine localisée",
         "title": "Liste des suivis",
         "turnIndex": "Tour",
         "user": "Utilisateur"
@@ -252,12 +252,12 @@
     "ratings": {
       "emptyValue": "--",
       "filters": {
-        "chapterKeyword": "Recherche chapitre / leçon",
+        "chapterKeyword": "Rechercher un chapitre / une leçon",
         "chapterKeywordPlaceholder": "Titre du chapitre / de la leçon",
         "commentStatus": "Commentaire",
         "commentStatusAll": "Tous",
         "commentStatusCommented": "Avec commentaire",
-        "lessonKeyword": "Recherche de leçon",
+        "lessonKeyword": "Rechercher une leçon",
         "lessonKeywordPlaceholder": "Titre de la leçon",
         "mode": "Mode d’apprentissage",
         "modeAll": "Tous les modes",
@@ -271,9 +271,9 @@
         "sortByLatest": "Plus récent d’abord",
         "sortByLowScore": "Note la plus basse d’abord",
         "timePlaceholder": "Début / fin de la notation",
-        "userKeyword": "Recherche utilisateur",
+        "userKeyword": "Rechercher un utilisateur",
         "userKeywordPlaceholderEmail": "E-mail / Pseudonyme",
-        "userKeywordPlaceholderPhone": "Téléphone / Pseudonyme"
+        "userKeywordPlaceholderPhone": "Téléphone / pseudonyme"
       },
       "modes": {
         "listen": "Écouter",
@@ -322,14 +322,14 @@
       "paymentPaid": "Payé",
       "paymentStatus": "Paiement",
       "paymentUnpaid": "Non payé",
-      "userKeyword": "Recherche utilisateur",
+      "userKeyword": "Rechercher un utilisateur",
       "userKeywordPlaceholder": "Recherche par téléphone, e-mail ou pseudonyme",
       "userKeywordPlaceholderEmail": "Recherche par e-mail ou pseudonyme",
       "userKeywordPlaceholderPhone": "Recherche par téléphone ou pseudonyme",
       "userRole": "Rôle utilisateur"
     },
     "usersTable": {
-      "account": "Téléphone / E-mail",
+      "account": "Téléphone / e-mail",
       "accountEmail": "E-mail",
       "accountPhone": "Téléphone",
       "action": "Action",
@@ -343,7 +343,7 @@
       "learningStatus": "Statut d’apprentissage",
       "nickname": "Pseudonyme",
       "totalPaidAmount": "Montant payé",
-      "userId": "ID utilisateur",
+      "userId": "ID d’utilisateur",
       "userRole": "Rôle utilisateur"
     },
     "visibility": {
@@ -357,8 +357,8 @@
     "courseName": "Nom du cours",
     "createdAt": "Créé le",
     "creator": "Créateur",
-    "creatorEmailOrUserBid": "E-mail ou ID utilisateur",
-    "creatorMobileOrUserBid": "Mobile ou ID utilisateur",
+    "creatorEmailOrUserBid": "E-mail ou ID d’utilisateur",
+    "creatorMobileOrUserBid": "Mobile ou ID d’utilisateur",
     "endTime": "Date de fin",
     "startTime": "Date de début",
     "status": "Statut"

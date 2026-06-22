@@ -56,7 +56,7 @@
     }
   },
   "submitFailed": "Échec de l'envoi",
-  "submitting": "Envoi...",
+  "submitting": "Envoi…",
   "unknownError": "Erreur inconnue",
   "unsupportedBrowserDescription": "Votre version actuelle d’iOS n’est pas prise en charge. Veuillez passer à iOS 16.4 ou version ultérieure, puis réessayer.",
   "unsupportedBrowserTitle": "Votre version d’iOS n’est pas prise en charge",
