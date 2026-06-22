@@ -100,6 +100,7 @@ export type I18nKey =
   | 'component.header.publishSuccess'
   | 'component.header.publishSuccessAudienceDescription'
   | 'component.header.publishSuccessDescription'
+  | 'component.header.publishSuccessDone'
   | 'component.header.publishSuccessDraftHelp'
   | 'component.header.readonly'
   | 'component.header.saved'
