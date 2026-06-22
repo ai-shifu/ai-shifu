@@ -208,7 +208,7 @@
         "title": "Cycle de vie de l’abonnement créateur"
       },
       "creatorWalletLedger": {
-        "description": "Les lots de crédits du compte et les modèles de lecture du grand livre restent activés.",
+        "description": "Les compartiments de crédits du compte et les modèles de lecture du grand livre restent activés.",
         "title": "Compte créateur et grand livre"
       },
       "dailyAggregateRebuild": {
@@ -244,8 +244,8 @@
         "title": "Règlement d’utilisation"
       },
       "walletBucketExpiration": {
-        "description": "L’expiration des lots de crédits du compte reste interne uniquement.",
-        "title": "Expiration des lots de crédits du compte"
+        "description": "L’expiration des compartiments de crédits du compte reste interne uniquement.",
+        "title": "Expiration des compartiments de crédits du compte"
       }
     },
     "status": {
@@ -418,7 +418,7 @@
       "subscription": "Crédits du forfait",
       "topup": "Pack de crédits"
     },
-    "empty": "Aucun lot de crédits du compte pour le moment. Les crédits apparaîtront ici après votre première attribution.",
+    "empty": "Aucun compartiment de crédits du compte pour le moment. Les crédits apparaîtront ici après votre première attribution.",
     "entriesDescription": "Les enregistrements d’attribution, consommation, remboursement et expiration au niveau écriture seront connectés dans la prochaine tâche de facturation.",
     "entriesTitle": "Écritures du grand livre",
     "entryType": {
@@ -430,7 +430,7 @@
       "refund": "Remboursement",
       "release": "Libérer"
     },
-    "loadError": "Impossible de charger les données des lots de crédits du compte. Actualisez et réessayez.",
+    "loadError": "Impossible de charger les données des compartiments de crédits du compte. Actualisez et réessayez.",
     "neverExpires": "Suit l’expiration des crédits du forfait",
     "pagination": {
       "page": "Page {page} / {pageCount} · {total} écritures"

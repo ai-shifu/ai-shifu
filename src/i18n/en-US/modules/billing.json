@@ -208,7 +208,7 @@
         "title": "Creator subscription lifecycle"
       },
       "creatorWalletLedger": {
-        "description": "Account credit batches and ledger read models remain enabled.",
+        "description": "Account credit buckets and ledger read models remain enabled.",
         "title": "Creator account and ledger"
       },
       "dailyAggregateRebuild": {
@@ -244,8 +244,8 @@
         "title": "Usage settlement"
       },
       "walletBucketExpiration": {
-        "description": "Account credit batch expiration remains internal-only.",
-        "title": "Account credit batch expiration"
+        "description": "Account credit bucket expiration remains internal-only.",
+        "title": "Account credit bucket expiration"
       }
     },
     "status": {
@@ -418,7 +418,7 @@
       "subscription": "Plan credits",
       "topup": "Credit pack"
     },
-    "empty": "No account credit batches yet. Credits will appear here after your first grant.",
+    "empty": "No account credit buckets yet. Credits will appear here after your first grant.",
     "entriesDescription": "Entry-level grant, consume, refund, and expire records will be connected in the next billing task.",
     "entriesTitle": "Ledger entries",
     "entryType": {
@@ -430,7 +430,7 @@
       "refund": "Refund",
       "release": "Release"
     },
-    "loadError": "Account credit batch data could not be loaded. Refresh and try again.",
+    "loadError": "Account credit bucket data could not be loaded. Refresh and try again.",
     "neverExpires": "Follows plan credits expiry",
     "pagination": {
       "page": "Page {page} / {pageCount} · {total} entries"
