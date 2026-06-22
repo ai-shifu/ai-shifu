@@ -2816,8 +2816,6 @@ export type I18nKey =
   | 'module.shifuSetting.minimaxClonePreview'
   | 'module.shifuSetting.minimaxClonePreviewFailed'
   | 'module.shifuSetting.minimaxClonePreviewUnavailable'
-  | 'module.shifuSetting.minimaxClonePromptAudio'
-  | 'module.shifuSetting.minimaxClonePromptAudioDescription'
   | 'module.shifuSetting.minimaxCloneRecord'
   | 'module.shifuSetting.minimaxCloneRecordingUnsupported'
   | 'module.shifuSetting.minimaxCloneRequired'

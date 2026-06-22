@@ -2,6 +2,7 @@ import {
   buildMiniMaxClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
   getMiniMaxCloneSubmitBlockReason,
+  getMiniMaxRecordingElapsedSeconds,
   isValidMiniMaxCustomVoiceId,
   loadMiniMaxVoiceRefreshData,
   shouldPreserveCustomMiniMaxVoice,
@@ -155,6 +156,38 @@ describe('minimax voice clone helpers', () => {
         canSubmitByCredits: true,
       }),
     ).toBeNull();
+  });
+
+  it('uses ten recorded seconds as the hard source-audio submit gate', () => {
+    expect(
+      getMiniMaxCloneSubmitBlockReason({
+        sourceFileSelected: true,
+        sourceCaptureMethod: 'recording',
+        sourceElapsed: 9,
+        recordingKind: null,
+        submitting: false,
+        cloneInProgress: false,
+        canSubmitByCredits: true,
+      }),
+    ).toBe('source_recording_too_short');
+
+    expect(
+      getMiniMaxCloneSubmitBlockReason({
+        sourceFileSelected: true,
+        sourceCaptureMethod: 'recording',
+        sourceElapsed: 10,
+        recordingKind: null,
+        submitting: false,
+        cloneInProgress: false,
+        canSubmitByCredits: true,
+      }),
+    ).toBeNull();
+  });
+
+  it('does not round source recording duration up to the ten-second gate', () => {
+    expect(getMiniMaxRecordingElapsedSeconds(1_000, 10_999)).toBe(9);
+    expect(getMiniMaxRecordingElapsedSeconds(1_000, 11_000)).toBe(10);
+    expect(getMiniMaxRecordingElapsedSeconds(1_000, 500)).toBe(0);
   });
 
   it('explains source audio submission blockers', () => {

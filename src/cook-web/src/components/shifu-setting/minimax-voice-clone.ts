@@ -43,7 +43,6 @@ export interface MiniMaxVoiceOption extends TTSVoiceOptionBase {
 
 export const MINIMAX_SOURCE_MIN_SECONDS = 10;
 export const MINIMAX_SOURCE_MAX_SECONDS = 300;
-export const MINIMAX_PROMPT_MAX_SECONDS = 8;
 export const MINIMAX_SUPPORTED_UPLOAD_TYPES = '.mp3,.m4a,.wav';
 
 export type MiniMaxCloneSubmitBlockReason =
@@ -204,6 +203,13 @@ export async function loadMiniMaxVoiceRefreshData({
   return { voices, cloneCost, errors };
 }
 
+export function getMiniMaxRecordingElapsedSeconds(
+  startedAtMs: number,
+  nowMs: number = Date.now(),
+): number {
+  return Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
+}
+
 export function getMiniMaxCloneSubmitBlockReason({
   sourceFileSelected,
   sourceCaptureMethod,
@@ -216,7 +222,7 @@ export function getMiniMaxCloneSubmitBlockReason({
   sourceFileSelected: boolean;
   sourceCaptureMethod: 'recording' | 'upload';
   sourceElapsed: number;
-  recordingKind: 'source' | 'prompt' | null;
+  recordingKind: 'source' | null;
   submitting: boolean;
   cloneInProgress: boolean;
   canSubmitByCredits: boolean;
@@ -231,10 +237,7 @@ export function getMiniMaxCloneSubmitBlockReason({
     return 'insufficient_credits';
   }
   if (recordingKind) {
-    if (
-      recordingKind === 'source' &&
-      sourceElapsed < MINIMAX_SOURCE_MIN_SECONDS
-    ) {
+    if (sourceElapsed < MINIMAX_SOURCE_MIN_SECONDS) {
       return 'source_recording_too_short';
     }
     return 'recording_in_progress';

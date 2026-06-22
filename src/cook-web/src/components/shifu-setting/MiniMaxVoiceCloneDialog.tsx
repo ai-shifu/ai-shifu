@@ -21,11 +21,11 @@ import {
 } from '@/components/ui/Dialog';
 
 import {
-  MINIMAX_PROMPT_MAX_SECONDS,
   MINIMAX_SOURCE_MAX_SECONDS,
   MINIMAX_SOURCE_MIN_SECONDS,
   MINIMAX_SUPPORTED_UPLOAD_TYPES,
   getMiniMaxCloneSubmitBlockReason,
+  getMiniMaxRecordingElapsedSeconds,
   type MiniMaxCloneSubmitBlockReason,
   type MiniMaxClonedVoice,
 } from './minimax-voice-clone';
@@ -63,12 +63,8 @@ export default function MiniMaxVoiceCloneDialog({
   const [sourceCaptureMethod, setSourceCaptureMethod] = useState<
     'recording' | 'upload'
   >('recording');
-  const [promptFile, setPromptFile] = useState<File | null>(null);
-  const [recordingKind, setRecordingKind] = useState<
-    'source' | 'prompt' | null
-  >(null);
+  const [recordingKind, setRecordingKind] = useState<'source' | null>(null);
   const [sourceElapsed, setSourceElapsed] = useState(0);
-  const [promptElapsed, setPromptElapsed] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [pollingVoice, setPollingVoice] = useState<MiniMaxClonedVoice | null>(
     null,
@@ -112,12 +108,6 @@ export default function MiniMaxVoiceCloneDialog({
       : t('module.shifuSetting.minimaxCloneSeconds', {
           seconds: sourceElapsed,
         });
-  const promptStatusText =
-    promptFile && promptElapsed === 0
-      ? t('module.shifuSetting.minimaxCloneUploadReady')
-      : t('module.shifuSetting.minimaxCloneSeconds', {
-          seconds: promptElapsed,
-        });
   const submitBlockText = getSubmitBlockText({
     reason: submitBlockReason,
     currentSeconds: sourceElapsed,
@@ -137,9 +127,7 @@ export default function MiniMaxVoiceCloneDialog({
     setVoiceId('');
     setSourceFile(null);
     setSourceCaptureMethod('recording');
-    setPromptFile(null);
     setSourceElapsed(0);
-    setPromptElapsed(0);
     setSubmitting(false);
     setPollingVoice(null);
     setErrorMessage('');
@@ -160,84 +148,58 @@ export default function MiniMaxVoiceCloneDialog({
     setRecordingKind(null);
   }, []);
 
-  const startRecording = useCallback(
-    async (kind: 'source' | 'prompt') => {
-      if (
-        !navigator.mediaDevices?.getUserMedia ||
-        typeof MediaRecorder === 'undefined'
-      ) {
-        setErrorMessage(
-          t('module.shifuSetting.minimaxCloneRecordingUnsupported'),
-        );
-        return;
-      }
-      stopRecording();
-      setErrorMessage('');
-      chunksRef.current = [];
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-      const mimeType = pickRecordingMimeType();
-      const recorder = new MediaRecorder(
-        stream,
-        mimeType ? { mimeType } : undefined,
+  const startRecording = useCallback(async () => {
+    if (
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === 'undefined'
+    ) {
+      setErrorMessage(
+        t('module.shifuSetting.minimaxCloneRecordingUnsupported'),
       );
-      mediaRecorderRef.current = recorder;
-      recordingStartedAtRef.current = Date.now();
-      setRecordingKind(kind);
-      if (kind === 'source') {
-        setSourceElapsed(0);
-        setSourceFile(null);
-      } else {
-        setPromptElapsed(0);
-        setPromptFile(null);
+      return;
+    }
+    stopRecording();
+    setErrorMessage('');
+    chunksRef.current = [];
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaStreamRef.current = stream;
+    const mimeType = pickRecordingMimeType();
+    const recorder = new MediaRecorder(
+      stream,
+      mimeType ? { mimeType } : undefined,
+    );
+    mediaRecorderRef.current = recorder;
+    recordingStartedAtRef.current = Date.now();
+    setRecordingKind('source');
+    setSourceElapsed(0);
+    setSourceFile(null);
+    recorder.ondataavailable = event => {
+      if (event.data?.size) {
+        chunksRef.current.push(event.data);
       }
-      recorder.ondataavailable = event => {
-        if (event.data?.size) {
-          chunksRef.current.push(event.data);
-        }
-      };
-      recorder.onstop = () => {
-        const elapsed = Math.max(
-          0,
-          Math.round((Date.now() - recordingStartedAtRef.current) / 1000),
-        );
-        const type = mimeType || 'audio/webm';
-        const blob = new Blob(chunksRef.current, { type });
-        const file = new File(
-          [blob],
-          kind === 'source' ? 'recording.webm' : 'prompt.webm',
-          { type },
-        );
-        if (kind === 'source') {
-          setSourceFile(file);
-          setSourceCaptureMethod('recording');
-          setSourceElapsed(elapsed);
-        } else {
-          setPromptFile(file);
-          setPromptElapsed(Math.min(elapsed, MINIMAX_PROMPT_MAX_SECONDS));
-        }
-      };
-      recorder.start();
-      recordingTimerRef.current = setInterval(() => {
-        const elapsed = Math.max(
-          0,
-          Math.round((Date.now() - recordingStartedAtRef.current) / 1000),
-        );
-        if (kind === 'source') {
-          setSourceElapsed(elapsed);
-          if (elapsed >= MINIMAX_SOURCE_MAX_SECONDS) {
-            stopRecording();
-          }
-        } else {
-          setPromptElapsed(Math.min(elapsed, MINIMAX_PROMPT_MAX_SECONDS));
-          if (elapsed >= MINIMAX_PROMPT_MAX_SECONDS) {
-            stopRecording();
-          }
-        }
-      }, 500);
-    },
-    [stopRecording, t],
-  );
+    };
+    recorder.onstop = () => {
+      const elapsed = getMiniMaxRecordingElapsedSeconds(
+        recordingStartedAtRef.current,
+      );
+      const type = mimeType || 'audio/webm';
+      const blob = new Blob(chunksRef.current, { type });
+      const file = new File([blob], 'recording.webm', { type });
+      setSourceFile(file);
+      setSourceCaptureMethod('recording');
+      setSourceElapsed(elapsed);
+    };
+    recorder.start();
+    recordingTimerRef.current = setInterval(() => {
+      const elapsed = getMiniMaxRecordingElapsedSeconds(
+        recordingStartedAtRef.current,
+      );
+      setSourceElapsed(elapsed);
+      if (elapsed >= MINIMAX_SOURCE_MAX_SECONDS) {
+        stopRecording();
+      }
+    }, 500);
+  }, [stopRecording, t]);
 
   const pollVoice = useCallback(
     (voice: MiniMaxClonedVoice) => {
@@ -292,9 +254,6 @@ export default function MiniMaxVoiceCloneDialog({
       }
       formData.append('source_capture_method', sourceCaptureMethod);
       formData.append('source_audio', sourceFile);
-      if (promptFile) {
-        formData.append('prompt_audio', promptFile);
-      }
       const created = (await api.submitMinimaxTtsVoiceClone(formData, {
         skipErrorToast: true,
       })) as MiniMaxClonedVoice;
@@ -316,7 +275,6 @@ export default function MiniMaxVoiceCloneDialog({
     onRefreshCost,
     onVoiceChange,
     pollVoice,
-    promptFile,
     shifuId,
     sourceCaptureMethod,
     sourceFile,
@@ -417,7 +375,7 @@ export default function MiniMaxVoiceCloneDialog({
                 onClick={() =>
                   recordingKind === 'source'
                     ? stopRecording()
-                    : startRecording('source')
+                    : startRecording()
                 }
               >
                 {recordingKind === 'source' ? (
@@ -458,75 +416,6 @@ export default function MiniMaxVoiceCloneDialog({
               <p className='truncate text-xs text-muted-foreground'>
                 {t('module.shifuSetting.minimaxCloneAudioSelected', {
                   name: sourceFile.name,
-                })}
-              </p>
-            ) : null}
-          </div>
-
-          <div className='space-y-2'>
-            <div className='flex items-center justify-between'>
-              <label className='text-sm font-medium'>
-                {t('module.shifuSetting.minimaxClonePromptAudio')}
-              </label>
-              <div className='flex items-center gap-2'>
-                <Badge variant='outline'>
-                  {t('module.shifuSetting.minimaxCloneOptional')}
-                </Badge>
-                <Badge variant='secondary'>{promptStatusText}</Badge>
-              </div>
-            </div>
-            <p className='text-xs leading-5 text-muted-foreground'>
-              {t('module.shifuSetting.minimaxClonePromptAudioDescription', {
-                seconds: MINIMAX_PROMPT_MAX_SECONDS,
-              })}
-            </p>
-            <div className='grid grid-cols-2 gap-2'>
-              <Button
-                type='button'
-                variant='outline'
-                onClick={() =>
-                  recordingKind === 'prompt'
-                    ? stopRecording()
-                    : startRecording('prompt')
-                }
-              >
-                {recordingKind === 'prompt' ? (
-                  <Square className='mr-2 h-4 w-4' />
-                ) : (
-                  <Mic className='mr-2 h-4 w-4' />
-                )}
-                {recordingKind === 'prompt'
-                  ? t('module.shifuSetting.minimaxCloneStopRecording')
-                  : t('module.shifuSetting.minimaxCloneRecord')}
-              </Button>
-              <Button
-                type='button'
-                variant='outline'
-                onClick={() =>
-                  document.getElementById('minimax-prompt-upload')?.click()
-                }
-              >
-                <Upload className='mr-2 h-4 w-4' />
-                {t('module.shifuSetting.minimaxCloneUpload')}
-              </Button>
-            </div>
-            <input
-              id='minimax-prompt-upload'
-              type='file'
-              accept={MINIMAX_SUPPORTED_UPLOAD_TYPES}
-              className='hidden'
-              onChange={event => {
-                const file = event.target.files?.[0] || null;
-                if (file) {
-                  setPromptFile(file);
-                  setPromptElapsed(0);
-                }
-              }}
-            />
-            {promptFile ? (
-              <p className='truncate text-xs text-muted-foreground'>
-                {t('module.shifuSetting.minimaxCloneAudioSelected', {
-                  name: promptFile.name,
                 })}
               </p>
             ) : null}
