@@ -157,7 +157,7 @@
       "resumeSubscription": "Reprendre l’abonnement"
     },
     "cancelScheduled": "Cet abonnement doit se terminer à la fin de la période actuelle. Reprenez-le pour conserver les crédits récurrents actifs.",
-    "lowBalance": "Le compte créateur n’a plus de crédits. Abonnez-vous ou achetez des crédits avant le prochain règlement.",
+    "lowBalance": "Le compte du créateur n’a plus de crédits. Abonnez-vous ou achetez des crédits avant le prochain règlement.",
     "lowBalanceDescription": "Vos crédits sont épuisés ; le contenu généré par IA est indisponible pour le moment.",
     "lowBalanceTitle": "Vos crédits sont épuisés. L’IA fait une pause.",
     "subscriptionPastDue": "Le renouvellement de l’abonnement est bloqué. Consultez les enregistrements de paiement et synchronisez le dernier statut fournisseur."
@@ -337,7 +337,7 @@
       }
     },
     "title": "Confirmer l’achat",
-    "topupDescription": "Vous allez ouvrir un paiement d’achat ponctuel de pack de crédits.",
+    "topupDescription": "Vous allez ouvrir un paiement d’achat ponctuel d’un pack de crédits.",
     "unsupported": "Ce moyen de paiement n’est pas disponible pour le moment.",
     "upgradeDescription": "Cette mise à niveau prend effet immédiatement.",
     "upgradeWithPreorderDescription": "Cette mise à niveau prend effet immédiatement. Tout prépaiement en attente est appliqué en compensation."
@@ -647,7 +647,7 @@
     "title": "Acheter des crédits",
     "topup": {
       "creditLabel": "{credits} crédits",
-      "noteFrozen": "Les crédits de pack de crédits ne peuvent être utilisés que si le compte dispose d’un forfait de crédits actif.",
+      "noteFrozen": "Les crédits du pack de crédits ne peuvent être utilisés que si le compte dispose d’un forfait de crédits actif.",
       "noteInstant": "Les crédits prennent effet immédiatement après l’achat."
     },
     "topupComingSoon": "Bientôt disponible",
