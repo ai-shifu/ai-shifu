@@ -122,7 +122,7 @@
       "title": "报表"
     },
     "subscriptions": {
-      "description": "查看创作者订阅状态、钱包余额和最近一次续费上下文。",
+      "description": "查看创作者订阅状态、账户余额和最近一次续费上下文。",
       "empty": "当前还没有订阅记录。",
       "loadError": "后台订阅数据读取失败，请刷新后重试。",
       "preorderTarget": "预购：{product}",
@@ -152,12 +152,12 @@
   },
   "alerts": {
     "actions": {
-      "checkoutTopup": "立即充值",
+      "checkoutTopup": "购买积分",
       "openOrders": "查看付款记录",
       "resumeSubscription": "恢复订阅"
     },
     "cancelScheduled": "当前订阅已设置为周期结束后取消，如需继续按周期发放积分，请恢复订阅。",
-    "lowBalance": "当前创作者钱包已经没有可用积分，请在下一次结算前完成充值。",
+    "lowBalance": "当前创作者账户已经没有可用积分，请在下一次结算前开通订阅或购买积分。",
     "lowBalanceDescription": "积分已经用完啦，无法继续体验AI生产的内容。",
     "lowBalanceTitle": "您的积分已耗尽，AI罢工啦",
     "subscriptionPastDue": "订阅续费当前处于异常状态，请先检查付款记录并同步最新 provider 状态。"
@@ -196,7 +196,7 @@
         "title": "Billing 功能开关"
       },
       "creatorCatalog": {
-        "description": "套餐与充值包目录当前仍为 active。",
+        "description": "套餐与积分包目录当前仍为 active。",
         "title": "创作者商品目录"
       },
       "creatorOrders": {
@@ -208,8 +208,8 @@
         "title": "创作者订阅生命周期"
       },
       "creatorWalletLedger": {
-        "description": "钱包 bucket 与账本视图当前仍启用。",
-        "title": "创作者钱包与账本"
+        "description": "账户 bucket 与账本视图当前仍启用。",
+        "title": "创作者账户与账本"
       },
       "dailyAggregateRebuild": {
         "description": "日报表重建与 finalize 仍属于内部能力。",
@@ -244,7 +244,7 @@
         "title": "Usage 结算"
       },
       "walletBucketExpiration": {
-        "description": "wallet bucket 过期扫描仍属于内部能力。",
+        "description": "账户余额桶过期扫描仍属于内部能力。",
         "title": "余额桶过期扫描"
       }
     },
@@ -337,7 +337,7 @@
       }
     },
     "title": "确认购买",
-    "topupDescription": "你将进入一次性积分充值的支付确认流程。",
+    "topupDescription": "你将进入一次性积分包购买的支付确认流程。",
     "unsupported": "当前支付方式暂不可用。",
     "upgradeDescription": "本次升级会立即生效。",
     "upgradeWithPreorderDescription": "本次升级会立即生效，已存在的预购付款将作为抵扣。"
@@ -485,7 +485,7 @@
       "subscriptionRenewal": "订阅续费",
       "subscriptionStart": "订阅开通",
       "subscriptionUpgrade": "订阅升级",
-      "topup": "充值订单"
+      "topup": "积分包订单"
     }
   },
   "overview": {

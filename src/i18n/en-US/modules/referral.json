@@ -109,7 +109,7 @@
       "rewardStatus": "Reward status",
       "subscription": "Subscription BID",
       "title": "Invite relation detail",
-      "walletBucket": "Wallet bucket BID"
+      "walletBucket": "Credit batch BID"
     },
     "empty": "No invite relations.",
     "filters": {

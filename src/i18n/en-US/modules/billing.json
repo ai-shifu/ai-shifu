@@ -122,7 +122,7 @@
       "title": "Reports"
     },
     "subscriptions": {
-      "description": "Inspect creator subscriptions, wallet balances, and renewal context.",
+      "description": "Inspect creator subscriptions, account balances, and renewal context.",
       "empty": "No subscriptions yet.",
       "loadError": "Admin subscription data could not be loaded.",
       "preorderTarget": "Preorder: {product}",
@@ -152,12 +152,12 @@
   },
   "alerts": {
     "actions": {
-      "checkoutTopup": "Top up now",
+      "checkoutTopup": "Buy credits",
       "openOrders": "Open payment records",
       "resumeSubscription": "Resume subscription"
     },
     "cancelScheduled": "This subscription is set to end at the current period boundary. Resume it to keep recurring credits active.",
-    "lowBalance": "Your creator wallet is out of credits. Start a top-up before the next settlement runs.",
+    "lowBalance": "Your creator account is out of credits. Subscribe or buy credits before the next settlement runs.",
     "lowBalanceDescription": "Your credits are gone, so AI-generated content is unavailable right now.",
     "lowBalanceTitle": "Your credits are exhausted. The AI is taking a break.",
     "subscriptionPastDue": "Subscription renewal is blocked. Review the payment records and sync the latest provider status."
@@ -208,8 +208,8 @@
         "title": "Creator subscription lifecycle"
       },
       "creatorWalletLedger": {
-        "description": "Wallet buckets and ledger read models remain enabled.",
-        "title": "Creator wallet and ledger"
+        "description": "Account credit batches and ledger read models remain enabled.",
+        "title": "Creator account and ledger"
       },
       "dailyAggregateRebuild": {
         "description": "Daily aggregate rebuild and finalize flows remain internal-only.",
@@ -244,8 +244,8 @@
         "title": "Usage settlement"
       },
       "walletBucketExpiration": {
-        "description": "Wallet bucket expiration remains internal-only.",
-        "title": "Wallet bucket expiration"
+        "description": "Account credit batch expiration remains internal-only.",
+        "title": "Account credit batch expiration"
       }
     },
     "status": {
@@ -337,7 +337,7 @@
       }
     },
     "title": "Confirm purchase",
-    "topupDescription": "You are about to open a one-time credit top-up checkout.",
+    "topupDescription": "You are about to open a one-time credit pack purchase checkout.",
     "unsupported": "This payment method is not available right now.",
     "upgradeDescription": "This upgrade takes effect immediately.",
     "upgradeWithPreorderDescription": "This upgrade takes effect immediately. Any active preorder payment is applied as an offset."
@@ -418,7 +418,7 @@
       "subscription": "Plan credits",
       "topup": "Credit pack"
     },
-    "empty": "No wallet buckets yet. Credits will appear here after your first grant.",
+    "empty": "No account credit batches yet. Credits will appear here after your first grant.",
     "entriesDescription": "Entry-level grant, consume, refund, and expire records will be connected in the next billing task.",
     "entriesTitle": "Ledger entries",
     "entryType": {
@@ -430,7 +430,7 @@
       "refund": "Refund",
       "release": "Release"
     },
-    "loadError": "Wallet bucket data could not be loaded. Refresh and try again.",
+    "loadError": "Account credit batch data could not be loaded. Refresh and try again.",
     "neverExpires": "Follows plan credits expiry",
     "pagination": {
       "page": "Page {page} / {pageCount} · {total} entries"
@@ -485,7 +485,7 @@
       "subscriptionRenewal": "Subscription renewal",
       "subscriptionStart": "Subscription start",
       "subscriptionUpgrade": "Subscription upgrade",
-      "topup": "Top-up order"
+      "topup": "Credit pack order"
     }
   },
   "overview": {
@@ -647,7 +647,7 @@
     "title": "Buy Credits",
     "topup": {
       "creditLabel": "{credits} credits",
-      "noteFrozen": "Top-up credits can be used only when the account has an active credit plan.",
+      "noteFrozen": "Credit pack credits can be used only when the account has an active credit plan.",
       "noteInstant": "Credits take effect immediately after purchase."
     },
     "topupComingSoon": "Coming soon",

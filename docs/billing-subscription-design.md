@@ -8,12 +8,12 @@
 
 v1 只解决最小可上线的 creator billing 闭环：
 
-- 创作者购买套餐和充值包
+- 创作者购买套餐和积分包
 - 套餐自动续费
 - 学员 `production`、作者 `preview`、作者 `debug` 三类场景统一扣创作者积分
 - LLM 按 `input/cache/output` 三维扣分
 - TTS 同时支持 `按次` 和 `按字数` 两种费率模型
-- 支付、订阅、钱包、余额桶、账本、费率、续费排期形成完整真相源
+- 支付、订阅、账户、余额桶、账本、费率、续费排期形成完整真相源
 
 ### 1.2 v1.1 扩展目标
 
@@ -30,7 +30,7 @@ v1.1 再补充下列扩展能力：
 - 课程学习、预览、调试的 LLM/TTS 消耗都由课程所属创作者承担
 - 商品目录统一使用 `bill_products` 单表，API 仍按 `plans[]` / `topups[]` 投影
 - 支付持久化统一以 `bill_orders` 为业务真相源；provider 最新摘要保留在 `bill_orders.metadata`，provider raw snapshot 复用 `order_pingxx_orders` / `order_stripe_orders`，native 国内直连 provider 写入 `order_native_payment_orders`，并通过 `biz_domain`、`bill_order_bid`、`creator_bid` 隔离
-- 钱包/余额桶/账本三层分离：`credit_wallets` 只做总余额快照，`credit_wallet_buckets` 负责按来源管理可消费余额桶，`credit_ledger_entries` 才是不可变真相源
+- 账户/余额桶/账本三层分离：`credit_wallets` 只做总余额快照，`credit_wallet_buckets` 负责按来源管理可消费余额桶，`credit_ledger_entries` 才是不可变真相源
 - `bill_usage + credit_ledger_entries` 是结算真相源；日报表只是报表层聚合，不参与扣费真相判断
 - 积分消费顺序固定为 `free > subscription > topup`；同优先级下按 `effective_to` 最早优先，再按 `created_at` 最早优先
 - 旧的学员购课 `/order` 流程继续保留，不与 creator billing 混表
@@ -53,9 +53,9 @@ v1.1 再补充下列扩展能力：
 
 | capability | status | 入口 | 默认开关 | 用户可见 | 说明 |
 | --- | --- | --- | --- | --- | --- |
-| `creator_catalog` | `active` | `GET /api/billing/catalog` | on | 是 | creator 可以查看当前可售套餐和充值包 |
+| `creator_catalog` | `active` | `GET /api/billing/catalog` | on | 是 | creator 可以查看当前可售套餐和积分包 |
 | `creator_subscription_checkout` | `active` | `/api/billing/overview`、`/subscriptions/checkout`、`/subscriptions/cancel`、`/subscriptions/resume` | on | 是 | 套餐购买、取消、恢复和 overview 当前正式可达 |
-| `creator_wallet_ledger` | `active` | `GET /api/billing/wallet-buckets`、`GET /api/billing/ledger` | on | 是 | 钱包桶和账本明细当前正式可达 |
+| `creator_wallet_ledger` | `active` | `GET /api/billing/wallet-buckets`、`GET /api/billing/ledger` | on | 是 | 账户余额桶和账本明细当前正式可达 |
 | `creator_orders` | `active` | `POST /api/billing/topups/checkout`、`POST /api/billing/orders/*/sync`、`POST /api/billing/orders/*/checkout`、`POST /api/billing/orders/*/refund` | on | 是 | creator topup、补单 checkout、sync、refund 当前正式可达 |
 | `admin_subscriptions` | `active` | `GET /api/admin/billing/subscriptions` | on | 是 | admin 订阅审查当前正式可达 |
 | `admin_orders` | `active` | `GET /api/admin/billing/orders` | on | 是 | admin 订单审查当前正式可达 |
@@ -229,7 +229,7 @@ v1.1 再补充下列扩展能力：
 
 本表职责与边界：
 
-- 统一承载套餐、充值包、赠送包、定制包目录
+- 统一承载套餐、积分包、赠送包、定制包目录
 - `product_type=plan` 才允许进入订阅流程
 - `product_type=topup` 必须是一次性支付，不创建 subscription
 
@@ -278,7 +278,7 @@ v1 冻结业务规则：
 
 本表职责与边界：
 
-- 只表示套餐订阅合同，不表示一次性充值
+- 只表示套餐订阅合同，不表示一次性积分包购买
 - `cancel_scheduled` 表示当前周期仍有效，但未来不再自动续费
 - `next_product_bid` 只用于未来生效的套餐切换，不立即替换 `product_bid`
 - provider 订阅事件可直接推进 `status`、`current_period_*`、`last_failed_at` 等字段
@@ -399,14 +399,14 @@ v1 冻结 subscription lifecycle 规则：
 
 | 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
 | --- | --- | --- | --- | --- | --- |
-| `wallet_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Credit wallet business identifier` | 钱包业务 ID |
-| `creator_bid` | `String(36)` | `not null, default="", unique=True` | 一创作者一钱包 | `Creator business identifier` | 创作者业务 ID |
+| `wallet_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Credit wallet business identifier` | 账户业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", unique=True` | 一创作者一账户 | `Creator business identifier` | 创作者业务 ID |
 | `available_credits` | `Numeric(20,10)` | `not null, default=0` | 当前可用积分 | `Available credits` | 可用积分 |
 | `reserved_credits` | `Numeric(20,10)` | `not null, default=0` | hold 后冻结积分 | `Reserved credits` | 冻结积分 |
 | `lifetime_granted_credits` | `Numeric(20,10)` | `not null, default=0` | 累计发放积分 | `Lifetime granted credits` | 累计发放积分 |
 | `lifetime_consumed_credits` | `Numeric(20,10)` | `not null, default=0` | 累计消耗积分 | `Lifetime consumed credits` | 累计消耗积分 |
 | `last_settled_usage_id` | `BIGINT` | `not null, default=0, index=True` | 最近结算到的 `bill_usage.id` | `Last settled usage record id` | 最近已结算 usage 主键 |
-| `version` | `Integer` | `not null, default=0` | 乐观锁版本号 | `Wallet version` | 钱包版本号 |
+| `version` | `Integer` | `not null, default=0` | 乐观锁版本号 | `Wallet version` | 账户版本号 |
 
 主键 / 唯一索引 / 关键索引：
 
@@ -425,7 +425,7 @@ v1 冻结 subscription lifecycle 规则：
 - `available_credits` = 所有可消费 bucket 的 `available_credits` 汇总
 - `reserved_credits` = 所有 bucket 的 `reserved_credits` 汇总
 - `lifetime_granted_credits` 与 `lifetime_consumed_credits` 仍按账本聚合，不从 bucket 快照反推历史
-- 钱包数值必须由账本结果推导和更新，禁止直接手改余额
+- 账户数值必须由账本结果推导和更新，禁止直接手改余额
 
 ### 3.5 `credit_wallet_buckets`
 
@@ -433,8 +433,8 @@ v1 冻结 subscription lifecycle 规则：
 
 | 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
 | --- | --- | --- | --- | --- | --- |
-| `wallet_bucket_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Credit wallet bucket business identifier` | 钱包余额桶业务 ID |
-| `wallet_bid` | `String(36)` | `not null, default="", index=True` | 所属钱包 | `Credit wallet business identifier` | 钱包业务 ID |
+| `wallet_bucket_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Credit wallet bucket business identifier` | 账户余额桶业务 ID |
+| `wallet_bid` | `String(36)` | `not null, default="", index=True` | 所属账户 | `Credit wallet business identifier` | 账户业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
 | `bucket_category` | `SmallInteger` | `not null, index=True` | `7431=legacy_free; 7432=subscription; 7433=topup` | `Credit bucket category code` | 余额桶分类；creator 运行时只暴露 `subscription/topup` 两类，`7431` 仅保留给历史数据兼容 |
 | `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7415=refund; 7416=manual` | `Billing ledger source type code` | 余额桶来源类型 |
@@ -475,7 +475,7 @@ v1 冻结 bucket 规则：
 
 - bucket 运行时分类与优先级固定为：
   - `subscription` bucket：优先级 `20`，承载 subscription 周期发放积分，以及 legacy gift / refund return / manual credit 等归并后的可消费积分
-  - `topup` bucket：优先级 `30`，承载一次性充值包积分，以及能明确解析为 topup 的退款返还或历史赠送；若 creator 当前存在有效套餐，则 topup bucket 的 `effective_to` 必须与当前套餐 `current_period_end_at` 对齐
+  - `topup` bucket：优先级 `30`，承载一次性积分包购买积分，以及能明确解析为 topup 的退款返还或历史赠送；若 creator 当前存在有效套餐，则 topup bucket 的 `effective_to` 必须与当前套餐 `current_period_end_at` 对齐
 - usage settlement 与 admission 只允许消费同时满足以下条件的 bucket：`status=active`、`available_credits > 0`、`effective_from <= settlement_at`，并且 `effective_to is null or effective_to > settlement_at`
 - bucket 扣减顺序在 v1 固定为 `(runtime priority asc, effective_to asc nulls last, created_at asc, id asc)`；也就是始终先扣 `subscription`，再扣 `topup`，同优先级下先扣最早到期、最早创建的 bucket
 - `effective_to = null` 明确表示永不过期，在同优先级排序中必须排在所有有具体过期时间的 bucket 之后
@@ -492,14 +492,14 @@ v1 冻结 bucket 规则：
 | --- | --- | --- | --- | --- | --- |
 | `ledger_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Credit ledger business identifier` | 账本业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
-| `wallet_bid` | `String(36)` | `not null, default="", index=True` | 归属钱包 | `Credit wallet business identifier` | 钱包业务 ID |
+| `wallet_bid` | `String(36)` | `not null, default="", index=True` | 归属账户 | `Credit wallet business identifier` | 账户业务 ID |
 | `wallet_bucket_bid` | `String(36)` | `not null, default="", index=True` | 归属余额桶；单 bucket 分录回填，多 bucket usage consume 可为空 | `Credit wallet bucket business identifier` | 余额桶业务 ID |
 | `entry_type` | `SmallInteger` | `not null, index=True` | `7401=grant; 7402=consume; 7403=refund; 7404=expire; 7405=adjustment; 7406=hold; 7407=release` | `Billing ledger entry type code` | 账本分录类型 |
 | `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7414=usage; 7415=refund; 7416=manual` | `Billing ledger source type code` | 分录来源类型 |
 | `source_bid` | `String(36)` | `not null, default="", index=True` | 对应业务单号，如 order/subscription/usage | `Ledger source business identifier` | 来源业务 ID |
 | `idempotency_key` | `String(128)` | `not null, default="", index=True` | 统一幂等键；聚合 usage consume 以 usage 维度稳定去重 | `Ledger idempotency key` | 分录幂等键 |
 | `amount` | `Numeric(20,10)` | `not null, default=0` | 正数增加可用余额，负数减少可用余额 | `Ledger amount` | 分录金额 |
-| `balance_after` | `Numeric(20,10)` | `not null, default=0` | 写入后钱包总可用余额快照 | `Balance after entry` | 分录后钱包总余额 |
+| `balance_after` | `Numeric(20,10)` | `not null, default=0` | 写入后账户总可用余额快照 | `Balance after entry` | 分录后账户总余额 |
 | `expires_at` | `DateTime` | `nullable=True, index=True` | 仅 grant 类分录会有到期时间 | `Entry expiration timestamp` | 积分到期时间 |
 | `consumable_from` | `DateTime` | `nullable=True` | 仅需延迟可用时使用 | `Consumable from timestamp` | 开始可消费时间 |
 | `metadata` | `JSON` | `nullable=True` | 必须支持 `usage_bid`、`usage_scene`、`provider`、`model`、`metric_breakdown[]`、`bucket_breakdown[]` | `Billing ledger metadata` | 分录元数据 |
@@ -813,7 +813,7 @@ v1 的改造要求：
 - 当前实现中，TTS usage 已支持两种 billing mode：有 `tts_request_count` 费率时按次扣分；未配置按次费率时回退到 `tts_output_chars`，再回退到 `tts_input_chars` 的按字数扣分
 - 当前实现中，`production`、`preview`、`debug` 三种 billing scene 都统一通过 `src/api/flaskr/service/billing/ownership.py` 的 `resolve_usage_creator_bid` 解析归属 creator；优先按 `shifu_bid -> creator_bid`，无 `shifu_bid` 的 debug authoring usage 则回落到 `user_bid`
 - 当前实现中，`src/api/flaskr/service/billing/settlement.py` 会在 creator 归属解析完成后，按 `creator_bid` 获取 `billing:settle_usage:{creator_bid}` cache lock，串行执行同一 creator 的 usage settlement 并在异常时释放锁
-- 当前实现中，`credit_ledger_entries` 继续只做 append-only 新增写入；`credit_wallets.version` 已用于 optimistic update，grant / settlement 会按 `id + version` compare-and-set 持久化钱包快照，冲突时抛出 `credit_wallet_version_conflict`
+- 当前实现中，`credit_ledger_entries` 继续只做 append-only 新增写入；`credit_wallets.version` 已用于 optimistic update，grant / settlement 会按 `id + version` compare-and-set 持久化账户快照，冲突时抛出 `credit_wallet_version_conflict`
 - 当前实现中，`credit_ledger_entries.wallet_bucket_bid` 已成为必填字段；usage consume 的 `idempotency_key` 采用 `usage:{usage_bid}:{billing_metric}:{wallet_bucket_bid}:consume`，grant 也会把 ledger 与 bucket 一一关联
 - 当前实现中，`src/api/flaskr/service/billing/wallets.py` 已提供 bucket 生命周期 helper：扣空 bucket 进入 `exhausted`；`expire_credit_wallet_buckets` 会把到期 bucket 迁移为 `expired` 并写 `expire` ledger；`grant_refund_return_credits` 会把 refund return 新增为 `subscription/topup` bucket + `refund` ledger，不回原 bucket
 - 当前实现中，admission 前置拦截只认可“当前可消费”的 bucket：必须 `status=active`、`available_credits>0`、`effective_from<=now` 且 `effective_to>now/null`；已到期 bucket、未来生效 bucket 和失效订阅都不会放行 learn / preview / debug 请求
@@ -863,7 +863,7 @@ v1 需要新增的改造点：
 
 - 在 learn / preview / debug 的 billable 动作入口前增加 `admission service`
 - admission 至少校验：
-  - creator 钱包余额
+  - creator 账户余额
   - creator 订阅状态
 - admission 拒绝后，不进入新的 billable LLM/TTS 调用
 - 当前实现已落到 `src/api/flaskr/service/billing/admission.py`，并接入 `src/api/flaskr/service/learn/routes.py` 与 `src/api/flaskr/service/shifu/route.py` 的 billable 入口
@@ -972,7 +972,8 @@ v1 冻结低余额阈值、告警与错误码规则：
 - creator runtime admission 的阻断错误码在 v1 固定只使用 `server.billing` 命名空间下的 2 个 key：
   - `server.billing.creditInsufficient`：当前没有任何处于有效期内、可消费且余额大于 `0` 的 bucket
   - `server.billing.subscriptionInactive`：当前没有 active-like subscription，且也没有任何 `free/topup` bucket 可兜底
-- `server.billing.creditInsufficient` 的文案语义固定为“积分不足，请先充值或开通订阅”；`server.billing.subscriptionInactive` 的文案语义固定为“订阅不可用且没有免费/充值积分可继续使用”；后续多语言翻译必须保持这个语义边界，不扩展额外业务分支说明
+- `server.billing.creditInsufficient` 的文案语义固定为“积分不足，请先开通订阅或购买积分”；`server.billing.subscriptionInactive` 的文案语义固定为“订阅不可用且没有免费/积分包积分可继续使用”；后续多语言翻译必须保持这个语义边界，不扩展额外业务分支说明
+- 账务/积分用户可见文案命名约定固定如下：不得使用“充值”或 top-up / recharge 语义；正文同时覆盖套餐和积分包时使用“开通订阅或购买积分”，且订阅优先；短按钮 CTA 使用“购买积分”；仅在明确指 `topup` 商品、订单、账本来源或 checkout 时使用“积分包”；用户可见余额主体称为“账户”，不称为“钱包”。内部 `topup` / `wallet` 技术字段、路由、枚举和 i18n key 不受该展示命名约束。
 - v1 不再新增新的 backend billing admission 错误码；更多 UI 提示优先通过 `billing_alerts` 承载，而不是扩散新的阻断错误 key
 - 当前版本不再保留 `server.billing.concurrencyExceeded`；runtime admission 阻断只围绕 credits / subscription 状态
 
@@ -1187,9 +1188,9 @@ v1 前端不新建全局 billing store，默认采用：
 - `套餐与积分`
   - 读取 `GET /billing/overview`
   - 并行读取 `GET /billing/catalog`
-  - 展示当前订阅、钱包余额、低余额/续费异常告警
-  - 展示套餐目录和充值包目录
-  - 承载订阅 checkout、恢复订阅、取消订阅、购买充值包入口
+  - 展示当前订阅、账户余额、低余额/续费异常告警
+  - 展示套餐目录和积分包目录
+  - 承载订阅 checkout、恢复订阅、取消订阅、购买积分包入口
 - `积分明细`
   - 按需读取 `GET /billing/wallet-buckets`
   - 读取 `GET /billing/ledger`
@@ -1344,7 +1345,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `POST /billing/orders/{bill_order_bid}/refund`：creator 对已支付 billing 订单发起退款；当前批次仅 Stripe 支持，Pingxx 返回 `unsupported`
 - `POST /billing/subscriptions/checkout`：新开订阅、升级补差或恢复订阅
 - `POST /billing/subscriptions/cancel` / `POST /billing/subscriptions/resume`：creator 取消或恢复订阅；manual trial subscription 不支持 cancel/resume；退款成功后如有关联订阅，当前批次会同步把订阅标记为 `canceled`
-- `POST /billing/topups/checkout`：在当前有效套餐周期内发起一次性充值支付
+- `POST /billing/topups/checkout`：在当前有效套餐周期内发起一次性积分包购买支付
 - checkout 接口统一返回 `bill_order_bid`、`provider`、`payment_mode`、`status`
 - Stripe checkout 返回 redirect URL 或 checkout session 信息；Pingxx topup 和 subscription order 都返回一次性 charge 所需 payload
 - `POST /order/stripe/webhook` / `POST /callback/pingxx-callback`：继续作为 provider 回调入口；负责验签、归一化、按订单状态机推进 `bill_orders`、推进 `bill_subscriptions`，把最近摘要覆盖写入关联 `bill_orders.metadata`，并更新关联 provider raw snapshot
@@ -1372,7 +1373,7 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 
 - `BillingPlan` 和 `BillingTopupProduct` 是 `bill_products` 的展示层投影，不是底层独立表
 - `BillingTrialOffer` 也是 `bill_products` 的展示层投影，但只用于 overview 免费卡片，不进入自助购买 catalog
-- v1 的 `CreatorBillingOverview` 返回钱包、订阅、告警和 `trial_offer`
+- v1 的 `CreatorBillingOverview` 返回账户、订阅、告警和 `trial_offer`
 - `BillingWalletBucket` 是 `credit_wallet_buckets` 的只读投影，不并入 `CreatorBillingOverview`
 - billing order DTO 如需暴露 provider 调试信息，优先读取 `bill_orders.metadata` 的最近一次摘要；更完整的 provider 原始对象从 `order_pingxx_orders` / `order_stripe_orders` 的 billing raw snapshot 查看，不设计 append-only 事件历史
 - `entitlements`、`branding`、`domains` 属于 v1.1 扩展输出
@@ -1522,7 +1523,7 @@ type CreatorBrandingConfig = {
 
 ### 9.2 v1 完整目标必测
 
-- 套餐购买、充值包购买、自动续费、失败重试、取消自动续费、恢复订阅
+- 套餐购买、积分包购买、自动续费、失败重试、取消自动续费、恢复订阅
 - `production` / `preview` / `debug` 三场景 creator 归属是否正确
 - 多个学生并发学习同一 creator 课程时，Celery 串行扣减是否仍然准确
 - `free > subscription > topup` 的 bucket 扣减优先级是否严格生效

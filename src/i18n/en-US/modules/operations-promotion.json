@@ -178,7 +178,7 @@
     "productType": "Product Type",
     "productTypePlaceholder": "Select a product type",
     "productTypePlan": "Plan",
-    "productTypeTopup": "Top-up",
+    "productTypeTopup": "Credit pack",
     "products": "Products",
     "productsEmptyHint": "Select a product type first",
     "productsHelper": "You can adjust only selected products. Products without campaign settings keep their original configuration.",
