@@ -418,7 +418,7 @@
       "subscription": "Crédits du forfait",
       "topup": "Pack de crédits"
     },
-    "empty": "Aucun lot de crédits de compte pour le moment. Les crédits apparaîtront ici après votre première attribution.",
+    "empty": "Aucun lot de crédits du compte pour le moment. Les crédits apparaîtront ici après votre première attribution.",
     "entriesDescription": "Les enregistrements d’attribution, consommation, remboursement et expiration au niveau écriture seront connectés dans la prochaine tâche de facturation.",
     "entriesTitle": "Écritures du grand livre",
     "entryType": {
