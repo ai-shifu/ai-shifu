@@ -510,10 +510,7 @@ const Header = ({
                       <DropdownMenuItem
                         asChild
                         disabled={modeDisabled}
-                        className={cn(
-                          'min-w-0 flex-1 bg-transparent px-3 py-2 text-sm focus:bg-transparent',
-                          unavailableLabel ? 'cursor-not-allowed' : '',
-                        )}
+                        className='min-w-0 flex-1 bg-transparent px-3 py-2 text-sm focus:bg-transparent'
                         onSelect={() => {
                           void publish(mode);
                         }}
@@ -521,10 +518,7 @@ const Header = ({
                         <button
                           type='button'
                           disabled={modeDisabled}
-                          className={cn(
-                            'flex min-w-0 items-center gap-2.5 text-left',
-                            unavailableLabel ? 'cursor-not-allowed' : '',
-                          )}
+                          className='flex min-w-0 items-center gap-2.5 text-left'
                         >
                           <ModeIcon className='h-4 w-4 shrink-0 text-muted-foreground/70' />
                           <span className='truncate'>

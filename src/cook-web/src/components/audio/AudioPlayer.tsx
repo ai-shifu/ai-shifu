@@ -944,7 +944,7 @@ function AudioPlayerBase(
         'rounded',
         'transition-colors duration-200',
         'hover:bg-gray-100',
-        isButtonDisabled && 'opacity-50 cursor-not-allowed',
+        isButtonDisabled && 'opacity-50',
         className,
       )}
     >
