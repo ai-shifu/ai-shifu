@@ -1,0 +1,43 @@
+{
+  "__namespace__": "module.onboarding",
+  "adminHome": {
+    "balance": {
+      "description": "Your available credit balance is shown in the lower-left corner. Debug, preview, and publish actions are tied to credits.",
+      "title": "Check your credit balance here"
+    },
+    "billingCard": {
+      "descriptionWithDays": "We have added {credits} trial credits to your account for {days} days. Check your credit balance here, or buy and upgrade plans when needed.",
+      "descriptionWithExpiry": "We have added {credits} trial credits to your account, valid until {expiresAt}. Check your credit balance here, or buy and upgrade plans when needed.",
+      "title": "Check credits and buy plans here"
+    },
+    "blankCourse": {
+      "description": "Create your own course here and build the content from scratch.",
+      "title": "Click to create a new course"
+    },
+    "courseCreation": {
+      "description": "You can create a course from scratch or use <strong>Create courses with AI assistant</strong> to generate a first draft faster.",
+      "title": "Start creating from here"
+    },
+    "guideCourse": {
+      "description": "This is the built-in creation guide course.",
+      "title": "Start with the creation guide course"
+    },
+    "lobsterCourse": {
+      "descriptionLink": "Create courses with AI assistant",
+      "descriptionPrefix": "You can also use ",
+      "descriptionSuffix": " to generate a first draft faster.",
+      "title": "Create courses with AI assistant"
+    },
+    "upgrade": {
+      "description": "If your credits run low, you can purchase or upgrade here and keep creating without interruption.",
+      "title": "Upgrade here when credits run low"
+    },
+    "welcome": {
+      "description": "We have added {credits} trial credits to your account for {days} days. Let's take a quick tour of the key creation entry points.",
+      "title": "Welcome to AI-Shifu"
+    }
+  },
+  "common": {
+    "continue": "Click anywhere to continue"
+  }
+}

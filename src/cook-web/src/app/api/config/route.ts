@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { environment } from '@/config/environment';
+import { normalizeHost, shouldUseSameOriginApiBase } from './route-utils';
 
 export async function GET(request: Request) {
   const configured = environment.apiBaseUrl || '';
@@ -13,37 +14,12 @@ export async function GET(request: Request) {
   if (configured) {
     try {
       const configuredHost = new URL(configured).host.toLowerCase();
-      const requestHost = (
+      const requestHost = normalizeHost(
         request.headers.get('x-forwarded-host') ||
-        request.headers.get('host') ||
-        ''
-      )
-        .split(',')[0]
-        .trim()
-        .toLowerCase();
-      // Local development serves the frontend on localhost while pointing at a
-      // remote API (e.g. dev.sh sets NEXT_PUBLIC_API_BASE_URL to a remote
-      // host). There is no same-origin /api proxy on localhost, so always
-      // return the configured absolute base instead of treating the host
-      // mismatch as a white-label domain.
-      // Parse the host as an authority so the port is stripped correctly for
-      // both IPv4 and bracketed IPv6 forms (e.g. "[::1]:3000"). A bare "::1"
-      // is not a valid authority, so fall back to a plain split.
-      let requestHostname: string;
-      try {
-        requestHostname = new URL(
-          `http://${requestHost}`,
-        ).hostname.toLowerCase();
-      } catch {
-        requestHostname = requestHost.split(':')[0];
-      }
-      const isLocalhost =
-        requestHostname === 'localhost' ||
-        requestHostname === '127.0.0.1' ||
-        requestHostname === '0.0.0.0' ||
-        requestHostname === '::1' ||
-        requestHostname === '[::1]';
-      if (!isLocalhost && requestHost && requestHost !== configuredHost) {
+          request.headers.get('host') ||
+          '',
+      );
+      if (shouldUseSameOriginApiBase(configuredHost, requestHost)) {
         return NextResponse.json({ apiBaseUrl: '' });
       }
     } catch {

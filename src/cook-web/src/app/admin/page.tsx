@@ -38,7 +38,13 @@ import ShifuPermissionDialog from '@/components/shifu-setting/ShifuPermissionDia
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
+import { useCreatorOnboardingStatus } from '@/hooks/useOnboarding';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
+import {
+  buildGuideCourseTargetId,
+  buildOnboardingTargetProps,
+  ONBOARDING_TARGET_IDS,
+} from '@/lib/onboardingTargets';
 import AdminBreadcrumb from './components/AdminBreadcrumb';
 import AdminTitle from './components/AdminTitle';
 
@@ -53,6 +59,7 @@ interface ShifuCardProps {
   canManagePermissions?: boolean;
   onArchiveRequest?: () => void;
   onPermissionRequest?: () => void;
+  onboardingTargetId?: string;
 }
 
 const CARD_CONTAINER_CLASS =
@@ -83,12 +90,18 @@ const ShifuCard = ({
   canManagePermissions,
   onArchiveRequest,
   onPermissionRequest,
+  onboardingTargetId,
 }: ShifuCardProps) => {
   const { t } = useTranslation();
   const showMenu = Boolean(canManageArchive || canManagePermissions);
 
   return (
-    <div className='relative w-full h-full group'>
+    <div
+      className='relative w-full h-full group'
+      {...(onboardingTargetId
+        ? buildOnboardingTargetProps(onboardingTargetId)
+        : {})}
+    >
       <Link
         href={`/shifu/${id}`}
         target='_blank'
@@ -209,6 +222,9 @@ const ScriptManagementPage = () => {
   const hasAuthenticatedAdminSession = isInitialized && isLoggedIn && !isGuest;
   const hasResolvedAdminSession =
     hasAuthenticatedAdminSession && Boolean(currentUserId);
+  const { data: onboardingStatus } = useCreatorOnboardingStatus(
+    hasResolvedAdminSession,
+  );
   const [courseCreatorUrl, setCourseCreatorUrl] = useState<string | null>(null);
   const [adminReady, setAdminReady] = useState(false);
   const [permissionRetryNonce, setPermissionRetryNonce] = useState(0);
@@ -234,6 +250,9 @@ const ScriptManagementPage = () => {
   const listVersionRef = useRef(0);
 
   const activeTabRef = useRef<'all' | 'archived'>(activeTab);
+  const guideCourseTargetId = buildGuideCourseTargetId(
+    onboardingStatus?.guide_course.bid,
+  );
 
   useEffect(() => {
     activeTabRef.current = activeTab;
@@ -620,22 +639,35 @@ const ScriptManagementPage = () => {
               </TabsList>
             </Tabs>
             <div className='flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end'>
-              {courseCreatorUrl ? (
-                <a
-                  href={courseCreatorUrl}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='text-xs text-muted-foreground underline hover:text-foreground'
-                >
-                  {t('common.core.aiCourseCreator')}
-                </a>
-              ) : null}
-              <Button
-                size='sm'
-                onClick={handleCreateShifuModal}
+              <div
+                className='flex flex-col gap-3 sm:flex-row sm:items-center'
+                {...buildOnboardingTargetProps(
+                  ONBOARDING_TARGET_IDS.courseCreationEntry,
+                )}
               >
-                {t('common.core.createBlankShifu')}
-              </Button>
+                {courseCreatorUrl ? (
+                  <a
+                    href={courseCreatorUrl}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='text-xs text-muted-foreground underline hover:text-foreground'
+                    {...buildOnboardingTargetProps(
+                      ONBOARDING_TARGET_IDS.lobsterCreateEntry,
+                    )}
+                  >
+                    {t('common.core.aiCourseCreator')}
+                  </a>
+                ) : null}
+                <Button
+                  size='sm'
+                  onClick={handleCreateShifuModal}
+                  {...buildOnboardingTargetProps(
+                    ONBOARDING_TARGET_IDS.blankCreateEntry,
+                  )}
+                >
+                  {t('common.core.createBlankShifu')}
+                </Button>
+              </div>
             </div>
           </div>
           <CreateShifuDialog
@@ -658,6 +690,11 @@ const ScriptManagementPage = () => {
                   canManagePermissions={canManagePermissions(shifu)}
                   onArchiveRequest={() => handleArchiveRequest(shifu)}
                   onPermissionRequest={() => handlePermissionRequest(shifu)}
+                  onboardingTargetId={
+                    shifu.bid === onboardingStatus?.guide_course.bid
+                      ? guideCourseTargetId
+                      : undefined
+                  }
                 />
               ))}
             </div>

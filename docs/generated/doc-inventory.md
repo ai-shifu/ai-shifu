@@ -20,6 +20,7 @@
 | `docs/design-docs/primary-surface-rules.md` | Primary Surface Rules Completion | `design-doc` | `implemented` | `repo` | `2026-04-17` | `true` |
 | `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-06-11` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `root-doc` | `reference` | `repo` | `2026-04-17` | `true` |
+| `docs/exec-plans/active/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/billing-credit-notifications.md` | ExecPlan: Billing Credit Notifications | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-dashboard-course-ownership-optimization.md` | Creator Dashboard Course Ownership Optimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
