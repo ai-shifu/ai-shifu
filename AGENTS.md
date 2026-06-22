@@ -35,6 +35,9 @@ to.
   generic product term. Use `老师` for the general course-building or teacher
   account role; use `课程负责人` or, inside an existing course context,
   `负责人` when referring to a specific course owner.
+- Keep English and French translations aligned with that distinction: use
+  `teacher` / `enseignant` for the generic role, while a specific course
+  owner may still be translated as `creator` / `créateur`.
 
 ## Avoid
 

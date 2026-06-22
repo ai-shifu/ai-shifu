@@ -308,7 +308,7 @@
       "notStarted": "Not Started"
     },
     "userRole": {
-      "creator": "Creator",
+      "creator": "Teacher",
       "normal": "General User",
       "operator": "Operator",
       "student": "Student"

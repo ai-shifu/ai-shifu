@@ -215,7 +215,7 @@
       "validityPreset": "Validity"
     },
     "confirmTitle": "Confirm Credit Grant",
-    "description": "Use this dialog to grant credits or a package to creator or operator users from Operations.",
+    "description": "Use this dialog to grant credits or a package to teacher or operator users from Operations.",
     "fields": {
       "amount": "Credits",
       "mode": "Grant Type",
@@ -304,7 +304,7 @@
   "overview": {
     "activeFilter": "Quick Filter",
     "metrics": {
-      "creators": "Creators",
+      "creators": "Teachers",
       "guests": "Guests",
       "learners": "Learners",
       "learningActive30d": "Active Learners (30d)",
@@ -318,7 +318,7 @@
     "staleData": "Overview refresh failed. Showing the last successful snapshot.",
     "title": "Overview",
     "tooltips": {
-      "creators": "Creator users",
+      "creators": "Teacher users",
       "guests": "Guest users",
       "learners": "Users with learning records",
       "learningActive30d": "Users with learning activity in the last 30 days",
@@ -339,7 +339,7 @@
     "wechat": "WeChat"
   },
   "roleLabels": {
-    "creator": "Creator",
+    "creator": "Teacher",
     "learner": "Learner",
     "operator": "Operator",
     "regular": "Regular",

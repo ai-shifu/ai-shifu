@@ -52,7 +52,7 @@
         "totalOrders": "Total des commandes"
       },
       "tooltips": {
-        "creditAmount": "Total des crédits non consommés actuellement disponibles sur tous les comptes créateurs pour l’apprentissage, la prévisualisation et le débogage",
+        "creditAmount": "Total des crédits non consommés actuellement disponibles sur tous les comptes enseignants pour l’apprentissage, la prévisualisation et le débogage",
         "paidAmount": "Montant payé des commandes de crédits",
         "paidOrders": "Commandes de crédits payées",
         "totalOrders": "Total des commandes de crédits"

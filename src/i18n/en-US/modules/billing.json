@@ -22,7 +22,7 @@
         "creatorBid": "creator_bid",
         "note": "Reason for the manual adjustment"
       },
-      "quickAction": "Adjust this creator",
+      "quickAction": "Adjust this teacher",
       "submit": "Apply adjustment",
       "submitting": "Applying...",
       "success": "Ledger updated for {creatorBid}. Available credits: {availableCredits}.",
@@ -31,11 +31,11 @@
     "attention": "Needs attention",
     "backToCreatorBilling": "Back to billing center",
     "domains": {
-      "description": "Audit creator custom domains, inspect entitlement gates, and spot hosts that still need follow-up.",
+      "description": "Audit teacher custom domains, inspect entitlement gates, and spot hosts that still need follow-up.",
       "empty": "No custom domain bindings yet.",
       "loadError": "Admin domain audit data could not be loaded.",
       "table": {
-        "creator": "Creator",
+        "creator": "Teacher",
         "effective": "Effective",
         "entitlement": "Domain entitlement",
         "host": "Host",
@@ -50,7 +50,7 @@
       }
     },
     "entitlements": {
-      "description": "Review the effective entitlement snapshot resolved for each creator workspace.",
+      "description": "Review the effective entitlement snapshot resolved for each teacher workspace.",
       "empty": "No entitlement snapshots yet.",
       "loadError": "Admin entitlement data could not be loaded.",
       "source": {
@@ -60,7 +60,7 @@
       },
       "table": {
         "analytics": "Analytics tier",
-        "creator": "Creator",
+        "creator": "Teacher",
         "features": "Features",
         "priority": "Priority class",
         "source": "Source",
@@ -87,13 +87,13 @@
       "title": "Exceptions"
     },
     "orders": {
-      "description": "Review billing orders across creators and spot failed provider actions.",
+      "description": "Review billing orders across teachers and spot failed provider actions.",
       "empty": "No billing orders yet.",
       "loadError": "Admin order data could not be loaded.",
       "table": {
         "amount": "Amount",
         "createdAt": "Created at",
-        "creator": "Creator",
+        "creator": "Teacher",
         "failure": "Failure",
         "order": "Order",
         "provider": "Provider",
@@ -105,30 +105,30 @@
       "page": "Page {page} / {pageCount} · {total} records"
     },
     "reports": {
-      "description": "Inspect cross-creator usage and ledger rollups without leaving the operations console.",
+      "description": "Inspect cross-teacher usage and ledger rollups without leaving the operations console.",
       "sections": {
         "ledger": {
-          "description": "Cross-creator ledger movement by day, source, and entry type.",
+          "description": "Cross-teacher ledger movement by day, source, and entry type.",
           "title": "Ledger Rollups"
         },
         "usage": {
-          "description": "Cross-creator usage cost rollups by creator, shifu, scene, and metric.",
+          "description": "Cross-teacher usage cost rollups by teacher, shifu, scene, and metric.",
           "title": "Usage Rollups"
         }
       },
       "table": {
-        "creator": "Creator"
+        "creator": "Teacher"
       },
       "title": "Reports"
     },
     "subscriptions": {
-      "description": "Inspect creator subscriptions, account balances, and renewal context.",
+      "description": "Inspect teacher subscriptions, account balances, and renewal context.",
       "empty": "No subscriptions yet.",
       "loadError": "Admin subscription data could not be loaded.",
       "preorderTarget": "Preorder: {product}",
       "table": {
         "availableCredits": "Available credits",
-        "creator": "Creator",
+        "creator": "Teacher",
         "currentPeriodEnd": "Current period end",
         "product": "Product",
         "provider": "Provider",
@@ -157,7 +157,7 @@
       "resumeSubscription": "Resume subscription"
     },
     "cancelScheduled": "This subscription is set to end at the current period boundary. Resume it to keep recurring credits active.",
-    "lowBalance": "Your creator account is out of credits. Subscribe or buy credits before the next settlement runs.",
+    "lowBalance": "Your teacher account is out of credits. Subscribe or buy credits before the next settlement runs.",
     "lowBalanceDescription": "Your credits are gone, so AI-generated content is unavailable right now.",
     "lowBalanceTitle": "Your credits are exhausted. The AI is taking a break.",
     "subscriptionPastDue": "Subscription renewal is blocked. Review the payment records and sync the latest provider status."
@@ -197,19 +197,19 @@
       },
       "creatorCatalog": {
         "description": "Catalog cards for plans and topups remain active.",
-        "title": "Creator catalog"
+        "title": "Teacher catalog"
       },
       "creatorOrders": {
-        "description": "Creator orders, sync, refund, and topup flows remain enabled.",
-        "title": "Creator orders"
+        "description": "Teacher orders, sync, refund, and topup flows remain enabled.",
+        "title": "Teacher orders"
       },
       "creatorSubscriptionCheckout": {
-        "description": "Creator subscription checkout, cancel, and resume remain enabled.",
-        "title": "Creator subscription lifecycle"
+        "description": "Teacher subscription checkout, cancel, and resume remain enabled.",
+        "title": "Teacher subscription lifecycle"
       },
       "creatorWalletLedger": {
         "description": "Account credit buckets and ledger read models remain enabled.",
-        "title": "Creator account and ledger"
+        "title": "Teacher account and ledger"
       },
       "dailyAggregateRebuild": {
         "description": "Daily aggregate rebuild and finalize flows remain internal-only.",
