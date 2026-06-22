@@ -81,7 +81,7 @@ export default function CourseMetricsCardGrid({
                   key={card.label}
                   type='button'
                   aria-label={card.actionLabel || card.label}
-                  className='group cursor-pointer text-left transition-colors'
+                  className='group text-left transition-colors'
                   onClick={card.onClick}
                 >
                   <AdminCountCard
