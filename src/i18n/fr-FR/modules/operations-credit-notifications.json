@@ -19,11 +19,11 @@
     "emptyBlockedCreators": "Aucun enseignant bloqué.",
     "emptyOptedOutCreators": "Aucun enseignant désinscrit.",
     "fieldTips": {
-      "blockedCreatorList": "Affiche les enseignants actuellement bloqués. Les modifications saisies prennent effet après enregistrement.",
-      "creatorIdentifierList": "Saisissez des mobiles enseignant ou ID séparés par des virgules.",
-      "creatorIdentifierListEmail": "Saisissez des e-mails enseignant ou ID séparés par des virgules.",
-      "creatorIdentifierListPhone": "Saisissez des mobiles enseignant ou ID séparés par des virgules.",
-      "creatorList": "Saisissez des ID enseignant séparés par des virgules.",
+      "blockedCreatorList": "Affiche les créateurs actuellement bloqués. Les modifications saisies prennent effet après enregistrement.",
+      "creatorIdentifierList": "Saisissez des numéros mobiles ou ID de créateur séparés par des virgules.",
+      "creatorIdentifierListEmail": "Saisissez des e-mails ou ID de créateur séparés par des virgules.",
+      "creatorIdentifierListPhone": "Saisissez des numéros mobiles ou ID de créateur séparés par des virgules.",
+      "creatorList": "Saisissez des ID de créateur séparés par des virgules.",
       "dailySmsLimit": "Après ce plafond quotidien, aucun nouveau SMS ne sera envoyé ce jour-là.",
       "enabled": "Contrôle l’activation des SMS de crédits. S’applique uniquement aux notifications futures.",
       "estimatedDays": "Déclenche le rappel de solde bas lorsque les jours utilisables estimés atteignent cette valeur.",
@@ -45,7 +45,7 @@
       "windows": "Par exemple 7d,3d,1d,0d signifie 7 jours avant, 3 jours avant, 1 jour avant et le jour même."
     },
     "fields": {
-      "blacklistCreatorBids": "ID enseignants à bloquer",
+      "blacklistCreatorBids": "ID des créateurs à bloquer",
       "blacklistMobiles": "Mobiles à bloquer",
       "blockedCreatorList": "Enseignants bloqués",
       "blockedCreators": "Enseignants bloqués",
@@ -56,14 +56,14 @@
       "estimatedDays": "Jours restants utilisables",
       "estimatedDaysEnabled": "Rappel selon jours utilisables",
       "fallbackFixedValue": "Seuil de solde de secours",
-      "lookbackDays": "Jours d’analyse de consommation",
-      "mergeSameCreator": "Fusionner le même enseignant",
-      "minConsumedDays": "Jours minimum de consommation valide",
-      "optOutCreatorBids": "ID enseignants désinscrits",
+      "lookbackDays": "Période d’analyse de consommation (jours)",
+      "mergeSameCreator": "Fusionner le même créateur",
+      "minConsumedDays": "Nombre minimal de jours de consommation valide",
+      "optOutCreatorBids": "ID des créateurs désinscrits",
       "optOutMobiles": "Mobiles désinscrits",
-      "optedOutCreators": "Enseignants désinscrits",
-      "perCreatorPerTypePerDay": "Plafond/jour par enseignant/type",
-      "perMobilePerDay": "Plafond/jour par mobile",
+      "optedOutCreators": "Créateurs désinscrits",
+      "perCreatorPerTypePerDay": "Plafond quotidien par créateur/type",
+      "perMobilePerDay": "Plafond quotidien par mobile",
       "quietEnd": "Fin heures calmes",
       "quietHoursEnabled": "Activer les heures calmes",
       "quietStart": "Début heures calmes",
@@ -76,11 +76,11 @@
       "templateSelect": "Sélectionner un modèle SMS",
       "thresholds": "Seuils de rappel de solde",
       "timezone": "Fuseau horaire",
-      "windows": "Fenêtres de rappel d’expiration"
+      "windows": "Délais de rappel d’expiration"
     },
     "inputPlaceholders": {
-      "blockedCreatorsEmail": "Saisir e-mail enseignant ou ID, séparés par des virgules",
-      "blockedCreatorsPhone": "Saisir mobile enseignant ou ID, séparés par des virgules"
+      "blockedCreatorsEmail": "Saisir des e-mails ou ID de créateur, séparés par des virgules",
+      "blockedCreatorsPhone": "Saisir des numéros mobiles ou ID de créateur, séparés par des virgules"
     },
     "invalidConfig": "Impossible d’enregistrer la configuration. Vérifiez les valeurs du formulaire.",
     "listDialog": {
@@ -211,7 +211,7 @@
     "sent": "Envoyé"
   },
   "detail": {
-    "description": "Consulter le parcours d’envoi, les dates et la réponse fournisseur de cet enregistrement.",
+    "description": "Consulter le parcours d’envoi, les dates et la réponse du fournisseur de cet enregistrement.",
     "fallback": "Aucun enregistrement sélectionné",
     "fields": {
       "attemptedAt": "Dernière tentative",
@@ -220,18 +220,18 @@
       "errorCode": "Code erreur",
       "errorMessage": "Raison d’échec",
       "metadata": "Métadonnées",
-      "notificationBid": "ID notification",
-      "policySnapshot": "Instantané stratégie",
-      "providerResponse": "Réponse fournisseur",
+      "notificationBid": "ID de notification",
+      "policySnapshot": "Instantané de stratégie",
+      "providerResponse": "Réponse du fournisseur",
       "requestedAt": "Demandé le",
       "sentAt": "Envoyé le",
       "skipReason": "Raison de non-envoi",
-      "sourceBid": "ID objet déclencheur",
+      "sourceBid": "ID de l’objet déclencheur",
       "sourceObject": "Objet déclencheur",
       "template": "Modèle SMS",
-      "templateCode": "Code modèle",
+      "templateCode": "Code du modèle",
       "templateName": "Nom du modèle",
-      "templateParams": "Paramètres modèle",
+      "templateParams": "Paramètres du modèle",
       "updatedAt": "Mis à jour le"
     },
     "params": {
@@ -289,8 +289,8 @@
     "expiry_extended": "L’expiration des crédits a été prolongée avant l’envoi.",
     "frequency_creator_type_daily": "La limite quotidienne de cet enseignant et de ce type est atteinte.",
     "frequency_mobile_daily": "La limite quotidienne de ce téléphone est atteinte.",
-    "invalid_mobile": "Le téléphone de l’enseignant est invalide, non envoyé.",
-    "missing_mobile": "Le téléphone de l’enseignant est vide, non envoyé.",
+    "invalid_mobile": "Le numéro de téléphone du créateur est invalide ; notification non envoyée.",
+    "missing_mobile": "Le numéro de téléphone du créateur est manquant ; notification non envoyée.",
     "missing_template_code": "Le modèle SMS n’est pas configuré.",
     "missing_template_params": "Les paramètres du modèle SMS sont incomplets.",
     "opt_out": "L’enseignant s’est désinscrit, non envoyé.",
@@ -303,14 +303,14 @@
   "filters": {
     "all": "Tous",
     "createdTime": "Date de création",
-    "creator": "Enseignant",
-    "creatorBid": "ID enseignant",
+    "creator": "Créateur",
+    "creatorBid": "ID de créateur",
     "creatorPlaceholder": "E-mail / pseudonyme",
     "mobile": "Mobile",
     "notificationType": "Type de notification",
     "skipReason": "Raison de non-envoi",
-    "sourceBid": "ID métier déclencheur",
-    "sourceType": "Scénario déclencheur",
+    "sourceBid": "ID métier du déclencheur",
+    "sourceType": "Type de déclencheur",
     "status": "Statut d’envoi",
     "time": "Période",
     "timeRangePlaceholder": "Date de début ~ Date de fin"
@@ -341,7 +341,7 @@
     "duplicate": "Notification en double",
     "policy": "Limite de stratégie",
     "stale": "Condition de déclenchement modifiée",
-    "template_params": "Paramètres modèle incomplets"
+    "template_params": "Paramètres du modèle incomplets"
   },
   "sourceType": {
     "ledger": "Rappel d’attribution de crédits",
@@ -363,10 +363,10 @@
     "createdAt": "Créé le",
     "creator": "Enseignant",
     "dedupeKey": "Clé d’idempotence",
-    "error": "Raison / détails erreur",
+    "error": "Raison / détails de l’erreur",
     "mobile": "Téléphone",
     "notification": "Type de notification",
-    "source": "Scénario déclencheur",
+    "source": "Type de déclencheur",
     "status": "Statut d’envoi",
     "template": "Modèle",
     "templateParams": "Paramètres"

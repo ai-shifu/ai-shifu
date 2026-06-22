@@ -3,7 +3,7 @@
   "admin": {
     "adjust": {
       "cancel": "Annuler",
-      "description": "Utilisez un nombre décimal positif pour attribuer des crédits ou négatif pour les consommer selon l’ordre standard des compartiments.",
+      "description": "Utilisez un nombre décimal positif pour attribuer des crédits ou un nombre négatif pour les consommer selon l’ordre standard des réserves.",
       "errors": {
         "amountInvalid": "Saisir un montant décimal non nul avec jusqu’à 10 décimales.",
         "creatorBidRequired": "Le BID du créateur est requis."
@@ -24,7 +24,7 @@
       },
       "quickAction": "Ajuster cet enseignant",
       "submit": "Appliquer l’ajustement",
-      "submitting": "Application...",
+      "submitting": "Application…",
       "success": "Grand livre mis à jour pour {creatorBid}. Crédits disponibles : {availableCredits}.",
       "title": "Ajustement manuel des crédits"
     },
@@ -208,8 +208,8 @@
         "title": "Cycle de vie de l’abonnement enseignant"
       },
       "creatorWalletLedger": {
-        "description": "Les compartiments de crédits du compte et les modèles de lecture du grand livre restent activés.",
-        "title": "Compte enseignant et grand livre"
+        "description": "Les réserves de crédits du compte et les modèles de lecture du registre restent activés.",
+        "title": "Compte créateur et grand livre"
       },
       "dailyAggregateRebuild": {
         "description": "Les flux de reconstruction et finalisation des agrégats quotidiens restent internes uniquement.",
@@ -244,8 +244,8 @@
         "title": "Règlement d’utilisation"
       },
       "walletBucketExpiration": {
-        "description": "L’expiration des compartiments de crédits du compte reste interne uniquement.",
-        "title": "Expiration des compartiments de crédits du compte"
+        "description": "L’expiration des réserves de crédits du compte reste interne uniquement.",
+        "title": "Expiration des réserves de crédits du compte"
       }
     },
     "status": {
@@ -262,7 +262,7 @@
   },
   "catalog": {
     "actions": {
-      "processing": "Traitement..."
+      "processing": "Traitement…"
     },
     "badges": {
       "bestValue": "Meilleur choix",
@@ -326,7 +326,7 @@
     "preorderDescription": "Ce forfait est prépayé maintenant et prendra effet à la fin du cycle actuel.",
     "prepaidOffsetLabel": "Compensation prépayée",
     "priceLabel": "Prix",
-    "processing": "Traitement...",
+    "processing": "Traitement…",
     "productLabel": "Produit",
     "providerLabel": "Fournisseur de paiement",
     "subject": {
@@ -379,7 +379,7 @@
     "status": {
       "disabled": "Désactivé",
       "failed": "Échec de la vérification",
-      "pending": "En attente verification",
+      "pending": "En attente de vérification",
       "verified": "Vérifié"
     }
   },
@@ -413,14 +413,14 @@
     }
   },
   "ledger": {
-    "bucketDescription": "Consulter les compartiments source, les soldes restants et l’ordre de consommation.",
+    "bucketDescription": "Consulter les réserves de crédits, les soldes restants et l’ordre de consommation.",
     "category": {
       "subscription": "Crédits du forfait",
       "topup": "Pack de crédits"
     },
-    "empty": "Aucun compartiment de crédits du compte pour le moment. Les crédits apparaîtront ici après votre première attribution.",
+    "empty": "Aucune réserve de crédits sur le compte pour le moment. Les crédits apparaîtront ici après votre première attribution.",
     "entriesDescription": "Les enregistrements d’attribution, consommation, remboursement et expiration au niveau écriture seront connectés dans la prochaine tâche de facturation.",
-    "entriesTitle": "Écritures du grand livre",
+    "entriesTitle": "Écritures comptables",
     "entryType": {
       "adjustment": "Ajustement",
       "consume": "Consommer",
@@ -430,7 +430,7 @@
       "refund": "Remboursement",
       "release": "Libérer"
     },
-    "loadError": "Impossible de charger les données des compartiments de crédits du compte. Actualisez et réessayez.",
+    "loadError": "Impossible de charger les réserves de crédits du compte. Actualisez et réessayez.",
     "neverExpires": "Suit l’expiration des crédits du forfait",
     "pagination": {
       "page": "Page {page} / {pageCount} · {total} écritures"
@@ -445,9 +445,9 @@
       "usage": "Règlement d’utilisation"
     },
     "summary": {
-      "activeBuckets": "Compartiments actifs",
+      "activeBuckets": "Réserves actives",
       "nextExpiry": "Prochaine expiration",
-      "totalAvailable": "Crédits du compartiment"
+      "totalAvailable": "Crédits en réserve"
     },
     "table": {
       "action": "Action",
