@@ -11,8 +11,8 @@
       "title": "这里查看积分和购买套餐"
     },
     "blankCourse": {
-      "description": "你可以直接新建课程，从空白课程开始搭建内容。",
-      "title": "从这里新建课程"
+      "description": "从这里新建一门自己的课程，从头开始制作内容。",
+      "title": "点击新建课程"
     },
     "courseCreation": {
       "description": "你可以直接新建课程，也可以使用<strong>龙虾助理智能建课</strong>，更快生成课程初稿。",

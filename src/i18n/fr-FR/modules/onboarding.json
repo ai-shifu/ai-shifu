@@ -11,8 +11,8 @@
       "title": "Consultez vos crédits et achetez une offre ici"
     },
     "blankCourse": {
-      "description": "Créez ici un cours vide et commencez à construire votre contenu.",
-      "title": "Créez un nouveau cours ici"
+      "description": "Créez ici votre propre cours et construisez le contenu à partir de zéro.",
+      "title": "Cliquez pour créer un nouveau cours"
     },
     "courseCreation": {
       "description": "Vous pouvez créer un cours à partir de zéro ou utiliser <strong>Créer des cours avec l'assistant IA</strong> pour générer plus rapidement une première ébauche.",
