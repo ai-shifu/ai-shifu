@@ -109,7 +109,7 @@
       "rewardStatus": "Statut récompense",
       "subscription": "BID abonnement",
       "title": "Détail relation d’invitation",
-      "walletBucket": "BID lot de crédits du compte"
+      "walletBucket": "BID du compartiment de crédits"
     },
     "empty": "Aucune relation d’invitation.",
     "filters": {

@@ -109,7 +109,7 @@
       "rewardStatus": "奖励状态",
       "subscription": "订阅 BID",
       "title": "邀请关系详情",
-      "walletBucket": "账户积分批次 BID"
+      "walletBucket": "积分桶 BID"
     },
     "empty": "暂无邀请关系。",
     "filters": {
