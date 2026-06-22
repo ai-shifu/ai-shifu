@@ -178,7 +178,7 @@
     "productType": "Type de produit",
     "productTypePlaceholder": "Sélectionner un type de produit",
     "productTypePlan": "Forfait",
-    "productTypeTopup": "Recharge",
+    "productTypeTopup": "Pack de crédits",
     "products": "Produits",
     "productsEmptyHint": "Sélectionnez d’abord un type de produit",
     "productsHelper": "Vous pouvez ajuster seulement certains produits. Les produits sans configuration de campagne conservent leur état d’origine.",

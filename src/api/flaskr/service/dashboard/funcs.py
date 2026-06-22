@@ -2008,8 +2008,11 @@ def _build_dashboard_course_learners(
     for row in page_rows:
         user_bid = str(getattr(row, "user_bid", "") or "").strip()
         contact = contact_map.get(user_bid, {"mobile": "", "email": ""})
-        last_learning_at = getattr(row, "last_learning_at", None)
-        joined_at = getattr(row, "joined_at", None)
+        last_learning_at = _coerce_datetime(
+            app,
+            getattr(row, "last_learning_at", None),
+        )
+        joined_at = _coerce_datetime(app, getattr(row, "joined_at", None))
         paged_items.append(
             DashboardCourseDetailLearnerItemDTO(
                 user_bid=user_bid,

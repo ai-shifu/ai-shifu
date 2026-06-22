@@ -9,6 +9,12 @@
   code-facing text, no hardcoded user-facing strings or secrets, and
   shared-contract doc updates in the same change.
 
+- For terminology, use `老师` in Chinese and `teacher` / `enseignant` in
+  translations for the generic role; use `课程负责人` or `负责人` for a specific
+  course owner, which may still translate as `creator` / `créateur`; keep
+  technical `creator*` identifiers unchanged unless a contract migration
+  explicitly requires it.
+
 - Use `ARCHITECTURE.md`, `PLANS.md`, and `docs/engineering-baseline.md` as the
   primary repository knowledge entry points instead of duplicating them
   everywhere.

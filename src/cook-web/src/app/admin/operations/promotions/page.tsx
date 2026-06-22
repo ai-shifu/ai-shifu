@@ -78,6 +78,7 @@ import {
   COLUMN_MIN_WIDTH,
   COUPON_COLUMN_WIDTH_STORAGE_KEY,
   COUPON_DEFAULT_COLUMN_WIDTHS,
+  COUPON_OPS_STATE_OPTIONS,
   type CouponColumnKey,
   type CouponFilters,
   type CouponFormState,
@@ -1174,18 +1175,15 @@ export default function AdminOperationPromotionsPage() {
             >
               {t('common.core.all')}
             </SelectItem>
-            <SelectItem
-              value='expiring_soon'
-              className={SINGLE_SELECT_ITEM_CLASS}
-            >
-              {tPromotion('opsState.expiringSoon')}
-            </SelectItem>
-            <SelectItem
-              value='used_up'
-              className={SINGLE_SELECT_ITEM_CLASS}
-            >
-              {tPromotion('opsState.usedUp')}
-            </SelectItem>
+            {COUPON_OPS_STATE_OPTIONS.map(option => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                className={SINGLE_SELECT_ITEM_CLASS}
+              >
+                {tPromotion(option.labelKey)}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       ),

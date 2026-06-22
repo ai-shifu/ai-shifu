@@ -47,6 +47,9 @@ class AdminPromotionCouponItemDTO(_DTOBase):
     end_at: str = Field(..., description="Coupon end time", required=False)
     total_count: int = Field(..., description="Total count", required=False)
     used_count: int = Field(..., description="Used count", required=False)
+    ops_states: List[str] = Field(
+        ..., description="Operator-facing operational states", required=False
+    )
     computed_status: str = Field(..., description="Computed status", required=False)
     computed_status_key: str = Field(
         ..., description="Computed status i18n key", required=False

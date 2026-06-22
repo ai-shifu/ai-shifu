@@ -441,6 +441,10 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(mockToast).toHaveBeenCalledWith({
       title: 'module.operationsCreditNotifications.messages.requeueDone',
     });
+    await waitFor(() => {
+      expect(mockGetRecords).toHaveBeenCalledTimes(2);
+      expect(mockGetOverview).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('surfaces requeue failures without refreshing records as success', async () => {
@@ -925,7 +929,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     );
 
     fireEvent.change(blockedCreatorsInput, {
-      target: { value: '无法识别的创作者' },
+      target: { value: '无法识别的老师' },
     });
     fireEvent.click(
       screen.getByRole('button', {
@@ -1255,6 +1259,28 @@ describe('AdminOperationCreditNotificationsPage', () => {
     expect(
       screen.getByText(/"notification_type": "low_balance"/),
     ).toBeInTheDocument();
+  });
+
+  it('shows dry-run failures inside config without polluting records error state', async () => {
+    mockDryRun.mockRejectedValueOnce(new Error('dry run unavailable'));
+
+    render(<AdminOperationCreditNotificationsPage />);
+
+    await openConfigTab();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCreditNotifications.actions.dryRun',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('dry run unavailable')).toBeInTheDocument();
+    });
+    expect(mockGetRecords).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByText('module.operationsCreditNotifications.loadError'),
+    ).not.toBeInTheDocument();
   });
 
   it('saves estimated-days low balance thresholds from the structured form', async () => {

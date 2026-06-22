@@ -539,6 +539,20 @@ def _compute_coupon_status(coupon: Coupon) -> str:
     return "active"
 
 
+def _compute_coupon_ops_states(coupon: Coupon) -> list[str]:
+    now = _now_local_naive()
+    states: list[str] = []
+    if int(coupon.used_count or 0) >= int(coupon.total_count or 0):
+        states.append("used_up")
+    if (
+        coupon.end
+        and coupon.end >= now
+        and coupon.end <= now + timedelta(days=PROMOTION_EXPIRING_SOON_DAYS)
+    ):
+        states.append("expiring_soon")
+    return states
+
+
 def _compute_campaign_status(campaign: PromoCampaign) -> str:
     now = _now_local_naive()
     if not is_campaign_enabled_for_runtime(campaign):
@@ -558,6 +572,7 @@ def _build_coupon_item(
     scope_type, shifu_bid = _parse_coupon_scope(coupon.filter or "{}")
     course = course_map.get(shifu_bid)
     computed_status = _compute_coupon_status(coupon)
+    ops_states = _compute_coupon_ops_states(coupon)
     usage_type = int(coupon.usage_type or COUPON_APPLY_TYPE_ALL)
     created_user_bid = coupon.created_user_bid or ""
     return AdminPromotionCouponItemDTO(
@@ -581,6 +596,7 @@ def _build_coupon_item(
         end_at=_format_promotion_admin_datetime(coupon.end),
         total_count=int(coupon.total_count or 0),
         used_count=int(coupon.used_count or 0),
+        ops_states=ops_states,
         computed_status=computed_status,
         computed_status_key=COUPON_COMPUTED_STATUS_KEY_MAP[computed_status],
         created_user_bid=created_user_bid,

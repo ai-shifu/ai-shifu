@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import LearningModeSwitch from './LearningModeSwitch';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import {
@@ -170,6 +171,34 @@ describe('LearningModeSwitch', () => {
         name: 'module.chat.learningModeListen',
       }),
     ).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      label: 'module.chat.learningModeRead',
+      tooltip: 'module.chat.learningModeReadTooltip',
+    },
+    {
+      label: 'module.chat.learningModeListen',
+      tooltip: 'module.chat.learningModeListenTooltip',
+    },
+    {
+      label: 'module.chat.learningModeClassroom',
+      tooltip: 'module.chat.learningModeClassroomTooltip',
+    },
+  ])('shows a one-sentence tooltip for $label', async ({ label, tooltip }) => {
+    const user = userEvent.setup();
+    useSystemStore.setState({ canUseClassroomMode: true });
+
+    render(<LearningModeSwitch />);
+
+    const modeButton = screen.getByRole('radio', { name: label });
+
+    await act(async () => {
+      await user.hover(modeButton);
+    });
+
+    expect(await screen.findAllByText(tooltip)).not.toHaveLength(0);
   });
 
   it('enters classroom mode with classroom URL state without fullscreen request', () => {

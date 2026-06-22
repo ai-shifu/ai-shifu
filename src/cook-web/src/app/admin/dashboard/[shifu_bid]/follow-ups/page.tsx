@@ -59,6 +59,7 @@ type FollowUpFilters = {
 
 const PAGE_SIZE = 20;
 const ALL_SOURCE_STATUS = 'all';
+const DETAIL_CACHE_LIMIT = 20;
 
 const EMPTY_FOLLOW_UPS_RESPONSE: DashboardCourseFollowUpListResponse = {
   summary: {
@@ -283,6 +284,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
   const [detailError, setDetailError] = useState<ErrorState | null>(null);
   const listRequestIdRef = useRef(0);
   const detailRequestIdRef = useRef(0);
+  const detailCacheRef = useRef(
+    new Map<string, DashboardCourseFollowUpDetailResponse>(),
+  );
 
   useEffect(() => {
     setFiltersDraft(initialFilters);
@@ -345,47 +349,74 @@ export default function AdminDashboardCourseFollowUpsPage() {
     [filters, shifuBid, timezone, unknownErrorMessage],
   );
 
-  const fetchFollowUpDetail = useCallback(async () => {
-    if (!shifuBid.trim() || !selectedGeneratedBlockBid.trim()) {
-      setDetailError({ message: unknownErrorMessage });
-      setDetail(EMPTY_FOLLOW_UP_DETAIL);
-      setDetailLoading(false);
-      return;
-    }
-
-    const requestId = detailRequestIdRef.current + 1;
-    detailRequestIdRef.current = requestId;
-    setDetailLoading(true);
-    setDetailError(null);
-
-    try {
-      const response = (await api.getDashboardCourseFollowUpDetail({
-        shifu_bid: shifuBid,
-        generated_block_bid: selectedGeneratedBlockBid,
-        ...(timezone ? { timezone } : {}),
-      })) as DashboardCourseFollowUpDetailResponse;
-      if (requestId !== detailRequestIdRef.current) {
-        return;
-      }
-      setDetail(response || EMPTY_FOLLOW_UP_DETAIL);
-    } catch (err) {
-      if (requestId !== detailRequestIdRef.current) {
-        return;
-      }
-      setDetail(EMPTY_FOLLOW_UP_DETAIL);
-      if (err instanceof ErrorWithCode) {
-        setDetailError({ message: err.message, code: err.code });
-      } else if (err instanceof Error) {
-        setDetailError({ message: err.message });
-      } else {
+  const fetchFollowUpDetail = useCallback(
+    async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+      if (!shifuBid.trim() || !selectedGeneratedBlockBid.trim()) {
         setDetailError({ message: unknownErrorMessage });
-      }
-    } finally {
-      if (requestId === detailRequestIdRef.current) {
+        setDetail(EMPTY_FOLLOW_UP_DETAIL);
         setDetailLoading(false);
+        return;
       }
-    }
-  }, [selectedGeneratedBlockBid, shifuBid, timezone, unknownErrorMessage]);
+
+      if (!forceRefresh) {
+        const cachedDetail = detailCacheRef.current.get(
+          selectedGeneratedBlockBid,
+        );
+        if (cachedDetail) {
+          detailCacheRef.current.delete(selectedGeneratedBlockBid);
+          detailCacheRef.current.set(selectedGeneratedBlockBid, cachedDetail);
+          return;
+        }
+      }
+
+      const requestId = detailRequestIdRef.current + 1;
+      detailRequestIdRef.current = requestId;
+      setDetailLoading(true);
+      setDetailError(null);
+
+      try {
+        const response = (await api.getDashboardCourseFollowUpDetail({
+          shifu_bid: shifuBid,
+          generated_block_bid: selectedGeneratedBlockBid,
+          ...(timezone ? { timezone } : {}),
+        })) as DashboardCourseFollowUpDetailResponse;
+        if (requestId !== detailRequestIdRef.current) {
+          return;
+        }
+        const resolvedDetail = response || EMPTY_FOLLOW_UP_DETAIL;
+        detailCacheRef.current.delete(selectedGeneratedBlockBid);
+        detailCacheRef.current.set(selectedGeneratedBlockBid, resolvedDetail);
+        if (detailCacheRef.current.size > DETAIL_CACHE_LIMIT) {
+          const oldestKey = detailCacheRef.current.keys().next().value;
+          if (oldestKey) {
+            detailCacheRef.current.delete(oldestKey);
+          }
+        }
+        setDetail(resolvedDetail);
+      } catch (err) {
+        if (requestId !== detailRequestIdRef.current) {
+          return;
+        }
+        setDetail(EMPTY_FOLLOW_UP_DETAIL);
+        if (err instanceof ErrorWithCode) {
+          setDetailError({ message: err.message, code: err.code });
+        } else if (err instanceof Error) {
+          setDetailError({ message: err.message });
+        } else {
+          setDetailError({ message: unknownErrorMessage });
+        }
+      } finally {
+        if (requestId === detailRequestIdRef.current) {
+          setDetailLoading(false);
+        }
+      }
+    },
+    [selectedGeneratedBlockBid, shifuBid, timezone, unknownErrorMessage],
+  );
+
+  useEffect(() => {
+    detailCacheRef.current.clear();
+  }, [shifuBid]);
 
   useEffect(() => {
     if (!isInitialized || !isGuest) {
@@ -527,9 +558,13 @@ export default function AdminDashboardCourseFollowUpsPage() {
 
       detailRequestIdRef.current += 1;
       setSelectedGeneratedBlockBid(normalizedGeneratedBlockBid);
-      setDetail(null);
+      setDetail(
+        detailCacheRef.current.get(normalizedGeneratedBlockBid) ?? null,
+      );
       setDetailError(null);
-      setDetailLoading(true);
+      setDetailLoading(
+        !detailCacheRef.current.has(normalizedGeneratedBlockBid),
+      );
       setDetailOpen(true);
     },
     [unknownErrorMessage],
@@ -990,7 +1025,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
         contactMode={contactMode}
         defaultUserName={defaultUserName}
         resolveLessonDisplay={resolvePrimaryLessonDisplay}
-        onRetry={fetchFollowUpDetail}
+        onRetry={() => fetchFollowUpDetail({ forceRefresh: true })}
         onOpenChange={handleDetailOpenChange}
       />
     </div>
