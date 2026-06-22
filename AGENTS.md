@@ -31,6 +31,10 @@ to.
   `.github` instructions in the same change.
 - Keep code-facing text in English and keep user-facing text in shared i18n
   JSON under `src/i18n/`.
+- In Chinese user-facing text and Chinese docs, do not use `创作者` as a
+  generic product term. Use `老师` for the general course-building or teacher
+  account role; use `课程负责人` or, inside an existing course context,
+  `负责人` when referring to a specific course owner.
 
 ## Avoid
 

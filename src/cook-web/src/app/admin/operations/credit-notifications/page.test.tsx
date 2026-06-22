@@ -929,7 +929,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     );
 
     fireEvent.change(blockedCreatorsInput, {
-      target: { value: '无法识别的创作者' },
+      target: { value: '无法识别的老师' },
     });
     fireEvent.click(
       screen.getByRole('button', {

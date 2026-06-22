@@ -52,7 +52,7 @@
         "totalOrders": "订单总数"
       },
       "tooltips": {
-        "creditAmount": "当前所有创作者账号中尚未消耗、仍可用于学习、预览和调试的积分总和",
+        "creditAmount": "当前所有老师账号中尚未消耗、仍可用于学习、预览和调试的积分总和",
         "paidAmount": "已支付积分订单实付金额总和",
         "paidOrders": "已支付积分订单数",
         "totalOrders": "积分订单总数"

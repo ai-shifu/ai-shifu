@@ -91,6 +91,10 @@ ROOT_SPEC = DocSpec(
         "complete for that area.",
         "Use English for code, comments, commit subjects, and instruction files. "
         "User-facing text still belongs in shared i18n JSON under `src/i18n/`.",
+        "In Chinese user-facing text and Chinese docs, do not use `创作者` as a "
+        "generic product term. Use `老师` for the general course-building or "
+        "teacher account role; use `课程负责人` or, inside an existing course "
+        "context, `负责人` when referring to a specific course owner.",
     ),
     do=(
         "Start every task by locating the nearest `AGENTS.md`, then inherit the "
@@ -1643,6 +1647,10 @@ def build_documents() -> dict[Path, str]:
                 "Keep the repository hard rules visible in those primary docs: "
                 "English-only code-facing text, no hardcoded user-facing strings "
                 "or secrets, and shared-contract doc updates in the same change.",
+                "For Chinese text, use `老师` as the generic product term and "
+                "`课程负责人` or `负责人` for a specific course owner; keep "
+                "technical `creator*` identifiers unchanged unless a contract "
+                "migration explicitly requires it.",
                 "Use `ARCHITECTURE.md`, `PLANS.md`, and "
                 "`docs/engineering-baseline.md` together: architecture map, "
                 "ExecPlan spec, and stable engineering handbook.",
@@ -1798,6 +1806,10 @@ def build_documents() -> dict[Path, str]:
                 "Keep the repository hard rules visible in those primary docs: "
                 "English-only code-facing text, no hardcoded user-facing strings "
                 "or secrets, and shared-contract doc updates in the same change.",
+                "For Chinese text, use `老师` as the generic product term and "
+                "`课程负责人` or `负责人` for a specific course owner; keep "
+                "technical `creator*` identifiers unchanged unless a contract "
+                "migration explicitly requires it.",
                 "Use `ARCHITECTURE.md`, `PLANS.md`, and "
                 "`docs/engineering-baseline.md` as the primary repository "
                 "knowledge entry points instead of duplicating them everywhere.",
