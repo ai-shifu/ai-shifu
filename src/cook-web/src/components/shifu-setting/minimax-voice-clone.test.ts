@@ -180,7 +180,6 @@ describe('minimax voice clone helpers', () => {
     expect(
       getMiniMaxCloneSubmitBlockReason({
         sourceFileSelected: true,
-        sourceCaptureMethod: 'recording',
         sourceElapsed: 12,
         recordingKind: null,
         submitting: false,
@@ -194,7 +193,6 @@ describe('minimax voice clone helpers', () => {
     expect(
       getMiniMaxCloneSubmitBlockReason({
         sourceFileSelected: true,
-        sourceCaptureMethod: 'recording',
         sourceElapsed: 9,
         recordingKind: null,
         submitting: false,
@@ -206,7 +204,6 @@ describe('minimax voice clone helpers', () => {
     expect(
       getMiniMaxCloneSubmitBlockReason({
         sourceFileSelected: true,
-        sourceCaptureMethod: 'recording',
         sourceElapsed: 10,
         recordingKind: null,
         submitting: false,
@@ -226,7 +223,6 @@ describe('minimax voice clone helpers', () => {
     expect(
       getMiniMaxCloneSubmitBlockReason({
         sourceFileSelected: false,
-        sourceCaptureMethod: 'recording',
         sourceElapsed: 0,
         recordingKind: null,
         submitting: false,
@@ -238,7 +234,6 @@ describe('minimax voice clone helpers', () => {
     expect(
       getMiniMaxCloneSubmitBlockReason({
         sourceFileSelected: true,
-        sourceCaptureMethod: 'recording',
         sourceElapsed: 8,
         recordingKind: null,
         submitting: false,
@@ -252,7 +247,6 @@ describe('minimax voice clone helpers', () => {
     expect(
       getMiniMaxCloneSubmitBlockReason({
         sourceFileSelected: true,
-        sourceCaptureMethod: 'upload',
         sourceElapsed: 0,
         recordingKind: null,
         submitting: false,

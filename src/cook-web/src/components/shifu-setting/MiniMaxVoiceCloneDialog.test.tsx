@@ -67,6 +67,15 @@ describe('MiniMaxVoiceCloneDialog', () => {
     expect(container.querySelector('#minimax-prompt-upload')).toBeNull();
   });
 
+  test('does not render source upload controls', () => {
+    const { container } = renderDialog();
+
+    expect(
+      screen.queryByText('module.shifuSetting.minimaxCloneUpload'),
+    ).not.toBeInTheDocument();
+    expect(container.querySelector('#minimax-source-upload')).toBeNull();
+  });
+
   test('shows a friendly error when source recording permission fails', async () => {
     const getUserMedia = jest
       .fn()

@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Loader2, Mic, Square, Upload } from 'lucide-react';
+import { Loader2, Mic, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import api from '@/api';
@@ -23,7 +23,6 @@ import {
 import {
   MINIMAX_SOURCE_MAX_SECONDS,
   MINIMAX_SOURCE_MIN_SECONDS,
-  MINIMAX_SUPPORTED_UPLOAD_TYPES,
   getMiniMaxCloneSubmitBlockReason,
   getMiniMaxRecordingElapsedSeconds,
   type MiniMaxCloneSubmitBlockReason,
@@ -60,9 +59,6 @@ export default function MiniMaxVoiceCloneDialog({
   const [displayName, setDisplayName] = useState('');
   const [voiceId, setVoiceId] = useState('');
   const [sourceFile, setSourceFile] = useState<File | null>(null);
-  const [sourceCaptureMethod, setSourceCaptureMethod] = useState<
-    'recording' | 'upload'
-  >('recording');
   const [recordingKind, setRecordingKind] = useState<'source' | null>(null);
   const [sourceElapsed, setSourceElapsed] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -81,7 +77,6 @@ export default function MiniMaxVoiceCloneDialog({
     () =>
       getMiniMaxCloneSubmitBlockReason({
         sourceFileSelected: Boolean(sourceFile),
-        sourceCaptureMethod,
         sourceElapsed,
         recordingKind,
         submitting,
@@ -92,7 +87,6 @@ export default function MiniMaxVoiceCloneDialog({
       cloneCost?.can_submit,
       pollingVoice,
       recordingKind,
-      sourceCaptureMethod,
       sourceElapsed,
       sourceFile,
       submitting,
@@ -102,12 +96,9 @@ export default function MiniMaxVoiceCloneDialog({
   const canSubmit = submitBlockReason === null;
   const sourceMaxMinutes = Math.floor(MINIMAX_SOURCE_MAX_SECONDS / 60);
 
-  const sourceStatusText =
-    sourceCaptureMethod === 'upload' && sourceFile
-      ? t('module.shifuSetting.minimaxCloneUploadReady')
-      : t('module.shifuSetting.minimaxCloneSeconds', {
-          seconds: sourceElapsed,
-        });
+  const sourceStatusText = t('module.shifuSetting.minimaxCloneSeconds', {
+    seconds: sourceElapsed,
+  });
   const submitBlockText = getSubmitBlockText({
     reason: submitBlockReason,
     currentSeconds: sourceElapsed,
@@ -126,7 +117,6 @@ export default function MiniMaxVoiceCloneDialog({
     setDisplayName('');
     setVoiceId('');
     setSourceFile(null);
-    setSourceCaptureMethod('recording');
     setSourceElapsed(0);
     setSubmitting(false);
     setPollingVoice(null);
@@ -196,7 +186,6 @@ export default function MiniMaxVoiceCloneDialog({
       const blob = new Blob(chunksRef.current, { type });
       const file = new File([blob], 'recording.webm', { type });
       setSourceFile(file);
-      setSourceCaptureMethod('recording');
       setSourceElapsed(elapsed);
     };
     recorder.start();
@@ -262,7 +251,7 @@ export default function MiniMaxVoiceCloneDialog({
       if (voiceId.trim()) {
         formData.append('voice_id', voiceId.trim());
       }
-      formData.append('source_capture_method', sourceCaptureMethod);
+      formData.append('source_capture_method', 'recording');
       formData.append('source_audio', sourceFile);
       const created = (await api.submitMinimaxTtsVoiceClone(formData, {
         skipErrorToast: true,
@@ -286,7 +275,6 @@ export default function MiniMaxVoiceCloneDialog({
     onVoiceChange,
     pollVoice,
     shifuId,
-    sourceCaptureMethod,
     sourceFile,
     t,
     voiceId,
@@ -378,50 +366,23 @@ export default function MiniMaxVoiceCloneDialog({
                 minSeconds: MINIMAX_SOURCE_MIN_SECONDS,
               })}
             </p>
-            <div className='grid grid-cols-2 gap-2'>
-              <Button
-                type='button'
-                variant='outline'
-                onClick={() =>
-                  recordingKind === 'source'
-                    ? stopRecording()
-                    : startRecording()
-                }
-              >
-                {recordingKind === 'source' ? (
-                  <Square className='mr-2 h-4 w-4' />
-                ) : (
-                  <Mic className='mr-2 h-4 w-4' />
-                )}
-                {recordingKind === 'source'
-                  ? t('module.shifuSetting.minimaxCloneStopRecording')
-                  : t('module.shifuSetting.minimaxCloneRecord')}
-              </Button>
-              <Button
-                type='button'
-                variant='outline'
-                onClick={() =>
-                  document.getElementById('minimax-source-upload')?.click()
-                }
-              >
-                <Upload className='mr-2 h-4 w-4' />
-                {t('module.shifuSetting.minimaxCloneUpload')}
-              </Button>
-            </div>
-            <input
-              id='minimax-source-upload'
-              type='file'
-              accept={MINIMAX_SUPPORTED_UPLOAD_TYPES}
-              className='hidden'
-              onChange={event => {
-                const file = event.target.files?.[0] || null;
-                if (file) {
-                  setSourceFile(file);
-                  setSourceCaptureMethod('upload');
-                  setSourceElapsed(0);
-                }
-              }}
-            />
+            <Button
+              type='button'
+              variant='outline'
+              className='w-full'
+              onClick={() =>
+                recordingKind === 'source' ? stopRecording() : startRecording()
+              }
+            >
+              {recordingKind === 'source' ? (
+                <Square className='mr-2 h-4 w-4' />
+              ) : (
+                <Mic className='mr-2 h-4 w-4' />
+              )}
+              {recordingKind === 'source'
+                ? t('module.shifuSetting.minimaxCloneStopRecording')
+                : t('module.shifuSetting.minimaxCloneRecord')}
+            </Button>
             {sourceFile ? (
               <p className='truncate text-xs text-muted-foreground'>
                 {t('module.shifuSetting.minimaxCloneAudioSelected', {
