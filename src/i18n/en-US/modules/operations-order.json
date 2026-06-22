@@ -52,7 +52,7 @@
         "totalOrders": "Total Orders"
       },
       "tooltips": {
-        "creditAmount": "Total unconsumed credits currently available across all creator accounts for learning, preview, and debug usage",
+        "creditAmount": "Total unconsumed credits currently available across all teacher accounts for learning, preview, and debug usage",
         "paidAmount": "Paid amount from credit orders",
         "paidOrders": "Paid credit orders",
         "totalOrders": "Total credit orders"

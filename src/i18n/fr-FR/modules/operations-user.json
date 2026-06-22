@@ -215,7 +215,7 @@
       "validityPreset": "Validité"
     },
     "confirmTitle": "Confirmer l’attribution de crédits",
-    "description": "Utilisez cette fenêtre pour attribuer des crédits ou un forfait aux créateurs et opérateurs depuis les opérations.",
+    "description": "Utilisez cette fenêtre pour attribuer des crédits ou un forfait aux enseignants et opérateurs depuis les opérations.",
     "fields": {
       "amount": "Crédits",
       "mode": "Type d’attribution",
@@ -304,7 +304,7 @@
   "overview": {
     "activeFilter": "Filtre rapide",
     "metrics": {
-      "creators": "Créateurs",
+      "creators": "Enseignants",
       "guests": "Invités",
       "learners": "Apprenants",
       "learningActive30d": "Apprenants actifs (30 j)",
@@ -318,7 +318,7 @@
     "staleData": "Échec de l’actualisation de la vue d’ensemble. Affichage du dernier instantané réussi.",
     "title": "Vue d’ensemble",
     "tooltips": {
-      "creators": "Utilisateurs créateurs",
+      "creators": "Utilisateurs enseignants",
       "guests": "Utilisateurs invités",
       "learners": "Utilisateurs avec enregistrements d’apprentissage",
       "learningActive30d": "Utilisateurs avec activité d’apprentissage au cours des 30 derniers jours",
@@ -339,7 +339,7 @@
     "wechat": "WeChat"
   },
   "roleLabels": {
-    "creator": "Créateur",
+    "creator": "Enseignant",
     "learner": "Apprenant",
     "operator": "Opérateur",
     "regular": "Standard",

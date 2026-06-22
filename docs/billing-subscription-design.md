@@ -8,9 +8,9 @@
 
 v1 只解决最小可上线的 creator billing 闭环：
 
-- 创作者购买套餐和积分包
+- 老师购买套餐和积分包
 - 套餐自动续费
-- 学员 `production`、作者 `preview`、作者 `debug` 三类场景统一扣创作者积分
+- 学员 `production`、老师 `preview`、老师 `debug` 三类场景统一扣课程负责人积分
 - LLM 按 `input/cache/output` 三维扣分
 - TTS 同时支持 `按次` 和 `按字数` 两种费率模型
 - 支付、订阅、账户、积分桶、账本、费率、续费排期形成完整真相源
@@ -19,7 +19,7 @@ v1 只解决最小可上线的 creator billing 闭环：
 
 v1.1 再补充下列扩展能力：
 
-- 创作者权益快照
+- 老师权益快照
 - 自定义域名绑定
 - 按天 usage/ledger 报表聚合
 - 基于权益的 branding、domain、analytics、priority、concurrency 扩展输出
@@ -27,7 +27,7 @@ v1.1 再补充下列扩展能力：
 ### 1.3 本文冻结的关键决策
 
 - 计费主体固定为 `creator_bid`
-- 课程学习、预览、调试的 LLM/TTS 消耗都由课程所属创作者承担
+- 课程学习、预览、调试的 LLM/TTS 消耗都由课程负责人承担
 - 商品目录统一使用 `bill_products` 单表，API 仍按 `plans[]` / `topups[]` 投影
 - 支付持久化统一以 `bill_orders` 为业务真相源；provider 最新摘要保留在 `bill_orders.metadata`，provider raw snapshot 复用 `order_pingxx_orders` / `order_stripe_orders`，native 国内直连 provider 写入 `order_native_payment_orders`，并通过 `biz_domain`、`bill_order_bid`、`creator_bid` 隔离
 - 账户/积分桶/账本三层分离：`credit_wallets` 只做总余额快照，`credit_wallet_buckets` 负责按来源管理可消费积分桶，`credit_ledger_entries` 才是不可变真相源
@@ -248,7 +248,7 @@ v1 冻结业务规则：
 | 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
 | --- | --- | --- | --- | --- | --- |
 | `subscription_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing subscription business identifier` | 订阅业务 ID |
-| `creator_bid` | `String(36)` | `not null, default="", index=True` | 订阅所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 订阅所属老师 | `Creator business identifier` | 老师业务 ID |
 | `product_bid` | `String(36)` | `not null, default="", index=True` | 必须引用 `product_type=plan` | `Current billing product business identifier` | 当前套餐商品 ID |
 | `status` | `SmallInteger` | `not null, default=7201, index=True` | `7201=draft; 7202=active; 7203=past_due; 7204=paused; 7205=cancel_scheduled; 7206=canceled; 7207=expired` | `Billing subscription status code` | 订阅状态 |
 | `billing_provider` | `String(32)` | `not null, default="", index=True` | `stripe` / `pingxx` | `Billing provider name` | 支付 provider |
@@ -268,7 +268,7 @@ v1 冻结业务规则：
 
 - 主键：`id`
 - 唯一索引：`subscription_bid`
-- 建议唯一索引：`creator_bid + status in active-like set` 由业务约束保证同一创作者仅一个活跃主订阅
+- 建议唯一索引：`creator_bid + status in active-like set` 由业务约束保证同一老师仅一个活跃主订阅
 - 关键索引：`subscription_bid`、`creator_bid + status`
 
 与其他表关系：
@@ -307,7 +307,7 @@ v1 冻结 subscription lifecycle 规则：
 | 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
 | --- | --- | --- | --- | --- | --- |
 | `bill_order_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing order business identifier` | 支付动作单业务 ID |
-| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属老师 | `Creator business identifier` | 老师业务 ID |
 | `order_type` | `SmallInteger` | `not null, index=True` | `7301=subscription_start; 7302=subscription_upgrade; 7303=subscription_renewal; 7304=topup; 7305=manual; 7306=refund` | `Billing order type code` | 支付动作类型 |
 | `product_bid` | `String(36)` | `not null, default="", index=True` | 对应商品 ID | `Billing product business identifier` | 商品业务 ID |
 | `subscription_bid` | `String(36)` | `not null, default="", index=True` | 套餐场景必填；topup 可留空字符串 | `Billing subscription business identifier` | 关联订阅 ID |
@@ -400,7 +400,7 @@ v1 冻结 subscription lifecycle 规则：
 | 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
 | --- | --- | --- | --- | --- | --- |
 | `wallet_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Credit wallet business identifier` | 账户业务 ID |
-| `creator_bid` | `String(36)` | `not null, default="", unique=True` | 一创作者一账户 | `Creator business identifier` | 创作者业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", unique=True` | 一位老师一个账户 | `Creator business identifier` | 老师业务 ID |
 | `available_credits` | `Numeric(20,10)` | `not null, default=0` | 当前可用积分 | `Available credits` | 可用积分 |
 | `reserved_credits` | `Numeric(20,10)` | `not null, default=0` | hold 后冻结积分 | `Reserved credits` | 冻结积分 |
 | `lifetime_granted_credits` | `Numeric(20,10)` | `not null, default=0` | 累计发放积分 | `Lifetime granted credits` | 累计发放积分 |
@@ -435,7 +435,7 @@ v1 冻结 subscription lifecycle 规则：
 | --- | --- | --- | --- | --- | --- |
 | `wallet_bucket_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Credit wallet bucket business identifier` | 账户积分桶业务 ID |
 | `wallet_bid` | `String(36)` | `not null, default="", index=True` | 所属账户 | `Credit wallet business identifier` | 账户业务 ID |
-| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属老师 | `Creator business identifier` | 老师业务 ID |
 | `bucket_category` | `SmallInteger` | `not null, index=True` | `7431=legacy_free; 7432=subscription; 7433=topup` | `Credit bucket category code` | 积分桶分类；creator 运行时只暴露 `subscription/topup` 两类，`7431` 仅保留给历史数据兼容 |
 | `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7415=refund; 7416=manual` | `Billing ledger source type code` | 积分桶来源类型 |
 | `source_bid` | `String(36)` | `not null, default="", index=True` | 对应发放业务单号，如 order/subscription/refund | `Credit bucket source business identifier` | 来源业务 ID |
@@ -491,7 +491,7 @@ v1 冻结 bucket 规则：
 | 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
 | --- | --- | --- | --- | --- | --- |
 | `ledger_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Credit ledger business identifier` | 账本业务 ID |
-| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属老师 | `Creator business identifier` | 老师业务 ID |
 | `wallet_bid` | `String(36)` | `not null, default="", index=True` | 归属账户 | `Credit wallet business identifier` | 账户业务 ID |
 | `wallet_bucket_bid` | `String(36)` | `not null, default="", index=True` | 归属积分桶；单 bucket 分录回填，多 bucket usage consume 可为空 | `Credit wallet bucket business identifier` | 积分桶业务 ID |
 | `entry_type` | `SmallInteger` | `not null, index=True` | `7401=grant; 7402=consume; 7403=refund; 7404=expire; 7405=adjustment; 7406=hold; 7407=release` | `Billing ledger entry type code` | 账本分录类型 |
@@ -590,7 +590,7 @@ v1 冻结 scene/provider/model/metric 矩阵：
 | --- | --- | --- | --- | --- | --- |
 | `renewal_event_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing renewal event business identifier` | 续费事件业务 ID |
 | `subscription_bid` | `String(36)` | `not null, default="", index=True` | 关联订阅 | `Billing subscription business identifier` | 订阅业务 ID |
-| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属老师 | `Creator business identifier` | 老师业务 ID |
 | `event_type` | `SmallInteger` | `not null, index=True` | `7501=renewal; 7502=retry; 7503=cancel_effective; 7504=downgrade_effective; 7505=expire; 7506=reconcile` | `Renewal event type code` | 排期事件类型 |
 | `scheduled_at` | `DateTime` | `not null, index=True` | 计划执行时间 | `Scheduled timestamp` | 计划执行时间 |
 | `status` | `SmallInteger` | `not null, default=7511, index=True` | `7511=pending; 7512=processing; 7513=succeeded; 7514=failed; 7515=canceled` | `Renewal event status code` | 排期执行状态 |
@@ -625,7 +625,7 @@ v1 冻结 scene/provider/model/metric 矩阵：
 | 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
 | --- | --- | --- | --- | --- | --- |
 | `entitlement_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing entitlement business identifier` | 权益业务 ID |
-| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属老师 | `Creator business identifier` | 老师业务 ID |
 | `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7416=manual` | `Entitlement source type code` | 权益来源类型 |
 | `source_bid` | `String(36)` | `not null, default="", index=True` | 来源业务单号 | `Entitlement source business identifier` | 权益来源业务 ID |
 | `branding_enabled` | `SmallInteger` | `not null, default=0` | `0=no; 1=yes` | `Branding enabled flag` | 是否启用品牌定制 |
@@ -658,7 +658,7 @@ v1 冻结 scene/provider/model/metric 矩阵：
 | 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
 | --- | --- | --- | --- | --- | --- |
 | `domain_binding_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing domain binding business identifier` | 域名绑定业务 ID |
-| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属老师 | `Creator business identifier` | 老师业务 ID |
 | `host` | `String(255)` | `not null, default="", unique=True` | 绑定域名 | `Custom domain host` | 自定义域名 |
 | `status` | `SmallInteger` | `not null, default=7601, index=True` | `7601=pending; 7602=verified; 7603=failed; 7604=disabled` | `Domain binding status code` | 域名绑定状态 |
 | `verification_method` | `SmallInteger` | `not null, default=7611` | `7611=dns_txt; 7612=cname; 7613=file` | `Verification method code` | 域名校验方式 |
@@ -690,7 +690,7 @@ v1 冻结 scene/provider/model/metric 矩阵：
 | --- | --- | --- | --- | --- | --- |
 | `daily_usage_metric_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Daily usage metric business identifier` | usage 日聚合业务 ID |
 | `stat_date` | `String(10)` | `not null, default="", index=True` | `YYYY-MM-DD` | `Statistic date` | 统计日期 |
-| `creator_bid` | `String(36)` | `not null, default="", index=True` | 创作者维度 | `Creator business identifier` | 创作者业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 老师维度 | `Creator business identifier` | 老师业务 ID |
 | `shifu_bid` | `String(36)` | `not null, default="", index=True` | 课程维度 | `Shifu business identifier` | 师傅业务 ID |
 | `usage_scene` | `SmallInteger` | `not null, index=True` | `1201=debug; 1202=preview; 1203=production` | `Usage scene code` | 使用场景 |
 | `usage_type` | `SmallInteger` | `not null, index=True` | `1101=LLM; 1102=TTS` | `Usage type code` | usage 类型 |
@@ -725,7 +725,7 @@ v1 冻结 scene/provider/model/metric 矩阵：
 | --- | --- | --- | --- | --- | --- |
 | `daily_ledger_summary_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Daily ledger summary business identifier` | 账本日摘要业务 ID |
 | `stat_date` | `String(10)` | `not null, default="", index=True` | `YYYY-MM-DD` | `Statistic date` | 统计日期 |
-| `creator_bid` | `String(36)` | `not null, default="", index=True` | 创作者维度 | `Creator business identifier` | 创作者业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 老师维度 | `Creator business identifier` | 老师业务 ID |
 | `entry_type` | `SmallInteger` | `not null, index=True` | `7401=grant; 7402=consume; 7403=refund; 7404=expire; 7405=adjustment; 7406=hold; 7407=release` | `Billing ledger entry type code` | 分录类型 |
 | `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7414=usage; 7415=refund; 7416=manual` | `Billing ledger source type code` | 来源类型 |
 | `amount` | `Numeric(20,10)` | `not null, default=0` | 当天同类分录金额汇总 | `Ledger amount total` | 汇总金额 |
@@ -1068,7 +1068,7 @@ v1 需要新增：
 
 ### 7.2 扣分与结算
 
-- 学员正式学习 `production`、作者 `preview`、作者 `debug` 统一扣课程所属创作者积分
+- 学员正式学习 `production`、老师 `preview`、老师 `debug` 统一扣课程负责人积分
 - LLM 一条 usage 默认按三条费率结算：
   - `7451=llm_input_tokens`
   - `7452=llm_cache_tokens`

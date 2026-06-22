@@ -16,7 +16,7 @@ canonical: true
 
 - 用户注册和登录流程在 `src/api/flaskr/route/user.py`。
 - 登录后的副作用通过 `src/api/flaskr/service/user/post_auth.py` 执行。
-- 新创作者试用初始化已经是 `src/api/flaskr/service/billing/auth_hooks.py` 里的 post-auth extension。
+- 新老师试用初始化已经是 `src/api/flaskr/service/billing/auth_hooks.py` 里的 post-auth extension。
 - 计费事实以 `bill_orders`、`bill_subscriptions`、`credit_wallet_buckets`、`credit_ledger_entries` 为准。
 - 运营手动发放套餐已经通过 `src/api/flaskr/service/billing/manual_plan_grants.py` 创建 `manual + paid` 订单。
 - 现有 `referral_reward_grants.py` 支持运营手动发放 referral reward credits，但它不表达邀请码、邀请关系绑定、注册触发自动奖励、权益队列或 12 个月上限。
@@ -26,7 +26,7 @@ canonical: true
 2026-06-09 的实现已覆盖本设计的核心 v1 链路：
 
 - 后端新增 campaign-aware referral 表、活动规则、邀请码、邀请事件、关系绑定、奖励审计、post-auth 绑定和 billing reward helper。
-- 前端新增创作者邀请页、被邀请人落地页、登录 payload 透传、运营 referral 页面和共享 i18n 文案。
+- 前端新增老师邀请页、被邀请人落地页、登录 payload 透传、运营 referral 页面和共享 i18n 文案。
 - 运营侧提供列表、详情、overview、状态更新和带备注的人工调整 API；人工调整复用审计化 status/adjustment payload，不直接删除 billing 事实。
 - Reward grant 失败时先保留 relation/reward 行，并提供幂等 retry helper 修复缺失的 billing artifacts。
 
@@ -319,7 +319,7 @@ Referral 域的奖励审计表。计费、积分和有效期事实仍以 billing
 
 ### 邀请资料
 
-创作者侧 API 放在 `/api/referral`：
+老师侧 API 放在 `/api/referral`：
 
 - `GET /api/referral/invite-profile`
   - 返回 campaign code、邀请码、邀请链接、成功邀请数、已奖励数、剩余奖励数、奖励队列摘要和来自活动配置的规则说明。
@@ -398,7 +398,7 @@ Billing metadata 必须包含：
 
 ### 邀请人侧
 
-在创作者/后台区域增加“邀请好友”入口，不放在 learner course runtime 内。第一版展示：
+在老师/后台区域增加“邀请好友”入口，不放在 learner course runtime 内。第一版展示：
 
 - 邀请链接。
 - 邀请码。
@@ -578,7 +578,7 @@ SMS 登录请求扩展：
 5. 查询 dev02 DB 的 relation、reward、billing order、subscription、wallet bucket、ledger。
 6. 查询 dev02 event rows，确认 link click、registration page view、manual code entry、registration submit 都落表。
 7. 启用运营列表可见。
-8. 启用创作者邀请入口。
+8. 启用老师邀请入口。
 9. 第一周每日监控邀请注册、奖励数量和异常活动。
 
 ## 事实来源

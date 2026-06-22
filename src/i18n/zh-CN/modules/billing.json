@@ -22,7 +22,7 @@
         "creatorBid": "creator_bid",
         "note": "填写人工调整原因"
       },
-      "quickAction": "调整该创作者积分",
+      "quickAction": "调整该老师的积分",
       "submit": "确认调整",
       "submitting": "调整中...",
       "success": "已更新 {creatorBid} 的账本，当前可用积分 {availableCredits}。",
@@ -31,11 +31,11 @@
     "attention": "需关注",
     "backToCreatorBilling": "返回会员中心",
     "domains": {
-      "description": "审核创作者自定义域名状态、权益开关，以及仍需跟进的 host。",
+      "description": "审核老师自定义域名状态、权益开关，以及仍需跟进的 host。",
       "empty": "暂无自定义域名绑定。",
       "loadError": "无法加载后台域名审核数据。",
       "table": {
-        "creator": "创作者",
+        "creator": "老师",
         "effective": "是否生效",
         "entitlement": "域名权益",
         "host": "域名",
@@ -50,7 +50,7 @@
       }
     },
     "entitlements": {
-      "description": "查看每个创作者当前解析到的有效权益快照。",
+      "description": "查看每位老师当前解析到的有效权益快照。",
       "empty": "暂无权益快照。",
       "loadError": "无法加载后台权益数据。",
       "source": {
@@ -60,7 +60,7 @@
       },
       "table": {
         "analytics": "分析等级",
-        "creator": "创作者",
+        "creator": "老师",
         "features": "功能开关",
         "priority": "优先级",
         "source": "来源",
@@ -87,13 +87,13 @@
       "title": "异常处理"
     },
     "orders": {
-      "description": "查看所有创作者的 billing 订单，并快速定位 provider 失败单。",
+      "description": "查看所有老师的 billing 订单，并快速定位 provider 失败单。",
       "empty": "当前还没有 billing 订单。",
       "loadError": "后台订单数据读取失败，请刷新后重试。",
       "table": {
         "amount": "金额",
         "createdAt": "创建时间",
-        "creator": "创作者",
+        "creator": "老师",
         "failure": "失败信息",
         "order": "订单",
         "provider": "支付通道",
@@ -105,30 +105,30 @@
       "page": "第 {page} / {pageCount} 页，共 {total} 条记录"
     },
     "reports": {
-      "description": "在运营后台直接查看跨创作者的 usage 与账本日报表。",
+      "description": "在运营后台直接查看跨老师的 usage 与账本日报表。",
       "sections": {
         "ledger": {
-          "description": "按天查看跨创作者的账本变动汇总。",
+          "description": "按天查看跨老师的账本变动汇总。",
           "title": "账本汇总"
         },
         "usage": {
-          "description": "按创作者、shifu、scene 与 metric 查看 usage 成本汇总。",
+          "description": "按老师、shifu、scene 与 metric 查看 usage 成本汇总。",
           "title": "Usage 汇总"
         }
       },
       "table": {
-        "creator": "创作者"
+        "creator": "老师"
       },
       "title": "报表"
     },
     "subscriptions": {
-      "description": "查看创作者订阅状态、账户余额和最近一次续费上下文。",
+      "description": "查看老师订阅状态、账户余额和最近一次续费上下文。",
       "empty": "当前还没有订阅记录。",
       "loadError": "后台订阅数据读取失败，请刷新后重试。",
       "preorderTarget": "预购：{product}",
       "table": {
         "availableCredits": "可用积分",
-        "creator": "创作者",
+        "creator": "老师",
         "currentPeriodEnd": "当前周期结束",
         "product": "套餐",
         "provider": "支付通道",
@@ -157,7 +157,7 @@
       "resumeSubscription": "恢复订阅"
     },
     "cancelScheduled": "当前订阅已设置为周期结束后取消，如需继续按周期发放积分，请恢复订阅。",
-    "lowBalance": "当前创作者账户已经没有可用积分，请在下一次结算前开通订阅或购买积分。",
+    "lowBalance": "当前老师账户已经没有可用积分，请在下一次结算前开通订阅或购买积分。",
     "lowBalanceDescription": "积分已经用完啦，无法继续体验AI生产的内容。",
     "lowBalanceTitle": "您的积分已耗尽，AI罢工啦",
     "subscriptionPastDue": "订阅续费当前处于异常状态，请先检查付款记录并同步最新 provider 状态。"
@@ -197,19 +197,19 @@
       },
       "creatorCatalog": {
         "description": "套餐与积分包目录当前仍为 active。",
-        "title": "创作者商品目录"
+        "title": "老师商品目录"
       },
       "creatorOrders": {
-        "description": "创作者订单、sync、refund 和 topup 流程当前仍启用。",
-        "title": "创作者订单"
+        "description": "老师订单、sync、refund 和 topup 流程当前仍启用。",
+        "title": "老师订单"
       },
       "creatorSubscriptionCheckout": {
-        "description": "创作者订阅购买、取消与恢复当前仍启用。",
-        "title": "创作者订阅生命周期"
+        "description": "老师订阅购买、取消与恢复当前仍启用。",
+        "title": "老师订阅生命周期"
       },
       "creatorWalletLedger": {
         "description": "账户积分桶与账本视图当前仍启用。",
-        "title": "创作者账户与账本"
+        "title": "老师账户与账本"
       },
       "dailyAggregateRebuild": {
         "description": "日报表重建与 finalize 仍属于内部能力。",
@@ -349,7 +349,7 @@
     "actions": {
       "upgradeNow": "立即升级"
     },
-    "subtitle": "查看当前创作者空间的总积分、各类积分余额以及对应有效期。",
+    "subtitle": "查看当前老师空间的总积分、各类积分余额以及对应有效期。",
     "table": {
       "balance": "余额",
       "creditType": "类型",

@@ -308,7 +308,7 @@
       "notStarted": "Non commencé"
     },
     "userRole": {
-      "creator": "Créateur",
+      "creator": "Enseignant",
       "normal": "Utilisateur standard",
       "operator": "Opérateur",
       "student": "Apprenant"
