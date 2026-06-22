@@ -245,7 +245,7 @@ describe('LessonPreview billing action', () => {
       {
         element_bid: 'text-1',
         generated_block_bid: '0',
-        content: '第一段内容',
+        content: 'First paragraph content',
         type: ChatContentItemType.CONTENT,
         element_type: 'text',
         is_final: true,
@@ -274,7 +274,7 @@ describe('LessonPreview billing action', () => {
 
     await waitFor(() => {
       expect(mockCopyText).toHaveBeenCalledWith(
-        '!===' + '\n第一段内容\n' + '!===',
+        '!===' + '\nFirst paragraph content\n' + '!===',
       );
     });
     expect(

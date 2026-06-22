@@ -386,7 +386,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
               <div className='h-full flex flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
                 <Image
                   src={ScrollText.src}
-                  alt='scroll-text'
+                  alt=''
                   width={64}
                   height={64}
                 />
