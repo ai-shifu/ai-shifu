@@ -146,7 +146,7 @@ const MainInterface = ({
     pathname === '/admin' &&
     menuReady &&
     adminHomeSceneStatus?.eligible === true &&
-    adminHomeSceneStatus.completed === false &&
+    adminHomeSceneStatus?.completed === false &&
     (!billingEnabled || !billingOverviewLoading);
 
   const {

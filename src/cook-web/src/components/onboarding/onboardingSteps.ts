@@ -5,6 +5,11 @@ import { ONBOARDING_TARGET_IDS } from '@/lib/onboardingTargets';
 import { formatBillingDate } from '@/lib/billing';
 import type { OnboardingStep } from './onboardingTypes';
 
+/*
+ * Translation usage markers for scripts/check_translation_usage.py:
+ * - 'module.onboarding.adminHome.billingCard.descriptionGeneric'
+ */
+
 const replaceTemplate = (
   template: string,
   values: Record<string, string | number>,

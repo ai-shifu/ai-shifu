@@ -325,7 +325,7 @@ const ScriptEditor = ({
     !isHistoryPage &&
     editorOnboardingReady &&
     courseEditorSceneStatus?.eligible === true &&
-    courseEditorSceneStatus.completed === false &&
+    courseEditorSceneStatus?.completed === false &&
     isCourseOwner;
   const actionsRef = useRef(actions);
   const baseRevisionRef = useRef<number | null>(null);
