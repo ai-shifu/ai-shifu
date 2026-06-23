@@ -103,4 +103,20 @@ describe('buildAdminHomeOnboardingSteps', () => {
 
     expect(steps[2].description).toBe('Check balance or buy and upgrade plans');
   });
+
+  test('uses generic billing copy when trial credits are not actually granted', () => {
+    const steps = buildAdminHomeOnboardingSteps({
+      t,
+      billingEnabled: true,
+      trialOffer: {
+        ...trialOffer,
+        status: 'eligible',
+        granted_at: null,
+        expires_at: null,
+      },
+      variant: 'trial_credit',
+    });
+
+    expect(steps[2].description).toBe('Check balance or buy and upgrade plans');
+  });
 });

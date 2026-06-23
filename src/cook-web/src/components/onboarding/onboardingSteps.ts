@@ -36,7 +36,7 @@ const buildBillingDescription = (
   locale?: string,
   variant?: CreatorOnboardingBillingVariant | null,
 ) => {
-  if (variant === 'generic_billing') {
+  if (variant === 'generic_billing' || trialOffer?.status !== 'granted') {
     return t('adminHome.billingCard.descriptionGeneric');
   }
 

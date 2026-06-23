@@ -11,6 +11,7 @@ from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.dtos import resolve_demo_course_for_language
+from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
 
@@ -143,12 +144,13 @@ def _build_scene_status(
     scene_key: str,
     states: dict[str, UserOnboardingState],
     user_segment: str,
+    has_preexisting_course: bool,
 ) -> OnboardingSceneStatus:
     row = states.get(scene_key)
-    is_eligible = user_segment in {
-        USER_SEGMENT_NEW_CREATOR,
-        USER_SEGMENT_EXISTING_CREATOR_ROLLOUT,
-    }
+    is_eligible = user_segment == USER_SEGMENT_NEW_CREATOR or (
+        user_segment == USER_SEGMENT_EXISTING_CREATOR_ROLLOUT
+        and not has_preexisting_course
+    )
     variant = None
     if scene_key == SCENE_ADMIN_HOME and is_eligible:
         variant = (
@@ -167,12 +169,43 @@ def _build_scene_status(
     )
 
 
+def _has_preexisting_owned_course(
+    user_bid: str,
+    new_creator_threshold: datetime | None,
+) -> bool:
+    normalized_user_bid = str(user_bid or "").strip()
+    if not normalized_user_bid or new_creator_threshold is None:
+        return False
+
+    for model in (DraftShifu, PublishedShifu):
+        exists = (
+            db.session.query(model.id)
+            .filter(
+                model.created_user_bid == normalized_user_bid,
+                model.deleted == 0,
+                model.created_at < new_creator_threshold,
+            )
+            .first()
+        )
+        if exists is not None:
+            return True
+
+    return False
+
+
 def build_onboarding_status(
     app: Flask, user_bid: str, language: str | None
 ) -> dict[str, Any]:
     with app.app_context():
         user = _load_user_entity(user_bid)
         user_segment = _resolve_user_segment(user)
+        new_creator_threshold = _parse_rollout_threshold(
+            get_dynamic_config(ROLLOUT_CONFIG_KEY, "")
+        )
+        has_preexisting_course = _has_preexisting_owned_course(
+            str(user_bid or "").strip(),
+            new_creator_threshold,
+        )
         normalized_language = _normalize_language(
             language or getattr(user, "language", "")
         )
@@ -185,22 +218,26 @@ def build_onboarding_status(
             ).all()
         }
 
+        scenes = {
+            SCENE_ADMIN_HOME: _build_scene_status(
+                scene_key=SCENE_ADMIN_HOME,
+                states=states,
+                user_segment=user_segment,
+                has_preexisting_course=has_preexisting_course,
+            ).__dict__,
+            SCENE_COURSE_EDITOR: _build_scene_status(
+                scene_key=SCENE_COURSE_EDITOR,
+                states=states,
+                user_segment=user_segment,
+                has_preexisting_course=has_preexisting_course,
+            ).__dict__,
+        }
+
         return {
-            "eligible": user_segment != USER_SEGMENT_INELIGIBLE,
+            "eligible": any(scene["eligible"] for scene in scenes.values()),
             "user_segment": user_segment,
             "version": ONBOARDING_VERSION,
-            "scenes": {
-                SCENE_ADMIN_HOME: _build_scene_status(
-                    scene_key=SCENE_ADMIN_HOME,
-                    states=states,
-                    user_segment=user_segment,
-                ).__dict__,
-                SCENE_COURSE_EDITOR: _build_scene_status(
-                    scene_key=SCENE_COURSE_EDITOR,
-                    states=states,
-                    user_segment=user_segment,
-                ).__dict__,
-            },
+            "scenes": scenes,
             "guide_course": guide_course,
         }
 
