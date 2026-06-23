@@ -88,6 +88,7 @@ const SUPPORTED_EDITOR_TRIGGER_SOURCES = new Set([
   'editor_entry',
   'manual_create',
   'lobster_create',
+  'skills_create',
 ]);
 const DEFAULT_EDITOR_TRIGGER_SOURCE = 'editor_entry';
 const CREATED_COURSE_ONBOARDING_DELAY_MS = 900;
@@ -277,6 +278,7 @@ const ScriptEditor = ({
     if (!profile) return '';
     return profile.user_bid || profile.user_id || '';
   }, [profile]);
+  const isHistoryPage = initialViewMode === 'history';
   const editorOnboardingTriggerSource = useMemo(() => {
     const source =
       searchParams?.get('onboarding_source') || searchParams?.get('onboarding');
@@ -284,7 +286,7 @@ const ScriptEditor = ({
   }, [searchParams]);
   const [editorOnboardingReady, setEditorOnboardingReady] = useState(false);
   useEffect(() => {
-    if (!editorOnboardingTriggerSource) {
+    if (isHistoryPage || !currentShifu?.bid) {
       setEditorOnboardingReady(false);
       return;
     }
@@ -296,8 +298,7 @@ const ScriptEditor = ({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [editorOnboardingTriggerSource]);
-  const isHistoryPage = initialViewMode === 'history';
+  }, [currentShifu?.bid, isHistoryPage]);
   const isCourseOwner = Boolean(
     currentShifu?.created_user_bid &&
     currentUserId &&

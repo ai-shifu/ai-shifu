@@ -351,6 +351,9 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(resolveEditorOnboardingTriggerSource('lobster_create')).toBe(
       'lobster_create',
     );
+    expect(resolveEditorOnboardingTriggerSource('skills_create')).toBe(
+      'skills_create',
+    );
   });
 
   test('still loads draft meta when a lesson node is selected', async () => {
