@@ -204,17 +204,30 @@ jobs:
             fi
           done
 
-          # 6. Docker Compose files (project-specific, should be customized)
+          # 6. Docker Compose files (AI-Shifu release images only)
           echo "🔍 Scanning for Docker Compose files..."
-          find . -name "docker-compose*.yml" -o -name "docker-compose*.yaml" | while read -r file; do
+          find . \( -name "docker-compose*.yml" -o -name "docker-compose*.yaml" \) -not -path "./.git/*" | while read -r file; do
             if [ -f "$file" ]; then
-              echo "  → Updating Docker image tags in $file..."
-              # Generic pattern - update any image tags that look like versions
-              sed -i.bak -E "s|image: ([^:]+):v[0-9]+\.[0-9]+\.[0-9]+[^[:space:]]*|image: \1:$TAG_NAME|g" "$file"
+              before_hash=$(sha256sum "$file" | cut -d' ' -f1)
+              echo "  → Updating AI-Shifu Docker image tags in $file..."
+              # Keep third-party image tags (Prometheus, Grafana, MySQL, Redis, etc.) unchanged.
+              sed -i.bak -E "s|image: aishifu/(ai-shifu-api|ai-shifu-cook-web):[^[:space:]]+|image: aishifu/\1:$TAG_NAME|g" "$file"
               rm -f "$file.bak"
-              UPDATED_FILES+=("$file")
+              after_hash=$(sha256sum "$file" | cut -d' ' -f1)
+              if [ "$before_hash" != "$after_hash" ]; then
+                UPDATED_FILES+=("$file")
+              fi
             fi
           done
+
+          # Guard against accidental third-party image tag changes in release PRs.
+          if git diff --unified=0 -- 'docker/docker-compose*.yml' 'docker/docker-compose*.yaml' \
+            | grep -E '^[+-][[:space:]]*image: ' \
+            | grep -Ev '^[+-][[:space:]]*image: aishifu/(ai-shifu-api|ai-shifu-cook-web):' \
+            | grep -Ev '^(---|\+\+\+)' ; then
+            echo "❌ Release version bump changed a third-party Docker image tag. Refusing to continue."
+            exit 1
+          fi
 
           # 7. Version files (VERSION, version.txt, etc.)
           echo "🔍 Scanning for version files..."
