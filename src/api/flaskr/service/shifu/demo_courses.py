@@ -11,6 +11,10 @@ BUILTIN_DEMO_TITLES: Set[str] = {
 }
 
 
+def load_builtin_demo_titles() -> Set[str]:
+    return set(BUILTIN_DEMO_TITLES)
+
+
 def load_demo_shifu_bids() -> Set[str]:
     demo_bids: Set[str] = set()
     for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
