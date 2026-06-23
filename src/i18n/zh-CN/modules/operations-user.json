@@ -215,7 +215,7 @@
       "validityPreset": "有效期"
     },
     "confirmTitle": "确认发放积分",
-    "description": "用于运营后台给老师或运营发放积分或套餐。",
+    "description": "用于运营后台给创作者或运营发放积分或套餐。",
     "fields": {
       "amount": "积分",
       "mode": "发放类型",
@@ -304,7 +304,7 @@
   "overview": {
     "activeFilter": "快捷筛选",
     "metrics": {
-      "creators": "老师数",
+      "creators": "创作者数",
       "guests": "游客数",
       "learners": "学习者数",
       "learningActive30d": "近30天活跃学习用户",
@@ -318,7 +318,7 @@
     "staleData": "数据概览刷新失败，当前展示最近一次成功加载的数据。",
     "title": "数据概览",
     "tooltips": {
-      "creators": "老师数量",
+      "creators": "创作者数量",
       "guests": "游客状态用户数量",
       "learners": "有学习记录的用户数量",
       "learningActive30d": "近 30 天有学习行为的用户数量",
@@ -339,7 +339,7 @@
     "wechat": "微信"
   },
   "roleLabels": {
-    "creator": "老师",
+    "creator": "创作者",
     "learner": "学员",
     "operator": "运营",
     "regular": "普通用户",

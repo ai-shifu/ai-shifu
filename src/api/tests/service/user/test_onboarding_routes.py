@@ -104,14 +104,22 @@ def test_onboarding_status_returns_eligible_creator_scene_state(
     payload = response.get_json(force=True)
     assert payload["code"] == 0
     assert payload["data"]["eligible"] is True
+    assert payload["data"]["user_segment"] == "new_creator"
     assert payload["data"]["version"] == "v1"
     assert payload["data"]["scenes"]["admin_home_onboarding"]["completed"] is True
+    assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is True
+    assert (
+        payload["data"]["scenes"]["admin_home_onboarding"]["variant"]
+        == "trial_credit"
+    )
     assert payload["data"]["scenes"]["course_editor_onboarding"]["completed"] is False
+    assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is True
+    assert payload["data"]["scenes"]["course_editor_onboarding"]["variant"] is None
     assert payload["data"]["guide_course"]["bid"] == "demo-zh-course"
     assert payload["data"]["guide_course"]["language"] == "zh-CN"
 
 
-def test_onboarding_status_excludes_operator_and_old_creator(
+def test_onboarding_status_excludes_operator_and_marks_scenes_ineligible(
     app, test_client, monkeypatch
 ):
     user_bid = uuid.uuid4().hex[:32]
@@ -146,9 +154,13 @@ def test_onboarding_status_excludes_operator_and_old_creator(
     payload = response.get_json(force=True)
     assert payload["code"] == 0
     assert payload["data"]["eligible"] is False
+    assert payload["data"]["user_segment"] == "ineligible"
+    assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is False
+    assert payload["data"]["scenes"]["admin_home_onboarding"]["variant"] is None
+    assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is False
 
 
-def test_onboarding_status_includes_old_user_newly_activated_as_creator(
+def test_onboarding_status_treats_old_user_newly_activated_as_existing_rollout(
     app, test_client, monkeypatch
 ):
     user_bid = uuid.uuid4().hex[:32]
@@ -169,6 +181,7 @@ def test_onboarding_status_includes_old_user_newly_activated_as_creator(
         "flaskr.service.user.onboarding.get_dynamic_config",
         lambda key, default="": {
             "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+            "ADMIN_EXISTING_CREATOR_ONBOARDING_ENABLED_FROM": "2026-06-20 00:00:00",
             "DEMO_SHIFU_BID": "demo-zh-course",
         }.get(key, default),
     )
@@ -186,6 +199,177 @@ def test_onboarding_status_includes_old_user_newly_activated_as_creator(
     payload = response.get_json(force=True)
     assert payload["code"] == 0
     assert payload["data"]["eligible"] is True
+    assert payload["data"]["user_segment"] == "existing_creator_rollout"
+    assert (
+        payload["data"]["scenes"]["admin_home_onboarding"]["variant"]
+        == "generic_billing"
+    )
+
+
+def test_onboarding_status_includes_existing_creator_rollout_segment(
+    app, test_client, monkeypatch
+):
+    user_bid = uuid.uuid4().hex[:32]
+    created_at = datetime(2026, 5, 1, 12, 0, 0)
+
+    with app.app_context():
+        _create_user(
+            user_bid=user_bid,
+            is_creator=True,
+            created_at=created_at,
+        )
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": {
+            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+            "ADMIN_EXISTING_CREATOR_ONBOARDING_ENABLED_FROM": "2026-06-20 00:00:00",
+            "DEMO_SHIFU_BID": "demo-zh-course",
+        }.get(key, default),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(key, default),
+    )
+
+    response = test_client.get(
+        "/api/user/onboarding/status",
+        headers={"Token": token},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["eligible"] is True
+    assert payload["data"]["user_segment"] == "existing_creator_rollout"
+    assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is True
+    assert (
+        payload["data"]["scenes"]["admin_home_onboarding"]["variant"]
+        == "generic_billing"
+    )
+    assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is True
+
+
+def test_onboarding_status_excludes_existing_creator_before_rollout_switch(
+    app, test_client, monkeypatch
+):
+    user_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        _create_user(
+            user_bid=user_bid,
+            is_creator=True,
+            created_at=datetime(2026, 5, 1, 12, 0, 0),
+        )
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": {
+            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+            "ADMIN_EXISTING_CREATOR_ONBOARDING_ENABLED_FROM": "2099-01-01 00:00:00",
+            "DEMO_SHIFU_BID": "demo-zh-course",
+        }.get(key, default),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(key, default),
+    )
+
+    response = test_client.get(
+        "/api/user/onboarding/status",
+        headers={"Token": token},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["eligible"] is False
+    assert payload["data"]["user_segment"] == "ineligible"
+    assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is False
+    assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is False
+
+
+def test_onboarding_status_uses_conservative_fallback_when_new_creator_gate_missing(
+    app, test_client, monkeypatch
+):
+    user_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        _create_user(
+            user_bid=user_bid,
+            is_creator=True,
+            created_at=datetime(2026, 4, 8, 11, 2, 6),
+        )
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": {
+            "ADMIN_EXISTING_CREATOR_ONBOARDING_ENABLED_FROM": "2026-06-20 00:00:00",
+            "DEMO_SHIFU_BID": "demo-zh-course",
+        }.get(key, default),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(key, default),
+    )
+
+    response = test_client.get(
+        "/api/user/onboarding/status",
+        headers={"Token": token},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["eligible"] is True
+    assert payload["data"]["user_segment"] == "existing_creator_rollout"
+    assert (
+        payload["data"]["scenes"]["admin_home_onboarding"]["variant"]
+        == "generic_billing"
+    )
+
+
+def test_onboarding_status_stays_ineligible_when_all_rollout_gates_missing(
+    app, test_client, monkeypatch
+):
+    user_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        _create_user(
+            user_bid=user_bid,
+            is_creator=True,
+            created_at=datetime(2026, 6, 21, 11, 0, 0),
+        )
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": {
+            "DEMO_SHIFU_BID": "demo-zh-course",
+        }.get(key, default),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(key, default),
+    )
+
+    response = test_client.get(
+        "/api/user/onboarding/status",
+        headers={"Token": token},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["eligible"] is False
+    assert payload["data"]["user_segment"] == "ineligible"
 
 
 def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
@@ -197,7 +381,9 @@ def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
 
     monkeypatch.setattr(
         "flaskr.service.user.onboarding.get_dynamic_config",
-        lambda key, default="": default,
+        lambda key, default="": {
+            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+        }.get(key, default),
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses.get_dynamic_config",
@@ -245,7 +431,9 @@ def test_complete_course_editor_onboarding_accepts_direct_editor_entry(
 
     monkeypatch.setattr(
         "flaskr.service.user.onboarding.get_dynamic_config",
-        lambda key, default="": default,
+        lambda key, default="": {
+            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+        }.get(key, default),
     )
 
     response = test_client.post(
@@ -273,6 +461,47 @@ def test_complete_course_editor_onboarding_accepts_direct_editor_entry(
         assert row.trigger_source == "editor_entry"
 
 
+def test_complete_course_editor_onboarding_accepts_skills_create(
+    app, test_client, monkeypatch
+):
+    user_bid = uuid.uuid4().hex[:32]
+    with app.app_context():
+        _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": {
+            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+        }.get(key, default),
+    )
+
+    response = test_client.post(
+        "/api/user/onboarding/complete",
+        json={
+            "scene_key": "course_editor_onboarding",
+            "version": "v1",
+            "trigger_source": "skills_create",
+        },
+        headers={"Token": token},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["completed"] is True
+
+    with app.app_context():
+        row = UserOnboardingState.query.filter(
+            UserOnboardingState.user_bid == user_bid,
+            UserOnboardingState.scene_key == "course_editor_onboarding",
+            UserOnboardingState.version == "v1",
+        ).first()
+        assert row is not None
+        assert row.trigger_source == "skills_create"
+
+
 def test_complete_onboarding_scene_handles_integrity_error(
     app, test_client, monkeypatch
 ):
@@ -296,7 +525,9 @@ def test_complete_onboarding_scene_handles_integrity_error(
 
     monkeypatch.setattr(
         "flaskr.service.user.onboarding.get_dynamic_config",
-        lambda key, default="": default,
+        lambda key, default="": {
+            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+        }.get(key, default),
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses.get_dynamic_config",

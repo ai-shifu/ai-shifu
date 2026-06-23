@@ -5,6 +5,8 @@ import React from 'react';
 
 const t = (key: string) => {
   const translations: Record<string, string> = {
+    'adminHome.billingCard.descriptionGeneric':
+      'Check balance or buy and upgrade plans',
     'adminHome.billingCard.descriptionWithExpiry':
       'Trial {credits} expires on {expiresAt}',
     'adminHome.billingCard.descriptionWithDays':
@@ -89,5 +91,16 @@ describe('buildAdminHomeOnboardingSteps', () => {
     expect(steps[1].id).toBe('lobster_course_creation');
     expect(steps[1].actionHref).toBeUndefined();
     expect(steps[1].actionLabel).toBeUndefined();
+  });
+
+  test('uses generic billing copy for rollout creators', () => {
+    const steps = buildAdminHomeOnboardingSteps({
+      t,
+      billingEnabled: true,
+      trialOffer,
+      variant: 'generic_billing',
+    });
+
+    expect(steps[2].description).toBe('Check balance or buy and upgrade plans');
   });
 });
