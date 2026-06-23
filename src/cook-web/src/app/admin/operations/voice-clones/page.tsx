@@ -879,7 +879,7 @@ export default function AdminOperationVoiceClonesPage() {
                     value={formatDisplayTime(detail.ready_at)}
                   />
                 </DetailSection>
-                {detail.minimax_status_code ||
+                {detail.minimax_status_code != null ||
                 detail.minimax_status_msg ||
                 detail.minimax_trace_id ? (
                   <DetailSection
@@ -889,7 +889,11 @@ export default function AdminOperationVoiceClonesPage() {
                       label={t(
                         'module.operationsVoiceClone.detail.minimaxStatusCode',
                       )}
-                      value={String(detail.minimax_status_code || '')}
+                      value={
+                        detail.minimax_status_code == null
+                          ? ''
+                          : String(detail.minimax_status_code)
+                      }
                     />
                     <DetailRow
                       label={t(

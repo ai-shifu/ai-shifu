@@ -8,9 +8,9 @@ from flask import Flask
 from sqlalchemy import or_
 
 from flaskr.dao import db
-from flaskr.service.shifu.admin_operations.courses import (
-    _format_operator_datetime,
-    _load_user_map,
+from flaskr.service.shifu.admin_operations.shared import (
+    format_operator_datetime,
+    load_operator_user_map,
 )
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.tts.models import TTSMiniMaxClonedVoice
@@ -56,7 +56,6 @@ def _find_matching_course_bids(keyword: str) -> Optional[Set[str]]:
     draft_rows = (
         db.session.query(DraftShifu.shifu_bid)
         .filter(DraftShifu.deleted == 0, or_(*filters))
-        .limit(500)
         .all()
     )
 
@@ -66,7 +65,6 @@ def _find_matching_course_bids(keyword: str) -> Optional[Set[str]]:
     published_rows = (
         db.session.query(PublishedShifu.shifu_bid)
         .filter(PublishedShifu.deleted == 0, or_(*published_filters))
-        .limit(500)
         .all()
     )
 
@@ -92,7 +90,6 @@ def _find_matching_voice_owner_bids(keyword: str) -> Optional[Set[str]]:
                 UserEntity.user_identify == normalized,
             ),
         )
-        .limit(500)
         .all()
         if row and row[0]
     }
@@ -104,7 +101,6 @@ def _find_matching_voice_owner_bids(keyword: str) -> Optional[Set[str]]:
             AuthCredential.provider_name.in_(["phone", "email"]),
             AuthCredential.identifier == normalized,
         )
-        .limit(500)
         .all()
     )
     for row in credential_rows:
@@ -208,9 +204,9 @@ def _serialize_voice_clone(
         "billing_reservation_bid": row.billing_reservation_bid or "",
         "billing_ledger_bid": row.billing_ledger_bid or "",
         "clone_usage_bid": row.clone_usage_bid or "",
-        "created_at": _format_operator_datetime(row.created_at),
-        "updated_at": _format_operator_datetime(row.updated_at),
-        "ready_at": _format_operator_datetime(row.ready_at),
+        "created_at": format_operator_datetime(row.created_at),
+        "updated_at": format_operator_datetime(row.updated_at),
+        "ready_at": format_operator_datetime(row.ready_at),
     }
 
 
@@ -308,7 +304,7 @@ def list_operator_voice_clones(
             .all()
         )
 
-        user_map = _load_user_map([row.owner_user_bid for row in rows])
+        user_map = load_operator_user_map([row.owner_user_bid for row in rows])
         course_map = _load_course_map([row.shifu_bid for row in rows])
         return {
             "items": [

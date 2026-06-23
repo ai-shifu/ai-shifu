@@ -171,3 +171,20 @@ def test_list_operator_voice_clones_filters_owner_nickname_without_user_bid(app)
     assert nickname_result["total"] == 1
     assert nickname_result["items"][0]["voice_bid"] == "voice-ready"
     assert user_bid_result["total"] == 0
+
+
+def test_list_operator_voice_clones_filters_course_keyword(app):
+    _prepare_tables(app)
+    with app.app_context():
+        _clear_rows()
+        _seed_voice_clone_rows()
+
+        result = list_operator_voice_clones(
+            app,
+            page_index=1,
+            page_size=20,
+            filters={"course_keyword": "Voice Course"},
+        )
+
+    assert result["total"] == 1
+    assert result["items"][0]["voice_bid"] == "voice-ready"

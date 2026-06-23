@@ -31,7 +31,7 @@
     "minimaxStatusMsg": "状态说明",
     "minimaxTraceId": "追踪ID",
     "normalizedAudioDuration": "处理后音频时长",
-    "owner": "创建用户",
+    "owner": "课程负责人",
     "promptAudioDuration": "试听音频时长",
     "readyAt": "完成时间",
     "retryCount": "重试次数",
@@ -116,7 +116,7 @@
     "createdAt": "创建时间",
     "failure": "失败原因",
     "minimax": "MiniMax",
-    "owner": "创建用户",
+    "owner": "课程负责人",
     "status": "状态",
     "updatedAt": "更新时间",
     "voice": "音色"
