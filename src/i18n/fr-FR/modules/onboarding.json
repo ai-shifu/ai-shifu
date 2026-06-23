@@ -1,10 +1,6 @@
 {
   "__namespace__": "module.onboarding",
   "adminHome": {
-    "balance": {
-      "description": "Votre solde de crédits disponible s'affiche en bas à gauche. Les actions comme le débogage, l'aperçu et la publication sont liées aux crédits.",
-      "title": "Consultez votre solde de crédits ici"
-    },
     "billingCard": {
       "descriptionWithDays": "Nous avons ajouté {credits} crédits d'essai à votre compte, valables pendant {days} jours. Consultez ici votre solde de crédits, ou achetez et mettez votre offre à niveau si nécessaire.",
       "descriptionWithExpiry": "Nous avons ajouté {credits} crédits d'essai à votre compte, valables jusqu'au {expiresAt}. Consultez ici votre solde de crédits, ou achetez et mettez votre offre à niveau si nécessaire.",
@@ -14,27 +10,11 @@
       "description": "Créez ici votre propre cours et construisez le contenu à partir de zéro.",
       "title": "Cliquez pour créer un nouveau cours"
     },
-    "courseCreation": {
-      "description": "Vous pouvez créer un cours à partir de zéro ou utiliser <strong>Créer des cours avec l'assistant IA</strong> pour générer plus rapidement une première ébauche.",
-      "title": "Commencez à créer ici"
-    },
-    "guideCourse": {
-      "description": "Voici le cours guide de création préparé par le système.",
-      "title": "Commencez par ce cours guide de création"
-    },
     "lobsterCourse": {
       "descriptionLink": "Créer des cours avec l'assistant IA",
       "descriptionPrefix": "Vous pouvez aussi utiliser ",
       "descriptionSuffix": " pour générer plus rapidement une première ébauche.",
       "title": "Créer des cours avec l'assistant IA"
-    },
-    "upgrade": {
-      "description": "Si vos crédits sont insuffisants, vous pouvez acheter des crédits ou mettre votre offre à niveau ici pour continuer à créer votre cours.",
-      "title": "Passez à l'offre supérieure ici si vos crédits sont insuffisants"
-    },
-    "welcome": {
-      "description": "Nous avons ajouté {credits} crédits d'essai à votre compte, valables pendant {days} jours. Nous allons maintenant vous présenter rapidement les principaux points d'entrée de création.",
-      "title": "Bienvenue dans l'espace créateur AI Shifu"
     }
   },
   "common": {
