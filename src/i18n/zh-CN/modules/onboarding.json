@@ -57,8 +57,5 @@
       "description": "点击这里可进行课程提示词、AI模型和价格等课程设置。",
       "title": "打开课程设置"
     }
-  },
-  "guideCourseFallback": {
-    "title": "AI 师傅教学引导"
   }
 }

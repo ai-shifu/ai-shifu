@@ -57,8 +57,5 @@
       "description": "Cliquez ici pour ajuster les paramètres du cours, comme l'invite pédagogique, le modèle d'IA et le prix.",
       "title": "Ouvrir les paramètres du cours"
     }
-  },
-  "guideCourseFallback": {
-    "title": "Guide de creation AI Shifu"
   }
 }

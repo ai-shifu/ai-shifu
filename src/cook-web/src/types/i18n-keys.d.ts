@@ -968,7 +968,6 @@ export type I18nKey =
   | 'module.onboarding.courseEditor.publish.title'
   | 'module.onboarding.courseEditor.settingsEntry.description'
   | 'module.onboarding.courseEditor.settingsEntry.title'
-  | 'module.onboarding.guideCourseFallback.title'
   | 'module.operationsCourse.actions.copyCourse'
   | 'module.operationsCourse.actions.transferCreator'
   | 'module.operationsCourse.copyCourseDialog.confirm'

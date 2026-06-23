@@ -57,8 +57,5 @@
       "description": "Click here to adjust course settings such as the teaching prompt, AI model, and pricing.",
       "title": "Open course settings"
     }
-  },
-  "guideCourseFallback": {
-    "title": "AI-Shifu Creation Guide"
   }
 }
