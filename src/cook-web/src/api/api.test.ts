@@ -34,6 +34,14 @@ describe('profile onboarding api definitions', () => {
   });
 });
 
+describe('operator voice clone api definitions', () => {
+  test('exposes operator MiniMax voice clone record endpoint', () => {
+    expect(api.getAdminOperationVoiceClones).toBe(
+      'GET /shifu/admin/operations/voice-clones',
+    );
+  });
+});
+
 describe('referral api definitions', () => {
   test('exposes creator and anonymous referral endpoints', () => {
     expect(api.getReferralInviteProfile).toBe('GET /referral/invite-profile');

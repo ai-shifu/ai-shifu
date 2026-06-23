@@ -192,6 +192,7 @@ const api = {
     'POST /shifu/admin/operations/users/{user_bid}/packages/grant',
   getAdminOperationCreditNotifications:
     'GET /shifu/admin/operations/credit-notifications',
+  getAdminOperationVoiceClones: 'GET /shifu/admin/operations/voice-clones',
   getAdminOperationCreditNotificationsOverview:
     'GET /shifu/admin/operations/credit-notifications/overview',
   getAdminOperationCreditNotificationDetail:

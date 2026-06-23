@@ -84,6 +84,11 @@ export const buildAdminMenuItems = ({
           href: '/admin/operations/credit-notifications',
         },
         {
+          id: 'operations-voice-clone',
+          label: t('common.core.voiceCloneManagement'),
+          href: '/admin/operations/voice-clones',
+        },
+        {
           id: 'operations-profile-onboarding',
           label: t('common.core.profileOnboardingManagement'),
           href: '/admin/operations/profile-onboarding',
