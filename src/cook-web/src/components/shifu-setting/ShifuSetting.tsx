@@ -1955,13 +1955,13 @@ export default function ShifuSettingDialog({
                 </div>
 
                 {/* TTS Configuration Section */}
-                <div
-                  className='mb-6'
-                  {...buildOnboardingTargetProps(
-                    ONBOARDING_TARGET_IDS.editorCourseListenMode,
-                  )}
-                >
-                  <div className='flex items-start justify-between mb-4'>
+                <div className='mb-6'>
+                  <div
+                    className='flex items-start justify-between mb-4'
+                    {...buildOnboardingTargetProps(
+                      ONBOARDING_TARGET_IDS.editorCourseListenMode,
+                    )}
+                  >
                     <div className='space-y-1'>
                       <FormLabel className='text-sm font-medium text-foreground'>
                         {t('module.shifuSetting.ttsTitle')}

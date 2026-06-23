@@ -24,18 +24,18 @@ type UseOnboardingOptions = {
   onStepMissing?: (step: OnboardingStep, stepIndex: number) => void;
 };
 
-const rectEquals = (current: DOMRect | null, next: DOMRect | null) => {
-  if (current === next) {
+const VIEWPORT_TARGET_GAP = 16;
+
+const rectFitsViewport = (rect: DOMRect) => {
+  if (typeof window === 'undefined') {
     return true;
   }
-  if (!current || !next) {
-    return false;
-  }
+
   return (
-    current.top === next.top &&
-    current.left === next.left &&
-    current.width === next.width &&
-    current.height === next.height
+    rect.top >= VIEWPORT_TARGET_GAP &&
+    rect.left >= VIEWPORT_TARGET_GAP &&
+    rect.bottom <= window.innerHeight - VIEWPORT_TARGET_GAP &&
+    rect.right <= window.innerWidth - VIEWPORT_TARGET_GAP
   );
 };
 
@@ -174,10 +174,13 @@ export function useOnboarding({
         }
         return false;
       }
-      if (
+      const nextRect = element.getBoundingClientRect();
+      const shouldScrollPanelTarget =
         currentStep.panel &&
-        lastScrolledStepIdRef.current !== currentStep.id
-      ) {
+        (lastScrolledStepIdRef.current !== currentStep.id ||
+          !rectFitsViewport(nextRect));
+
+      if (shouldScrollPanelTarget) {
         element.scrollIntoView({
           block: 'center',
           inline: 'nearest',
@@ -191,7 +194,6 @@ export function useOnboarding({
         setTargetRectStepId(null);
         return false;
       }
-      const nextRect = element.getBoundingClientRect();
       const hasVisibleRect = nextRect.width > 0 && nextRect.height > 0;
       if (!hasVisibleRect) {
         lastMeasuredRect = null;

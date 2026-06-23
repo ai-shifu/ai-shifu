@@ -200,4 +200,54 @@ describe('useOnboarding', () => {
     expect(result.current.targetRect).toBe(firstRect);
     expect(target.getBoundingClientRect).toHaveBeenCalledTimes(1);
   });
+
+  test('re-scrolls panel targets that remain outside the viewport', async () => {
+    const onComplete = jest.fn();
+    const scrollIntoView = jest.fn();
+    const target = document.createElement('div');
+    target.scrollIntoView = scrollIntoView;
+    const offscreenRect = {
+      top: 920,
+      left: 200,
+      width: 120,
+      height: 40,
+      bottom: 960,
+      right: 320,
+      x: 200,
+      y: 920,
+      toJSON: () => ({}),
+    };
+    target.getBoundingClientRect = jest
+      .fn()
+      .mockReturnValue(offscreenRect as DOMRect);
+    getOnboardingTargetElement.mockReturnValue(target);
+
+    renderHook(() =>
+      useOnboarding({
+        enabled: true,
+        steps: [
+          {
+            id: 'listen-mode',
+            title: 'Listen mode',
+            description: 'Turn on TTS',
+            targetId: 'editor-course-listen-mode',
+            panel: 'shifu_settings',
+          },
+        ],
+        onComplete,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    });
+  });
 });
