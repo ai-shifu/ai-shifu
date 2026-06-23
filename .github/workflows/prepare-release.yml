@@ -159,21 +159,21 @@ jobs:
 
           # 1. Node.js/npm projects - Look for package.json files
           echo "🔍 Scanning for Node.js/npm projects..."
-          find . -name "package.json" -not -path "./node_modules/*" -not -path "./.git/*" | while read -r file; do
+          while read -r file; do
             if [ -f "$file" ]; then
               update_json_version "$file"
               UPDATED_FILES+=("$file")
             fi
-          done
+          done < <(find . -name "package.json" -not -path "./node_modules/*" -not -path "./.git/*")
 
           # 2. Python pyproject.toml projects
           echo "🔍 Scanning for Python pyproject.toml projects..."
-          find . -name "pyproject.toml" -not -path "./.git/*" | while read -r file; do
+          while read -r file; do
             if [ -f "$file" ] && grep -q "version.*=" "$file"; then
               update_toml_version "$file"
               UPDATED_FILES+=("$file")
             fi
-          done
+          done < <(find . -name "pyproject.toml" -not -path "./.git/*")
 
           # 3. Python setup.py projects
           echo "🔍 Scanning for Python setup.py projects..."
@@ -188,37 +188,37 @@ jobs:
 
           # 4. Python __init__.py version files
           echo "🔍 Scanning for Python __init__.py version files..."
-          find . -name "__init__.py" -not -path "./.git/*" | while read -r file; do
+          while read -r file; do
             if grep -q "__version__\|VERSION" "$file" 2>/dev/null; then
               update_python_version "$file"
               UPDATED_FILES+=("$file")
             fi
-          done
+          done < <(find . -name "__init__.py" -not -path "./.git/*")
 
           # 5. Cargo.toml for Rust projects
           echo "🔍 Scanning for Rust Cargo.toml projects..."
-          find . -name "Cargo.toml" -not -path "./.git/*" | while read -r file; do
+          while read -r file; do
             if [ -f "$file" ]; then
               update_toml_version "$file"
               UPDATED_FILES+=("$file")
             fi
-          done
+          done < <(find . -name "Cargo.toml" -not -path "./.git/*")
 
           # 6. Docker Compose files (AI-Shifu release images only)
           echo "🔍 Scanning for Docker Compose files..."
-          find . \( -name "docker-compose*.yml" -o -name "docker-compose*.yaml" \) -not -path "./.git/*" | while read -r file; do
+          while read -r file; do
             if [ -f "$file" ]; then
               before_hash=$(sha256sum "$file" | cut -d' ' -f1)
               echo "  → Updating AI-Shifu Docker image tags in $file..."
               # Keep third-party image tags (Prometheus, Grafana, MySQL, Redis, etc.) unchanged.
-              sed -i.bak -E "s|image: aishifu/(ai-shifu-api|ai-shifu-cook-web):[^[:space:]]+|image: aishifu/\1:$TAG_NAME|g" "$file"
+              sed -i.bak -E "s#image: aishifu/(ai-shifu-api|ai-shifu-cook-web):[^[:space:]]+#image: aishifu/\1:$TAG_NAME#g" "$file"
               rm -f "$file.bak"
               after_hash=$(sha256sum "$file" | cut -d' ' -f1)
               if [ "$before_hash" != "$after_hash" ]; then
                 UPDATED_FILES+=("$file")
               fi
             fi
-          done
+          done < <(find . \( -name "docker-compose*.yml" -o -name "docker-compose*.yaml" \) -not -path "./.git/*")
 
           # Guard against accidental third-party image tag changes in release PRs.
           if git diff --unified=0 -- 'docker/docker-compose*.yml' 'docker/docker-compose*.yaml' \
