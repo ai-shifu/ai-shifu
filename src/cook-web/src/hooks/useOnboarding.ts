@@ -31,11 +31,26 @@ const rectFitsViewport = (rect: DOMRect) => {
     return true;
   }
 
+  const minTop = VIEWPORT_TARGET_GAP;
+  const minLeft = VIEWPORT_TARGET_GAP;
+  const maxBottom = window.innerHeight - VIEWPORT_TARGET_GAP;
+  const maxRight = window.innerWidth - VIEWPORT_TARGET_GAP;
+  const availableHeight = maxBottom - minTop;
+  const availableWidth = maxRight - minLeft;
+
+  const verticallyFits =
+    rect.height <= availableHeight
+      ? rect.top >= minTop && rect.bottom <= maxBottom
+      : rect.bottom > minTop && rect.top < maxBottom;
+
+  const horizontallyFits =
+    rect.width <= availableWidth
+      ? rect.left >= minLeft && rect.right <= maxRight
+      : rect.right > minLeft && rect.left < maxRight;
+
   return (
-    rect.top >= VIEWPORT_TARGET_GAP &&
-    rect.left >= VIEWPORT_TARGET_GAP &&
-    rect.bottom <= window.innerHeight - VIEWPORT_TARGET_GAP &&
-    rect.right <= window.innerWidth - VIEWPORT_TARGET_GAP
+    verticallyFits &&
+    horizontallyFits
   );
 };
 
