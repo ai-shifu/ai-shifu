@@ -250,5 +250,4 @@ describe('useOnboarding', () => {
       expect(scrollIntoView).toHaveBeenCalledTimes(2);
     });
   });
-
 });

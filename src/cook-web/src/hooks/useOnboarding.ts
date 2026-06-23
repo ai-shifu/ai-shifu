@@ -48,10 +48,7 @@ const rectFitsViewport = (rect: DOMRect) => {
       ? rect.left >= minLeft && rect.right <= maxRight
       : rect.right > minLeft && rect.left < maxRight;
 
-  return (
-    verticallyFits &&
-    horizontallyFits
-  );
+  return verticallyFits && horizontallyFits;
 };
 
 export function useOnboarding({
