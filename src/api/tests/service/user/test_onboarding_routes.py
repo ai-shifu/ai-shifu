@@ -109,8 +109,7 @@ def test_onboarding_status_returns_eligible_creator_scene_state(
     assert payload["data"]["scenes"]["admin_home_onboarding"]["completed"] is True
     assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is True
     assert (
-        payload["data"]["scenes"]["admin_home_onboarding"]["variant"]
-        == "trial_credit"
+        payload["data"]["scenes"]["admin_home_onboarding"]["variant"] == "trial_credit"
     )
     assert payload["data"]["scenes"]["course_editor_onboarding"]["completed"] is False
     assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is True

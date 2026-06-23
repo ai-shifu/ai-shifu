@@ -31,9 +31,7 @@ SUPPORTED_TRIGGER_SOURCES = {
 }
 STATUS_COMPLETED = "completed"
 ROLLOUT_CONFIG_KEY = "ADMIN_ONBOARDING_ENABLED_FROM"
-EXISTING_CREATOR_ROLLOUT_CONFIG_KEY = (
-    "ADMIN_EXISTING_CREATOR_ONBOARDING_ENABLED_FROM"
-)
+EXISTING_CREATOR_ROLLOUT_CONFIG_KEY = "ADMIN_EXISTING_CREATOR_ONBOARDING_ENABLED_FROM"
 USER_SEGMENT_NEW_CREATOR = "new_creator"
 USER_SEGMENT_EXISTING_CREATOR_ROLLOUT = "existing_creator_rollout"
 USER_SEGMENT_INELIGIBLE = "ineligible"
@@ -124,10 +122,7 @@ def _resolve_user_segment(user: UserEntity | None) -> str:
     now = datetime.utcnow()
 
     if threshold is None:
-        if (
-            existing_rollout_threshold is not None
-            and now >= existing_rollout_threshold
-        ):
+        if existing_rollout_threshold is not None and now >= existing_rollout_threshold:
             return USER_SEGMENT_EXISTING_CREATOR_ROLLOUT
         return USER_SEGMENT_INELIGIBLE
 
