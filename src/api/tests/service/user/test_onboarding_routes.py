@@ -306,6 +306,13 @@ def test_onboarding_status_uses_conservative_fallback_when_new_creator_gate_miss
         db.session.commit()
         token = generate_token(app, user_bid)
 
+    class _MockDateTime(datetime):
+        @classmethod
+        def utcnow(cls):
+            return cls(2026, 6, 23, 10, 0, 0)
+
+    monkeypatch.setattr("flaskr.service.user.onboarding.datetime", _MockDateTime)
+
     monkeypatch.setattr(
         "flaskr.service.user.onboarding.get_dynamic_config",
         lambda key, default="": {

@@ -14,8 +14,8 @@ export type CreatorOnboardingBillingVariant =
 export type CreatorOnboardingSceneStatus = {
   completed: boolean;
   completed_at: string | null;
-  eligible?: boolean;
-  variant?: CreatorOnboardingBillingVariant | null;
+  eligible: boolean;
+  variant: CreatorOnboardingBillingVariant | null;
 };
 
 export type CreatorOnboardingStatus = {
