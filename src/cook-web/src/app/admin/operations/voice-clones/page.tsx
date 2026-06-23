@@ -239,10 +239,14 @@ export default function AdminOperationVoiceClonesPage() {
     (item: AdminOperationVoiceCloneItem) => {
       const statusMessage = (item.status_msg || '').toLowerCase();
       if (statusMessage.includes('unable to decode audio')) {
-        return t('module.operationsVoiceClone.failureReason.unableToDecodeAudio');
+        return t(
+          'module.operationsVoiceClone.failureReason.unableToDecodeAudio',
+        );
       }
       if (statusMessage.includes('unsupported audio file type')) {
-        return t('module.operationsVoiceClone.failureReason.unsupportedAudioType');
+        return t(
+          'module.operationsVoiceClone.failureReason.unsupportedAudioType',
+        );
       }
       if (statusMessage.includes('audio file is empty')) {
         return t('module.operationsVoiceClone.failureReason.emptyAudio');
@@ -260,7 +264,9 @@ export default function AdminOperationVoiceClonesPage() {
         return t('module.operationsVoiceClone.failureReason.sensitiveContent');
       }
       if (statusMessage.includes('minimax voice clone failed')) {
-        return t('module.operationsVoiceClone.failureReason.minimaxProviderError');
+        return t(
+          'module.operationsVoiceClone.failureReason.minimaxProviderError',
+        );
       }
       if (statusMessage.includes('billing capture is pending')) {
         return t('module.operationsVoiceClone.failureReason.billingPending');
@@ -286,10 +292,14 @@ export default function AdminOperationVoiceClonesPage() {
         return EMPTY_LABEL;
       }
       if (statusMessage.includes('unable to decode audio')) {
-        return t('module.operationsVoiceClone.failureDetail.unableToDecodeAudio');
+        return t(
+          'module.operationsVoiceClone.failureDetail.unableToDecodeAudio',
+        );
       }
       if (statusMessage.includes('unsupported audio file type')) {
-        return t('module.operationsVoiceClone.failureDetail.unsupportedAudioType');
+        return t(
+          'module.operationsVoiceClone.failureDetail.unsupportedAudioType',
+        );
       }
       if (statusMessage.includes('audio file is empty')) {
         return t('module.operationsVoiceClone.failureDetail.emptyAudio');
@@ -304,13 +314,19 @@ export default function AdminOperationVoiceClonesPage() {
         return t('module.operationsVoiceClone.failureDetail.promptTooLong');
       }
       if (statusMessage.includes('invalid audio purpose')) {
-        return t('module.operationsVoiceClone.failureDetail.invalidAudioPurpose');
+        return t(
+          'module.operationsVoiceClone.failureDetail.invalidAudioPurpose',
+        );
       }
       if (statusMessage.includes('minimax_api_key is not configured')) {
-        return t('module.operationsVoiceClone.failureDetail.minimaxApiKeyMissing');
+        return t(
+          'module.operationsVoiceClone.failureDetail.minimaxApiKeyMissing',
+        );
       }
       if (statusMessage.includes('did not return file_id')) {
-        return t('module.operationsVoiceClone.failureDetail.minimaxFileIdMissing');
+        return t(
+          'module.operationsVoiceClone.failureDetail.minimaxFileIdMissing',
+        );
       }
       if (statusMessage.includes('sensitive content')) {
         return t('module.operationsVoiceClone.failureDetail.sensitiveContent');
@@ -319,15 +335,20 @@ export default function AdminOperationVoiceClonesPage() {
         return t('module.operationsVoiceClone.failureDetail.billingPending');
       }
       if (statusMessage.includes('audio resource is missing')) {
-        return t('module.operationsVoiceClone.failureDetail.audioResourceMissing');
+        return t(
+          'module.operationsVoiceClone.failureDetail.audioResourceMissing',
+        );
       }
       if (statusMessage.includes('no longer available')) {
         return t('module.operationsVoiceClone.failureDetail.audioExpired');
       }
       if (statusMessage.includes('minimax voice clone failed')) {
-        return t('module.operationsVoiceClone.failureDetail.minimaxProviderError', {
-          message: item.status_msg,
-        });
+        return t(
+          'module.operationsVoiceClone.failureDetail.minimaxProviderError',
+          {
+            message: item.status_msg,
+          },
+        );
       }
       return item.status_msg;
     },
@@ -542,9 +563,7 @@ export default function AdminOperationVoiceClonesPage() {
   return (
     <div className='flex min-h-0 flex-1 flex-col px-8 py-6'>
       <AdminBreadcrumb
-        items={[
-          { label: t('module.operationsVoiceClone.title') },
-        ]}
+        items={[{ label: t('module.operationsVoiceClone.title') }]}
       />
       <AdminTitle
         title={t('module.operationsVoiceClone.title')}
@@ -625,7 +644,9 @@ export default function AdminOperationVoiceClonesPage() {
                 <TableHead className='w-[120px]'>
                   {t('module.operationsVoiceClone.table.billing')}
                 </TableHead>
-                <TableHead className={getAdminStickyRightHeaderClass('w-[112px]')}>
+                <TableHead
+                  className={getAdminStickyRightHeaderClass('w-[112px]')}
+                >
                   {t('module.operationsVoiceClone.table.actions')}
                 </TableHead>
               </TableRow>
@@ -696,19 +717,25 @@ export default function AdminOperationVoiceClonesPage() {
                       </div>
                     ) : null}
                   </TableCell>
-                  <TableCell className={getAdminStickyRightCellClass('w-[112px]')}>
+                  <TableCell
+                    className={getAdminStickyRightCellClass('w-[112px]')}
+                  >
                     <div className='flex justify-start'>
                       <AdminRowActions
                         label={t('common.core.more')}
                         actions={[
                           {
                             key: 'detail',
-                            label: t('module.operationsVoiceClone.actions.detail'),
+                            label: t(
+                              'module.operationsVoiceClone.actions.detail',
+                            ),
                             onClick: () => setDetail(item),
                           },
                           {
                             key: 'copy',
-                            label: t('module.operationsVoiceClone.actions.copy'),
+                            label: t(
+                              'module.operationsVoiceClone.actions.copy',
+                            ),
                             onClick: () => void copyText(item.voice_bid),
                           },
                         ]}
@@ -786,7 +813,9 @@ export default function AdminOperationVoiceClonesPage() {
                     value={resolveFailureReasonLabel(detail)}
                   />
                   <DetailRow
-                    label={t('module.operationsVoiceClone.detail.failureDetail')}
+                    label={t(
+                      'module.operationsVoiceClone.detail.failureDetail',
+                    )}
                     value={resolveFailureDetailLabel(detail)}
                   />
                   <DetailRow
@@ -798,12 +827,16 @@ export default function AdminOperationVoiceClonesPage() {
                   title={t('module.operationsVoiceClone.detail.billing')}
                 >
                   <DetailRow
-                    label={t('module.operationsVoiceClone.detail.billingStatus')}
+                    label={t(
+                      'module.operationsVoiceClone.detail.billingStatus',
+                    )}
                     value={resolveBillingStatusLabel(detail.billing_status)}
                   />
                   {hasPositiveCredits(detail.charged_credits) ? (
                     <DetailRow
-                      label={t('module.operationsVoiceClone.detail.chargedCredits')}
+                      label={t(
+                        'module.operationsVoiceClone.detail.chargedCredits',
+                      )}
                       value={detail.charged_credits}
                     />
                   ) : null}
@@ -812,15 +845,21 @@ export default function AdminOperationVoiceClonesPage() {
                   title={t('module.operationsVoiceClone.detail.audio')}
                 >
                   <DetailRow
-                    label={t('module.operationsVoiceClone.detail.sourceAudioDuration')}
+                    label={t(
+                      'module.operationsVoiceClone.detail.sourceAudioDuration',
+                    )}
                     value={formatDuration(detail.source_audio_duration_ms)}
                   />
                   <DetailRow
-                    label={t('module.operationsVoiceClone.detail.normalizedAudioDuration')}
+                    label={t(
+                      'module.operationsVoiceClone.detail.normalizedAudioDuration',
+                    )}
                     value={formatDuration(detail.normalized_audio_duration_ms)}
                   />
                   <DetailRow
-                    label={t('module.operationsVoiceClone.detail.promptAudioDuration')}
+                    label={t(
+                      'module.operationsVoiceClone.detail.promptAudioDuration',
+                    )}
                     value={formatDuration(detail.prompt_audio_duration_ms)}
                   />
                 </DetailSection>
@@ -847,15 +886,21 @@ export default function AdminOperationVoiceClonesPage() {
                     title={t('module.operationsVoiceClone.detail.minimax')}
                   >
                     <DetailRow
-                      label={t('module.operationsVoiceClone.detail.minimaxStatusCode')}
+                      label={t(
+                        'module.operationsVoiceClone.detail.minimaxStatusCode',
+                      )}
                       value={String(detail.minimax_status_code || '')}
                     />
                     <DetailRow
-                      label={t('module.operationsVoiceClone.detail.minimaxStatusMsg')}
+                      label={t(
+                        'module.operationsVoiceClone.detail.minimaxStatusMsg',
+                      )}
                       value={detail.minimax_status_msg}
                     />
                     <DetailRow
-                      label={t('module.operationsVoiceClone.detail.minimaxTraceId')}
+                      label={t(
+                        'module.operationsVoiceClone.detail.minimaxTraceId',
+                      )}
                       value={detail.minimax_trace_id}
                     />
                   </DetailSection>
