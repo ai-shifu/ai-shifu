@@ -24,19 +24,31 @@ type UseOnboardingOptions = {
   onStepMissing?: (step: OnboardingStep, stepIndex: number) => void;
 };
 
-const rectEquals = (current: DOMRect | null, next: DOMRect | null) => {
-  if (current === next) {
+const VIEWPORT_TARGET_GAP = 16;
+
+const rectFitsViewport = (rect: DOMRect) => {
+  if (typeof window === 'undefined') {
     return true;
   }
-  if (!current || !next) {
-    return false;
-  }
-  return (
-    current.top === next.top &&
-    current.left === next.left &&
-    current.width === next.width &&
-    current.height === next.height
-  );
+
+  const minTop = VIEWPORT_TARGET_GAP;
+  const minLeft = VIEWPORT_TARGET_GAP;
+  const maxBottom = window.innerHeight - VIEWPORT_TARGET_GAP;
+  const maxRight = window.innerWidth - VIEWPORT_TARGET_GAP;
+  const availableHeight = maxBottom - minTop;
+  const availableWidth = maxRight - minLeft;
+
+  const verticallyFits =
+    rect.height <= availableHeight
+      ? rect.top >= minTop && rect.bottom <= maxBottom
+      : rect.bottom > minTop && rect.top < maxBottom;
+
+  const horizontallyFits =
+    rect.width <= availableWidth
+      ? rect.left >= minLeft && rect.right <= maxRight
+      : rect.right > minLeft && rect.left < maxRight;
+
+  return verticallyFits && horizontallyFits;
 };
 
 export function useOnboarding({
@@ -174,10 +186,13 @@ export function useOnboarding({
         }
         return false;
       }
-      if (
+      const nextRect = element.getBoundingClientRect();
+      const shouldScrollPanelTarget =
         currentStep.panel &&
-        lastScrolledStepIdRef.current !== currentStep.id
-      ) {
+        (lastScrolledStepIdRef.current !== currentStep.id ||
+          !rectFitsViewport(nextRect));
+
+      if (shouldScrollPanelTarget) {
         element.scrollIntoView({
           block: 'center',
           inline: 'nearest',
@@ -191,7 +206,6 @@ export function useOnboarding({
         setTargetRectStepId(null);
         return false;
       }
-      const nextRect = element.getBoundingClientRect();
       const hasVisibleRect = nextRect.width > 0 && nextRect.height > 0;
       if (!hasVisibleRect) {
         lastMeasuredRect = null;
