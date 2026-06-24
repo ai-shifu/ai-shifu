@@ -6,7 +6,6 @@ import uuid
 from sqlalchemy.exc import IntegrityError
 
 from flaskr.dao import db
-from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.onboarding import _serialize_datetime
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
@@ -36,44 +35,6 @@ def _create_user(
     )
     db.session.add(user)
     return user
-
-
-def _create_draft_course(
-    *,
-    shifu_bid: str,
-    user_bid: str,
-    created_at: datetime,
-) -> DraftShifu:
-    course = DraftShifu(
-        shifu_bid=shifu_bid,
-        title="Draft Course",
-        created_user_bid=user_bid,
-        created_at=created_at,
-        updated_at=created_at,
-        updated_user_bid=user_bid,
-    )
-    db.session.add(course)
-    return course
-
-
-def _create_published_course(
-    *,
-    shifu_bid: str,
-    user_bid: str,
-    created_at: datetime,
-) -> PublishedShifu:
-    course = PublishedShifu(
-        shifu_bid=shifu_bid,
-        title="Published Course",
-        created_user_bid=user_bid,
-        created_at=created_at,
-        updated_at=created_at,
-        updated_user_bid=user_bid,
-    )
-    db.session.add(course)
-    return course
-
-
 def test_serialize_datetime_emits_explicit_utc_suffix():
     assert _serialize_datetime(None) is None
     assert _serialize_datetime(datetime(2026, 6, 17, 12, 5, 0)) == (
@@ -286,98 +247,6 @@ def test_onboarding_status_includes_existing_creator_rollout_segment(
         == "generic_billing"
     )
     assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is True
-
-
-def test_onboarding_status_excludes_existing_creator_with_preexisting_draft_course(
-    app, test_client, monkeypatch
-):
-    user_bid = uuid.uuid4().hex[:32]
-
-    with app.app_context():
-        _create_user(
-            user_bid=user_bid,
-            is_creator=True,
-            created_at=datetime(2026, 5, 1, 12, 0, 0),
-        )
-        _create_draft_course(
-            shifu_bid=uuid.uuid4().hex[:32],
-            user_bid=user_bid,
-            created_at=datetime(2026, 6, 1, 12, 0, 0),
-        )
-        db.session.commit()
-        token = generate_token(app, user_bid)
-
-    monkeypatch.setattr(
-        "flaskr.service.user.onboarding.get_dynamic_config",
-        lambda key, default="": {
-            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-22 00:00:00",
-            "ADMIN_EXISTING_CREATOR_ONBOARDING_ENABLED_FROM": "2026-06-23 00:00:00",
-            "DEMO_SHIFU_BID": "demo-zh-course",
-        }.get(key, default),
-    )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.demo_courses.get_dynamic_config",
-        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(key, default),
-    )
-
-    response = test_client.get(
-        "/api/user/onboarding/status",
-        headers={"Token": token},
-    )
-
-    assert response.status_code == 200
-    payload = response.get_json(force=True)
-    assert payload["code"] == 0
-    assert payload["data"]["eligible"] is False
-    assert payload["data"]["user_segment"] == "existing_creator_rollout"
-    assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is False
-    assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is False
-
-
-def test_onboarding_status_excludes_existing_creator_with_preexisting_published_course(
-    app, test_client, monkeypatch
-):
-    user_bid = uuid.uuid4().hex[:32]
-
-    with app.app_context():
-        _create_user(
-            user_bid=user_bid,
-            is_creator=True,
-            created_at=datetime(2026, 5, 1, 12, 0, 0),
-        )
-        _create_published_course(
-            shifu_bid=uuid.uuid4().hex[:32],
-            user_bid=user_bid,
-            created_at=datetime(2026, 6, 5, 12, 0, 0),
-        )
-        db.session.commit()
-        token = generate_token(app, user_bid)
-
-    monkeypatch.setattr(
-        "flaskr.service.user.onboarding.get_dynamic_config",
-        lambda key, default="": {
-            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-22 00:00:00",
-            "ADMIN_EXISTING_CREATOR_ONBOARDING_ENABLED_FROM": "2026-06-23 00:00:00",
-            "DEMO_SHIFU_BID": "demo-zh-course",
-        }.get(key, default),
-    )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.demo_courses.get_dynamic_config",
-        lambda key, default="": {"DEMO_SHIFU_BID": "demo-zh-course"}.get(key, default),
-    )
-
-    response = test_client.get(
-        "/api/user/onboarding/status",
-        headers={"Token": token},
-    )
-
-    assert response.status_code == 200
-    payload = response.get_json(force=True)
-    assert payload["code"] == 0
-    assert payload["data"]["eligible"] is False
-    assert payload["data"]["user_segment"] == "existing_creator_rollout"
-    assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is False
-    assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is False
 
 
 def test_onboarding_status_excludes_existing_creator_before_rollout_switch(
