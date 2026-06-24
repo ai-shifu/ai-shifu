@@ -41,6 +41,7 @@
     "module.operationsOrder",
     "module.operationsPromotion",
     "module.operationsUser",
+    "module.operationsVoiceClone",
     "module.order",
     "module.pay",
     "module.permission",
