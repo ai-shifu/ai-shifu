@@ -152,10 +152,21 @@ jest.mock('@/hooks/useOnboarding', () => ({
   useCreatorOnboardingStatus: () => ({
     data: {
       eligible: false,
+      user_segment: 'ineligible',
       version: 'v1',
       scenes: {
-        admin_home_onboarding: { completed: true, completed_at: null },
-        course_editor_onboarding: { completed: true, completed_at: null },
+        admin_home_onboarding: {
+          completed: true,
+          completed_at: null,
+          eligible: false,
+          variant: null,
+        },
+        course_editor_onboarding: {
+          completed: true,
+          completed_at: null,
+          eligible: false,
+          variant: null,
+        },
       },
       guide_course: {
         bid: '',

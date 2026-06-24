@@ -119,6 +119,7 @@ const MainInterface = ({
   );
   const { data: onboardingStatus, mutate: mutateOnboardingStatus } =
     useCreatorOnboardingStatus(menuReady);
+  const adminHomeSceneStatus = onboardingStatus?.scenes.admin_home_onboarding;
   const courseCreatorUrl = useMemo(() => getCourseCreatorUrl(), []);
 
   const adminHomeSteps = useMemo(
@@ -129,8 +130,10 @@ const MainInterface = ({
         trialOffer: billingOverview?.trial_offer,
         courseCreatorUrl,
         locale: currentLanguage || i18n.language,
+        variant: adminHomeSceneStatus?.variant,
       }),
     [
+      adminHomeSceneStatus?.variant,
       billingEnabled,
       courseCreatorUrl,
       billingOverview?.trial_offer,
@@ -142,8 +145,8 @@ const MainInterface = ({
   const shouldShowAdminHomeOnboarding =
     pathname === '/admin' &&
     menuReady &&
-    Boolean(onboardingStatus?.eligible) &&
-    onboardingStatus?.scenes.admin_home_onboarding.completed === false &&
+    adminHomeSceneStatus?.eligible === true &&
+    adminHomeSceneStatus?.completed === false &&
     (!billingEnabled || !billingOverviewLoading);
 
   const {
@@ -160,6 +163,7 @@ const MainInterface = ({
       trackEvent('creator_onboarding_step_viewed', {
         scene_key: 'admin_home_onboarding',
         version: onboardingStatus?.version || 'v1',
+        user_segment: onboardingStatus?.user_segment || 'ineligible',
         step_id: step.id,
         step_index: stepIndex + 1,
         trigger_source: 'admin_entry',
@@ -178,6 +182,7 @@ const MainInterface = ({
         trackEvent('creator_onboarding_completed', {
           scene_key: 'admin_home_onboarding',
           version,
+          user_segment: onboardingStatus?.user_segment || 'ineligible',
           trigger_source: 'admin_entry',
           language,
         });
@@ -185,6 +190,7 @@ const MainInterface = ({
         trackEvent('creator_onboarding_complete_failed', {
           scene_key: 'admin_home_onboarding',
           version,
+          user_segment: onboardingStatus?.user_segment || 'ineligible',
           trigger_source: 'admin_entry',
           language,
         });
@@ -198,6 +204,7 @@ const MainInterface = ({
           scenes: {
             ...current.scenes,
             admin_home_onboarding: {
+              ...current.scenes.admin_home_onboarding,
               completed: true,
               completed_at: new Date().toISOString(),
             },
@@ -216,6 +223,7 @@ const MainInterface = ({
     trackEvent('creator_onboarding_started', {
       scene_key: 'admin_home_onboarding',
       version: onboardingStatus?.version || 'v1',
+      user_segment: onboardingStatus?.user_segment || 'ineligible',
       trigger_source: 'admin_entry',
       language: currentLanguage || i18n.language,
     });
@@ -223,6 +231,7 @@ const MainInterface = ({
     adminHomeOnboardingOpen,
     currentLanguage,
     i18n.language,
+    onboardingStatus?.user_segment,
     onboardingStatus?.version,
     trackEvent,
   ]);

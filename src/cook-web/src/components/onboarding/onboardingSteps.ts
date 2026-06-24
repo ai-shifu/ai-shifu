@@ -1,8 +1,14 @@
 import React from 'react';
 import type { BillingTrialOffer } from '@/types/billing';
+import type { CreatorOnboardingBillingVariant } from '@/types/onboarding';
 import { ONBOARDING_TARGET_IDS } from '@/lib/onboardingTargets';
 import { formatBillingDate } from '@/lib/billing';
 import type { OnboardingStep } from './onboardingTypes';
+
+/*
+ * Translation usage markers for scripts/check_translation_usage.py:
+ * - 'module.onboarding.adminHome.billingCard.descriptionGeneric'
+ */
 
 const replaceTemplate = (
   template: string,
@@ -21,13 +27,19 @@ type BuildAdminHomeStepsOptions = {
   trialOffer?: BillingTrialOffer | null;
   courseCreatorUrl?: string | null;
   locale?: string;
+  variant?: CreatorOnboardingBillingVariant | null;
 };
 
 const buildBillingDescription = (
   t: Translate,
   trialOffer: BillingTrialOffer | null | undefined,
   locale?: string,
+  variant?: CreatorOnboardingBillingVariant | null,
 ) => {
+  if (variant === 'generic_billing' || trialOffer?.status !== 'granted') {
+    return t('adminHome.billingCard.descriptionGeneric');
+  }
+
   const credits = trialOffer?.credit_amount || 0;
   const expiresAt = formatBillingDate(
     trialOffer?.expires_at,
@@ -83,6 +95,7 @@ export function buildAdminHomeOnboardingSteps({
   trialOffer,
   courseCreatorUrl,
   locale,
+  variant,
 }: BuildAdminHomeStepsOptions): OnboardingStep[] {
   const steps: OnboardingStep[] = [
     {
@@ -105,7 +118,7 @@ export function buildAdminHomeOnboardingSteps({
     steps.push({
       id: 'billing_card',
       title: t('adminHome.billingCard.title'),
-      description: buildBillingDescription(t, trialOffer, locale),
+      description: buildBillingDescription(t, trialOffer, locale, variant),
       targetId: ONBOARDING_TARGET_IDS.billingCard,
       skipWhenTargetMissing: true,
       highlightPadding: 4,

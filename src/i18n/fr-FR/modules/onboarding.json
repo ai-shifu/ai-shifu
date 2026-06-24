@@ -2,6 +2,7 @@
   "__namespace__": "module.onboarding",
   "adminHome": {
     "billingCard": {
+      "descriptionGeneric": "Consultez ici votre solde de crédits, ou achetez et mettez votre offre à niveau si nécessaire.",
       "descriptionWithDays": "Nous avons ajouté {credits} crédits d'essai à votre compte, valables pendant {days} jours. Consultez ici votre solde de crédits, ou achetez et mettez votre offre à niveau si nécessaire.",
       "descriptionWithExpiry": "Nous avons ajouté {credits} crédits d'essai à votre compte, valables jusqu'au {expiresAt}. Consultez ici votre solde de crédits, ou achetez et mettez votre offre à niveau si nécessaire.",
       "title": "Consultez vos crédits et achetez une offre ici"

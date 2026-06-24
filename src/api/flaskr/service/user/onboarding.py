@@ -27,15 +27,24 @@ SUPPORTED_TRIGGER_SOURCES = {
     "editor_entry",
     "manual_create",
     "lobster_create",
+    "skills_create",
 }
 STATUS_COMPLETED = "completed"
 ROLLOUT_CONFIG_KEY = "ADMIN_ONBOARDING_ENABLED_FROM"
+EXISTING_CREATOR_ROLLOUT_CONFIG_KEY = "ADMIN_EXISTING_CREATOR_ONBOARDING_ENABLED_FROM"
+USER_SEGMENT_NEW_CREATOR = "new_creator"
+USER_SEGMENT_EXISTING_CREATOR_ROLLOUT = "existing_creator_rollout"
+USER_SEGMENT_INELIGIBLE = "ineligible"
+BILLING_VARIANT_TRIAL_CREDIT = "trial_credit"
+BILLING_VARIANT_GENERIC_BILLING = "generic_billing"
 
 
 @dataclass(frozen=True)
 class OnboardingSceneStatus:
     completed: bool
     completed_at: str | None
+    eligible: bool
+    variant: str | None
 
 
 def _serialize_datetime(value: datetime | None) -> str | None:
@@ -92,25 +101,70 @@ def _load_user_entity(user_bid: str) -> UserEntity | None:
     ).first()
 
 
-def _is_user_eligible(user: UserEntity | None) -> bool:
+def _resolve_user_segment(user: UserEntity | None) -> str:
     if user is None:
-        return False
+        return USER_SEGMENT_INELIGIBLE
     if not bool(getattr(user, "is_creator", 0)):
-        return False
+        return USER_SEGMENT_INELIGIBLE
     if bool(getattr(user, "is_operator", 0)):
-        return False
+        return USER_SEGMENT_INELIGIBLE
 
     threshold = _parse_rollout_threshold(get_dynamic_config(ROLLOUT_CONFIG_KEY, ""))
-    eligible_at = getattr(user, "creator_activated_at", None) or getattr(
-        user, "created_at", None
-    )
-    if threshold is None:
-        return True
+    eligible_at = getattr(user, "created_at", None)
     if eligible_at is None:
-        return False
+        return USER_SEGMENT_INELIGIBLE
     if getattr(eligible_at, "tzinfo", None) is not None:
         eligible_at = eligible_at.astimezone(timezone.utc).replace(tzinfo=None)
-    return eligible_at >= threshold
+
+    existing_rollout_threshold = _parse_rollout_threshold(
+        get_dynamic_config(EXISTING_CREATOR_ROLLOUT_CONFIG_KEY, "")
+    )
+    now = datetime.utcnow()
+
+    if threshold is None:
+        if existing_rollout_threshold is not None and now >= existing_rollout_threshold:
+            return USER_SEGMENT_EXISTING_CREATOR_ROLLOUT
+        return USER_SEGMENT_INELIGIBLE
+
+    if eligible_at >= threshold:
+        return USER_SEGMENT_NEW_CREATOR
+
+    if existing_rollout_threshold is None:
+        return USER_SEGMENT_INELIGIBLE
+
+    if now >= existing_rollout_threshold:
+        return USER_SEGMENT_EXISTING_CREATOR_ROLLOUT
+
+    return USER_SEGMENT_INELIGIBLE
+
+
+def _build_scene_status(
+    *,
+    scene_key: str,
+    states: dict[str, UserOnboardingState],
+    user_segment: str,
+) -> OnboardingSceneStatus:
+    row = states.get(scene_key)
+    is_eligible = user_segment in {
+        USER_SEGMENT_NEW_CREATOR,
+        USER_SEGMENT_EXISTING_CREATOR_ROLLOUT,
+    }
+    variant = None
+    if scene_key == SCENE_ADMIN_HOME and is_eligible:
+        variant = (
+            BILLING_VARIANT_TRIAL_CREDIT
+            if user_segment == USER_SEGMENT_NEW_CREATOR
+            else BILLING_VARIANT_GENERIC_BILLING
+        )
+
+    return OnboardingSceneStatus(
+        completed=row is not None and row.status == STATUS_COMPLETED,
+        completed_at=_serialize_datetime(
+            getattr(row, "completed_at", None) if row else None
+        ),
+        eligible=is_eligible,
+        variant=variant,
+    )
 
 
 def build_onboarding_status(
@@ -118,6 +172,7 @@ def build_onboarding_status(
 ) -> dict[str, Any]:
     with app.app_context():
         user = _load_user_entity(user_bid)
+        user_segment = _resolve_user_segment(user)
         normalized_language = _normalize_language(
             language or getattr(user, "language", "")
         )
@@ -130,22 +185,24 @@ def build_onboarding_status(
             ).all()
         }
 
-        def build_scene_status(scene_key: str) -> OnboardingSceneStatus:
-            row = states.get(scene_key)
-            return OnboardingSceneStatus(
-                completed=row is not None and row.status == STATUS_COMPLETED,
-                completed_at=_serialize_datetime(
-                    getattr(row, "completed_at", None) if row else None
-                ),
-            )
+        scenes = {
+            SCENE_ADMIN_HOME: _build_scene_status(
+                scene_key=SCENE_ADMIN_HOME,
+                states=states,
+                user_segment=user_segment,
+            ).__dict__,
+            SCENE_COURSE_EDITOR: _build_scene_status(
+                scene_key=SCENE_COURSE_EDITOR,
+                states=states,
+                user_segment=user_segment,
+            ).__dict__,
+        }
 
         return {
-            "eligible": _is_user_eligible(user),
+            "eligible": any(scene["eligible"] for scene in scenes.values()),
+            "user_segment": user_segment,
             "version": ONBOARDING_VERSION,
-            "scenes": {
-                SCENE_ADMIN_HOME: build_scene_status(SCENE_ADMIN_HOME).__dict__,
-                SCENE_COURSE_EDITOR: build_scene_status(SCENE_COURSE_EDITOR).__dict__,
-            },
+            "scenes": scenes,
             "guide_course": guide_course,
         }
 
@@ -174,7 +231,7 @@ def complete_onboarding_scene(
 
     with app.app_context():
         user = _load_user_entity(normalized_user_bid)
-        if not _is_user_eligible(user):
+        if _resolve_user_segment(user) == USER_SEGMENT_INELIGIBLE:
             raise_error("server.user.userNotPermission")
 
         existing = UserOnboardingState.query.filter(

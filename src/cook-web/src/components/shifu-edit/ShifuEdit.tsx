@@ -306,6 +306,8 @@ const ScriptEditor = ({
   );
   const { data: onboardingStatus, mutate: mutateOnboardingStatus } =
     useCreatorOnboardingStatus(Boolean(currentUserId));
+  const courseEditorSceneStatus =
+    onboardingStatus?.scenes.course_editor_onboarding;
   const editorOnboardingSteps = useMemo(
     () =>
       buildCourseEditorOnboardingSteps({
@@ -322,8 +324,8 @@ const ScriptEditor = ({
   const shouldShowCourseEditorOnboarding =
     !isHistoryPage &&
     editorOnboardingReady &&
-    Boolean(onboardingStatus?.eligible) &&
-    onboardingStatus?.scenes.course_editor_onboarding.completed === false &&
+    courseEditorSceneStatus?.eligible === true &&
+    courseEditorSceneStatus?.completed === false &&
     isCourseOwner;
   const actionsRef = useRef(actions);
   const baseRevisionRef = useRef<number | null>(null);
@@ -351,6 +353,7 @@ const ScriptEditor = ({
       trackEvent('creator_onboarding_step_viewed', {
         scene_key: 'course_editor_onboarding',
         version: onboardingStatus?.version || 'v1',
+        user_segment: onboardingStatus?.user_segment || 'ineligible',
         step_id: step.id,
         step_index: stepIndex + 1,
         trigger_source: editorOnboardingTriggerSource,
@@ -369,6 +372,7 @@ const ScriptEditor = ({
         trackEvent('creator_onboarding_completed', {
           scene_key: 'course_editor_onboarding',
           version,
+          user_segment: onboardingStatus?.user_segment || 'ineligible',
           trigger_source: editorOnboardingTriggerSource,
           language,
         });
@@ -376,6 +380,7 @@ const ScriptEditor = ({
         trackEvent('creator_onboarding_complete_failed', {
           scene_key: 'course_editor_onboarding',
           version,
+          user_segment: onboardingStatus?.user_segment || 'ineligible',
           trigger_source: editorOnboardingTriggerSource,
           language,
         });
@@ -389,6 +394,7 @@ const ScriptEditor = ({
           scenes: {
             ...current.scenes,
             course_editor_onboarding: {
+              ...current.scenes.course_editor_onboarding,
               completed: true,
               completed_at: new Date().toISOString(),
             },
@@ -439,12 +445,14 @@ const ScriptEditor = ({
     trackEvent('creator_onboarding_started', {
       scene_key: 'course_editor_onboarding',
       version: onboardingStatus?.version || 'v1',
+      user_segment: onboardingStatus?.user_segment || 'ineligible',
       trigger_source: editorOnboardingTriggerSource,
       language: profile?.language || i18n.language,
     });
   }, [
     courseEditorOnboardingOpen,
     editorOnboardingTriggerSource,
+    onboardingStatus?.user_segment,
     onboardingStatus?.version,
     profile?.language,
     trackEvent,
