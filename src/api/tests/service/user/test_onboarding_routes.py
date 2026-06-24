@@ -35,6 +35,8 @@ def _create_user(
     )
     db.session.add(user)
     return user
+
+
 def test_serialize_datetime_emits_explicit_utc_suffix():
     assert _serialize_datetime(None) is None
     assert _serialize_datetime(datetime(2026, 6, 17, 12, 5, 0)) == (
