@@ -95,7 +95,7 @@ export default function CreatorRedemptionCodesFilterPanel({
         value: toSelectValue(option.value),
         label: option.label,
       })),
-      itemClassNameOverride: SINGLE_SELECT_ITEM_CLASS,
+      selectItemClassName: SINGLE_SELECT_ITEM_CLASS,
       indicatorClassName: SINGLE_SELECT_INDICATOR_CLASS,
     });
 

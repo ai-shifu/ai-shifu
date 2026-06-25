@@ -41,7 +41,7 @@ type CreateSelectFilterItemParams = {
   itemClassName?: string;
   labelClassName?: string;
   triggerClassName?: string;
-  itemClassNameOverride?: string;
+  selectItemClassName?: string;
   indicatorClassName?: string;
 };
 
@@ -100,7 +100,7 @@ export const createSelectFilterItem = ({
   itemClassName,
   labelClassName,
   triggerClassName,
-  itemClassNameOverride,
+  selectItemClassName,
   indicatorClassName,
 }: CreateSelectFilterItemParams): AdminFilterItem => ({
   key,
@@ -121,7 +121,7 @@ export const createSelectFilterItem = ({
           <SelectItem
             key={option.value}
             value={option.value}
-            className={itemClassNameOverride}
+            className={selectItemClassName}
             indicatorClassName={indicatorClassName}
           >
             {option.label}

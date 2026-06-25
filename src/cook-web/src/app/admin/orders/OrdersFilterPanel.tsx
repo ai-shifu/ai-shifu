@@ -229,7 +229,7 @@ export default function OrdersFilterPanel({
         value: option.value || ALL_OPTION_VALUE,
         label: option.label,
       })),
-      itemClassNameOverride: SINGLE_SELECT_ITEM_CLASS,
+      selectItemClassName: SINGLE_SELECT_ITEM_CLASS,
     }),
     createSelectFilterItem({
       key: 'payment_channel',
@@ -245,7 +245,7 @@ export default function OrdersFilterPanel({
         value: option.value || ALL_OPTION_VALUE,
         label: option.label,
       })),
-      itemClassNameOverride: SINGLE_SELECT_ITEM_CLASS,
+      selectItemClassName: SINGLE_SELECT_ITEM_CLASS,
     }),
     createDateRangeFilterItem({
       key: 'date_range',
