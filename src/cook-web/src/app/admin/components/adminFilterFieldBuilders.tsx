@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
+import { cn } from '@/lib/utils';
 
 export type AdminFilterSelectOption = {
   value: string;
@@ -112,7 +113,7 @@ export const createSelectFilterItem = ({
       value={value}
       onValueChange={onChange}
     >
-      <SelectTrigger className={triggerClassName || 'h-9'}>
+      <SelectTrigger className={cn('h-9', triggerClassName)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

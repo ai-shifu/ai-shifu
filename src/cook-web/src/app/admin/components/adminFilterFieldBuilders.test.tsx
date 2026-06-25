@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import {
   createDateRangeFilterItem,
   createSelectFilterItem,
@@ -37,17 +37,27 @@ jest.mock('@/components/ui/Select', () => ({
 
 describe('adminFilterFieldBuilders', () => {
   test('builds text filter item with clearable input', () => {
+    const onChange = jest.fn();
+    const onSubmit = jest.fn();
     const item = createTextFilterItem({
       key: 'keyword',
       label: 'Keyword',
       value: 'abc',
       placeholder: 'Search keyword',
       clearLabel: 'Clear',
-      onChange: jest.fn(),
+      onChange,
+      onSubmit,
     });
 
     render(item.component);
-    expect(screen.getByPlaceholderText('Search keyword')).toHaveValue('abc');
+    const input = screen.getByPlaceholderText('Search keyword');
+    expect(input).toHaveValue('abc');
+
+    fireEvent.change(input, { target: { value: 'abcd' } });
+    expect(onChange).toHaveBeenCalledWith('abcd');
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
   test('builds select filter item with provided options', () => {

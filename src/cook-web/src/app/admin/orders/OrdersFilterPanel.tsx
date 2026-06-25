@@ -256,9 +256,7 @@ export default function OrdersFilterPanel({
         onFilterChange('start_time', range.start);
         onFilterChange('end_time', range.end);
       },
-      placeholder: `${t('module.order.filters.startTime')} ~ ${t(
-        'module.order.filters.endTime',
-      )}`,
+      placeholder: t('module.order.filters.dateRangePlaceholder'),
       resetLabel: t('module.order.filters.reset'),
       clearLabel: t('common.core.close'),
     }),
