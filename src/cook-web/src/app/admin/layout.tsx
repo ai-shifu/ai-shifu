@@ -1,7 +1,13 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
+import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
@@ -22,6 +28,7 @@ import type { ReferralInviteProfile } from '@/types/referral';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';
 import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
+import AdminDocumentTitleSync from './AdminDocumentTitleSync';
 
 const MainInterface = ({
   children,
@@ -31,8 +38,6 @@ const MainInterface = ({
   const { t, i18n } = useTranslation();
   const { t: tOnboarding } = useTranslation('module.onboarding');
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const searchParamsString = searchParams?.toString() || '';
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
@@ -46,6 +51,7 @@ const MainInterface = ({
   const hasResolvedAdminSession =
     hasAuthenticatedAdminSession && Boolean(currentUserId);
   const menuReady = hasResolvedAdminSession;
+  const adminTitle = t('common.core.adminTitle');
 
   useEffect(() => {
     if (
@@ -61,10 +67,6 @@ const MainInterface = ({
     );
     window.location.href = `/login?redirect=${currentPath}`;
   }, [hasAuthenticatedAdminSession, isInitialized]);
-
-  useEffect(() => {
-    document.title = t('common.core.adminTitle');
-  }, [pathname, searchParamsString, t, i18n.language]);
 
   // The /admin path carries no shifu_bid, so the bootstrap runtime-config
   // cannot resolve a creator. Once the logged-in creator is known, re-fetch
@@ -274,6 +276,9 @@ const MainInterface = ({
 
   return (
     <>
+      <Suspense fallback={null}>
+        <AdminDocumentTitleSync title={adminTitle} />
+      </Suspense>
       {adminHomeOnboardingStep ? (
         <OnboardingOverlay
           open={adminHomeOnboardingOpen}
