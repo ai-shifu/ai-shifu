@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
@@ -31,6 +31,8 @@ const MainInterface = ({
   const { t, i18n } = useTranslation();
   const { t: tOnboarding } = useTranslation('module.onboarding');
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchParamsString = searchParams?.toString() || '';
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
@@ -62,7 +64,7 @@ const MainInterface = ({
 
   useEffect(() => {
     document.title = t('common.core.adminTitle');
-  }, [t, i18n.language]);
+  }, [pathname, searchParamsString, t, i18n.language]);
 
   // The /admin path carries no shifu_bid, so the bootstrap runtime-config
   // cannot resolve a creator. Once the logged-in creator is known, re-fetch

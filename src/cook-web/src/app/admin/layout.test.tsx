@@ -8,6 +8,10 @@ import AdminLayout from './layout';
 import { SidebarContent } from './SidebarContent';
 
 const footerLabel = 'footer';
+const mockTranslate = (key: string) => key;
+const mockUsePathname = jest.fn(() => '/admin');
+const mockApplyCreatorBranding = jest.fn();
+let mockSearchParamsValue = '';
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -35,7 +39,8 @@ jest.mock('next/link', () => ({
 }));
 
 jest.mock('next/navigation', () => ({
-  usePathname: () => '/admin',
+  usePathname: () => mockUsePathname(),
+  useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
   useRouter: () => ({
     push: jest.fn(),
     replace: jest.fn(),
@@ -46,7 +51,7 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: mockTranslate,
     i18n: {
       language: 'en-US',
     },
@@ -74,6 +79,12 @@ jest.mock('@/components/contact/ContactSideRail', () => ({
         {label ?? 'component.navigation.contactUs'}
       </a>
     ) : null,
+}));
+
+jest.mock('@/lib/initializeEnvData', () => ({
+  __esModule: true,
+  applyCreatorBranding: (creatorBid: string) =>
+    mockApplyCreatorBranding(creatorBid),
 }));
 
 jest.mock('@/c-common/hooks/useDisclosure', () => ({
@@ -407,6 +418,10 @@ describe('AdminLayout', () => {
   });
 
   beforeEach(() => {
+    document.title = '';
+    mockUsePathname.mockReturnValue('/admin');
+    mockApplyCreatorBranding.mockReset();
+    mockSearchParamsValue = '';
     mockEnvState.logoWideUrl = '/logo.png';
     mockEnvState.logoHorizontal = '';
     mockEnvState.logoSquareUrl = '';
@@ -499,6 +514,33 @@ describe('AdminLayout', () => {
       screen.queryByRole('link', { name: 'common.core.shifu' }),
     ).not.toBeInTheDocument();
     expect(window.location.href).toBe('http://localhost:3000');
+  });
+
+  test('restores the admin document title after same-route search params update on orders page', async () => {
+    mockUsePathname.mockReturnValue('/admin/orders');
+
+    const { rerender } = render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    await waitFor(() => {
+      expect(document.title).toBe('common.core.adminTitle');
+    });
+
+    document.title = 'AI-Shifu';
+    mockSearchParamsValue = 'status=';
+
+    rerender(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    await waitFor(() => {
+      expect(document.title).toBe('common.core.adminTitle');
+    });
   });
 
   test('renders the shared contact side rail for admin routes', () => {

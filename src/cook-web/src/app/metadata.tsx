@@ -1,7 +1,7 @@
 import { Metadata, Viewport } from 'next';
 
 export const metadata: Metadata = {
-  title: 'AI-Shifu',
+  title: 'Loading...',
   description: '',
   // Suppress browser auto-translation. Edge/Chrome translate rewrites React-managed
   // text nodes (wrapping them in <font>), which breaks the reconciler's
