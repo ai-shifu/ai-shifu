@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react';
-
 export const PAGE_SIZE = 20;
 export const USAGE_PROGRESS_SEPARATOR = '/';
 export const ALL_OPTION_VALUE = '__all__';
@@ -19,12 +17,6 @@ export type RedemptionCodeFilters = {
   status: string;
   start_time: string;
   end_time: string;
-};
-
-export type RedemptionFilterItem = {
-  key: string;
-  label: ReactNode;
-  component: ReactNode;
 };
 
 export const createDefaultFilters = (): RedemptionCodeFilters => ({
