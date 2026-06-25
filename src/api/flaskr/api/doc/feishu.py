@@ -24,7 +24,9 @@ def send_notify(app: Flask, title, msgs):
         )
 
     try:
-        response = requests.post(url, headers=headers, data=json.dumps(data), timeout=10)
+        response = requests.post(
+            url, headers=headers, data=json.dumps(data), timeout=10
+        )
     except requests.RequestException:
         app.logger.exception("send_notify request failed")
         return None
