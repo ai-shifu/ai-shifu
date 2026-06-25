@@ -18,6 +18,7 @@ import { ContactSideRail } from '@/components/contact/ContactSideRail';
 import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
 import { buildAdminHomeOnboardingSteps } from '@/components/onboarding/onboardingSteps';
 import { applyCreatorBranding } from '@/lib/initializeEnvData';
+import type { ReferralInviteProfile } from '@/types/referral';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';
 import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
@@ -107,9 +108,42 @@ const MainInterface = ({
     [closeDesktopMenu],
   );
 
+  const [showReferralInvite, setShowReferralInvite] = React.useState(false);
+
+  useEffect(() => {
+    if (!menuReady) {
+      setShowReferralInvite(false);
+      return;
+    }
+
+    let isActive = true;
+    setShowReferralInvite(false);
+
+    api
+      .getReferralInviteProfile({})
+      .then(response => {
+        if (!isActive) {
+          return;
+        }
+        const profile = response as ReferralInviteProfile;
+        setShowReferralInvite(
+          profile.available !== false && Boolean(profile.invite_url),
+        );
+      })
+      .catch(() => {
+        if (isActive) {
+          setShowReferralInvite(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [currentUserId, menuReady]);
+
   const menuItems = useMemo(
-    () => buildAdminMenuItems({ t, isOperator }),
-    [isOperator, t],
+    () => buildAdminMenuItems({ t, isOperator, showReferralInvite }),
+    [isOperator, showReferralInvite, t],
   );
 
   const { data: billingOverview, isLoading: billingOverviewLoading } =

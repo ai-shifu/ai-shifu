@@ -19,11 +19,13 @@ export type AdminMenuItem = {
 type BuildAdminMenuItemsOptions = {
   t: (key: string) => string;
   isOperator: boolean;
+  showReferralInvite?: boolean;
 };
 
 export const buildAdminMenuItems = ({
   t,
   isOperator,
+  showReferralInvite = true,
 }: BuildAdminMenuItemsOptions): AdminMenuItem[] => {
   const items: AdminMenuItem[] = [
     {
@@ -44,13 +46,16 @@ export const buildAdminMenuItems = ({
       label: t('module.dashboard.title'),
       href: '/admin/dashboard',
     },
-    {
+  ];
+
+  if (showReferralInvite) {
+    items.push({
       id: 'referral',
       icon: <UserPlusIcon className='w-4 h-4' />,
       label: t('common.core.referralInvitation'),
       href: '/admin/referral',
-    },
-  ];
+    });
+  }
 
   if (isOperator) {
     items.push({

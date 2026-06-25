@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import api from '@/api';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { CONTACT_RAIL_I18N_KEY } from '@/components/contact/ContactSideRail';
 import { buildAdminMenuItems } from './admin-menu';
@@ -50,6 +51,14 @@ jest.mock('react-i18next', () => ({
       language: 'en-US',
     },
   }),
+}));
+
+jest.mock('@/api', () => ({
+  __esModule: true,
+  default: {
+    completeCreatorOnboarding: jest.fn(),
+    getReferralInviteProfile: jest.fn(),
+  },
 }));
 
 jest.mock('@/components/contact/ContactSideRail', () => ({
@@ -188,6 +197,7 @@ jest.mock('@/hooks/useOnboarding', () => ({
 
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 const mockMutateBillingOverview = jest.fn();
+const mockGetReferralInviteProfile = api.getReferralInviteProfile as jest.Mock;
 
 describe('SidebarContent', () => {
   const t = (key: string) => key;
@@ -417,6 +427,10 @@ describe('AdminLayout', () => {
       search: '',
     });
     mockMutateBillingOverview.mockReset();
+    mockGetReferralInviteProfile.mockReset();
+    mockGetReferralInviteProfile.mockResolvedValue({
+      available: false,
+    });
     mockUseBillingOverview.mockReturnValue({
       data: buildBillingOverview({}),
       error: undefined,
@@ -629,6 +643,45 @@ describe('AdminLayout', () => {
     expect(
       screen.queryByText('module.billing.sidebar.cta'),
     ).not.toBeInTheDocument();
+  });
+
+  test('hides referral invite navigation when campaign is unavailable', async () => {
+    mockGetReferralInviteProfile.mockResolvedValueOnce({
+      available: false,
+    });
+
+    render(
+      <AdminLayout>
+        <div data-testid='child-content' />
+      </AdminLayout>,
+    );
+
+    await waitFor(() =>
+      expect(mockGetReferralInviteProfile).toHaveBeenCalledTimes(1),
+    );
+
+    expect(
+      screen.queryByRole('link', { name: 'common.core.referralInvitation' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('shows referral invite navigation when campaign is available', async () => {
+    mockGetReferralInviteProfile.mockResolvedValueOnce({
+      available: true,
+      invite_url: 'https://app.example.com/invite/AB12CD34',
+    });
+
+    render(
+      <AdminLayout>
+        <div data-testid='child-content' />
+      </AdminLayout>,
+    );
+
+    expect(
+      await screen.findByRole('link', {
+        name: 'common.core.referralInvitation',
+      }),
+    ).toHaveAttribute('href', '/admin/referral');
   });
 
   test('hides the credits section when available credits are zero', () => {

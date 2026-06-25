@@ -14,6 +14,17 @@ describe('buildAdminMenuItems', () => {
     ]);
   });
 
+  test('excludes referral invite entry when referral is unavailable', () => {
+    const options = { t, isOperator: false, showReferralInvite: false };
+    const menuItems = buildAdminMenuItems(options);
+
+    expect(menuItems.map(item => item.href)).toEqual([
+      '/admin',
+      '/admin/orders',
+      '/admin/dashboard',
+    ]);
+  });
+
   test('includes operations entry for operators', () => {
     const menuItems = buildAdminMenuItems({ t, isOperator: true });
 
@@ -52,6 +63,11 @@ describe('buildAdminMenuItems', () => {
           id: 'operations-credit-notification',
           label: 'common.core.creditNotificationManagement',
           href: '/admin/operations/credit-notifications',
+        },
+        {
+          id: 'operations-voice-clone',
+          label: 'common.core.voiceCloneManagement',
+          href: '/admin/operations/voice-clones',
         },
         {
           id: 'operations-profile-onboarding',
