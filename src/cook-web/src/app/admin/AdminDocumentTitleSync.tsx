@@ -15,7 +15,9 @@ const AdminDocumentTitleSync = ({ title }: AdminDocumentTitleSyncProps) => {
   // Keep route state in the dependency list so same-path query updates restore
   // the admin title after Next.js applies the root metadata title.
   useEffect(() => {
-    document.title = title;
+    if (document.title !== title) {
+      document.title = title;
+    }
   }, [pathname, searchParamsString, title]);
 
   return null;
