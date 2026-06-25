@@ -731,6 +731,7 @@ export type I18nKey =
   | 'module.chat.askContent'
   | 'module.chat.audioLoading'
   | 'module.chat.classroomEnterFullscreen'
+  | 'module.chat.classroomTitlePlaceholderTips'
   | 'module.chat.closeCatalog'
   | 'module.chat.generating'
   | 'module.chat.learningModeClassroom'
