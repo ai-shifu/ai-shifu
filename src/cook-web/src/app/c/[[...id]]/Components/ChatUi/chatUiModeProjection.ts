@@ -31,6 +31,7 @@ const CLASSROOM_VISUAL_ELEMENT_TYPES = new Set<string>([
   'diff',
   'img',
   'image',
+  'video',
 ]);
 
 const projectContentButton = ({

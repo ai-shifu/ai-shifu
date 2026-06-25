@@ -199,6 +199,13 @@ describe('chatUiModeProjection', () => {
         is_renderable: true,
       },
       {
+        type: ChatContentItemType.CONTENT,
+        element_bid: 'video-slide-1',
+        element_type: 'video' as ChatContentItem['element_type'],
+        content: '<iframe data-tag="video" src="/lesson.mp4"></iframe>',
+        is_renderable: true,
+      },
+      {
         type: ChatContentItemType.INTERACTION,
         element_bid: 'interaction-1',
         content: '?[%{{choice}} A | B]',
@@ -225,6 +232,7 @@ describe('chatUiModeProjection', () => {
     expect(projectedItems.map(item => item.element_bid)).toEqual([
       'slide-1',
       'image-slide-1',
+      'video-slide-1',
       'interaction-1',
     ]);
 
