@@ -108,7 +108,10 @@ export const createSelectFilterItem = ({
   itemClassName,
   labelClassName,
   component: (
-    <Select value={value} onValueChange={onChange}>
+    <Select
+      value={value}
+      onValueChange={onChange}
+    >
       <SelectTrigger className={triggerClassName || 'h-9'}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

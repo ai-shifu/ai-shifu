@@ -17,7 +17,10 @@ jest.mock('@/components/ui/Select', () => ({
     children: ReactNode;
     className?: string;
   }) => (
-    <button data-testid='select-trigger' className={className}>
+    <button
+      data-testid='select-trigger'
+      className={className}
+    >
       {children}
     </button>
   ),
@@ -27,13 +30,9 @@ jest.mock('@/components/ui/Select', () => ({
   SelectContent: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
-  SelectItem: ({
-    children,
-    value,
-  }: {
-    children: ReactNode;
-    value: string;
-  }) => <div data-value={value}>{children}</div>,
+  SelectItem: ({ children, value }: { children: ReactNode; value: string }) => (
+    <div data-value={value}>{children}</div>
+  ),
 }));
 
 describe('adminFilterFieldBuilders', () => {
