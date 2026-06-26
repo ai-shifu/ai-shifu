@@ -156,8 +156,7 @@ def test_onboarding_status_allows_operator_creator_when_new_creator_gate_matches
     assert payload["data"]["user_segment"] == "new_creator"
     assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is True
     assert (
-        payload["data"]["scenes"]["admin_home_onboarding"]["variant"]
-        == "trial_credit"
+        payload["data"]["scenes"]["admin_home_onboarding"]["variant"] == "trial_credit"
     )
     assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is True
 
