@@ -9,7 +9,7 @@ from sqlalchemy import (
     DateTime,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 from ...dao import db
 from .consts import USER_STATE_UNREGISTERED, CREDENTIAL_STATE_UNVERIFIED
 
@@ -35,13 +35,13 @@ class UserConversion(db.Model):
         String(255), nullable=False, default="", comment="Conversion third platform"
     )
     created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"
     )
     updated = Column(
         TIMESTAMP,
         nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
+        default=now_utc,
+        onupdate=now_utc,
         comment="Update time",
     )
 
@@ -69,16 +69,16 @@ class UserToken(db.Model):
     token = Column(String(255), nullable=False, default="", comment="Token")
     token_type = Column(Integer, nullable=False, default=0, comment="Token type")
     token_expired_at = Column(
-        TIMESTAMP, nullable=True, default=func.now(), comment="Token expired time"
+        TIMESTAMP, nullable=True, default=now_utc, comment="Token expired time"
     )
     created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"
     )
     updated = Column(
         TIMESTAMP,
         nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
+        default=now_utc,
+        onupdate=now_utc,
         comment="Update time",
     )
 
@@ -107,13 +107,13 @@ class UserVerifyCode(db.Model):
     user_ip = Column(String(100), nullable=False, default="", comment="user ip")
 
     created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"
     )
     updated = Column(
         TIMESTAMP,
         nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
+        default=now_utc,
+        onupdate=now_utc,
         comment="Update time",
     )
 
@@ -177,15 +177,15 @@ class UserInfo(db.Model):
         index=True,
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime, nullable=False, default=now_utc, comment="Creation timestamp"
     )
 
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Last update timestamp",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
 
 
@@ -234,13 +234,13 @@ class AuthCredential(db.Model):
         index=True,
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime, nullable=False, default=now_utc, comment="Creation timestamp"
     )
 
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Last update timestamp",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )

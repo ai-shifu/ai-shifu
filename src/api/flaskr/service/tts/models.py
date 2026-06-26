@@ -15,6 +15,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 
 from flaskr.dao import db
 
@@ -205,7 +206,7 @@ class LearnGeneratedAudio(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
         comment="Creation timestamp",
     )
@@ -213,9 +214,9 @@ class LearnGeneratedAudio(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
-        onupdate=func.now(),
+        onupdate=now_utc,
         comment="Last update timestamp",
     )
 
