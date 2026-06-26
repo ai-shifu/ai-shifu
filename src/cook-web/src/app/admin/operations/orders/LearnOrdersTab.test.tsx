@@ -202,6 +202,7 @@ describe('LearnOrdersTab', () => {
     await waitFor(() => {
       expect(mockGetAdminOperationOrdersOverview).toHaveBeenCalledWith({});
       expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
+        timezone: 'UTC',
         page_index: 1,
         page_size: 20,
         user_keyword: '',
@@ -292,6 +293,7 @@ describe('LearnOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
+        timezone: 'UTC',
         page_index: 1,
         page_size: 20,
         user_keyword: '',
@@ -313,6 +315,7 @@ describe('LearnOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
+        timezone: 'UTC',
         page_index: 1,
         page_size: 20,
         user_keyword: '',
@@ -335,6 +338,7 @@ describe('LearnOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
+        timezone: 'UTC',
         page_index: 1,
         page_size: 20,
         user_keyword: '',

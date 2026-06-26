@@ -7,7 +7,7 @@ import hashlib
 import re
 from typing import Any, Dict, List, Optional
 
-from flask import Flask, current_app
+from flask import Flask, current_app, g
 from sqlalchemy import case
 
 from flaskr.dao import db
@@ -204,13 +204,18 @@ def _format_cents(value: Optional[int]) -> str:
 
 
 def _format_admin_datetime(value: Optional[datetime]) -> str:
-    """Serialize admin/operator datetimes as UTC ISO strings."""
+    """Serialize admin/operator datetimes in the caller's timezone.
+
+    The timezone is resolved from the request (flask.g.operator_timezone, set by
+    the operator route guard from the browser ?timezone=). Falls back to UTC.
+    """
     if not value:
         return ""
+    tz_name = getattr(g, "operator_timezone", None) or "UTC"
     serialized_value = serialize_with_app_timezone(
         current_app._get_current_object(),
         value,
-        tz_name="UTC",
+        tz_name=tz_name,
     )
     return str(serialized_value or "").replace("+00:00", "Z")
 

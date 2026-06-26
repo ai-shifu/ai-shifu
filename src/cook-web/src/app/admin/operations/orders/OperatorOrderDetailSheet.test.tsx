@@ -137,6 +137,7 @@ describe('OperatorOrderDetailSheet', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationOrderDetail).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         order_bid: 'order-1',
       });
     });

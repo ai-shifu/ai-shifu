@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional, Sequence, Set
 
-from flask import Flask, current_app
+from flask import Flask, current_app, g
 from sqlalchemy import and_, case, false, literal, not_, or_
 from sqlalchemy.orm import defer
 
@@ -371,10 +371,13 @@ def _format_operator_datetime(value: Any) -> str:
     normalized_value = _coerce_operator_datetime(value)
     if not normalized_value:
         return ""
+    # Localize to the caller's timezone (flask.g.operator_timezone, set by the
+    # operator route guard from the browser ?timezone=); fall back to UTC.
+    tz_name = getattr(g, "operator_timezone", None) or "UTC"
     serialized_value = serialize_with_app_timezone(
         current_app._get_current_object(),
         normalized_value,
-        tz_name="UTC",
+        tz_name=tz_name,
     )
     return str(serialized_value or "").replace("+00:00", "Z")
 

@@ -339,6 +339,7 @@ describe('CreditOrdersTab', () => {
         {},
       );
       expect(mockGetAdminOperationCreditOrders).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         page_index: 1,
         page_size: 20,
         creator_keyword: '',
@@ -435,6 +436,7 @@ describe('CreditOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        timezone: expect.any(String),
         page_index: 1,
         page_size: 20,
         creator_keyword: '',
@@ -454,6 +456,7 @@ describe('CreditOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        timezone: expect.any(String),
         page_index: 1,
         page_size: 20,
         creator_keyword: '',
@@ -486,6 +489,7 @@ describe('CreditOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        timezone: expect.any(String),
         page_index: 1,
         page_size: 20,
         creator_keyword: '',
@@ -532,6 +536,7 @@ describe('CreditOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCreditOrders).toHaveBeenLastCalledWith({
+        timezone: expect.any(String),
         page_index: 1,
         page_size: 20,
         creator_keyword: '13800138000',
@@ -626,6 +631,7 @@ describe('CreditOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCreditOrderDetail).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         bill_order_bid: 'bill-order-1',
       });
     });
@@ -662,6 +668,7 @@ describe('CreditOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCreditOrderDetail).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         bill_order_bid: 'bill-order-1',
       });
     });

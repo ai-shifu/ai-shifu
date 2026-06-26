@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -104,6 +105,7 @@ const OperatorOrderDetailSheet = ({
     setError(null);
     try {
       const result = (await api.getAdminOperationOrderDetail({
+        timezone: getBrowserTimeZone(),
         order_bid: orderBid,
       })) as AdminOperationOrderDetailResponse;
       if (requestId !== fetchRequestIdRef.current) {

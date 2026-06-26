@@ -493,6 +493,7 @@ describe('AdminOperationCourseDetailPage', () => {
       }),
     ).toBeInTheDocument();
     expect(mockGetAdminOperationCourseDetail).toHaveBeenCalledWith({
+      timezone: expect.any(String),
       shifu_bid: 'course-1',
     });
     expect(mockGetAdminOperationCourseUsers).not.toHaveBeenCalled();
@@ -742,6 +743,7 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourseCreditUsages).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
@@ -784,6 +786,7 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourseCreditUsages).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
@@ -825,6 +828,7 @@ describe('AdminOperationCourseDetailPage', () => {
       expect(
         mockGetAdminOperationCourseCreditUsageDetails,
       ).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 10,
@@ -1206,6 +1210,7 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
@@ -1227,6 +1232,7 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
@@ -1309,6 +1315,7 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
@@ -1346,6 +1353,7 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourseUsers).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
@@ -1383,6 +1391,7 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourseCreditUsages).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
@@ -1441,6 +1450,7 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourseUsers).toHaveBeenLastCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 2,
         page_size: 20,

@@ -3,6 +3,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import {
   formatAdminNaiveDateTime,
   formatAdminUtcDateTime,
@@ -123,6 +124,7 @@ export default function CreditOrderDetailDialog({
 
     try {
       const result = (await api.getAdminOperationCreditOrderDetail({
+        timezone: getBrowserTimeZone(),
         bill_order_bid: billOrderBid,
       })) as AdminOperationCreditOrderDetailResponse;
       if (requestId !== fetchRequestIdRef.current) {

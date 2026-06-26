@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTitle from '@/app/admin/components/AdminTitle';
@@ -386,6 +387,7 @@ export default function AdminOperationCourseFollowUpsPage() {
 
       try {
         const response = (await api.getAdminOperationCourseFollowUps({
+          timezone: getBrowserTimeZone(),
           shifu_bid: shifuBid,
           page: targetPage,
           page_size: PAGE_SIZE,
@@ -448,6 +450,7 @@ export default function AdminOperationCourseFollowUpsPage() {
 
     try {
       const response = (await api.getAdminOperationCourseFollowUpDetail({
+        timezone: getBrowserTimeZone(),
         shifu_bid: shifuBid,
         generated_block_bid: selectedGeneratedBlockBid,
       })) as AdminOperationCourseFollowUpDetailResponse;

@@ -248,6 +248,7 @@ describe('AdminOperationCourseRatingsPage', () => {
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(mockGetAdminOperationCourseRatings).toHaveBeenCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
@@ -438,6 +439,7 @@ describe('AdminOperationCourseRatingsPage', () => {
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(mockGetAdminOperationCourseRatings).toHaveBeenLastCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
@@ -539,6 +541,7 @@ describe('AdminOperationCourseRatingsPage', () => {
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(mockGetAdminOperationCourseRatings).toHaveBeenLastCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 2,
         page_size: 20,
@@ -611,6 +614,7 @@ describe('AdminOperationCourseRatingsPage', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourseRatings).toHaveBeenLastCalledWith({
+        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTitle from '@/app/admin/components/AdminTitle';
@@ -325,6 +326,7 @@ export default function AdminOperationCourseRatingsPage() {
       setError(null);
       try {
         const response = await api.getAdminOperationCourseRatings({
+          timezone: getBrowserTimeZone(),
           shifu_bid: shifuBid,
           page: nextPage,
           page_size: PAGE_SIZE,

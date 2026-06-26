@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
-from flask import Flask, request
+from flask import Flask, g, request
 from pydantic import ValidationError
 
 from flaskr.common.config import get_config
@@ -246,6 +246,13 @@ def _require_operator() -> None:
     user = getattr(request, "user", None)
     if not getattr(user, "is_operator", False):
         raise_error("server.shifu.noPermission")
+    # Capture the caller's timezone (browser tz sent as ?timezone=) so operator
+    # datetime serialization can localize values server-side. Falls back to UTC
+    # when absent. Stored on flask.g to avoid threading it through every DTO.
+    timezone_name = (request.args.get("timezone", "") or "").strip()
+    if timezone_name and len(timezone_name) > 100:
+        raise_param_error("timezone")
+    g.operator_timezone = timezone_name or None
 
 
 def _normalize_contacts(raw_contacts: object) -> list[str]:
@@ -1022,6 +1029,7 @@ def register_admin_operations_routes(
                 ),
                 start_time=start_time,
                 end_time=end_time,
+                timezone_name=g.operator_timezone,
             )
         )
 
@@ -1379,6 +1387,7 @@ def register_admin_operations_routes(
             get_operator_credit_order_detail(
                 app,
                 bill_order_bid=bill_order_bid,
+                timezone_name=g.operator_timezone,
             )
         )
 

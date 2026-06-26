@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
@@ -441,6 +442,7 @@ export default function AdminOperationCourseDetailPage() {
     setError(null);
     try {
       const response = (await api.getAdminOperationCourseDetail({
+        timezone: getBrowserTimeZone(),
         shifu_bid: shifuBid,
       })) as AdminOperationCourseDetailResponse;
       setDetail(response || EMPTY_DETAIL);
@@ -474,6 +476,7 @@ export default function AdminOperationCourseDetailPage() {
 
       try {
         const response = (await api.getAdminOperationCourseUsers({
+          timezone: getBrowserTimeZone(),
           shifu_bid: shifuBid,
           page: targetPage,
           page_size: USER_PAGE_SIZE,
@@ -532,6 +535,7 @@ export default function AdminOperationCourseDetailPage() {
 
       try {
         const response = (await api.getAdminOperationCourseCreditUsages({
+          timezone: getBrowserTimeZone(),
           shifu_bid: shifuBid,
           page: targetPage,
           page_size: COURSE_CREDIT_USAGE_PAGE_SIZE,
@@ -586,6 +590,7 @@ export default function AdminOperationCourseDetailPage() {
         throw new Error(unknownErrorMessage);
       }
       return (await api.getAdminOperationCourseCreditUsageDetails({
+        timezone: getBrowserTimeZone(),
         shifu_bid: shifuBid,
         page,
         page_size: COURSE_CREDIT_USAGE_DETAIL_PAGE_SIZE,
