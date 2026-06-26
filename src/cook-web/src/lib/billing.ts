@@ -295,7 +295,10 @@ const BILLING_RENEWAL_EVENT_STATUS_KEYS: Record<
 
 const BILLING_OFFSETLESS_DATETIME_RE =
   /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2}(?:\.\d+)?)$/;
-const BILLING_LEGACY_SOURCE_OFFSET = '+08:00';
+// Billing serializers always emit an offset, so this fallback is effectively
+// unreachable. If an offsetless instant ever appears, interpret it as UTC to
+// match the UTC-canonical database (never assume Beijing time).
+const BILLING_SOURCE_OFFSET = '+00:00';
 
 const BILLING_DISPLAY_RULE = {
   minimumFractionDigits: 0,
@@ -474,7 +477,7 @@ export function parseBillingDateValue(
     BILLING_OFFSETLESS_DATETIME_RE,
   );
   const candidateValue = legacyOffsetlessMatch
-    ? `${legacyOffsetlessMatch[1]}T${legacyOffsetlessMatch[2]}${BILLING_LEGACY_SOURCE_OFFSET}`
+    ? `${legacyOffsetlessMatch[1]}T${legacyOffsetlessMatch[2]}${BILLING_SOURCE_OFFSET}`
     : normalizedValue;
 
   const date = new Date(candidateValue);

@@ -89,9 +89,11 @@
   - 验证:**4 passed**。
 
 ### P2 — 健壮性 / 一致性
-- [ ] **learner(终端用户)页面快速审计**:确认无"裸显示后端时间"或"把 UTC 当本地"之处(此前仅重点核对 admin/billing,learner 页假定走客户端 `Intl` 转换但未逐页核对)。
+- [x] **learner(终端用户)页面时区审计**:已扫描用户侧时间展示。结论:主流走 `formatAdminUtcDateTime` / `Intl` / 本地 `Date`,**无活跃 bug**。
+  - billing 用户侧(订阅到期、钱包桶有效期)走 `parseBillingDateValue`,后端 `serialize_dt` 始终带偏移 → 兜底不可达;已顺手收口(见下)。
+  - `ShifuEdit.tsx:1346`(创作者编辑器,非 learner)`updated_at_display || updated_at`:正常有服务端本地化的 `_display`,仅缺失时回退裸串,影响极小,暂留。
+- [x] **billing `+08:00` 兜底分支收口**:`src/cook-web/src/lib/billing.ts` `BILLING_LEGACY_SOURCE_OFFSET('+08:00')` → `BILLING_SOURCE_OFFSET('+00:00')`(无偏移串按 UTC 解释);更新 `billing.test.ts` 断言。防御性、运行时无影响。
 - [ ] **API 时间序列化格式长期统一**:现状混杂(`Z` / `+00:00` / 裸串 / 预格式化 `*_display`),前端 3 套解析器。建议二选一:全返回带偏移 UTC ISO + 客户端转换,或全服务端按 `?timezone=` 转换。
-- [ ] **billing `+08:00` 兜底分支**(`src/cook-web/src/lib/billing.ts` `BILLING_LEGACY_SOURCE_OFFSET`):当前不可达;如要与 UTC 体系一致可改 `+00:00`(防御性,运行时无影响)。
 
 ### P3 — 知悉/产品&运维决策(不一定改)
 - [ ] **"日"聚合按 UTC 天**:`bill_daily_*` 窗口为 UTC 午夜(=北京 08:00)。统一后一致,但若运营要"北京天"口径需产品决策。
