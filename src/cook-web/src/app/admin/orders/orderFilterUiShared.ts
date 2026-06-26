@@ -8,7 +8,10 @@ export const ORDER_FILTER_CONTENT_CLASS = 'min-w-0';
 export type OrderFilterLabelWidth = 'default' | 'compact';
 
 export const getOrdersTabFilterContentClassName = (locale?: string) =>
-  cn('min-w-0 flex-1', (!locale || !locale.startsWith('zh')) && 'xl:max-w-[220px]');
+  cn(
+    'min-w-0 flex-1',
+    (!locale || !locale.startsWith('zh')) && 'xl:max-w-[220px]',
+  );
 
 export const getOrderFilterLabelClassName = (
   width: OrderFilterLabelWidth = 'default',

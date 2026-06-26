@@ -161,7 +161,8 @@ export default function OrdersFilterPanel({
             align='start'
             className='p-3'
             style={{
-              width: 'min(max(var(--radix-popover-trigger-width), 320px), 90vw)',
+              width:
+                'min(max(var(--radix-popover-trigger-width), 320px), 90vw)',
             }}
           >
             <AdminClearableInput
