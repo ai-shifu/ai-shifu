@@ -52,6 +52,7 @@
   "filters": {
     "all": "Tous",
     "channel": "Canal de paiement",
+    "dateRangePlaceholder": "Date de début ~ Date de fin",
     "endTime": "Date de fin",
     "orderBid": "ID de commande",
     "reset": "Réinitialiser",
