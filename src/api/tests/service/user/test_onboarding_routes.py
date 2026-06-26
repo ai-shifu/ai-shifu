@@ -118,7 +118,7 @@ def test_onboarding_status_returns_eligible_creator_scene_state(
     assert payload["data"]["guide_course"]["language"] == "zh-CN"
 
 
-def test_onboarding_status_excludes_operator_and_marks_scenes_ineligible(
+def test_onboarding_status_allows_operator_creator_when_new_creator_gate_matches(
     app, test_client, monkeypatch
 ):
     user_bid = uuid.uuid4().hex[:32]
@@ -127,7 +127,7 @@ def test_onboarding_status_excludes_operator_and_marks_scenes_ineligible(
             user_bid=user_bid,
             is_creator=True,
             is_operator=True,
-            created_at=datetime(2026, 6, 1, 12, 0, 0),
+            created_at=datetime(2026, 6, 17, 12, 0, 0),
         )
         db.session.commit()
         token = generate_token(app, user_bid)
@@ -152,11 +152,14 @@ def test_onboarding_status_excludes_operator_and_marks_scenes_ineligible(
     assert response.status_code == 200
     payload = response.get_json(force=True)
     assert payload["code"] == 0
-    assert payload["data"]["eligible"] is False
-    assert payload["data"]["user_segment"] == "ineligible"
-    assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is False
-    assert payload["data"]["scenes"]["admin_home_onboarding"]["variant"] is None
-    assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is False
+    assert payload["data"]["eligible"] is True
+    assert payload["data"]["user_segment"] == "new_creator"
+    assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is True
+    assert (
+        payload["data"]["scenes"]["admin_home_onboarding"]["variant"]
+        == "trial_credit"
+    )
+    assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is True
 
 
 def test_onboarding_status_treats_old_user_newly_activated_as_existing_rollout(

@@ -106,8 +106,6 @@ def _resolve_user_segment(user: UserEntity | None) -> str:
         return USER_SEGMENT_INELIGIBLE
     if not bool(getattr(user, "is_creator", 0)):
         return USER_SEGMENT_INELIGIBLE
-    if bool(getattr(user, "is_operator", 0)):
-        return USER_SEGMENT_INELIGIBLE
 
     threshold = _parse_rollout_threshold(get_dynamic_config(ROLLOUT_CONFIG_KEY, ""))
     eligible_at = getattr(user, "created_at", None)
