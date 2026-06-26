@@ -159,9 +159,9 @@ export default function OrdersFilterPanel({
           </PopoverTrigger>
           <PopoverContent
             align='start'
-            className='w-[320px] min-w-[320px] max-w-[min(90vw,320px)] p-3'
+            className='p-3'
             style={{
-              width: 'max(var(--radix-popover-trigger-width), 320px)',
+              width: 'min(max(var(--radix-popover-trigger-width), 320px), 90vw)',
             }}
           >
             <AdminClearableInput
