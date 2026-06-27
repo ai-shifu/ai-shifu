@@ -135,8 +135,11 @@ jest.mock('@/store', () => ({
     selector(mockUserStoreState),
   useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
     selector({
-      replayScene: null,
-      requestReplay: jest.fn(),
+      replayScenes: {
+        admin_home_onboarding: false,
+        course_editor_onboarding: false,
+      },
+      requestReplayAll: jest.fn(),
       clearReplay: jest.fn(),
     }),
 }));

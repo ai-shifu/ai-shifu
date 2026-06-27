@@ -179,9 +179,9 @@ const MainInterface = ({
     adminHomeSceneStatus?.eligible === true &&
     (adminHomeSceneStatus?.status ?? null) === null &&
     (!billingEnabled || !billingOverviewLoading);
-  const replayScene = useOnboardingReplayStore(state => state.replayScene);
+  const replayScenes = useOnboardingReplayStore(state => state.replayScenes);
   const clearReplay = useOnboardingReplayStore(state => state.clearReplay);
-  const isAdminHomeReplay = replayScene === 'admin_home_onboarding';
+  const isAdminHomeReplay = replayScenes.admin_home_onboarding;
   const adminHomeOnboardingEnabled =
     shouldShowAdminHomeOnboarding || isAdminHomeReplay;
 
@@ -269,19 +269,19 @@ const MainInterface = ({
     },
     onComplete: async () => {
       if (isAdminHomeReplay) {
-        clearReplay();
+        clearReplay('admin_home_onboarding');
         return;
       }
       await persistAdminHomeOnboarding('completed');
-      clearReplay();
+      clearReplay('admin_home_onboarding');
     },
     onSkip: async () => {
       if (isAdminHomeReplay) {
-        clearReplay();
+        clearReplay('admin_home_onboarding');
         return;
       }
       await persistAdminHomeOnboarding('skipped');
-      clearReplay();
+      clearReplay('admin_home_onboarding');
     },
   });
 

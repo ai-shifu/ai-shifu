@@ -331,9 +331,9 @@ const ScriptEditor = ({
     courseEditorSceneStatus?.eligible === true &&
     (courseEditorSceneStatus?.status ?? null) === null &&
     isCourseOwner;
-  const replayScene = useOnboardingReplayStore(state => state.replayScene);
+  const replayScenes = useOnboardingReplayStore(state => state.replayScenes);
   const clearReplay = useOnboardingReplayStore(state => state.clearReplay);
-  const isCourseEditorReplay = replayScene === 'course_editor_onboarding';
+  const isCourseEditorReplay = replayScenes.course_editor_onboarding;
   const courseEditorOnboardingEnabled =
     shouldShowCourseEditorOnboarding || isCourseEditorReplay;
   const actionsRef = useRef(actions);
@@ -439,19 +439,19 @@ const ScriptEditor = ({
     },
     onComplete: async () => {
       if (isCourseEditorReplay) {
-        clearReplay();
+        clearReplay('course_editor_onboarding');
         return;
       }
       await persistCourseEditorOnboarding('completed');
-      clearReplay();
+      clearReplay('course_editor_onboarding');
     },
     onSkip: async () => {
       if (isCourseEditorReplay) {
-        clearReplay();
+        clearReplay('course_editor_onboarding');
         return;
       }
       await persistCourseEditorOnboarding('skipped');
-      clearReplay();
+      clearReplay('course_editor_onboarding');
     },
   });
   const shouldRenderCourseEditorOnboardingOverlay = Boolean(
