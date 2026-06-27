@@ -87,7 +87,6 @@ import {
   buildMiniMaxVoiceOptions,
   executeMiniMaxVoiceAction,
   isMiniMaxProvider,
-  isValidMiniMaxCustomVoiceId,
   loadMiniMaxVoiceRefreshData,
   shouldPreserveCustomMiniMaxVoice,
   type MiniMaxCloneCost,
@@ -233,7 +232,6 @@ export default function ShifuSettingDialog({
   const [minimaxCloneCost, setMinimaxCloneCost] =
     useState<MiniMaxCloneCost | null>(null);
   const [minimaxCloneDialogOpen, setMinimaxCloneDialogOpen] = useState(false);
-  const [minimaxManualVoiceId, setMinimaxManualVoiceId] = useState('');
   const ttsProviderToastShownRef = useRef(false);
 
   // Language Output Configuration state
@@ -630,7 +628,7 @@ export default function ShifuSettingDialog({
       builtInVoices: ttsVoiceOptions,
       clonedVoices: minimaxClonedVoices,
       currentVoiceId: ttsVoiceId,
-      manualLabel: t('module.shifuSetting.minimaxManualVoiceLabel'),
+      legacyLabel: t('module.shifuSetting.minimaxLegacyVoiceLabel'),
       statusLabels: minimaxStatusLabels,
     });
   }, [
@@ -649,8 +647,8 @@ export default function ShifuSettingDialog({
     () => mergedTtsVoiceOptions.filter(option => option.source === 'cloned'),
     [mergedTtsVoiceOptions],
   );
-  const manualTtsVoiceOptions = useMemo(
-    () => mergedTtsVoiceOptions.filter(option => option.source === 'manual'),
+  const legacyTtsVoiceOptions = useMemo(
+    () => mergedTtsVoiceOptions.filter(option => option.source === 'legacy'),
     [mergedTtsVoiceOptions],
   );
 
@@ -780,19 +778,6 @@ export default function ShifuSettingDialog({
     },
     [getAskProviderDefaultConfig],
   );
-
-  const applyMinimaxManualVoiceId = useCallback(() => {
-    const normalizedVoiceId = minimaxManualVoiceId.trim();
-    if (!isValidMiniMaxCustomVoiceId(normalizedVoiceId)) {
-      toast({
-        title: t('module.shifuSetting.minimaxManualVoiceInvalid'),
-        variant: 'destructive',
-      });
-      return;
-    }
-    setTtsVoiceId(normalizedVoiceId);
-    setMinimaxManualVoiceId('');
-  }, [minimaxManualVoiceId, t, toast]);
 
   useEffect(() => {
     if (!askConfigMeta?.providers?.length) return;
@@ -2149,7 +2134,7 @@ export default function ShifuSettingDialog({
                                     </SelectGroup>
                                   </>
                                 ) : null}
-                                {manualTtsVoiceOptions.length > 0 ? (
+                                {legacyTtsVoiceOptions.length > 0 ? (
                                   <>
                                     {builtInTtsVoiceOptions.length > 0 ||
                                     clonedTtsVoiceOptions.length > 0 ? (
@@ -2158,10 +2143,10 @@ export default function ShifuSettingDialog({
                                     <SelectGroup>
                                       <SelectLabel>
                                         {t(
-                                          'module.shifuSetting.minimaxVoiceGroupManual',
+                                          'module.shifuSetting.minimaxVoiceGroupLegacy',
                                         )}
                                       </SelectLabel>
-                                      {manualTtsVoiceOptions.map(option => (
+                                      {legacyTtsVoiceOptions.map(option => (
                                         <SelectItem
                                           key={option.value}
                                           value={option.value}
@@ -2176,7 +2161,7 @@ export default function ShifuSettingDialog({
                                               className='shrink-0'
                                             >
                                               {t(
-                                                'module.shifuSetting.minimaxManualVoiceBadge',
+                                                'module.shifuSetting.minimaxLegacyVoiceBadge',
                                               )}
                                             </Badge>
                                           </span>
@@ -2201,34 +2186,6 @@ export default function ShifuSettingDialog({
                             )}
                           </SelectContent>
                         </Select>
-
-                        {isMiniMaxTtsProvider &&
-                          currentProviderConfig?.supports_custom_voice_id && (
-                            <div className='flex gap-2'>
-                              <Input
-                                value={minimaxManualVoiceId}
-                                onChange={event =>
-                                  setMinimaxManualVoiceId(event.target.value)
-                                }
-                                placeholder={t(
-                                  'module.shifuSetting.minimaxManualVoicePlaceholder',
-                                )}
-                                disabled={currentShifu?.readonly}
-                                className='h-9 flex-1'
-                              />
-                              <Button
-                                type='button'
-                                variant='outline'
-                                size='sm'
-                                onClick={applyMinimaxManualVoiceId}
-                                disabled={currentShifu?.readonly}
-                              >
-                                {t(
-                                  'module.shifuSetting.minimaxManualVoiceApply',
-                                )}
-                              </Button>
-                            </div>
-                          )}
 
                         {supportsMiniMaxVoiceCloning && (
                           <div className='space-y-2 rounded-md border p-3'>
@@ -2265,6 +2222,12 @@ export default function ShifuSettingDialog({
                                 {t('module.shifuSetting.minimaxCloneCreate')}
                               </Button>
                             </div>
+
+                            <p className='text-xs leading-5 text-muted-foreground'>
+                              {t(
+                                'module.shifuSetting.minimaxCloneRetentionNotice',
+                              )}
+                            </p>
 
                             {minimaxClonedVoices.length === 0 ? (
                               <p className='text-xs text-muted-foreground'>
@@ -2690,6 +2653,7 @@ export default function ShifuSettingDialog({
         onOpenChange={setMinimaxCloneDialogOpen}
         shifuId={shifuId}
         cloneCost={minimaxCloneCost}
+        clonedVoices={minimaxClonedVoices}
         onRefreshCost={refreshMinimaxVoiceData}
         onVoiceChange={voice => {
           setMinimaxClonedVoices(prev => {

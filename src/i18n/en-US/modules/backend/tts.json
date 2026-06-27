@@ -1,0 +1,9 @@
+{
+  "__namespace__": "server.tts",
+  "__flat__": {
+    "displayNameExists": "A voice with this name already exists",
+    "audioRequired": "An audio file is required",
+    "audioTooLarge": "The audio file must not exceed {max_mb}MB",
+    "unsupportedAudioType": "Unsupported audio format, please use mp3, m4a or wav"
+  }
+}

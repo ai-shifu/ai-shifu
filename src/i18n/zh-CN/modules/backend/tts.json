@@ -1,0 +1,9 @@
+{
+  "__namespace__": "server.tts",
+  "__flat__": {
+    "displayNameExists": "音色名称已存在，请换一个",
+    "audioRequired": "请上传音频文件",
+    "audioTooLarge": "音频文件不能超过 {max_mb}MB",
+    "unsupportedAudioType": "不支持的音频格式，请使用 mp3、m4a 或 wav"
+  }
+}

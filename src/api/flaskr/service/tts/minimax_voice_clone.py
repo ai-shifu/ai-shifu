@@ -33,11 +33,14 @@ from flaskr.service.billing.api import (
     estimate_voice_clone_operation_credits,
     is_billing_enabled,
     quantize_credit_amount,
-    release_reserved_operation_credits,
     reserve_operation_credits,
     to_decimal,
 )
-from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.models import (
+    raise_error,
+    raise_error_with_args,
+    raise_param_error,
+)
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
 from flaskr.service.common.storage import read_storage_bytes, upload_to_storage
 from flaskr.service.metering.api import UsageContext, record_tts_usage
@@ -47,10 +50,8 @@ from flaskr.service.shifu.models import DraftShifu
 from flaskr.service.tts.models import (
     TTSMiniMaxClonedVoice,
     TTS_MINIMAX_CLONE_BILLING_CHARGED,
-    TTS_MINIMAX_CLONE_BILLING_FAILED,
     TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
-    TTS_MINIMAX_CLONE_BILLING_RELEASED,
-    TTS_MINIMAX_CLONE_BILLING_RESERVED,
+    TTS_MINIMAX_CLONE_BILLING_PENDING_FIRST_USE,
     TTS_MINIMAX_CLONE_STATUS_BILLING_PENDING,
     TTS_MINIMAX_CLONE_STATUS_FAILED,
     TTS_MINIMAX_CLONE_STATUS_PROCESSING,
@@ -69,8 +70,9 @@ _ALLOWED_INPUT_EXTENSIONS = {"mp3", "m4a", "wav", "webm", "ogg", "mp4"}
 _SOURCE_MIN_DURATION_MS = 10_000
 _SOURCE_MAX_DURATION_MS = 300_000
 _PROMPT_MAX_DURATION_MS = 8_000
-_MAX_SOURCE_BYTES = 50 * 1024 * 1024
-_MAX_PROMPT_BYTES = 10 * 1024 * 1024
+# Aligned with MiniMax limits: source and prompt audio must each be <= 20 MB.
+_MAX_SOURCE_BYTES = 20 * 1024 * 1024
+_MAX_PROMPT_BYTES = 20 * 1024 * 1024
 _VOICE_ID_RE = re.compile(r"^[A-Za-z](?=.{7,63}$)[A-Za-z0-9_-]*[A-Za-z0-9]$")
 _PENDING_AUDIO_BLOBS: dict[str, bytes] = {}
 
@@ -359,7 +361,8 @@ def submit_minimax_voice_clone(
         )
 
     with app.app_context():
-        shifu = _load_owned_shifu(owner_bid, normalized_shifu_bid)
+        # Validate ownership (raises if the creator does not own the shifu).
+        _load_owned_shifu(owner_bid, normalized_shifu_bid)
         if (
             TTSMiniMaxClonedVoice.query.filter(
                 TTSMiniMaxClonedVoice.deleted == 0,
@@ -368,29 +371,26 @@ def submit_minimax_voice_clone(
             is not None
         ):
             raise_param_error("voice_id already exists")
+        if (
+            TTSMiniMaxClonedVoice.query.filter(
+                TTSMiniMaxClonedVoice.deleted == 0,
+                TTSMiniMaxClonedVoice.owner_user_bid == owner_bid,
+                TTSMiniMaxClonedVoice.display_name == normalized_display_name,
+            ).first()
+            is not None
+        ):
+            raise_error("server.tts.displayNameExists")
 
+        # The one-time clone fee is deferred to the first real t2a synthesis
+        # (see charge_clone_first_synthesis_if_needed), mirroring MiniMax. The
+        # estimate is kept only to surface an indicative price and to decide the
+        # initial billing_status; no credits are reserved at clone time.
         estimate = estimate_voice_clone_operation_credits(app)
-        billing_enabled = is_billing_enabled()
-        should_bill = billing_enabled and estimate.consumed_credits > _ZERO()
-        if should_bill:
-            admit_creator_usage(
-                app,
-                creator_bid=owner_bid,
-                shifu_bid=shifu.shifu_bid,
-                usage_scene=BILL_USAGE_SCENE_PREVIEW,
-            )
+        should_bill = (
+            is_billing_enabled() and estimate.consumed_credits > _ZERO()
+        )
 
         voice_bid = generate_id(app)
-        reservation = None
-        if should_bill:
-            reservation = reserve_operation_credits(
-                app,
-                creator_bid=owner_bid,
-                amount=estimate.consumed_credits,
-                operation_type="voice_clone",
-                operation_bid=voice_bid,
-                metadata={"voice_id": normalized_voice_id},
-            )
         try:
             source_resource = _store_resource_bytes(
                 app,
@@ -439,28 +439,18 @@ def submit_minimax_voice_clone(
                 prompt_audio_filename=str(prompt_filename or "")[:255],
                 prompt_audio_content_type=str(prompt_content_type or "")[:128],
                 billing_status=(
-                    TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
-                    if not should_bill
-                    else TTS_MINIMAX_CLONE_BILLING_RESERVED
+                    TTS_MINIMAX_CLONE_BILLING_PENDING_FIRST_USE
+                    if should_bill
+                    else TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
                 ),
                 estimated_credits=estimate.consumed_credits,
-                billing_reservation_bid=(
-                    reservation.reservation_bid if reservation is not None else ""
-                ),
-                billing_ledger_bid=(
-                    reservation.ledger_bid if reservation is not None else ""
-                ),
+                billing_reservation_bid="",
+                billing_ledger_bid="",
             )
             db.session.add(row)
             db.session.commit()
         except Exception:
             db.session.rollback()
-            if reservation is not None and reservation.reservation_bid:
-                release_reserved_operation_credits(
-                    app,
-                    reservation_bid=reservation.reservation_bid,
-                    reason="clone_submit_failed",
-                )
             raise
 
     try:
@@ -471,13 +461,6 @@ def submit_minimax_voice_clone(
             failed.status = TTS_MINIMAX_CLONE_STATUS_FAILED
             failed.status_msg = _safe_status_message(exc)
             failed.failure_reason = "enqueue_failed"
-            if failed.billing_reservation_bid:
-                release_reserved_operation_credits(
-                    app,
-                    reservation_bid=failed.billing_reservation_bid,
-                    reason="enqueue_failed",
-                )
-                failed.billing_status = TTS_MINIMAX_CLONE_BILLING_RELEASED
             db.session.commit()
             return failed
 
@@ -760,33 +743,9 @@ def _execute_clone_processing(
 
         usage_bid = _record_voice_clone_usage(app, row, clone_result)
         row.clone_usage_bid = usage_bid
-        if row.billing_reservation_bid:
-            capture = capture_reserved_operation_credits(
-                app,
-                reservation_bid=row.billing_reservation_bid,
-                usage_bid=usage_bid,
-                metadata={
-                    "voice_bid": row.voice_bid,
-                    "voice_id": row.voice_id,
-                    "trace_id": clone_result.trace_id,
-                },
-            )
-            if capture.status in {"captured", "already_captured"}:
-                row.billing_status = TTS_MINIMAX_CLONE_BILLING_CHARGED
-                row.charged_credits = capture.amount or row.estimated_credits
-            else:
-                row.billing_status = TTS_MINIMAX_CLONE_BILLING_FAILED
-                row.status = TTS_MINIMAX_CLONE_STATUS_BILLING_PENDING
-                row.status_msg = "billing capture is pending"
-                db.session.commit()
-                return MiniMaxVoiceCloneRunResult(
-                    status="billing_pending",
-                    voice_bid=row.voice_bid,
-                    voice_id=row.voice_id,
-                )
-        else:
-            row.billing_status = TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
-            row.charged_credits = _ZERO()
+        # The clone fee is charged on the first real t2a synthesis, not here.
+        # billing_status stays as set at submit time (pending_first_use, or
+        # not_required when no clone rate is configured).
         row.status = TTS_MINIMAX_CLONE_STATUS_READY
         row.ready_at = datetime.now()
         db.session.commit()
@@ -796,6 +755,86 @@ def _execute_clone_processing(
             voice_bid=row.voice_bid,
             voice_id=row.voice_id,
         )
+
+
+def charge_clone_first_synthesis_if_needed(
+    app: Flask,
+    voice_id: str,
+    *,
+    user_bid: str = "",
+    shifu_bid: str = "",
+) -> None:
+    """Charge the one-time MiniMax clone fee on the first real t2a synthesis.
+
+    Aligns ai-shifu with MiniMax billing: the clone fee is deferred until the
+    cloned voice is first used for a real t2a synthesis (which is also what
+    permanently activates it on MiniMax). Built-in and legacy (manually entered)
+    voice ids have no clone record and are skipped.
+
+    Concurrency-safe and idempotent through the reserve/capture idempotency keys
+    (keyed on ``voice_bid``): concurrent first syntheses charge exactly once.
+    Reserve runs before the caller performs the t2a synthesis, so an insufficient
+    balance raises ``server.billing.creditInsufficient`` and blocks synthesis --
+    the platform is never billed by MiniMax for a voice it could not charge the
+    creator for.
+
+    ``user_bid`` / ``shifu_bid`` are accepted for call-site symmetry; the clone
+    record's own owner and shifu remain authoritative.
+    """
+    normalized_voice_id = str(voice_id or "").strip()
+    if not normalized_voice_id:
+        return
+
+    with app.app_context():
+        row = TTSMiniMaxClonedVoice.query.filter(
+            TTSMiniMaxClonedVoice.deleted == 0,
+            TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+        ).first()
+        if row is None:
+            return
+        if row.billing_status != TTS_MINIMAX_CLONE_BILLING_PENDING_FIRST_USE:
+            return
+
+        estimate = estimate_voice_clone_operation_credits(app)
+        if not is_billing_enabled() or estimate.consumed_credits <= _ZERO():
+            # No active clone rate: activation is free; resolve so we never
+            # re-check this voice on subsequent syntheses.
+            row.billing_status = TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
+            row.charged_credits = _ZERO()
+            row.first_synthesized_at = datetime.now()
+            db.session.commit()
+            return
+
+        admit_creator_usage(
+            app,
+            creator_bid=row.owner_user_bid,
+            shifu_bid=row.shifu_bid,
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        )
+        reservation = reserve_operation_credits(
+            app,
+            creator_bid=row.owner_user_bid,
+            amount=estimate.consumed_credits,
+            operation_type="voice_clone_first_use",
+            operation_bid=row.voice_bid,
+            metadata={"voice_id": row.voice_id},
+        )
+        capture = capture_reserved_operation_credits(
+            app,
+            reservation_bid=reservation.reservation_bid,
+            usage_bid=row.voice_bid,
+            metadata={
+                "voice_bid": row.voice_bid,
+                "voice_id": row.voice_id,
+                "usage_source": "minimax_voice_clone_first_use",
+            },
+        )
+
+        row.billing_status = TTS_MINIMAX_CLONE_BILLING_CHARGED
+        row.charged_credits = capture.amount or estimate.consumed_credits
+        row.billing_reservation_bid = reservation.reservation_bid
+        row.first_synthesized_at = datetime.now()
+        db.session.commit()
 
 
 def _record_voice_clone_usage(
@@ -844,67 +883,27 @@ def _mark_clone_failed(
         row.status = TTS_MINIMAX_CLONE_STATUS_FAILED
         row.status_msg = _safe_status_message(exc)
         row.failure_reason = reason
-        if row.billing_reservation_bid:
-            release = release_reserved_operation_credits(
-                app,
-                reservation_bid=row.billing_reservation_bid,
-                reason=reason,
-            )
-            if release.status in {"released", "already_released"}:
-                row.billing_status = TTS_MINIMAX_CLONE_BILLING_RELEASED
-        elif row.billing_status != TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED:
-            row.billing_status = TTS_MINIMAX_CLONE_BILLING_FAILED
+        # The clone fee is only charged on first synthesis, so a failed clone has
+        # nothing to release; billing_status stays as set at submit time.
         db.session.commit()
         _cleanup_raw_resources(app, row)
 
 
 def _prepare_retry_billing(app: Flask, row: TTSMiniMaxClonedVoice) -> None:
+    # The clone fee is charged on first synthesis, never at clone/retry time.
+    # Reset billing so a successful retry lands back in the pending state and the
+    # fee is taken when the re-cloned voice is first used for a t2a synthesis.
     estimate = estimate_voice_clone_operation_credits(app)
-    billing_enabled = is_billing_enabled()
-    should_bill = billing_enabled and estimate.consumed_credits > _ZERO()
-    if not should_bill:
-        row.billing_status = TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
-        row.estimated_credits = estimate.consumed_credits
-        row.billing_reservation_bid = ""
-        row.billing_ledger_bid = ""
-        row.charged_credits = _ZERO()
-        return
-
-    if (
-        row.billing_reservation_bid
-        and row.billing_status != TTS_MINIMAX_CLONE_BILLING_RELEASED
-    ):
-        row.estimated_credits = estimate.consumed_credits
-        return
-
-    admit_creator_usage(
-        app,
-        creator_bid=row.owner_user_bid,
-        shifu_bid=row.shifu_bid,
-        usage_scene=BILL_USAGE_SCENE_PREVIEW,
-    )
-    operation_bid = (
-        generate_id(app)
-        if row.billing_reservation_bid
-        else str(row.voice_bid or "").strip()
-    )
-    reservation = reserve_operation_credits(
-        app,
-        creator_bid=row.owner_user_bid,
-        amount=estimate.consumed_credits,
-        operation_type="voice_clone",
-        operation_bid=operation_bid,
-        metadata={
-            "voice_bid": row.voice_bid,
-            "voice_id": row.voice_id,
-            "retry_count": int(row.retry_count or 0) + 1,
-        },
-    )
-    row.billing_status = TTS_MINIMAX_CLONE_BILLING_RESERVED
+    should_bill = is_billing_enabled() and estimate.consumed_credits > _ZERO()
     row.estimated_credits = estimate.consumed_credits
     row.charged_credits = _ZERO()
-    row.billing_reservation_bid = reservation.reservation_bid
-    row.billing_ledger_bid = reservation.ledger_bid
+    row.billing_reservation_bid = ""
+    row.billing_ledger_bid = ""
+    row.billing_status = (
+        TTS_MINIMAX_CLONE_BILLING_PENDING_FIRST_USE
+        if should_bill
+        else TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
+    )
 
 
 def _load_voice_row(voice_bid: str) -> TTSMiniMaxClonedVoice:
@@ -1057,11 +1056,13 @@ def _enqueue_minimax_clone_task(app: Flask, *, voice_bid: str) -> bool:
 
 def _validate_audio_upload(data: bytes, *, filename: str, max_bytes: int) -> None:
     if not data:
-        raise_param_error("audio file is required")
+        raise_error("server.tts.audioRequired")
     if len(data) > max_bytes:
-        raise_param_error("audio file is too large")
+        raise_error_with_args(
+            "server.tts.audioTooLarge", max_mb=max_bytes // (1024 * 1024)
+        )
     if _extract_extension(filename) not in _ALLOWED_INPUT_EXTENSIONS:
-        raise_param_error("unsupported audio file type")
+        raise_error("server.tts.unsupportedAudioType")
 
 
 def _available_wallet_credits(app: Flask, creator_bid: str):

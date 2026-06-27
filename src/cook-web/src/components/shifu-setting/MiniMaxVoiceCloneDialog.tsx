@@ -25,6 +25,7 @@ import {
   MINIMAX_SOURCE_MIN_SECONDS,
   getMiniMaxCloneSubmitBlockReason,
   getMiniMaxRecordingElapsedSeconds,
+  validateMiniMaxSourceFile,
   type MiniMaxCloneSubmitBlockReason,
   type MiniMaxClonedVoice,
 } from './minimax-voice-clone';
@@ -44,6 +45,7 @@ interface MiniMaxVoiceCloneDialogProps {
   onRefreshCost: () => Promise<void>;
   onVoiceChange: (voice: MiniMaxClonedVoice) => void;
   onVoiceReady: (voice: MiniMaxClonedVoice) => void;
+  clonedVoices?: MiniMaxClonedVoice[];
 }
 
 export default function MiniMaxVoiceCloneDialog({
@@ -54,10 +56,10 @@ export default function MiniMaxVoiceCloneDialog({
   onRefreshCost,
   onVoiceChange,
   onVoiceReady,
+  clonedVoices = [],
 }: MiniMaxVoiceCloneDialogProps) {
   const { t } = useTranslation();
   const [displayName, setDisplayName] = useState('');
-  const [voiceId, setVoiceId] = useState('');
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [recordingKind, setRecordingKind] = useState<'source' | null>(null);
   const [sourceElapsed, setSourceElapsed] = useState(0);
@@ -115,7 +117,6 @@ export default function MiniMaxVoiceCloneDialog({
 
   const reset = useCallback(() => {
     setDisplayName('');
-    setVoiceId('');
     setSourceFile(null);
     setSourceElapsed(0);
     setSubmitting(false);
@@ -234,23 +235,35 @@ export default function MiniMaxVoiceCloneDialog({
 
   const submitClone = useCallback(async () => {
     if (!sourceFile || !canSubmit) return;
+    const normalizedDisplayName = displayName.trim();
+    if (!normalizedDisplayName) {
+      setErrorMessage(t('module.shifuSetting.minimaxCloneDisplayNameRequired'));
+      return;
+    }
+    const duplicateName = (clonedVoices || []).some(
+      voice =>
+        (voice.display_name || '').trim() === normalizedDisplayName &&
+        voice.status !== 'failed',
+    );
+    if (duplicateName) {
+      setErrorMessage(t('module.shifuSetting.minimaxCloneDisplayNameExists'));
+      return;
+    }
+    const fileError = validateMiniMaxSourceFile(sourceFile);
+    if (fileError) {
+      setErrorMessage(
+        fileError === 'too_large'
+          ? t('module.shifuSetting.minimaxCloneFileTooLarge', { maxMb: 20 })
+          : t('module.shifuSetting.minimaxCloneUnsupportedType'),
+      );
+      return;
+    }
     setSubmitting(true);
     setErrorMessage('');
     try {
       const formData = new FormData();
-      const normalizedDisplayName =
-        displayName.trim() ||
-        buildDefaultCloneDisplayName(
-          t('module.shifuSetting.minimaxCloneDefaultDisplayName'),
-        );
       formData.append('shifu_bid', shifuId);
       formData.append('display_name', normalizedDisplayName);
-      if (!displayName.trim()) {
-        setDisplayName(normalizedDisplayName);
-      }
-      if (voiceId.trim()) {
-        formData.append('voice_id', voiceId.trim());
-      }
       formData.append('source_capture_method', 'recording');
       formData.append('source_audio', sourceFile);
       const created = (await api.submitMinimaxTtsVoiceClone(formData, {
@@ -270,6 +283,7 @@ export default function MiniMaxVoiceCloneDialog({
     }
   }, [
     canSubmit,
+    clonedVoices,
     displayName,
     onRefreshCost,
     onVoiceChange,
@@ -277,7 +291,6 @@ export default function MiniMaxVoiceCloneDialog({
     shifuId,
     sourceFile,
     t,
-    voiceId,
   ]);
 
   useEffect(() => {
@@ -289,8 +302,15 @@ export default function MiniMaxVoiceCloneDialog({
       }
     } else {
       onRefreshCost();
+      setDisplayName(prev =>
+        prev.trim()
+          ? prev
+          : buildDefaultCloneDisplayName(
+              t('module.shifuSetting.minimaxCloneDefaultDisplayName'),
+            ),
+      );
     }
-  }, [onRefreshCost, open, stopRecording]);
+  }, [onRefreshCost, open, stopRecording, t]);
 
   useEffect(() => {
     return () => {
@@ -332,20 +352,6 @@ export default function MiniMaxVoiceCloneDialog({
             <p className='text-xs leading-5 text-muted-foreground'>
               {t('module.shifuSetting.minimaxCloneDisplayNameHint')}
             </p>
-          </div>
-
-          <div className='space-y-2'>
-            <label className='text-sm font-medium'>
-              {t('module.shifuSetting.minimaxCloneVoiceId')}
-            </label>
-            <Input
-              value={voiceId}
-              maxLength={64}
-              onChange={event => setVoiceId(event.target.value)}
-              placeholder={t(
-                'module.shifuSetting.minimaxCloneVoiceIdPlaceholder',
-              )}
-            />
           </div>
 
           <div className='space-y-2'>
@@ -469,7 +475,7 @@ function buildDefaultCloneDisplayName(prefix: string): string {
   const pad = (value: number) => String(value).padStart(2, '0');
   const stamp = `${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(
     now.getHours(),
-  )}:${pad(now.getMinutes())}`;
+  )}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
   return `${prefix} ${stamp}`.trim();
 }
 

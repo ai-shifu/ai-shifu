@@ -105,5 +105,10 @@
   "server.creatorAnalytics.invalidOperator": 11005,
   "server.creatorAnalytics.invalidAggregate": 11006,
   "server.creatorAnalytics.invalidLimit": 11007,
-  "server.creatorAnalytics.queryTimeout": 11008
+  "server.creatorAnalytics.queryTimeout": 11008,
+
+  "server.tts.displayNameExists": 4101,
+  "server.tts.audioRequired": 4102,
+  "server.tts.audioTooLarge": 4103,
+  "server.tts.unsupportedAudioType": 4104
 }

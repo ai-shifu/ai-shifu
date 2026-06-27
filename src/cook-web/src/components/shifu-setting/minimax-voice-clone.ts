@@ -34,7 +34,10 @@ export interface MiniMaxCloneCost {
 }
 
 export interface MiniMaxVoiceOption extends TTSVoiceOptionBase {
-  source: 'built_in' | 'cloned' | 'manual';
+  // 'legacy' = a voice_id already saved on the course that is not a built-in or
+  // a platform-cloned voice (e.g. previously hand-entered). Kept selectable for
+  // backward compatibility; new manual entry is no longer offered.
+  source: 'built_in' | 'cloned' | 'legacy';
   status?: string;
   voice_bid?: string;
   minimax_demo_audio_url?: string;
@@ -43,6 +46,33 @@ export interface MiniMaxVoiceOption extends TTSVoiceOptionBase {
 
 export const MINIMAX_SOURCE_MIN_SECONDS = 10;
 export const MINIMAX_SOURCE_MAX_SECONDS = 300;
+// Aligned with MiniMax: source and prompt audio must each be <= 20 MB.
+export const MINIMAX_SOURCE_MAX_BYTES = 20 * 1024 * 1024;
+export const MINIMAX_PROMPT_MAX_BYTES = 20 * 1024 * 1024;
+export const MINIMAX_ALLOWED_AUDIO_EXTENSIONS = [
+  'mp3',
+  'm4a',
+  'wav',
+  'webm',
+  'ogg',
+  'mp4',
+] as const;
+
+export type MiniMaxSourceFileError = 'too_large' | 'unsupported_type' | null;
+
+export function validateMiniMaxSourceFile(
+  file: File,
+  maxBytes: number = MINIMAX_SOURCE_MAX_BYTES,
+): MiniMaxSourceFileError {
+  if (file.size > maxBytes) {
+    return 'too_large';
+  }
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!MINIMAX_ALLOWED_AUDIO_EXTENSIONS.includes(ext as never)) {
+    return 'unsupported_type';
+  }
+  return null;
+}
 
 export type MiniMaxCloneSubmitBlockReason =
   | 'clone_in_progress'
@@ -99,13 +129,13 @@ export function buildMiniMaxVoiceOptions({
   builtInVoices,
   clonedVoices,
   currentVoiceId,
-  manualLabel,
+  legacyLabel,
   statusLabels = {},
 }: {
   builtInVoices: TTSVoiceOptionBase[];
   clonedVoices: MiniMaxClonedVoice[];
   currentVoiceId: string;
-  manualLabel: string;
+  legacyLabel: string;
   statusLabels?: Record<string, string>;
 }): MiniMaxVoiceOption[] {
   const seen = new Set<string>();
@@ -156,8 +186,8 @@ export function buildMiniMaxVoiceOptions({
     seen.add(normalizedCurrent);
     options.push({
       value: normalizedCurrent,
-      label: `${manualLabel} (${normalizedCurrent})`,
-      source: 'manual',
+      label: `${legacyLabel} (${normalizedCurrent})`,
+      source: 'legacy',
       disabled: false,
     });
   }

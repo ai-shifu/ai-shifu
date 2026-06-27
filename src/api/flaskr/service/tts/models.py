@@ -39,6 +39,9 @@ TTS_MINIMAX_CLONE_BILLING_RESERVED = "reserved"
 TTS_MINIMAX_CLONE_BILLING_CHARGED = "charged"
 TTS_MINIMAX_CLONE_BILLING_RELEASED = "released"
 TTS_MINIMAX_CLONE_BILLING_FAILED = "failed"
+# Cloned voice is ready but the one-time clone fee is deferred until the first
+# real t2a synthesis activates and persists the voice on MiniMax.
+TTS_MINIMAX_CLONE_BILLING_PENDING_FIRST_USE = "pending_first_use"
 
 TTS_CREDIT_NUMERIC = Numeric(20, 10)
 
@@ -330,6 +333,7 @@ class TTSMiniMaxClonedVoice(db.Model):
         onupdate=func.now(),
     )
     ready_at = Column(DateTime, nullable=True)
+    first_synthesized_at = Column(DateTime, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
 
     def to_dict(self):

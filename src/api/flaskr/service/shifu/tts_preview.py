@@ -19,6 +19,9 @@ from flaskr.service.common.models import raise_param_error
 from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
+from flaskr.service.tts.minimax_voice_clone import (
+    charge_clone_first_synthesis_if_needed,
+)
 from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.util.uuid import generate_id
@@ -99,6 +102,15 @@ def build_tts_preview_response(
     usage_metadata = _build_tts_preview_usage_metadata(
         voice_settings=voice_settings,
         audio_settings=safe_audio_settings,
+    )
+
+    # Charge the one-time MiniMax clone fee on the first real t2a synthesis of a
+    # cloned voice (no-op for built-in/legacy voice ids). Runs before streaming
+    # so an insufficient balance surfaces as an error response, not mid-stream.
+    charge_clone_first_synthesis_if_needed(
+        app,
+        validated.voice_id,
+        user_bid=str(request_user_id or "").strip(),
     )
 
     def event_stream():

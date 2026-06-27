@@ -266,7 +266,7 @@ def test_minimax_clone_voice_sends_numeric_file_id(monkeypatch) -> None:
     assert result.demo_audio == "https://example.test/demo.mp3"
 
 
-def test_run_minimax_voice_clone_success_captures_credit_once(
+def test_run_minimax_voice_clone_defers_credit_to_first_synthesis(
     minimax_clone_app: Flask,
     monkeypatch,
 ) -> None:
@@ -360,13 +360,40 @@ def test_run_minimax_voice_clone_success_captures_credit_once(
         wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
         usage = BillUsageRecord.query.filter_by(usage_bid=row.clone_usage_bid).one()
         assert row.status == TTS_MINIMAX_CLONE_STATUS_READY
-        assert row.billing_status == "charged"
-        assert row.charged_credits == Decimal("3.0000000000")
-        assert wallet.available_credits == Decimal("7.0000000000")
+        # The clone fee is deferred to the first real t2a synthesis, so cloning
+        # leaves the voice pending and the wallet untouched.
+        assert row.billing_status == "pending_first_use"
+        assert row.charged_credits == Decimal("0")
+        assert row.first_synthesized_at is None
+        assert wallet.available_credits == Decimal("10.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
         assert usage.provider == "minimax"
         assert usage.model == "voice_clone"
         assert usage.extra["usage_source"] == "minimax_voice_clone"
+
+    # The first real t2a synthesis charges the deferred clone fee exactly once.
+    from flaskr.service.tts.minimax_voice_clone import (
+        charge_clone_first_synthesis_if_needed,
+    )
+
+    charge_clone_first_synthesis_if_needed(
+        minimax_clone_app, "AiShifu_teacher_1", user_bid="creator-1"
+    )
+    charge_clone_first_synthesis_if_needed(
+        minimax_clone_app, "AiShifu_teacher_1", user_bid="creator-1"
+    )
+
+    with minimax_clone_app.app_context():
+        row = TTSMiniMaxClonedVoice.query.filter_by(
+            voice_bid=submitted.voice_bid
+        ).one()
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
+        assert row.billing_status == "charged"
+        assert row.charged_credits == Decimal("3.0000000000")
+        assert row.first_synthesized_at is not None
+        # Charged exactly once despite two synthesis calls (idempotent).
+        assert wallet.available_credits == Decimal("7.0000000000")
+        assert wallet.reserved_credits == Decimal("0E-10")
 
 
 def test_run_minimax_voice_clone_reads_persisted_storage_when_worker_cache_misses(
@@ -735,13 +762,14 @@ def test_run_minimax_voice_clone_releases_credit_on_normalization_failure(
         row = TTSMiniMaxClonedVoice.query.filter_by(voice_bid=submitted.voice_bid).one()
         wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
         assert row.status == TTS_MINIMAX_CLONE_STATUS_FAILED
-        assert row.billing_status == "released"
+        # A failed clone has nothing to release; billing stays pending.
+        assert row.billing_status == "pending_first_use"
         assert "too short" in row.status_msg
         assert wallet.available_credits == Decimal("10.0000000000")
         assert wallet.reserved_credits == Decimal("0E-10")
 
 
-def test_retry_minimax_voice_clone_re_reserves_after_released_failure(
+def test_retry_minimax_voice_clone_keeps_billing_pending(
     minimax_clone_app: Flask,
     monkeypatch,
 ) -> None:
@@ -797,8 +825,7 @@ def test_retry_minimax_voice_clone_re_reserves_after_released_failure(
         failed = TTSMiniMaxClonedVoice.query.filter_by(
             voice_bid=submitted.voice_bid
         ).one()
-        released_reservation_bid = failed.billing_reservation_bid
-        assert failed.billing_status == "released"
+        assert failed.billing_status == "pending_first_use"
 
     retried = retry_minimax_voice_clone(
         minimax_clone_app,
@@ -811,8 +838,7 @@ def test_retry_minimax_voice_clone_re_reserves_after_released_failure(
         row = TTSMiniMaxClonedVoice.query.filter_by(voice_bid=submitted.voice_bid).one()
         wallet = CreditWallet.query.filter_by(creator_bid="creator-1").one()
         assert row.retry_count == 1
-        assert row.billing_status == "reserved"
-        assert row.billing_reservation_bid
-        assert row.billing_reservation_bid != released_reservation_bid
-        assert wallet.available_credits == Decimal("7.0000000000")
-        assert wallet.reserved_credits == Decimal("3.0000000000")
+        # Retry does not reserve; the fee is still deferred to first synthesis.
+        assert row.billing_status == "pending_first_use"
+        assert wallet.available_credits == Decimal("10.0000000000")
+        assert wallet.reserved_credits == Decimal("0E-10")

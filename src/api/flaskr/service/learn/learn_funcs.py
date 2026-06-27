@@ -43,6 +43,9 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
 )
 from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
+from flaskr.service.tts.minimax_voice_clone import (
+    charge_clone_first_synthesis_if_needed,
+)
 from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.api.tts import (
     get_default_audio_settings,
@@ -679,6 +682,15 @@ def _resolve_shifu_tts_settings(
     voice_settings.emotion = validated.emotion
 
     audio_settings = get_default_audio_settings(validated.provider)
+
+    # Charge the one-time MiniMax clone fee on the first real t2a synthesis of a
+    # cloned voice (no-op for built-in/legacy voice ids). This resolver runs only
+    # on synthesis paths (preview, run, listen), so activation tracks real use.
+    charge_clone_first_synthesis_if_needed(
+        app,
+        voice_settings.voice_id,
+        shifu_bid=shifu_bid,
+    )
 
     return validated.provider, validated.model, voice_settings, audio_settings
 

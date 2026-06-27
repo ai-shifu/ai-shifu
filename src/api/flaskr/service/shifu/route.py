@@ -2390,22 +2390,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             build_minimax_clone_cost(app, creator_bid=user_id, shifu_bid=shifu_bid)
         )
 
-    @app.route(path_prefix + "/tts/minimax/voices/validate-id", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def validate_minimax_tts_voice_id_api():
-        from flaskr.service.tts.api import (
-            is_valid_minimax_custom_voice_id,
-        )
-
-        payload = request.get_json(silent=True) or {}
-        voice_id = (payload.get("voice_id") or "").strip()
-        return make_common_response(
-            {
-                "voice_id": voice_id,
-                "valid": is_valid_minimax_custom_voice_id(voice_id),
-            }
-        )
-
     @app.route(path_prefix + "/tts/minimax/voices/clone", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
     def clone_minimax_tts_voice_api():

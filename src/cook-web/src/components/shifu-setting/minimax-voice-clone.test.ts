@@ -7,6 +7,8 @@ import {
   isValidMiniMaxCustomVoiceId,
   loadMiniMaxVoiceRefreshData,
   shouldPreserveCustomMiniMaxVoice,
+  validateMiniMaxSourceFile,
+  MINIMAX_SOURCE_MAX_BYTES,
 } from './minimax-voice-clone';
 
 describe('minimax voice clone helpers', () => {
@@ -57,7 +59,7 @@ describe('minimax voice clone helpers', () => {
         },
       ],
       currentVoiceId: 'AiShifu_manual_voice',
-      manualLabel: 'Manual custom voice',
+      legacyLabel: 'Existing custom voice',
       statusLabels: {
         processing: 'Processing',
       },
@@ -82,8 +84,8 @@ describe('minimax voice clone helpers', () => {
       status: 'processing',
     });
     expect(options[3]).toMatchObject({
-      label: 'Manual custom voice (AiShifu_manual_voice)',
-      source: 'manual',
+      label: 'Existing custom voice (AiShifu_manual_voice)',
+      source: 'legacy',
       disabled: false,
     });
   });
@@ -100,22 +102,22 @@ describe('minimax voice clone helpers', () => {
         },
       ],
       currentVoiceId: 'AiShifu_ready_voice',
-      manualLabel: 'Manual custom voice',
+      legacyLabel: 'Existing custom voice',
     });
 
-    expect(knownOptions.some(option => option.source === 'manual')).toBe(false);
+    expect(knownOptions.some(option => option.source === 'legacy')).toBe(false);
 
     const unknownOptions = buildMiniMaxVoiceOptions({
       builtInVoices: [{ value: 'male-qn-qingse', label: 'Male' }],
       clonedVoices: [],
       currentVoiceId: 'AiShifu_unknown_voice',
-      manualLabel: 'Manual custom voice',
+      legacyLabel: 'Existing custom voice',
     });
 
     expect(unknownOptions.at(-1)).toMatchObject({
       value: 'AiShifu_unknown_voice',
-      label: 'Manual custom voice (AiShifu_unknown_voice)',
-      source: 'manual',
+      label: 'Existing custom voice (AiShifu_unknown_voice)',
+      source: 'legacy',
       disabled: false,
     });
   });
@@ -254,5 +256,29 @@ describe('minimax voice clone helpers', () => {
         canSubmitByCredits: true,
       }),
     ).toBe('clone_in_progress');
+  });
+
+  it('accepts a valid source audio file under the size limit', () => {
+    const file = new File([new Uint8Array(1024)], 'sample.mp3', {
+      type: 'audio/mpeg',
+    });
+    expect(validateMiniMaxSourceFile(file)).toBeNull();
+  });
+
+  it('rejects an oversized source audio file', () => {
+    const file = new File([new Uint8Array(8)], 'sample.mp3', {
+      type: 'audio/mpeg',
+    });
+    Object.defineProperty(file, 'size', {
+      value: MINIMAX_SOURCE_MAX_BYTES + 1,
+    });
+    expect(validateMiniMaxSourceFile(file)).toBe('too_large');
+  });
+
+  it('rejects an unsupported source audio extension', () => {
+    const file = new File([new Uint8Array(8)], 'sample.txt', {
+      type: 'text/plain',
+    });
+    expect(validateMiniMaxSourceFile(file)).toBe('unsupported_type');
   });
 });
