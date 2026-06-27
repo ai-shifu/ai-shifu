@@ -3,8 +3,6 @@
   "adminHome": {
     "billingCard": {
       "descriptionGeneric": "你可以在这里查看积分余额，也可以购买或升级套餐。",
-      "descriptionWithDays": "系统已为你发放 {credits} 体验积分，有效期 {days} 天。你可以在这里查看积分余额，也可以购买或升级套餐。",
-      "descriptionWithExpiry": "系统已为你发放 {credits} 体验积分，有效期至 {expiresAt}。你可以在这里查看积分余额，也可以购买或升级套餐。",
       "title": "这里查看积分和购买套餐"
     },
     "blankCourse": {
@@ -19,7 +17,9 @@
     }
   },
   "common": {
-    "continue": "点击屏幕任意位置继续"
+    "continue": "点击屏幕任意位置继续",
+    "replay": "重新查看引导",
+    "skip": "跳过引导"
   },
   "courseEditor": {
     "backHome": {

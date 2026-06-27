@@ -2,7 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Compass } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useOnboardingReplayStore } from '@/store';
 import LogoWithText from '@/c-components/logo/LogoWithText';
 import MainMenuModal from '@/c-components/NavDrawer/MainMenuModal';
 import NavFooter from '@/c-components/NavDrawer/NavFooter';
@@ -111,6 +113,8 @@ export const SidebarContent = ({
   billingOverviewLoading = false,
   billingOverview,
 }: SidebarContentProps) => {
+  const { t } = useTranslation();
+  const requestReplay = useOnboardingReplayStore(state => state.requestReplay);
   const normalizedPath = useMemo(
     () => normalizeRoutePath(activePath),
     [activePath],
@@ -225,12 +229,23 @@ export const SidebarContent = ({
         styles.adminLayout,
       )}
     >
-      <h1 className={cn('text-xl font-bold p-4', styles.adminLogo)}>
-        <LogoWithText
-          direction='row'
-          size={32}
-        />
-      </h1>
+      <div className={cn('flex items-center gap-2 p-4', styles.adminLogo)}>
+        <h1 className='text-xl font-bold'>
+          <LogoWithText
+            direction='row'
+            size={32}
+          />
+        </h1>
+        <button
+          type='button'
+          onClick={() => requestReplay('admin_home_onboarding')}
+          title={t('module.onboarding.common.replay')}
+          aria-label={t('module.onboarding.common.replay')}
+          className='text-gray-400 transition-colors hover:text-gray-600'
+        >
+          <Compass size={16} />
+        </button>
+      </div>
       <div className='flex min-h-0 flex-1 flex-col p-2'>
         {loading ? (
           <div

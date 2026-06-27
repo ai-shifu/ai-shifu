@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
 
-import { useShifu } from '@/store';
+import { useOnboardingReplayStore, useShifu } from '@/store';
 import Loading from '../loading';
 import { useAlert } from '@/components/ui/UseAlert';
 import api from '@/api';
@@ -17,6 +17,7 @@ import {
   Copy,
   Headphones,
   Presentation,
+  Compass,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Preivew from '@/components/preview';
@@ -96,6 +97,7 @@ const Header = ({
   publishTargetId,
 }: HeaderProps) => {
   const { t } = useTranslation();
+  const requestReplay = useOnboardingReplayStore(state => state.requestReplay);
   const alert = useAlert();
   const [publishing, setPublishing] = useState(false);
   const { toast } = useToast();
@@ -348,6 +350,15 @@ const Header = ({
                   shouldStayOpen={settingsShouldStayOpen}
                 />
               </div>
+              <button
+                type='button'
+                onClick={() => requestReplay('course_editor_onboarding')}
+                title={t('module.onboarding.common.replay')}
+                aria-label={t('module.onboarding.common.replay')}
+                className='ml-1 text-gray-400 transition-colors hover:text-gray-600'
+              >
+                <Compass size={16} />
+              </button>
             </div>
 
             <div className='flex items-center'>

@@ -19,10 +19,11 @@ import {
   useCreatorOnboardingStatus,
   useOnboarding,
 } from '@/hooks/useOnboarding';
-import { useUserStore } from '@/store';
+import { useOnboardingReplayStore, useUserStore } from '@/store';
 import { ContactSideRail } from '@/components/contact/ContactSideRail';
 import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
 import { buildAdminHomeOnboardingSteps } from '@/components/onboarding/onboardingSteps';
+import { WelcomeTrialDialog } from '@/components/billing/WelcomeTrialDialog';
 import { applyCreatorBranding } from '@/lib/initializeEnvData';
 import type { ReferralInviteProfile } from '@/types/referral';
 import { buildAdminMenuItems } from './admin-menu';
@@ -150,8 +151,11 @@ const MainInterface = ({
     [isOperator, showReferralInvite, t],
   );
 
-  const { data: billingOverview, isLoading: billingOverviewLoading } =
-    useBillingOverview();
+  const {
+    data: billingOverview,
+    isLoading: billingOverviewLoading,
+    mutate: mutateBillingOverview,
+  } = useBillingOverview();
   const billingEnabled = useEnvStore(
     (state: EnvStoreState) => state.billingEnabled === 'true',
   );
@@ -165,50 +169,24 @@ const MainInterface = ({
       buildAdminHomeOnboardingSteps({
         t: tOnboarding,
         billingEnabled,
-        trialOffer: billingOverview?.trial_offer,
         courseCreatorUrl,
-        locale: currentLanguage || i18n.language,
-        variant: adminHomeSceneStatus?.variant,
       }),
-    [
-      adminHomeSceneStatus?.variant,
-      billingEnabled,
-      courseCreatorUrl,
-      billingOverview?.trial_offer,
-      currentLanguage,
-      i18n.language,
-      tOnboarding,
-    ],
+    [billingEnabled, courseCreatorUrl, tOnboarding],
   );
   const shouldShowAdminHomeOnboarding =
     pathname === '/admin' &&
     menuReady &&
     adminHomeSceneStatus?.eligible === true &&
-    adminHomeSceneStatus?.completed === false &&
+    (adminHomeSceneStatus?.status ?? null) === null &&
     (!billingEnabled || !billingOverviewLoading);
+  const replayScene = useOnboardingReplayStore(state => state.replayScene);
+  const clearReplay = useOnboardingReplayStore(state => state.clearReplay);
+  const isAdminHomeReplay = replayScene === 'admin_home_onboarding';
+  const adminHomeOnboardingEnabled =
+    shouldShowAdminHomeOnboarding || isAdminHomeReplay;
 
-  const {
-    isOpen: adminHomeOnboardingOpen,
-    currentStep: adminHomeOnboardingStep,
-    currentStepIndex: adminHomeOnboardingStepIndex,
-    totalSteps: adminHomeOnboardingTotalSteps,
-    targetRect: adminHomeOnboardingTargetRect,
-    advance: advanceAdminHomeOnboarding,
-  } = useOnboarding({
-    enabled: shouldShowAdminHomeOnboarding,
-    steps: adminHomeSteps,
-    onStepResolved: (step, stepIndex) => {
-      trackEvent('creator_onboarding_step_viewed', {
-        scene_key: 'admin_home_onboarding',
-        version: onboardingStatus?.version || 'v1',
-        user_segment: onboardingStatus?.user_segment || 'ineligible',
-        step_id: step.id,
-        step_index: stepIndex + 1,
-        trigger_source: 'admin_entry',
-        language: currentLanguage || i18n.language,
-      });
-    },
-    onComplete: async () => {
+  const persistAdminHomeOnboarding = useCallback(
+    async (status: 'completed' | 'skipped') => {
       const version = onboardingStatus?.version || 'v1';
       const language = currentLanguage || i18n.language;
       try {
@@ -216,14 +194,20 @@ const MainInterface = ({
           scene_key: 'admin_home_onboarding',
           version,
           trigger_source: 'admin_entry',
+          status,
         });
-        trackEvent('creator_onboarding_completed', {
-          scene_key: 'admin_home_onboarding',
-          version,
-          user_segment: onboardingStatus?.user_segment || 'ineligible',
-          trigger_source: 'admin_entry',
-          language,
-        });
+        trackEvent(
+          status === 'skipped'
+            ? 'creator_onboarding_skipped'
+            : 'creator_onboarding_completed',
+          {
+            scene_key: 'admin_home_onboarding',
+            version,
+            user_segment: onboardingStatus?.user_segment || 'ineligible',
+            trigger_source: 'admin_entry',
+            language,
+          },
+        );
       } catch {
         trackEvent('creator_onboarding_complete_failed', {
           scene_key: 'admin_home_onboarding',
@@ -243,12 +227,61 @@ const MainInterface = ({
             ...current.scenes,
             admin_home_onboarding: {
               ...current.scenes.admin_home_onboarding,
-              completed: true,
+              completed: status === 'completed',
               completed_at: new Date().toISOString(),
+              status,
             },
           },
         };
       }, false);
+    },
+    [
+      currentLanguage,
+      i18n.language,
+      mutateOnboardingStatus,
+      onboardingStatus?.user_segment,
+      onboardingStatus?.version,
+      trackEvent,
+    ],
+  );
+
+  const {
+    isOpen: adminHomeOnboardingOpen,
+    currentStep: adminHomeOnboardingStep,
+    currentStepIndex: adminHomeOnboardingStepIndex,
+    totalSteps: adminHomeOnboardingTotalSteps,
+    targetRect: adminHomeOnboardingTargetRect,
+    advance: advanceAdminHomeOnboarding,
+    skip: skipAdminHomeOnboarding,
+  } = useOnboarding({
+    enabled: adminHomeOnboardingEnabled,
+    steps: adminHomeSteps,
+    onStepResolved: (step, stepIndex) => {
+      trackEvent('creator_onboarding_step_viewed', {
+        scene_key: 'admin_home_onboarding',
+        version: onboardingStatus?.version || 'v1',
+        user_segment: onboardingStatus?.user_segment || 'ineligible',
+        step_id: step.id,
+        step_index: stepIndex + 1,
+        trigger_source: 'admin_entry',
+        language: currentLanguage || i18n.language,
+      });
+    },
+    onComplete: async () => {
+      if (isAdminHomeReplay) {
+        clearReplay();
+        return;
+      }
+      await persistAdminHomeOnboarding('completed');
+      clearReplay();
+    },
+    onSkip: async () => {
+      if (isAdminHomeReplay) {
+        clearReplay();
+        return;
+      }
+      await persistAdminHomeOnboarding('skipped');
+      clearReplay();
     },
   });
 
@@ -295,8 +328,17 @@ const MainInterface = ({
           onAdvance={() => {
             void advanceAdminHomeOnboarding();
           }}
+          skipLabel={tOnboarding('common.skip')}
+          onSkip={() => {
+            void skipAdminHomeOnboarding();
+          }}
         />
       ) : null}
+      <WelcomeTrialDialog
+        billingOverview={billingOverview}
+        menuReady={menuReady}
+        mutateBillingOverview={mutateBillingOverview}
+      />
       <ContactSideRail />
       <div className='flex h-dvh overflow-hidden bg-stone-50'>
         <div className='w-[280px] shrink-0'>

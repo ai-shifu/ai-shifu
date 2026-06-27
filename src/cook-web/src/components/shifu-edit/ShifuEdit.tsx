@@ -34,7 +34,11 @@ import {
 import { toast } from '@/hooks/useToast';
 import i18n, { normalizeLanguage } from '@/i18n';
 import { cn } from '@/lib/utils';
-import { useShifu, useUserStore } from '@/store';
+import {
+  useOnboardingReplayStore,
+  useShifu,
+  useUserStore,
+} from '@/store';
 import {
   DraftMeta,
   LessonCreationSettings,
@@ -325,8 +329,13 @@ const ScriptEditor = ({
     !isHistoryPage &&
     editorOnboardingReady &&
     courseEditorSceneStatus?.eligible === true &&
-    courseEditorSceneStatus?.completed === false &&
+    (courseEditorSceneStatus?.status ?? null) === null &&
     isCourseOwner;
+  const replayScene = useOnboardingReplayStore(state => state.replayScene);
+  const clearReplay = useOnboardingReplayStore(state => state.clearReplay);
+  const isCourseEditorReplay = replayScene === 'course_editor_onboarding';
+  const courseEditorOnboardingEnabled =
+    shouldShowCourseEditorOnboarding || isCourseEditorReplay;
   const actionsRef = useRef(actions);
   const baseRevisionRef = useRef<number | null>(null);
   const conflictStateRef = useRef({
@@ -339,28 +348,8 @@ const ScriptEditor = ({
   const remoteDraftSyncingTargetsRef = useRef<Set<string>>(new Set());
   const trackedEditorOnboardingStartRef = useRef(false);
 
-  const {
-    isOpen: courseEditorOnboardingOpen,
-    currentStep: courseEditorOnboardingStep,
-    currentStepIndex: courseEditorOnboardingStepIndex,
-    totalSteps: courseEditorOnboardingTotalSteps,
-    targetRect: courseEditorOnboardingTargetRect,
-    advance: advanceCourseEditorOnboarding,
-  } = useOnboarding({
-    enabled: shouldShowCourseEditorOnboarding,
-    steps: editorOnboardingSteps,
-    onStepResolved: (step, stepIndex) => {
-      trackEvent('creator_onboarding_step_viewed', {
-        scene_key: 'course_editor_onboarding',
-        version: onboardingStatus?.version || 'v1',
-        user_segment: onboardingStatus?.user_segment || 'ineligible',
-        step_id: step.id,
-        step_index: stepIndex + 1,
-        trigger_source: editorOnboardingTriggerSource,
-        language: profile?.language || i18n.language,
-      });
-    },
-    onComplete: async () => {
+  const persistCourseEditorOnboarding = useCallback(
+    async (status: 'completed' | 'skipped') => {
       const version = onboardingStatus?.version || 'v1';
       const language = profile?.language || i18n.language;
       try {
@@ -368,14 +357,20 @@ const ScriptEditor = ({
           scene_key: 'course_editor_onboarding',
           version,
           trigger_source: editorOnboardingTriggerSource,
+          status,
         });
-        trackEvent('creator_onboarding_completed', {
-          scene_key: 'course_editor_onboarding',
-          version,
-          user_segment: onboardingStatus?.user_segment || 'ineligible',
-          trigger_source: editorOnboardingTriggerSource,
-          language,
-        });
+        trackEvent(
+          status === 'skipped'
+            ? 'creator_onboarding_skipped'
+            : 'creator_onboarding_completed',
+          {
+            scene_key: 'course_editor_onboarding',
+            version,
+            user_segment: onboardingStatus?.user_segment || 'ineligible',
+            trigger_source: editorOnboardingTriggerSource,
+            language,
+          },
+        );
       } catch {
         trackEvent('creator_onboarding_complete_failed', {
           scene_key: 'course_editor_onboarding',
@@ -395,8 +390,9 @@ const ScriptEditor = ({
             ...current.scenes,
             course_editor_onboarding: {
               ...current.scenes.course_editor_onboarding,
-              completed: true,
+              completed: status === 'completed',
               completed_at: new Date().toISOString(),
+              status,
             },
           },
         };
@@ -407,6 +403,55 @@ const ScriptEditor = ({
         currentUrl.searchParams.delete('onboarding');
         window.history.replaceState({}, '', currentUrl.toString());
       }
+    },
+    [
+      editorOnboardingTriggerSource,
+      i18n.language,
+      mutateOnboardingStatus,
+      onboardingStatus?.user_segment,
+      onboardingStatus?.version,
+      profile?.language,
+      trackEvent,
+    ],
+  );
+
+  const {
+    isOpen: courseEditorOnboardingOpen,
+    currentStep: courseEditorOnboardingStep,
+    currentStepIndex: courseEditorOnboardingStepIndex,
+    totalSteps: courseEditorOnboardingTotalSteps,
+    targetRect: courseEditorOnboardingTargetRect,
+    advance: advanceCourseEditorOnboarding,
+    skip: skipCourseEditorOnboarding,
+  } = useOnboarding({
+    enabled: courseEditorOnboardingEnabled,
+    steps: editorOnboardingSteps,
+    onStepResolved: (step, stepIndex) => {
+      trackEvent('creator_onboarding_step_viewed', {
+        scene_key: 'course_editor_onboarding',
+        version: onboardingStatus?.version || 'v1',
+        user_segment: onboardingStatus?.user_segment || 'ineligible',
+        step_id: step.id,
+        step_index: stepIndex + 1,
+        trigger_source: editorOnboardingTriggerSource,
+        language: profile?.language || i18n.language,
+      });
+    },
+    onComplete: async () => {
+      if (isCourseEditorReplay) {
+        clearReplay();
+        return;
+      }
+      await persistCourseEditorOnboarding('completed');
+      clearReplay();
+    },
+    onSkip: async () => {
+      if (isCourseEditorReplay) {
+        clearReplay();
+        return;
+      }
+      await persistCourseEditorOnboarding('skipped');
+      clearReplay();
     },
   });
   const shouldRenderCourseEditorOnboardingOverlay = Boolean(
@@ -1624,6 +1669,10 @@ const ScriptEditor = ({
           targetRect={courseEditorOnboardingTargetRect}
           onAdvance={() => {
             void advanceCourseEditorOnboarding();
+          }}
+          skipLabel={tOnboarding('common.skip')}
+          onSkip={() => {
+            void skipCourseEditorOnboarding();
           }}
         />
       ) : null}

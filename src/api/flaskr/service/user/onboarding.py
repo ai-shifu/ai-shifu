@@ -30,13 +30,12 @@ SUPPORTED_TRIGGER_SOURCES = {
     "skills_create",
 }
 STATUS_COMPLETED = "completed"
+STATUS_SKIPPED = "skipped"
 ROLLOUT_CONFIG_KEY = "ADMIN_ONBOARDING_ENABLED_FROM"
 EXISTING_CREATOR_ROLLOUT_CONFIG_KEY = "ADMIN_EXISTING_CREATOR_ONBOARDING_ENABLED_FROM"
 USER_SEGMENT_NEW_CREATOR = "new_creator"
 USER_SEGMENT_EXISTING_CREATOR_ROLLOUT = "existing_creator_rollout"
 USER_SEGMENT_INELIGIBLE = "ineligible"
-BILLING_VARIANT_TRIAL_CREDIT = "trial_credit"
-BILLING_VARIANT_GENERIC_BILLING = "generic_billing"
 
 
 @dataclass(frozen=True)
@@ -44,7 +43,7 @@ class OnboardingSceneStatus:
     completed: bool
     completed_at: str | None
     eligible: bool
-    variant: str | None
+    status: str | None
 
 
 def _serialize_datetime(value: datetime | None) -> str | None:
@@ -147,13 +146,6 @@ def _build_scene_status(
         USER_SEGMENT_NEW_CREATOR,
         USER_SEGMENT_EXISTING_CREATOR_ROLLOUT,
     }
-    variant = None
-    if scene_key == SCENE_ADMIN_HOME and is_eligible:
-        variant = (
-            BILLING_VARIANT_TRIAL_CREDIT
-            if user_segment == USER_SEGMENT_NEW_CREATOR
-            else BILLING_VARIANT_GENERIC_BILLING
-        )
 
     return OnboardingSceneStatus(
         completed=row is not None and row.status == STATUS_COMPLETED,
@@ -161,7 +153,7 @@ def _build_scene_status(
             getattr(row, "completed_at", None) if row else None
         ),
         eligible=is_eligible,
-        variant=variant,
+        status=getattr(row, "status", None) if row else None,
     )
 
 
@@ -212,11 +204,13 @@ def complete_onboarding_scene(
     scene_key: str,
     version: str,
     trigger_source: str,
+    status: str = STATUS_COMPLETED,
 ) -> dict[str, Any]:
     normalized_user_bid = str(user_bid or "").strip()
     normalized_scene_key = str(scene_key or "").strip()
     normalized_version = str(version or "").strip()
     normalized_trigger_source = str(trigger_source or "").strip()
+    normalized_status = str(status or "").strip() or STATUS_COMPLETED
 
     if not normalized_user_bid:
         raise_error("server.user.userNotLogin")
@@ -226,6 +220,8 @@ def complete_onboarding_scene(
         raise_param_error("version")
     if normalized_trigger_source not in SUPPORTED_TRIGGER_SOURCES:
         raise_param_error("trigger_source")
+    if normalized_status not in {STATUS_COMPLETED, STATUS_SKIPPED}:
+        raise_param_error("status")
 
     with app.app_context():
         user = _load_user_entity(normalized_user_bid)
@@ -243,14 +239,16 @@ def complete_onboarding_scene(
                 user_bid=normalized_user_bid,
                 scene_key=normalized_scene_key,
                 version=normalized_version,
-                status=STATUS_COMPLETED,
+                status=normalized_status,
                 trigger_source=normalized_trigger_source,
                 completed_at=now,
             )
             db.session.add(existing)
         else:
-            existing.status = STATUS_COMPLETED
+            existing.status = normalized_status
             existing.trigger_source = normalized_trigger_source
+            # completed_at records the first time the scene was handled
+            # (completed or skipped); keep it stable on later writes.
             if existing.completed_at is None:
                 existing.completed_at = now
 
@@ -267,7 +265,8 @@ def complete_onboarding_scene(
         return {
             "scene_key": normalized_scene_key,
             "version": normalized_version,
-            "completed": True,
+            "completed": normalized_status == STATUS_COMPLETED,
+            "status": normalized_status,
             "completed_at": _serialize_datetime(
                 getattr(existing, "completed_at", None)
             ),

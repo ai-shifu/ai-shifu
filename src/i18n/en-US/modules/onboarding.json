@@ -3,8 +3,6 @@
   "adminHome": {
     "billingCard": {
       "descriptionGeneric": "Check your credit balance here, or buy and upgrade plans when needed.",
-      "descriptionWithDays": "We have added {credits} trial credits to your account for {days} days. Check your credit balance here, or buy and upgrade plans when needed.",
-      "descriptionWithExpiry": "We have added {credits} trial credits to your account, valid until {expiresAt}. Check your credit balance here, or buy and upgrade plans when needed.",
       "title": "Check credits and buy plans here"
     },
     "blankCourse": {
@@ -19,7 +17,9 @@
     }
   },
   "common": {
-    "continue": "Click anywhere to continue"
+    "continue": "Click anywhere to continue",
+    "replay": "Replay the guide",
+    "skip": "Skip the guide"
   },
   "courseEditor": {
     "backHome": {

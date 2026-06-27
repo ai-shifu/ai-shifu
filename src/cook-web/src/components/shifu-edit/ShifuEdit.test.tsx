@@ -271,6 +271,12 @@ jest.mock('@/store', () => ({
   useShifu: () => mockShifuState,
   useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
     selector(mockUserStoreState),
+  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      replayScene: null,
+      requestReplay: jest.fn(),
+      clearReplay: jest.fn(),
+    }),
 }));
 
 describe('ShifuEdit draft conflict checks', () => {

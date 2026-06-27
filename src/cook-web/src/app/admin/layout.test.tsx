@@ -133,6 +133,12 @@ jest.mock('@/store', () => ({
   __esModule: true,
   useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
     selector(mockUserStoreState),
+  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      replayScene: null,
+      requestReplay: jest.fn(),
+      clearReplay: jest.fn(),
+    }),
 }));
 
 jest.mock('@/c-components/NavDrawer/NavFooter', () => ({
