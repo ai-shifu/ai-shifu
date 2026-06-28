@@ -505,17 +505,23 @@ const ScriptManagementPage = () => {
     setPermissionDialogOpen(true);
   }, []);
 
-  const handleImportActivationRequest = useCallback((shifu: Shifu) => {
-    cancelActionDialogReset();
-    setSelectedActionShifu(shifu);
-    setImportOpen(true);
-  }, [cancelActionDialogReset]);
+  const handleImportActivationRequest = useCallback(
+    (shifu: Shifu) => {
+      cancelActionDialogReset();
+      setSelectedActionShifu(shifu);
+      setImportOpen(true);
+    },
+    [cancelActionDialogReset],
+  );
 
-  const handleRedemptionCodeRequest = useCallback((shifu: Shifu) => {
-    cancelActionDialogReset();
-    setSelectedActionShifu(shifu);
-    setRedemptionOpen(true);
-  }, [cancelActionDialogReset]);
+  const handleRedemptionCodeRequest = useCallback(
+    (shifu: Shifu) => {
+      cancelActionDialogReset();
+      setSelectedActionShifu(shifu);
+      setRedemptionOpen(true);
+    },
+    [cancelActionDialogReset],
+  );
 
   const handleArchiveConfirm = useCallback(async () => {
     if (!archiveTarget?.bid || archiveLoading) {

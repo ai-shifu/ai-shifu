@@ -142,7 +142,9 @@ jest.mock('@/components/ui/Badge', () => ({
 }));
 
 jest.mock('@/components/ui/DropdownMenu', () => ({
-  DropdownMenu: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  DropdownMenu: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
@@ -168,20 +170,39 @@ jest.mock('@/components/ui/AlertDialog', () => ({
   AlertDialog: ({
     open,
     children,
-  }: React.PropsWithChildren<{ open: boolean }>) => (open ? <div>{children}</div> : null),
-  AlertDialogAction: ({ children, onClick }: React.PropsWithChildren<{ onClick?: React.MouseEventHandler<HTMLButtonElement> }>) => (
-    <button type='button' onClick={onClick}>
+  }: React.PropsWithChildren<{ open: boolean }>) =>
+    open ? <div>{children}</div> : null,
+  AlertDialogAction: ({
+    children,
+    onClick,
+  }: React.PropsWithChildren<{
+    onClick?: React.MouseEventHandler<HTMLButtonElement>;
+  }>) => (
+    <button
+      type='button'
+      onClick={onClick}
+    >
       {children}
     </button>
   ),
   AlertDialogCancel: ({ children }: React.PropsWithChildren) => (
     <button type='button'>{children}</button>
   ),
-  AlertDialogContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  AlertDialogDescription: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  AlertDialogFooter: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  AlertDialogHeader: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  AlertDialogTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  AlertDialogContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogDescription: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogFooter: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogHeader: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
+  AlertDialogTitle: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
 }));
 
 jest.mock('@/components/create-shifu-dialog', () => ({
@@ -233,10 +254,16 @@ jest.mock('@/components/order/ImportActivationDialog', () => ({
     initialCourseName?: string;
     onOpenChange: (open: boolean) => void;
   }) => (
-    <div data-testid='import-activation-dialog' data-open={String(open)}>
+    <div
+      data-testid='import-activation-dialog'
+      data-open={String(open)}
+    >
       <div data-testid='import-course-id'>{initialCourseId || 'none'}</div>
       <div data-testid='import-course-name'>{initialCourseName || 'none'}</div>
-      <button type='button' onClick={() => onOpenChange(false)}>
+      <button
+        type='button'
+        onClick={() => onOpenChange(false)}
+      >
         {CLOSE_IMPORT_LABEL}
       </button>
     </div>
@@ -256,10 +283,18 @@ jest.mock('./orders/CreatorRedemptionCodeDialog', () => ({
     initialShifuName?: string;
     onOpenChange: (open: boolean) => void;
   }) => (
-    <div data-testid='creator-redemption-dialog' data-open={String(open)}>
+    <div
+      data-testid='creator-redemption-dialog'
+      data-open={String(open)}
+    >
       <div data-testid='redemption-shifu-id'>{initialShifuBid || 'none'}</div>
-      <div data-testid='redemption-shifu-name'>{initialShifuName || 'none'}</div>
-      <button type='button' onClick={() => onOpenChange(false)}>
+      <div data-testid='redemption-shifu-name'>
+        {initialShifuName || 'none'}
+      </div>
+      <button
+        type='button'
+        onClick={() => onOpenChange(false)}
+      >
         {CLOSE_REDEMPTION_LABEL}
       </button>
     </div>
@@ -276,7 +311,9 @@ describe('AdminPage', () => {
     mockPush.mockReset();
     mockEnsureAdminCreator.mockReset();
     mockGetShifuList.mockReset();
-    consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+    consoleInfoSpy = jest
+      .spyOn(console, 'info')
+      .mockImplementation(() => undefined);
     mockEnsureAdminCreator.mockResolvedValue({});
     mockGetShifuList.mockResolvedValue({
       items: [
@@ -355,10 +392,13 @@ describe('AdminPage', () => {
       'course-1',
     );
 
-    await waitFor(() => {
-      expect(screen.getByTestId('redemption-shifu-id')).toHaveTextContent(
-        'none',
-      );
-    }, { timeout: 500 });
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('redemption-shifu-id')).toHaveTextContent(
+          'none',
+        );
+      },
+      { timeout: 500 },
+    );
   });
 });
