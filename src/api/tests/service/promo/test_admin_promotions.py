@@ -192,7 +192,7 @@ def test_admin_promotions_routes_reject_invalid_status_filter(
 def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch):
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
-        "flaskr.service.promo.admin._now_local_naive",
+        "flaskr.service.promo.admin.now_utc",
         lambda: datetime(2026, 5, 20, 12, 0, 0),
     )
 
@@ -430,7 +430,7 @@ def test_admin_promotions_coupon_list_returns_empty_ops_states_by_default(
 ):
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
-        "flaskr.service.promo.admin._now_local_naive",
+        "flaskr.service.promo.admin.now_utc",
         lambda: datetime(2026, 5, 20, 12, 0, 0),
     )
 

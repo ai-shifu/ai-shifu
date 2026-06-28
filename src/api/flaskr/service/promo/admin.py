@@ -4,11 +4,11 @@ import decimal
 import json
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import math
 from typing import Dict, Optional
 
-from flask import Flask, current_app
+from flask import Flask
 from sqlalchemy import and_, case, func, not_, or_
 
 from flaskr.dao import db
@@ -65,12 +65,11 @@ from flaskr.service.promo.models import (
 )
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
-from flaskr.util.timezone import get_app_timezone
+from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 
 PROMOTION_SCOPE_ALL_COURSES = "all_courses"
 PROMOTION_SCOPE_SINGLE_COURSE = "single_course"
-PROMOTION_ADMIN_SOURCE_TIMEZONE = "Asia/Shanghai"
 ALL_COURSES_FILTER_VALUE = json.dumps({"course_id": ""}, ensure_ascii=False)
 
 COUPON_USAGE_TYPE_KEY_MAP = {
@@ -107,43 +106,38 @@ MAX_SPECIFIC_COUPON_BATCH_SIZE = 2000
 PROMOTION_EXPIRING_SOON_DAYS = 7
 
 
-def _now_local_naive() -> datetime:
-    source_tz = get_app_timezone(
-        current_app._get_current_object(),
-        PROMOTION_ADMIN_SOURCE_TIMEZONE,
-    )
-    return datetime.now(source_tz).replace(tzinfo=None)
-
-
-def _normalize_promotion_admin_input_datetime(value: datetime) -> datetime:
-    source_tz = get_app_timezone(
-        current_app._get_current_object(),
-        PROMOTION_ADMIN_SOURCE_TIMEZONE,
-    )
-    return value.replace(tzinfo=source_tz).replace(tzinfo=None)
-
-
 def _parse_datetime(value: str, field_name: str, *, is_end: bool = False) -> datetime:
     normalized = str(value or "").strip()
     if not normalized:
         raise_param_error(field_name)
-    for fmt in (
-        "%Y-%m-%d",
-        "%Y-%m-%d %H:%M",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%dT%H:%M",
-        "%Y-%m-%dT%H:%M:%S",
-    ):
-        try:
-            parsed = datetime.strptime(normalized, fmt)
-            if fmt == "%Y-%m-%d":
-                if is_end:
-                    return parsed.replace(hour=23, minute=59, second=59)
-                return parsed.replace(hour=0, minute=0, second=0)
-            return _normalize_promotion_admin_input_datetime(parsed)
-        except ValueError:
-            continue
-    raise_param_error(field_name)
+    # Date-only filters fill the day bounds (UTC wall-clock day).
+    try:
+        date_only = datetime.strptime(normalized, "%Y-%m-%d")
+    except ValueError:
+        date_only = None
+    if date_only is not None:
+        if is_end:
+            return date_only.replace(hour=23, minute=59, second=59)
+        return date_only.replace(hour=0, minute=0, second=0)
+    # Full datetime: accept any timezone offset (or 'Z'); naive input is treated
+    # as UTC. Stored values are UTC, so convert aware values to UTC and drop the
+    # tzinfo. The frontend may send whichever zone it likes — we normalize here.
+    candidate = normalized.replace("Z", "+00:00").replace(" ", "T")
+    parsed = None
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError:
+        for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
+            try:
+                parsed = datetime.strptime(candidate, fmt)
+                break
+            except ValueError:
+                continue
+    if parsed is None:
+        raise_param_error(field_name)
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
 
 
 def _parse_decimal_value(value: object, field_name: str) -> decimal.Decimal:
@@ -290,7 +284,7 @@ def _build_coupon_status_filter(status: str):
     normalized = str(status or "").strip().lower()
     if not normalized:
         return None
-    now = _now_local_naive()
+    now = now_utc()
     enabled_filter = build_coupon_enabled_expression(Coupon)
     if normalized == "inactive":
         return not_(enabled_filter)
@@ -317,7 +311,7 @@ def _build_campaign_status_filter(status: str):
     normalized = str(status or "").strip().lower()
     if not normalized:
         return None
-    now = _now_local_naive()
+    now = now_utc()
     enabled_filter = build_campaign_enabled_expression(PromoCampaign)
     if normalized == "inactive":
         return not_(enabled_filter)
@@ -489,7 +483,7 @@ def _resolve_batch_coupon_code(
 
 
 def _compute_coupon_status(coupon: Coupon) -> str:
-    now = _now_local_naive()
+    now = now_utc()
     if not is_coupon_enabled_for_runtime(coupon):
         return "inactive"
     if coupon.start and coupon.start > now:
@@ -500,7 +494,7 @@ def _compute_coupon_status(coupon: Coupon) -> str:
 
 
 def _compute_coupon_ops_states(coupon: Coupon) -> list[str]:
-    now = _now_local_naive()
+    now = now_utc()
     states: list[str] = []
     if int(coupon.used_count or 0) >= int(coupon.total_count or 0):
         states.append("used_up")
@@ -514,7 +508,7 @@ def _compute_coupon_ops_states(coupon: Coupon) -> list[str]:
 
 
 def _compute_campaign_status(campaign: PromoCampaign) -> str:
-    now = _now_local_naive()
+    now = now_utc()
     if not is_campaign_enabled_for_runtime(campaign):
         return "inactive"
     if campaign.start_at and campaign.start_at > now:
@@ -656,7 +650,7 @@ def _list_promotion_coupons(
     if usage_type:
         query = query.filter(Coupon.usage_type == int(usage_type))
     if ops_state == "expiring_soon":
-        now = _now_local_naive()
+        now = now_utc()
         query = query.filter(
             Coupon.end >= now,
             Coupon.end <= now + timedelta(days=PROMOTION_EXPIRING_SOON_DAYS),
@@ -747,7 +741,7 @@ def _list_promotion_coupons(
         .order_by(CouponUsage.updated_at.desc())
         .first()
     )
-    now = _now_local_naive()
+    now = now_utc()
     active_coupon_expression = build_coupon_enabled_expression(filtered_subquery.c)
     summary_row = db.session.query(
         func.count(filtered_subquery.c.coupon_bid).label("total"),
@@ -843,19 +837,19 @@ def _campaign_has_redemptions(promo_bid: str) -> bool:
 
 
 def _coupon_is_enableable(coupon: Coupon) -> bool:
-    now = _now_local_naive()
+    now = now_utc()
     if coupon.end and coupon.end < now:
         return False
     return int(coupon.used_count or 0) < int(coupon.total_count or 0)
 
 
 def _campaign_is_enableable(campaign: PromoCampaign) -> bool:
-    now = _now_local_naive()
+    now = now_utc()
     return not campaign.end_at or campaign.end_at >= now
 
 
 def _campaign_strategy_fields_editable(campaign: PromoCampaign) -> bool:
-    if campaign.start_at and campaign.start_at <= _now_local_naive():
+    if campaign.start_at and campaign.start_at <= now_utc():
         return False
     return not _campaign_has_redemptions(campaign.promo_bid or "")
 
@@ -1482,7 +1476,7 @@ def list_operator_promotion_campaigns(
         PromoCampaign.created_user_bid.label("created_user_bid"),
         PromoCampaign.updated_user_bid.label("updated_user_bid"),
     ).subquery()
-    now = _now_local_naive()
+    now = now_utc()
     active_campaign_expression = build_campaign_enabled_expression(filtered_subquery.c)
     active_campaign_case = case(
         (
