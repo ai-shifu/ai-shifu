@@ -6,7 +6,9 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import ScriptEditor from './ShifuEdit';
+import ScriptEditor, {
+  resolveEditorOnboardingTriggerSource,
+} from './ShifuEdit';
 
 const refreshLabel = 'refresh';
 const mockMarkdownFlowEditor = jest.fn();
@@ -269,6 +271,15 @@ jest.mock('@/store', () => ({
   useShifu: () => mockShifuState,
   useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
     selector(mockUserStoreState),
+  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      replayScenes: {
+        admin_home_onboarding: false,
+        course_editor_onboarding: false,
+      },
+      requestReplayAll: jest.fn(),
+      clearReplay: jest.fn(),
+    }),
 }));
 
 describe('ShifuEdit draft conflict checks', () => {
@@ -335,6 +346,23 @@ describe('ShifuEdit draft conflict checks', () => {
     await waitFor(() => {
       expect(mockLoadDraftMeta).not.toHaveBeenCalled();
     });
+  });
+
+  test('defaults editor onboarding trigger source for direct editor entry', () => {
+    expect(resolveEditorOnboardingTriggerSource(null)).toBe('editor_entry');
+    expect(resolveEditorOnboardingTriggerSource('')).toBe('editor_entry');
+    expect(resolveEditorOnboardingTriggerSource('unknown')).toBe(
+      'editor_entry',
+    );
+    expect(resolveEditorOnboardingTriggerSource('manual_create')).toBe(
+      'manual_create',
+    );
+    expect(resolveEditorOnboardingTriggerSource('lobster_create')).toBe(
+      'lobster_create',
+    );
+    expect(resolveEditorOnboardingTriggerSource('skills_create')).toBe(
+      'skills_create',
+    );
   });
 
   test('still loads draft meta when a lesson node is selected', async () => {

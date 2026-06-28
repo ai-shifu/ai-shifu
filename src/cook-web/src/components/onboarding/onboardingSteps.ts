@@ -1,48 +1,22 @@
 import React from 'react';
-import type { BillingTrialOffer } from '@/types/billing';
 import { ONBOARDING_TARGET_IDS } from '@/lib/onboardingTargets';
-import { formatBillingDate } from '@/lib/billing';
 import type { OnboardingStep } from './onboardingTypes';
 
-const replaceTemplate = (
-  template: string,
-  values: Record<string, string | number>,
-) => {
-  return Object.entries(values).reduce((result, [key, value]) => {
-    return result.replaceAll(`{${key}}`, String(value));
-  }, template);
-};
+/*
+ * Translation usage markers for scripts/check_translation_usage.py:
+ * - 'module.onboarding.adminHome.billingCard.descriptionGeneric'
+ */
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 type BuildAdminHomeStepsOptions = {
   t: Translate;
   billingEnabled: boolean;
-  trialOffer?: BillingTrialOffer | null;
   courseCreatorUrl?: string | null;
-  locale?: string;
 };
 
-const buildBillingDescription = (
-  t: Translate,
-  trialOffer: BillingTrialOffer | null | undefined,
-  locale?: string,
-) => {
-  const credits = trialOffer?.credit_amount || 0;
-  const expiresAt = formatBillingDate(
-    trialOffer?.expires_at,
-    locale || 'zh-CN',
-  );
-  const days = trialOffer?.valid_days || 0;
-  const key = expiresAt
-    ? 'adminHome.billingCard.descriptionWithExpiry'
-    : 'adminHome.billingCard.descriptionWithDays';
-
-  return replaceTemplate(t(key), {
-    credits,
-    expiresAt,
-    days,
-  });
+const buildBillingDescription = (t: Translate) => {
+  return t('adminHome.billingCard.descriptionGeneric');
 };
 
 const buildLobsterDescription = (
@@ -80,9 +54,7 @@ const buildLobsterDescription = (
 export function buildAdminHomeOnboardingSteps({
   t,
   billingEnabled,
-  trialOffer,
   courseCreatorUrl,
-  locale,
 }: BuildAdminHomeStepsOptions): OnboardingStep[] {
   const steps: OnboardingStep[] = [
     {
@@ -105,7 +77,7 @@ export function buildAdminHomeOnboardingSteps({
     steps.push({
       id: 'billing_card',
       title: t('adminHome.billingCard.title'),
-      description: buildBillingDescription(t, trialOffer, locale),
+      description: buildBillingDescription(t),
       targetId: ONBOARDING_TARGET_IDS.billingCard,
       skipWhenTargetMissing: true,
       highlightPadding: 4,

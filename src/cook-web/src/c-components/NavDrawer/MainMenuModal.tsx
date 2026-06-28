@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/AlertDialog';
 import PopupModal from '@/c-components/PopupModal';
 import { useTranslation } from 'react-i18next';
-import { useUserStore } from '@/store';
+import { useOnboardingReplayStore, useUserStore } from '@/store';
 import { shifu } from '@/c-service/Shifu';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { useEnvStore } from '@/c-store/envStore';
@@ -28,7 +28,7 @@ import Image from 'next/image';
 import imgPersonal from '@/c-assets/newchat/light/personal.png';
 import imgMultiLanguage from '@/c-assets/newchat/light/multiLanguage.png';
 import imgSignIn from '@/c-assets/newchat/light/signin.png';
-import { Monitor, BookPlus, KeyRound } from 'lucide-react';
+import { Monitor, BookPlus, KeyRound, Compass } from 'lucide-react';
 
 import LanguageSelect from '@/components/language-select';
 
@@ -55,6 +55,9 @@ const MainMenuModal = ({
   );
 
   const isCreator = userInfo?.is_creator ?? false;
+  const requestReplayAll = useOnboardingReplayStore(
+    state => state.requestReplayAll,
+  );
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const isPasswordEnabled = Array.isArray(loginMethodsEnabled)
     ? loginMethodsEnabled.includes('password')
@@ -118,6 +121,29 @@ const MainMenuModal = ({
       <div className={styles.rowTitle}>{t('module.settings.setPassword')}</div>
     </div>
   ) : null;
+
+  const onReplayOnboardingClick = (evt: React.MouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    requestReplayAll();
+    // @ts-expect-error EXPECT
+    onClose?.(evt);
+  };
+  const replayOnboardingRow = (
+    <div
+      className={cn(styles.mainMenuModalRow, 'px-2.5')}
+      onClick={onReplayOnboardingClick}
+      title={t('module.onboarding.common.replay')}
+    >
+      <Compass
+        className={styles.rowIcon}
+        size={16}
+      />
+      <div className={styles.rowTitle}>
+        {t('module.onboarding.common.replay')}
+      </div>
+    </div>
+  );
 
   const onAdminEntryClick = (evt: React.MouseEvent) => {
     evt.preventDefault();
@@ -242,7 +268,10 @@ const MainMenuModal = ({
               </div>
             </>
           ) : (
-            setPasswordRow
+            <>
+              {setPasswordRow}
+              {replayOnboardingRow}
+            </>
           )}
 
           <div className={styles.languageRow}>

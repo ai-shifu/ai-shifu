@@ -144,6 +144,10 @@ export default function AdminReferralPage() {
     );
   }
 
+  if (profile?.available === false) {
+    return null;
+  }
+
   return (
     <div className='flex min-h-0 flex-col'>
       <AdminTitle

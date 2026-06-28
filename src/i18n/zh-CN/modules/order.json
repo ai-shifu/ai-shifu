@@ -52,6 +52,7 @@
   "filters": {
     "all": "全部",
     "channel": "支付渠道",
+    "dateRangePlaceholder": "开始日期 ~ 结束日期",
     "endTime": "结束日期",
     "orderBid": "订单 ID",
     "reset": "重置",

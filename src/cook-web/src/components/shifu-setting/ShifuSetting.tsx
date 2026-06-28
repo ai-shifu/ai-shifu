@@ -93,6 +93,10 @@ import {
   type MiniMaxCloneCost,
   type MiniMaxClonedVoice,
 } from '@/components/shifu-setting/minimax-voice-clone';
+import {
+  buildOnboardingTargetProps,
+  ONBOARDING_TARGET_IDS,
+} from '@/lib/onboardingTargets';
 
 interface Shifu {
   description: string;
@@ -149,11 +153,19 @@ type TtsPreviewOptions = {
 export default function ShifuSettingDialog({
   shifuId,
   onSave,
+  triggerTargetId,
+  openSignal,
+  shouldStayOpen,
 }: {
   shifuId: string;
   onSave: () => void;
+  triggerTargetId?: string;
+  openSignal?: string;
+  shouldStayOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const lastAppliedOpenSignalRef = useRef<string | null>(null);
+  const openedByOnboardingRef = useRef(false);
   const { t } = useTranslation();
   const { currentShifu, models } = useShifu();
   const { toast } = useToast();
@@ -226,6 +238,33 @@ export default function ShifuSettingDialog({
 
   // Language Output Configuration state
   const [useLearnerLanguage, setUseLearnerLanguage] = useState(false);
+  const open = internalOpen;
+  const isOnboardingOpen = Boolean(shouldStayOpen);
+
+  const updateOpen = useCallback((nextOpen: boolean) => {
+    setInternalOpen(nextOpen);
+  }, []);
+
+  useEffect(() => {
+    if (!openSignal) {
+      lastAppliedOpenSignalRef.current = null;
+      return;
+    }
+    if (lastAppliedOpenSignalRef.current === openSignal) {
+      return;
+    }
+    lastAppliedOpenSignalRef.current = openSignal;
+    openedByOnboardingRef.current = true;
+    setInternalOpen(true);
+  }, [openSignal]);
+
+  useEffect(() => {
+    if (shouldStayOpen !== false || !openedByOnboardingRef.current) {
+      return;
+    }
+    openedByOnboardingRef.current = false;
+    setInternalOpen(false);
+  }, [shouldStayOpen]);
 
   // TTS Preview state
   const [ttsPreviewLoading, setTtsPreviewLoading] = useState(false);
@@ -1099,7 +1138,7 @@ export default function ShifuSettingDialog({
           onSave();
         }
         if (needClose) {
-          setOpen(false);
+          updateOpen(false);
         }
       } catch (error) {
         if (!currentShifu?.readonly && error instanceof Error) {
@@ -1109,7 +1148,7 @@ export default function ShifuSettingDialog({
           });
         }
         if (currentShifu?.readonly) {
-          setOpen(false);
+          updateOpen(false);
         }
       }
     },
@@ -1138,6 +1177,7 @@ export default function ShifuSettingDialog({
       resolvedAskProvider,
       toast,
       t,
+      updateOpen,
     ],
   );
 
@@ -1412,14 +1452,14 @@ export default function ShifuSettingDialog({
   const submitForm = useCallback(
     async (needClose = true, saveType: 'auto' | 'manual' = 'manual') => {
       if (currentShifu?.readonly) {
-        setOpen(false);
+        updateOpen(false);
         return true;
       }
       const isNameValid = await form.trigger('name');
       const isPriceValid = await form.trigger('price');
       if (!isPriceValid) {
         if (needClose) {
-          setOpen(true);
+          updateOpen(true);
         }
         return false;
       }
@@ -1432,20 +1472,20 @@ export default function ShifuSettingDialog({
           }),
         });
         if (needClose) {
-          setOpen(true);
+          updateOpen(true);
         }
         return false;
       }
       if (!isNameValid) {
         if (needClose) {
-          setOpen(true);
+          updateOpen(true);
         }
         return false;
       }
       await onSubmit(form.getValues(), needClose, saveType);
       return true;
     },
-    [form, onSubmit, setOpen, t, currentShifu?.readonly],
+    [form, onSubmit, updateOpen, t, currentShifu?.readonly],
   );
 
   useEffect(() => {
@@ -1463,13 +1503,17 @@ export default function ShifuSettingDialog({
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
+      if (isOnboardingOpen && !nextOpen) {
+        updateOpen(true);
+        return;
+      }
       if (!nextOpen) {
         submitForm(true, 'manual');
         return;
       }
-      setOpen(true);
+      updateOpen(true);
     },
-    [submitForm, setOpen],
+    [isOnboardingOpen, submitForm, updateOpen],
   );
 
   const adjustTemperature = (delta: number) => {
@@ -1589,15 +1633,27 @@ export default function ShifuSettingDialog({
     <>
       <Sheet
         open={open}
+        modal={!isOnboardingOpen}
         onOpenChange={handleOpenChange}
       >
         <SheetTrigger asChild>
-          <div className='flex items-center justify-center rounded-lg cursor-pointer'>
+          <div
+            className='flex items-center justify-center rounded-lg cursor-pointer'
+            {...buildOnboardingTargetProps(
+              triggerTargetId || ONBOARDING_TARGET_IDS.editorSettingsEntry,
+            )}
+          >
             <Settings size={16} />
           </div>
         </SheetTrigger>
         <SheetContent
           side='right'
+          hideOverlay={isOnboardingOpen}
+          onInteractOutside={event => {
+            if (isOnboardingOpen) {
+              event.preventDefault();
+            }
+          }}
           className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0'
         >
           <SheetHeader className='px-6 pt-[19px] pb-4'>
@@ -1849,33 +1905,35 @@ export default function ShifuSettingDialog({
                   )}
                 />
 
-                <AskSettingsSection
-                  readonly={currentShifu?.readonly || !debugAllowed}
-                  askProviderOptions={askProviderOptions}
-                  resolvedAskProvider={resolvedAskProvider}
-                  askProviderLlmValue={ASK_PROVIDER_LLM}
-                  askModel={askModel}
-                  onAskModelChange={setAskModel}
-                  askTemperature={askTemperature}
-                  askTemperatureInput={askTemperatureInput}
-                  setAskTemperature={setAskTemperature}
-                  setAskTemperatureInput={setAskTemperatureInput}
-                  normalizeAskTemperature={normalizeAskTemperature}
-                  adjustAskTemperature={adjustAskTemperature}
-                  onAskProviderChange={handleAskProviderChange}
-                  askProviderFieldEntries={askProviderFieldEntries}
-                  askProviderRequiredFields={askProviderRequiredFields}
-                  askProviderConfig={askProviderConfig}
-                  setAskProviderConfig={setAskProviderConfig}
-                  askProviderObjectInputs={askProviderObjectInputs}
-                  setAskProviderObjectInputs={setAskProviderObjectInputs}
-                  askPreviewLoading={askPreviewLoading}
-                  askPreviewQuery={askPreviewQuery}
-                  setAskPreviewQuery={setAskPreviewQuery}
-                  handleAskPreview={handleAskPreview}
-                  askPreviewMeta={askPreviewMeta}
-                  askPreviewResult={askPreviewResult}
-                />
+                <div>
+                  <AskSettingsSection
+                    readonly={currentShifu?.readonly || !debugAllowed}
+                    askProviderOptions={askProviderOptions}
+                    resolvedAskProvider={resolvedAskProvider}
+                    askProviderLlmValue={ASK_PROVIDER_LLM}
+                    askModel={askModel}
+                    onAskModelChange={setAskModel}
+                    askTemperature={askTemperature}
+                    askTemperatureInput={askTemperatureInput}
+                    setAskTemperature={setAskTemperature}
+                    setAskTemperatureInput={setAskTemperatureInput}
+                    normalizeAskTemperature={normalizeAskTemperature}
+                    adjustAskTemperature={adjustAskTemperature}
+                    onAskProviderChange={handleAskProviderChange}
+                    askProviderFieldEntries={askProviderFieldEntries}
+                    askProviderRequiredFields={askProviderRequiredFields}
+                    askProviderConfig={askProviderConfig}
+                    setAskProviderConfig={setAskProviderConfig}
+                    askProviderObjectInputs={askProviderObjectInputs}
+                    setAskProviderObjectInputs={setAskProviderObjectInputs}
+                    askPreviewLoading={askPreviewLoading}
+                    askPreviewQuery={askPreviewQuery}
+                    setAskPreviewQuery={setAskPreviewQuery}
+                    handleAskPreview={handleAskPreview}
+                    askPreviewMeta={askPreviewMeta}
+                    askPreviewResult={askPreviewResult}
+                  />
+                </div>
 
                 {/* Language Output Configuration Section */}
                 <div className='mb-6'>
@@ -1898,7 +1956,12 @@ export default function ShifuSettingDialog({
 
                 {/* TTS Configuration Section */}
                 <div className='mb-6'>
-                  <div className='flex items-start justify-between mb-4'>
+                  <div
+                    className='flex items-start justify-between mb-4'
+                    {...buildOnboardingTargetProps(
+                      ONBOARDING_TARGET_IDS.editorCourseListenMode,
+                    )}
+                  >
                     <div className='space-y-1'>
                       <FormLabel className='text-sm font-medium text-foreground'>
                         {t('module.shifuSetting.ttsTitle')}

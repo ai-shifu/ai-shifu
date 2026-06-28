@@ -45,6 +45,7 @@ import {
   isPublishLearningModeAvailable,
   PUBLISH_LEARNING_MODES,
 } from './publishLearningMode';
+import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
 
 const publishModeIcons: Record<LearningMode, LucideIcon> = {
   read: BookOpen,
@@ -77,7 +78,23 @@ const writeClipboardText = async (text: string) => {
   }
 };
 
-const Header = () => {
+type HeaderProps = {
+  backHomeTargetId?: string;
+  settingsTriggerTargetId?: string;
+  settingsOpenSignal?: string;
+  settingsShouldStayOpen?: boolean;
+  previewTargetId?: string;
+  publishTargetId?: string;
+};
+
+const Header = ({
+  backHomeTargetId,
+  settingsTriggerTargetId,
+  settingsOpenSignal,
+  settingsShouldStayOpen,
+  previewTargetId,
+  publishTargetId,
+}: HeaderProps) => {
   const { t } = useTranslation();
   const alert = useAlert();
   const [publishing, setPublishing] = useState(false);
@@ -289,7 +306,12 @@ const Header = () => {
   return (
     <div className='flex items-center w-full h-16 px-4 py-[11px] bg-white border-b border-gray-200'>
       <div className='flex items-center space-x-4'>
-        <Link href={'/admin'}>
+        <Link
+          href={'/admin'}
+          {...(backHomeTargetId
+            ? buildOnboardingTargetProps(backHomeTargetId)
+            : {})}
+        >
           <ChevronLeft size={24} />
         </Link>
 
@@ -321,6 +343,9 @@ const Header = () => {
                 <ShifuSetting
                   shifuId={currentShifu?.bid || ''}
                   onSave={onShifuSave}
+                  triggerTargetId={settingsTriggerTargetId}
+                  openSignal={settingsOpenSignal}
+                  shouldStayOpen={settingsShouldStayOpen}
                 />
               </div>
             </div>
@@ -360,7 +385,7 @@ const Header = () => {
       <div className='flex-1'></div>
 
       <div className='flex flex-row items-center'>
-        <Preivew />
+        <Preivew targetId={previewTargetId} />
         <div className='flex items-center justify-center h-9 rounded-lg cursor-pointer shifu-setting-icon-container ml-2'>
           <DropdownMenu>
             <div className='flex items-center'>
@@ -368,6 +393,9 @@ const Header = () => {
                 size='sm'
                 className='rounded-r-none'
                 disabled={!canPublish || publishing}
+                {...(publishTargetId && canPublish
+                  ? buildOnboardingTargetProps(publishTargetId)
+                  : {})}
                 onClick={() => {
                   void publish();
                 }}

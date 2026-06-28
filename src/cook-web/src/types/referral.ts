@@ -21,6 +21,7 @@ export type ReferralRewardQueueItem = {
 };
 
 export type ReferralInviteProfile = {
+  available?: boolean;
   campaign_bid: string;
   campaign_code: string;
   invite_code: string;

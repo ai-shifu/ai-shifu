@@ -5,6 +5,7 @@
   "askContent": "Veuillez saisir votre question de suivi",
   "audioLoading": "Chargement de l'audio…",
   "classroomEnterFullscreen": "Plein écran",
+  "classroomTitlePlaceholderTips": "Le mode classe affiche uniquement les diapositives ; appuyez sur F pour passer en plein écran, puis utilisez les touches fléchées ou Espace pour changer de diapositive.",
   "closeCatalog": "Fermer le catalogue",
   "generating": "Génération du diagramme…",
   "learningModeClassroom": "Classe",

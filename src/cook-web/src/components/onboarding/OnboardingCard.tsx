@@ -8,6 +8,8 @@ type OnboardingCardProps = {
   continueLabel: React.ReactNode;
   actionLabel?: React.ReactNode;
   actionHref?: string;
+  skipLabel?: React.ReactNode;
+  onSkip?: () => void;
 };
 
 export function OnboardingCard({
@@ -18,6 +20,8 @@ export function OnboardingCard({
   continueLabel,
   actionLabel,
   actionHref,
+  skipLabel,
+  onSkip,
 }: OnboardingCardProps) {
   const progressLabel = `${stepIndex + 1} / ${totalSteps}`;
 
@@ -41,9 +45,23 @@ export function OnboardingCard({
           {actionLabel}
         </a>
       ) : null}
-      <p className='mt-4 text-xs font-medium uppercase tracking-[0.12em] text-slate-400'>
-        {continueLabel}
-      </p>
+      <div className='mt-4 flex items-center justify-between gap-3'>
+        <p className='text-xs font-medium uppercase tracking-[0.12em] text-slate-400'>
+          {continueLabel}
+        </p>
+        {skipLabel ? (
+          <button
+            type='button'
+            onClick={event => {
+              event.stopPropagation();
+              onSkip?.();
+            }}
+            className='shrink-0 text-xs font-medium text-slate-400 underline-offset-4 transition-colors hover:text-slate-600 hover:underline'
+          >
+            {skipLabel}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
