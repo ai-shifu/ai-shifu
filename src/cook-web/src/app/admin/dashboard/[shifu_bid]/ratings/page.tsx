@@ -1,28 +1,26 @@
 'use client';
 
-import { X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminFilter, {
+  type AdminFilterItem,
+} from '@/app/admin/components/AdminFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import {
+  createDateRangeFilterItem,
+  createSelectFilterItem,
+  createTextFilterItem,
+} from '@/app/admin/components/adminFilterFieldBuilders';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select';
 import {
   Table,
   TableBody,
@@ -40,6 +38,10 @@ import type {
   DashboardCourseRatingItem,
   DashboardCourseRatingListResponse,
 } from '@/types/dashboard';
+import {
+  DASHBOARD_FILTER_CONTENT_CLASS,
+  DASHBOARD_FILTER_LABEL_CLASS,
+} from '../../dashboardFilterUiShared';
 import { buildAdminDashboardCourseDetailUrl } from '../../admin-dashboard-routes';
 
 type ErrorState = { message: string; code?: number };
@@ -58,6 +60,10 @@ type RatingFilters = {
 const PAGE_SIZE = 20;
 const FILTER_ALL_OPTION = 'all';
 const COMMENT_FILTER_COMMENTED_OPTION = 'commented';
+const RATINGS_FILTER_GRID_CLASS =
+  'gap-x-6 xl:grid-cols-[minmax(0,280px)_minmax(0,280px)_minmax(0,152px)_minmax(0,172px)_minmax(0,286px)]';
+const RATINGS_FILTER_LABEL_SM_CLASS = 'w-[60px]';
+const RATINGS_FILTER_LABEL_MD_CLASS = 'w-[88px]';
 
 const EMPTY_RATINGS_RESPONSE: DashboardCourseRatingListResponse = {
   summary: {
@@ -196,50 +202,6 @@ const splitTimestampValue = (value: string) => {
 
   return [datePart, timePart];
 };
-
-function ClearableTextInput({
-  value,
-  placeholder,
-  clearLabel,
-  onChange,
-  onSubmit,
-}: {
-  value: string;
-  placeholder: string;
-  clearLabel: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
-}) {
-  const hasValue = value.trim().length > 0;
-
-  return (
-    <div className='relative'>
-      <Input
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        onKeyDown={event => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            onSubmit();
-          }
-        }}
-        placeholder={placeholder}
-        className={cn('h-9', hasValue && 'pr-9')}
-      />
-      {hasValue ? (
-        <button
-          type='button'
-          aria-label={clearLabel}
-          className='absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground'
-          onMouseDown={event => event.preventDefault()}
-          onClick={() => onChange('')}
-        >
-          <X className='h-3.5 w-3.5' />
-        </button>
-      ) : null}
-    </div>
-  );
-}
 
 export default function AdminDashboardCourseRatingsPage() {
   const { t, i18n } = useTranslation();
@@ -413,6 +375,118 @@ export default function AdminDashboardCourseRatingsPage() {
     ],
     [emptyValue, i18n.language, ratings.summary, t],
   );
+  const scoreOptions = useMemo(
+    () => [
+      {
+        value: FILTER_ALL_OPTION,
+        label: t('module.dashboard.detail.ratings.filters.scoreAll'),
+      },
+      ...[5, 4, 3, 2, 1].map(scoreValue => ({
+        value: String(scoreValue),
+        label: t('module.dashboard.detail.ratings.scoreValue', {
+          score: scoreValue,
+        }),
+      })),
+    ],
+    [t],
+  );
+  const commentStatusOptions = useMemo(
+    () => [
+      {
+        value: FILTER_ALL_OPTION,
+        label: t('module.dashboard.detail.ratings.filters.commentStatusAll'),
+      },
+      {
+        value: COMMENT_FILTER_COMMENTED_OPTION,
+        label: t(
+          'module.dashboard.detail.ratings.filters.commentStatusCommented',
+        ),
+      },
+    ],
+    [t],
+  );
+  const filterItems: AdminFilterItem[] = [
+    createTextFilterItem({
+      key: 'keyword',
+      label: t('module.dashboard.detail.ratings.filters.userKeyword'),
+      value: filtersDraft.keyword,
+      onChange: value =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          keyword: value,
+        })),
+      onSubmit: handleSearch,
+      placeholder: userKeywordPlaceholder,
+      clearLabel,
+      labelClassName: RATINGS_FILTER_LABEL_SM_CLASS,
+      contentClassName: 'min-w-0 flex-[1.15]',
+      inputClassName: 'min-w-0',
+    }),
+    createTextFilterItem({
+      key: 'chapter_keyword',
+      label: t('module.dashboard.detail.ratings.filters.chapterKeyword'),
+      value: filtersDraft.chapterKeyword,
+      onChange: value =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          chapterKeyword: value,
+        })),
+      onSubmit: handleSearch,
+      placeholder: t(
+        'module.dashboard.detail.ratings.filters.chapterKeywordPlaceholder',
+      ),
+      clearLabel,
+      labelClassName: RATINGS_FILTER_LABEL_SM_CLASS,
+      contentClassName: 'min-w-0 flex-[1.15]',
+      inputClassName: 'min-w-0',
+    }),
+    createSelectFilterItem({
+      key: 'score',
+      label: t('module.dashboard.detail.ratings.filters.score'),
+      value: filtersDraft.score,
+      onChange: value =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          score: value,
+        })),
+      labelClassName: RATINGS_FILTER_LABEL_SM_CLASS,
+      placeholder: t('module.dashboard.detail.ratings.filters.scoreAll'),
+      options: scoreOptions,
+      triggerClassName: 'min-w-[108px]',
+    }),
+    createSelectFilterItem({
+      key: 'comment_filter',
+      label: t('module.dashboard.detail.ratings.filters.commentStatus'),
+      value: filtersDraft.commentFilter,
+      onChange: value =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          commentFilter: value as RatingCommentFilter,
+        })),
+      labelClassName: RATINGS_FILTER_LABEL_MD_CLASS,
+      placeholder: t(
+        'module.dashboard.detail.ratings.filters.commentStatusAll',
+      ),
+      options: commentStatusOptions,
+      triggerClassName: 'min-w-[120px]',
+    }),
+    createDateRangeFilterItem({
+      key: 'date_range',
+      label: t('module.dashboard.detail.ratings.filters.ratingTime'),
+      startValue: filtersDraft.startTime,
+      endValue: filtersDraft.endTime,
+      onChange: ({ start, end }) =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          startTime: start,
+          endTime: end,
+        })),
+      labelClassName: RATINGS_FILTER_LABEL_MD_CLASS,
+      placeholder: t('module.dashboard.detail.ratings.filters.timePlaceholder'),
+      resetLabel: t('module.dashboard.detail.ratings.filters.reset'),
+      clearLabel,
+    }),
+  ];
 
   if (!isInitialized || isGuest) {
     return (
@@ -480,154 +554,35 @@ export default function AdminDashboardCourseRatingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className='space-y-5 pt-0'>
-              <form
-                className='rounded-xl border border-border bg-muted/20 p-3'
-                onSubmit={event => {
-                  event.preventDefault();
-                  handleSearch();
-                }}
-              >
-                <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-5'>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
-                      {t('module.dashboard.detail.ratings.filters.userKeyword')}
-                    </label>
-                    <ClearableTextInput
-                      value={filtersDraft.keyword}
-                      placeholder={userKeywordPlaceholder}
-                      clearLabel={clearLabel}
-                      onChange={value =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          keyword: value,
-                        }))
-                      }
-                      onSubmit={handleSearch}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
-                      {t(
-                        'module.dashboard.detail.ratings.filters.chapterKeyword',
-                      )}
-                    </label>
-                    <ClearableTextInput
-                      value={filtersDraft.chapterKeyword}
-                      placeholder={t(
-                        'module.dashboard.detail.ratings.filters.chapterKeywordPlaceholder',
-                      )}
-                      clearLabel={clearLabel}
-                      onChange={value =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          chapterKeyword: value,
-                        }))
-                      }
-                      onSubmit={handleSearch}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
-                      {t('module.dashboard.detail.ratings.filters.score')}
-                    </label>
-                    <Select
-                      value={filtersDraft.score}
-                      onValueChange={value =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          score: value,
-                        }))
-                      }
-                    >
-                      <SelectTrigger className='h-9'>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={FILTER_ALL_OPTION}>
-                          {t(
-                            'module.dashboard.detail.ratings.filters.scoreAll',
-                          )}
-                        </SelectItem>
-                        {[5, 4, 3, 2, 1].map(scoreValue => (
-                          <SelectItem
-                            key={scoreValue}
-                            value={String(scoreValue)}
-                          >
-                            {t('module.dashboard.detail.ratings.scoreValue', {
-                              score: scoreValue,
-                            })}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
-                      {t(
-                        'module.dashboard.detail.ratings.filters.commentStatus',
-                      )}
-                    </label>
-                    <Select
-                      value={filtersDraft.commentFilter}
-                      onValueChange={value =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          commentFilter: value as RatingCommentFilter,
-                        }))
-                      }
-                    >
-                      <SelectTrigger className='h-9'>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={FILTER_ALL_OPTION}>
-                          {t(
-                            'module.dashboard.detail.ratings.filters.commentStatusAll',
-                          )}
-                        </SelectItem>
-                        <SelectItem value={COMMENT_FILTER_COMMENTED_OPTION}>
-                          {t(
-                            'module.dashboard.detail.ratings.filters.commentStatusCommented',
-                          )}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
-                      {t('module.dashboard.detail.ratings.filters.ratingTime')}
-                    </label>
-                    <AdminDateRangeFilter
-                      startValue={filtersDraft.startTime}
-                      endValue={filtersDraft.endTime}
-                      triggerAriaLabel={t(
-                        'module.dashboard.detail.ratings.filters.ratingTime',
-                      )}
-                      placeholder={t(
-                        'module.dashboard.detail.ratings.filters.timePlaceholder',
-                      )}
-                      resetLabel={t(
-                        'module.dashboard.detail.ratings.filters.reset',
-                      )}
-                      clearLabel={clearLabel}
-                      onChange={({ start, end }) =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          startTime: start,
-                          endTime: end,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className='mt-4 flex flex-col gap-3 pt-1 md:flex-row md:items-end md:justify-between'>
-                  <div className='pl-1 text-sm text-muted-foreground md:pb-2'>
+              <div className='rounded-xl border border-border bg-muted/20 p-3'>
+                <AdminFilter
+                  items={filterItems}
+                  expanded={false}
+                  onExpandedChange={() => undefined}
+                  onReset={handleReset}
+                  onSearch={handleSearch}
+                  actionsDisabled={loading}
+                  showActions={false}
+                  resetLabel={t('module.dashboard.detail.ratings.filters.reset')}
+                  searchLabel={t(
+                    'module.dashboard.detail.ratings.filters.search',
+                  )}
+                  expandLabel={t('common.core.expand')}
+                  collapseLabel={t('common.core.collapse')}
+                  collapsedCount={5}
+                  showToggle={false}
+                  labelClassName={DASHBOARD_FILTER_LABEL_CLASS}
+                  contentClassName={DASHBOARD_FILTER_CONTENT_CLASS}
+                  collapsedGridClassName={RATINGS_FILTER_GRID_CLASS}
+                  expandedGridClassName={RATINGS_FILTER_GRID_CLASS}
+                />
+                <div className='mt-3 flex flex-col gap-3 pl-1 sm:flex-row sm:items-center sm:justify-between'>
+                  <div className='text-sm text-muted-foreground'>
                     {t('module.dashboard.detail.ratings.filters.resultCount', {
                       count: ratings.total,
                     })}
                   </div>
-                  <div className='flex min-h-9 items-center justify-start gap-2 md:justify-end'>
+                  <div className='flex items-center justify-end gap-2'>
                     <Button
                       type='button'
                       size='sm'
@@ -639,16 +594,17 @@ export default function AdminDashboardCourseRatingsPage() {
                       {t('module.dashboard.detail.ratings.filters.reset')}
                     </Button>
                     <Button
-                      type='submit'
+                      type='button'
                       size='sm'
                       className='h-9 px-4'
+                      onClick={handleSearch}
                       disabled={loading}
                     >
                       {t('module.dashboard.detail.ratings.filters.search')}
                     </Button>
                   </div>
                 </div>
-              </form>
+              </div>
 
               {error ? (
                 <ErrorDisplay

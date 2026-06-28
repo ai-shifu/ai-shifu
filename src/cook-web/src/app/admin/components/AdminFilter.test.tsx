@@ -11,12 +11,14 @@ const renderFilter = ({
   activeFilter,
   layoutPreset,
   surface,
+  showActions,
 }: {
   expanded?: boolean;
   items?: AdminFilterItem[];
   activeFilter?: AdminFilterActiveFilter | null;
   layoutPreset?: 'default' | 'operations';
   surface?: 'plain' | 'card';
+  showActions?: boolean;
 } = {}) =>
   render(
     <AdminFilter
@@ -54,6 +56,7 @@ const renderFilter = ({
       activeFilter={activeFilter}
       layoutPreset={layoutPreset}
       surface={surface}
+      showActions={showActions}
     />,
   );
 
@@ -134,5 +137,12 @@ describe('AdminFilter', () => {
     expect(screen.getByText('Type')).toHaveClass("after:content-[':']");
     expect(screen.getByText('Type')).toHaveClass('w-20');
     expect(container.querySelector('.xl\\:grid-cols-3')).toBeInTheDocument();
+  });
+
+  test('can hide built-in action buttons', () => {
+    renderFilter({ showActions: false });
+
+    expect(screen.queryByRole('button', { name: 'Reset' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Search' })).not.toBeInTheDocument();
   });
 });
