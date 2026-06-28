@@ -35,6 +35,8 @@ import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import MobileUnsupportedDialog from '@/components/MobileUnsupportedDialog';
 import ShifuPermissionDialog from '@/components/shifu-setting/ShifuPermissionDialog';
+import ImportActivationDialog from '@/components/order/ImportActivationDialog';
+import CreatorRedemptionCodeDialog from './orders/CreatorRedemptionCodeDialog';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
@@ -59,6 +61,8 @@ interface ShifuCardProps {
   canManagePermissions?: boolean;
   onArchiveRequest?: () => void;
   onPermissionRequest?: () => void;
+  onImportActivationRequest?: () => void;
+  onRedemptionCodeRequest?: () => void;
   onboardingTargetId?: string;
 }
 
@@ -92,10 +96,17 @@ const ShifuCard = ({
   canManagePermissions,
   onArchiveRequest,
   onPermissionRequest,
+  onImportActivationRequest,
+  onRedemptionCodeRequest,
   onboardingTargetId,
 }: ShifuCardProps) => {
   const { t } = useTranslation();
-  const showMenu = Boolean(canManageArchive || canManagePermissions);
+  const showMenu = Boolean(
+    onRedemptionCodeRequest ||
+    onImportActivationRequest ||
+    canManageArchive ||
+    canManagePermissions,
+  );
 
   return (
     <div
@@ -183,16 +194,24 @@ const ShifuCard = ({
             sideOffset={0}
             className='min-w-0'
           >
-            {canManageArchive && (
+            {onImportActivationRequest && (
               <DropdownMenuItem
                 onSelect={event => {
                   event.stopPropagation();
-                  onArchiveRequest?.();
+                  onImportActivationRequest();
                 }}
               >
-                {archived
-                  ? t('module.shifuSetting.unarchive')
-                  : t('module.shifuSetting.archive')}
+                {t('module.order.importActivation.action')}
+              </DropdownMenuItem>
+            )}
+            {onRedemptionCodeRequest && (
+              <DropdownMenuItem
+                onSelect={event => {
+                  event.stopPropagation();
+                  onRedemptionCodeRequest();
+                }}
+              >
+                {t('module.order.redemptionCodes.action')}
               </DropdownMenuItem>
             )}
             {canManagePermissions && (
@@ -203,6 +222,18 @@ const ShifuCard = ({
                 }}
               >
                 {t('module.shifuSetting.permissionManage')}
+              </DropdownMenuItem>
+            )}
+            {canManageArchive && (
+              <DropdownMenuItem
+                onSelect={event => {
+                  event.stopPropagation();
+                  onArchiveRequest?.();
+                }}
+              >
+                {archived
+                  ? t('module.shifuSetting.unarchive')
+                  : t('module.shifuSetting.archive')}
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -243,6 +274,11 @@ const ScriptManagementPage = () => {
   const [archiveTarget, setArchiveTarget] = useState<Shifu | null>(null);
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
   const [permissionTarget, setPermissionTarget] = useState<Shifu | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [redemptionOpen, setRedemptionOpen] = useState(false);
+  const [selectedActionShifu, setSelectedActionShifu] = useState<Shifu | null>(
+    null,
+  );
   const pageSize = 30;
   const currentPage = useRef(1);
   const containerRef = useRef(null);
@@ -444,6 +480,16 @@ const ScriptManagementPage = () => {
   const handlePermissionRequest = useCallback((shifu: Shifu) => {
     setPermissionTarget(shifu);
     setPermissionDialogOpen(true);
+  }, []);
+
+  const handleImportActivationRequest = useCallback((shifu: Shifu) => {
+    setSelectedActionShifu(shifu);
+    setImportOpen(true);
+  }, []);
+
+  const handleRedemptionCodeRequest = useCallback((shifu: Shifu) => {
+    setSelectedActionShifu(shifu);
+    setRedemptionOpen(true);
   }, []);
 
   const handleArchiveConfirm = useCallback(async () => {
@@ -648,6 +694,30 @@ const ScriptManagementPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ImportActivationDialog
+        open={importOpen}
+        onOpenChange={open => {
+          setImportOpen(open);
+          if (!open) {
+            setSelectedActionShifu(null);
+          }
+        }}
+        initialCourseId={selectedActionShifu?.bid}
+        initialCourseName={
+          selectedActionShifu?.name || selectedActionShifu?.bid
+        }
+      />
+      <CreatorRedemptionCodeDialog
+        open={redemptionOpen}
+        onOpenChange={open => {
+          setRedemptionOpen(open);
+          if (!open) {
+            setSelectedActionShifu(null);
+          }
+        }}
+        initialShifuBid={selectedActionShifu?.bid}
+        initialShifuName={selectedActionShifu?.name || selectedActionShifu?.bid}
+      />
       <div className='h-full p-0'>
         <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
           <AdminBreadcrumb items={[{ label: t('common.core.shifu') }]} />
@@ -724,6 +794,12 @@ const ScriptManagementPage = () => {
                   canManagePermissions={canManagePermissions(shifu)}
                   onArchiveRequest={() => handleArchiveRequest(shifu)}
                   onPermissionRequest={() => handlePermissionRequest(shifu)}
+                  onImportActivationRequest={() =>
+                    handleImportActivationRequest(shifu)
+                  }
+                  onRedemptionCodeRequest={() =>
+                    handleRedemptionCodeRequest(shifu)
+                  }
                   onboardingTargetId={
                     shifu.bid === onboardingStatus?.guide_course.bid
                       ? guideCourseTargetId

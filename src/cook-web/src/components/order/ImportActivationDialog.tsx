@@ -53,6 +53,8 @@ interface ImportActivationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (orderBid: string) => void;
+  initialCourseId?: string;
+  initialCourseName?: string;
 }
 
 interface ImportActivationEntry {
@@ -216,6 +218,8 @@ const ImportActivationDialog = ({
   open,
   onOpenChange,
   onSuccess,
+  initialCourseId,
+  initialCourseName,
 }: ImportActivationDialogProps) => {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
@@ -353,6 +357,14 @@ const ImportActivationDialog = ({
       return matchesName || matchesBid;
     });
   }, [courseSearch, courses]);
+  const lockedCourseName = React.useMemo(() => {
+    if (!initialCourseId) {
+      return '';
+    }
+    return (
+      initialCourseName || courseNameMap.get(initialCourseId) || initialCourseId
+    );
+  }, [courseNameMap, initialCourseId, initialCourseName]);
 
   const normalizeContactField = React.useCallback(
     (value: string) => {
@@ -554,6 +566,9 @@ const ImportActivationDialog = ({
     if (open) {
       form.reset();
       form.clearErrors();
+      if (initialCourseId) {
+        form.setValue('course_id', initialCourseId);
+      }
       return;
     }
     setConfirmOpen(false);
@@ -561,7 +576,7 @@ const ImportActivationDialog = ({
     setPendingEntries([]);
     setIsImporting(false);
     isImportingRef.current = false;
-  }, [open, form]);
+  }, [open, form, initialCourseId]);
 
   React.useEffect(() => {
     if (!courseOpen) {
@@ -679,103 +694,115 @@ const ImportActivationDialog = ({
                     <FormLabel>
                       {t('module.order.importActivation.courseLabel')}
                     </FormLabel>
-                    <Popover
-                      modal={false}
-                      open={courseOpen}
-                      onOpenChange={setCourseOpen}
-                    >
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            type='button'
-                            variant='outline'
-                            className='w-full justify-between font-normal'
-                            title={
-                              field.value
-                                ? courseNameMap.get(field.value) || field.value
-                                : undefined
-                            }
-                          >
-                            <span
-                              className={cn(
-                                'flex-1 truncate text-left',
-                                field.value
-                                  ? 'text-foreground'
-                                  : 'text-muted-foreground',
-                              )}
-                            >
-                              {field.value
-                                ? courseNameMap.get(field.value) || field.value
-                                : t(
-                                    'module.order.importActivation.coursePlaceholder',
-                                  )}
-                            </span>
-                            <ChevronDown className='h-4 w-4 text-muted-foreground' />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        align='start'
-                        sideOffset={4}
-                        container={dialogContentRef.current ?? undefined}
-                        className='z-50 p-3 pointer-events-auto'
-                        style={{
-                          width: 'var(--radix-popover-trigger-width)',
-                          maxWidth: 'var(--radix-popover-trigger-width)',
-                        }}
-                      >
+                    {initialCourseId ? (
+                      <FormControl>
                         <Input
-                          value={courseSearch}
-                          onChange={event =>
-                            setCourseSearch(event.target.value)
-                          }
-                          placeholder={t(
-                            'module.order.filters.searchCourseOrId',
-                          )}
-                          className='h-8'
+                          value={lockedCourseName}
+                          readOnly
+                          disabled
                         />
-                        <div className='mt-3 max-h-48 overflow-auto'>
-                          {coursesLoading ? (
-                            <div className='flex items-center justify-center py-4'>
-                              <Loading className='h-5 w-5' />
-                            </div>
-                          ) : coursesError ? (
-                            <div className='px-2 py-3 text-xs text-destructive'>
-                              {coursesError}
-                            </div>
-                          ) : filteredCourses.length === 0 ? (
-                            <div className='px-2 py-3 text-xs text-muted-foreground'>
-                              {t('common.core.noShifus')}
-                            </div>
-                          ) : (
-                            <div className='space-y-1'>
-                              {filteredCourses.map(course => {
-                                const isSelected = field.value === course.bid;
-                                const courseName = course.name || course.bid;
-                                return (
-                                  <button
-                                    key={course.bid}
-                                    type='button'
-                                    onClick={() => {
-                                      field.onChange(course.bid);
-                                      setCourseOpen(false);
-                                    }}
-                                    className='flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent'
-                                    aria-pressed={isSelected}
-                                  >
-                                    <span className='flex flex-col min-w-0'>
-                                      <span className='text-sm text-foreground truncate'>
-                                        {courseName}
+                      </FormControl>
+                    ) : (
+                      <Popover
+                        modal={false}
+                        open={courseOpen}
+                        onOpenChange={setCourseOpen}
+                      >
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              type='button'
+                              variant='outline'
+                              className='w-full justify-between font-normal'
+                              title={
+                                field.value
+                                  ? courseNameMap.get(field.value) ||
+                                    field.value
+                                  : undefined
+                              }
+                            >
+                              <span
+                                className={cn(
+                                  'flex-1 truncate text-left',
+                                  field.value
+                                    ? 'text-foreground'
+                                    : 'text-muted-foreground',
+                                )}
+                              >
+                                {field.value
+                                  ? courseNameMap.get(field.value) ||
+                                    field.value
+                                  : t(
+                                      'module.order.importActivation.coursePlaceholder',
+                                    )}
+                              </span>
+                              <ChevronDown className='h-4 w-4 text-muted-foreground' />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align='start'
+                          sideOffset={4}
+                          container={dialogContentRef.current ?? undefined}
+                          className='z-50 p-3 pointer-events-auto'
+                          style={{
+                            width: 'var(--radix-popover-trigger-width)',
+                            maxWidth: 'var(--radix-popover-trigger-width)',
+                          }}
+                        >
+                          <Input
+                            value={courseSearch}
+                            onChange={event =>
+                              setCourseSearch(event.target.value)
+                            }
+                            placeholder={t(
+                              'module.order.filters.searchCourseOrId',
+                            )}
+                            className='h-8'
+                          />
+                          <div className='mt-3 max-h-48 overflow-auto'>
+                            {coursesLoading ? (
+                              <div className='flex items-center justify-center py-4'>
+                                <Loading className='h-5 w-5' />
+                              </div>
+                            ) : coursesError ? (
+                              <div className='px-2 py-3 text-xs text-destructive'>
+                                {coursesError}
+                              </div>
+                            ) : filteredCourses.length === 0 ? (
+                              <div className='px-2 py-3 text-xs text-muted-foreground'>
+                                {t('common.core.noShifus')}
+                              </div>
+                            ) : (
+                              <div className='space-y-1'>
+                                {filteredCourses.map(course => {
+                                  const isSelected = field.value === course.bid;
+                                  const courseName = course.name || course.bid;
+                                  return (
+                                    <button
+                                      key={course.bid}
+                                      type='button'
+                                      onClick={() => {
+                                        field.onChange(course.bid);
+                                        setCourseOpen(false);
+                                      }}
+                                      className='flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent'
+                                      aria-pressed={isSelected}
+                                    >
+                                      <span className='flex flex-col min-w-0'>
+                                        <span className='text-sm text-foreground truncate'>
+                                          {courseName}
+                                        </span>
                                       </span>
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
