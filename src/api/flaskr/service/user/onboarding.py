@@ -261,12 +261,21 @@ def complete_onboarding_scene(
                 UserOnboardingState.scene_key == normalized_scene_key,
                 UserOnboardingState.version == normalized_version,
             ).first()
+            if existing is None:
+                raise
+            # A concurrent first-insert won the race; reapply this request's
+            # outcome so the persisted row and the response stay consistent.
+            existing.status = normalized_status
+            existing.trigger_source = normalized_trigger_source
+            if existing.completed_at is None:
+                existing.completed_at = now
+            db.session.commit()
 
         return {
             "scene_key": normalized_scene_key,
             "version": normalized_version,
-            "completed": normalized_status == STATUS_COMPLETED,
-            "status": normalized_status,
+            "completed": getattr(existing, "status", None) == STATUS_COMPLETED,
+            "status": getattr(existing, "status", None),
             "completed_at": _serialize_datetime(
                 getattr(existing, "completed_at", None)
             ),

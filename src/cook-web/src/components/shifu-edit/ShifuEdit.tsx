@@ -331,7 +331,8 @@ const ScriptEditor = ({
   const clearReplay = useOnboardingReplayStore(state => state.clearReplay);
   const isCourseEditorReplay = replayScenes.course_editor_onboarding;
   const courseEditorOnboardingEnabled =
-    shouldShowCourseEditorOnboarding || isCourseEditorReplay;
+    !isHistoryPage &&
+    (shouldShowCourseEditorOnboarding || isCourseEditorReplay);
   const actionsRef = useRef(actions);
   const baseRevisionRef = useRef<number | null>(null);
   const conflictStateRef = useRef({
