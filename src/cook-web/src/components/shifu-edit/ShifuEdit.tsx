@@ -34,11 +34,7 @@ import {
 import { toast } from '@/hooks/useToast';
 import i18n, { normalizeLanguage } from '@/i18n';
 import { cn } from '@/lib/utils';
-import {
-  useOnboardingReplayStore,
-  useShifu,
-  useUserStore,
-} from '@/store';
+import { useOnboardingReplayStore, useShifu, useUserStore } from '@/store';
 import {
   DraftMeta,
   LessonCreationSettings,
