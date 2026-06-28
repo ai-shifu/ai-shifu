@@ -5,12 +5,11 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import {
   formatAdminCount,
   formatAdminNumber,
@@ -288,7 +287,6 @@ export default function LearnOrdersTab() {
       setError(null);
       try {
         const response = (await api.getAdminOperationOrders({
-          timezone: getBrowserTimeZone(),
           page_index: targetPage,
           page_size: PAGE_SIZE,
           user_keyword: filters.user_keyword.trim(),
@@ -838,7 +836,7 @@ export default function LearnOrdersTab() {
                           style={getColumnStyle('createdAt')}
                         >
                           {renderTooltipText(
-                            formatAdminNaiveDateTime(order.created_at),
+                            formatAdminUtcDateTime(order.created_at),
                           )}
                         </TableCell>
                         <TableCell

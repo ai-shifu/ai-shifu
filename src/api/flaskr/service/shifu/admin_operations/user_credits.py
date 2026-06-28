@@ -69,7 +69,6 @@ from flaskr.service.shifu.admin import (
     _build_operator_user_credit_summary,
     _collect_operator_user_credit_order_source_bids,
     _format_decimal,
-    _format_operator_datetime,
     _load_active_subscription_product_display_name_i18n_key,
     _load_billing_order_map,
     _load_generated_block_content_map,
@@ -193,7 +192,7 @@ def grant_operator_user_credits(
             grant_type=resolved_grant_type,
             grant_source=resolved_grant_source,
             validity_preset=resolved_validity_preset,
-            expires_at=_format_operator_datetime(grant_result.expires_at),
+            expires_at=grant_result.expires_at,
             display_name=str(persisted_metadata.get("display_name") or "").strip(),
             note=str(persisted_metadata.get("note") or "").strip(),
             wallet_bucket_bid=str(grant_result.wallet_bucket_bid or "").strip(),
@@ -230,14 +229,14 @@ def get_operator_user_grant_bootstrap(
                 current_subscription_product_display_name_i18n_key
             ),
             notification_status="template_pending",
-            server_time=_format_operator_datetime(server_time),
+            server_time=server_time,
             referral_reward_summary=AdminOperationUserReferralRewardSummaryDTO(
                 available_credits=_format_decimal(
                     _quantize_credit_amount(
                         Decimal(str(referral_summary.available_credits or 0))
                     )
                 ),
-                expires_at=_format_operator_datetime(referral_summary.expires_at),
+                expires_at=referral_summary.expires_at,
                 wallet_bucket_bid=str(referral_summary.wallet_bucket_bid or ""),
                 grant_count=int(referral_summary.grant_count or 0),
             ),
@@ -282,12 +281,8 @@ def grant_operator_user_package(
             product_bid=grant_result.product_bid,
             subscription_bid=grant_result.subscription_bid,
             bill_order_bid=grant_result.bill_order_bid,
-            current_period_start_at=_format_operator_datetime(
-                grant_result.current_period_start_at
-            ),
-            current_period_end_at=_format_operator_datetime(
-                grant_result.current_period_end_at
-            ),
+            current_period_start_at=grant_result.current_period_start_at,
+            current_period_end_at=grant_result.current_period_end_at,
             notification_status=grant_result.notification_status,
             summary=summary,
         )
@@ -587,7 +582,7 @@ def get_operator_user_credit_usage_detail(
         items = [
             AdminOperationUserCreditUsageDetailItemDTO(
                 usage_bid=str(getattr(row, "usage_bid", "") or "").strip(),
-                created_at=_format_operator_datetime(getattr(row, "created_at", None)),
+                created_at=getattr(row, "created_at", None),
                 content=_resolve_usage_detail_item_content(
                     row,
                     block_content_map=block_content_map,

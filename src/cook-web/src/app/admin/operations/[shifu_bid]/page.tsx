@@ -4,10 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import { copyText } from '@/c-utils/textutils';
@@ -442,7 +441,6 @@ export default function AdminOperationCourseDetailPage() {
     setError(null);
     try {
       const response = (await api.getAdminOperationCourseDetail({
-        timezone: getBrowserTimeZone(),
         shifu_bid: shifuBid,
       })) as AdminOperationCourseDetailResponse;
       setDetail(response || EMPTY_DETAIL);
@@ -476,7 +474,6 @@ export default function AdminOperationCourseDetailPage() {
 
       try {
         const response = (await api.getAdminOperationCourseUsers({
-          timezone: getBrowserTimeZone(),
           shifu_bid: shifuBid,
           page: targetPage,
           page_size: USER_PAGE_SIZE,
@@ -535,7 +532,6 @@ export default function AdminOperationCourseDetailPage() {
 
       try {
         const response = (await api.getAdminOperationCourseCreditUsages({
-          timezone: getBrowserTimeZone(),
           shifu_bid: shifuBid,
           page: targetPage,
           page_size: COURSE_CREDIT_USAGE_PAGE_SIZE,
@@ -590,7 +586,6 @@ export default function AdminOperationCourseDetailPage() {
         throw new Error(unknownErrorMessage);
       }
       return (await api.getAdminOperationCourseCreditUsageDetails({
-        timezone: getBrowserTimeZone(),
         shifu_bid: shifuBid,
         page,
         page_size: COURSE_CREDIT_USAGE_DETAIL_PAGE_SIZE,
@@ -1433,12 +1428,12 @@ export default function AdminOperationCourseDetailPage() {
           // Course metadata timestamps currently come from backend payloads as
           // wall-clock values, so preserve them without browser-timezone
           // conversion until those fields migrate to timezone-qualified ISO.
-          formatAdminNaiveDateTime(detail.basic_info.created_at) || emptyValue,
+          formatAdminUtcDateTime(detail.basic_info.created_at) || emptyValue,
       },
       {
         label: tOperations('detail.fields.updatedAt'),
         value:
-          formatAdminNaiveDateTime(detail.basic_info.updated_at) || emptyValue,
+          formatAdminUtcDateTime(detail.basic_info.updated_at) || emptyValue,
       },
     ],
     [
@@ -1548,7 +1543,7 @@ export default function AdminOperationCourseDetailPage() {
                   resolveContentStatusLabel={resolveContentStatusLabel}
                   resolveModifierDisplay={resolveModifierDisplay}
                   formatCount={formatCount}
-                  formatAdminNaiveDateTime={formatAdminNaiveDateTime}
+                  formatAdminUtcDateTime={formatAdminUtcDateTime}
                   getColumnStyle={getChapterColumnStyle}
                   getResizeHandleProps={getChapterResizeHandleProps}
                   tOperations={tOperations}

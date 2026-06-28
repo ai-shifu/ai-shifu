@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTitle from '@/app/admin/components/AdminTitle';
@@ -18,7 +17,7 @@ import {
   getAdminStickyRightHeaderClass,
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
@@ -387,7 +386,6 @@ export default function AdminOperationCourseFollowUpsPage() {
 
       try {
         const response = (await api.getAdminOperationCourseFollowUps({
-          timezone: getBrowserTimeZone(),
           shifu_bid: shifuBid,
           page: targetPage,
           page_size: PAGE_SIZE,
@@ -450,7 +448,6 @@ export default function AdminOperationCourseFollowUpsPage() {
 
     try {
       const response = (await api.getAdminOperationCourseFollowUpDetail({
-        timezone: getBrowserTimeZone(),
         shifu_bid: shifuBid,
         generated_block_bid: selectedGeneratedBlockBid,
       })) as AdminOperationCourseFollowUpDetailResponse;
@@ -564,7 +561,7 @@ export default function AdminOperationCourseFollowUpsPage() {
         key: 'latestFollowUpAt',
         label: tOperations('detail.followUps.summary.latestFollowUpAt'),
         value:
-          formatAdminNaiveDateTime(fullSummary.latest_follow_up_at) ||
+          formatAdminUtcDateTime(fullSummary.latest_follow_up_at) ||
           emptyValue,
         tone: 'timestamp' as const,
       },
@@ -1022,7 +1019,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                                       style={getColumnStyle('createdAt')}
                                     >
                                       <AdminTooltipText
-                                        text={formatAdminNaiveDateTime(
+                                        text={formatAdminUtcDateTime(
                                           item.created_at,
                                         )}
                                         emptyValue={emptyValue}

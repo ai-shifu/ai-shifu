@@ -107,8 +107,8 @@ def test_list_orders_returns_page_dto():
     assert result.total == 1
     assert len(result.data) == 1
     assert isinstance(result.data[0], OrderAdminSummaryDTO)
-    assert result.data[0].created_at == "2025-01-01T12:00:00Z"
-    assert result.data[0].updated_at == "2025-01-02T12:00:00Z"
+    assert result.data[0].created_at == datetime(2025, 1, 1, 12, 0, 0)
+    assert result.data[0].updated_at == datetime(2025, 1, 2, 12, 0, 0)
 
 
 def test_get_order_detail_returns_detail_dto():
@@ -157,8 +157,8 @@ def test_get_order_detail_returns_detail_dto():
     assert isinstance(detail, OrderAdminDetailDTO)
     assert isinstance(detail.order, OrderAdminSummaryDTO)
     assert detail.order.order_bid == "order-1"
-    assert detail.order.created_at == "2025-01-01T12:00:00Z"
-    assert detail.order.updated_at == "2025-01-02T12:00:00Z"
+    assert detail.order.created_at == datetime(2025, 1, 1, 12, 0, 0)
+    assert detail.order.updated_at == datetime(2025, 1, 2, 12, 0, 0)
 
 
 def test_list_operator_orders_returns_page_dto():
@@ -196,8 +196,8 @@ def test_list_operator_orders_returns_page_dto():
     assert result.total == 1
     assert len(result.data) == 1
     assert isinstance(result.data[0], OrderAdminSummaryDTO)
-    assert result.data[0].created_at == "2025-01-01T12:00:00Z"
-    assert result.data[0].updated_at == "2025-01-02T12:00:00Z"
+    assert result.data[0].created_at == datetime(2025, 1, 1, 12, 0, 0)
+    assert result.data[0].updated_at == datetime(2025, 1, 2, 12, 0, 0)
 
 
 def test_list_operator_orders_returns_derived_source_and_coupon_codes():
@@ -410,8 +410,8 @@ def test_get_operator_order_detail_returns_detail_dto():
     assert isinstance(detail, OrderAdminDetailDTO)
     assert isinstance(detail.order, OrderAdminSummaryDTO)
     assert detail.order.order_bid == "order-1"
-    assert detail.order.created_at == "2025-01-01T12:00:00Z"
-    assert detail.order.updated_at == "2025-01-02T12:00:00Z"
+    assert detail.order.created_at == datetime(2025, 1, 1, 12, 0, 0)
+    assert detail.order.updated_at == datetime(2025, 1, 2, 12, 0, 0)
 
 
 def test_admin_operation_orders_route_requires_operator(

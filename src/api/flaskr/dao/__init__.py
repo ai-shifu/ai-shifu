@@ -21,7 +21,8 @@ def init_db(app: Flask):
     # the standalone SQLALCHEMY_POOL_SIZE/TIMEOUT/RECYCLE/MAX_OVERFLOW keys are ignored.
     # QueuePool-only keys are skipped for SQLite (SingletonThreadPool / StaticPool
     # reject max_overflow / pool_timeout).
-    existing_options = dict(app.config.get("SQLALCHEMY_ENGINE_OPTIONS") or {})
+    _raw_engine_opts = app.config.get("SQLALCHEMY_ENGINE_OPTIONS")
+    existing_options = dict(_raw_engine_opts) if isinstance(_raw_engine_opts, dict) else {}
     db_uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
     is_sqlite = str(db_uri).startswith("sqlite")
 

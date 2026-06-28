@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminTitle from '@/app/admin/components/AdminTitle';
@@ -16,7 +15,7 @@ import {
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
@@ -326,7 +325,6 @@ export default function AdminOperationCourseRatingsPage() {
       setError(null);
       try {
         const response = await api.getAdminOperationCourseRatings({
-          timezone: getBrowserTimeZone(),
           shifu_bid: shifuBid,
           page: nextPage,
           page_size: PAGE_SIZE,
@@ -445,7 +443,7 @@ export default function AdminOperationCourseRatingsPage() {
         key: 'latestRatedAt',
         label: tOperations('detail.ratings.summary.latestRatedAt'),
         value:
-          formatAdminNaiveDateTime(fullSummary.latest_rated_at) || emptyValue,
+          formatAdminUtcDateTime(fullSummary.latest_rated_at) || emptyValue,
         tone: 'timestamp' as const,
       },
     ],
@@ -995,7 +993,7 @@ export default function AdminOperationCourseRatingsPage() {
                                       style={getColumnStyle('ratedAt')}
                                     >
                                       <AdminTooltipText
-                                        text={formatAdminNaiveDateTime(
+                                        text={formatAdminUtcDateTime(
                                           item.rated_at,
                                         )}
                                         emptyValue={emptyValue}

@@ -4,12 +4,11 @@ import React from 'react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -261,7 +260,6 @@ export default function CreditOrdersTab() {
 
       try {
         const response = (await api.getAdminOperationCreditOrders({
-          timezone: getBrowserTimeZone(),
           page_index: targetPage,
           page_size: PAGE_SIZE,
           creator_keyword: filters.creator_keyword.trim(),
@@ -898,7 +896,7 @@ export default function CreditOrdersTab() {
                           style={getColumnStyle('createdAt')}
                         >
                           {renderTooltipText(
-                            formatAdminNaiveDateTime(order.created_at) ||
+                            formatAdminUtcDateTime(order.created_at) ||
                               EMPTY_STATE_LABEL,
                           )}
                         </TableCell>

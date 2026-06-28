@@ -17,7 +17,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/Sheet';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { cn } from '@/lib/utils';
 import type { AdminOperationCourseFollowUpDetailResponse } from '../../operation-course-types';
 
@@ -308,7 +308,7 @@ export default function FollowUpDetailSheet({
                 <DetailRow
                   label={t('detail.followUps.drawer.fields.followUpTime')}
                   value={
-                    formatAdminNaiveDateTime(basicInfo?.created_at) ||
+                    formatAdminUtcDateTime(basicInfo?.created_at) ||
                     emptyValue
                   }
                 />
@@ -379,7 +379,7 @@ export default function FollowUpDetailSheet({
                             ) : null}
                           </div>
                           <span className='text-xs text-muted-foreground'>
-                            {formatAdminNaiveDateTime(item.created_at) ||
+                            {formatAdminUtcDateTime(item.created_at) ||
                               emptyValue}
                           </span>
                         </div>

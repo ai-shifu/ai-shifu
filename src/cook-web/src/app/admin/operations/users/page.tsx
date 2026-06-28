@@ -66,10 +66,7 @@ import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
-import {
-  formatOperatorNaiveDateTime,
-  formatOperatorUtcDateTime,
-} from './dateTime';
+import { formatOperatorUtcDateTime } from './dateTime';
 import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
 import useOperatorGuard from '../useOperatorGuard';
@@ -1484,7 +1481,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('lastLoginAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorNaiveDateTime(user.last_login_at),
+                            formatOperatorUtcDateTime(user.last_login_at),
                           )}
                         </TableCell>
                         <TableCell
@@ -1492,7 +1489,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('lastLearningAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorNaiveDateTime(user.last_learning_at),
+                            formatOperatorUtcDateTime(user.last_learning_at),
                           )}
                         </TableCell>
                         <TableCell
@@ -1500,7 +1497,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('createdAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorNaiveDateTime(user.created_at),
+                            formatOperatorUtcDateTime(user.created_at),
                           )}
                         </TableCell>
                         <TableCell
@@ -1508,7 +1505,7 @@ export default function AdminOperationUsersPage() {
                           style={getColumnStyle('updatedAt')}
                         >
                           {renderTooltipText(
-                            formatOperatorNaiveDateTime(user.updated_at),
+                            formatOperatorUtcDateTime(user.updated_at),
                           )}
                         </TableCell>
                         <TableCell

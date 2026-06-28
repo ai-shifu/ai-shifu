@@ -9,7 +9,6 @@ import React, {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
@@ -388,7 +387,6 @@ const OperationsPage = () => {
       setError(null);
       try {
         const response = (await api.getAdminOperationCourses({
-          timezone: getBrowserTimeZone(),
           page_index: targetPage,
           page_size: PAGE_SIZE,
           shifu_bid: resolvedFilters.shifu_bid.trim(),

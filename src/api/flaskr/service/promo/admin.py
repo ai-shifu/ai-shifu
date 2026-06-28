@@ -190,46 +190,6 @@ def _resolve_update_datetime(
     return _parse_datetime(value, field_name, is_end=is_end)
 
 
-def _format_promotion_admin_datetime(value: datetime | str | None) -> str:
-    if not value:
-        return ""
-
-    if isinstance(value, str):
-        normalized = value.strip()
-        if not normalized:
-            return ""
-        parsed_value = None
-        candidate = normalized.replace("Z", "+00:00").replace(" ", "T")
-        try:
-            parsed_value = datetime.fromisoformat(candidate)
-        except ValueError:
-            parsed_value = None
-        if parsed_value is None:
-            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
-                try:
-                    parsed_value = datetime.strptime(normalized, fmt)
-                    break
-                except ValueError:
-                    continue
-        if parsed_value is None:
-            current_app.logger.warning(
-                "Failed to parse promotion admin datetime string: %s",
-                normalized,
-            )
-            return ""
-        value = parsed_value
-
-    app = current_app._get_current_object()
-    source_tz = get_app_timezone(app, PROMOTION_ADMIN_SOURCE_TIMEZONE)
-    target_tz = get_app_timezone(app, "UTC")
-    localized_value = (
-        value
-        if getattr(value, "tzinfo", None) is not None
-        else value.replace(tzinfo=source_tz)
-    )
-    return localized_value.astimezone(target_tz).isoformat().replace("+00:00", "Z")
-
-
 def _build_paged_response(
     summary: AdminPromotionSummaryDTO,
     page: int,
@@ -592,8 +552,8 @@ def _build_coupon_item(
         scope_type=scope_type,
         shifu_bid=shifu_bid,
         course_name=getattr(course, "title", "") or "",
-        start_at=_format_promotion_admin_datetime(coupon.start),
-        end_at=_format_promotion_admin_datetime(coupon.end),
+        start_at=coupon.start,
+        end_at=coupon.end,
         total_count=int(coupon.total_count or 0),
         used_count=int(coupon.used_count or 0),
         ops_states=ops_states,
@@ -601,8 +561,8 @@ def _build_coupon_item(
         computed_status_key=COUPON_COMPUTED_STATUS_KEY_MAP[computed_status],
         created_user_bid=created_user_bid,
         created_user_name=(user_name_map or {}).get(created_user_bid, ""),
-        created_at=_format_promotion_admin_datetime(coupon.created_at),
-        updated_at=_format_promotion_admin_datetime(coupon.updated_at),
+        created_at=coupon.created_at,
+        updated_at=coupon.updated_at,
     )
 
 
@@ -630,8 +590,8 @@ def _build_campaign_item(
         ),
         value=_format_decimal(campaign.value),
         channel=campaign.channel or "",
-        start_at=_format_promotion_admin_datetime(campaign.start_at),
-        end_at=_format_promotion_admin_datetime(campaign.end_at),
+        start_at=campaign.start_at,
+        end_at=campaign.end_at,
         computed_status=computed_status,
         computed_status_key=CAMPAIGN_COMPUTED_STATUS_KEY_MAP[computed_status],
         applied_order_count=applied_order_count,
@@ -639,8 +599,8 @@ def _build_campaign_item(
         total_discount_amount=_format_decimal(total_discount_amount),
         created_user_bid=created_user_bid,
         created_user_name=(user_name_map or {}).get(created_user_bid, ""),
-        created_at=_format_promotion_admin_datetime(campaign.created_at),
-        updated_at=_format_promotion_admin_datetime(campaign.updated_at),
+        created_at=campaign.created_at,
+        updated_at=campaign.updated_at,
     )
 
 
@@ -827,9 +787,7 @@ def _list_promotion_coupons(
         total=int(summary_row.total or 0),
         active=int(summary_row.active or 0),
         usage_count=int(summary_row.usage_count or 0),
-        latest_usage_at=_format_promotion_admin_datetime(
-            getattr(latest_usage, "updated_at", None)
-        ),
+        latest_usage_at=getattr(latest_usage, "updated_at", None),
         covered_courses=int(summary_row.covered_courses or 0),
         discount_amount="0",
     )
@@ -1138,9 +1096,7 @@ def get_operator_promotion_coupon_detail(
         remaining_count=max(
             int(coupon.total_count or 0) - int(coupon.used_count or 0), 0
         ),
-        latest_used_at=_format_promotion_admin_datetime(
-            getattr(latest_usage, "updated_at", None)
-        ),
+        latest_used_at=getattr(latest_usage, "updated_at", None),
     )
 
 
@@ -1252,7 +1208,7 @@ def list_operator_promotion_coupon_usages(
         total=int(summary_row.total or 0),
         active=0,
         usage_count=int(summary_row.total or 0),
-        latest_usage_at=_format_promotion_admin_datetime(summary_row.latest_usage_at),
+        latest_usage_at=summary_row.latest_usage_at,
         covered_courses=int(summary_row.covered_courses or 0),
         discount_amount="0",
     )
@@ -1291,8 +1247,8 @@ def list_operator_promotion_coupon_usages(
                 payable_price=_format_decimal(getattr(order, "payable_price", 0)),
                 discount_amount=_calculate_coupon_usage_discount_amount(order, usage),
                 paid_price=_format_decimal(getattr(order, "paid_price", 0)),
-                used_at=_format_promotion_admin_datetime(usage.updated_at),
-                updated_at=_format_promotion_admin_datetime(usage.updated_at),
+                used_at=usage.updated_at,
+                updated_at=usage.updated_at,
             ).__json__()
         )
     return _build_paged_response(summary, page, page_size, summary.total, items)
@@ -1357,7 +1313,7 @@ def list_operator_promotion_coupon_codes(
         total=int(summary_row.total or 0),
         active=int(summary_row.active or 0),
         usage_count=int(summary_row.usage_count or 0),
-        latest_usage_at=_format_promotion_admin_datetime(summary_row.latest_usage_at),
+        latest_usage_at=summary_row.latest_usage_at,
         covered_courses=0,
         discount_amount="0",
     )
@@ -1383,10 +1339,8 @@ def list_operator_promotion_coupon_codes(
                 user_email=user.get("email", ""),
                 user_nickname=user.get("nickname", ""),
                 order_bid=code.order_bid or "",
-                used_at=_format_promotion_admin_datetime(
-                    code.updated_at if code.order_bid else None
-                ),
-                updated_at=_format_promotion_admin_datetime(code.updated_at),
+                used_at=code.updated_at if code.order_bid else None,
+                updated_at=code.updated_at,
             ).__json__()
         )
     return _build_paged_response(summary, page, page_size, summary.total, items)
@@ -1600,7 +1554,7 @@ def list_operator_promotion_campaigns(
         total=int(summary_row.total or 0),
         active=int(summary_row.active or 0),
         usage_count=int(summary_row.usage_count or 0),
-        latest_usage_at=_format_promotion_admin_datetime(summary_row.latest_applied_at),
+        latest_usage_at=summary_row.latest_applied_at,
         covered_courses=int(summary_row.covered_courses or 0),
         discount_amount=_format_decimal(
             decimal.Decimal(summary_row.discount_amount or 0)
@@ -1821,9 +1775,7 @@ def get_operator_promotion_campaign_detail(
         created_user_name=user_name_map.get(campaign.created_user_bid or "", ""),
         updated_user_bid=campaign.updated_user_bid or "",
         updated_user_name=user_name_map.get(campaign.updated_user_bid or "", ""),
-        latest_applied_at=_format_promotion_admin_datetime(
-            stats.get("latest_applied_at")
-        ),
+        latest_applied_at=stats.get("latest_applied_at"),
     )
 
 
@@ -1925,7 +1877,7 @@ def list_operator_promotion_campaign_redemptions(
         total=int(summary_row.total or 0),
         active=int(summary_row.active or 0),
         usage_count=int(summary_row.active or 0),
-        latest_usage_at=_format_promotion_admin_datetime(summary_row.latest_usage_at),
+        latest_usage_at=summary_row.latest_usage_at,
         covered_courses=0,
         discount_amount=_format_decimal(
             decimal.Decimal(summary_row.discount_amount or 0)
@@ -1956,8 +1908,8 @@ def list_operator_promotion_campaign_redemptions(
                     int(record.status or PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED),
                     "module.operationsPromotion.redemptionStatus.applied",
                 ),
-                applied_at=_format_promotion_admin_datetime(record.created_at),
-                updated_at=_format_promotion_admin_datetime(record.updated_at),
+                applied_at=record.created_at,
+                updated_at=record.updated_at,
             ).__json__()
         )
     return _build_paged_response(summary, page, page_size, summary.total, items)

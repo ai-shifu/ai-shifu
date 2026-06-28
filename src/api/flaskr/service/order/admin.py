@@ -7,7 +7,7 @@ import hashlib
 import re
 from typing import Any, Dict, List, Optional
 
-from flask import Flask, current_app, g
+from flask import Flask
 from sqlalchemy import case
 
 from flaskr.dao import db
@@ -71,7 +71,6 @@ from flaskr.service.user.repository import (
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.utils import ensure_demo_course_permissions
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
-from flaskr.util.timezone import serialize_with_app_timezone
 
 
 ORDER_STATUS_KEY_MAP = {
@@ -201,23 +200,6 @@ def _format_cents(value: Optional[int]) -> str:
         return _format_decimal(Decimal(value) / Decimal(100))
     except (ArithmeticError, ValueError):
         return "0"
-
-
-def _format_admin_datetime(value: Optional[datetime]) -> str:
-    """Serialize admin/operator datetimes in the caller's timezone.
-
-    The timezone is resolved from the request (flask.g.operator_timezone, set by
-    the operator route guard from the browser ?timezone=). Falls back to UTC.
-    """
-    if not value:
-        return ""
-    tz_name = getattr(g, "operator_timezone", None) or "UTC"
-    serialized_value = serialize_with_app_timezone(
-        current_app._get_current_object(),
-        value,
-        tz_name=tz_name,
-    )
-    return str(serialized_value or "").replace("+00:00", "Z")
 
 
 def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
@@ -647,8 +629,8 @@ def _build_order_item(
         order_source=order_source,
         order_source_key=order_source_key,
         coupon_codes=coupon_codes,
-        created_at=_format_admin_datetime(order.created_at),
-        updated_at=_format_admin_datetime(order.updated_at),
+        created_at=order.created_at,
+        updated_at=order.updated_at,
     )
 
 
@@ -1096,8 +1078,8 @@ def _load_order_activities(order_bid: str) -> List[OrderAdminActivityDTO]:
                 status_key=ACTIVE_STATUS_KEY_MAP.get(
                     record.status, "module.order.activeStatus.unknown"
                 ),
-                created_at=_format_admin_datetime(record.created_at),
-                updated_at=_format_admin_datetime(record.updated_at),
+                created_at=record.created_at,
+                updated_at=record.updated_at,
             )
         )
     return activities
@@ -1125,8 +1107,8 @@ def _load_order_coupons(order_bid: str) -> List[OrderAdminCouponDTO]:
                 status_key=COUPON_STATUS_KEY_MAP.get(
                     record.status, "module.order.couponStatus.unknown"
                 ),
-                created_at=_format_admin_datetime(record.created_at),
-                updated_at=_format_admin_datetime(record.updated_at),
+                created_at=record.created_at,
+                updated_at=record.updated_at,
             )
         )
     return coupons
@@ -1162,8 +1144,8 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
             latest_charge_id=stripe_order.latest_charge_id or "",
             receipt_url=stripe_order.receipt_url or "",
             payment_method=stripe_order.payment_method or "",
-            created_at=_format_admin_datetime(stripe_order.created_at),
-            updated_at=_format_admin_datetime(stripe_order.updated_at),
+            created_at=stripe_order.created_at,
+            updated_at=stripe_order.updated_at,
         )
 
     if payment_channel == "pingxx":
@@ -1191,8 +1173,8 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
             transaction_no=pingxx_order.transaction_no or "",
             charge_id=pingxx_order.charge_id or "",
             channel=pingxx_order.channel or "",
-            created_at=_format_admin_datetime(pingxx_order.created_at),
-            updated_at=_format_admin_datetime(pingxx_order.updated_at),
+            created_at=pingxx_order.created_at,
+            updated_at=pingxx_order.updated_at,
         )
 
     if payment_channel in {"alipay", "wechatpay"}:
@@ -1221,8 +1203,8 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
             transaction_no=native_order.provider_attempt_id or "",
             charge_id=native_order.transaction_id or "",
             channel=native_order.channel or "",
-            created_at=_format_admin_datetime(native_order.created_at),
-            updated_at=_format_admin_datetime(native_order.updated_at),
+            created_at=native_order.created_at,
+            updated_at=native_order.updated_at,
         )
 
     return None

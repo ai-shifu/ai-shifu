@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 import math
 from typing import Any
 
@@ -37,8 +39,8 @@ class AdminOperationCourseSummaryDTO(BaseModel):
     updater_mobile: str = Field(..., description="Updater mobile", required=False)
     updater_email: str = Field(..., description="Updater email", required=False)
     updater_nickname: str = Field(..., description="Updater nickname", required=False)
-    created_at: str = Field(..., description="Created at", required=False)
-    updated_at: str = Field(..., description="Updated at", required=False)
+    created_at: datetime | None = Field(..., description="Created at", required=False)
+    updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
     def __init__(
         self,
@@ -56,8 +58,8 @@ class AdminOperationCourseSummaryDTO(BaseModel):
         updater_mobile: str,
         updater_email: str,
         updater_nickname: str,
-        created_at: str,
-        updated_at: str,
+        created_at: datetime | None,
+        updated_at: datetime | None,
     ):
         super().__init__(
             shifu_bid=shifu_bid,
@@ -252,8 +254,8 @@ class AdminOperationUserSummaryDTO(BaseModel):
         description="Current active top-up creator credits",
         required=False,
     )
-    credits_expire_at: str = Field(
-        default="",
+    credits_expire_at: datetime | None = Field(
+        default=None,
         description="Earliest active creator credit expiry",
         required=False,
     )
@@ -262,18 +264,18 @@ class AdminOperationUserSummaryDTO(BaseModel):
         description="Whether the user currently has an active subscription",
         required=False,
     )
-    last_login_at: str = Field(
-        default="",
+    last_login_at: datetime | None = Field(
+        default=None,
         description="Latest login timestamp",
         required=False,
     )
-    last_learning_at: str = Field(
-        default="",
+    last_learning_at: datetime | None = Field(
+        default=None,
         description="Latest learning timestamp",
         required=False,
     )
-    created_at: str = Field(..., description="Created at", required=False)
-    updated_at: str = Field(..., description="Updated at", required=False)
+    created_at: datetime | None = Field(..., description="Created at", required=False)
+    updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
@@ -385,8 +387,8 @@ class AdminOperationUserCreditSummaryDTO(BaseModel):
         description="Current active top-up creator credits",
         required=False,
     )
-    credits_expire_at: str = Field(
-        default="",
+    credits_expire_at: datetime | None = Field(
+        default=None,
         description="Earliest active creator credit expiry",
         required=False,
     )
@@ -450,8 +452,8 @@ class AdminOperationUserCreditGrantResultDTO(BaseModel):
     validity_preset: str = Field(
         ..., description="Applied validity preset", required=False
     )
-    expires_at: str = Field(
-        default="", description="Resolved expiry timestamp", required=False
+    expires_at: datetime | None = Field(
+        default=None, description="Resolved expiry timestamp", required=False
     )
     display_name: str = Field(
         default="",
@@ -486,8 +488,8 @@ class AdminOperationUserReferralRewardSummaryDTO(BaseModel):
         description="Current active referral reward credits",
         required=False,
     )
-    expires_at: str = Field(
-        default="",
+    expires_at: datetime | None = Field(
+        default=None,
         description="Current active referral reward expiry timestamp",
         required=False,
     )
@@ -525,8 +527,8 @@ class AdminOperationUserGrantBootstrapDTO(BaseModel):
         description="Current admin package notification template status",
         required=False,
     )
-    server_time: str = Field(
-        default="",
+    server_time: datetime | None = Field(
+        default=None,
         description="Server timestamp used for grant previews",
         required=False,
     )
@@ -580,13 +582,13 @@ class AdminOperationUserPackageGrantResultDTO(BaseModel):
     bill_order_bid: str = Field(
         ..., description="Created billing order identifier", required=False
     )
-    current_period_start_at: str = Field(
-        default="",
+    current_period_start_at: datetime | None = Field(
+        default=None,
         description="Resolved subscription effective start timestamp",
         required=False,
     )
-    current_period_end_at: str = Field(
-        default="",
+    current_period_end_at: datetime | None = Field(
+        default=None,
         description="Resolved subscription effective end timestamp",
         required=False,
     )
@@ -610,7 +612,7 @@ class AdminOperationUserCreditLedgerItemDTO(BaseModel):
     ledger_bid: str = Field(
         ..., description="Ledger business identifier", required=False
     )
-    created_at: str = Field(..., description="Created at", required=False)
+    created_at: datetime | None = Field(..., description="Created at", required=False)
     entry_type: str = Field(..., description="Ledger entry type", required=False)
     source_type: str = Field(..., description="Ledger source type", required=False)
     display_entry_type: str = Field(
@@ -625,9 +627,9 @@ class AdminOperationUserCreditLedgerItemDTO(BaseModel):
     )
     amount: str = Field(..., description="Ledger amount", required=False)
     balance_after: str = Field(..., description="Balance after entry", required=False)
-    expires_at: str = Field(default="", description="Entry expires at", required=False)
-    consumable_from: str = Field(
-        default="",
+    expires_at: datetime | None = Field(default=None, description="Entry expires at", required=False)
+    consumable_from: datetime | None = Field(
+        default=None,
         description="Entry consumable from",
         required=False,
     )
@@ -703,7 +705,7 @@ class AdminOperationUserCreditUsageDetailItemDTO(BaseModel):
     """Operator-facing user credit usage content-level row."""
 
     usage_bid: str = Field(..., description="Usage business identifier")
-    created_at: str = Field(..., description="Usage created at")
+    created_at: datetime | None = Field(..., description="Usage created at")
     content: str = Field(default="", description="Generated output text")
     consumed_credits: str = Field(default="", description="Consumed credits")
     usage_units: int = Field(default=0, description="Metered usage units")
@@ -756,8 +758,8 @@ class AdminOperationCourseDetailBasicInfoDTO(BaseModel):
     creator_mobile: str = Field(..., description="Creator mobile", required=False)
     creator_email: str = Field(..., description="Creator email", required=False)
     creator_nickname: str = Field(..., description="Creator nickname", required=False)
-    created_at: str = Field(..., description="Created at", required=False)
-    updated_at: str = Field(..., description="Updated at", required=False)
+    created_at: datetime | None = Field(..., description="Created at", required=False)
+    updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
@@ -852,7 +854,7 @@ class AdminOperationCourseDetailChapterDTO(BaseModel):
     modifier_nickname: str = Field(
         ..., description="Last modifier nickname", required=False
     )
-    updated_at: str = Field(..., description="Updated at", required=False)
+    updated_at: datetime | None = Field(..., description="Updated at", required=False)
     children: list["AdminOperationCourseDetailChapterDTO"] = Field(
         default_factory=list,
         description="Nested children",
@@ -891,14 +893,14 @@ class AdminOperationCourseUserDTO(BaseModel):
     total_paid_amount: str = Field(
         default="0", description="Course-scoped paid amount", required=False
     )
-    last_learning_at: str = Field(
-        default="", description="Latest learning timestamp", required=False
+    last_learning_at: datetime | None = Field(
+        default=None, description="Latest learning timestamp", required=False
     )
-    joined_at: str = Field(
-        default="", description="Course join timestamp", required=False
+    joined_at: datetime | None = Field(
+        default=None, description="Course join timestamp", required=False
     )
-    last_login_at: str = Field(
-        default="", description="Latest login timestamp", required=False
+    last_login_at: datetime | None = Field(
+        default=None, description="Latest login timestamp", required=False
     )
 
     def __json__(self) -> dict[str, Any]:
@@ -974,8 +976,8 @@ class AdminOperationCourseFollowUpSummaryDTO(BaseModel):
     lesson_count: int = Field(
         default=0, description="Distinct lesson count with follow-ups", required=False
     )
-    latest_follow_up_at: str = Field(
-        default="", description="Latest follow-up timestamp", required=False
+    latest_follow_up_at: datetime | None = Field(
+        default=None, description="Latest follow-up timestamp", required=False
     )
 
     def __json__(self) -> dict[str, Any]:
@@ -1019,7 +1021,7 @@ class AdminOperationCourseFollowUpItemDTO(BaseModel):
     turn_index: int = Field(
         default=0, description="1-based follow-up turn index", required=False
     )
-    created_at: str = Field(default="", description="Created at", required=False)
+    created_at: datetime | None = Field(default=None, description="Created at", required=False)
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
@@ -1066,8 +1068,8 @@ class AdminOperationCourseRatingSummaryDTO(BaseModel):
     user_count: int = Field(
         default=0, description="Distinct rating user count", required=False
     )
-    latest_rated_at: str = Field(
-        default="", description="Latest rating timestamp", required=False
+    latest_rated_at: datetime | None = Field(
+        default=None, description="Latest rating timestamp", required=False
     )
 
     def __json__(self) -> dict[str, Any]:
@@ -1105,7 +1107,7 @@ class AdminOperationCourseRatingItemDTO(BaseModel):
         default="", description="Lesson rating comment", required=False
     )
     mode: str = Field(default="", description="Rating mode", required=False)
-    rated_at: str = Field(default="", description="Rated at", required=False)
+    rated_at: datetime | None = Field(default=None, description="Rated at", required=False)
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
@@ -1204,7 +1206,7 @@ class AdminOperationCourseCreditUsageItemDTO(BaseModel):
         description="Consumed credits",
         required=False,
     )
-    created_at: str = Field(default="", description="Created at", required=False)
+    created_at: datetime | None = Field(default=None, description="Created at", required=False)
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
@@ -1236,7 +1238,7 @@ class AdminOperationCourseCreditUsageDetailItemDTO(BaseModel):
     output_summary: str = Field(
         default="", description="Generated output summary", required=False
     )
-    created_at: str = Field(default="", description="Created at", required=False)
+    created_at: datetime | None = Field(default=None, description="Created at", required=False)
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
@@ -1316,7 +1318,7 @@ class AdminOperationCourseFollowUpDetailBasicInfoDTO(BaseModel):
     )
     chapter_title: str = Field(default="", description="Chapter title", required=False)
     lesson_title: str = Field(default="", description="Lesson title", required=False)
-    created_at: str = Field(default="", description="Created at", required=False)
+    created_at: datetime | None = Field(default=None, description="Created at", required=False)
     turn_index: int = Field(
         default=0, description="1-based follow-up turn index", required=False
     )
@@ -1371,7 +1373,7 @@ class AdminOperationCourseFollowUpTimelineItemDTO(BaseModel):
 
     role: str = Field(..., description="student or teacher", required=False)
     content: str = Field(default="", description="Timeline content", required=False)
-    created_at: str = Field(default="", description="Created at", required=False)
+    created_at: datetime | None = Field(default=None, description="Created at", required=False)
     is_current: bool = Field(
         default=False,
         description="Whether the item belongs to the selected turn",

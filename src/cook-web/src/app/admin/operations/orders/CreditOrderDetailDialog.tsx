@@ -3,9 +3,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import {
-  formatAdminNaiveDateTime,
   formatAdminUtcDateTime,
 } from '@/app/admin/lib/dateTime';
 import {
@@ -124,7 +122,6 @@ export default function CreditOrderDetailDialog({
 
     try {
       const result = (await api.getAdminOperationCreditOrderDetail({
-        timezone: getBrowserTimeZone(),
         bill_order_bid: billOrderBid,
       })) as AdminOperationCreditOrderDetailResponse;
       if (requestId !== fetchRequestIdRef.current) {
@@ -261,7 +258,7 @@ export default function CreditOrderDetailDialog({
                 <DetailRow
                   label={t('module.order.fields.createdAt')}
                   value={
-                    formatAdminNaiveDateTime(order.created_at) || emptyValue
+                    formatAdminUtcDateTime(order.created_at) || emptyValue
                   }
                 />
                 <DetailRow

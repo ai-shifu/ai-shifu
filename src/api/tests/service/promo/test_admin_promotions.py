@@ -3,7 +3,6 @@ from __future__ import annotations
 from decimal import Decimal
 from datetime import datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import Mock
 
 import pytest
 
@@ -11,7 +10,6 @@ from flaskr.dao import db
 from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
-from flaskr.service.promo.admin import _format_promotion_admin_datetime
 from flaskr.service.promo.consts import (
     COUPON_APPLY_TYPE_ALL,
     COUPON_APPLY_TYPE_SPECIFIC,
@@ -961,7 +959,7 @@ def test_admin_promotions_generic_coupon_requires_code_and_quantity(
     assert missing_quantity_payload["code"] != 0
 
 
-def test_admin_promotions_serializes_coupon_times_from_shanghai_source_timezone(
+def test_admin_promotions_serializes_coupon_times_as_utc(
     app, test_client, monkeypatch
 ):
     _mock_operator(monkeypatch)
@@ -1004,11 +1002,11 @@ def test_admin_promotions_serializes_coupon_times_from_shanghai_source_timezone(
     detail_payload = detail_response.get_json(force=True)
 
     assert list_payload["code"] == 0
-    assert list_payload["data"]["items"][0]["start_at"] == "2026-04-23T16:00:00Z"
-    assert list_payload["data"]["items"][0]["end_at"] == "2026-04-24T15:59:00Z"
+    assert list_payload["data"]["items"][0]["start_at"] == "2026-04-24T00:00:00Z"
+    assert list_payload["data"]["items"][0]["end_at"] == "2026-04-24T23:59:00Z"
     assert detail_payload["code"] == 0
-    assert detail_payload["data"]["coupon"]["start_at"] == "2026-04-23T16:00:00Z"
-    assert detail_payload["data"]["coupon"]["end_at"] == "2026-04-24T15:59:00Z"
+    assert detail_payload["data"]["coupon"]["start_at"] == "2026-04-24T00:00:00Z"
+    assert detail_payload["data"]["coupon"]["end_at"] == "2026-04-24T23:59:00Z"
 
 
 def test_admin_promotions_single_use_coupon_generates_sub_codes_only(
@@ -2525,23 +2523,6 @@ def test_admin_promotions_campaign_update_ignores_null_end_time(
         assert campaign.end_at == datetime.strptime(
             "2099-05-24 10:00:00", "%Y-%m-%d %H:%M:%S"
         )
-
-
-def test_format_promotion_admin_datetime_accepts_string_value(app):
-    with app.app_context():
-        assert (
-            _format_promotion_admin_datetime("2026-04-28 14:38:41")
-            == "2026-04-28T06:38:41Z"
-        )
-
-
-def test_format_promotion_admin_datetime_returns_empty_for_invalid_string(app):
-    with app.app_context():
-        warning = Mock()
-        app.logger.warning = warning
-
-        assert _format_promotion_admin_datetime("not-a-datetime") == ""
-        warning.assert_called_once()
 
 
 def test_admin_promotions_campaign_update_rejects_apply_type_change_after_redemption(

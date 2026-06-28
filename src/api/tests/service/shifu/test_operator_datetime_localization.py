@@ -1,32 +1,25 @@
-"""Operator admin datetimes are localized server-side from the request timezone.
+"""Admin/API datetimes serialize to UTC ISO 8601 (``Z``) at the single fmt sink.
 
-The operator route guard stores the browser timezone on ``flask.g`` and the
-serialization helpers read it; absent a timezone they fall back to UTC (``Z``).
+After the timezone physical-collapse refactor, DTO datetime fields hold raw
+``datetime`` objects and ``fmt`` (``flaskr.route.common``) is the only
+conversion point: naive values are treated as UTC, aware values are converted
+to UTC. There is no longer any request-driven (``?timezone=``) localization on
+the backend; display-time timezone conversion is a pure frontend concern.
 """
 
-from datetime import datetime
+from datetime import date, datetime, timedelta, timezone
 
-from flask import g
-
-from flaskr.service.order.admin import _format_admin_datetime
-from flaskr.service.shifu.admin_operations.courses import (
-    _format_operator_datetime,
-)
+from flaskr.route.common import fmt
 
 
-def test_operator_datetime_localizes_to_request_timezone(app) -> None:
-    dt = datetime(2026, 6, 25, 1, 0, 0)  # naive UTC (DB canonical)
-
-    with app.test_request_context("/?timezone=Asia/Shanghai"):
-        g.operator_timezone = "Asia/Shanghai"
-        assert _format_admin_datetime(dt) == "2026-06-25T09:00:00+08:00"
-        assert _format_operator_datetime(dt) == "2026-06-25T09:00:00+08:00"
+def test_fmt_treats_naive_datetime_as_utc() -> None:
+    assert fmt(datetime(2026, 6, 25, 1, 0, 0)) == "2026-06-25T01:00:00Z"
 
 
-def test_operator_datetime_falls_back_to_utc(app) -> None:
-    dt = datetime(2026, 6, 25, 1, 0, 0)
+def test_fmt_converts_aware_datetime_to_utc() -> None:
+    aware = datetime(2026, 6, 25, 9, 0, 0, tzinfo=timezone(timedelta(hours=8)))
+    assert fmt(aware) == "2026-06-25T01:00:00Z"
 
-    with app.test_request_context("/"):
-        # No timezone captured -> UTC, serialized with a trailing Z.
-        assert _format_admin_datetime(dt) == "2026-06-25T01:00:00Z"
-        assert _format_operator_datetime(dt) == "2026-06-25T01:00:00Z"
+
+def test_fmt_serializes_date_without_time() -> None:
+    assert fmt(date(2026, 6, 25)) == "2026-06-25"

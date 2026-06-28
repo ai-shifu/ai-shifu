@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import List
 
 from pydantic import BaseModel, Field
@@ -19,7 +21,7 @@ class AdminPromotionSummaryDTO(_DTOBase):
     total: int = Field(..., description="Total item count", required=False)
     active: int = Field(..., description="Active item count", required=False)
     usage_count: int = Field(..., description="Usage count", required=False)
-    latest_usage_at: str = Field(..., description="Latest usage time", required=False)
+    latest_usage_at: datetime | None = Field(..., description="Latest usage time", required=False)
     covered_courses: int = Field(
         ..., description="Covered course count", required=False
     )
@@ -43,8 +45,8 @@ class AdminPromotionCouponItemDTO(_DTOBase):
     scope_type: str = Field(..., description="Coupon scope type", required=False)
     shifu_bid: str = Field(..., description="Course identifier", required=False)
     course_name: str = Field(..., description="Course name", required=False)
-    start_at: str = Field(..., description="Coupon start time", required=False)
-    end_at: str = Field(..., description="Coupon end time", required=False)
+    start_at: datetime | None = Field(..., description="Coupon start time", required=False)
+    end_at: datetime | None = Field(..., description="Coupon end time", required=False)
     total_count: int = Field(..., description="Total count", required=False)
     used_count: int = Field(..., description="Used count", required=False)
     ops_states: List[str] = Field(
@@ -58,8 +60,8 @@ class AdminPromotionCouponItemDTO(_DTOBase):
         ..., description="Creator user identifier", required=False
     )
     created_user_name: str = Field(..., description="Creator user name", required=False)
-    created_at: str = Field(..., description="Created time", required=False)
-    updated_at: str = Field(..., description="Updated time", required=False)
+    created_at: datetime | None = Field(..., description="Created time", required=False)
+    updated_at: datetime | None = Field(..., description="Updated time", required=False)
 
 
 @register_schema_to_swagger
@@ -75,8 +77,8 @@ class AdminPromotionCampaignItemDTO(_DTOBase):
     )
     value: str = Field(..., description="Discount value", required=False)
     channel: str = Field(..., description="Channel", required=False)
-    start_at: str = Field(..., description="Start time", required=False)
-    end_at: str = Field(..., description="End time", required=False)
+    start_at: datetime | None = Field(..., description="Start time", required=False)
+    end_at: datetime | None = Field(..., description="End time", required=False)
     computed_status: str = Field(..., description="Computed status", required=False)
     computed_status_key: str = Field(
         ..., description="Computed status i18n key", required=False
@@ -94,8 +96,8 @@ class AdminPromotionCampaignItemDTO(_DTOBase):
         ..., description="Creator user identifier", required=False
     )
     created_user_name: str = Field(..., description="Creator user name", required=False)
-    created_at: str = Field(..., description="Created time", required=False)
-    updated_at: str = Field(..., description="Updated time", required=False)
+    created_at: datetime | None = Field(..., description="Created time", required=False)
+    updated_at: datetime | None = Field(..., description="Updated time", required=False)
 
 
 @register_schema_to_swagger
@@ -122,8 +124,8 @@ class AdminPromotionCouponUsageDTO(_DTOBase):
     payable_price: str = Field(..., description="Payable price", required=False)
     discount_amount: str = Field(..., description="Discount amount", required=False)
     paid_price: str = Field(..., description="Paid price", required=False)
-    used_at: str = Field(..., description="Used time", required=False)
-    updated_at: str = Field(..., description="Updated time", required=False)
+    used_at: datetime | None = Field(..., description="Used time", required=False)
+    updated_at: datetime | None = Field(..., description="Updated time", required=False)
 
 
 @register_schema_to_swagger
@@ -141,8 +143,8 @@ class AdminPromotionCouponCodeDTO(_DTOBase):
     user_email: str = Field(..., description="User email", required=False)
     user_nickname: str = Field(..., description="User nickname", required=False)
     order_bid: str = Field(..., description="Order identifier", required=False)
-    used_at: str = Field(..., description="Used time", required=False)
-    updated_at: str = Field(..., description="Updated time", required=False)
+    used_at: datetime | None = Field(..., description="Used time", required=False)
+    updated_at: datetime | None = Field(..., description="Updated time", required=False)
 
 
 @register_schema_to_swagger
@@ -166,8 +168,8 @@ class AdminPromotionCampaignRedemptionDTO(_DTOBase):
     status_key: str = Field(
         ..., description="Redemption status i18n key", required=False
     )
-    applied_at: str = Field(..., description="Applied time", required=False)
-    updated_at: str = Field(..., description="Updated time", required=False)
+    applied_at: datetime | None = Field(..., description="Applied time", required=False)
+    updated_at: datetime | None = Field(..., description="Updated time", required=False)
 
 
 @register_schema_to_swagger
@@ -186,7 +188,7 @@ class AdminPromotionCouponDetailDTO(_DTOBase):
     remaining_count: int = Field(
         ..., description="Remaining code count", required=False
     )
-    latest_used_at: str = Field(..., description="Latest used time", required=False)
+    latest_used_at: datetime | None = Field(..., description="Latest used time", required=False)
 
 
 @register_schema_to_swagger
@@ -203,7 +205,7 @@ class AdminPromotionCampaignDetailDTO(_DTOBase):
         ..., description="Updater user identifier", required=False
     )
     updated_user_name: str = Field(..., description="Updater user name", required=False)
-    latest_applied_at: str = Field(
+    latest_applied_at: datetime | None = Field(
         ..., description="Latest applied time", required=False
     )
 
