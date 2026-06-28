@@ -3257,7 +3257,6 @@ describe('AdminOperationPromotionsPage', () => {
         status: '',
         start_time: '',
         end_time: '',
-        timezone: 'Asia/Shanghai',
       });
     });
     expect(mockGetPackageCampaignProductOptions).toHaveBeenCalledWith({});

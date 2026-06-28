@@ -202,7 +202,6 @@ describe('LearnOrdersTab', () => {
     await waitFor(() => {
       expect(mockGetAdminOperationOrdersOverview).toHaveBeenCalledWith({});
       expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
-        timezone: 'UTC',
         page_index: 1,
         page_size: 20,
         user_keyword: '',
@@ -218,8 +217,8 @@ describe('LearnOrdersTab', () => {
     });
 
     expect(await screen.findByText('order-1')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-23 10:00:00')).toBeInTheDocument();
-    expect(screen.queryByText('2026-04-23 02:00:00')).not.toBeInTheDocument();
+    expect(screen.getByText('2026-04-23 02:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-23 10:00:00')).not.toBeInTheDocument();
     expect(
       screen.queryByText('module.operationsOrder.overview.activeFilter'),
     ).not.toBeInTheDocument();
@@ -293,7 +292,6 @@ describe('LearnOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
-        timezone: 'UTC',
         page_index: 1,
         page_size: 20,
         user_keyword: '',
@@ -315,7 +313,6 @@ describe('LearnOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
-        timezone: 'UTC',
         page_index: 1,
         page_size: 20,
         user_keyword: '',
@@ -338,7 +335,6 @@ describe('LearnOrdersTab', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
-        timezone: 'UTC',
         page_index: 1,
         page_size: 20,
         user_keyword: '',

@@ -248,7 +248,6 @@ describe('AdminOperationCourseRatingsPage', () => {
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(mockGetAdminOperationCourseRatings).toHaveBeenCalledWith({
-        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
@@ -283,7 +282,7 @@ describe('AdminOperationCourseRatingsPage', () => {
     ).toHaveAttribute('href', '/admin/operations/course-1');
   });
 
-  test('keeps rating timestamps as returned wall-clock time when browser timezone changes', async () => {
+  test('converts rating timestamps to the browser timezone', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseRatings.mockResolvedValueOnce({
       summary: {
@@ -320,10 +319,10 @@ describe('AdminOperationCourseRatingsPage', () => {
 
     await screen.findByText('Very helpful lesson');
 
-    expect(document.body.textContent).toContain('2026-04-05');
-    expect(document.body.textContent).toContain('01:30:00');
-    expect(document.body.textContent).not.toContain('2026-04-04');
-    expect(document.body.textContent).not.toContain('18:30:00');
+    expect(document.body.textContent).toContain('2026-04-04');
+    expect(document.body.textContent).toContain('18:30:00');
+    expect(document.body.textContent).not.toContain('2026-04-05');
+    expect(document.body.textContent).not.toContain('01:30:00');
   });
 
   test('formats rating summary counts without grouping in Chinese locale', async () => {
@@ -439,7 +438,6 @@ describe('AdminOperationCourseRatingsPage', () => {
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(mockGetAdminOperationCourseRatings).toHaveBeenLastCalledWith({
-        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
@@ -541,7 +539,6 @@ describe('AdminOperationCourseRatingsPage', () => {
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(mockGetAdminOperationCourseRatings).toHaveBeenLastCalledWith({
-        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 2,
         page_size: 20,
@@ -614,7 +611,6 @@ describe('AdminOperationCourseRatingsPage', () => {
 
     await waitFor(() => {
       expect(mockGetAdminOperationCourseRatings).toHaveBeenLastCalledWith({
-        timezone: expect.any(String),
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
