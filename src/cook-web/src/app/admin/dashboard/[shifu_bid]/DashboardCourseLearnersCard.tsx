@@ -8,6 +8,7 @@ import AdminFilter from '@/app/admin/components/AdminFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -55,18 +56,8 @@ type DashboardCourseLearnersCardProps = {
   onFollowUpClick: (learner: DashboardCourseDetailLearnerItem) => void;
 };
 
-const formatDateTime = (
-  value: string,
-  emptyValue: string,
-  displayValue?: string,
-): string => {
-  if (displayValue) {
-    return displayValue;
-  }
-  if (!value) {
-    return emptyValue;
-  }
-  return value;
+const formatDateTime = (value: string, emptyValue: string): string => {
+  return formatAdminUtcDateTime(value) || emptyValue;
 };
 
 const formatLearningProgress = (
@@ -403,7 +394,6 @@ export default function DashboardCourseLearnersCard({
                             text={formatDateTime(
                               learner.last_learning_at,
                               emptyValue,
-                              learner.last_learning_at_display,
                             )}
                             emptyValue={emptyValue}
                             className='block max-w-full tabular-nums'
@@ -414,7 +404,6 @@ export default function DashboardCourseLearnersCard({
                             text={formatDateTime(
                               learner.joined_at,
                               emptyValue,
-                              learner.joined_at_display,
                             )}
                             emptyValue={emptyValue}
                             className='block max-w-full tabular-nums'

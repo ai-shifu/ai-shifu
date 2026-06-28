@@ -6,21 +6,13 @@ import type { DashboardEntryCourseItem } from '@/types/dashboard';
 import { TableCell, TableRow } from '@/components/ui/Table';
 import { getAdminStickyRightCellClass } from '@/app/admin/components/adminTableStyles';
 import { buildAdminDashboardCourseDetailUrl } from './admin-dashboard-routes';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 
 const DASHBOARD_TABLE_CELL_CLASS =
   'overflow-hidden whitespace-nowrap text-ellipsis';
 
-export const formatLastActive = (
-  value: string,
-  displayValue?: string,
-): string => {
-  if (displayValue) {
-    return displayValue;
-  }
-  if (!value) {
-    return '-';
-  }
-  return value;
+export const formatLastActive = (value: string): string => {
+  return formatAdminUtcDateTime(value) || '-';
 };
 
 export const formatOrderAmount = (
@@ -90,7 +82,7 @@ export function DashboardCourseTableRow({
           'min-w-[180px] text-sm text-foreground',
         )}
       >
-        {formatLastActive(item.last_active_at, item.last_active_at_display)}
+        {formatLastActive(item.last_active_at)}
       </TableCell>
       <TableCell
         className={getAdminStickyRightCellClass(

@@ -25,7 +25,7 @@ const createDetailResponse = (overrides?: Record<string, unknown>) => ({
     shifu_bid: 'shifu-1',
     course_name: 'Course 1',
     course_status: 'published',
-    created_at: '2025-01-01T08:00:00',
+    created_at: '2025-01-01T08:00:00Z',
     created_at_display: '2025-01-01 16:00:00',
     chapter_count: 3,
     learner_count: 2,
@@ -59,9 +59,9 @@ const createLearnersResponse = (overrides?: Record<string, unknown>) => ({
       total_lesson_count: 6,
       learning_status: 'learning',
       follow_up_count: 5,
-      last_learning_at: '2025-01-02T08:00:00',
+      last_learning_at: '2025-01-02T08:00:00Z',
       last_learning_at_display: '2025-01-02 16:00:00',
-      joined_at: '2025-01-01T08:00:00',
+      joined_at: '2025-01-01T08:00:00Z',
       joined_at_display: '2025-01-01 16:00:00',
     },
     {
@@ -75,7 +75,7 @@ const createLearnersResponse = (overrides?: Record<string, unknown>) => ({
       follow_up_count: 3,
       last_learning_at: '',
       last_learning_at_display: '',
-      joined_at: '2025-01-03T08:00:00',
+      joined_at: '2025-01-03T08:00:00Z',
       joined_at_display: '2025-01-03 16:00:00',
     },
   ],
@@ -237,7 +237,6 @@ describe('AdminDashboardCourseDetailPage', () => {
     await waitFor(() => {
       expect(mockGetDashboardCourseDetail).toHaveBeenCalledWith({
         shifu_bid: 'shifu-1',
-        timezone: 'Asia/Shanghai',
       });
     });
     await waitFor(() => {
@@ -249,7 +248,6 @@ describe('AdminDashboardCourseDetailPage', () => {
         learning_status: '',
         last_learning_start_time: '',
         last_learning_end_time: '',
-        timezone: 'Asia/Shanghai',
       });
     });
 
@@ -433,7 +431,6 @@ describe('AdminDashboardCourseDetailPage', () => {
         learning_status: '',
         last_learning_start_time: '',
         last_learning_end_time: '',
-        timezone: 'Asia/Shanghai',
       });
     });
     expect(mockGetDashboardCourseDetail).toHaveBeenCalledTimes(1);
@@ -459,7 +456,6 @@ describe('AdminDashboardCourseDetailPage', () => {
         learning_status: 'completed',
         last_learning_start_time: '2025-01-01',
         last_learning_end_time: '2025-01-02',
-        timezone: 'Asia/Shanghai',
       });
     });
 
@@ -478,7 +474,6 @@ describe('AdminDashboardCourseDetailPage', () => {
         learning_status: '',
         last_learning_start_time: '',
         last_learning_end_time: '',
-        timezone: 'Asia/Shanghai',
       });
     });
     expect(mockGetDashboardCourseDetail).toHaveBeenCalledTimes(1);

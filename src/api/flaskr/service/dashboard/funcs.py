@@ -61,11 +61,7 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
-from flaskr.util.timezone import (
-    _coerce_datetime,
-    format_with_app_timezone,
-    serialize_with_app_timezone,
-)
+from flaskr.util.timezone import _coerce_datetime
 
 
 @dataclass(frozen=True)
@@ -1016,29 +1012,6 @@ def _load_dashboard_course_outline_items(
     )
 
 
-def _format_dashboard_datetime_display(
-    app: Flask,
-    value: Optional[datetime | str],
-    timezone_name: Optional[str],
-) -> str:
-    normalized_value = _coerce_datetime(app, value)
-    if normalized_value is None:
-        return ""
-    if normalized_value.tzinfo is None:
-        # Dashboard learning/follow-up/rating records are legacy wall-clock
-        # timestamps. Preserve naive values as-is instead of converting them.
-        return normalized_value.strftime("%Y-%m-%d %H:%M:%S")
-    return (
-        format_with_app_timezone(
-            app,
-            normalized_value,
-            "%Y-%m-%d %H:%M:%S",
-            timezone_name,
-        )
-        or ""
-    )
-
-
 def _load_course_leaf_outline_bids(shifu_bid: str) -> List[str]:
     outline_rows = (
         db.session.query(
@@ -1624,18 +1597,7 @@ def build_dashboard_entry(
                     order_amount=_format_money(
                         metrics.order_amount_map.get(shifu_bid, Decimal("0"))
                     ),
-                    last_active_at=serialize_with_app_timezone(
-                        app,
-                        last_active,
-                        timezone_name,
-                    )
-                    or "",
-                    last_active_at_display=_format_dashboard_datetime_display(
-                        app,
-                        last_active,
-                        timezone_name,
-                    )
-                    or "",
+                    last_active_at=last_active,
                 )
             )
 
@@ -2023,30 +1985,8 @@ def _build_dashboard_course_learners(
                 total_lesson_count=total_lesson_count,
                 learning_status=str(getattr(row, "learning_status", "") or ""),
                 follow_up_count=int(getattr(row, "follow_up_count", 0) or 0),
-                last_learning_at=serialize_with_app_timezone(
-                    app,
-                    last_learning_at,
-                    timezone_name,
-                )
-                or "",
-                last_learning_at_display=_format_dashboard_datetime_display(
-                    app,
-                    last_learning_at,
-                    timezone_name,
-                )
-                or "",
-                joined_at=serialize_with_app_timezone(
-                    app,
-                    joined_at,
-                    timezone_name,
-                )
-                or "",
-                joined_at_display=_format_dashboard_datetime_display(
-                    app,
-                    joined_at,
-                    timezone_name,
-                )
-                or "",
+                last_learning_at=last_learning_at,
+                joined_at=joined_at,
             )
         )
     return DashboardCourseDetailLearnersDTO(
@@ -2136,11 +2076,7 @@ def build_dashboard_course_follow_ups(
             follow_up_count=int(getattr(full_summary_row, "follow_up_count", 0) or 0),
             user_count=int(getattr(full_summary_row, "user_count", 0) or 0),
             lesson_count=int(getattr(full_summary_row, "lesson_count", 0) or 0),
-            latest_follow_up_at=_format_dashboard_datetime_display(
-                app,
-                getattr(full_summary_row, "latest_follow_up_at", None),
-                timezone_name,
-            ),
+            latest_follow_up_at=getattr(full_summary_row, "latest_follow_up_at", None),
         )
         user_keyword_filter = _build_follow_up_user_keyword_filter(
             follow_up_base.c.user_bid,
@@ -2311,11 +2247,7 @@ def build_dashboard_course_follow_ups(
                         source_status_map.get(generated_block_bid, False)
                     ),
                     turn_index=int(getattr(row, "turn_index", 0) or 0),
-                    created_at=_format_dashboard_datetime_display(
-                        app,
-                        getattr(row, "created_at", None),
-                        timezone_name,
-                    ),
+                    created_at=getattr(row, "created_at", None),
                 )
             )
 
@@ -2403,11 +2335,7 @@ def build_dashboard_course_follow_up_detail(
                     content=str(
                         getattr(current_ask_block, "generated_content", "") or ""
                     ),
-                    created_at=_format_dashboard_datetime_display(
-                        app,
-                        getattr(current_ask_block, "created_at", None),
-                        timezone_name,
-                    ),
+                    created_at=getattr(current_ask_block, "created_at", None),
                     is_current=is_current,
                 )
             )
@@ -2418,11 +2346,7 @@ def build_dashboard_course_follow_up_detail(
                     DashboardCourseFollowUpTimelineItemDTO(
                         role="teacher",
                         content=answer_content,
-                        created_at=_format_dashboard_datetime_display(
-                            app,
-                            getattr(answer_block, "created_at", None),
-                            timezone_name,
-                        ),
+                        created_at=getattr(answer_block, "created_at", None),
                         is_current=is_current,
                     )
                 )
@@ -2438,11 +2362,7 @@ def build_dashboard_course_follow_up_detail(
                 nickname=str(getattr(user, "nickname", "") or ""),
                 chapter_title=str(context.get("chapter_title", "") or ""),
                 lesson_title=str(context.get("lesson_title", "") or ""),
-                created_at=_format_dashboard_datetime_display(
-                    app,
-                    getattr(ask_block, "created_at", None),
-                    timezone_name,
-                ),
+                created_at=getattr(ask_block, "created_at", None),
                 turn_index=selected_group_index + 1,
             ),
             current_record=DashboardCourseFollowUpCurrentRecordDTO(
@@ -2547,11 +2467,7 @@ def build_dashboard_course_ratings(
             ),
             rating_count=int(getattr(summary_row, "rating_count", 0) or 0),
             user_count=int(getattr(summary_row, "user_count", 0) or 0),
-            latest_rated_at=_format_dashboard_datetime_display(
-                app,
-                getattr(summary_row, "latest_rated_at", None),
-                timezone_name,
-            ),
+            latest_rated_at=getattr(summary_row, "latest_rated_at", None),
         )
         filtered_query = rating_base_query
         keyword_filter = _build_dashboard_learner_keyword_filter(
@@ -2659,11 +2575,7 @@ def build_dashboard_course_ratings(
                     lesson_title=str(context.get("lesson_title", "") or ""),
                     score=int(getattr(row, "score", 0) or 0),
                     comment=str(getattr(row, "comment", "") or ""),
-                    rated_at=_format_dashboard_datetime_display(
-                        app,
-                        rated_at,
-                        timezone_name,
-                    ),
+                    rated_at=rated_at,
                 )
             )
         return DashboardCourseRatingListDTO(
@@ -2823,19 +2735,7 @@ def build_dashboard_course_detail(
                 shifu_bid=normalized_shifu_bid,
                 course_name=course_meta.shifu_name,
                 course_status=_resolve_dashboard_course_status(normalized_shifu_bid),
-                created_at=serialize_with_app_timezone(
-                    app,
-                    created_at,
-                    timezone_name,
-                )
-                or "",
-                created_at_display=format_with_app_timezone(
-                    app,
-                    created_at,
-                    "%Y-%m-%d %H:%M:%S",
-                    timezone_name,
-                )
-                or "",
+                created_at=created_at,
                 chapter_count=len(leaf_outline_bids),
                 learner_count=learner_count,
             ),
