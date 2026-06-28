@@ -843,16 +843,12 @@ class TestBillingRoutes:
         assert daily_plan["billing_interval"] == "day"
         assert daily_plan["billing_interval_count"] == 7
 
-    def test_overview_and_wallet_buckets_respect_request_timezone_and_fallback(
+    def test_overview_and_wallet_buckets_emit_utc_ignoring_request_timezone(
         self, billing_test_client
     ) -> None:
-        try:
-            target_tz = ZoneInfo("Asia/Shanghai")
-        except ZoneInfoNotFoundError:
-            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
-
-        app_tz = ZoneInfo(billing_test_client.application.config.get("TZ", "UTC"))
-
+        # The backend is a single UTC sink: ?timezone= is ignored and every
+        # datetime is emitted as UTC ISO 8601 with a 'Z' suffix. Display-time
+        # localization is a pure frontend concern.
         overview_response = billing_test_client.get(
             "/api/billing/overview?timezone=Asia/Shanghai"
         )
@@ -865,29 +861,22 @@ class TestBillingRoutes:
         timezone_bucket_payload = timezone_bucket_response.get_json(force=True)
         default_bucket_payload = default_bucket_response.get_json(force=True)
 
-        expected_period_end = datetime(2026, 5, 1, 0, 0, 0, tzinfo=app_tz).astimezone(
-            target_tz
-        )
-        expected_bucket_start = datetime(2026, 4, 1, 0, 0, 0, tzinfo=app_tz).astimezone(
-            target_tz
-        )
-
         assert overview_payload["code"] == 0
         assert (
             overview_payload["data"]["subscription"]["current_period_end_at"]
-            == expected_period_end.isoformat()
+            == "2026-05-01T00:00:00Z"
         )
 
         assert timezone_bucket_payload["code"] == 0
         assert (
             timezone_bucket_payload["data"]["items"][0]["effective_from"]
-            == expected_bucket_start.isoformat()
+            == "2026-04-01T00:00:00Z"
         )
 
         assert default_bucket_payload["code"] == 0
         assert (
             default_bucket_payload["data"]["items"][0]["effective_from"]
-            == "2026-04-01T00:00:00+00:00"
+            == "2026-04-01T00:00:00Z"
         )
 
     def test_wallet_buckets_return_runtime_expired_status_before_expire_task_runs(
@@ -987,7 +976,7 @@ class TestBillingRoutes:
             "priority_class": "priority",
             "analytics_tier": "advanced",
             "support_tier": "business_hours",
-            "effective_from": "2026-04-01T00:00:00+00:00",
+            "effective_from": "2026-04-01T00:00:00Z",
             "effective_to": None,
             "feature_payload": {"custom_css": True},
         }
@@ -1002,8 +991,8 @@ class TestBillingRoutes:
             "priority_class": "vip",
             "analytics_tier": "enterprise",
             "support_tier": "priority",
-            "effective_from": "2026-04-01T00:00:00+00:00",
-            "effective_to": "2026-05-01T00:00:00+00:00",
+            "effective_from": "2026-04-01T00:00:00Z",
+            "effective_to": "2026-05-01T00:00:00Z",
             "feature_payload": {"beta_reports": True},
         }
 
@@ -1022,8 +1011,8 @@ class TestBillingRoutes:
                 "raw_amount": 1234,
                 "record_count": 3,
                 "consumed_credits": 4.5,
-                "window_started_at": "2026-04-06T00:00:00+00:00",
-                "window_ended_at": "2026-04-07T00:00:00+00:00",
+                "window_started_at": "2026-04-06T00:00:00Z",
+                "window_ended_at": "2026-04-07T00:00:00Z",
             }
         ]
 
@@ -1037,8 +1026,8 @@ class TestBillingRoutes:
                 "source_type": "usage",
                 "amount": -4.5,
                 "entry_count": 3,
-                "window_started_at": "2026-04-06T00:00:00+00:00",
-                "window_ended_at": "2026-04-07T00:00:00+00:00",
+                "window_started_at": "2026-04-06T00:00:00Z",
+                "window_ended_at": "2026-04-07T00:00:00Z",
             }
         ]
 
@@ -1074,38 +1063,24 @@ class TestBillingRoutes:
             == 2.5
         )
 
-    def test_ledger_uses_requested_timezone(self, billing_test_client) -> None:
-        try:
-            target_tz = ZoneInfo("Asia/Shanghai")
-            ledger_source_tz = ZoneInfo("Asia/Shanghai")
-        except ZoneInfoNotFoundError:
-            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
-
+    def test_ledger_emits_utc_ignoring_request_timezone(self, billing_test_client) -> None:
         ledger_response = billing_test_client.get(
             "/api/billing/ledger?page_index=1&page_size=1&timezone=Asia/Shanghai"
         )
 
         ledger_payload = ledger_response.get_json(force=True)
 
-        expected_ledger_created_at = datetime(
-            2026, 4, 6, 10, 0, 0, tzinfo=ledger_source_tz
-        ).astimezone(target_tz)
-
         assert ledger_payload["code"] == 0
         assert (
             ledger_payload["data"]["items"][0]["created_at"]
-            == expected_ledger_created_at.isoformat()
+            == "2026-04-06T10:00:00Z"
         )
 
-    def test_build_billing_ledger_page_uses_requested_timezone_for_created_at(
+    def test_build_billing_ledger_page_returns_raw_created_at(
         self, billing_test_client
     ) -> None:
-        try:
-            target_tz = ZoneInfo("Asia/Shanghai")
-            ledger_source_tz = ZoneInfo("Asia/Shanghai")
-        except ZoneInfoNotFoundError:
-            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
-
+        # DTO datetime fields now hold the raw stored datetime; timezone_name no
+        # longer localizes them (the fmt sink emits UTC at serialization time).
         app = billing_test_client.application
 
         ledger_page = build_billing_ledger_page(
@@ -1116,12 +1091,8 @@ class TestBillingRoutes:
         )
         default_ledger_page = build_billing_ledger_page(app, "creator-1", page_size=1)
 
-        expected_created_at = datetime(
-            2026, 4, 6, 10, 0, 0, tzinfo=ledger_source_tz
-        ).astimezone(target_tz)
-
-        assert ledger_page.items[0].created_at == expected_created_at.isoformat()
-        assert default_ledger_page.items[0].created_at == "2026-04-06T02:00:00+00:00"
+        assert ledger_page.items[0].created_at == datetime(2026, 4, 6, 10, 0)
+        assert default_ledger_page.items[0].created_at == datetime(2026, 4, 6, 10, 0)
 
     def test_build_billing_ledger_page_uses_draft_course_name_for_non_prod_usage(
         self, billing_test_client

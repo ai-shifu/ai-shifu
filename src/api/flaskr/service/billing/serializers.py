@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Any
 
 from flask import Flask
-from flaskr.util.timezone import get_app_timezone
 
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -97,7 +96,6 @@ from .primitives import (
     credit_decimal_to_number,
     normalize_bid,
     normalize_json_object,
-    serialize_dt,
 )
 from .queries import load_product_code_map
 
@@ -112,24 +110,6 @@ _USAGE_TYPE_LABELS = {
     BILL_USAGE_TYPE_TTS: "tts",
 }
 
-_LEDGER_SOURCE_TIMEZONE = "Asia/Shanghai"
-
-
-def _serialize_ledger_dt(
-    app: Flask,
-    value,
-    *,
-    timezone_name: str | None = None,
-) -> str | None:
-    if value is None:
-        return None
-
-    if getattr(value, "tzinfo", None) is not None:
-        return serialize_dt(app, value, timezone_name=timezone_name)
-
-    source_tz = get_app_timezone(app, _LEDGER_SOURCE_TIMEZONE)
-    target_tz = get_app_timezone(app, timezone_name)
-    return value.replace(tzinfo=source_tz).astimezone(target_tz).isoformat()
 
 
 def serialize_catalog_campaign(
@@ -243,11 +223,11 @@ def serialize_admin_campaign(
         has_custom_product_rules=has_custom_product_rules,
         computed_status=computed_status,
         hit_order_count=hit_order_count,
-        start_at=serialize_dt(app, row.start_at, timezone_name=timezone_name) or "",
-        end_at=serialize_dt(app, row.end_at, timezone_name=timezone_name) or "",
+        start_at=row.start_at,
+        end_at=row.end_at,
         enabled=bool(row.enabled),
-        created_at=serialize_dt(app, row.created_at, timezone_name=timezone_name) or "",
-        updated_at=serialize_dt(app, row.updated_at, timezone_name=timezone_name) or "",
+        created_at=row.created_at,
+        updated_at=row.updated_at,
     )
 
 
@@ -359,33 +339,13 @@ def serialize_subscription(
         product_code=product_codes.get(row.product_bid, ""),
         status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(row.status, "draft"),
         billing_provider=str(row.billing_provider or ""),
-        current_period_start_at=serialize_dt(
-            app,
-            row.current_period_start_at,
-            timezone_name=timezone_name,
-        ),
-        current_period_end_at=serialize_dt(
-            app,
-            row.current_period_end_at,
-            timezone_name=timezone_name,
-        ),
-        grace_period_end_at=serialize_dt(
-            app,
-            row.grace_period_end_at,
-            timezone_name=timezone_name,
-        ),
+        current_period_start_at=row.current_period_start_at,
+        current_period_end_at=row.current_period_end_at,
+        grace_period_end_at=row.grace_period_end_at,
         cancel_at_period_end=bool(row.cancel_at_period_end),
         next_product_bid=next_product_bid or None,
-        last_renewed_at=serialize_dt(
-            app,
-            row.last_renewed_at,
-            timezone_name=timezone_name,
-        ),
-        last_failed_at=serialize_dt(
-            app,
-            row.last_failed_at,
-            timezone_name=timezone_name,
-        ),
+        last_renewed_at=row.last_renewed_at,
+        last_failed_at=row.last_failed_at,
     )
 
 
@@ -406,36 +366,16 @@ def serialize_admin_subscription(
         product_code=product_codes.get(row.product_bid, ""),
         status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(row.status, "draft"),
         billing_provider=str(row.billing_provider or ""),
-        current_period_start_at=serialize_dt(
-            app,
-            row.current_period_start_at,
-            timezone_name=timezone_name,
-        ),
-        current_period_end_at=serialize_dt(
-            app,
-            row.current_period_end_at,
-            timezone_name=timezone_name,
-        ),
-        grace_period_end_at=serialize_dt(
-            app,
-            row.grace_period_end_at,
-            timezone_name=timezone_name,
-        ),
+        current_period_start_at=row.current_period_start_at,
+        current_period_end_at=row.current_period_end_at,
+        grace_period_end_at=row.grace_period_end_at,
         cancel_at_period_end=bool(row.cancel_at_period_end),
         next_product_bid=next_product_bid or None,
         next_product_code=product_codes.get(next_product_bid, "")
         if next_product_bid
         else "",
-        last_renewed_at=serialize_dt(
-            app,
-            row.last_renewed_at,
-            timezone_name=timezone_name,
-        ),
-        last_failed_at=serialize_dt(
-            app,
-            row.last_failed_at,
-            timezone_name=timezone_name,
-        ),
+        last_renewed_at=row.last_renewed_at,
+        last_failed_at=row.last_failed_at,
         wallet=serialize_wallet(wallet),
         latest_renewal_event=serialize_renewal_event(
             app,
@@ -464,16 +404,8 @@ def serialize_renewal_event(
             "renewal",
         ),
         status=BILLING_RENEWAL_EVENT_STATUS_LABELS.get(row.status, "pending"),
-        scheduled_at=serialize_dt(
-            app,
-            row.scheduled_at,
-            timezone_name=timezone_name,
-        ),
-        processed_at=serialize_dt(
-            app,
-            row.processed_at,
-            timezone_name=timezone_name,
-        ),
+        scheduled_at=row.scheduled_at,
+        processed_at=row.processed_at,
         attempt_count=int(row.attempt_count or 0),
         last_error=str(row.last_error or ""),
         payload=normalize_json_object(row.payload_json).to_metadata_json(),
@@ -557,17 +489,8 @@ def serialize_wallet_bucket(
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         source_bid=row.source_bid,
         available_credits=credit_decimal_to_number(row.available_credits),
-        effective_from=serialize_dt(
-            app,
-            row.effective_from,
-            timezone_name=timezone_name,
-        )
-        or "",
-        effective_to=serialize_dt(
-            app,
-            row.effective_to,
-            timezone_name=timezone_name,
-        ),
+        effective_from=row.effective_from,
+        effective_to=row.effective_to,
         priority=resolve_credit_bucket_priority(category_code),
         status=runtime_status,
     )
@@ -589,25 +512,12 @@ def serialize_ledger_entry(
         idempotency_key=row.idempotency_key,
         amount=credit_decimal_to_number(row.amount),
         balance_after=credit_decimal_to_number(row.balance_after),
-        expires_at=_serialize_ledger_dt(
-            app,
-            row.expires_at,
-            timezone_name=timezone_name,
-        ),
-        consumable_from=_serialize_ledger_dt(
-            app,
-            row.consumable_from,
-            timezone_name=timezone_name,
-        ),
+        expires_at=row.expires_at,
+        consumable_from=row.consumable_from,
         metadata=normalize_json_object(
             row.metadata_json if metadata is None else metadata
         ).to_metadata_json(),
-        created_at=_serialize_ledger_dt(
-            app,
-            row.created_at,
-            timezone_name=timezone_name,
-        )
-        or "",
+        created_at=row.created_at,
     )
 
 
@@ -632,18 +542,8 @@ def serialize_daily_usage_metric(
         raw_amount=int(row.raw_amount or 0),
         record_count=int(row.record_count or 0),
         consumed_credits=credit_decimal_to_number(row.consumed_credits),
-        window_started_at=serialize_dt(
-            app,
-            row.window_started_at,
-            timezone_name=timezone_name,
-        )
-        or "",
-        window_ended_at=serialize_dt(
-            app,
-            row.window_ended_at,
-            timezone_name=timezone_name,
-        )
-        or "",
+        window_started_at=row.window_started_at,
+        window_ended_at=row.window_ended_at,
     )
 
 
@@ -660,18 +560,8 @@ def serialize_daily_ledger_summary(
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         amount=credit_decimal_to_number(row.amount),
         entry_count=int(row.entry_count or 0),
-        window_started_at=serialize_dt(
-            app,
-            row.window_started_at,
-            timezone_name=timezone_name,
-        )
-        or "",
-        window_ended_at=serialize_dt(
-            app,
-            row.window_ended_at,
-            timezone_name=timezone_name,
-        )
-        or "",
+        window_started_at=row.window_started_at,
+        window_ended_at=row.window_ended_at,
     )
 
 
@@ -692,16 +582,8 @@ def serialize_admin_entitlement_state(
         priority_class=str(state.priority_class or "standard"),
         analytics_tier=str(state.analytics_tier or "basic"),
         support_tier=str(state.support_tier or "self_serve"),
-        effective_from=serialize_dt(
-            app,
-            state.effective_from,
-            timezone_name=timezone_name,
-        ),
-        effective_to=serialize_dt(
-            app,
-            state.effective_to,
-            timezone_name=timezone_name,
-        ),
+        effective_from=state.effective_from,
+        effective_to=state.effective_to,
         feature_payload=state.feature_payload.to_metadata_json(),
     )
 
@@ -735,11 +617,7 @@ def serialize_admin_domain_binding(
         verification_token=row.verification_token,
         verification_record_name=verification_record_name,
         verification_record_value=verification_record_value,
-        last_verified_at=serialize_dt(
-            app,
-            row.last_verified_at,
-            timezone_name=timezone_name,
-        ),
+        last_verified_at=row.last_verified_at,
         ssl_status=BILLING_DOMAIN_SSL_STATUS_LABELS.get(
             row.ssl_status,
             "not_requested",
@@ -817,8 +695,8 @@ def serialize_order_summary(
         currency=row.currency,
         provider_reference_id=str(row.provider_reference_id or ""),
         failure_message=str(row.failure_message or ""),
-        created_at=serialize_dt(app, row.created_at, timezone_name=timezone_name) or "",
-        paid_at=serialize_dt(app, row.paid_at, timezone_name=timezone_name),
+        created_at=row.created_at,
+        paid_at=row.paid_at,
     )
 
 
@@ -832,16 +710,8 @@ def serialize_admin_order_summary(
     return AdminBillingOrderDTO(
         **payload.__json__(),
         failure_code=str(row.failure_code or ""),
-        failed_at=serialize_dt(
-            app,
-            row.failed_at,
-            timezone_name=timezone_name,
-        ),
-        refunded_at=serialize_dt(
-            app,
-            row.refunded_at,
-            timezone_name=timezone_name,
-        ),
+        failed_at=row.failed_at,
+        refunded_at=row.refunded_at,
         has_attention=row.status
         in {
             BILLING_ORDER_STATUS_FAILED,
@@ -873,16 +743,8 @@ def serialize_operator_credit_order_grant(
 ) -> OperatorCreditOrderGrantDTO:
     return OperatorCreditOrderGrantDTO(
         granted_credits=granted_credits,
-        valid_from=_serialize_ledger_dt(
-            app,
-            valid_from,
-            timezone_name=timezone_name,
-        ),
-        valid_to=_serialize_ledger_dt(
-            app,
-            valid_to,
-            timezone_name=timezone_name,
-        ),
+        valid_from=valid_from,
+        valid_to=valid_to,
         source_type=source_type,
         source_bid=source_bid,
     )
@@ -947,16 +809,8 @@ def serialize_operator_credit_order(
         failure_message=order_summary.failure_message,
         created_at=order_summary.created_at,
         paid_at=order_summary.paid_at,
-        failed_at=serialize_dt(
-            app,
-            row.failed_at,
-            timezone_name=timezone_name,
-        ),
-        refunded_at=serialize_dt(
-            app,
-            row.refunded_at,
-            timezone_name=timezone_name,
-        ),
+        failed_at=row.failed_at,
+        refunded_at=row.refunded_at,
         has_attention=order_summary.status
         in {
             "failed",

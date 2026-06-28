@@ -333,7 +333,7 @@ class TestAdminBillingRoutes:
         assert item["creator_bid"] == "creator-2"
         assert item["status"] == "failed"
         assert item["failure_code"] == "card_declined"
-        assert item["failed_at"] == "2026-04-03T08:00:00+00:00"
+        assert item["failed_at"] == "2026-04-03T08:00:00Z"
         assert item["has_attention"] is True
 
     def test_admin_billing_ledger_adjust_positive_creates_manual_subscription_bucket(
