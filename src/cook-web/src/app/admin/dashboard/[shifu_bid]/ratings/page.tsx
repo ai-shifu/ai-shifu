@@ -563,7 +563,9 @@ export default function AdminDashboardCourseRatingsPage() {
                   onSearch={handleSearch}
                   actionsDisabled={loading}
                   showActions={false}
-                  resetLabel={t('module.dashboard.detail.ratings.filters.reset')}
+                  resetLabel={t(
+                    'module.dashboard.detail.ratings.filters.reset',
+                  )}
                   searchLabel={t(
                     'module.dashboard.detail.ratings.filters.search',
                   )}

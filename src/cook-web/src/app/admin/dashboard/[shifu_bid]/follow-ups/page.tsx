@@ -554,7 +554,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
       },
       {
         value: 'missing',
-        label: t('module.dashboard.detail.followUps.filters.sourceStatusMissing'),
+        label: t(
+          'module.dashboard.detail.followUps.filters.sourceStatusMissing',
+        ),
       },
     ],
     [t],
@@ -605,7 +607,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
           ...previous,
           sourceStatus: value,
         })),
-      placeholder: t('module.dashboard.detail.followUps.filters.sourceStatusAll'),
+      placeholder: t(
+        'module.dashboard.detail.followUps.filters.sourceStatusAll',
+      ),
       options: sourceStatusOptions,
       contentClassName: 'min-w-0 flex-[1.1]',
       triggerClassName: 'min-w-[140px]',
@@ -621,7 +625,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
           startTime: start,
           endTime: end,
         })),
-      placeholder: t('module.dashboard.detail.followUps.filters.timePlaceholder'),
+      placeholder: t(
+        'module.dashboard.detail.followUps.filters.timePlaceholder',
+      ),
       resetLabel: t('module.dashboard.detail.followUps.filters.reset'),
       clearLabel,
     }),
@@ -710,7 +716,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
                   onSearch={handleSearch}
                   actionsDisabled={loading}
                   showActions={false}
-                  resetLabel={t('module.dashboard.detail.followUps.filters.reset')}
+                  resetLabel={t(
+                    'module.dashboard.detail.followUps.filters.reset',
+                  )}
                   searchLabel={t(
                     'module.dashboard.detail.followUps.filters.search',
                   )}
@@ -725,9 +733,12 @@ export default function AdminDashboardCourseFollowUpsPage() {
                 />
                 <div className='mt-3 flex flex-col gap-3 pl-3 sm:flex-row sm:items-center sm:justify-between'>
                   <div className='text-sm text-muted-foreground'>
-                    {t('module.dashboard.detail.followUps.filters.resultCount', {
-                      count: followUps.total,
-                    })}
+                    {t(
+                      'module.dashboard.detail.followUps.filters.resultCount',
+                      {
+                        count: followUps.total,
+                      },
+                    )}
                   </div>
                   <div className='flex items-center justify-end gap-2'>
                     <Button

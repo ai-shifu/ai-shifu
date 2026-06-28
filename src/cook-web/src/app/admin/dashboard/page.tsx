@@ -234,8 +234,12 @@ export default function AdminDashboardEntryPage() {
                     setStartDate(range.start);
                     setEndDate(range.end);
                   }}
-                  triggerAriaLabel={t('module.dashboard.entry.table.lastActive')}
-                  placeholder={t('module.dashboard.filters.dateRangePlaceholder')}
+                  triggerAriaLabel={t(
+                    'module.dashboard.entry.table.lastActive',
+                  )}
+                  placeholder={t(
+                    'module.dashboard.filters.dateRangePlaceholder',
+                  )}
                   resetLabel={t('module.dashboard.filters.reset')}
                   clearLabel={t('common.core.close')}
                 />

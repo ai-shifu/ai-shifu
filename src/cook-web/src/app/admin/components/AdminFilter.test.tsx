@@ -142,7 +142,11 @@ describe('AdminFilter', () => {
   test('can hide built-in action buttons', () => {
     renderFilter({ showActions: false });
 
-    expect(screen.queryByRole('button', { name: 'Reset' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Search' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Reset' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Search' }),
+    ).not.toBeInTheDocument();
   });
 });
