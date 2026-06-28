@@ -56,7 +56,7 @@ export function OnboardingCard({
               event.stopPropagation();
               onSkip?.();
             }}
-            className='shrink-0 text-xs font-medium text-slate-400 underline-offset-4 transition-colors hover:text-slate-600 hover:underline'
+            className='shrink-0 cursor-pointer text-xs font-medium text-slate-400 underline-offset-4 transition-colors hover:text-slate-600 hover:underline'
           >
             {skipLabel}
           </button>
