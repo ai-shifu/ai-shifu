@@ -620,6 +620,6 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
       });
     });
 
-    expect(screen.getByDisplayValue('13900001235')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('student-1')).toBeInTheDocument();
   });
 });

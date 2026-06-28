@@ -63,7 +63,7 @@ const PAGE_SIZE = 20;
 const ALL_SOURCE_STATUS = 'all';
 const DETAIL_CACHE_LIMIT = 20;
 const FOLLOW_UP_FILTER_GRID_CLASS =
-  'gap-x-5 xl:grid-cols-[minmax(0,300px)_minmax(0,300px)_minmax(0,200px)_minmax(0,280px)]';
+  'gap-x-5 md:grid-cols-2 xl:grid-cols-[minmax(0,300px)_minmax(0,300px)_minmax(0,200px)_minmax(0,280px)]';
 const FOLLOW_UP_FILTER_LABEL_CLASS = 'w-[68px]';
 
 const EMPTY_FOLLOW_UPS_RESPONSE: DashboardCourseFollowUpListResponse = {
@@ -561,19 +561,20 @@ export default function AdminDashboardCourseFollowUpsPage() {
     ],
     [t],
   );
+  const userFilterDisplayValue = filtersDraft.userBid || filtersDraft.keyword;
   const filterItems: AdminFilterItem[] = [
     createTextFilterItem({
       key: 'user_bid',
       label: t('module.dashboard.detail.followUps.filters.userKeyword'),
-      value: filtersDraft.keyword,
+      value: userFilterDisplayValue,
       onChange: value =>
         setFiltersDraft(previous => ({
           ...previous,
           keyword: value,
           userBid:
-            previous.userBid && value.trim() !== previous.keyword.trim()
-              ? ''
-              : previous.userBid,
+            previous.userBid && value.trim() === previous.userBid.trim()
+              ? previous.userBid
+              : '',
         })),
       onSubmit: handleSearch,
       placeholder: userKeywordPlaceholder,

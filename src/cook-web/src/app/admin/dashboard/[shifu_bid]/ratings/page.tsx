@@ -61,7 +61,7 @@ const PAGE_SIZE = 20;
 const FILTER_ALL_OPTION = 'all';
 const COMMENT_FILTER_COMMENTED_OPTION = 'commented';
 const RATINGS_FILTER_GRID_CLASS =
-  'gap-x-6 xl:grid-cols-[minmax(0,280px)_minmax(0,280px)_minmax(0,152px)_minmax(0,172px)_minmax(0,286px)]';
+  'gap-x-6 md:grid-cols-2 xl:grid-cols-[minmax(0,280px)_minmax(0,280px)_minmax(0,152px)_minmax(0,172px)_minmax(0,286px)]';
 const RATINGS_FILTER_LABEL_SM_CLASS = 'w-[60px]';
 const RATINGS_FILTER_LABEL_MD_CLASS = 'w-[88px]';
 

@@ -11,6 +11,7 @@ const renderFilter = ({
   activeFilter,
   layoutPreset,
   surface,
+  actionsDisabled,
   showActions,
 }: {
   expanded?: boolean;
@@ -18,6 +19,7 @@ const renderFilter = ({
   activeFilter?: AdminFilterActiveFilter | null;
   layoutPreset?: 'default' | 'operations';
   surface?: 'plain' | 'card';
+  actionsDisabled?: boolean;
   showActions?: boolean;
 } = {}) =>
   render(
@@ -45,6 +47,7 @@ const renderFilter = ({
       onExpandedChange={() => undefined}
       onReset={() => undefined}
       onSearch={() => undefined}
+      actionsDisabled={actionsDisabled}
       resetLabel='Reset'
       searchLabel='Search'
       expandLabel='Expand'
@@ -148,5 +151,16 @@ describe('AdminFilter', () => {
     expect(
       screen.queryByRole('button', { name: 'Search' }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Expand' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('disables built-in action buttons', () => {
+    renderFilter({ actionsDisabled: true });
+
+    expect(screen.getByRole('button', { name: 'Reset' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Expand' })).toBeDisabled();
   });
 });
