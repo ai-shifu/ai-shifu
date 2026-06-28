@@ -572,8 +572,8 @@ const ImportActivationDialog = ({
       return;
     }
     setConfirmOpen(false);
-    setPendingIdentifiers([]);
-    setPendingEntries([]);
+    setPendingIdentifiers(current => (current.length > 0 ? [] : current));
+    setPendingEntries(current => (current.length > 0 ? [] : current));
     setIsImporting(false);
     isImportingRef.current = false;
   }, [open, form, initialCourseId]);

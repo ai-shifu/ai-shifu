@@ -84,6 +84,7 @@ const COURSE_TABS_TRIGGER_CLASS =
   'min-w-[100px] gap-[var(--spacing-2,8px)] rounded-[var(--border-radius-rounded-md,8px)] border-[length:var(--border-width-border,1px)] border-transparent px-[var(--spacing-2,8px)] py-[var(--spacing-1,4px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]';
 const CREATE_SUCCESS_TOAST_DURATION_MS = 2000;
 const CREATE_SUCCESS_REDIRECT_DELAY_MS = 600;
+const ACTION_DIALOG_RESET_DELAY_MS = 200;
 
 const ShifuCard = ({
   id,
@@ -289,6 +290,9 @@ const ScriptManagementPage = () => {
   const createRedirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const actionDialogResetTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   const activeTabRef = useRef<'all' | 'archived'>(activeTab);
   const guideCourseTargetId = buildGuideCourseTargetId(
@@ -309,8 +313,27 @@ const ScriptManagementPage = () => {
         clearTimeout(createRedirectTimeoutRef.current);
         createRedirectTimeoutRef.current = null;
       }
+      if (actionDialogResetTimeoutRef.current) {
+        clearTimeout(actionDialogResetTimeoutRef.current);
+        actionDialogResetTimeoutRef.current = null;
+      }
     };
   }, []);
+
+  const cancelActionDialogReset = useCallback(() => {
+    if (actionDialogResetTimeoutRef.current) {
+      clearTimeout(actionDialogResetTimeoutRef.current);
+      actionDialogResetTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleActionDialogReset = useCallback(() => {
+    cancelActionDialogReset();
+    actionDialogResetTimeoutRef.current = setTimeout(() => {
+      setSelectedActionShifu(current => (current ? null : current));
+      actionDialogResetTimeoutRef.current = null;
+    }, ACTION_DIALOG_RESET_DELAY_MS);
+  }, [cancelActionDialogReset]);
 
   const setHasMoreState = useCallback((value: boolean) => {
     hasMoreRef.current = value;
@@ -483,14 +506,16 @@ const ScriptManagementPage = () => {
   }, []);
 
   const handleImportActivationRequest = useCallback((shifu: Shifu) => {
+    cancelActionDialogReset();
     setSelectedActionShifu(shifu);
     setImportOpen(true);
-  }, []);
+  }, [cancelActionDialogReset]);
 
   const handleRedemptionCodeRequest = useCallback((shifu: Shifu) => {
+    cancelActionDialogReset();
     setSelectedActionShifu(shifu);
     setRedemptionOpen(true);
-  }, []);
+  }, [cancelActionDialogReset]);
 
   const handleArchiveConfirm = useCallback(async () => {
     if (!archiveTarget?.bid || archiveLoading) {
@@ -697,9 +722,10 @@ const ScriptManagementPage = () => {
       <ImportActivationDialog
         open={importOpen}
         onOpenChange={open => {
+          cancelActionDialogReset();
           setImportOpen(open);
           if (!open) {
-            setSelectedActionShifu(null);
+            scheduleActionDialogReset();
           }
         }}
         initialCourseId={selectedActionShifu?.bid}
@@ -710,9 +736,10 @@ const ScriptManagementPage = () => {
       <CreatorRedemptionCodeDialog
         open={redemptionOpen}
         onOpenChange={open => {
+          cancelActionDialogReset();
           setRedemptionOpen(open);
           if (!open) {
-            setSelectedActionShifu(null);
+            scheduleActionDialogReset();
           }
         }}
         initialShifuBid={selectedActionShifu?.bid}
