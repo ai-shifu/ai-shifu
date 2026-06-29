@@ -1,11 +1,11 @@
 import styles from './ChatUi.module.scss';
 
 import { memo, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
-import ChatComponents from './NewChatComp';
 import UserSettings from '../Settings/UserSettings';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { useSystemStore } from '@/c-store/useSystemStore';
@@ -15,6 +15,10 @@ import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import CourseHeaderSummary from '../CourseHeaderSummary';
 import LearningModeSwitch from '../LearningModeSwitch';
 import PreviewHeaderBanner from '../PreviewHeaderBanner';
+
+const ChatComponents = dynamic(() => import('./NewChatComp'), {
+  ssr: false,
+});
 
 interface ChatUiProps {
   chapterId: string;
