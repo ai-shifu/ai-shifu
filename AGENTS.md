@@ -64,29 +64,43 @@ to.
 - `pre-commit run -a` is the repository-wide verification gate before a
   commit-sized change lands.
 
-## markdown-flow dependency
+## MarkdownFlow component libraries
 
-`markdown-flow` is the core MarkdownFlow engine, pinned in
-`src/api/requirements.txt` (the `markdown-flow==<version>` line). It is published
-from <https://github.com/ai-shifu/markdown-flow-agent-py>.
+ai-shifu consumes two MarkdownFlow component libraries. Changing either is
+usually done in order to use it here, so the overall flow is: **change the
+library → publish a build → point ai-shifu at it → debug locally / on test / in
+prod**.
 
-To try a `markdown-flow` change against this project:
+| Library            | Kind             | Pinned in                                            | Published from                                                            |
+| ------------------ | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| `markdown-flow`    | Python (backend) | `src/api/requirements.txt` (`markdown-flow==<ver>`)  | [markdown-flow-agent-py](https://github.com/ai-shifu/markdown-flow-agent-py) (PyPI) |
+| `markdown-flow-ui` | npm (frontend)   | `src/cook-web/package.json` (`"markdown-flow-ui"`)   | [markdown-flow-ui](https://github.com/ai-shifu/markdown-flow-ui) (npm)    |
 
-1. In `markdown-flow-agent-py`, on your branch, run its **Publish** action to
-   release a build (use `dev` for a throwaway `X.Y.Z.devN` test package). Wait
-   for the run to pass — the version is now on PyPI.
+### Trying a library change against this project
+
+1. In the library repo, on your branch, run its **Publish** action to release a
+   build — use a `dev` build (`X.Y.Z.devN` on PyPI, `X.Y.Z-dev.N` on npm) for a
+   throwaway test package. Wait for the run to pass; the version is now published.
 2. Point this project at that version:
-   - **Locally (uncommitted)**: edit the `markdown-flow==` line in
-     `src/api/requirements.txt`.
-   - **On an already-pushed feature branch**: run the **Bump markdown-flow**
-     action (`.github/workflows/bump-markdown-flow.yml`) with the published
-     version. It validates the version exists on PyPI, updates the pin, and
-     pushes the bump back to the branch. It refuses to run on `main`.
+   - **Locally (uncommitted)**: edit the pin in `src/api/requirements.txt`
+     (backend) or `src/cook-web/package.json` (frontend).
+   - **On an already-pushed feature branch**: run the matching bump action —
+     **Bump markdown-flow** (`bump-markdown-flow.yml`) or **Bump markdown-flow-ui**
+     (`bump-markdown-flow-ui.yml`). Each validates the version is published,
+     updates the pin, and pushes the bump back to the branch. Both refuse to run
+     on `main`. (The frontend bump pins an exact version and refreshes
+     `src/cook-web/package-lock.json` so CI's `npm ci` stays green.)
 
-`main` must always pin a **release** version of `markdown-flow`. The
-**Check markdown-flow release pin** workflow runs on every PR into `main` and
-fails if the pin is a pre-release/dev build (e.g. `X.Y.Z.devN`). Pin a release
-version before merging.
+### Rule: `main` must pin RELEASE versions of both libraries
+
+dev builds are for feature-branch / cross-repo testing only. `main` must always
+pin **release** versions (`X.Y.Z`) of both libraries. Two CI checks enforce this
+on every PR into `main` and fail on a pre-release/dev pin:
+
+- **Check markdown-flow release pin** (`check-markdown-flow-release.yml`) — backend.
+- **Check markdown-flow-ui release pin** (`check-markdown-flow-ui-release.yml`) — frontend.
+
+Pin release versions of both before merging.
 
 ## Tests
 
