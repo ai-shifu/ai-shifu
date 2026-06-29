@@ -15,3 +15,15 @@ export const canManageArchive = (
   }
   return !shifu.readonly;
 };
+
+export const canManageOwnerCourseAction = (
+  shifu: Shifu | null | undefined,
+  currentUserId: string,
+): boolean => {
+  if (!shifu?.bid || !currentUserId) {
+    return false;
+  }
+  return (
+    Boolean(shifu.created_user_bid) && shifu.created_user_bid === currentUserId
+  );
+};

@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import os
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +12,8 @@ from flask import Flask
 from flaskr.service.common.oss_utils import (
     OSS_PROFILE_COURSES,
     OSS_PROFILE_DEFAULT,
+    create_oss_bucket,
+    get_oss_config,
     is_oss_profile_configured,
     upload_to_oss,
 )
@@ -192,3 +194,30 @@ def upload_to_storage(
         object_key=object_key,
         profile=resolved_profile,
     )
+
+
+def read_storage_bytes(
+    *,
+    object_key: str,
+    profile: str = OSS_PROFILE_DEFAULT,
+    bucket_name: str = "",
+) -> bytes:
+    resolved_profile = _normalize_profile(profile)
+    resolved_key = _normalize_object_key(object_key)
+
+    local_path = get_local_storage_path(resolved_profile, resolved_key)
+    if local_path.exists():
+        return local_path.read_bytes()
+
+    should_try_oss = bool(str(bucket_name or "").strip()) or (
+        _resolve_provider(resolved_profile) == STORAGE_PROVIDER_OSS
+    )
+    if should_try_oss and is_oss_profile_configured(resolved_profile):
+        config = get_oss_config(resolved_profile)
+        normalized_bucket = str(bucket_name or "").strip()
+        if normalized_bucket and normalized_bucket != config.bucket:
+            config = replace(config, bucket=normalized_bucket)
+        bucket = create_oss_bucket(config)
+        return bucket.get_object(resolved_key).read()
+
+    raise FileNotFoundError(f"storage object not found: {resolved_key}")

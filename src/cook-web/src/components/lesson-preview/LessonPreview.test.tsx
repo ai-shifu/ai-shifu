@@ -164,7 +164,7 @@ describe('LessonPreview billing action', () => {
       {
         element_bid: 'preview-business-error',
         generated_block_bid: 'preview-business-error',
-        content: '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+        content: '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
         type: ChatContentItemType.ERROR,
         business_code: 7101,
       },

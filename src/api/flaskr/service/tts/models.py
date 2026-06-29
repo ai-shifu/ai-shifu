@@ -12,6 +12,9 @@ from sqlalchemy import (
     Text,
     SmallInteger,
     JSON,
+    Numeric,
+    Index,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
@@ -25,6 +28,20 @@ AUDIO_STATUS_PENDING = 0
 AUDIO_STATUS_PROCESSING = 1
 AUDIO_STATUS_COMPLETED = 2
 AUDIO_STATUS_FAILED = 3
+
+TTS_MINIMAX_CLONE_STATUS_QUEUED = "queued"
+TTS_MINIMAX_CLONE_STATUS_PROCESSING = "processing"
+TTS_MINIMAX_CLONE_STATUS_BILLING_PENDING = "billing_pending"
+TTS_MINIMAX_CLONE_STATUS_FAILED = "failed"
+TTS_MINIMAX_CLONE_STATUS_READY = "ready"
+
+TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED = "not_required"
+TTS_MINIMAX_CLONE_BILLING_RESERVED = "reserved"
+TTS_MINIMAX_CLONE_BILLING_CHARGED = "charged"
+TTS_MINIMAX_CLONE_BILLING_RELEASED = "released"
+TTS_MINIMAX_CLONE_BILLING_FAILED = "failed"
+
+TTS_CREDIT_NUMERIC = Numeric(20, 10)
 
 
 class LearnGeneratedAudio(db.Model):
@@ -219,6 +236,102 @@ class LearnGeneratedAudio(db.Model):
         onupdate=now_utc,
         comment="Last update timestamp",
     )
+
+
+class TTSMiniMaxClonedVoice(db.Model):
+    """MiniMax cloned voice asset owned by a creator/Shifu."""
+
+    __tablename__ = "tts_minimax_cloned_voices"
+    __table_args__ = (
+        UniqueConstraint(
+            "voice_bid",
+            name="uq_tts_minimax_cloned_voices_voice_bid",
+        ),
+        Index(
+            "ix_tts_minimax_cloned_voices_owner_status",
+            "owner_user_bid",
+            "status",
+        ),
+        Index(
+            "ix_tts_minimax_cloned_voices_shifu_status",
+            "shifu_bid",
+            "status",
+        ),
+        {"comment": "MiniMax cloned TTS voices"},
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+
+    voice_bid = Column(String(36), nullable=False, default="", index=True)
+    owner_user_bid = Column(String(36), nullable=False, default="", index=True)
+    shifu_bid = Column(String(36), nullable=False, default="", index=True)
+    display_name = Column(String(128), nullable=False, default="")
+    voice_id = Column(String(64), nullable=False, default="", index=True)
+
+    status = Column(
+        String(32),
+        nullable=False,
+        default=TTS_MINIMAX_CLONE_STATUS_QUEUED,
+        index=True,
+    )
+    status_msg = Column(Text, nullable=False, default="")
+    failure_reason = Column(String(64), nullable=False, default="")
+    retry_count = Column(Integer, nullable=False, default=0)
+
+    source_capture_method = Column(String(32), nullable=False, default="")
+    source_audio_resource_bid = Column(String(36), nullable=False, default="")
+    source_audio_url = Column(String(512), nullable=False, default="")
+    source_audio_filename = Column(String(255), nullable=False, default="")
+    source_audio_content_type = Column(String(128), nullable=False, default="")
+    source_audio_duration_ms = Column(Integer, nullable=False, default=0)
+
+    normalized_audio_resource_bid = Column(String(36), nullable=False, default="")
+    normalized_audio_url = Column(String(512), nullable=False, default="")
+    normalized_audio_object_key = Column(String(512), nullable=False, default="")
+    normalized_audio_duration_ms = Column(Integer, nullable=False, default=0)
+
+    prompt_audio_resource_bid = Column(String(36), nullable=False, default="")
+    prompt_audio_url = Column(String(512), nullable=False, default="")
+    prompt_audio_filename = Column(String(255), nullable=False, default="")
+    prompt_audio_content_type = Column(String(128), nullable=False, default="")
+    prompt_audio_duration_ms = Column(Integer, nullable=False, default=0)
+
+    minimax_source_file_id = Column(String(128), nullable=False, default="")
+    minimax_prompt_file_id = Column(String(128), nullable=False, default="")
+    minimax_demo_audio_url = Column(String(512), nullable=False, default="")
+    minimax_trace_id = Column(String(128), nullable=False, default="")
+    minimax_status_code = Column(Integer, nullable=False, default=0)
+    minimax_status_msg = Column(String(255), nullable=False, default="")
+    minimax_extra = Column(JSON, nullable=True)
+
+    billing_status = Column(
+        String(32),
+        nullable=False,
+        default=TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
+        index=True,
+    )
+    estimated_credits = Column(TTS_CREDIT_NUMERIC, nullable=False, default=0)
+    charged_credits = Column(TTS_CREDIT_NUMERIC, nullable=False, default=0)
+    billing_reservation_bid = Column(String(36), nullable=False, default="")
+    billing_ledger_bid = Column(String(36), nullable=False, default="")
+    clone_usage_bid = Column(String(36), nullable=False, default="")
+
+    deleted = Column(SmallInteger, nullable=False, default=0, index=True)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    ready_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
 
     def to_dict(self):
         """Convert model to dictionary."""

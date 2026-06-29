@@ -22,6 +22,7 @@
     "smsSendTooFrequent": "短信发送过于频繁",
     "userNotFound": "没有找到用户",
     "userNotLogin": "用户没有登录",
+    "userNotPermission": "当前用户无权限执行此操作",
     "userTokenExpired": "Token失效"
   }
 }

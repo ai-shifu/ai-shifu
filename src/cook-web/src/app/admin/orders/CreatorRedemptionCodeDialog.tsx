@@ -52,11 +52,15 @@ const CreatorRedemptionCodeDialog = ({
   onOpenChange,
   onSuccess,
   coupon,
+  initialShifuBid,
+  initialShifuName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
   coupon?: AdminPromotionCouponItem | null;
+  initialShifuBid?: string;
+  initialShifuName?: string;
 }) => {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
@@ -70,13 +74,26 @@ const CreatorRedemptionCodeDialog = ({
       open,
       t,
     });
+  const lockedCourseName = React.useMemo(() => {
+    if (!initialShifuBid) {
+      return '';
+    }
+    const matchedCourse = courseOptions.find(
+      course => course.bid === initialShifuBid,
+    );
+    return initialShifuName || matchedCourse?.name || initialShifuBid;
+  }, [courseOptions, initialShifuBid, initialShifuName]);
 
   useEffect(() => {
     if (!open) {
       return;
     }
-    setForm(createCreatorCouponFormState(coupon));
-  }, [coupon, open]);
+    const nextForm = createCreatorCouponFormState(coupon);
+    if (!coupon && initialShifuBid) {
+      nextForm.shifu_bid = initialShifuBid;
+    }
+    setForm(nextForm);
+  }, [coupon, initialShifuBid, open]);
 
   const isGenericCoupon = form.usage_type === '801';
   const isPercentDiscount = form.discount_type === '702';
@@ -286,56 +303,65 @@ const CreatorRedemptionCodeDialog = ({
             />
           </FormField>
           <FormField label={t('module.order.redemptionCodes.courseLabel')}>
-            <Select
-              value={form.shifu_bid}
-              onValueChange={value =>
-                setForm(current => ({ ...current, shifu_bid: value }))
-              }
-              disabled={coursesLoading || isEditing}
-            >
-              <SelectTrigger className='h-9'>
-                <SelectValue
-                  placeholder={t(
-                    'module.order.redemptionCodes.coursePlaceholder',
-                  )}
-                />
-              </SelectTrigger>
-              <SelectContent className='max-h-60'>
-                {coursesLoading ? (
-                  <div className='flex items-center justify-center py-3'>
-                    <Loading className='h-5 w-5' />
-                  </div>
-                ) : coursesError ? (
-                  <div className='px-2 py-3 text-xs text-destructive'>
-                    {coursesError}
-                  </div>
-                ) : (
-                  <>
-                    {coursesWarning ? (
-                      <div className='px-2 py-2 text-xs text-muted-foreground'>
-                        {coursesWarning}
-                      </div>
-                    ) : null}
-                    {courseOptions.length === 0 ? (
-                      <div className='px-2 py-3 text-xs text-muted-foreground'>
-                        {t('module.order.redemptionCodes.emptyCourses')}
-                      </div>
-                    ) : (
-                      courseOptions.map(course => (
-                        <SelectItem
-                          key={course.bid}
-                          value={course.bid}
-                          className={SELECT_ITEM_CLASS}
-                          indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
-                        >
-                          {course.name || course.bid}
-                        </SelectItem>
-                      ))
+            {initialShifuBid && !isEditing ? (
+              <Input
+                className='h-9'
+                value={lockedCourseName}
+                readOnly
+                disabled
+              />
+            ) : (
+              <Select
+                value={form.shifu_bid}
+                onValueChange={value =>
+                  setForm(current => ({ ...current, shifu_bid: value }))
+                }
+                disabled={coursesLoading || isEditing}
+              >
+                <SelectTrigger className='h-9'>
+                  <SelectValue
+                    placeholder={t(
+                      'module.order.redemptionCodes.coursePlaceholder',
                     )}
-                  </>
-                )}
-              </SelectContent>
-            </Select>
+                  />
+                </SelectTrigger>
+                <SelectContent className='max-h-60'>
+                  {coursesLoading ? (
+                    <div className='flex items-center justify-center py-3'>
+                      <Loading className='h-5 w-5' />
+                    </div>
+                  ) : coursesError ? (
+                    <div className='px-2 py-3 text-xs text-destructive'>
+                      {coursesError}
+                    </div>
+                  ) : (
+                    <>
+                      {coursesWarning ? (
+                        <div className='px-2 py-2 text-xs text-muted-foreground'>
+                          {coursesWarning}
+                        </div>
+                      ) : null}
+                      {courseOptions.length === 0 ? (
+                        <div className='px-2 py-3 text-xs text-muted-foreground'>
+                          {t('module.order.redemptionCodes.emptyCourses')}
+                        </div>
+                      ) : (
+                        courseOptions.map(course => (
+                          <SelectItem
+                            key={course.bid}
+                            value={course.bid}
+                            className={SELECT_ITEM_CLASS}
+                            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
+                          >
+                            {course.name || course.bid}
+                          </SelectItem>
+                        ))
+                      )}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            )}
           </FormField>
           <FormField label={tPromotion('coupon.startAt')}>
             <PromotionDateTimePicker

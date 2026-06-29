@@ -37,6 +37,13 @@ to.
   `default=now_utc` / `onupdate=now_utc`. The DB session is pinned to UTC in
   `src/api/flaskr/dao/__init__.py`; treat that as a safety net, not a license
   to write local time.
+- In Chinese user-facing text and Chinese docs, do not use `创作者` as a
+  generic product term. Use `老师` for the general course-building or teacher
+  account role; use `课程负责人` or, inside an existing course context,
+  `负责人` when referring to a specific course owner.
+- Keep English and French translations aligned with that distinction: use
+  `teacher` / `enseignant` for the generic role, while a specific course
+  owner may still be translated as `creator` / `créateur`.
 
 ## Avoid
 
@@ -66,6 +73,44 @@ to.
   frontend/backend boundary baseline and blocks new drift.
 - `pre-commit run -a` is the repository-wide verification gate before a
   commit-sized change lands.
+
+## MarkdownFlow component libraries
+
+ai-shifu consumes two MarkdownFlow component libraries. Changing either is
+usually done in order to use it here, so the overall flow is: **change the
+library → publish a build → point ai-shifu at it → debug locally / on test / in
+prod**.
+
+| Library            | Kind             | Pinned in                                            | Published from                                                            |
+| ------------------ | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| `markdown-flow`    | Python (backend) | `src/api/requirements.txt` (`markdown-flow==<ver>`)  | [markdown-flow-agent-py](https://github.com/ai-shifu/markdown-flow-agent-py) (PyPI) |
+| `markdown-flow-ui` | npm (frontend)   | `src/cook-web/package.json` (`"markdown-flow-ui"`)   | [markdown-flow-ui](https://github.com/ai-shifu/markdown-flow-ui) (npm)    |
+
+### Trying a library change against this project
+
+1. In the library repo, on your branch, run its **Publish** action to release a
+   build — use a `dev` build (`X.Y.Z.devN` on PyPI, `X.Y.Z-dev.N` on npm) for a
+   throwaway test package. Wait for the run to pass; the version is now published.
+2. Point this project at that version:
+   - **Locally (uncommitted)**: edit the pin in `src/api/requirements.txt`
+     (backend) or `src/cook-web/package.json` (frontend).
+   - **On an already-pushed feature branch**: run the matching bump action —
+     **Bump markdown-flow** (`bump-markdown-flow.yml`) or **Bump markdown-flow-ui**
+     (`bump-markdown-flow-ui.yml`). Each validates the version is published,
+     updates the pin, and pushes the bump back to the branch. Both refuse to run
+     on `main`. (The frontend bump pins an exact version and refreshes
+     `src/cook-web/package-lock.json` so CI's `npm ci` stays green.)
+
+### Rule: `main` must pin RELEASE versions of both libraries
+
+dev builds are for feature-branch / cross-repo testing only. `main` must always
+pin **release** versions (`X.Y.Z`) of both libraries. Two CI checks enforce this
+on every PR into `main` and fail on a pre-release/dev pin:
+
+- **Check markdown-flow release pin** (`check-markdown-flow-release.yml`) — backend.
+- **Check markdown-flow-ui release pin** (`check-markdown-flow-ui-release.yml`) — frontend.
+
+Pin release versions of both before merging.
 
 ## Tests
 

@@ -1,0 +1,42 @@
+{
+  "__namespace__": "module.onboarding",
+  "adminHome": {
+    "billingCard": {
+      "descriptionGeneric": "你可以在这里查看积分余额，也可以购买或升级套餐。",
+      "title": "这里查看积分和购买套餐"
+    },
+    "blankCourse": {
+      "description": "从这里新建一门自己的课程，从头开始制作内容。",
+      "title": "点击新建课程"
+    },
+    "lobsterCourse": {
+      "descriptionLink": "龙虾助理智能建课",
+      "descriptionPrefix": "也可以使用",
+      "descriptionSuffix": "，更快生成课程初稿。",
+      "title": "使用龙虾助理智能建课"
+    }
+  },
+  "common": {
+    "continue": "点击屏幕任意位置继续",
+    "replay": "使用引导",
+    "skip": "跳过"
+  },
+  "courseEditor": {
+    "backHome": {
+      "description": "点击这里返回管理后台，进行平台的管理与设置。",
+      "title": "返回管理后台"
+    },
+    "listenMode": {
+      "description": "开启听课模式后，学员将用PPT+语音的方式进行学习。",
+      "title": "开启听课模式"
+    },
+    "publish": {
+      "description": "点击这里将会将课程的草稿内容更新成课程的正式内容，学员将看到你最新的内容。",
+      "title": "发布课程"
+    },
+    "settingsEntry": {
+      "description": "点击这里可进行课程提示词、AI模型和价格等课程设置。",
+      "title": "打开课程设置"
+    }
+  }
+}

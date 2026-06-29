@@ -24,9 +24,29 @@ class InviteProfileDTO:
     reward_queue_summary: dict[str, int] = field(default_factory=dict)
     reward_queue: list[dict[str, Any]] = field(default_factory=list)
     rules_copy_i18n_key: str = ""
+    available: bool = True
+
+    @classmethod
+    def unavailable(cls) -> "InviteProfileDTO":
+        return cls(
+            campaign_bid="",
+            campaign_code="",
+            invite_code="",
+            invite_url="",
+            reward_product_code="",
+            reward_cycle_count=0,
+            reward_credit_amount=None,
+            reward_credit_validity_days=None,
+            reward_cap_scope="",
+            reward_cap_count=None,
+            reward_granted_count=0,
+            reward_remaining_count=None,
+            available=False,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "available": self.available,
             "campaign_bid": self.campaign_bid,
             "campaign_code": self.campaign_code,
             "invite_code": self.invite_code,

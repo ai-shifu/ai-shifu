@@ -5,6 +5,7 @@
   "askContent": "请输入你想追问的问题",
   "audioLoading": "音频加载中...",
   "classroomEnterFullscreen": "全屏",
+  "classroomTitlePlaceholderTips": "课堂模式只展示幻灯片；按 F 切换全屏，按方向键或空格翻页。",
   "closeCatalog": "关闭目录",
   "generating": "插图生成中...",
   "learningModeClassroom": "课堂模式",

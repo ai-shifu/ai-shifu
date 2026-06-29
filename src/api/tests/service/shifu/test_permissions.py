@@ -282,5 +282,6 @@ class TestShifuPermissions:
             ).all()
 
             assert user.is_creator == 1
+            assert user.creator_activated_at is not None
             assert json.loads(auth.auth_type) == expected_auth_types
             assert len(trial_orders) == 1

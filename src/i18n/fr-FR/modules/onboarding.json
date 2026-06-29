@@ -1,0 +1,42 @@
+{
+  "__namespace__": "module.onboarding",
+  "adminHome": {
+    "billingCard": {
+      "descriptionGeneric": "Consultez ici votre solde de crédits, ou achetez et mettez votre offre à niveau si nécessaire.",
+      "title": "Consultez vos crédits et achetez une offre ici"
+    },
+    "blankCourse": {
+      "description": "Créez ici votre propre cours et construisez le contenu à partir de zéro.",
+      "title": "Cliquez pour créer un nouveau cours"
+    },
+    "lobsterCourse": {
+      "descriptionLink": "Créer des cours avec l'assistant IA",
+      "descriptionPrefix": "Vous pouvez aussi utiliser ",
+      "descriptionSuffix": " pour générer plus rapidement une première ébauche.",
+      "title": "Créer des cours avec l'assistant IA"
+    }
+  },
+  "common": {
+    "continue": "Cliquez n'importe où pour continuer",
+    "replay": "Utiliser le guide",
+    "skip": "Passer"
+  },
+  "courseEditor": {
+    "backHome": {
+      "description": "Cliquez ici pour revenir à la console d'administration afin de gérer et configurer la plateforme.",
+      "title": "Revenir à la console d'administration"
+    },
+    "listenMode": {
+      "description": "Une fois le mode écoute activé, les apprenants étudient avec des diapositives et la voix.",
+      "title": "Activer le mode écoute"
+    },
+    "publish": {
+      "description": "Cliquez ici pour mettre à jour le contenu brouillon du cours vers la version officielle ; les apprenants verront alors votre contenu le plus récent.",
+      "title": "Publier le cours"
+    },
+    "settingsEntry": {
+      "description": "Cliquez ici pour ajuster les paramètres du cours, comme l'invite pédagogique, le modèle d'IA et le prix.",
+      "title": "Ouvrir les paramètres du cours"
+    }
+  }
+}

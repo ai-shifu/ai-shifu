@@ -392,10 +392,10 @@ def build_invite_profile(app: Flask, *, inviter_user_bid: str) -> InviteProfileD
             raise ValueError("inviter_user_bid is required")
         campaign = load_active_campaign()
         if campaign is None:
-            raise ValueError("no active referral campaign")
+            return InviteProfileDTO.unavailable()
         rule = select_reward_rule(campaign)
         if rule is None:
-            raise ValueError("no active referral reward rule")
+            return InviteProfileDTO.unavailable()
 
         invite_code = _load_active_invite_code(
             campaign_bid=campaign.campaign_bid,

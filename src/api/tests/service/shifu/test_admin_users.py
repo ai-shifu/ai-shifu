@@ -2777,6 +2777,13 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(app, monke
             return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(referral_reward_grants_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(user_credits_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(
+        user_credits_module,
+        "_format_operator_datetime",
+        _format_operator_datetime,
+    )
 
     with app.app_context():
         _seed_user(

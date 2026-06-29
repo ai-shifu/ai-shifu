@@ -1,7 +1,7 @@
 {
   "__namespace__": "component.createShifuDialog",
   "create": "Créer",
-  "creating": "Création...",
+  "creating": "Création…",
   "descriptionLabel": "Description du cours",
   "descriptionMaxLength": "La description du cours ne peut pas dépasser 500 caractères",
   "descriptionPlaceholder": "Veuillez saisir la description du cours",

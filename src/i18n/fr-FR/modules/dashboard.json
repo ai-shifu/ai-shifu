@@ -40,21 +40,21 @@
       },
       "filters": {
         "chapterKeyword": "Chapitre",
-        "chapterKeywordPlaceholder": "Saisir chapitre / leçon",
+        "chapterKeywordPlaceholder": "Saisir un chapitre ou une leçon",
         "followUpTime": "Heure de la question",
         "lessonKeyword": "Leçon",
         "lessonKeywordPlaceholder": "Saisir le nom de la leçon",
         "reset": "Réinitialiser",
         "resultCount": "Total {count}",
         "search": "Rechercher",
-        "sourceStatus": "Statut de la sortie originale",
+        "sourceStatus": "Statut de la sortie d’origine",
         "sourceStatusAll": "Tous les statuts",
-        "sourceStatusMissing": "Sortie originale introuvable",
-        "sourceStatusResolved": "Sortie originale localisée",
+        "sourceStatusMissing": "Sortie d’origine introuvable",
+        "sourceStatusResolved": "Sortie d’origine localisée",
         "timePlaceholder": "Sélectionner une période",
         "userKeyword": "Apprenant",
-        "userKeywordPlaceholderEmail": "Saisir pseudo / e-mail",
-        "userKeywordPlaceholderPhone": "Saisir pseudo / téléphone"
+        "userKeywordPlaceholderEmail": "Saisir un pseudonyme ou un e-mail",
+        "userKeywordPlaceholderPhone": "Saisir un pseudonyme ou un téléphone"
       },
       "summary": {
         "followUpCount": "Total des questions",
@@ -71,8 +71,8 @@
         "detailAction": "Détail",
         "empty": "Aucune donnée de question",
         "lesson": "Leçon",
-        "sourceMissing": "Sortie originale introuvable",
-        "sourceResolved": "Sortie originale localisée",
+        "sourceMissing": "Sortie d’origine introuvable",
+        "sourceResolved": "Sortie d’origine localisée",
         "title": "Liste des questions",
         "turnIndex": "Tour",
         "user": "Apprenant"
@@ -98,8 +98,8 @@
         "statusAll": "Tous",
         "userKeyword": "Apprenant"
       },
-      "searchPlaceholderEmail": "Saisir pseudo / e-mail",
-      "searchPlaceholderPhone": "Saisir pseudo / téléphone",
+      "searchPlaceholderEmail": "Saisir un pseudonyme ou un e-mail",
+      "searchPlaceholderPhone": "Saisir un pseudonyme ou un téléphone",
       "status": {
         "completed": "Terminé",
         "learning": "En cours",
@@ -126,7 +126,7 @@
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Chapitre",
-        "chapterKeywordPlaceholder": "Saisir chapitre / leçon",
+        "chapterKeywordPlaceholder": "Saisir un chapitre ou une leçon",
         "commentStatus": "Commentaire",
         "commentStatusAll": "Tous",
         "commentStatusCommented": "Avec commentaire seulement",
@@ -138,8 +138,8 @@
         "search": "Rechercher",
         "timePlaceholder": "Sélectionner une période",
         "userKeyword": "Apprenant",
-        "userKeywordPlaceholderEmail": "Saisir pseudo / e-mail",
-        "userKeywordPlaceholderPhone": "Saisir pseudo / téléphone"
+        "userKeywordPlaceholderEmail": "Saisir un pseudonyme ou un e-mail",
+        "userKeywordPlaceholderPhone": "Saisir un pseudonyme ou un téléphone"
       },
       "scoreValue": "{score} étoiles",
       "summary": {
@@ -183,7 +183,7 @@
       "reset": "Réinitialiser",
       "scopeNote": "Périmètre : seules les données des cours que vous avez créés et possédez sont incluses. Les cours collaboratifs sont exclus.",
       "search": "Rechercher",
-      "searchPlaceholder": "Recherche par nom ou ID de cours",
+      "searchPlaceholder": "Rechercher par nom ou ID de cours",
       "title": "Liste des cours",
       "totalCount": "Total : {count}",
       "viewCourse": "Voir le cours",
