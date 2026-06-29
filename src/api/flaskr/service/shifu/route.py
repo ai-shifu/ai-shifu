@@ -1237,15 +1237,18 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/SimpleOutlineDto"
         """
         user_id = request.user.user_id
-        parent_bid = request.get_json().get("parent_bid")
-        name = request.get_json().get("name")
-        description = request.get_json().get("description", "")
+        json_data = request.get_json() or {}
+        if not isinstance(json_data, dict):
+            raise_param_error("json body")
+        parent_bid = json_data.get("parent_bid")
+        name = json_data.get("name")
+        description = json_data.get("description", "")
         # No defaults: None is passed through to create_outline, which applies its
         # own fallback (a new outline still needs a concrete type/visibility).
-        type = request.get_json().get("type")
-        index = request.get_json().get("index", None)
-        system_prompt = request.get_json().get("system_prompt", None)
-        is_hidden = request.get_json().get("is_hidden")
+        type = json_data.get("type")
+        index = json_data.get("index", None)
+        system_prompt = json_data.get("system_prompt", None)
+        is_hidden = json_data.get("is_hidden")
         if isinstance(is_hidden, str):
             is_hidden = is_hidden.lower() == "true"
         return make_common_response(
@@ -1559,6 +1562,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         user_id = request.user.user_id
         json_data = request.get_json() or {}
+        if not isinstance(json_data, dict):
+            raise_param_error("json body")
         content = json_data.get("data") or ""
         base_revision = json_data.get("base_revision")
         if base_revision is not None:

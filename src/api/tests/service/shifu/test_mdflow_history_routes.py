@@ -68,6 +68,46 @@ def _seed_shifu_with_outline(
         return int(outline.id)
 
 
+def test_create_outline_route_rejects_missing_name_without_500(
+    monkeypatch, test_client, app
+):
+    shifu_bid = "test-route-create-outline-invalid-name"
+    outline_bid = "test-route-create-outline-seed"
+    owner_bid = "test-route-create-outline-owner"
+    _seed_shifu_with_outline(app, shifu_bid, outline_bid, owner_bid, "seed")
+    _mock_user(monkeypatch, owner_bid)
+
+    resp = test_client.post(
+        f"/api/shifu/shifus/{shifu_bid}/outlines",
+        headers={"Token": "test-token"},
+        json={"name": None},
+    )
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+
+
+def test_save_mdflow_route_rejects_non_object_json_without_500(
+    monkeypatch, test_client, app
+):
+    shifu_bid = "test-route-save-mdflow-invalid-body"
+    outline_bid = "test-route-save-mdflow-invalid-outline"
+    owner_bid = "test-route-save-mdflow-invalid-owner"
+    _seed_shifu_with_outline(app, shifu_bid, outline_bid, owner_bid, "seed")
+    _mock_user(monkeypatch, owner_bid)
+
+    resp = test_client.post(
+        f"/api/shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow",
+        headers={"Token": "test-token"},
+        json="not-an-object",
+    )
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+
+
 def test_get_mdflow_history_version_detail_route_success(monkeypatch, test_client, app):
     shifu_bid = "test-route-history-detail-1"
     outline_bid = "test-route-outline-1"
