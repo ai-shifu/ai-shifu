@@ -41,7 +41,10 @@ import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
 import { useCreatorOnboardingStatus } from '@/hooks/useOnboarding';
-import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
+import {
+  canManageArchive as canManageArchiveForShifu,
+  canManageOwnerCourseAction,
+} from '@/lib/shifu-permissions';
 import {
   buildGuideCourseTargetId,
   buildOnboardingTargetProps,
@@ -827,11 +830,15 @@ const ScriptManagementPage = () => {
                   canManagePermissions={canManagePermissions(shifu)}
                   onArchiveRequest={() => handleArchiveRequest(shifu)}
                   onPermissionRequest={() => handlePermissionRequest(shifu)}
-                  onImportActivationRequest={() =>
-                    handleImportActivationRequest(shifu)
+                  onImportActivationRequest={
+                    canManageOwnerCourseAction(shifu, currentUserId)
+                      ? () => handleImportActivationRequest(shifu)
+                      : undefined
                   }
-                  onRedemptionCodeRequest={() =>
-                    handleRedemptionCodeRequest(shifu)
+                  onRedemptionCodeRequest={
+                    canManageOwnerCourseAction(shifu, currentUserId)
+                      ? () => handleRedemptionCodeRequest(shifu)
+                      : undefined
                   }
                   onboardingTargetId={
                     shifu.bid === onboardingStatus?.guide_course.bid

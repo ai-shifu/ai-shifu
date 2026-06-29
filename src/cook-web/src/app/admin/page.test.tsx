@@ -94,6 +94,10 @@ jest.mock('@/lib/onboardingTargets', () => ({
 
 jest.mock('@/lib/shifu-permissions', () => ({
   canManageArchive: () => true,
+  canManageOwnerCourseAction: (
+    shifu: { created_user_bid?: string } | null | undefined,
+    currentUserId: string,
+  ) => shifu?.created_user_bid === currentUserId,
 }));
 
 jest.mock('react-i18next', () => ({
@@ -400,5 +404,45 @@ describe('AdminPage', () => {
       },
       { timeout: 500 },
     );
+  });
+
+  test('does not show owner-only course actions for shared-permission courses', async () => {
+    mockGetShifuList.mockResolvedValue({
+      items: [
+        {
+          bid: 'course-shared-1',
+          name: 'Shared Course',
+          description: 'Shared course description',
+          archived: false,
+          avatar: '',
+          is_favorite: false,
+          created_user_bid: 'owner-1',
+          can_manage_permissions: false,
+        },
+      ],
+    });
+
+    render(<AdminPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Shared Course')).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.more',
+      }),
+    );
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.order.importActivation.action',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.order.redemptionCodes.action',
+      }),
+    ).not.toBeInTheDocument();
   });
 });
