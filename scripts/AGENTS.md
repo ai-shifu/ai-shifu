@@ -84,7 +84,7 @@ under `scripts/`, including translation utilities and AI-doc tooling.
   and locale-metadata checks in the same task.
 
 - When AI-doc generation or validation scripts change, regenerate docs, rerun
-  `python scripts/check_repo_harness.py`, and run focused pre-commit on the
+  `python scripts/check_repo_harness.py`, and run focused lefthook checks on the
   touched files.
 
 ## Related Skills
