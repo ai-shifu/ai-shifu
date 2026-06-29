@@ -284,6 +284,30 @@ describe('CreatorRedemptionCodeDialog', () => {
     expect(mockCreateCreatorCourseRedemptionCode).not.toHaveBeenCalled();
   });
 
+  test('locks the selected course when opened from a course card shortcut', async () => {
+    render(
+      <CreatorRedemptionCodeDialog
+        open
+        onOpenChange={jest.fn()}
+        initialShifuBid='course-1'
+        initialShifuName='Course 1'
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOrderShifus).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 100,
+        published: true,
+      });
+    });
+
+    expect(screen.getByDisplayValue('Course 1')).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Course 1' }),
+    ).not.toBeInTheDocument();
+  });
+
   test('stops loading courses when the safety page limit is reached', async () => {
     mockGetAdminOrderShifus.mockResolvedValue({
       items: Array.from({ length: 100 }, (_, index) => ({
