@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  check-markdown-flow-ui-release:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
