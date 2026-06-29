@@ -129,3 +129,92 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
     assert summary_call["kwargs"]["record_level"] == 0
     assert summary_call["kwargs"]["segment_count"] == 2
     assert summary_call["kwargs"]["word_count"] == 10
+
+
+def test_build_tts_preview_response_normalizes_removed_fields(monkeypatch) -> None:
+    app = Flask(__name__)
+    captured_validation: dict[str, object] = {}
+
+    def _fake_validate_tts_settings_strict(**kwargs):
+        captured_validation.update(kwargs)
+        return SimpleNamespace(
+            provider="fake",
+            model="tts-model-1",
+            voice_id="voice-1",
+            speed=1.0,
+            pitch=kwargs["pitch"],
+            emotion=kwargs["emotion"],
+        )
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.validate_tts_settings_strict",
+        _fake_validate_tts_settings_strict,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.is_tts_configured",
+        lambda _provider: True,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.get_default_voice_settings",
+        lambda _provider: SimpleNamespace(
+            voice_id="",
+            speed=0.0,
+            pitch=0,
+            emotion="",
+            volume=1.0,
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.get_default_audio_settings",
+        lambda _provider: _FakeAudioSettings(),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.split_text_for_tts",
+        lambda _text, provider_name="": ["hello"],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.preprocess_for_tts",
+        lambda text: text,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.generate_id",
+        lambda _app: "usage-parent-1",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.synthesize_text",
+        lambda **_kwargs: SimpleNamespace(
+            duration_ms=123,
+            audio_data=b"abc",
+            word_count=5,
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.record_tts_usage",
+        lambda *_args, **kwargs: kwargs.get("usage_bid") or "usage-1",
+        raising=False,
+    )
+
+    with app.test_request_context("/api/shifu/tts/preview", method="POST"):
+        response = build_tts_preview_response(
+            {
+                "provider": "fake",
+                "model": "tts-model-1",
+                "voice_id": "voice-1",
+                "speed": 1.0,
+                "pitch": 9,
+                "emotion": "happy",
+                "text": "hello",
+            },
+        )
+        "".join(response.response)
+
+    assert captured_validation["pitch"] == 0
+    assert captured_validation["emotion"] == ""

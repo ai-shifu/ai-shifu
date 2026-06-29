@@ -19,7 +19,7 @@ from flaskr.api.langfuse import (
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.metering import UsageContext, record_llm_usage
-from flaskr.service.metering.consts import normalize_usage_scene
+from flaskr.service.metering.consts import BILL_USAGE_TYPE_LLM, normalize_usage_scene
 from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
@@ -940,13 +940,39 @@ def chat_llm(
     )
 
 
+def _attach_credit_multiplier_label(app: Flask, option: dict[str, Any]) -> dict[str, Any]:
+    model = str(option.get("model") or "").strip()
+    if not model:
+        return option
+    provider, _normalized = _resolve_provider_for_model(model)
+    try:
+        from flaskr.service.billing.charges import resolve_credit_multiplier_label
+
+        label = resolve_credit_multiplier_label(
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider=provider or "",
+            model=model,
+        )
+    except Exception as exc:
+        app.logger.debug("Skipping LLM credit multiplier label: %s", exc)
+        return option
+    if label:
+        option["credit_multiplier_label"] = label
+    return option
+
+
 def _build_model_options(
     app: Flask, available_models: list[str]
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     allowed, display_names = _resolve_allowed_model_config()
 
     if not allowed:
-        return [{"model": model, "display_name": model} for model in available_models]
+        return [
+            _attach_credit_multiplier_label(
+                app, {"model": model, "display_name": model}
+            )
+            for model in available_models
+        ]
 
     available_set = set(available_models)
     filtered_models: list[str] = []
@@ -971,15 +997,18 @@ def _build_model_options(
     )
 
     return [
-        {
-            "model": model,
-            "display_name": display_map.get(model, model),
-        }
+        _attach_credit_multiplier_label(
+            app,
+            {
+                "model": model,
+                "display_name": display_map.get(model, model),
+            },
+        )
         for model in filtered_models
     ]
 
 
-def get_current_models(app: Flask) -> list[dict[str, str]]:
+def get_current_models(app: Flask) -> list[dict[str, Any]]:
     litellm_models: list[str] = []
     for state in PROVIDER_STATES.values():
         litellm_models.extend(state.models)

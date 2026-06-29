@@ -1483,8 +1483,14 @@ export const ShifuProvider = ({
         const labelSource =
           item.display_name || item.displayName || item.label || value;
         const label = String(labelSource || value).trim() || value;
+        const creditMultiplierLabel =
+          item.credit_multiplier_label || item.creditMultiplierLabel || '';
         seen.add(value);
-        options.push({ value, label });
+        options.push({
+          value,
+          label,
+          credit_multiplier_label: String(creditMultiplierLabel || ''),
+        });
       }
     });
 

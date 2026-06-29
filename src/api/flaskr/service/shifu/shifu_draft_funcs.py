@@ -438,6 +438,8 @@ def save_shifu_draft_info(
         ShifuDetailDto: Shifu detail dto
     """
     with app.app_context():
+        tts_pitch = 0
+        tts_emotion = ""
         if tts_enabled:
             validated = validate_tts_settings_strict(
                 provider=tts_provider,

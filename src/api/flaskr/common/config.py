@@ -1263,6 +1263,30 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Maximum characters per TTS segment",
         group="tts",
     ),
+    "TTS_ALLOWED_MODELS": EnvVar(
+        name="TTS_ALLOWED_MODELS",
+        default=[],
+        type=list,
+        description=(
+            "Comma separated list of allowed TTS models to expose in UI. "
+            "Use provider/model format, e.g. minimax/speech-01-turbo. "
+            "Use provider/default for providers without model selection. "
+            "When empty, all detected TTS models are shown."
+        ),
+        group="tts",
+        required=False,
+    ),
+    "TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON": EnvVar(
+        name="TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON",
+        default="",
+        description=(
+            "Optional JSON object for localized TTS model display names. "
+            "Keys must match TTS_ALLOWED_MODELS provider/model values; values "
+            "may be locale maps like {\"zh-CN\":\"名称\",\"en-US\":\"Name\"}."
+        ),
+        group="tts",
+        required=False,
+    ),
     "MINIMAX_TTS_SAMPLE_RATE": EnvVar(
         name="MINIMAX_TTS_SAMPLE_RATE",
         default=24000,
