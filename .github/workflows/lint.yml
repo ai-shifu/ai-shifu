@@ -33,6 +33,11 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
+          # Do not leave the write-capable token in .git/config while
+          # PR-controlled tooling (npm ci, linters) runs. The push step
+          # supplies it explicitly. The repo is public, so the base fetch
+          # below needs no credentials.
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -79,18 +84,28 @@ jobs:
           [ -n "$cwlint" ] && { (cd src/cook-web && npm run lint-file -- $cwlint) || true; }
           true
 
-      - name: Push auto-fixes back to the PR branch
-        # Only on same-repo PRs (fork PRs have no write access to the head repo).
-        if: github.event.pull_request.head.repo.full_name == github.repository
+      - name: Apply auto-fixes (push on same-repo PRs; fail forks that need fixes)
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          GH_TOKEN: ${{ github.token }}
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
-          if [ -n "$(git status --porcelain)" ]; then
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No auto-fixes needed."
+            exit 0
+          fi
+          echo "Auto-fixable changes detected:"; git --no-pager diff --stat
+          if [ "$SAME_REPO" = "true" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -A
             git commit -m "style: auto-fix from lint hooks"
-            git push origin "HEAD:${{ github.head_ref }}"
+            # Token supplied only here (branch name via env, never expanded in shell).
+            git -c http.https://github.com/.extraheader="AUTHORIZATION: bearer ${GH_TOKEN}" \
+              push origin "HEAD:${HEAD_REF}"
           else
-            echo "No auto-fixes to push."
+            echo "::error::Auto-fixable lint issues found on a fork PR (cannot push fixes). Run 'lefthook run pre-commit --all-files' locally and push the result."
+            exit 1
           fi
 
       - name: Hard-fail checks (on the now-fixed tree)

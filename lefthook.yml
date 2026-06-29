@@ -70,8 +70,10 @@ pre-commit:
       stage_fixed: true
     eslint:
       glob: "src/cook-web/**/*.{js,jsx,ts,tsx}"
-      # Strip the src/cook-web/ prefix so `next lint --file` gets repo-cook-web paths.
-      run: bash -c 'cd src/cook-web && npm run lint-file -- $(echo "$@" | sed "s|src/cook-web/||g")' -- {staged_files}
+      # Strip the src/cook-web/ prefix per argument so `next lint --file` gets
+      # cook-web-relative paths while each file stays a separate shell argument
+      # (robust to spaces / glob characters in paths).
+      run: bash -c 'cd src/cook-web && args=(); for f in "$@"; do args+=("${f#src/cook-web/}"); done; npm run lint-file -- "${args[@]}"' -- {staged_files}
       stage_fixed: true
 
     # --- Repo guardrails (stdlib python, run once; glob only gates whether) ---
