@@ -64,6 +64,25 @@ to.
 - `pre-commit run -a` is the repository-wide verification gate before a
   commit-sized change lands.
 
+## markdown-flow dependency
+
+`markdown-flow` is the core MarkdownFlow engine, pinned in
+`src/api/requirements.txt` (the `markdown-flow==<version>` line). It is published
+from <https://github.com/ai-shifu/markdown-flow-agent-py>.
+
+To try a `markdown-flow` change against this project:
+
+1. In `markdown-flow-agent-py`, on your branch, run its **Publish** action to
+   release a build (use `dev` for a throwaway `X.Y.Z.devN` test package). Wait
+   for the run to pass — the version is now on PyPI.
+2. Point this project at that version:
+   - **Locally (uncommitted)**: edit the `markdown-flow==` line in
+     `src/api/requirements.txt`.
+   - **On an already-pushed feature branch**: run the **Bump markdown-flow**
+     action (`.github/workflows/bump-markdown-flow.yml`) with the published
+     version. It validates the version exists on PyPI, updates the pin, and
+     pushes the bump back to the branch. It refuses to run on `main`.
+
 ## Tests
 
 - Run the smallest relevant backend, frontend, or script checks first, then
