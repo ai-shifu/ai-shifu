@@ -89,6 +89,22 @@ const nextConfig: NextConfig = {
     return [{ source: '/main', destination: '/admin', permanent: true }];
   },
 
+  // 本地开发：代理 /api/* 到后端，解决远程访问时跨域问题。
+  // 仅在 `next dev`（npm run dev）下生效；生产构建/启动（next build / next start）
+  // 的 NODE_ENV 为 'production'，不注入该代理。
+  async rewrites() {
+    if (process.env.NODE_ENV !== 'development') {
+      return [];
+    }
+    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5800';
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
+      },
+    ];
+  },
+
   // Disable image optimization to avoid Sharp dependency
   images: {
     unoptimized: true,
