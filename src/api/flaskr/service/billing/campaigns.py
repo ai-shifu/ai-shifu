@@ -152,7 +152,6 @@ def build_admin_billing_campaigns_page(
     status: str = "",
     start_time: str = "",
     end_time: str = "",
-    timezone_name: str | None = None,
 ) -> AdminBillingCampaignsPageDTO:
     safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
     normalized_keyword = str(keyword or "").strip()
@@ -239,7 +238,6 @@ def build_admin_billing_campaigns_page(
                     product_types=product_type_map.get(row.campaign_bid, []),
                     bindings=binding_map.get(row.campaign_bid, []),
                     hit_order_count=hit_count_map.get(row.campaign_bid, 0),
-                    timezone_name=timezone_name,
                 )
                 for row in rows
             ],
@@ -253,8 +251,6 @@ def build_admin_billing_campaigns_page(
 def build_admin_billing_campaign_detail(
     app: Flask,
     campaign_bid: str,
-    *,
-    timezone_name: str | None = None,
 ) -> AdminBillingCampaignDetailDTO:
     normalized_campaign_bid = normalize_bid(campaign_bid)
     if not normalized_campaign_bid:
@@ -288,7 +284,6 @@ def build_admin_billing_campaign_detail(
             product_types=product_types,
             bindings=bindings,
             hit_order_count=hit_count_map.get(normalized_campaign_bid, 0),
-            timezone_name=timezone_name,
         )
         return serialize_admin_campaign_detail(
             campaign_dto,
@@ -1096,7 +1091,6 @@ def _serialize_admin_campaign_row(
     product_types: list[str],
     bindings: list[BillingCampaignProduct],
     hit_order_count: int,
-    timezone_name: str | None = None,
 ):
     campaign_rule_snapshot = _resolve_campaign_rule_snapshot_from_bindings(
         row,
@@ -1113,7 +1107,6 @@ def _serialize_admin_campaign_row(
         discount_amount=campaign_rule_snapshot["discount_amount"],
         discount_percent=campaign_rule_snapshot["discount_percent"],
         bonus_credit_amount=campaign_rule_snapshot["bonus_credit_amount"],
-        timezone_name=timezone_name,
     )
 
 

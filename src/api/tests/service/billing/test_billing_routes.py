@@ -1079,20 +1079,13 @@ class TestBillingRoutes:
     def test_build_billing_ledger_page_returns_raw_created_at(
         self, billing_test_client
     ) -> None:
-        # DTO datetime fields now hold the raw stored datetime; timezone_name no
-        # longer localizes them (the fmt sink emits UTC at serialization time).
+        # DTO datetime fields now hold the raw stored datetime; the browser
+        # timezone thread is gone and the fmt sink emits UTC at serialization time.
         app = billing_test_client.application
 
-        ledger_page = build_billing_ledger_page(
-            app,
-            "creator-1",
-            page_size=1,
-            timezone_name="Asia/Shanghai",
-        )
-        default_ledger_page = build_billing_ledger_page(app, "creator-1", page_size=1)
+        ledger_page = build_billing_ledger_page(app, "creator-1", page_size=1)
 
         assert ledger_page.items[0].created_at == datetime(2026, 4, 6, 10, 0)
-        assert default_ledger_page.items[0].created_at == datetime(2026, 4, 6, 10, 0)
 
     def test_build_billing_ledger_page_uses_draft_course_name_for_non_prod_usage(
         self, billing_test_client

@@ -417,7 +417,6 @@ describe('AdminBillingPage', () => {
     expect(mockGetBillingLedger).toHaveBeenCalledWith({
       page_index: 1,
       page_size: 10,
-      timezone: 'Asia/Shanghai',
     });
 
     expect(
@@ -452,7 +451,6 @@ describe('AdminBillingPage', () => {
       'mt-0',
     );
     expect(mockGetBillingCatalog).toHaveBeenCalledWith({
-      timezone: 'Asia/Shanghai',
     });
   });
 

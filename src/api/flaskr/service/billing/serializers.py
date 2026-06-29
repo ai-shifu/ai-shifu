@@ -175,7 +175,6 @@ def serialize_admin_campaign(
     discount_amount: int | None = None,
     discount_percent: Any | None = None,
     bonus_credit_amount: Any | None = None,
-    timezone_name: str | None = None,
 ) -> AdminBillingCampaignDTO:
     now = datetime.now()
     if not bool(row.enabled):
@@ -326,8 +325,6 @@ def serialize_wallet(wallet: CreditWallet | None) -> BillingWalletSnapshotDTO:
 def serialize_subscription(
     app: Flask,
     row: BillingSubscription | None,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingSubscriptionDTO | None:
     if row is None:
         return None
@@ -356,7 +353,6 @@ def serialize_admin_subscription(
     product_codes: dict[str, str],
     wallet: CreditWallet | None,
     renewal_event: BillingRenewalEvent | None,
-    timezone_name: str | None = None,
 ) -> AdminBillingSubscriptionDTO:
     next_product_bid = normalize_bid(row.next_product_bid)
     return AdminBillingSubscriptionDTO(
@@ -380,7 +376,6 @@ def serialize_admin_subscription(
         latest_renewal_event=serialize_renewal_event(
             app,
             renewal_event,
-            timezone_name=timezone_name,
         ),
         has_attention=_subscription_has_attention(
             row,
@@ -392,8 +387,6 @@ def serialize_admin_subscription(
 def serialize_renewal_event(
     app: Flask,
     row: BillingRenewalEvent | None,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingRenewalEventDTO | None:
     if row is None:
         return None
@@ -468,8 +461,6 @@ def build_billing_alerts(
 def serialize_wallet_bucket(
     app: Flask,
     row: CreditWalletBucket,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingWalletBucketDTO:
     runtime_status = CREDIT_BUCKET_STATUS_LABELS.get(row.status, "active")
     if (
@@ -501,7 +492,6 @@ def serialize_ledger_entry(
     row: CreditLedgerEntry,
     *,
     metadata: Any | None = None,
-    timezone_name: str | None = None,
 ) -> BillingLedgerItemDTO:
     return BillingLedgerItemDTO(
         ledger_bid=row.ledger_bid,
@@ -524,8 +514,6 @@ def serialize_ledger_entry(
 def serialize_daily_usage_metric(
     app: Flask,
     row: BillingDailyUsageMetric,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingDailyUsageMetricDTO:
     return BillingDailyUsageMetricDTO(
         daily_usage_metric_bid=row.daily_usage_metric_bid,
@@ -550,8 +538,6 @@ def serialize_daily_usage_metric(
 def serialize_daily_ledger_summary(
     app: Flask,
     row: BillingDailyLedgerSummary,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingDailyLedgerSummaryDTO:
     return BillingDailyLedgerSummaryDTO(
         daily_ledger_summary_bid=row.daily_ledger_summary_bid,
@@ -568,8 +554,6 @@ def serialize_daily_ledger_summary(
 def serialize_admin_entitlement_state(
     app: Flask,
     state,
-    *,
-    timezone_name: str | None = None,
 ) -> AdminBillingEntitlementDTO:
     return AdminBillingEntitlementDTO(
         creator_bid=normalize_bid(state.creator_bid),
@@ -593,7 +577,6 @@ def serialize_admin_domain_binding(
     row: BillingDomainBinding,
     *,
     custom_domain_enabled: bool = False,
-    timezone_name: str | None = None,
 ) -> AdminBillingDomainBindingDTO:
     metadata = normalize_json_object(row.metadata_json)
     verification_record_name = str(
@@ -642,13 +625,10 @@ def serialize_admin_domain_binding(
 def serialize_admin_daily_usage_metric(
     app: Flask,
     row: BillingDailyUsageMetric,
-    *,
-    timezone_name: str | None = None,
 ) -> AdminBillingDailyUsageMetricDTO:
     payload = serialize_daily_usage_metric(
         app,
         row,
-        timezone_name=timezone_name,
     )
     return AdminBillingDailyUsageMetricDTO(
         **payload.__json__(), creator_bid=row.creator_bid
@@ -658,13 +638,10 @@ def serialize_admin_daily_usage_metric(
 def serialize_admin_daily_ledger_summary(
     app: Flask,
     row: BillingDailyLedgerSummary,
-    *,
-    timezone_name: str | None = None,
 ) -> AdminBillingDailyLedgerSummaryDTO:
     payload = serialize_daily_ledger_summary(
         app,
         row,
-        timezone_name=timezone_name,
     )
     return AdminBillingDailyLedgerSummaryDTO(
         **payload.__json__(),
@@ -675,8 +652,6 @@ def serialize_admin_daily_ledger_summary(
 def serialize_order_summary(
     app: Flask,
     row: BillingOrder,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingOrderSummaryDTO:
     subscription_bid = normalize_bid(row.subscription_bid)
     payment_mode = _resolve_billing_order_payment_mode(row)
@@ -703,10 +678,8 @@ def serialize_order_summary(
 def serialize_admin_order_summary(
     app: Flask,
     row: BillingOrder,
-    *,
-    timezone_name: str | None = None,
 ) -> AdminBillingOrderDTO:
-    payload = serialize_order_summary(app, row, timezone_name=timezone_name)
+    payload = serialize_order_summary(app, row)
     return AdminBillingOrderDTO(
         **payload.__json__(),
         failure_code=str(row.failure_code or ""),
@@ -739,7 +712,6 @@ def serialize_operator_credit_order_grant(
     granted_credits: int | float,
     valid_from,
     valid_to,
-    timezone_name: str | None = None,
 ) -> OperatorCreditOrderGrantDTO:
     return OperatorCreditOrderGrantDTO(
         granted_credits=granted_credits,
@@ -757,12 +729,10 @@ def serialize_operator_credit_order(
     product: BillingProduct | None,
     creator: dict[str, str],
     grant: OperatorCreditOrderGrantDTO | None,
-    timezone_name: str | None = None,
 ) -> OperatorCreditOrderDTO:
     order_summary = serialize_admin_order_summary(
         app,
         row,
-        timezone_name=timezone_name,
     )
     return OperatorCreditOrderDTO(
         bill_order_bid=row.bill_order_bid,

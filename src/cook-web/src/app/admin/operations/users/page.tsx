@@ -61,7 +61,6 @@ import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
 import { buildBillingSwrKey } from '@/lib/billing';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
@@ -770,9 +769,7 @@ export default function AdminOperationUsersPage() {
 
   const handleGrantSuccess = useCallback(() => {
     void fetchUsers(pageIndex, appliedFilters, quickFilter);
-    void mutate(
-      buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY, getBrowserTimeZone()),
-    );
+    void mutate(buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY));
   }, [appliedFilters, fetchUsers, mutate, pageIndex, quickFilter]);
 
   const renderResizeHandle = (key: ColumnKey) => (

@@ -15,7 +15,6 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
 )
-from flaskr.util.timezone import serialize_with_app_timezone
 
 from .consts import BILL_CONFIG_KEY_CREDIT_PRECISION, BILL_CONFIG_KEY_ENABLED
 from .value_objects import JsonObjectMap
@@ -222,12 +221,3 @@ def normalize_json_object(value: Any) -> JsonObjectMap:
     if isinstance(normalized, JsonObjectMap):
         return normalized
     return JsonObjectMap()
-
-
-def serialize_dt(
-    app: Flask,
-    value: datetime | None,
-    *,
-    timezone_name: str | None = None,
-) -> str | None:
-    return serialize_with_app_timezone(app, value, timezone_name)

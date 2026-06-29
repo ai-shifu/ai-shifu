@@ -780,7 +780,6 @@ describe('AdminOperationUsersPage', () => {
     expect(mockMutateBillingOverview).toHaveBeenCalledTimes(1);
     expect(mockMutateBillingOverview).toHaveBeenCalledWith([
       'creator-billing-overview',
-      'UTC',
     ]);
   });
 

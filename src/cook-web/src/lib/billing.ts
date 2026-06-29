@@ -439,26 +439,8 @@ export function resolveBillingProductDescription(
   return t(product.description);
 }
 
-export function buildBillingSwrKey(
-  baseKey: string,
-  timezone: string,
-  ...parts: unknown[]
-) {
-  return [baseKey, ...parts, timezone || ''] as const;
-}
-
-export function withBillingTimezone<T extends Record<string, unknown>>(
-  params: T,
-  timezone: string,
-): T & { timezone?: string } {
-  if (!timezone) {
-    return params;
-  }
-
-  return {
-    ...params,
-    timezone,
-  };
+export function buildBillingSwrKey(baseKey: string, ...parts: unknown[]) {
+  return [baseKey, ...parts] as const;
 }
 
 export function parseBillingDateValue(
