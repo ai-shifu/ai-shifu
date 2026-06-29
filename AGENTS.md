@@ -71,8 +71,8 @@ to.
   metadata, and generated harness artifacts.
 - `python scripts/check_architecture_boundaries.py` validates the committed
   frontend/backend boundary baseline and blocks new drift.
-- `pre-commit run -a` is the repository-wide verification gate before a
-  commit-sized change lands.
+- `lefthook run pre-commit --all-files` is the repository-wide verification
+  gate before a commit-sized change lands.
 
 ## MarkdownFlow component libraries
 

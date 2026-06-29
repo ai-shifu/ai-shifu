@@ -18,7 +18,7 @@ details behind those rules.
 | Run backend tests | `pytest` | `cd src/api` |
 | Generate DB migration | `FLASK_APP=app.py flask db migrate -m "message"` | `cd src/api` |
 | Apply DB migration | `FLASK_APP=app.py flask db upgrade` | `cd src/api` |
-| Check code quality | `pre-commit run -a` | Root directory |
+| Check code quality | `lefthook run pre-commit --all-files` | Root directory |
 | Start all services (Docker) | `docker compose -f docker-compose.latest.yml up -d` | `cd docker` |
 | Start Docker dev stack (build local latest) | `./dev_in_docker.sh` | `cd docker` |
 | Build Cook Web dev image | `docker build ../src/cook-web -t ai-shifu-cook-web-dev -f ../src/cook-web/Dockerfile_DEV` | `cd docker` |
@@ -37,7 +37,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5000
 
 ### Must Do Before Any Commit
 
-1. Run pre-commit hooks: `pre-commit run`
+1. Run the lefthook checks: `lefthook run pre-commit`
 2. Generate a migration for DB changes: `flask db migrate -m "description"`
 3. Test the relevant change surface
 4. Use English for code-facing text
@@ -48,7 +48,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5000
 - Never edit applied migrations. Always create a new one.
 - Do not hardcode user-facing strings. Use i18n keys.
 - Do not create DB foreign key constraints for business-key relationships.
-- Do not skip pre-commit.
+- Do not skip the lefthook checks.
 - Do not commit secrets.
 - Do not use Chinese in code or code-facing docs.
 
@@ -463,7 +463,7 @@ When adding a new namespace:
 | Database connection fails | Verify MySQL and credentials |
 | Migration not detecting changes | Ensure the model is imported |
 | Frontend cannot connect to API | Check CORS and API URL config |
-| Pre-commit fails | Run `pre-commit install` |
+| Lefthook checks fail | Run `lefthook install` |
 | Tests fail with import errors | Check `PYTHONPATH` and local env |
 | Docker build fails | Ensure required `.env` files exist |
 | TypeScript errors in Cook Web | Run `npm run type-check` |

@@ -82,7 +82,6 @@ prometheus-client==0.22.1
 pydub>=0.25.1
 platformdirs==4.2.2
 pluggy==1.5.0
-pre-commit==3.8.0
 protobuf==6.31.1
 pycryptodome==3.20.0
 pycryptodomex==3.20.0
