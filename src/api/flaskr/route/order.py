@@ -35,12 +35,23 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     get_shifu_draft_list,
     get_shifu_published_list,
 )
+from flaskr.service.shifu.utils import get_shifu_creator_bid
 
 
 def register_order_handler(app: Flask, path_prefix: str):
     def _require_creator():
         if not request.user.is_creator:
             raise_error("server.shifu.noPermission")
+
+    def _require_shifu_owner(shifu_bid: str) -> str:
+        _require_creator()
+        user_id = request.user.user_id
+        creator_bid = get_shifu_creator_bid(app, shifu_bid)
+        if not creator_bid:
+            raise_error("server.shifu.shifuNotFound")
+        if creator_bid != user_id:
+            raise_error("server.shifu.noPermission")
+        return user_id
 
     def _parse_datetime_filter(
         value: str, field_name: str, *, is_end: bool = False
@@ -622,7 +633,6 @@ def register_order_handler(app: Flask, path_prefix: str):
                                         order_bid:
                                             type: string
         """
-        _require_creator()
         payload = request.get_json() or {}
         lines = payload.get("lines")
         course_id = str(payload.get("course_id", "")).strip()
@@ -633,6 +643,7 @@ def register_order_handler(app: Flask, path_prefix: str):
             raise_param_error("course_id")
         if contact_type not in {"phone", "email"}:
             raise_param_error("contact_type")
+        _require_shifu_owner(course_id)
 
         contact_label = "email" if contact_type == "email" else "mobile"
 
