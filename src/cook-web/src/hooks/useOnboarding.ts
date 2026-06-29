@@ -20,6 +20,7 @@ type UseOnboardingOptions = {
   enabled: boolean;
   steps: OnboardingStep[];
   onComplete: () => Promise<void> | void;
+  onSkip?: () => Promise<void> | void;
   onStepResolved?: (step: OnboardingStep, stepIndex: number) => void;
   onStepMissing?: (step: OnboardingStep, stepIndex: number) => void;
 };
@@ -55,6 +56,7 @@ export function useOnboarding({
   enabled,
   steps,
   onComplete,
+  onSkip,
   onStepResolved,
   onStepMissing,
 }: UseOnboardingOptions) {
@@ -68,6 +70,7 @@ export function useOnboarding({
   const resolvedStepIdsRef = useRef<Set<string>>(new Set());
   const missingStepIdsRef = useRef<Set<string>>(new Set());
   const onCompleteRef = useRef(onComplete);
+  const onSkipRef = useRef(onSkip);
   const onStepResolvedRef = useRef(onStepResolved);
   const onStepMissingRef = useRef(onStepMissing);
   const targetRectRef = useRef<DOMRect | null>(null);
@@ -79,6 +82,10 @@ export function useOnboarding({
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
+
+  useEffect(() => {
+    onSkipRef.current = onSkip;
+  }, [onSkip]);
 
   useEffect(() => {
     onStepResolvedRef.current = onStepResolved;
@@ -114,6 +121,23 @@ export function useOnboarding({
       setIsOpen(false);
     } catch {
       // Keep the flow open so users can retry when completion persistence fails.
+    } finally {
+      completingRef.current = false;
+      setIsCompleting(false);
+    }
+  }, []);
+
+  const skipFlow = useCallback(async () => {
+    if (completingRef.current) {
+      return;
+    }
+    completingRef.current = true;
+    setIsCompleting(true);
+    try {
+      await onSkipRef.current?.();
+      setIsOpen(false);
+    } catch {
+      // Keep the flow open so users can retry when skip persistence fails.
     } finally {
       completingRef.current = false;
       setIsCompleting(false);
@@ -340,6 +364,13 @@ export function useOnboarding({
     setCurrentStepIndex(index => index + 1);
   };
 
+  const skip = async () => {
+    if (!isOpen || !currentStep || isCompleting) {
+      return;
+    }
+    await skipFlow();
+  };
+
   const totalSteps = useMemo(() => steps.length, [steps.length]);
   const currentStepTargetRect =
     currentStep && targetRectStepId === currentStep.id ? targetRect : null;
@@ -352,5 +383,6 @@ export function useOnboarding({
     targetRect: currentStepTargetRect,
     isCompleting,
     advance,
+    skip,
   };
 }

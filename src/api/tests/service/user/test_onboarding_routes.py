@@ -108,12 +108,10 @@ def test_onboarding_status_returns_eligible_creator_scene_state(
     assert payload["data"]["version"] == "v1"
     assert payload["data"]["scenes"]["admin_home_onboarding"]["completed"] is True
     assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is True
-    assert (
-        payload["data"]["scenes"]["admin_home_onboarding"]["variant"] == "trial_credit"
-    )
+    assert payload["data"]["scenes"]["admin_home_onboarding"]["status"] == "completed"
     assert payload["data"]["scenes"]["course_editor_onboarding"]["completed"] is False
     assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is True
-    assert payload["data"]["scenes"]["course_editor_onboarding"]["variant"] is None
+    assert payload["data"]["scenes"]["course_editor_onboarding"]["status"] is None
     assert payload["data"]["guide_course"]["bid"] == "demo-zh-course"
     assert payload["data"]["guide_course"]["language"] == "zh-CN"
 
@@ -155,12 +153,8 @@ def test_onboarding_status_allows_operator_creator_when_new_creator_gate_matches
     assert payload["data"]["eligible"] is True
     assert payload["data"]["user_segment"] == "new_creator"
     assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is True
-    assert (
-        payload["data"]["scenes"]["admin_home_onboarding"]["variant"] == "trial_credit"
-    )
     assert payload["data"]["scenes"]["course_editor_onboarding"]["completed"] is False
     assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is True
-    assert payload["data"]["scenes"]["course_editor_onboarding"]["variant"] is None
 
 
 def test_onboarding_status_treats_old_user_newly_activated_as_existing_rollout(
@@ -203,10 +197,6 @@ def test_onboarding_status_treats_old_user_newly_activated_as_existing_rollout(
     assert payload["code"] == 0
     assert payload["data"]["eligible"] is True
     assert payload["data"]["user_segment"] == "existing_creator_rollout"
-    assert (
-        payload["data"]["scenes"]["admin_home_onboarding"]["variant"]
-        == "generic_billing"
-    )
 
 
 def test_onboarding_status_includes_existing_creator_rollout_segment(
@@ -248,10 +238,6 @@ def test_onboarding_status_includes_existing_creator_rollout_segment(
     assert payload["data"]["eligible"] is True
     assert payload["data"]["user_segment"] == "existing_creator_rollout"
     assert payload["data"]["scenes"]["admin_home_onboarding"]["eligible"] is True
-    assert (
-        payload["data"]["scenes"]["admin_home_onboarding"]["variant"]
-        == "generic_billing"
-    )
     assert payload["data"]["scenes"]["course_editor_onboarding"]["eligible"] is True
 
 
@@ -339,10 +325,6 @@ def test_onboarding_status_uses_conservative_fallback_when_new_creator_gate_miss
     assert payload["code"] == 0
     assert payload["data"]["eligible"] is True
     assert payload["data"]["user_segment"] == "existing_creator_rollout"
-    assert (
-        payload["data"]["scenes"]["admin_home_onboarding"]["variant"]
-        == "generic_billing"
-    )
 
 
 def test_onboarding_status_stays_ineligible_when_all_rollout_gates_missing(
@@ -428,6 +410,86 @@ def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
             UserOnboardingState.version == "v1",
         ).all()
         assert len(rows) == 1
+
+
+def test_complete_onboarding_scene_records_skipped(app, test_client, monkeypatch):
+    user_bid = uuid.uuid4().hex[:32]
+    with app.app_context():
+        _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": {
+            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+        }.get(key, default),
+    )
+
+    response = test_client.post(
+        "/api/user/onboarding/complete",
+        json={
+            "scene_key": "admin_home_onboarding",
+            "version": "v1",
+            "trigger_source": "admin_entry",
+            "status": "skipped",
+        },
+        headers={"Token": token},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json(force=True)
+    assert payload["code"] == 0
+    assert payload["data"]["status"] == "skipped"
+    assert payload["data"]["completed"] is False
+
+    with app.app_context():
+        row = UserOnboardingState.query.filter(
+            UserOnboardingState.user_bid == user_bid,
+            UserOnboardingState.scene_key == "admin_home_onboarding",
+            UserOnboardingState.version == "v1",
+        ).first()
+        assert row is not None
+        assert row.status == "skipped"
+
+
+def test_complete_onboarding_scene_rejects_invalid_status(
+    app, test_client, monkeypatch
+):
+    user_bid = uuid.uuid4().hex[:32]
+    with app.app_context():
+        _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
+        db.session.commit()
+        token = generate_token(app, user_bid)
+
+    monkeypatch.setattr(
+        "flaskr.service.user.onboarding.get_dynamic_config",
+        lambda key, default="": {
+            "ADMIN_ONBOARDING_ENABLED_FROM": "2026-06-10 00:00:00",
+        }.get(key, default),
+    )
+
+    response = test_client.post(
+        "/api/user/onboarding/complete",
+        json={
+            "scene_key": "admin_home_onboarding",
+            "version": "v1",
+            "trigger_source": "admin_entry",
+            "status": "bogus",
+        },
+        headers={"Token": token},
+    )
+
+    payload = response.get_json(force=True)
+    assert payload["code"] != 0
+
+    with app.app_context():
+        row = UserOnboardingState.query.filter(
+            UserOnboardingState.user_bid == user_bid,
+            UserOnboardingState.scene_key == "admin_home_onboarding",
+            UserOnboardingState.version == "v1",
+        ).first()
+        assert row is None
 
 
 def test_complete_course_editor_onboarding_accepts_direct_editor_entry(

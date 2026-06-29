@@ -225,6 +225,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 scene_key=payload.get("scene_key"),
                 version=payload.get("version") or ONBOARDING_VERSION,
                 trigger_source=payload.get("trigger_source"),
+                status=payload.get("status"),
             )
         )
 
