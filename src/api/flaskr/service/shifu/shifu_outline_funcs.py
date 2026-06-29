@@ -103,6 +103,8 @@ def build_outline_tree(app, shifu_bid: str) -> list[ShifuOutlineTreeNode]:
         node = ShifuOutlineTreeNode(item)
         nodes_map[item.position] = node
 
+    orphan_positions = []
+
     # build tree structure
     for position, node in nodes_map.items():
         if len(position) == 2:
@@ -116,7 +118,16 @@ def build_outline_tree(app, shifu_bid: str) -> list[ShifuOutlineTreeNode]:
                 if node not in parent_node.children:
                     parent_node.add_child(node)
             else:
-                app.logger.error(f"Parent node not found for position: {position}")
+                orphan_positions.append(position)
+
+    if orphan_positions:
+        app.logger.warning(
+            "Skipped %s orphan outline nodes without parent while building tree "
+            "for shifu %s, sample positions: %s",
+            len(orphan_positions),
+            shifu_bid,
+            orphan_positions[:10],
+        )
 
     return outline_tree
 
