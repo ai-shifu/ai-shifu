@@ -232,6 +232,32 @@ class RunAsyncInSafeContextTests(unittest.TestCase):
         asyncio.run(runner())
 
 
+class CurrentOutlineItemInitializationTests(unittest.TestCase):
+    def test_missing_outline_in_history_initializes_current_outline_item(self):
+        app = Flask("current-outline-item-init-tests")
+        ctx = RunScriptContextV2(
+            app=app,
+            struct=HistoryItem(
+                bid="shifu-1",
+                id=1,
+                type="shifu",
+                children=[],
+            ),
+            outline_item_info=types.SimpleNamespace(
+                bid="outline-missing",
+                title="Missing outline",
+                shifu_bid="shifu-1",
+            ),
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            shifu_info=types.SimpleNamespace(bid="shifu-1"),
+            preview_mode=False,
+            is_paid=True,
+        )
+
+        self.assertIsNone(ctx._current_outline_item)
+        self.assertEqual(ctx._get_current_outline_block_count(), 0)
+
+
 class NextChapterInteractionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
