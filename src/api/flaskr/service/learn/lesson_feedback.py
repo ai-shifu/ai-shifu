@@ -166,14 +166,15 @@ def submit_lesson_feedback(
             )
             db.session.add(feedback_record)
 
-        _sync_feedback_to_generated_block(
-            user_bid,
-            shifu_bid,
-            outline_bid,
-            normalized_score,
-            normalized_comment,
-        )
         try:
+            with db.session.no_autoflush:
+                _sync_feedback_to_generated_block(
+                    user_bid,
+                    shifu_bid,
+                    outline_bid,
+                    normalized_score,
+                    normalized_comment,
+                )
             db.session.commit()
         except IntegrityError:
             # Handle race on unique active row: re-read and update instead of failing.
