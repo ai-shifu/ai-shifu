@@ -88,8 +88,8 @@ prod**.
      **Bump markdown-flow** (`bump-markdown-flow.yml`) or **Bump markdown-flow-ui**
      (`bump-markdown-flow-ui.yml`). Each validates the version is published,
      updates the pin, and pushes the bump back to the branch. Both refuse to run
-     on `main`. (The frontend bump pins an exact version and does **not** refresh
-     the lockfile — run your package manager locally to sync it.)
+     on `main`. (The frontend bump pins an exact version and refreshes
+     `src/cook-web/package-lock.json` so CI's `npm ci` stays green.)
 
 ### Rule: `main` must pin RELEASE versions of both libraries
 

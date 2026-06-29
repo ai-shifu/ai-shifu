@@ -12,8 +12,8 @@ name: Bump markdown-flow-ui
 #     - version: the markdown-flow-ui version to pin, e.g. 0.1.128 or 0.1.128-dev.1
 #
 # Pins an EXACT version (drops any ^ range) so dev builds can be locked for
-# debugging. Note: only package.json is updated — run your package manager
-# locally to refresh the lockfile. Refuses to run on the default branch (main).
+# debugging, and refreshes package-lock.json so CI's `npm ci` stays green.
+# Refuses to run on the default branch (main).
 
 on:
   workflow_dispatch:
@@ -105,18 +105,24 @@ jobs:
           console.log(`Pinned markdown-flow-ui ${version} (exact) in ${path}`);
           NODE
 
+      # Keep package-lock.json in sync so CI's `npm ci` (e.g. prettier-check,
+      # runtime-harness) doesn't fail on a mismatched lockfile.
+      - name: Update lockfile
+        working-directory: src/cook-web
+        run: npm install --package-lock-only --ignore-scripts
+
       - name: Commit and push
         env:
           MF_UI_VERSION: ${{ inputs.version }}
           BRANCH_NAME: ${{ github.ref_name }}
         run: |
-          if git diff --quiet -- src/cook-web/package.json; then
+          if git diff --quiet -- src/cook-web/package.json src/cook-web/package-lock.json; then
             echo "No change: already pins markdown-flow-ui ${MF_UI_VERSION}."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/cook-web/package.json
+          git add src/cook-web/package.json src/cook-web/package-lock.json
           git commit -m "chore: bump markdown-flow-ui to ${MF_UI_VERSION}"
           git push origin "HEAD:${BRANCH_NAME}"
 
@@ -129,6 +135,5 @@ jobs:
             echo "## Pinned \`markdown-flow-ui@${MF_UI_VERSION}\`"
             echo ""
             echo "- Branch: \`${BRANCH_NAME}\`"
-            echo "- File: \`src/cook-web/package.json\`"
-            echo "- Note: lockfile not updated — run your package manager locally."
+            echo "- Files: \`src/cook-web/package.json\` + \`package-lock.json\`"
           } >> "$GITHUB_STEP_SUMMARY"
