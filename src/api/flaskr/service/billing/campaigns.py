@@ -17,6 +17,7 @@ from flaskr.service.common.models import (
     raise_error_with_args,
     raise_param_error,
 )
+from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -187,7 +188,7 @@ def build_admin_billing_campaigns_page(
             )
 
         if normalized_status:
-            now = datetime.now()
+            now = now_utc()
             if normalized_status == "active":
                 query = query.filter(
                     BillingCampaign.enabled == 1,
@@ -391,7 +392,7 @@ def update_admin_billing_campaign(
         row.start_at = draft["start_at"]
         row.end_at = draft["end_at"]
         row.updated_user_bid = normalized_operator_bid
-        row.updated_at = datetime.now()
+        row.updated_at = now_utc()
         db.session.add(row)
         if hit_order_count <= 0:
             _replace_campaign_products(normalized_campaign_bid, product_configs)
@@ -431,7 +432,7 @@ def update_admin_billing_campaign_status(
         )
         row.enabled = 1 if enabled else 0
         row.updated_user_bid = normalized_operator_bid
-        row.updated_at = datetime.now()
+        row.updated_at = now_utc()
         db.session.add(row)
         db.session.commit()
         return build_admin_billing_campaign_detail(app, normalized_campaign_bid)
@@ -942,7 +943,7 @@ def _validate_campaign_overlap(
 ) -> None:
     if not enabled or not product_bids:
         return
-    now = datetime.now()
+    now = now_utc()
     query = BillingCampaign.query.join(
         BillingCampaignProduct,
         BillingCampaignProduct.campaign_bid == BillingCampaign.campaign_bid,
@@ -982,7 +983,7 @@ def _load_campaign_overlap_product_names(
 ) -> list[str]:
     if not product_bids:
         return []
-    now = datetime.now()
+    now = now_utc()
     query = (
         db.session.query(BillingProduct.display_name_i18n_key)
         .join(
@@ -1275,7 +1276,7 @@ def _load_active_campaign_binding_for_product(
     *,
     as_of: datetime | None = None,
 ) -> tuple[BillingCampaign, BillingCampaignProduct | None] | None:
-    now = as_of or datetime.now()
+    now = as_of or now_utc()
     normalized_product_bid = normalize_bid(product_bid)
     if not normalized_product_bid:
         return None

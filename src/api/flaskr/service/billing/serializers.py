@@ -7,6 +7,8 @@ from typing import Any
 
 from flask import Flask
 
+from flaskr.util.datetime import now_utc
+
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -176,7 +178,7 @@ def serialize_admin_campaign(
     discount_percent: Any | None = None,
     bonus_credit_amount: Any | None = None,
 ) -> AdminBillingCampaignDTO:
-    now = datetime.now()
+    now = now_utc()
     if not bool(row.enabled):
         computed_status = "inactive"
     elif row.start_at and row.start_at > now:
@@ -466,7 +468,7 @@ def serialize_wallet_bucket(
     if (
         runtime_status == "active"
         and row.effective_to is not None
-        and row.effective_to <= datetime.now()
+        and row.effective_to <= now_utc()
     ):
         runtime_status = "expired"
 

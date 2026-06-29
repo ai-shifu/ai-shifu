@@ -95,10 +95,14 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
                 return current.replace(tzinfo=tz)
             return current
 
+    _frozen_now = _FixedDateTime(2026, 4, 6, 12, 0, 0)
+
     monkeypatch.setattr(billing_entitlements_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_queries_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_campaigns_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_serializers_module, "datetime", _FixedDateTime)
+    monkeypatch.setattr(billing_campaigns_module, "now_utc", lambda: _frozen_now)
+    monkeypatch.setattr(billing_serializers_module, "now_utc", lambda: _frozen_now)
 
 
 def _seed_products_with_yearly_entitlements():
@@ -895,6 +899,10 @@ class TestBillingRoutes:
         monkeypatch.setattr(
             "flaskr.service.billing.serializers.datetime",
             _FixedDateTime,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.billing.serializers.now_utc",
+            lambda: _FixedDateTime(2026, 5, 1, 12, 0, 0),
         )
 
         payload = billing_test_client.get("/api/billing/wallet-buckets").get_json(

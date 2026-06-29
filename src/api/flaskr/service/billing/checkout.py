@@ -42,7 +42,7 @@ from flaskr.service.order.raw_snapshots import (
     upsert_billing_stripe_snapshot,
 )
 from flaskr.service.user.repository import load_user_aggregate
-from flaskr.util.timezone import serialize_with_app_timezone
+from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 
 from .campaigns import resolve_applied_billing_campaign
@@ -210,20 +210,11 @@ class RefundProviderMetadata:
         return payload
 
 
-def _serialize_checkout_datetime(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    try:
-        return serialize_with_app_timezone(current_app, value, "UTC")
-    except RuntimeError:
-        return value.isoformat()
-
-
 def _resolve_billing_order_expires_at(
     *,
     now: datetime | None = None,
 ) -> datetime:
-    return (now or datetime.now()) + BILLING_PENDING_ORDER_TIMEOUT_DELTA
+    return (now or now_utc()) + BILLING_PENDING_ORDER_TIMEOUT_DELTA
 
 
 def _resolve_effective_billing_order_expires_at(
@@ -258,7 +249,7 @@ def _calculate_billing_order_expires_in_seconds(
     resolved_expires_at = _resolve_effective_billing_order_expires_at(order)
     if resolved_expires_at is None:
         return None
-    remaining = int((resolved_expires_at - (now or datetime.now())).total_seconds())
+    remaining = int((resolved_expires_at - (now or now_utc())).total_seconds())
     return max(0, remaining)
 
 
@@ -294,7 +285,7 @@ def _is_billing_order_expired(
     resolved_expires_at = _resolve_effective_billing_order_expires_at(order)
     if resolved_expires_at is None:
         return False
-    return resolved_expires_at <= (now or datetime.now())
+    return resolved_expires_at <= (now or now_utc())
 
 
 def _mark_billing_order_invalidated(
@@ -305,7 +296,7 @@ def _mark_billing_order_invalidated(
     invalidated_at: datetime | None = None,
     replaced_by_bill_order_bid: str = "",
 ) -> None:
-    now = invalidated_at or datetime.now()
+    now = invalidated_at or now_utc()
     metadata = (
         dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
     )
@@ -411,14 +402,14 @@ def create_billing_subscription_checkout(
     )
 
     with app.app_context(), _subscription_checkout_lock(app, normalized_creator_bid):
-        now = datetime.now()
+        now = now_utc()
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
         if payment_provider == "stripe":
             channel = "checkout_session"
 
         current_subscription = _load_primary_active_subscription(
             normalized_creator_bid,
-            as_of=datetime.now(),
+            as_of=now_utc(),
         )
         if current_subscription is not None:
             current_subscription = _lock_subscription_for_checkout(current_subscription)
@@ -512,7 +503,7 @@ def create_billing_subscription_checkout(
                 }
             else:
                 raise_error("server.order.orderStatusError")
-            subscription.updated_at = datetime.now()
+            subscription.updated_at = now_utc()
 
         pending_orders = _load_active_pending_subscription_orders(
             normalized_creator_bid
@@ -748,7 +739,7 @@ def create_billing_order_checkout(
     requested_channel = _normalize_bid(payload.get("channel"))
 
     with app.app_context():
-        now = datetime.now()
+        now = now_utc()
         order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
@@ -910,7 +901,7 @@ def refund_billing_order(
         if str(refund_result.status or "").lower() in {"failed", "canceled"}:
             raise_error("server.order.orderRefundError")
 
-        now = datetime.now()
+        now = now_utc()
         order.status = BILLING_ORDER_STATUS_REFUNDED
         order.refunded_at = order.refunded_at or now
         order.updated_at = now
@@ -1127,7 +1118,7 @@ def _build_billing_order_sync_result(
     return BillingOrderSyncResultDTO(
         bill_order_bid=order.bill_order_bid,
         status=status_label,
-        expires_at=_serialize_checkout_datetime(order.expires_at),
+        expires_at=order.expires_at,
         expires_in_seconds=_calculate_billing_order_expires_in_seconds(order),
     )
 
@@ -1155,7 +1146,7 @@ def _validate_plan_checkout_upgrade_only(
 ) -> None:
     current_subscription = _load_primary_active_subscription(
         creator_bid,
-        as_of=datetime.now(),
+        as_of=now_utc(),
     )
     if current_subscription is None:
         return
@@ -1233,7 +1224,7 @@ def _assert_same_plan_preorder_within_single_cycle(
 
     max_single_prepaid_end = _calculate_self_managed_billing_cycle_end(
         target_product,
-        cycle_start_at=datetime.now(),
+        cycle_start_at=now_utc(),
     )
     if (
         max_single_prepaid_end is not None
@@ -1489,7 +1480,7 @@ def _complete_zero_amount_subscription_checkout(
     app: Flask,
     order: BillingOrder,
 ) -> tuple[BillingCheckoutResultDTO, BillingPaidOrderSideEffects]:
-    now = datetime.now()
+    now = now_utc()
     previous_status = int(order.status or 0)
     metadata = (
         dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
@@ -1563,7 +1554,7 @@ def _build_checkout_response_payload(
         "prepaid_offset_amount": int(order_metadata.get("prepaid_offset_amount") or 0),
         "payable_amount": int(order.payable_amount or 0),
         "currency": str(order.currency or "CNY"),
-        "expires_at": _serialize_checkout_datetime(order.expires_at),
+        "expires_at": order.expires_at,
         "expires_in_seconds": _calculate_billing_order_expires_in_seconds(order),
         "campaign": order_metadata.get("campaign") or None,
     }
