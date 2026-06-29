@@ -83,6 +83,11 @@ To try a `markdown-flow` change against this project:
      version. It validates the version exists on PyPI, updates the pin, and
      pushes the bump back to the branch. It refuses to run on `main`.
 
+`main` must always pin a **release** version of `markdown-flow`. The
+**Check markdown-flow release pin** workflow runs on every PR into `main` and
+fails if the pin is a pre-release/dev build (e.g. `X.Y.Z.devN`). Pin a release
+version before merging.
+
 ## Tests
 
 - Run the smallest relevant backend, frontend, or script checks first, then
