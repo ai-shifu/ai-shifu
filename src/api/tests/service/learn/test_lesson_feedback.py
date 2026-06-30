@@ -5,6 +5,7 @@ from flask import Flask
 import flaskr.dao as dao
 
 from flaskr.service.learn.lesson_feedback import (
+    _sync_feedback_to_generated_block,
     build_lesson_feedback_interaction_md,
     submit_lesson_feedback,
 )
@@ -110,6 +111,59 @@ class LessonFeedbackTests(unittest.TestCase):
         synced_generated_content = json.loads(synced_block.generated_content)
         self.assertEqual(synced_generated_content.get("score"), 3)
         self.assertEqual(synced_generated_content.get("comment"), "Need more examples")
+
+    def test_sync_generated_block_does_not_autoflush_pending_duplicate_feedback(self):
+        interaction = LearnGeneratedBlock(
+            generated_block_bid="block-1",
+            progress_record_bid="progress-1",
+            user_bid="user-1",
+            block_bid="",
+            outline_item_bid="outline-1",
+            shifu_bid="shifu-1",
+            type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            role=1,
+            generated_content="",
+            position=0,
+            block_content_conf=build_lesson_feedback_interaction_md(),
+            status=1,
+        )
+        existing = LearnLessonFeedback(
+            bid="feedback-1",
+            lesson_feedback_bid="feedback-1",
+            shifu_bid="shifu-1",
+            outline_item_bid="outline-1",
+            user_bid="user-1",
+            score=4,
+            comment="old",
+            mode="read",
+            deleted=0,
+        )
+        dao.db.session.add_all([interaction, existing])
+        dao.db.session.commit()
+
+        dao.db.session.add(
+            LearnLessonFeedback(
+                bid="feedback-duplicate",
+                lesson_feedback_bid="feedback-duplicate",
+                shifu_bid="shifu-1",
+                outline_item_bid="outline-1",
+                user_bid="user-1",
+                score=5,
+                comment="new",
+                mode="listen",
+                deleted=0,
+            )
+        )
+
+        with dao.db.session.no_autoflush:
+            _sync_feedback_to_generated_block(
+                "user-1", "shifu-1", "outline-1", 5, "new"
+            )
+
+        synced_generated_content = json.loads(interaction.generated_content)
+        self.assertEqual(synced_generated_content.get("score"), 5)
+        self.assertEqual(synced_generated_content.get("comment"), "new")
+        dao.db.session.rollback()
 
 
 if __name__ == "__main__":
