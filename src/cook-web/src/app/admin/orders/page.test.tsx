@@ -11,6 +11,7 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({
     replace: mockReplace,
   }),
+  usePathname: () => '/admin/orders',
   useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
 }));
 
@@ -19,6 +20,7 @@ jest.mock('@/api', () => ({
   default: {
     getAdminOrders: jest.fn(),
     getAdminOrderShifus: jest.fn(),
+    createCreatorCourseRedemptionCode: jest.fn(),
   },
 }));
 
@@ -62,6 +64,15 @@ jest.mock('react-i18next', () => ({
 
 jest.mock('@/components/order/OrderDetailSheet', () => () => null);
 jest.mock('@/components/order/ImportActivationDialog', () => () => null);
+jest.mock('./CreatorRedemptionCodeDialog', () => ({
+  __esModule: true,
+  default: ({ open }: { open: boolean }) =>
+    open ? <div data-testid='creator-redemption-dialog' /> : null,
+}));
+jest.mock('./CreatorRedemptionCodesTab', () => ({
+  __esModule: true,
+  default: () => <div data-testid='creator-redemption-codes-tab' />,
+}));
 jest.mock('@/components/ErrorDisplay', () => ({
   __esModule: true,
   default: ({ errorMessage }: { errorMessage: string }) => (
@@ -182,5 +193,30 @@ describe('OrdersPage', () => {
         }),
       );
     });
+  });
+
+  test('switches between order records and redemption code tabs', async () => {
+    mockSearchParamsValue = 'shifu_bid=shifu-1&status=502';
+    render(<OrdersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOrders).toHaveBeenCalled();
+    });
+
+    fireEvent.mouseDown(
+      screen.getByRole('tab', {
+        name: 'module.order.tabs.redemptionCodes',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(
+        '/admin/orders?shifu_bid=shifu-1&status=502&tab=redemptionCodes',
+        { scroll: false },
+      );
+    });
+    expect(
+      screen.getByTestId('creator-redemption-codes-tab'),
+    ).toBeInTheDocument();
   });
 });

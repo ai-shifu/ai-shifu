@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import api from '@/api';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import { CONTACT_RAIL_I18N_KEY } from '@/components/contact/ContactSideRail';
 import { buildAdminMenuItems } from './admin-menu';
@@ -7,6 +8,10 @@ import AdminLayout from './layout';
 import { SidebarContent } from './SidebarContent';
 
 const footerLabel = 'footer';
+const mockTranslate = (key: string) => key;
+const mockUsePathname = jest.fn(() => '/admin');
+const mockApplyCreatorBranding = jest.fn();
+let mockSearchParamsValue = '';
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -34,7 +39,8 @@ jest.mock('next/link', () => ({
 }));
 
 jest.mock('next/navigation', () => ({
-  usePathname: () => '/admin',
+  usePathname: () => mockUsePathname(),
+  useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
   useRouter: () => ({
     push: jest.fn(),
     replace: jest.fn(),
@@ -45,11 +51,40 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: mockTranslate,
     i18n: {
       language: 'en-US',
     },
   }),
+}));
+
+jest.mock('@/api', () => ({
+  __esModule: true,
+  default: {
+    completeCreatorOnboarding: jest.fn(),
+    getReferralInviteProfile: jest.fn(),
+  },
+}));
+
+jest.mock('@/components/contact/ContactSideRail', () => ({
+  __esModule: true,
+  CONTACT_RAIL_I18N_KEY: 'component.navigation.contactUs',
+  ContactSideRail: ({ label }: { label?: string }) =>
+    mockEnvState.contactUsUrl ? (
+      <a
+        href={mockEnvState.contactUsUrl}
+        rel='noopener noreferrer'
+        target='_blank'
+      >
+        {label ?? 'component.navigation.contactUs'}
+      </a>
+    ) : null,
+}));
+
+jest.mock('@/lib/initializeEnvData', () => ({
+  __esModule: true,
+  applyCreatorBranding: (creatorBid: string) =>
+    mockApplyCreatorBranding(creatorBid),
 }));
 
 jest.mock('@/c-common/hooks/useDisclosure', () => ({
@@ -87,7 +122,9 @@ jest.mock('@/c-store/envStore', () => ({
 const mockUserStoreState = {
   isInitialized: true,
   isGuest: false,
+  isLoggedIn: true,
   userInfo: {
+    user_id: 'user-1',
     is_operator: false,
   },
 };
@@ -96,6 +133,15 @@ jest.mock('@/store', () => ({
   __esModule: true,
   useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
     selector(mockUserStoreState),
+  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      replayScenes: {
+        admin_home_onboarding: false,
+        course_editor_onboarding: false,
+      },
+      requestReplayAll: jest.fn(),
+      clearReplay: jest.fn(),
+    }),
 }));
 
 jest.mock('@/c-components/NavDrawer/NavFooter', () => ({
@@ -123,13 +169,55 @@ jest.mock('@/hooks/useBillingData', () => ({
   useBillingOverview: jest.fn(),
 }));
 
-jest.mock('@/components/billing/WelcomeTrialDialog', () => ({
+jest.mock('@/c-common/hooks/useTracking', () => ({
   __esModule: true,
-  WelcomeTrialDialog: () => null,
+  useTracking: () => ({
+    trackEvent: jest.fn(),
+  }),
+}));
+
+jest.mock('@/hooks/useOnboarding', () => ({
+  __esModule: true,
+  useCreatorOnboardingStatus: () => ({
+    data: {
+      eligible: false,
+      user_segment: 'ineligible',
+      version: 'v1',
+      scenes: {
+        admin_home_onboarding: {
+          completed: true,
+          completed_at: null,
+          eligible: false,
+          variant: null,
+        },
+        course_editor_onboarding: {
+          completed: true,
+          completed_at: null,
+          eligible: false,
+          variant: null,
+        },
+      },
+      guide_course: {
+        bid: '',
+        title: '',
+        language: 'en-US',
+      },
+    },
+    mutate: jest.fn(),
+  }),
+  useOnboarding: () => ({
+    isOpen: false,
+    currentStep: null,
+    currentStepIndex: 0,
+    totalSteps: 0,
+    targetRect: null,
+    advance: jest.fn(),
+  }),
 }));
 
 const mockUseBillingOverview = useBillingOverview as jest.Mock;
 const mockMutateBillingOverview = jest.fn();
+const mockGetReferralInviteProfile = api.getReferralInviteProfile as jest.Mock;
 
 describe('SidebarContent', () => {
   const t = (key: string) => key;
@@ -339,6 +427,10 @@ describe('AdminLayout', () => {
   });
 
   beforeEach(() => {
+    document.title = '';
+    mockUsePathname.mockReturnValue('/admin');
+    mockApplyCreatorBranding.mockReset();
+    mockSearchParamsValue = '';
     mockEnvState.logoWideUrl = '/logo.png';
     mockEnvState.logoHorizontal = '';
     mockEnvState.logoSquareUrl = '';
@@ -348,10 +440,21 @@ describe('AdminLayout', () => {
     mockEnvState.billingEnabled = 'true';
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = false;
+    mockUserStoreState.isLoggedIn = true;
     mockUserStoreState.userInfo = {
+      user_id: 'user-1',
       is_operator: false,
     };
+    Object.assign(window.location, {
+      href: 'http://localhost:3000',
+      pathname: '/',
+      search: '',
+    });
     mockMutateBillingOverview.mockReset();
+    mockGetReferralInviteProfile.mockReset();
+    mockGetReferralInviteProfile.mockResolvedValue({
+      available: false,
+    });
     mockUseBillingOverview.mockReturnValue({
       data: buildBillingOverview({}),
       error: undefined,
@@ -363,6 +466,7 @@ describe('AdminLayout', () => {
   test('shows sidebar loading placeholder before user state is ready', () => {
     mockUserStoreState.isInitialized = false;
     mockUserStoreState.userInfo = null as unknown as {
+      user_id: string;
       is_operator: false;
     };
 
@@ -381,7 +485,9 @@ describe('AdminLayout', () => {
   test('keeps sidebar in loading state for guests before redirect completes', () => {
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = true;
+    mockUserStoreState.isLoggedIn = false;
     mockUserStoreState.userInfo = null as unknown as {
+      user_id: string;
       is_operator: false;
     };
 
@@ -395,6 +501,55 @@ describe('AdminLayout', () => {
     expect(
       screen.queryByRole('link', { name: 'common.core.shifu' }),
     ).not.toBeInTheDocument();
+  });
+
+  test('keeps sidebar loading when user info is missing after initialization', () => {
+    mockUserStoreState.isInitialized = true;
+    mockUserStoreState.isGuest = false;
+    mockUserStoreState.isLoggedIn = true;
+    mockUserStoreState.userInfo = null as unknown as {
+      user_id: string;
+      is_operator: false;
+    };
+
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    expect(screen.getByLabelText('admin-sidebar-loading')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'common.core.shifu' }),
+    ).not.toBeInTheDocument();
+    expect(window.location.href).toBe('http://localhost:3000');
+  });
+
+  test('restores the admin document title after same-route search params update on orders page', async () => {
+    mockUsePathname.mockReturnValue('/admin/orders');
+
+    const { rerender } = render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    await waitFor(() => {
+      expect(document.title).toBe('common.core.adminTitle');
+    });
+
+    document.title = 'AI-Shifu';
+    mockSearchParamsValue = 'status=';
+
+    rerender(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+
+    await waitFor(() => {
+      expect(document.title).toBe('common.core.adminTitle');
+    });
   });
 
   test('renders the shared contact side rail for admin routes', () => {
@@ -433,7 +588,9 @@ describe('AdminLayout', () => {
   test('redirects guests to login from admin routes handled only by the layout', async () => {
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = true;
+    mockUserStoreState.isLoggedIn = false;
     mockUserStoreState.userInfo = null as unknown as {
+      user_id: string;
       is_operator: false;
     };
     Object.assign(window.location, {
@@ -455,10 +612,12 @@ describe('AdminLayout', () => {
     });
   });
 
-  test('renders sidebar once initialization completes even if user info is unavailable', () => {
+  test('keeps sidebar loading until user info resolves after initialization', () => {
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = false;
+    mockUserStoreState.isLoggedIn = true;
     mockUserStoreState.userInfo = null as unknown as {
+      user_id: string;
       is_operator: false;
     };
 
@@ -468,12 +627,10 @@ describe('AdminLayout', () => {
       </AdminLayout>,
     );
 
+    expect(screen.getByLabelText('admin-sidebar-loading')).toBeInTheDocument();
     expect(
-      screen.queryByLabelText('admin-sidebar-loading'),
+      screen.queryByRole('link', { name: 'common.core.shifu' }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'common.core.shifu' }),
-    ).toBeInTheDocument();
   });
 
   test('links the admin logo to the configured home URL', () => {
@@ -500,9 +657,17 @@ describe('AdminLayout', () => {
       </AdminLayout>,
     );
 
+    expect(document.documentElement).toHaveClass('admin-mode');
+    expect(document.body).toHaveClass('admin-mode');
     expect(screen.getByTestId('admin-layout-content')).toHaveClass(
       'overflow-y-auto',
     );
+    expect(
+      screen.getByTestId('admin-layout-content').parentElement,
+    ).toHaveClass('h-dvh', 'overflow-hidden');
+    expect(
+      screen.getByTestId('admin-layout-content').firstElementChild,
+    ).toHaveClass('box-border');
     expect(screen.getByTestId('admin-sidebar-nav')).toHaveClass('flex-1');
     expect(
       screen.getByTestId('admin-billing-sidebar-card'),
@@ -513,7 +678,7 @@ describe('AdminLayout', () => {
     expect(
       screen.getByText('module.billing.sidebar.nonMemberBalanceTitle'),
     ).toBeInTheDocument();
-    expect(screen.getByText('12500')).toBeInTheDocument();
+    expect(screen.getByText('12,500')).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: 'module.billing.sidebar.usageCta',
@@ -529,6 +694,45 @@ describe('AdminLayout', () => {
     expect(
       screen.queryByText('module.billing.sidebar.cta'),
     ).not.toBeInTheDocument();
+  });
+
+  test('hides referral invite navigation when campaign is unavailable', async () => {
+    mockGetReferralInviteProfile.mockResolvedValueOnce({
+      available: false,
+    });
+
+    render(
+      <AdminLayout>
+        <div data-testid='child-content' />
+      </AdminLayout>,
+    );
+
+    await waitFor(() =>
+      expect(mockGetReferralInviteProfile).toHaveBeenCalledTimes(1),
+    );
+
+    expect(
+      screen.queryByRole('link', { name: 'common.core.referralInvitation' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('shows referral invite navigation when campaign is available', async () => {
+    mockGetReferralInviteProfile.mockResolvedValueOnce({
+      available: true,
+      invite_url: 'https://app.example.com/invite/AB12CD34',
+    });
+
+    render(
+      <AdminLayout>
+        <div data-testid='child-content' />
+      </AdminLayout>,
+    );
+
+    expect(
+      await screen.findByRole('link', {
+        name: 'common.core.referralInvitation',
+      }),
+    ).toHaveAttribute('href', '/admin/referral');
   });
 
   test('hides the credits section when available credits are zero', () => {
@@ -553,7 +757,9 @@ describe('AdminLayout', () => {
       '/admin/billing?tab=packages',
     );
     expect(screen.queryByText(/0(?:\.0+)?/)).not.toBeInTheDocument();
-    expect(screen.getByText('--')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.sidebar.placeholderValue'),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: 'module.billing.sidebar.usageCta',

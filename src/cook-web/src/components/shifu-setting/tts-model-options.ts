@@ -60,13 +60,22 @@ export const normalizeTtsModelOptions = (list: any): TtsModelOption[] => {
         buildTtsModelOptionValue(provider, model);
       const label = String(item.label || value).trim() || value;
       if (!provider || !value) return null;
+      const rawMultiplier = item.credit_multiplier ?? item.creditMultiplier;
+      const parsedMultiplier = Number(rawMultiplier);
+      const creditMultiplier =
+        Number.isFinite(parsedMultiplier) && parsedMultiplier > 0
+          ? Math.ceil(parsedMultiplier)
+          : null;
+      const creditMultiplierLabel = String(
+        item.credit_multiplier_label || item.creditMultiplierLabel || '',
+      ).trim();
       return {
         value,
         label,
         provider,
         model,
-        credit_multiplier_label:
-          item.credit_multiplier_label || item.creditMultiplierLabel || '',
+        creditMultiplier,
+        creditMultiplierLabel,
       };
     })
     .filter((item): item is TtsModelOption => Boolean(item));

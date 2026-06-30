@@ -3,7 +3,7 @@
   "admin": {
     "adjust": {
       "cancel": "取消",
-      "description": "输入正数十进制表示补发积分，输入负数十进制表示按标准 bucket 扣减顺序人工扣减积分。",
+      "description": "输入正数十进制表示补发积分，输入负数十进制表示按标准积分桶扣减顺序人工扣减积分。",
       "errors": {
         "amountInvalid": "请输入非 0 的十进制金额，最多保留 10 位小数。",
         "creatorBidRequired": "必须填写 creator bid。"
@@ -22,7 +22,7 @@
         "creatorBid": "creator_bid",
         "note": "填写人工调整原因"
       },
-      "quickAction": "调整该创作者积分",
+      "quickAction": "调整该老师的积分",
       "submit": "确认调整",
       "submitting": "调整中...",
       "success": "已更新 {creatorBid} 的账本，当前可用积分 {availableCredits}。",
@@ -31,11 +31,11 @@
     "attention": "需关注",
     "backToCreatorBilling": "返回会员中心",
     "domains": {
-      "description": "审核创作者自定义域名状态、权益开关，以及仍需跟进的 host。",
+      "description": "审核老师自定义域名状态、权益开关，以及仍需跟进的 host。",
       "empty": "暂无自定义域名绑定。",
       "loadError": "无法加载后台域名审核数据。",
       "table": {
-        "creator": "创作者",
+        "creator": "老师",
         "effective": "是否生效",
         "entitlement": "域名权益",
         "host": "域名",
@@ -50,7 +50,7 @@
       }
     },
     "entitlements": {
-      "description": "查看每个创作者当前解析到的有效权益快照。",
+      "description": "查看每位老师当前解析到的有效权益快照。",
       "empty": "暂无权益快照。",
       "loadError": "无法加载后台权益数据。",
       "source": {
@@ -60,7 +60,7 @@
       },
       "table": {
         "analytics": "分析等级",
-        "creator": "创作者",
+        "creator": "老师",
         "features": "功能开关",
         "priority": "优先级",
         "source": "来源",
@@ -87,13 +87,13 @@
       "title": "异常处理"
     },
     "orders": {
-      "description": "查看所有创作者的 billing 订单，并快速定位 provider 失败单。",
+      "description": "查看所有老师的 billing 订单，并快速定位 provider 失败单。",
       "empty": "当前还没有 billing 订单。",
       "loadError": "后台订单数据读取失败，请刷新后重试。",
       "table": {
         "amount": "金额",
         "createdAt": "创建时间",
-        "creator": "创作者",
+        "creator": "老师",
         "failure": "失败信息",
         "order": "订单",
         "provider": "支付通道",
@@ -105,29 +105,30 @@
       "page": "第 {page} / {pageCount} 页，共 {total} 条记录"
     },
     "reports": {
-      "description": "在运营后台直接查看跨创作者的 usage 与账本日报表。",
+      "description": "在运营后台直接查看跨老师的 usage 与账本日报表。",
       "sections": {
         "ledger": {
-          "description": "按天查看跨创作者的账本变动汇总。",
+          "description": "按天查看跨老师的账本变动汇总。",
           "title": "账本汇总"
         },
         "usage": {
-          "description": "按创作者、shifu、scene 与 metric 查看 usage 成本汇总。",
+          "description": "按老师、shifu、scene 与 metric 查看 usage 成本汇总。",
           "title": "Usage 汇总"
         }
       },
       "table": {
-        "creator": "创作者"
+        "creator": "老师"
       },
       "title": "报表"
     },
     "subscriptions": {
-      "description": "查看创作者订阅状态、钱包余额和最近一次续费上下文。",
+      "description": "查看老师订阅状态、账户余额和最近一次续费上下文。",
       "empty": "当前还没有订阅记录。",
       "loadError": "后台订阅数据读取失败，请刷新后重试。",
+      "preorderTarget": "预购：{product}",
       "table": {
         "availableCredits": "可用积分",
-        "creator": "创作者",
+        "creator": "老师",
         "currentPeriodEnd": "当前周期结束",
         "product": "套餐",
         "provider": "支付通道",
@@ -151,12 +152,12 @@
   },
   "alerts": {
     "actions": {
-      "checkoutTopup": "立即充值",
+      "checkoutTopup": "购买积分",
       "openOrders": "查看付款记录",
       "resumeSubscription": "恢复订阅"
     },
     "cancelScheduled": "当前订阅已设置为周期结束后取消，如需继续按周期发放积分，请恢复订阅。",
-    "lowBalance": "当前创作者钱包已经没有可用积分，请在下一次结算前完成充值。",
+    "lowBalance": "当前老师账户已经没有可用积分，请在下一次结算前开通订阅或购买积分。",
     "lowBalanceDescription": "积分已经用完啦，无法继续体验AI生产的内容。",
     "lowBalanceTitle": "您的积分已耗尽，AI罢工啦",
     "subscriptionPastDue": "订阅续费当前处于异常状态，请先检查付款记录并同步最新 provider 状态。"
@@ -195,20 +196,20 @@
         "title": "Billing 功能开关"
       },
       "creatorCatalog": {
-        "description": "套餐与充值包目录当前仍为 active。",
-        "title": "创作者商品目录"
+        "description": "套餐与积分包目录当前仍为 active。",
+        "title": "老师商品目录"
       },
       "creatorOrders": {
-        "description": "创作者订单、sync、refund 和 topup 流程当前仍启用。",
-        "title": "创作者订单"
+        "description": "老师订单、sync、refund 和 topup 流程当前仍启用。",
+        "title": "老师订单"
       },
       "creatorSubscriptionCheckout": {
-        "description": "创作者订阅购买、取消与恢复当前仍启用。",
-        "title": "创作者订阅生命周期"
+        "description": "老师订阅购买、取消与恢复当前仍启用。",
+        "title": "老师订阅生命周期"
       },
       "creatorWalletLedger": {
-        "description": "钱包 bucket 与账本视图当前仍启用。",
-        "title": "创作者钱包与账本"
+        "description": "账户积分桶与账本视图当前仍启用。",
+        "title": "老师账户与账本"
       },
       "dailyAggregateRebuild": {
         "description": "日报表重建与 finalize 仍属于内部能力。",
@@ -243,8 +244,8 @@
         "title": "Usage 结算"
       },
       "walletBucketExpiration": {
-        "description": "wallet bucket 过期扫描仍属于内部能力。",
-        "title": "余额桶过期扫描"
+        "description": "账户积分桶过期扫描仍属于内部能力。",
+        "title": "积分桶过期扫描"
       }
     },
     "status": {
@@ -276,9 +277,10 @@
       "perYear": "每年",
       "providerAlipay": "支付宝",
       "providerManual": "人工开通",
-      "providerPingxx": "Pingxx / 支付宝二维码",
+      "providerPingxx": "Pingxx",
       "providerStripe": "Stripe",
-      "providerWechatpay": "微信支付"
+      "providerWechatpay": "微信支付",
+      "providerWithChannel": "{provider} / {channel}"
     },
     "plans": {
       "creatorMonthly": {
@@ -312,10 +314,17 @@
   "checkout": {
     "agreementLink": "积分购买协议",
     "agreementPrefix": "我已阅读并同意",
+    "bonusCreditsLabel": "{baseCredits} + 赠送 {bonusCredits}",
     "cancel": "取消",
+    "completed": "支付已完成。",
     "confirm": "继续支付",
     "creditsLabel": "积分",
+    "expired": "订单已失效，请重新下单。",
+    "expiresInLabel": "剩余有效期",
+    "expiresInValue": "{countdown} 后失效",
     "planDescription": "以下是积分订阅套餐的支付环节。",
+    "preorderDescription": "该套餐将现在预付，并在当前周期结束后生效。",
+    "prepaidOffsetLabel": "预购抵扣",
     "priceLabel": "价格",
     "processing": "处理中...",
     "productLabel": "商品",
@@ -328,8 +337,10 @@
       }
     },
     "title": "确认购买",
-    "topupDescription": "你将进入一次性积分充值的支付确认流程。",
-    "unsupported": "当前支付方式暂不可用。"
+    "topupDescription": "你将进入一次性积分包购买的支付确认流程。",
+    "unsupported": "当前支付方式暂不可用。",
+    "upgradeDescription": "本次升级会立即生效。",
+    "upgradeWithPreorderDescription": "本次升级会立即生效，已存在的预购付款将作为抵扣。"
   },
   "common": {
     "empty": "暂无"
@@ -338,7 +349,7 @@
     "actions": {
       "upgradeNow": "立即升级"
     },
-    "subtitle": "查看当前创作者空间的总积分、各类积分余额以及对应有效期。",
+    "subtitle": "查看当前老师空间的总积分、各类积分余额以及对应有效期。",
     "table": {
       "balance": "余额",
       "creditType": "类型",
@@ -402,12 +413,12 @@
     }
   },
   "ledger": {
-    "bucketDescription": "查看积分来源 bucket、当前余额，以及后续实际扣减时会采用的顺序。",
+    "bucketDescription": "查看积分来源积分桶、当前余额，以及后续实际扣减时会采用的顺序。",
     "category": {
       "subscription": "套餐积分",
       "topup": "积分包"
     },
-    "empty": "当前还没有积分来源 bucket，首次发放后会展示在这里。",
+    "empty": "当前还没有积分来源积分桶，首次发放后会展示在这里。",
     "entriesDescription": "grant / consume / refund / expire 等账本流水会在下一项 billing 任务中接入。",
     "entriesTitle": "账本流水",
     "entryType": {
@@ -425,6 +436,7 @@
       "page": "第 {page} / {pageCount} 页，共 {total} 条账本"
     },
     "source": {
+      "campaignBonus": "活动赠送积分",
       "gift": "赠送积分",
       "manual": "人工调整",
       "refund": "退款返还",
@@ -433,7 +445,7 @@
       "usage": "用量结算"
     },
     "summary": {
-      "activeBuckets": "生效 bucket",
+      "activeBuckets": "生效积分桶",
       "nextExpiry": "最近过期",
       "totalAvailable": "来源积分总额"
     },
@@ -473,7 +485,7 @@
       "subscriptionRenewal": "订阅续费",
       "subscriptionStart": "订阅开通",
       "subscriptionUpgrade": "订阅升级",
-      "topup": "充值订单"
+      "topup": "积分包订单"
     }
   },
   "overview": {
@@ -493,9 +505,19 @@
       "downgradeDisabled": "不支持降级",
       "freeTrial": "已失效",
       "nonMemberTooltip": "当前为非会员状态，无需操作",
+      "preorderDowngrade": "预购降级",
+      "preorderLocked": "预购锁定",
+      "preorderLockedTooltip": "已有套餐预购待生效，当前仅支持立即升级。",
+      "preorderProviderUnsupportedTooltip": "套餐预购仅支持当前自管理支付通道。",
+      "preorderRenewal": "预付续费",
+      "preorderScheduled": "已预购",
       "subscribeNow": "立即订阅",
       "upgradeNow": "立即升级",
       "upgradeOnlyTooltip": "当前套餐在有效期内仅支持升级，不能购买同级或更低档套餐"
+    },
+    "campaign": {
+      "bonusBadge": "赠送 {credits} 积分",
+      "discountBadge": "限时优惠"
     },
     "creditPeriod": {
       "oneTime": "一次性"
@@ -570,10 +592,10 @@
     },
     "featuresTitle": "享有权益：",
     "footnote": {
-      "learnerEstimateIntro": "学习人次是基于平台经验的预估，最终以实际积分消耗为准。预估标准参考：",
-      "learnerEstimateMode": "课程开启了听课模式（开启后积分消耗量更大）",
-      "learnerEstimateModel": "全部使用默认模型",
-      "learnerEstimateScale": "学习一次课程，课程规模：约 10 个小节，平均每小节正常学习时长约 15 分钟",
+      "learnerEstimateIntro": "学习人次是基于平台经验的预估，按“一人完整学完一次课程，课程规模约 10 个小节，平均每小节正常学习约 15 分钟，全部使用默认模型，并开启听课模式”的口径估算。实际扣费会根据学习、预览、调试中产生的模型消耗结算，最终以积分明细为准。积分消耗影响因素：",
+      "learnerEstimateMode": "关闭听课模式、仅保留图文学习互动时，支持人次可增加 1-4 倍。",
+      "learnerEstimateModel": "选择更贵或更便宜的模型，会影响积分消耗。",
+      "learnerEstimateScale": "课程节数、每节长度、互动数量、完课率和学生追问次数的变化，都会影响积分消耗。",
       "validity": "积分有效期：月度套餐自获取之日起 30 天内有效（含当日）；年度套餐自获取之日起按自然年有效。两类均以到期日 23:59 为截止。"
     },
     "free": {
@@ -589,6 +611,9 @@
       "plans": "积分套餐",
       "topup": "积分包",
       "yearly": "年度套餐"
+    },
+    "preorder": {
+      "pending": "待生效预购：{plan} 将于 {date} 生效。"
     },
     "scale": {
       "advanced": {
@@ -646,7 +671,8 @@
     "tabs": {
       "ledger": "积分详情",
       "plans": "积分购买"
-    }
+    },
+    "title": "会员与积分"
   },
   "renewal": {
     "eventType": {

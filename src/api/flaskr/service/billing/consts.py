@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -74,6 +74,7 @@ CREDIT_SOURCE_TYPE_GIFT = 7413
 CREDIT_SOURCE_TYPE_USAGE = 7414
 CREDIT_SOURCE_TYPE_REFUND = 7415
 CREDIT_SOURCE_TYPE_MANUAL = 7416
+CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS = 7417
 
 CREDIT_ROUNDING_MODE_CEIL = 7421
 CREDIT_ROUNDING_MODE_FLOOR = 7422
@@ -137,6 +138,12 @@ BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE = 7721
 BILLING_ENTITLEMENT_SUPPORT_TIER_BUSINESS_HOURS = 7722
 BILLING_ENTITLEMENT_SUPPORT_TIER_PRIORITY = 7723
 
+BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT = 7801
+BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS = 7802
+
+BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED = 7811
+BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT = 7812
+
 
 BILLING_PRODUCT_TYPE_LABELS = {
     BILLING_PRODUCT_TYPE_PLAN: "plan",
@@ -181,6 +188,11 @@ BILLING_ORDER_STATUS_LABELS = {
     BILLING_ORDER_STATUS_TIMEOUT: "timeout",
 }
 
+BILLING_PENDING_ORDER_TIMEOUT_MINUTES = 30
+BILLING_PENDING_ORDER_TIMEOUT_DELTA = timedelta(
+    minutes=BILLING_PENDING_ORDER_TIMEOUT_MINUTES
+)
+
 CREDIT_LEDGER_ENTRY_TYPE_LABELS = {
     CREDIT_LEDGER_ENTRY_TYPE_GRANT: "grant",
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME: "consume",
@@ -198,6 +210,17 @@ CREDIT_SOURCE_TYPE_LABELS = {
     CREDIT_SOURCE_TYPE_USAGE: "usage",
     CREDIT_SOURCE_TYPE_REFUND: "refund",
     CREDIT_SOURCE_TYPE_MANUAL: "manual",
+    CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS: "campaign_bonus",
+}
+
+BILLING_CAMPAIGN_BENEFIT_TYPE_LABELS = {
+    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT: "discount",
+    BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS: "bonus",
+}
+
+BILLING_CAMPAIGN_DISCOUNT_TYPE_LABELS = {
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED: "fixed",
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT: "percent",
 }
 
 BILLING_METRIC_LABELS = {
@@ -294,6 +317,84 @@ BILL_CONFIG_KEY_CREDIT_PRECISION = "BILL_CREDIT_PRECISION"
 BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD = "BILL_LOW_BALANCE_THRESHOLD"
 BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG = "BILL_RENEWAL_TASK_CONFIG"
 BILL_CONFIG_KEY_RATE_VERSION = "BILL_RATE_VERSION"
+BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG = "BILL_CREDIT_NOTIFICATION_SMS_CONFIG"
+
+CREDIT_NOTIFICATION_TYPE_EXPIRING = "credit_expiring"
+CREDIT_NOTIFICATION_TYPE_GRANTED = "credit_granted"
+CREDIT_NOTIFICATION_TYPE_LOW_BALANCE = "low_balance"
+CREDIT_NOTIFICATION_CHANNEL_SMS = "sms"
+
+CREDIT_NOTIFICATION_STATUS_PENDING = "pending"
+CREDIT_NOTIFICATION_STATUS_SENT = "sent"
+CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE = "skipped_no_mobile"
+CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT = "skipped_opt_out"
+CREDIT_NOTIFICATION_STATUS_SUPPRESSED_DUPLICATE = "suppressed_duplicate"
+CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER = "failed_provider"
+
+CREDIT_NOTIFICATION_PROCESSABLE_STATUSES = {
+    CREDIT_NOTIFICATION_STATUS_PENDING,
+    CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
+}
+
+DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG = {
+    "enabled": False,
+    "channel": CREDIT_NOTIFICATION_CHANNEL_SMS,
+    "types": {
+        CREDIT_NOTIFICATION_TYPE_EXPIRING: {
+            "enabled": False,
+            "template_code": "",
+            "windows": ["7d", "3d", "1d", "0d"],
+            "merge_same_creator": True,
+        },
+        CREDIT_NOTIFICATION_TYPE_GRANTED: {
+            "enabled": False,
+            "template_code": "",
+        },
+        CREDIT_NOTIFICATION_TYPE_LOW_BALANCE: {
+            "enabled": False,
+            "template_code": "",
+            "thresholds": [
+                {
+                    "kind": "fixed",
+                    "value": "0",
+                }
+            ],
+        },
+    },
+    "softlimit": {
+        "enabled": False,
+        "threshold": {
+            "kind": "fixed",
+            "value": "0",
+        },
+        "teacher_page_alert": True,
+        "disable_debug": True,
+        "sms_enabled": False,
+    },
+    "frequency": {
+        "per_mobile_per_day": 3,
+        "per_creator_per_type_per_day": 1,
+    },
+    "quiet_hours": {
+        "enabled": False,
+        "start": "22:00",
+        "end": "09:00",
+        "timezone": "Asia/Shanghai",
+    },
+    "blacklist": {
+        "creator_bids": [],
+        "mobiles": [],
+    },
+    "opt_out": {
+        "creator_bids": [],
+        "mobiles": [],
+    },
+    "budget": {
+        "daily_sms_limit": 0,
+        "dry_run_required": True,
+        "sms_unit_cost": "0",
+    },
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -394,7 +495,9 @@ BILL_SYS_CONFIG_SEEDS = (
                 "enabled": 0,
                 "batch_size": 100,
                 "lookahead_minutes": 60,
-                "queue": "billing-renewal",
+                "processing_timeout_minutes": 30,
+                "queue": "",
+                "use_dedicated_queue": 0,
             },
             separators=(",", ":"),
             sort_keys=True,
@@ -410,6 +513,19 @@ BILL_SYS_CONFIG_SEEDS = (
         "value": "bootstrap-v1",
         "is_encrypted": 0,
         "remark": "Billing rate version bootstrap marker",
+        "deleted": 0,
+        "updated_by": "system",
+    },
+    {
+        "config_bid": "bill-config-credit-notification-sms",
+        "key": BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
+        "value": json.dumps(
+            DEFAULT_CREDIT_NOTIFICATION_SMS_CONFIG,
+            separators=(",", ":"),
+            sort_keys=True,
+        ),
+        "is_encrypted": 0,
+        "remark": "Credit notification SMS policy config",
         "deleted": 0,
         "updated_by": "system",
     },

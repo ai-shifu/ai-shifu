@@ -17,6 +17,11 @@ class PostAuthContext:
     created_new_user: bool = False
     language: str | None = None
     creator_granted_now: bool = False
+    invite_code: str | None = None
+    referral_session_id: str | None = None
+    referral_entry_source: str | None = None
+    client_ip_hash: str | None = None
+    user_agent_hash: str | None = None
 
 
 def run_post_auth_extensions(app: Flask, context: PostAuthContext) -> PostAuthContext:

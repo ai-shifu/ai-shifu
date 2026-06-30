@@ -38,6 +38,22 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ href: string }>) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -146,6 +162,56 @@ jest.mock('@/components/ui/Sheet', () => ({
   SheetTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
 }));
 
+jest.mock('@/components/ui/Select', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const SelectContext = ReactModule.createContext<{
+    value: string;
+    onValueChange: (value: string) => void;
+  }>({
+    value: '',
+    onValueChange: () => undefined,
+  });
+
+  return {
+    __esModule: true,
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange: (value: string) => void;
+    }>) => (
+      <SelectContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </SelectContext.Provider>
+    ),
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectItem: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(SelectContext);
+      return (
+        <button
+          type='button'
+          onClick={() => context.onValueChange(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+  };
+});
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -192,6 +258,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
           lesson_outline_item_bid: 'lesson-1',
           lesson_title: 'Lesson 1',
           follow_up_content: 'Second follow-up question',
+          has_source_output: true,
           turn_index: 2,
           created_at: '2026-04-05T11:02:00Z',
         },
@@ -207,6 +274,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
           lesson_outline_item_bid: 'lesson-1',
           lesson_title: 'Lesson 1',
           follow_up_content: 'First follow-up question',
+          has_source_output: false,
           turn_index: 1,
           created_at: '2026-04-05T11:01:00Z',
         },
@@ -257,20 +325,23 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     });
   });
 
-  test('renders follow-up list and can return to course detail', async () => {
+  test('renders follow-up list with breadcrumb navigation', async () => {
     render(<AdminOperationCourseFollowUpsPage />);
 
     expect(
-      await screen.findByText('module.operationsCourse.detail.followUps.title'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'module.operationsCourse.detail.followUps.summary.scopeHint',
-      ),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsCourse.detail.followUps.title',
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
         'module.operationsCourse.detail.followUps.turnIndexHelp',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.followUps.table.scopeHint',
       ),
     ).toBeInTheDocument();
     await waitFor(() => {
@@ -278,8 +349,10 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
+        include_summary: true,
         keyword: '',
         chapter_keyword: '',
+        source_status: '',
         start_time: '',
         end_time: '',
       });
@@ -287,14 +360,27 @@ describe('AdminOperationCourseFollowUpsPage', () => {
 
     expect(screen.getByText('Second follow-up question')).toBeInTheDocument();
     expect(screen.getAllByText('13900001235').length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.followUps.table.sourceResolved',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.followUps.table.sourceMissing',
+      ),
+    ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCourse.detail.followUps.back',
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.title',
       }),
-    );
-
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1');
+    ).toHaveAttribute('href', '/admin/operations');
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.detail.title',
+      }),
+    ).toHaveAttribute('href', '/admin/operations/course-1');
   });
 
   test('formats follow-up summary counts without grouping in Chinese locale', async () => {
@@ -321,6 +407,113 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     expect(screen.queryByText('12,000')).not.toBeInTheDocument();
   });
 
+  test('keeps summary cards scoped to all follow-ups when filters change', async () => {
+    mockGetAdminOperationCourseFollowUps
+      .mockResolvedValueOnce({
+        summary: {
+          follow_up_count: 42,
+          user_count: 7,
+          lesson_count: 5,
+          latest_follow_up_at: '2026-04-05T11:02:00Z',
+        },
+        items: [
+          {
+            generated_block_bid: 'ask-all',
+            progress_record_bid: 'progress-1',
+            user_bid: 'student-1',
+            mobile: '13900001235',
+            email: '',
+            nickname: 'Bob',
+            chapter_outline_item_bid: 'chapter-1',
+            chapter_title: 'Chapter 1',
+            lesson_outline_item_bid: 'lesson-1',
+            lesson_title: 'Lesson 1',
+            follow_up_content: 'All follow-up question',
+            has_source_output: true,
+            turn_index: 1,
+            created_at: '2026-04-05T11:02:00Z',
+          },
+        ],
+        page: 1,
+        page_size: 20,
+        total: 42,
+        page_count: 3,
+      })
+      .mockResolvedValueOnce({
+        summary: {
+          follow_up_count: 0,
+          user_count: 0,
+          lesson_count: 0,
+          latest_follow_up_at: '',
+        },
+        items: [
+          {
+            generated_block_bid: 'ask-filtered',
+            progress_record_bid: 'progress-1',
+            user_bid: 'student-2',
+            mobile: '13900009999',
+            email: '',
+            nickname: 'Alice',
+            chapter_outline_item_bid: 'chapter-2',
+            chapter_title: 'Chapter 2',
+            lesson_outline_item_bid: 'lesson-2',
+            lesson_title: 'Lesson 2',
+            follow_up_content: 'Filtered follow-up question',
+            has_source_output: false,
+            turn_index: 1,
+            created_at: '2026-04-06T11:02:00Z',
+          },
+        ],
+        page: 1,
+        page_size: 20,
+        total: 1,
+        page_count: 1,
+      });
+
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    expect(
+      await screen.findByText('All follow-up question'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.detail.followUps.filters.userKeywordPlaceholderPhone',
+      ),
+      {
+        target: { value: 'student-2' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.filters.search',
+      }),
+    );
+
+    expect(
+      await screen.findByText('Filtered follow-up question'),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseFollowUps).toHaveBeenLastCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        include_summary: false,
+        keyword: 'student-2',
+        chapter_keyword: '',
+        source_status: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
+  });
+
   test('submits filters and opens the detail drawer', async () => {
     render(<AdminOperationCourseFollowUpsPage />);
 
@@ -345,6 +538,11 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     );
     fireEvent.click(
       screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.filters.sourceStatusMissing',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
         name: 'module.operationsCourse.detail.followUps.filters.timePlaceholder',
       }),
     );
@@ -359,8 +557,10 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
+        include_summary: false,
         keyword: 'student',
         chapter_keyword: 'Lesson 1',
+        source_status: 'missing',
         start_time: '2026-04-05',
         end_time: '2026-04-06',
       });
@@ -404,6 +604,31 @@ describe('AdminOperationCourseFollowUpsPage', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getAllByText('Lesson 1').length).toBeGreaterThan(0);
+  });
+
+  test('clears draft filters on reset without refetching when applied filters are already default', async () => {
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    await screen.findByText('Second follow-up question');
+    mockGetAdminOperationCourseFollowUps.mockClear();
+
+    const keywordInput = screen.getByPlaceholderText(
+      'module.operationsCourse.detail.followUps.filters.userKeywordPlaceholderPhone',
+    );
+    fireEvent.change(keywordInput, {
+      target: { value: 'unsaved draft' },
+    });
+
+    expect(keywordInput).toHaveValue('unsaved draft');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.filters.reset',
+      }),
+    );
+
+    expect(keywordInput).toHaveValue('');
+    expect(mockGetAdminOperationCourseFollowUps).not.toHaveBeenCalled();
   });
 
   test('shows a descriptive source fallback when original output cannot be resolved', async () => {
@@ -451,7 +676,106 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     ).toBeInTheDocument();
   });
 
-  test('renders summary time in the viewer timezone when UTC crosses local day boundaries', async () => {
+  test('switches outline labels to lesson wording when the course has no chapter hierarchy', async () => {
+    mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
+      summary: {
+        follow_up_count: 1,
+        user_count: 1,
+        lesson_count: 1,
+        latest_follow_up_at: '2026-04-05T11:02:00Z',
+      },
+      items: [
+        {
+          generated_block_bid: 'ask-lesson',
+          progress_record_bid: 'progress-1',
+          user_bid: 'student-1',
+          mobile: '13900001235',
+          email: '',
+          nickname: 'Bob',
+          chapter_outline_item_bid: '',
+          chapter_title: '',
+          lesson_outline_item_bid: 'lesson-1',
+          lesson_title: 'Lesson only',
+          follow_up_content: 'Lesson-only follow-up question',
+          has_source_output: true,
+          turn_index: 1,
+          created_at: '2026-04-05T11:02:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      page_count: 1,
+    });
+    mockGetAdminOperationCourseFollowUpDetail.mockResolvedValueOnce({
+      basic_info: {
+        generated_block_bid: 'ask-lesson',
+        progress_record_bid: 'progress-1',
+        user_bid: 'student-1',
+        mobile: '13900001235',
+        email: '',
+        nickname: 'Bob',
+        course_name: 'Course One',
+        shifu_bid: 'course-1',
+        chapter_title: '',
+        lesson_title: 'Lesson only',
+        created_at: '2026-04-05T11:02:00Z',
+        turn_index: 1,
+      },
+      current_record: {
+        source_output_content: 'Source output',
+        source_output_type: 'interaction',
+        source_position: 1,
+        source_element_bid: '',
+        source_element_type: '',
+        follow_up_content: 'Lesson-only follow-up question',
+        answer_content: 'Lesson-only follow-up answer',
+      },
+      timeline: [],
+    });
+
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    await screen.findByText('Lesson-only follow-up question');
+
+    expect(
+      screen.getByText(
+        'module.operationsCourse.detail.followUps.filters.lessonKeyword',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsCourse.detail.followUps.filters.chapterKeyword',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('module.operationsCourse.detail.followUps.table.lesson'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsCourse.detail.followUps.table.chapter',
+      ),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.table.detailAction',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.operationsCourse.detail.followUps.drawer.fields.lesson',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsCourse.detail.followUps.drawer.fields.chapter',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  test('keeps follow-up timestamps as returned wall-clock time when browser timezone changes', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
       summary: {
@@ -473,6 +797,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
           lesson_outline_item_bid: 'lesson-1',
           lesson_title: 'Lesson 1',
           follow_up_content: 'Cross-day follow-up question',
+          has_source_output: true,
           turn_index: 1,
           created_at: '2026-04-05T01:30:00Z',
         },
@@ -487,8 +812,41 @@ describe('AdminOperationCourseFollowUpsPage', () => {
 
     await screen.findByText('Cross-day follow-up question');
 
-    expect(screen.getByText('2026-04-04')).toBeInTheDocument();
-    expect(screen.getByText('18:30:00')).toBeInTheDocument();
+    expect(document.body.textContent).toContain('2026-04-05');
+    expect(document.body.textContent).toContain('01:30:00');
+    expect(document.body.textContent).not.toContain('2026-04-04');
+    expect(document.body.textContent).not.toContain('18:30:00');
+  });
+
+  test('keeps follow-up detail drawer timestamps as returned wall-clock time', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+
+    render(<AdminOperationCourseFollowUpsPage />);
+
+    await screen.findByText('Second follow-up question');
+
+    fireEvent.click(
+      screen.getAllByRole('button', {
+        name: 'module.operationsCourse.detail.followUps.table.detailAction',
+      })[0],
+    );
+
+    expect(
+      await screen.findByText(
+        'module.operationsCourse.detail.followUps.drawer.title',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('2026-04-05 11:02:00').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText('2026-04-05 11:01:00').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText('2026-04-05 11:02:02').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText('2026-04-05 04:02:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-05 04:01:00')).not.toBeInTheDocument();
   });
 
   test('ignores a late detail response after the drawer is closed', async () => {
@@ -574,6 +932,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
           lesson_outline_item_bid: 'lesson-1',
           lesson_title: 'Lesson 1',
           follow_up_content: 'Question without a valid block bid',
+          has_source_output: false,
           turn_index: 1,
           created_at: '2026-04-05T11:02:00Z',
         },

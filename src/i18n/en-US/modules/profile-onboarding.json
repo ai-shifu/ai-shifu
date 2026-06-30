@@ -1,0 +1,39 @@
+{
+  "__namespace__": "module.profileOnboarding",
+  "admin": {
+    "allowedVariables": "Allowed Variables",
+    "allowedVariablesHint": "This flow can only write nickname, teaching style, and background. Language is still detected automatically.",
+    "defaultMarkdownflow": "?[%{{sys_user_nickname}}...What should the course call you?]\n?[%{{sys_user_style}} Concise and direct | Step-by-step coaching | Vivid and lively]\n?[%{{sys_user_background}}...What is your work or background?]",
+    "description": "Configure the first-entry learner profile popup for the learning app.",
+    "emptyPreview": "No recognizable interaction questions yet.",
+    "enabled": "Enable onboarding popup",
+    "enabledHint": "When enabled, learners who have not completed or skipped this flow will see it once.",
+    "hidePreview": "Hide Preview",
+    "invalidVariables": "Variables not allowed: {keys}",
+    "loadFailed": "Failed to load profile onboarding configuration",
+    "markdownflow": "MarkdownFlow",
+    "preview": "Preview",
+    "publishState": "Publish State",
+    "save": "Save",
+    "saveFailed": "Failed to save profile onboarding configuration",
+    "saveSuccess": "Profile onboarding configuration saved",
+    "title": "Profile Onboarding",
+    "updatedAt": "Updated At",
+    "updatedBy": "Updated By",
+    "version": "Version"
+  },
+  "complete": "Finish",
+  "description": "Answer a few questions so the course can address you naturally.",
+  "emptyFlow": "No profile questions are configured.",
+  "inputPlaceholder": "Type your answer",
+  "next": "Next",
+  "skip": "Skip",
+  "submitFailed": "Unable to save your profile. Please check your answers and try again.",
+  "title": "Set Up Your Learning Profile",
+  "variableLabels": {
+    "sys_user_background": "work or background",
+    "sys_user_nickname": "nickname",
+    "sys_user_style": "teaching style"
+  },
+  "variablePrompt": "Please provide {variable}"
+}

@@ -70,6 +70,51 @@ const BILLING_PLAN_VALIDITY_COUNT_KEYS: Record<BillingPlanInterval, string> = {
   year: 'module.billing.package.validity.years',
 };
 
+export function resolveBillingProductPayableAmount(
+  product: BillingPlan | BillingTopupProduct,
+): number {
+  const campaign = product.campaign;
+  if (
+    campaign?.campaign_bid &&
+    campaign.benefit_type === 'discount' &&
+    Number.isFinite(Number(campaign.campaign_price_amount))
+  ) {
+    return Math.max(Number(campaign.campaign_price_amount), 0);
+  }
+  return Number(product.price_amount || 0);
+}
+
+export function hasBillingProductDiscountCampaign(
+  product: BillingPlan | BillingTopupProduct,
+): boolean {
+  return (
+    Boolean(product.campaign?.campaign_bid) &&
+    product.campaign?.benefit_type === 'discount' &&
+    resolveBillingProductPayableAmount(product) !==
+      Number(product.price_amount || 0)
+  );
+}
+
+export function getBillingProductCampaignBonusCredits(
+  product: BillingPlan | BillingTopupProduct,
+): number {
+  const bonusCredits = Number(product.campaign?.bonus_credit_amount || 0);
+  if (
+    !product.campaign?.campaign_bid ||
+    product.campaign.benefit_type !== 'bonus' ||
+    !Number.isFinite(bonusCredits)
+  ) {
+    return 0;
+  }
+  return Math.max(bonusCredits, 0);
+}
+
+export function hasBillingProductBonusCampaign(
+  product: BillingPlan | BillingTopupProduct,
+): boolean {
+  return getBillingProductCampaignBonusCredits(product) > 0;
+}
+
 const BILLING_STATUS_KEYS: Record<string, string> = {
   active: 'module.billing.status.active',
   draft: 'module.billing.status.draft',
@@ -176,6 +221,7 @@ const BILLING_BUCKET_SOURCE_KEYS: Record<BillingBucketSourceType, string> = {
   refund: 'module.billing.ledger.source.refund',
   manual: 'module.billing.ledger.source.manual',
   usage: 'module.billing.ledger.source.usage',
+  campaign_bonus: 'module.billing.ledger.source.campaignBonus',
 };
 
 const BILLING_LEDGER_ENTRY_KEYS: Record<BillingLedgerEntryType, string> = {
@@ -873,6 +919,10 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.catalog.labels.providerAlipay'),
     t('module.billing.catalog.labels.providerManual'),
     t('module.billing.catalog.labels.providerPingxx'),
+    t('module.billing.catalog.labels.providerWithChannel', {
+      provider: t('module.billing.catalog.labels.providerPingxx'),
+      channel: t('module.pay.wechatPay'),
+    }),
     t('module.billing.catalog.labels.providerStripe'),
     t('module.billing.catalog.labels.providerWechatpay'),
     t('module.billing.catalog.plans.creatorMonthly.description'),

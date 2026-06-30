@@ -52,6 +52,7 @@
   "filters": {
     "all": "All",
     "channel": "Payment Channel",
+    "dateRangePlaceholder": "Start Date ~ End Date",
     "endTime": "End Date",
     "orderBid": "Order ID",
     "reset": "Reset",
@@ -97,6 +98,7 @@
     "successSummary": "{count} mobile numbers imported successfully",
     "title": "Import Activation"
   },
+  "paginationJumpInputAriaLabel": "Jump to page",
   "paginationNext": "Next",
   "paginationNextAriaLabel": "Go to next page",
   "paginationPrev": "Previous",
@@ -118,6 +120,28 @@
     "refunded": "Refunded",
     "unknown": "Unknown"
   },
+  "redemptionCodes": {
+    "action": "Create Code",
+    "courseLabel": "Course",
+    "coursePlaceholder": "Select a published course",
+    "courseRequired": "Course is required",
+    "createFailed": "Failed to create redemption code",
+    "createSuccess": "Created successfully",
+    "dialogTitle": "Create Redemption Code",
+    "editDialogTitle": "Edit redemption code",
+    "emptyCourses": "No published courses",
+    "emptyList": "No redemption codes",
+    "loadCoursesFailed": "Failed to load courses. Please try again later.",
+    "loadFailed": "Failed to load redemption codes. Please refresh and try again.",
+    "opsState": "Status Flag",
+    "submitting": "Creating...",
+    "tooManyCourses": "Only the first published courses are shown. Please refine the course list if needed.",
+    "totalCount": "Redemption codes: {count}",
+    "updateSuccess": "Saved successfully",
+    "usageTypeHelp": "Redemption code type help",
+    "usageTypeHelpGeneric": "Generic: one code can be redeemed multiple times.",
+    "usageTypeHelpSingleUse": "One code per order: the system creates a unique sub-code for each quota, and each sub-code can be redeemed once."
+  },
   "sections": {
     "activities": "Activities",
     "coupons": "Coupons",
@@ -137,6 +161,10 @@
     "status": "Status",
     "user": "User",
     "view": "View"
+  },
+  "tabs": {
+    "orders": "Order Records",
+    "redemptionCodes": "Redemption Codes"
   },
   "title": "Orders",
   "totalCount": "Orders: {count}"

@@ -7,12 +7,16 @@ import sys
 import threading
 import time
 import types
+from types import SimpleNamespace
 
 from flask import Flask
 import pytest
 
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_STATUS_TIMEOUT,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -29,6 +33,7 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import (
+    BillingOrder,
     BillingRenewalEvent,
     CreditLedgerEntry,
     CreditUsageRate,
@@ -39,7 +44,9 @@ from flaskr.service.billing.tasks import (
     aggregate_daily_ledger_summary_task,
     aggregate_daily_usage_metrics_task,
     dispatch_due_renewal_events_task,
+    expire_pending_orders_task,
     expire_wallet_buckets_task,
+    finalize_daily_ledger_summary_task,
     reconcile_provider_reference_task,
     replay_usage_settlement_task,
     rebuild_daily_aggregates_task,
@@ -235,6 +242,95 @@ def test_aggregate_daily_ledger_summary_task_calls_helper(
     }
     assert payload["status"] == "finalized"
     assert payload["task_name"] == "billing.aggregate_daily_ledger_summary"
+
+
+def test_finalize_daily_ledger_summary_task_defaults_to_previous_day(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_app = object()
+    _install_fake_app_module(monkeypatch, fake_app)
+
+    captured: dict[str, object] = {}
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 5, 22, 2, 0, 0, tzinfo=tz)
+
+    def _fake_finalize_daily_ledger_summary(
+        app,
+        *,
+        stat_date: str = "",
+        creator_bid: str = "",
+    ):
+        captured["app"] = app
+        captured["stat_date"] = stat_date
+        captured["creator_bid"] = creator_bid
+        return {
+            "status": "finalized",
+            "stat_date": stat_date,
+            "creator_bid": creator_bid or None,
+            "finalize": True,
+        }
+
+    monkeypatch.setattr("flaskr.service.billing.tasks.datetime", FixedDateTime)
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.finalize_daily_ledger_summary",
+        _fake_finalize_daily_ledger_summary,
+    )
+
+    payload = finalize_daily_ledger_summary_task(creator_bid=" creator-task-3 ")
+
+    assert captured == {
+        "app": fake_app,
+        "stat_date": "2026-05-21",
+        "creator_bid": "creator-task-3",
+    }
+    assert payload["status"] == "finalized"
+    assert payload["task_name"] == "billing.finalize_daily_ledger_summary"
+
+
+def test_finalize_daily_ledger_summary_task_accepts_explicit_stat_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_app = object()
+    _install_fake_app_module(monkeypatch, fake_app)
+
+    captured: dict[str, object] = {}
+
+    def _fake_finalize_daily_ledger_summary(
+        app,
+        *,
+        stat_date: str = "",
+        creator_bid: str = "",
+    ):
+        captured["app"] = app
+        captured["stat_date"] = stat_date
+        captured["creator_bid"] = creator_bid
+        return {
+            "status": "finalized",
+            "stat_date": stat_date,
+            "creator_bid": creator_bid or None,
+            "finalize": True,
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.finalize_daily_ledger_summary",
+        _fake_finalize_daily_ledger_summary,
+    )
+
+    payload = finalize_daily_ledger_summary_task(
+        stat_date=" 2026-05-20 ",
+        creator_bid=" creator-task-4 ",
+    )
+
+    assert captured == {
+        "app": fake_app,
+        "stat_date": "2026-05-20",
+        "creator_bid": "creator-task-4",
+    }
+    assert payload["status"] == "finalized"
+    assert payload["task_name"] == "billing.finalize_daily_ledger_summary"
 
 
 def test_rebuild_daily_aggregates_task_calls_helper(
@@ -724,6 +820,137 @@ def test_expire_wallet_buckets_task_calls_wallet_helper(
     assert payload["task_name"] == "billing.expire_wallet_buckets"
 
 
+def test_expire_pending_orders_task_delegates_to_sync_flow(
+    billing_task_integration_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_app_module(monkeypatch, billing_task_integration_app)
+    now = datetime(2026, 6, 9, 12, 0, 0)
+
+    with billing_task_integration_app.app_context():
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid="bill-order-expire-task-1",
+                creator_bid="creator-expire-task-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-expire-task-1",
+                currency="CNY",
+                payable_amount=990,
+                paid_amount=0,
+                payment_provider="pingxx",
+                channel="alipay_qr",
+                provider_reference_id="charge-expire-task-1",
+                status=BILLING_ORDER_STATUS_PENDING,
+                expires_at=now - timedelta(minutes=1),
+                metadata_json={},
+                created_at=now - timedelta(minutes=30),
+                updated_at=now - timedelta(minutes=30),
+            )
+        )
+        dao.db.session.commit()
+
+    captured: dict[str, object] = {}
+
+    def _fake_sync_billing_order(app, creator_bid: str, bill_order_bid: str, payload):
+        captured["app"] = app
+        captured["creator_bid"] = creator_bid
+        captured["bill_order_bid"] = bill_order_bid
+        captured["payload"] = payload
+        with billing_task_integration_app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            order.status = BILLING_ORDER_STATUS_TIMEOUT
+            order.failure_code = "timeout"
+            dao.db.session.add(order)
+            dao.db.session.commit()
+        return SimpleNamespace(
+            bill_order_bid=bill_order_bid,
+            status="timeout",
+        )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.sync_billing_order",
+        _fake_sync_billing_order,
+    )
+
+    payload = expire_pending_orders_task(
+        creator_bid="creator-expire-task-1",
+        expire_before=now.isoformat(),
+    )
+
+    assert captured == {
+        "app": billing_task_integration_app,
+        "creator_bid": "creator-expire-task-1",
+        "bill_order_bid": "bill-order-expire-task-1",
+        "payload": {},
+    }
+    assert payload["status"] == "processed"
+    assert payload["timeout_count"] == 1
+    assert payload["task_name"] == "billing.expire_pending_orders"
+
+
+def test_expire_pending_orders_task_includes_legacy_orders_without_expires_at(
+    billing_task_integration_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_app_module(monkeypatch, billing_task_integration_app)
+    now = datetime(2026, 6, 9, 12, 0, 0)
+
+    with billing_task_integration_app.app_context():
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid="bill-order-expire-task-legacy-1",
+                creator_bid="creator-expire-task-legacy-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-expire-task-legacy-1",
+                currency="CNY",
+                payable_amount=990,
+                paid_amount=0,
+                payment_provider="pingxx",
+                channel="alipay_qr",
+                provider_reference_id="charge-expire-task-legacy-1",
+                status=BILLING_ORDER_STATUS_PENDING,
+                expires_at=None,
+                metadata_json={},
+                created_at=now - timedelta(minutes=31),
+                updated_at=now - timedelta(minutes=31),
+            )
+        )
+        dao.db.session.commit()
+
+    captured: dict[str, object] = {}
+
+    def _fake_sync_billing_order(app, creator_bid: str, bill_order_bid: str, payload):
+        captured["app"] = app
+        captured["creator_bid"] = creator_bid
+        captured["bill_order_bid"] = bill_order_bid
+        captured["payload"] = payload
+        return SimpleNamespace(
+            bill_order_bid=bill_order_bid,
+            status="timeout",
+        )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.sync_billing_order",
+        _fake_sync_billing_order,
+    )
+
+    payload = expire_pending_orders_task(
+        creator_bid="creator-expire-task-legacy-1",
+        expire_before=now.isoformat(),
+    )
+
+    assert captured == {
+        "app": billing_task_integration_app,
+        "creator_bid": "creator-expire-task-legacy-1",
+        "bill_order_bid": "bill-order-expire-task-legacy-1",
+        "payload": {},
+    }
+    assert payload["status"] == "processed"
+    assert payload["timeout_count"] == 1
+
+
 def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -774,32 +1001,33 @@ def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
     assert payload["task_name"] == "billing.reconcile_provider_reference"
 
 
-def test_send_low_balance_alert_task_filters_to_low_balance_alerts(
+def test_send_low_balance_alert_task_preserves_legacy_name_and_delegates_scan(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_app = Flask(__name__)
     _install_fake_app_module(monkeypatch, fake_app)
+    captured: dict[str, object] = {}
+
     monkeypatch.setattr(
-        "flaskr.service.billing.tasks.build_billing_overview",
-        lambda app, creator_bid, timezone_name=None: {
-            "creator_bid": creator_bid,
-            "wallet": {"available_credits": "0E-10"},
-            "billing_alerts": [
-                {"code": "low_balance", "severity": "warning"},
-                {"code": "subscription_past_due", "severity": "error"},
-            ],
-        },
+        "flaskr.service.billing.tasks._scan_low_balance_notifications",
+        lambda app, *, creator_bid="": (
+            captured.update({"app": app, "creator_bid": creator_bid})
+            or {
+                "status": "created",
+                "candidate_count": 1,
+                "created_count": 1,
+                "enqueued_count": 1,
+                "notifications": [{"notification_bid": "notification-1"}],
+            }
+        ),
     )
 
     payload = send_low_balance_alert_task(creator_bid="creator-task-alert")
 
-    assert payload["status"] == "alerts_found"
-    assert payload["creator_count"] == 1
-    assert payload["alert_count"] == 1
-    assert payload["creators"][0]["creator_bid"] == "creator-task-alert"
-    assert payload["creators"][0]["alerts"] == [
-        {"code": "low_balance", "severity": "warning"}
-    ]
+    assert captured == {"app": fake_app, "creator_bid": "creator-task-alert"}
+    assert payload["status"] == "created"
+    assert payload["created_count"] == 1
+    assert payload["enqueued_count"] == 1
     assert payload["task_name"] == "billing.send_low_balance_alert"
 
 
@@ -920,6 +1148,7 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
                     last_error="",
                     payload_json=None,
                     processed_at=None,
+                    updated_at=now,
                 ),
                 BillingRenewalEvent(
                     renewal_event_bid="renewal-succeeded",
@@ -997,6 +1226,164 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
             },
             "options": {},
         },
+    ]
+
+
+def test_dispatch_due_renewal_events_recovers_stale_processing_events(
+    billing_task_integration_app,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_app_module(monkeypatch, billing_task_integration_app)
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.get_config",
+        lambda key, default="": json.dumps(
+            {
+                "enabled": 1,
+                "batch_size": 5,
+                "lookahead_minutes": 60,
+                "processing_timeout_minutes": 30,
+                "queue": "billing-renewal",
+            }
+        ),
+    )
+
+    now = datetime.now()
+    with billing_task_integration_app.app_context():
+        dao.db.session.add_all(
+            [
+                BillingRenewalEvent(
+                    renewal_event_bid="renewal-stale-processing",
+                    subscription_bid="subscription-stale-processing",
+                    creator_bid="creator-stale-processing",
+                    event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+                    scheduled_at=now - timedelta(minutes=10),
+                    status=BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+                    attempt_count=1,
+                    last_error="",
+                    payload_json=None,
+                    processed_at=None,
+                    updated_at=now - timedelta(minutes=45),
+                ),
+                BillingRenewalEvent(
+                    renewal_event_bid="renewal-fresh-processing",
+                    subscription_bid="subscription-fresh-processing",
+                    creator_bid="creator-fresh-processing",
+                    event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+                    scheduled_at=now - timedelta(minutes=10),
+                    status=BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
+                    attempt_count=1,
+                    last_error="",
+                    payload_json=None,
+                    processed_at=None,
+                    updated_at=now - timedelta(minutes=5),
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    captured_calls: list[dict[str, object]] = []
+
+    def _fake_apply_async(*, kwargs=None, **options):
+        captured_calls.append(
+            {
+                "kwargs": dict(kwargs or {}),
+                "options": dict(options),
+            }
+        )
+
+    monkeypatch.setattr(run_renewal_event_task, "apply_async", _fake_apply_async)
+
+    payload = dispatch_due_renewal_events_task()
+
+    assert payload["status"] == "enqueued"
+    assert payload["candidate_count"] == 1
+    assert payload["enqueued_count"] == 1
+    assert payload["recovered_processing_count"] == 1
+    assert payload["renewal_event_bids"] == ["renewal-stale-processing"]
+    assert captured_calls == [
+        {
+            "kwargs": {
+                "renewal_event_bid": "renewal-stale-processing",
+                "subscription_bid": "subscription-stale-processing",
+                "creator_bid": "creator-stale-processing",
+            },
+            "options": {},
+        }
+    ]
+
+    with billing_task_integration_app.app_context():
+        stale_event = BillingRenewalEvent.query.filter_by(
+            renewal_event_bid="renewal-stale-processing",
+        ).one()
+        fresh_event = BillingRenewalEvent.query.filter_by(
+            renewal_event_bid="renewal-fresh-processing",
+        ).one()
+        assert stale_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+        assert stale_event.last_error == "recovered_stale_processing"
+        assert fresh_event.status == BILLING_RENEWAL_EVENT_STATUS_PROCESSING
+
+
+def test_dispatch_due_renewal_events_uses_dedicated_queue_when_enabled(
+    billing_task_integration_app,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_app_module(monkeypatch, billing_task_integration_app)
+    monkeypatch.setattr(
+        "flaskr.service.billing.tasks.get_config",
+        lambda key, default="": json.dumps(
+            {
+                "enabled": 1,
+                "batch_size": 5,
+                "lookahead_minutes": 60,
+                "queue": "billing-renewal",
+                "use_dedicated_queue": 1,
+            }
+        ),
+    )
+
+    now = datetime.now()
+    with billing_task_integration_app.app_context():
+        dao.db.session.add(
+            BillingRenewalEvent(
+                renewal_event_bid="renewal-dedicated-queue",
+                subscription_bid="subscription-dedicated-queue",
+                creator_bid="creator-dedicated-queue",
+                event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+                scheduled_at=now - timedelta(minutes=1),
+                status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
+                attempt_count=0,
+                last_error="",
+                payload_json=None,
+                processed_at=None,
+            )
+        )
+        dao.db.session.commit()
+
+    captured_calls: list[dict[str, object]] = []
+
+    def _fake_apply_async(*, kwargs=None, **options):
+        captured_calls.append(
+            {
+                "kwargs": dict(kwargs or {}),
+                "options": dict(options),
+            }
+        )
+
+    monkeypatch.setattr(run_renewal_event_task, "apply_async", _fake_apply_async)
+
+    payload = dispatch_due_renewal_events_task()
+
+    assert payload["status"] == "enqueued"
+    assert payload["renewal_event_bids"] == ["renewal-dedicated-queue"]
+    assert captured_calls == [
+        {
+            "kwargs": {
+                "renewal_event_bid": "renewal-dedicated-queue",
+                "subscription_bid": "subscription-dedicated-queue",
+                "creator_bid": "creator-dedicated-queue",
+            },
+            "options": {"queue": "billing-renewal"},
+        }
     ]
 
 

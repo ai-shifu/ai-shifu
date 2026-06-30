@@ -1,6 +1,6 @@
 import { SSE } from 'sse.js';
 import request, { attachSseBusinessResponseFallback } from '@/lib/request';
-import { v4 } from 'uuid';
+import { buildTraceHeaders } from '@/lib/request-trace';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
 import {
@@ -21,6 +21,7 @@ export const ELEMENT_TYPE = {
   SVG: 'svg',
   DIFF: 'diff',
   IMG: 'img',
+  IMAGE: 'image',
 } as const;
 
 export type ElementType = (typeof ELEMENT_TYPE)[keyof typeof ELEMENT_TYPE];
@@ -81,6 +82,7 @@ export const SSE_OUTPUT_TYPE = {
   // Audio types for TTS
   AUDIO_SEGMENT: 'audio_segment',
   AUDIO_COMPLETE: 'audio_complete',
+  AUDIO_BACKFILL_READY: 'audio_backfill_ready',
   NEW_SLIDE: 'new_slide',
 } as const;
 export type SSE_OUTPUT_TYPE =
@@ -136,6 +138,7 @@ export interface StudyRecordItem {
   user_input?: string;
   payload?: StudyRecordPayload;
   isHistory?: boolean;
+  is_final?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
 }
@@ -198,9 +201,12 @@ export interface AudioSegmentData {
   duration_ms: number;
   is_final: boolean;
   position?: number;
+  stream_element_number?: number;
+  stream_element_type?: string;
   element_id?: string;
   slide_id?: string;
-  av_contract?: Record<string, any> | null;
+  av_contract?: Record<string, unknown> | null;
+  subtitle_cues?: SubtitleCueData[];
 }
 
 export interface AudioCompleteData {
@@ -208,8 +214,11 @@ export interface AudioCompleteData {
   audio_bid: string;
   duration_ms: number;
   position?: number;
+  stream_element_number?: number;
+  stream_element_type?: string;
   slide_id?: string;
-  av_contract?: Record<string, any> | null;
+  av_contract?: Record<string, unknown> | null;
+  subtitle_cues?: SubtitleCueData[];
 }
 
 export interface ListenSlideData {
@@ -250,12 +259,14 @@ const dispatchSseBusinessError = (
   source: { dispatchEvent: (event: Event) => void },
   error: { message: string; code?: number },
 ) => {
-  const event = new CustomEvent('error');
-  Object.assign(event, {
+  const event = new CustomEvent('error', {
     detail: error,
-    data: error.message,
-    responseCode: error.code,
-  });
+  }) as CustomEvent<{ message: string; code?: number }> & {
+    data?: string;
+    responseCode?: number;
+  };
+  event.data = error.message;
+  event.responseCode = error.code;
   source.dispatchEvent(event);
 };
 
@@ -319,19 +330,21 @@ export const getRunMessage = (
     return source;
   }
 
-  const source = new SSE(
-    `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Request-ID': v4().replace(/-/g, ''),
-        Authorization: `Bearer ${token}`,
-        Token: token,
-      },
-      payload: JSON.stringify(payload),
-      method: 'PUT',
-    },
-  );
+  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`;
+  const traceHeaders = buildTraceHeaders({
+    'Content-Type': 'application/json',
+    ...(token
+      ? {
+          Authorization: `Bearer ${token}`,
+          Token: token,
+        }
+      : {}),
+  });
+  const source = new SSE(url, {
+    headers: traceHeaders.headers,
+    payload: JSON.stringify(payload),
+    method: 'PUT',
+  });
 
   source.addEventListener('message', event => {
     try {
@@ -361,6 +374,13 @@ export const getRunMessage = (
 
   attachSseBusinessResponseFallback(source, {
     requestToken: token || '',
+    meta: {
+      url,
+      method: 'PUT',
+      requestToken: token || '',
+      requestId: traceHeaders.requestId,
+      harnessRunId: traceHeaders.harnessRunId,
+    },
     onHandled: error => {
       dispatchSseBusinessError(source, error);
     },
@@ -378,17 +398,18 @@ const createSseSource = (
   onError?: (error: unknown) => void,
 ) => {
   const token = useUserStore.getState().getToken();
-  const headers: Record<string, string> = {
+  const traceHeaders = buildTraceHeaders({
     'Content-Type': 'application/json',
-    'X-Request-ID': v4().replace(/-/g, ''),
-  };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-    headers.Token = token;
-  }
+    ...(token
+      ? {
+          Authorization: `Bearer ${token}`,
+          Token: token,
+        }
+      : {}),
+  });
 
   const source = new SSE(url, {
-    headers,
+    headers: traceHeaders.headers,
     payload: JSON.stringify(payload),
     method: 'POST',
   });
@@ -408,6 +429,13 @@ const createSseSource = (
 
   attachSseBusinessResponseFallback(source, {
     requestToken: token || '',
+    meta: {
+      url,
+      method: 'POST',
+      requestToken: token || '',
+      requestId: traceHeaders.requestId,
+      harnessRunId: traceHeaders.harnessRunId,
+    },
     onHandled: error => {
       dispatchSseBusinessError(source, error);
     },

@@ -17,6 +17,8 @@ interface ICataTreeProps {
   onChange?: (data: TreeItems<Outline>) => void;
   onAddNodeClick?: (node: Outline) => void;
   onChapterSelect?: () => void;
+  addLessonTargetId?: string;
+  forceShowAddLessonAction?: boolean;
 }
 
 const getReorderOutlineDto = (items: TreeItems<Outline>) => {
@@ -29,7 +31,13 @@ const getReorderOutlineDto = (items: TreeItems<Outline>) => {
 };
 
 export const CataTree = React.memo((props: ICataTreeProps) => {
-  const { items, onChange, onChapterSelect } = props;
+  const {
+    items,
+    onChange,
+    onChapterSelect,
+    addLessonTargetId,
+    forceShowAddLessonAction,
+  } = props;
   const { actions, focusId } = useShifu();
   const TreeItemWithSelect = useMemo(() => {
     const ForwardRefComponent = React.forwardRef<
@@ -40,11 +48,13 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
         {...minimalProps}
         ref={ref}
         onChapterSelect={onChapterSelect}
+        addLessonTargetId={addLessonTargetId}
+        forceShowAddLessonAction={forceShowAddLessonAction}
       />
     ));
     ForwardRefComponent.displayName = 'TreeItemWithSelect';
     return ForwardRefComponent;
-  }, [onChapterSelect]);
+  }, [addLessonTargetId, forceShowAddLessonAction, onChapterSelect]);
 
   const onItemsChanged = async (
     data: TreeItems<Outline>,

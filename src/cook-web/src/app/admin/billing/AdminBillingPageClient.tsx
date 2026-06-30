@@ -7,7 +7,13 @@ import { useEnvStore } from '@/c-store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
-import { BillingRecentActivitySection } from '@/components/billing/BillingRecentActivitySection';
+import { BillingRecentActivitySection } from './components/BillingRecentActivitySection';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle, {
+  ADMIN_TITLE_HEADLINE_TABS_LIST_CLASSNAME,
+  ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME,
+  ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE,
+} from '@/app/admin/components/AdminTitle';
 import { resolveBillingTab, type BillingTab } from './billingTabs';
 
 type AdminBillingPageClientProps = {
@@ -94,37 +100,52 @@ export function AdminBillingPageClient({
     return null;
   }
 
+  const breadcrumbTitle =
+    activeTab === 'details'
+      ? t('module.billing.page.tabs.ledger')
+      : t('module.billing.package.title');
+
   return (
     <div
-      className='h-full min-h-0 overflow-hidden overscroll-none p-0'
+      className='h-full min-h-0 overscroll-none p-0'
       data-testid='admin-billing-page'
     >
       <div className='flex h-full min-h-0 flex-col px-1 pb-6'>
+        <AdminBreadcrumb
+          className='shrink-0'
+          items={[{ label: breadcrumbTitle }]}
+        />
         <Tabs
-          className='flex min-h-0 flex-1 flex-col gap-6'
+          className='flex min-h-0 flex-1 flex-col'
           value={activeTab}
           onValueChange={v => updateTab(v as BillingTab)}
         >
-          <TabsList
-            data-testid='admin-billing-tabs'
-            className='h-9 shrink-0 self-center rounded-md bg-muted/40'
-          >
-            <TabsTrigger
-              value='packages'
-              className='rounded-md'
-            >
-              {t('module.billing.page.tabs.plans')}
-            </TabsTrigger>
-            <TabsTrigger
-              value='details'
-              className='rounded-md'
-            >
-              {t('module.billing.page.tabs.ledger')}
-            </TabsTrigger>
-          </TabsList>
+          <AdminTitle
+            tabs={
+              <TabsList
+                data-testid='admin-billing-tabs'
+                className={ADMIN_TITLE_HEADLINE_TABS_LIST_CLASSNAME}
+              >
+                <TabsTrigger
+                  value='packages'
+                  className={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME}
+                  style={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE}
+                >
+                  {t('module.billing.page.tabs.plans')}
+                </TabsTrigger>
+                <TabsTrigger
+                  value='details'
+                  className={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME}
+                  style={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE}
+                >
+                  {t('module.billing.page.tabs.ledger')}
+                </TabsTrigger>
+              </TabsList>
+            }
+          />
 
           <TabsContent
-            className='mt-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain'
+            className='mt-0 min-h-0'
             value='packages'
             data-testid='admin-billing-packages-panel'
           >
@@ -134,15 +155,18 @@ export function AdminBillingPageClient({
           </TabsContent>
 
           <TabsContent
-            className='mt-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain'
+            className='mt-0 min-h-0 flex-1'
             value='details'
             data-testid='admin-billing-details-panel'
           >
-            <div className='space-y-8 pb-6'>
+            <div className='flex h-full min-h-0 flex-col gap-8 pb-6'>
               <BillingCreditDetailsPanel
                 onUpgrade={() => updateTab('packages')}
               />
-              <BillingRecentActivitySection />
+              <BillingRecentActivitySection
+                className='flex-1'
+                stretchToFill
+              />
             </div>
           </TabsContent>
         </Tabs>

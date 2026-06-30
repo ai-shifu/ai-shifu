@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { useEnvStore } from '@/c-store';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { AdminBillingConsoleTab } from '@/types/billing';
@@ -46,67 +48,72 @@ export default function AdminBillingConsolePage() {
   return (
     <>
       <div
-        className='flex h-full flex-col gap-6 pb-4'
+        className='flex h-full flex-col pb-4'
         data-testid='admin-billing-console-page'
       >
-        <div className='flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_60%,#f8fafc_100%)] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)]'>
-          <div className='flex flex-wrap items-center justify-between gap-3'>
-            <div className='space-y-2'>
-              <p className='text-sm text-slate-500'>
-                {t('module.billing.admin.subtitle')}
-              </p>
-              <h2 className='text-3xl font-semibold tracking-tight text-slate-900'>
-                {t('module.billing.admin.title')}
-              </h2>
-            </div>
-            <div className='flex flex-wrap items-center gap-2'>
-              <Button
-                className='rounded-full'
-                onClick={() => handleOpenAdjustDialog()}
-              >
-                {t('module.billing.admin.adjust.open')}
-              </Button>
-              <Button
-                asChild
-                variant='outline'
-                className='rounded-full'
-              >
-                <Link href='/admin/billing'>
-                  {t('module.billing.admin.backToCreatorBilling')}
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <BillingCapabilitySummary audience='admin' />
-
+        <AdminBreadcrumb
+          items={[
+            {
+              label: t('module.billing.page.title'),
+              href: '/admin/billing',
+            },
+            { label: t('module.billing.admin.title') },
+          ]}
+        />
         <Tabs
           value={activeTab}
-          className='flex flex-col gap-4'
+          className='flex flex-col'
           onValueChange={value => setActiveTab(value as AdminBillingConsoleTab)}
         >
-          <TabsList className='h-11 rounded-full bg-white/80 p-1 shadow-sm'>
-            <TabsTrigger value='subscriptions'>
-              {t('module.billing.admin.tabs.subscriptions')}
-            </TabsTrigger>
-            <TabsTrigger value='orders'>
-              {t('module.billing.admin.tabs.orders')}
-            </TabsTrigger>
-            <TabsTrigger value='exceptions'>
-              {t('module.billing.admin.tabs.exceptions')}
-            </TabsTrigger>
-            <TabsTrigger value='entitlements'>
-              {t('module.billing.admin.tabs.entitlements')}
-            </TabsTrigger>
-            <TabsTrigger value='domains'>
-              {t('module.billing.admin.tabs.domains')}
-            </TabsTrigger>
-            <TabsTrigger value='reports'>
-              {t('module.billing.admin.tabs.reports')}
-            </TabsTrigger>
-          </TabsList>
+          <AdminTitle
+            title={t('module.billing.admin.title')}
+            description={t('module.billing.admin.subtitle')}
+            actions={
+              <div className='flex flex-wrap items-center gap-2 lg:justify-end'>
+                <Button
+                  className='rounded-full'
+                  onClick={() => handleOpenAdjustDialog()}
+                >
+                  {t('module.billing.admin.adjust.open')}
+                </Button>
+                <Button
+                  asChild
+                  variant='outline'
+                  className='rounded-full'
+                >
+                  <Link href='/admin/billing'>
+                    {t('module.billing.admin.backToCreatorBilling')}
+                  </Link>
+                </Button>
+              </div>
+            }
+            tabs={
+              <TabsList className='h-11 rounded-full bg-white/80 p-1 shadow-sm'>
+                <TabsTrigger value='subscriptions'>
+                  {t('module.billing.admin.tabs.subscriptions')}
+                </TabsTrigger>
+                <TabsTrigger value='orders'>
+                  {t('module.billing.admin.tabs.orders')}
+                </TabsTrigger>
+                <TabsTrigger value='exceptions'>
+                  {t('module.billing.admin.tabs.exceptions')}
+                </TabsTrigger>
+                <TabsTrigger value='entitlements'>
+                  {t('module.billing.admin.tabs.entitlements')}
+                </TabsTrigger>
+                <TabsTrigger value='domains'>
+                  {t('module.billing.admin.tabs.domains')}
+                </TabsTrigger>
+                <TabsTrigger value='reports'>
+                  {t('module.billing.admin.tabs.reports')}
+                </TabsTrigger>
+              </TabsList>
+            }
+          />
 
+          <div className='mb-6'>
+            <BillingCapabilitySummary audience='admin' />
+          </div>
           <TabsContent
             value='subscriptions'
             className='space-y-4'

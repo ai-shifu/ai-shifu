@@ -1,0 +1,98 @@
+# Lefthook configuration for ai-shifu
+#
+# Replaces pre-commit / pre-commit.ci. Lefthook is a single Go binary that
+# calls the tools already installed on your machine (ruff, the pre-commit-hooks
+# console scripts, prettier/eslint from src/cook-web, commitizen, and the
+# repo's stdlib python check scripts) directly -- no isolated environments and
+# no per-run package downloads.
+#
+# One-time setup (see AGENTS.md / docs/engineering-baseline.md):
+#   brew install lefthook
+#   pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0
+#   (cd src/cook-web && npm ci)   # provides prettier + eslint
+#   lefthook install
+#
+# Manual runs:
+#   lefthook run pre-commit               # only staged files
+#   lefthook run pre-commit --all-files   # whole repo
+
+pre-commit:
+  # Sequential: several commands auto-rewrite the same files (ruff check/format,
+  # the fixers). Running them in order avoids two fixers racing on one file.
+  parallel: false
+  commands:
+    # --- File hygiene (pre-commit-hooks console scripts) ---------------------
+    check-yaml:
+      glob: "*.{yaml,yml}"
+      run: check-yaml {staged_files}
+    check-json:
+      glob: "*.json"
+      run: check-json {staged_files}
+    check-merge-conflict:
+      run: check-merge-conflict {staged_files}
+    check-symlinks:
+      run: check-symlinks {staged_files}
+    end-of-file-fixer:
+      # text only -- these fixers must never touch binary files (e.g. PNGs),
+      # mirroring pre-commit's default `types: [text]`.
+      file_types: ["text"]
+      run: end-of-file-fixer {staged_files}
+      stage_fixed: true
+    trailing-whitespace:
+      # NOTE: the console script is `trailing-whitespace-fixer`, not the hook id.
+      file_types: ["text"]
+      run: trailing-whitespace-fixer {staged_files}
+      stage_fixed: true
+    pretty-format-json:
+      glob: "src/i18n/**/*.json"
+      run: pretty-format-json --autofix --indent=2 --no-ensure-ascii --top-keys=__namespace__ {staged_files}
+      stage_fixed: true
+    requirements-txt-fixer:
+      glob: "*requirements*.txt"
+      exclude: "src/api/requirements.txt"
+      run: requirements-txt-fixer {staged_files}
+      stage_fixed: true
+
+    # --- Backend Python (ruff) ----------------------------------------------
+    ruff-check:
+      glob: "*.py"
+      run: ruff check --fix {staged_files}
+      stage_fixed: true
+    ruff-format:
+      glob: "*.py"
+      run: ruff format {staged_files}
+      stage_fixed: true
+
+    # --- Frontend (cook-web local tooling) ----------------------------------
+    prettier-cook-web:
+      glob: "src/cook-web/**/*.{js,jsx,ts,tsx,mjs,cjs,css,scss,md,mdx,json}"
+      run: src/cook-web/node_modules/.bin/prettier --write --config src/cook-web/.prettierrc --ignore-path src/cook-web/.prettierignore {staged_files}
+      stage_fixed: true
+    eslint:
+      glob: "src/cook-web/**/*.{js,jsx,ts,tsx}"
+      # Strip the src/cook-web/ prefix per argument so `next lint --file` gets
+      # cook-web-relative paths while each file stays a separate shell argument
+      # (robust to spaces / glob characters in paths).
+      run: bash -c 'cd src/cook-web && args=(); for f in "$@"; do args+=("${f#src/cook-web/}"); done; npm run lint-file -- "${args[@]}"' -- {staged_files}
+      stage_fixed: true
+
+    # --- Repo guardrails (stdlib python, run once; glob only gates whether) ---
+    check-repo-harness:
+      glob: "{AGENTS.md,CLAUDE.md,ARCHITECTURE.md,PLANS.md,docs/**,.claude/**,.cursor/**,.github/**,scripts/build_repo_knowledge_index.py,scripts/check_repo_harness.py,scripts/check_ai_collab_docs.py,scripts/generate_ai_collab_docs.py}"
+      run: python3 scripts/check_repo_harness.py
+    check-architecture-boundaries:
+      glob: "{docs/generated/architecture-boundary-baseline.json,docs/references/architecture-boundaries.md,scripts/check_architecture_boundaries.py,scripts/testdata/architecture_boundaries/**,src/api/**,src/cook-web/src/**}"
+      run: python3 scripts/check_architecture_boundaries.py
+    check-shared-translations:
+      run: python3 scripts/check_translations.py
+    check-translation-usage:
+      run: python3 scripts/check_translation_usage.py --fail-on-unused
+    generate-languages-check:
+      run: bash -c 'python3 scripts/generate_languages.py && git diff --exit-code -- src/i18n/locales.json'
+    no-hardcoded-cjk-in-backend:
+      run: python3 scripts/check_backend_hardcoded_cn.py
+
+commit-msg:
+  commands:
+    commitizen:
+      run: cz check --commit-msg-file {1}

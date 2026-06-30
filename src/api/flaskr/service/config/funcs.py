@@ -3,7 +3,10 @@ from cryptography.fernet import Fernet
 import base64
 import hashlib
 from flaskr.service.config.models import Config
-from flaskr.common.config import get_config as get_config_from_common
+from flaskr.common.config import (
+    get_config as get_config_from_common,
+    has_explicit_env_override,
+)
 from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
 from flaskr.util import generate_id
@@ -12,10 +15,16 @@ from flaskr.framework import extensible
 from sqlalchemy.exc import SQLAlchemyError
 import random
 
+MAX_UPDATED_BY_LEN = 36
+
 
 class ConfigCache(BaseModel):
     is_encrypted: bool = Field(default=False)
     value: str = Field(default="")
+
+
+def _normalize_updated_by(value: str) -> str:
+    return (str(value or "").strip() or "system")[:MAX_UPDATED_BY_LEN]
 
 
 def _get_fernet_key(app: Flask) -> bytes:
@@ -81,11 +90,17 @@ def _decrypt_config(app: Flask, encrypted_value: str) -> str:
 
 
 def _get_config_cache_key(app: Flask, key: str) -> str:
-    return app.config["REDIS_KEY_PREFIX"] + "sys:config:" + key
+    prefix = app.config.get("REDIS_KEY_PREFIX")
+    if prefix is None:
+        prefix = str(get_config_from_common("REDIS_KEY_PREFIX", "") or "")
+    return prefix + "sys:config:" + key
 
 
 def _get_config_lock_key(app: Flask, key: str) -> str:
-    return app.config["REDIS_KEY_PREFIX"] + "sys:config:lock:" + key
+    prefix = app.config.get("REDIS_KEY_PREFIX")
+    if prefix is None:
+        prefix = str(get_config_from_common("REDIS_KEY_PREFIX", "") or "")
+    return prefix + "sys:config:lock:" + key
 
 
 @extensible
@@ -103,17 +118,17 @@ def get_config(key: str, default: str = None) -> str:
     Raises:
         ValueError: If config not found or decryption fails
     """
+    from contextlib import nullcontext
+
     from flask import current_app, has_app_context
 
     if not has_app_context():
         return get_config_from_common(key, default)
     app = current_app
-    with app.app_context():
-        # Only treat explicitly configured env values as overrides. Passing the
-        # caller default here would short-circuit DB-backed keys that are not
-        # registered in flaskr.common.config.
-        env_value = get_config_from_common(key, None)
-        if env_value is not None:
+    with nullcontext():
+        # Only explicit env vars should bypass DB-backed config lookups.
+        if has_explicit_env_override(key):
+            env_value = get_config_from_common(key, default)
             return env_value
         try:
             cache_key = _get_config_cache_key(app, key)
@@ -136,7 +151,7 @@ def get_config(key: str, default: str = None) -> str:
                         .first()
                     )
                     if not config:
-                        return default
+                        return get_config_from_common(key, default)
                     raw_value = config.value
                     if bool(config.is_encrypted):
                         value = _decrypt_config(app, raw_value)
@@ -160,17 +175,19 @@ def get_config(key: str, default: str = None) -> str:
 
 
 def add_config(
-    app: Flask, key: str, value: str, is_secret: bool = False, remark: str = ""
-) -> None:
+    app: Flask,
+    key: str,
+    value: str,
+    is_secret: bool = False,
+    remark: str = "",
+    updated_by: str = "system",
+) -> bool | None:
     """
     Add config to database.
     """
     with app.app_context():
-        app.logger.info(
-            f"Adding config: {key}, value: {value}, is_secret: {is_secret}, remark: {remark}"
-        )
-        env_value = get_config_from_common(key, None)
-        if env_value is not None:
+        normalized_updated_by = _normalize_updated_by(updated_by)
+        if has_explicit_env_override(key):
             return
         # Check if config already exists in database
         existing_config = (
@@ -188,7 +205,7 @@ def add_config(
             existing_config.value = value
             existing_config.is_encrypted = is_secret
             existing_config.remark = remark
-            existing_config.updated_by = "system"
+            existing_config.updated_by = normalized_updated_by
             db.session.commit()
             cache_key = _get_config_cache_key(app, key)
             redis.set(
@@ -208,7 +225,7 @@ def add_config(
                 deleted=0,
                 is_encrypted=is_secret,
                 remark=remark,
-                updated_by="",
+                updated_by=normalized_updated_by,
             )
             db.session.add(config)
             db.session.commit()
@@ -223,14 +240,19 @@ def add_config(
 
 
 def update_config(
-    app: Flask, key: str, value: str, is_secret: bool = False, remark: str = ""
+    app: Flask,
+    key: str,
+    value: str,
+    is_secret: bool = False,
+    remark: str = "",
+    updated_by: str = "system",
 ) -> bool:
     """
     Update config in database.
     """
     with app.app_context():
-        env_value = get_config_from_common(key, None)
-        if env_value:
+        normalized_updated_by = _normalize_updated_by(updated_by)
+        if has_explicit_env_override(key):
             return False
         cache_key = _get_config_cache_key(app, key)
         cache = redis.get(cache_key)
@@ -259,14 +281,14 @@ def update_config(
                     deleted=0,
                     is_encrypted=is_secret,
                     remark=remark,
-                    updated_by="system",
+                    updated_by=normalized_updated_by,
                 )
                 db.session.add(config)
             else:
                 config.value = value
                 config.is_encrypted = is_secret
                 config.remark = remark
-                config.updated_by = "system"
+                config.updated_by = normalized_updated_by
             db.session.commit()
             redis.set(
                 cache_key,

@@ -1,7 +1,27 @@
 {
   "__namespace__": "module.operationsCourse",
   "actions": {
+    "copyCourse": "Copy course",
     "transferCreator": "Transfer creator"
+  },
+  "copyCourseDialog": {
+    "confirm": "Confirm copy",
+    "confirmDescription": "Copy the latest draft of <strong>{courseName}</strong> to create a new draft course for <strong>{targetCreator}</strong> named <strong>{newCourseName}</strong>.",
+    "confirmTitle": "Confirm course copy",
+    "contactPlaceholderEmail": "Enter the target creator email",
+    "contactPlaceholderPhone": "Enter the target creator phone number",
+    "contactType": "Contact type",
+    "contactTypeEmail": "Email",
+    "contactTypePhone": "Phone",
+    "courseNameFallback": "Course",
+    "courseNameSuffix": "-Copy",
+    "currentCreator": "Current creator",
+    "description": "Copy the latest draft into a new draft course for the target creator.",
+    "identifier": "Target creator",
+    "identifierRequired": "Enter a valid target creator contact",
+    "newCourseName": "New course name",
+    "submitSuccess": "Course copied successfully",
+    "title": "Copy course"
   },
   "coursePromptDialog": {
     "copy": "Copy",
@@ -11,7 +31,6 @@
     "title": "Course Prompt"
   },
   "detail": {
-    "back": "Back to list",
     "basicInfo": "Basic Info",
     "boolean": {
       "no": "No",
@@ -60,6 +79,72 @@
       "has": "Has",
       "unknown": "Unknown"
     },
+    "creditUsage": {
+      "count": "{count} records",
+      "description": "Review credit consumption records for this course.",
+      "details": {
+        "collapse": "Collapse",
+        "durationMinutesSeconds": "{minutes}m {seconds}s",
+        "durationSeconds": "{seconds}s",
+        "empty": "No usage details",
+        "expand": "Expand",
+        "openUsageDetails": "Open {count} credit usage details",
+        "table": {
+          "createdAt": "Consumed At",
+          "credits": "Credits",
+          "inputTokens": "Input Tokens",
+          "outputSummary": "Output Summary",
+          "outputTokens": "Output Tokens",
+          "ttsContent": "Synthesized Content",
+          "ttsDuration": "Audio Duration",
+          "ttsSegmentCount": "Segments",
+          "ttsWordCount": "Synthesized Words"
+        },
+        "title": "Credit Usage Details"
+      },
+      "filters": {
+        "mode": "Usage mode",
+        "modeAll": "All",
+        "reset": "Reset",
+        "scene": "Usage type",
+        "sceneAll": "All",
+        "time": "Time",
+        "timePlaceholder": "Select time range",
+        "userKeyword": "User",
+        "userKeywordPlaceholderEmail": "Enter email or nickname",
+        "userKeywordPlaceholderPhone": "Enter phone or nickname"
+      },
+      "modelSummary": {
+        "multiple": "{model} and {count} models"
+      },
+      "modes": {
+        "ask": "Follow-up",
+        "learn": "Read",
+        "listen": "Listen",
+        "mixed": "Mixed",
+        "unknown": "Unknown mode"
+      },
+      "scenes": {
+        "debug": "Debug",
+        "learning": "Learning",
+        "preview": "Preview",
+        "unknown": "Unknown type"
+      },
+      "table": {
+        "chapter": "Chapter",
+        "createdAt": "Latest Consumed At",
+        "credits": "Total Credits Consumed",
+        "empty": "No credit usage records",
+        "lesson": "Lesson",
+        "mode": "Usage Mode",
+        "model": "Model",
+        "nickname": "Nickname",
+        "scene": "Usage Type",
+        "usageCount": "Usage Count"
+      },
+      "title": "Credit Usage"
+    },
+    "creditUsageTab": "Credit Usage",
     "fields": {
       "courseId": "Course ID",
       "courseName": "Course Name",
@@ -69,7 +154,6 @@
       "updatedAt": "Updated At"
     },
     "followUps": {
-      "back": "Back to course detail",
       "drawer": {
         "currentRecordHint": "Read in order: original output -> current follow-up -> current system answer.",
         "fields": {
@@ -77,6 +161,7 @@
           "currentAnswer": "Current System Answer",
           "currentFollowUp": "Current Follow-up",
           "followUpTime": "Follow-up Time",
+          "lesson": "Lesson",
           "nickname": "Nickname",
           "sourceOutput": "Original Output",
           "turnIndex": "Turn",
@@ -99,13 +184,17 @@
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Chapter / Lesson Search",
-        "chapterKeywordPlaceholder": "Chapter / Lesson Title",
+        "chapterKeywordPlaceholder": "Enter chapter / lesson title",
         "followUpTime": "Follow-up Time",
         "lessonKeyword": "Lesson Search",
-        "lessonKeywordPlaceholder": "Lesson Title",
+        "lessonKeywordPlaceholder": "Enter lesson title",
         "reset": "Reset",
         "resultCount": "{count, plural, one {# result} other {# results}}",
         "search": "Search",
+        "sourceStatus": "Original Output Status",
+        "sourceStatusAll": "All Statuses",
+        "sourceStatusMissing": "Original Output Missing",
+        "sourceStatusResolved": "Original Output Located",
         "timePlaceholder": "Follow-up Start / End Time",
         "userKeyword": "User Search",
         "userKeywordPlaceholder": "Phone / Email / Nickname",
@@ -117,7 +206,6 @@
         "followUpCount": "Follow-ups",
         "latestFollowUpAt": "Latest Follow-up",
         "lessonCount": "Lessons",
-        "scopeHint": "These summary metrics reflect the current filtered result set.",
         "userCount": "Users"
       },
       "table": {
@@ -128,6 +216,9 @@
         "detailAction": "View Detail",
         "empty": "No follow-up data",
         "lesson": "Lesson",
+        "scopeHint": "Review learner follow-ups around course content to identify frequent sticking points and lessons that need improvement.",
+        "sourceMissing": "Original Output Missing",
+        "sourceResolved": "Original Output Located",
         "title": "Follow-up List",
         "turnIndex": "Turn",
         "user": "User"
@@ -144,6 +235,10 @@
     },
     "metrics": "Metrics",
     "metricsLabels": {
+      "completedUserAvgCredits": "Avg Credits Consumed per Completed User",
+      "creditConsumedTotal": "Total Credits Consumed",
+      "creditUsageCount": "Credit Usage Count",
+      "creditUserCount": "Credit Usage Users",
       "followUpCount": "Ask",
       "learnerCount": "Learners",
       "orderAmount": "Collected Revenue (Incl. Coupon Codes)",
@@ -155,7 +250,6 @@
       "openMetric": "Open order data"
     },
     "ratings": {
-      "back": "Back to course detail",
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Chapter / Lesson Search",
@@ -191,7 +285,6 @@
         "averageScore": "Average Rating",
         "latestRatedAt": "Latest Rating",
         "ratingCount": "Ratings",
-        "scopeHint": "These summary metrics reflect the current filtered result set.",
         "userCount": "Users"
       },
       "table": {
@@ -215,7 +308,7 @@
       "notStarted": "Not Started"
     },
     "userRole": {
-      "creator": "Creator",
+      "creator": "Teacher",
       "normal": "General User",
       "operator": "Operator",
       "student": "Student"
@@ -312,9 +405,7 @@
   "title": "Course Management",
   "transferCreatorDialog": {
     "confirm": "Transfer",
-    "confirmDescriptionCourseSuffix": " from",
-    "confirmDescriptionPrefix": "Transfer the creator of",
-    "confirmDescriptionTargetPrefix": "to",
+    "confirmDescription": "Transfer the creator of {courseName} from {currentCreator} to {targetCreator}.",
     "confirmTitle": "Confirm Creator Transfer",
     "contactPlaceholderEmail": "Enter target creator email",
     "contactPlaceholderPhone": "Enter target creator mobile",

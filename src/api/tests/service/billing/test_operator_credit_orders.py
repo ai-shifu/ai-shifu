@@ -8,24 +8,33 @@ from flask import Flask
 import flaskr.dao as dao
 from flaskr.i18n import load_translations
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_TOPUP,
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
+    CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
 )
 from flaskr.service.billing.dtos import (
     OperatorCreditOrderDetailDTO,
+    OperatorCreditOrderOverviewDTO,
     OperatorCreditOrdersPageDTO,
 )
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingProduct,
     CreditLedgerEntry,
+    CreditWallet,
+    CreditWalletBucket,
 )
 from flaskr.service.billing.read_models import (
+    build_operator_credit_orders_overview,
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
 )
@@ -155,6 +164,64 @@ def _build_app() -> Flask:
                 expires_at=datetime(2027, 4, 26, 10, 0, 0),
             )
         )
+        dao.db.session.add_all(
+            [
+                CreditWallet(
+                    wallet_bid="wallet-1",
+                    creator_bid="creator-1",
+                    available_credits=Decimal("20.0000000000"),
+                    reserved_credits=Decimal("0"),
+                    lifetime_granted_credits=Decimal("20.0000000000"),
+                    lifetime_consumed_credits=Decimal("0"),
+                ),
+                CreditWallet(
+                    wallet_bid="wallet-2",
+                    creator_bid="creator-2",
+                    available_credits=Decimal("0"),
+                    reserved_credits=Decimal("0"),
+                    lifetime_granted_credits=Decimal("0"),
+                    lifetime_consumed_credits=Decimal("0"),
+                ),
+            ]
+        )
+        dao.db.session.add_all(
+            [
+                CreditWalletBucket(
+                    wallet_bucket_bid="bucket-1",
+                    wallet_bid="wallet-1",
+                    creator_bid="creator-1",
+                    bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                    source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                    source_bid="bill-order-topup-1",
+                    priority=10,
+                    original_credits=Decimal("20.0000000000"),
+                    available_credits=Decimal("20.0000000000"),
+                    reserved_credits=Decimal("0"),
+                    consumed_credits=Decimal("0"),
+                    expired_credits=Decimal("0"),
+                    effective_from=datetime(2026, 4, 27, 10, 0, 0),
+                    effective_to=datetime(2026, 5, 27, 10, 0, 0),
+                    status=CREDIT_BUCKET_STATUS_ACTIVE,
+                ),
+                CreditWalletBucket(
+                    wallet_bucket_bid="bucket-2",
+                    wallet_bid="wallet-2",
+                    creator_bid="creator-2",
+                    bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                    source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                    source_bid="bill-order-plan-1",
+                    priority=10,
+                    original_credits=Decimal("22000.0000000000"),
+                    available_credits=Decimal("0"),
+                    reserved_credits=Decimal("0"),
+                    consumed_credits=Decimal("22000.0000000000"),
+                    expired_credits=Decimal("0"),
+                    effective_from=datetime(2026, 4, 26, 10, 0, 0),
+                    effective_to=datetime(2027, 4, 26, 10, 0, 0),
+                    status=CREDIT_BUCKET_STATUS_ACTIVE,
+                ),
+            ]
+        )
         dao.db.session.commit()
     return app
 
@@ -190,6 +257,34 @@ def test_build_operator_credit_orders_page_supports_product_keyword_search():
     result = build_operator_credit_orders_page(
         app,
         product_keyword="20",
+        page_index=1,
+        page_size=20,
+    )
+
+    assert result.total == 1
+    assert result.items[0].bill_order_bid == "bill-order-topup-1"
+
+
+def test_build_operator_credit_orders_page_filters_orders_with_available_credits():
+    app = _build_app()
+
+    result = build_operator_credit_orders_page(
+        app,
+        has_available_credits=True,
+        page_index=1,
+        page_size=20,
+    )
+
+    assert result.total == 1
+    assert result.items[0].bill_order_bid == "bill-order-topup-1"
+
+
+def test_build_operator_credit_orders_page_supports_status_label_filter():
+    app = _build_app()
+
+    result = build_operator_credit_orders_page(
+        app,
+        status="paid",
         page_index=1,
         page_size=20,
     )
@@ -234,6 +329,146 @@ def test_build_operator_credit_orders_page_keeps_orders_for_deleted_products():
     assert searched_result.total == 1
     assert searched_result.items[0].bill_order_bid == "bill-order-topup-1"
     assert searched_result.items[0].product_code == "creator-topup-small"
+
+
+def test_build_operator_credit_orders_page_sorts_all_status_by_latest_created_at():
+    app = _build_app()
+
+    with app.app_context():
+        dao.db.session.add_all(
+            [
+                BillingOrder(
+                    bill_order_bid="bill-order-pending-newer-than-paid",
+                    creator_bid="creator-1",
+                    order_type=BILLING_ORDER_TYPE_TOPUP,
+                    product_bid="bill-product-topup-small",
+                    subscription_bid="",
+                    currency="CNY",
+                    payable_amount=29900,
+                    paid_amount=0,
+                    payment_provider="pingxx",
+                    channel="alipay_qr",
+                    provider_reference_id="charge_pending_newer",
+                    status=BILLING_ORDER_STATUS_PENDING,
+                    created_at=datetime(2026, 4, 28, 9, 0, 0),
+                ),
+                BillingOrder(
+                    bill_order_bid="bill-order-canceled-latest",
+                    creator_bid="creator-2",
+                    order_type=BILLING_ORDER_TYPE_TOPUP,
+                    product_bid="bill-product-topup-small",
+                    subscription_bid="",
+                    currency="CNY",
+                    payable_amount=39900,
+                    paid_amount=0,
+                    payment_provider="stripe",
+                    channel="checkout_session",
+                    provider_reference_id="charge_canceled_latest",
+                    status=BILLING_ORDER_STATUS_CANCELED,
+                    created_at=datetime(2026, 4, 29, 9, 0, 0),
+                ),
+            ]
+        )
+        dao.db.session.commit()
+
+    result = build_operator_credit_orders_page(
+        app,
+        status="",
+        page_index=1,
+        page_size=20,
+    )
+
+    assert result.total == 4
+    assert [item.bill_order_bid for item in result.items[:4]] == [
+        "bill-order-canceled-latest",
+        "bill-order-pending-newer-than-paid",
+        "bill-order-topup-1",
+        "bill-order-plan-1",
+    ]
+
+
+def test_build_operator_credit_orders_overview_returns_aggregates():
+    app = _build_app()
+
+    result = build_operator_credit_orders_overview(app)
+
+    assert isinstance(result, OperatorCreditOrderOverviewDTO)
+    assert result.total_order_count == 2
+    assert result.paid_order_count == 1
+    assert result.pending_order_count == 0
+    assert result.refunded_order_count == 0
+    assert result.closed_order_count == 0
+    assert result.canceled_order_count == 0
+    assert result.available_credit_total == 20
+    assert result.paid_amount_total == 19900
+    assert result.currency == "CNY"
+    assert result.paid_amount_totals_by_currency == {"CNY": 19900}
+
+
+def test_build_operator_credit_orders_overview_uses_available_credits_and_currency_map():
+    app = _build_app()
+
+    with app.app_context():
+        product_ref = (
+            BillingProduct.query.filter(
+                BillingProduct.product_bid == "bill-product-topup-small"
+            )
+            .order_by(BillingProduct.id.desc())
+            .first()
+        )
+        assert product_ref is not None
+        product_ref.credit_amount = Decimal("999.0000000000")
+        product_ref.deleted = 1
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid="bill-order-topup-usd-1",
+                creator_bid="creator-2",
+                order_type=BILLING_ORDER_TYPE_TOPUP,
+                product_bid="bill-product-topup-small",
+                subscription_bid="",
+                currency="USD",
+                payable_amount=2999,
+                paid_amount=2999,
+                payment_provider="stripe",
+                channel="checkout_session",
+                provider_reference_id="charge_topup_usd_1",
+                status=BILLING_ORDER_STATUS_PAID,
+                paid_at=datetime(2026, 4, 28, 10, 0, 0),
+                created_at=datetime(2026, 4, 28, 9, 0, 0),
+            )
+        )
+        dao.db.session.add(
+            CreditLedgerEntry(
+                ledger_bid="ledger-grant-topup-usd-1",
+                creator_bid="creator-2",
+                wallet_bid="wallet-2",
+                wallet_bucket_bid="bucket-2b",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+                source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                source_bid="bill-order-topup-usd-1",
+                idempotency_key="grant:bill-order-topup-usd-1",
+                amount=Decimal("30.0000000000"),
+                balance_after=Decimal("22030.0000000000"),
+                consumable_from=datetime(2026, 4, 28, 10, 0, 0),
+                expires_at=datetime(2026, 5, 28, 10, 0, 0),
+            )
+        )
+        wallet = CreditWallet.query.filter(
+            CreditWallet.creator_bid == "creator-2"
+        ).one()
+        wallet.available_credits = Decimal("30.0000000000")
+        wallet.lifetime_granted_credits = Decimal("30.0000000000")
+        dao.db.session.commit()
+
+    result = build_operator_credit_orders_overview(app)
+
+    assert result.available_credit_total == 50
+    assert result.paid_amount_total == 0
+    assert result.currency == ""
+    assert result.paid_amount_totals_by_currency == {
+        "CNY": 19900,
+        "USD": 2999,
+    }
 
 
 def test_get_operator_credit_order_detail_returns_grant_and_metadata():

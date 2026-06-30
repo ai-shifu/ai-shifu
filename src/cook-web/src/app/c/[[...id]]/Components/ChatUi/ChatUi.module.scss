@@ -237,6 +237,15 @@
     }
   }
 
+  &.classroomMode {
+    min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
+
+    .chatComponents {
+      min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
+      background: var(--color-slide-desktop-bg);
+    }
+  }
+
   .chatComponentsHidden {
     overflow-y: hidden;
     display: none;

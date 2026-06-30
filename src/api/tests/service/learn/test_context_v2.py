@@ -111,6 +111,7 @@ from flaskr.service.learn.context_v2 import (
     RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
+    _PreviewContextStore,
 )
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
@@ -127,6 +128,7 @@ from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_NOT_STARTED,
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
@@ -341,8 +343,8 @@ class CompletionTailInteractionTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(calls, ["feedback", "next"])
-        self.assertEqual(events, ["feedback-event", "next-event"])
+        self.assertEqual(calls, ["next", "feedback"])
+        self.assertEqual(events, ["next-event", "feedback-event"])
 
     def test_skips_next_when_no_next_outline(self):
         ctx = _make_context()
@@ -575,13 +577,13 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
                 )
             )
             dao.db.session.commit()
-            events = list(self.ctx._emit_feedback_before_exception_gate())
+            events = list(self.ctx._emit_feedback_after_exception_gate())
             self.assertEqual(len(events), 1)
             self.assertEqual(events[0].type, GeneratedType.INTERACTION)
 
     def test_skips_when_no_completed_progress(self):
         with self.app.app_context():
-            events = list(self.ctx._emit_feedback_before_exception_gate())
+            events = list(self.ctx._emit_feedback_after_exception_gate())
             self.assertEqual(events, [])
 
     def test_skips_completed_progress_without_generated_blocks(self):
@@ -596,14 +598,64 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
                 )
             )
             dao.db.session.commit()
-            events = list(self.ctx._emit_feedback_before_exception_gate())
+            events = list(self.ctx._emit_feedback_after_exception_gate())
             self.assertEqual(events, [])
+
+
+class ExceptionGateInteractionPersistenceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = Flask("exception-gate-interaction-persistence")
+        cls.app.config.update(
+            SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={
+                "ai_shifu_saas": "sqlite:///:memory:",
+                "ai_shifu_admin": "sqlite:///:memory:",
+            },
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        )
+        dao.db.init_app(cls.app)
+        with cls.app.app_context():
+            dao.db.create_all()
+
+    def setUp(self):
+        self.app = self.__class__.app
+        self.ctx = _make_context()
+        self.ctx.app = self.app
+        self.ctx._outline_item_info = types.SimpleNamespace(
+            bid="outline-locked",
+            shifu_bid="shifu-1",
+        )
+        self.ctx._user_info = types.SimpleNamespace(user_id="user-1")
+        self.ctx._current_attend = None
+        with self.app.app_context():
+            LearnGeneratedBlock.query.delete()
+            LearnProgressRecord.query.delete()
+            dao.db.session.commit()
+
+    def test_emits_gate_interaction_without_existing_progress(self):
+        with self.app.app_context():
+            events = list(
+                self.ctx._emit_current_progress_gate_interaction(
+                    "?[server.order.checkout//_sys_pay]"
+                )
+            )
+
+            progress = LearnProgressRecord.query.one()
+            block = LearnGeneratedBlock.query.one()
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(progress.status, LEARN_STATUS_NOT_STARTED)
+        self.assertEqual(block.progress_record_bid, progress.progress_record_bid)
+        self.assertEqual(block.outline_item_bid, "outline-locked")
+        self.assertEqual(block.block_content_conf, "?[server.order.checkout//_sys_pay]")
 
 
 class StreamTtsGateTests(unittest.TestCase):
     def test_should_stream_tts_respects_preview_and_listen(self):
         ctx = _make_context()
 
+        ctx._input_type = "normal"
         ctx._preview_mode = False
         ctx._listen = True
         self.assertTrue(ctx._should_stream_tts())
@@ -613,6 +665,10 @@ class StreamTtsGateTests(unittest.TestCase):
 
         ctx._preview_mode = True
         ctx._listen = True
+        self.assertFalse(ctx._should_stream_tts())
+
+        ctx._preview_mode = False
+        ctx._input_type = "ask"
         self.assertFalse(ctx._should_stream_tts())
 
     def test_iter_stream_result_with_idle_callback_drains_while_waiting(self):
@@ -1653,6 +1709,197 @@ class PreviewElementizationTests(unittest.TestCase):
         self.assertTrue(messages[-1].is_terminal)
 
 
+class _InMemoryCache:
+    def __init__(self):
+        self.store: dict[str, str] = {}
+
+    def get(self, key: str):
+        return self.store.get(key)
+
+    def setex(self, key: str, _ttl: int, value):
+        self.store[key] = value
+
+    def delete(self, *keys: str) -> int:
+        removed = 0
+        for key in keys:
+            if key in self.store:
+                del self.store[key]
+                removed += 1
+        return removed
+
+
+def _make_preview_store(
+    doc: str = "doc",
+) -> tuple[_PreviewContextStore, _InMemoryCache, str]:
+    app = Flask("preview-context-store")
+    store = _PreviewContextStore(app, "user-1", "shifu-1", "outline-1")
+    cache = _InMemoryCache()
+    store._cache = cache
+    return store, cache, doc
+
+
+class PreviewContextStoreTruncationTests(unittest.TestCase):
+    def _populate(self, store, doc, indices):
+        for idx in indices:
+            store.append_context(doc, idx, f"u{idx}", f"a{idx}")
+
+    def test_sequential_blocks_accumulate(self):
+        store, _cache, doc = _make_preview_store()
+        self._populate(store, doc, [0, 1, 2, 3])
+        messages = store.get_context(doc, 4)
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "u0"},
+                {"role": "assistant", "content": "a0"},
+                {"role": "user", "content": "u1"},
+                {"role": "assistant", "content": "a1"},
+                {"role": "user", "content": "u2"},
+                {"role": "assistant", "content": "a2"},
+                {"role": "user", "content": "u3"},
+                {"role": "assistant", "content": "a3"},
+            ],
+        )
+
+    def test_reselect_drops_entries_at_or_above_block_index(self):
+        store, _cache, doc = _make_preview_store()
+        self._populate(store, doc, [0, 1, 2, 3])
+        messages = store.get_context(doc, 2)
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "u0"},
+                {"role": "assistant", "content": "a0"},
+                {"role": "user", "content": "u1"},
+                {"role": "assistant", "content": "a1"},
+            ],
+        )
+        persisted = store.load()
+        self.assertEqual(
+            [entry["block_index"] for entry in persisted["entries"]],
+            [0, 1],
+        )
+
+    def test_repeated_reselect_does_not_grow(self):
+        store, _cache, doc = _make_preview_store()
+        self._populate(store, doc, [0, 1, 2, 3])
+        for _ in range(5):
+            store.get_context(doc, 2)
+            store.append_context(doc, 2, "u-new", "a-new")
+        persisted = store.load()
+        index_counts: dict[int, int] = {}
+        for entry in persisted["entries"]:
+            index_counts[entry["block_index"]] = (
+                index_counts.get(entry["block_index"], 0) + 1
+            )
+        self.assertEqual(index_counts.get(2), 1)
+        self.assertEqual(index_counts.get(0), 1)
+        self.assertEqual(index_counts.get(1), 1)
+
+    def test_backtrack_to_earlier_block(self):
+        store, _cache, doc = _make_preview_store()
+        self._populate(store, doc, [0, 1, 2, 3])
+        messages = store.get_context(doc, 1)
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "u0"},
+                {"role": "assistant", "content": "a0"},
+            ],
+        )
+        persisted = store.load()
+        self.assertEqual(
+            [entry["block_index"] for entry in persisted["entries"]],
+            [0],
+        )
+
+    def test_block_index_zero_clears(self):
+        store, cache, doc = _make_preview_store()
+        self._populate(store, doc, [0, 1, 2])
+        self.assertEqual(store.get_context(doc, 0), [])
+        self.assertEqual(cache.store, {})
+
+    def test_document_hash_change_clears(self):
+        store, cache, doc = _make_preview_store(doc="doc-A")
+        self._populate(store, "doc-A", [0, 1, 2])
+        self.assertEqual(store.get_context("doc-B", 3), [])
+        self.assertEqual(cache.store, {})
+
+    def test_legacy_flat_schema_clears(self):
+        store, cache, doc = _make_preview_store()
+        store.save(
+            {
+                "document_hash": store._hash_document(doc),
+                "context": [
+                    {"role": "user", "content": "legacy-u"},
+                    {"role": "assistant", "content": "legacy-a"},
+                ],
+            }
+        )
+        self.assertEqual(store.get_context(doc, 3), [])
+        self.assertEqual(cache.store, {})
+
+    def test_append_skips_when_both_empty(self):
+        store, cache, doc = _make_preview_store()
+        store.append_context(doc, 2, None, None)
+        self.assertEqual(cache.store, {})
+
+    def test_append_user_only_and_assistant_only(self):
+        store, _cache, doc = _make_preview_store()
+        store.append_context(doc, 1, "user-only", None)
+        store.append_context(doc, 2, None, "assistant-only")
+        messages = store.get_context(doc, 3)
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "user-only"},
+                {"role": "assistant", "content": "assistant-only"},
+            ],
+        )
+
+    def test_missing_document_hash_clears_entries(self):
+        store, cache, doc = _make_preview_store()
+        store.save(
+            {"entries": [{"block_index": 1, "user": "stale", "assistant": "stale"}]}
+        )
+        self.assertEqual(store.get_context(doc, 3), [])
+        self.assertEqual(cache.store, {})
+
+    def test_empty_document_hash_clears_entries(self):
+        store, cache, doc = _make_preview_store()
+        store.save(
+            {
+                "document_hash": "",
+                "entries": [{"block_index": 1, "user": "stale", "assistant": "stale"}],
+            }
+        )
+        self.assertEqual(store.get_context(doc, 3), [])
+        self.assertEqual(cache.store, {})
+
+    def test_replace_context_pairs_messages_with_sentinel_index(self):
+        store, _cache, doc = _make_preview_store()
+        store.replace_context(
+            doc,
+            [
+                {"role": "user", "content": "ctx-u-0"},
+                {"role": "assistant", "content": "ctx-a-0"},
+                {"role": "user", "content": "ctx-u-1"},
+            ],
+        )
+        persisted = store.load()
+        self.assertTrue(all(entry["block_index"] < 0 for entry in persisted["entries"]))
+        # A real block_index request should preserve all sentinel entries.
+        messages = store.get_context(doc, 5)
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "ctx-u-0"},
+                {"role": "assistant", "content": "ctx-a-0"},
+                {"role": "user", "content": "ctx-u-1"},
+            ],
+        )
+
+
 class RuntimeExceptionLangfuseTests(unittest.TestCase):
     def test_run_emits_gate_interaction_after_paid_exception(self):
         app = Flask("runtime-langfuse-paid")
@@ -1662,13 +1909,87 @@ class RuntimeExceptionLangfuseTests(unittest.TestCase):
             raise PaidException()
 
         ctx.run_inner = _raise_paid
-        ctx._emit_feedback_before_exception_gate = lambda: iter(["feedback"])
+        ctx._emit_feedback_after_exception_gate = lambda: iter(["feedback"])
         ctx._emit_current_progress_gate_interaction = lambda content: iter([content])
 
         with patch("flaskr.service.learn.context_v2._", lambda key: key):
             outputs = list(ctx.run(app))
 
-        self.assertEqual(outputs, ["feedback", "?[server.order.checkout//_sys_pay]"])
+        self.assertEqual(outputs, ["?[server.order.checkout//_sys_pay]", "feedback"])
+
+
+class BuildContextFromBlocksTests(unittest.TestCase):
+    """build_context_from_blocks should hand interaction blocks to markdown-flow
+    as raw ?[...] assistant messages so its _transform_context_messages can
+    expand them, instead of dropping them or flattening input into a bare user
+    message."""
+
+    DOC = (
+        "Content one.\n"
+        "---\n"
+        "?[%{{nickname}} ...What is your name?]\n"
+        "---\n"
+        "Second content {{nickname}}."
+    )
+
+    def _blocks(self):
+        return [
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                position=0,
+                generated_content="reply zero",
+            ),
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                position=1,
+                generated_content="Alice",
+            ),
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                position=2,
+                generated_content="reply two",
+            ),
+        ]
+
+    def test_interaction_block_kept_as_raw_assistant_message(self):
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks(), self.DOC, {"nickname": "Alice"}
+            )
+
+        # The interaction block survives as a raw ?[...] assistant message.
+        interaction_msgs = [
+            m for m in messages if m["role"] == "assistant" and "?[" in m["content"]
+        ]
+        self.assertEqual(len(interaction_msgs), 1)
+        self.assertIn("%{{nickname}}", interaction_msgs[0]["content"])
+
+    def test_transform_expands_interaction_without_adjacent_users(self):
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks(), self.DOC, {"nickname": "Alice"}
+            )
+
+        # Feed the assembled context through markdown-flow's native transform,
+        # exactly as the content-generation path does.
+        from markdown_flow import MarkdownFlow
+
+        mf = MarkdownFlow(self.DOC, llm_provider=None)
+        transformed = mf._transform_context_messages(messages, {"nickname": "Alice"})
+
+        # Interaction answer becomes user(value)+assistant("ok").
+        self.assertIn({"role": "user", "content": "Alice"}, transformed)
+        # No raw interaction syntax leaks after transform.
+        self.assertTrue(all("?[" not in m["content"] for m in transformed))
+        # Roles strictly alternate: no two adjacent user messages.
+        roles = [m["role"] for m in transformed]
+        for prev, cur in zip(roles, roles[1:]):
+            self.assertFalse(
+                prev == "user" and cur == "user",
+                f"adjacent user messages in {roles}",
+            )
 
 
 if __name__ == "__main__":

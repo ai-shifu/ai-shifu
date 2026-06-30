@@ -1,0 +1,18 @@
+{
+  "__namespace__": "component.fileUploader",
+  "checkImageUrl": "Échec du téléversement, veuillez vérifier que l’URL de l’image est correcte",
+  "clickToUpload": "Cliquer pour téléverser",
+  "dragOrClickToUpload": "Glissez un fichier ou cliquez pour téléverser",
+  "imageScale": "Échelle de l’image",
+  "imageTitle": "Titre de l’image",
+  "imageTitlePlaceholder": "Veuillez saisir le titre de l’image",
+  "pasteOrInputImageUrl": "Saisir l’URL de l’image",
+  "replaceImage": "Remplacer l’image",
+  "run": "Exécuter",
+  "tips": "Astuce : vous pouvez aussi glisser ou coller des images n’importe où dans la carte",
+  "upload": "Téléverser",
+  "uploadFailed": "Échec du téléversement",
+  "uploadImageFailed": "Échec du téléversement de l’image",
+  "uploading": "Téléversement",
+  "url": "URL"
+}

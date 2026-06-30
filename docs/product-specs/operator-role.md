@@ -2,7 +2,7 @@
 title: Operator Role Design
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-04-17
+last_reviewed: 2026-05-12
 canonical: true
 ---
 
@@ -25,7 +25,8 @@ manual database edits.
 ## Goals
 
 - Add a durable account-level `operator` role without replacing `creator`.
-- Preserve all existing creator logic and course-level permission behavior.
+- Preserve existing creator logic while making authoring shared permissions
+  grant the account-level creator capability they require.
 - Ensure the first verified real account in a fresh deployment becomes both a
   creator and an operator.
 - Surface the new role in backend DTOs and frontend user state so future
@@ -64,8 +65,9 @@ mirroring the existing `is_creator` storage pattern.
 - `is_creator`: authoring capability for the user's own course surfaces
 - `is_operator`: platform operations capability for operator-specific admin
   surfaces
-- course owner/shared permissions: unchanged and still independent from account
-  roles
+- course owner/shared `view` permissions: independent from account roles
+- shared `edit` / `publish` permissions: authoring collaboration permissions
+  that grant `is_creator` if the target account is not already a creator
 
 ## Bootstrap Rules
 
@@ -91,6 +93,22 @@ behavior without broadening operator access to every existing creator.
 Keep the existing creator auto-grant flow for explicit admin login context as
 is. Do not extend that automatic flow to `is_operator`, because doing so would
 make operator access too broad for self-hosted deployments.
+
+### Shared permission creator grants
+
+Sharing a course with `view` permission remains a course-level permission only.
+Sharing with `edit` or `publish` grants authoring capability, so the target user
+is promoted to creator and the creator-grant post-auth extensions run after the
+permission transaction commits. The billing trial hook is idempotent and skips
+users who already have an active paid plan, trial subscription, trial order, or
+legacy trial grant.
+
+Historical repair is explicit. Use
+`flask console billing backfill-authoring-permission-creators` for users who
+already have authoring shared permissions but missed the role or trial grant,
+and use `flask console billing backfill-trial-plans --all` for existing
+creators who only missed the trial plan. Deployments must not run either
+backfill automatically at startup.
 
 ### Manual follow-up
 

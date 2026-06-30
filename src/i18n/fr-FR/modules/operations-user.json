@@ -1,0 +1,378 @@
+{
+  "__namespace__": "module.operationsUser",
+  "actions": {
+    "grantCredits": "Attribuer crédits/forfait",
+    "moreForUser": "Plus d’actions pour {user}"
+  },
+  "courseSummary": {
+    "dialog": {
+      "courseId": "ID du cours",
+      "courseName": "Nom du cours",
+      "createdTitle": "Cours créés",
+      "description": "Utilisateur : {user}",
+      "learningTitle": "Cours suivis",
+      "status": "Statut"
+    },
+    "empty": "--"
+  },
+  "credits": {
+    "longTerm": "Valide à long terme"
+  },
+  "detail": {
+    "basicInfo": "Informations de base",
+    "createdCourses": "Cours créés",
+    "creditExpireAtHint": "Lorsque plusieurs périodes de validité existent, l’expiration la plus proche est affichée en premier.",
+    "creditExpireAtHintAriaLabel": "Voir l’explication d’expiration des crédits",
+    "creditLedger": "Détail des crédits",
+    "creditLedgerColumns": {
+      "amount": "Montant",
+      "balanceAfter": "Solde après",
+      "consumedCredits": "Crédits consommés",
+      "course": "Cours",
+      "createdAt": "Modifié le",
+      "entryType": "Type",
+      "expiresAt": "Expire le",
+      "grantedCredits": "Crédits obtenus",
+      "note": "Note",
+      "sectionChapter": "Section/chapitre",
+      "sourceType": "Source",
+      "usageMode": "Mode",
+      "usageScene": "Scène",
+      "user": "Utilisateur"
+    },
+    "creditLedgerFilters": {
+      "course": "Cours",
+      "coursePlaceholder": "Saisir ID/nom",
+      "grantSource": "Source d’attribution",
+      "grantSourceOptions": {
+        "all": "Tout",
+        "manual": "Attribution manuelle",
+        "subscription": "Abonnement",
+        "topup": "Pack de crédits",
+        "trial_subscription": "Crédits d’essai"
+      },
+      "time": "Période",
+      "timePlaceholder": "Sélectionner la période",
+      "type": "Type",
+      "typeOptions": {
+        "all": "Tout",
+        "consume": "Consommation",
+        "grant": "Attribution",
+        "other": "Autre"
+      },
+      "usageMode": "Mode d’utilisation",
+      "usageModeOptions": {
+        "all": "Tout",
+        "ask": "Relance",
+        "learn": "Lecture",
+        "listen": "Écoute"
+      },
+      "usageScene": "Scène d’utilisation",
+      "usageSceneOptions": {
+        "all": "Tous",
+        "debug": "Débogage",
+        "learning": "Apprentissage",
+        "preview": "Aperçu"
+      }
+    },
+    "creditLedgerNoteLabels": {
+      "admin_manual_plan_grant": "Forfait attribué par les opérations",
+      "debug_consume": "Crédits consommés par l’utilisation de débogage",
+      "gift_expire": "Crédits offerts expirés",
+      "gift_grant": "Crédits offerts attribués",
+      "learning_consume": "Crédits consommés par l’apprentissage",
+      "manual_credit": "Crédits ajoutés manuellement",
+      "manual_debit": "Crédits débités manuellement",
+      "manual_grant": "Crédits attribués manuellement",
+      "preview_consume": "Crédits consommés par la prévisualisation",
+      "refund_return": "Crédits retournés après remboursement",
+      "subscription_cycle_transition": "Les crédits d’abonnement du cycle précédent ont expiré lors de la transition de cycle",
+      "subscription_expire": "Crédits d’abonnement expirés",
+      "subscription_grant": "Crédits attribués par l’abonnement",
+      "subscription_purchase": "Crédits attribués lors de l’achat d’abonnement",
+      "subscription_renewal": "Crédits attribués lors du renouvellement d’abonnement",
+      "topup_expire": "Crédits du pack de crédits expirés",
+      "topup_grant": "Crédits attribués par le pack de crédits",
+      "topup_purchase": "Crédits attribués lors de l’achat d’un pack de crédits",
+      "trial_bootstrap": "Crédits attribués lors de l’activation de l’essai",
+      "trial_subscription_grant": "Crédits attribués par l’abonnement d’essai"
+    },
+    "creditLedgerSourceLabels": {
+      "compensation": "Compensation",
+      "debug": "Déboguer",
+      "gift": "Cadeau",
+      "learning": "En apprentissage",
+      "manual": "Manuel",
+      "preview": "Prévisualisation",
+      "refund": "Remboursement",
+      "reward": "Récompense",
+      "subscription": "Abonnement",
+      "topup": "Pack de crédits",
+      "trial_subscription": "Abonnement d’essai",
+      "usage": "Utilisation"
+    },
+    "creditLedgerTypeLabels": {
+      "adjustment": "Ajustement de crédits",
+      "consume": "Consommation de crédits",
+      "debug_consume": "Consommation de débogage",
+      "expire": "Expiration des crédits",
+      "gift_expire": "Expiration des crédits offerts",
+      "gift_grant": "Attribution cadeau",
+      "grant": "Attribution de crédits",
+      "hold": "Blocage de crédits",
+      "learning_consume": "Consommation apprentissage",
+      "manual_credit": "Crédit manuel",
+      "manual_debit": "Débit manuel",
+      "manual_grant": "Attribution manuelle",
+      "preview_consume": "Consommation prévisualisation",
+      "refund": "Retour de remboursement",
+      "refund_return": "Retour de remboursement",
+      "release": "Libération de crédits",
+      "subscription_expire": "Expiration des crédits d’abonnement",
+      "subscription_grant": "Attribution d’abonnement",
+      "topup_expire": "Expiration du pack de crédits",
+      "topup_grant": "Attribution du pack de crédits",
+      "trial_subscription_grant": "Attribution d’abonnement d’essai"
+    },
+    "creditLedgerUsageSceneLabels": {
+      "debug": "Débogage",
+      "learning": "Apprentissage",
+      "preview": "Aperçu"
+    },
+    "creditUsageDetail": {
+      "actions": {
+        "open": "Détails",
+        "openAriaLabel": "Voir les détails de consommation de crédits"
+      },
+      "collapse": "Réduire",
+      "columns": {
+        "consumedCredits": "Crédits",
+        "createdAt": "Consommé le",
+        "inputTokens": "Tokens d'entrée",
+        "outputSummary": "Résumé de sortie",
+        "outputTokens": "Tokens de sortie",
+        "ttsContent": "Contenu synthétisé",
+        "ttsDuration": "Durée audio",
+        "ttsSegmentCount": "Segments",
+        "ttsWordCount": "Mots synthétisés"
+      },
+      "description": "Affiche le contenu de sortie et les crédits consommés pour ce règlement lorsque disponibles.",
+      "durationMinutesSeconds": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "empty": "Aucun détail de consommation",
+      "error": "Échec du chargement des détails",
+      "expand": "Développer",
+      "loading": "Chargement",
+      "title": "Détails de consommation des crédits"
+    },
+    "creditsOverview": "Vue d’ensemble des crédits",
+    "creditsOverviewLabels": {
+      "availableCredits": "Solde total de crédits",
+      "creditsExpireAt": "Validité des crédits",
+      "subscriptionCredits": "Solde de crédits d’abonnement",
+      "topupCredits": "Solde de crédits du pack de crédits"
+    },
+    "emptyCourses": "Aucun cours",
+    "emptyCredits": "Aucune entrée de crédit",
+    "learningCourses": "Cours suivis",
+    "learningProgress": "Progression",
+    "loadingCredits": "Chargement",
+    "overview": "Vue d’ensemble",
+    "tabs": {
+      "createdCourses": "Cours créés",
+      "credits": "Détail des crédits",
+      "learningCourses": "Cours suivis"
+    },
+    "title": "Détail utilisateur"
+  },
+  "emptyList": "Aucun utilisateur",
+  "filters": {
+    "createdAt": "Créé le",
+    "email": "E-mail",
+    "mobile": "Mobile",
+    "nickname": "Pseudonyme",
+    "role": "Rôle",
+    "status": "Statut"
+  },
+  "grantDialog": {
+    "bootstrapError": "Impossible de charger la liste des forfaits. Veuillez réessayer plus tard.",
+    "confirmButton": "Confirmer",
+    "confirmDescription": "Veuillez confirmer les détails de l’attribution de crédits. Une fois confirmée, elle prend effet immédiatement.",
+    "confirmSummary": {
+      "amount": "Crédits attribués",
+      "mode": "Type d’attribution",
+      "note": "Remarque",
+      "package": "Forfait",
+      "packageCredits": "Crédits",
+      "packageExpireAt": "Date de fin estimée",
+      "packageValidity": "Validité",
+      "referralCurrentCredits": "Crédits de récompense de parrainage actuels",
+      "referralCurrentExpireAt": "Validité actuelle de la récompense de parrainage",
+      "referralEstimatedCredits": "Crédits estimés après attribution",
+      "referralEstimatedExpireAt": "Validité estimée après attribution",
+      "referralGrantCount": "Nombre de parrainages récompensés",
+      "source": "Source",
+      "validityPreset": "Validité"
+    },
+    "confirmTitle": "Confirmer l’attribution de crédits",
+    "description": "Utilisez cette fenêtre pour attribuer des crédits ou un forfait aux enseignants et opérateurs depuis les opérations.",
+    "fields": {
+      "amount": "Crédits",
+      "mode": "Type d’attribution",
+      "note": "Remarque",
+      "source": "Source",
+      "validityPreset": "Validité"
+    },
+    "modeOptions": {
+      "credits": "Attribuer des crédits",
+      "package": "Attribuer un forfait",
+      "referralReward": "Récompense de parrainage"
+    },
+    "packageConfirmDescription": "Veuillez confirmer les détails de l’attribution du forfait. Une fois confirmée, elle prend effet immédiatement.",
+    "packageConfirmTitle": "Confirmer l’attribution du forfait",
+    "packageFields": {
+      "credits": "Crédits",
+      "expiryHintPending": "Le forfait prend effet immédiatement après une attribution réussie, et sa date de fin sera calculée automatiquement selon sa validité.",
+      "expiryHintResolved": "Le forfait prend effet immédiatement après une attribution réussie. Date de fin estimée : {dateTime}.",
+      "packageName": "Nom du forfait",
+      "product": "Forfait",
+      "validity": "Validité"
+    },
+    "placeholders": {
+      "amount": "Saisir le montant des crédits",
+      "note": "Optionnel. Indiquez la raison de cette attribution",
+      "product": "Sélectionnez un forfait",
+      "productLoading": "Chargement des forfaits…",
+      "referralRewardAmount": "Saisir les crédits de récompense",
+      "source": "Sélectionnez une source",
+      "validityPreset": "Sélectionnez une validité"
+    },
+    "referralReward": {
+      "bootstrapError": "Impossible de charger les données de récompense de parrainage. Veuillez réessayer plus tard.",
+      "bootstrapLoading": "Chargement des données de récompense de parrainage…",
+      "currentCredits": "Crédits de récompense de parrainage actuels",
+      "currentExpireAt": "Validité actuelle de la récompense de parrainage",
+      "description": "Chaque attribution de récompense de parrainage ajoute les crédits saisis et prolonge la validité actuelle de 1 mois.",
+      "emptyDescription": "S’il n’existe aucune récompense de parrainage active, la validité commence à l’heure d’attribution et dure 1 mois.",
+      "grantCount": "Nombre de parrainages récompensés",
+      "grantCountTooltip": "La source des données est temporairement basée sur le nombre d’attributions de récompense de parrainage.",
+      "noActiveReward": "Aucune récompense de parrainage active",
+      "oneMonth": "1 mois",
+      "validity": "Validité"
+    },
+    "referralRewardConfirmDescription": "Veuillez confirmer les détails de la récompense de parrainage. Une fois confirmée, elle prend effet immédiatement.",
+    "referralRewardConfirmTitle": "Confirmer la récompense de parrainage",
+    "sourceOptions": {
+      "compensation": "Compensation",
+      "reward": "Récompense"
+    },
+    "submitButton": "Confirmer",
+    "submitSuccess": "Attribution réussie",
+    "summary": {
+      "account": "Compte",
+      "availableCredits": "Solde de crédits",
+      "currentExpireAt": "Valide jusqu’au",
+      "currentPackage": "Forfait actuel",
+      "nickname": "Pseudo",
+      "package": "Forfait"
+    },
+    "title": "Attribuer crédits/forfait",
+    "validation": {
+      "amountRequired": "Saisissez un montant de crédits supérieur à 0",
+      "productRequired": "Sélectionnez un forfait",
+      "referralRewardAmountRequired": "Saisissez un nombre entier positif de crédits",
+      "sourceRequired": "Sélectionnez une source",
+      "validityPresetRequired": "Sélectionnez une validité"
+    },
+    "validityHint": "S’il n’existe aucun abonnement actif, la validité ne peut pas être définie sur « Aligner sur l’expiration de l’abonnement actuel ».",
+    "validityOptions": {
+      "alignSubscription": "Aligner sur l’expiration de l’abonnement actuel",
+      "oneDay": "1 jour après l’attribution",
+      "oneMonth": "1 mois après l’attribution",
+      "oneYear": "1 an après l’attribution",
+      "sevenDays": "7 jours après l’attribution",
+      "threeMonths": "3 mois après l’attribution"
+    }
+  },
+  "loginMethodLabels": {
+    "email": "E-mail",
+    "google": "Google",
+    "phone": "Mobile",
+    "unknown": "Inconnu",
+    "wechat": "WeChat"
+  },
+  "overview": {
+    "activeFilter": "Filtre rapide",
+    "metrics": {
+      "creators": "Enseignants",
+      "guests": "Invités",
+      "learners": "Apprenants",
+      "learningActive30d": "Apprenants actifs (30 j)",
+      "newUsers30d": "Nouveaux utilisateurs (30 j)",
+      "paidUsers": "Utilisateurs payants",
+      "paidUsers30d": "Utilisateurs payants (30 j)",
+      "registeredUsers": "Utilisateurs inscrits",
+      "registeredUsers30d": "Utilisateurs inscrits (30 j)",
+      "totalUsers": "Total utilisateurs"
+    },
+    "staleData": "Échec de l’actualisation de la vue d’ensemble. Affichage du dernier instantané réussi.",
+    "title": "Vue d’ensemble",
+    "tooltips": {
+      "creators": "Utilisateurs enseignants",
+      "guests": "Utilisateurs invités",
+      "learners": "Utilisateurs avec enregistrements d’apprentissage",
+      "learningActive30d": "Utilisateurs avec activité d’apprentissage au cours des 30 derniers jours",
+      "newUsers30d": "Nouveaux utilisateurs au cours des 30 derniers jours",
+      "paidUsers": "Utilisateurs en statut payé (activations importées incluses)",
+      "paidUsers30d": "Utilisateurs ayant payé avec succès au cours des 30 derniers jours (activations importées incluses)",
+      "registeredUsers": "Utilisateurs inscrits",
+      "registeredUsers30d": "Utilisateurs ayant terminé l’inscription au cours des 30 derniers jours",
+      "totalUsers": "Tous les utilisateurs"
+    }
+  },
+  "registrationSourceLabels": {
+    "email": "E-mail",
+    "google": "Google",
+    "imported": "Importé",
+    "phone": "Mobile",
+    "unknown": "Inconnu",
+    "wechat": "WeChat"
+  },
+  "roleLabels": {
+    "creator": "Enseignant",
+    "learner": "Apprenant",
+    "operator": "Opérateur",
+    "regular": "Standard",
+    "unknown": "Inconnu"
+  },
+  "statusLabels": {
+    "paid": "Payé",
+    "registered": "Inscrit",
+    "unknown": "Inconnu",
+    "unregistered": "Non inscrit"
+  },
+  "table": {
+    "action": "Action",
+    "availableCredits": "Total des crédits",
+    "createdAt": "Créé le",
+    "createdCourses": "Cours créés",
+    "creditsExpireAt": "Expiration des crédits",
+    "email": "E-mail",
+    "guestUser": "Invité",
+    "lastLearningAt": "Dernier apprentissage",
+    "lastLoginAt": "Dernière connexion",
+    "learningCourses": "Cours suivis",
+    "loginMethods": "Méthodes de connexion",
+    "mobile": "Mobile",
+    "nickname": "Pseudonyme",
+    "registrationSource": "Source d’inscription",
+    "role": "Rôle",
+    "status": "Statut",
+    "subscriptionCredits": "Crédits d’abonnement",
+    "topupCredits": "Crédits du pack de crédits",
+    "totalPaidAmount": "Total payé",
+    "updatedAt": "Mis à jour le",
+    "userId": "ID d’utilisateur"
+  },
+  "title": "Gestion des utilisateurs"
+}

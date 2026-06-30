@@ -28,6 +28,11 @@ import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
+import {
+  readReferralContext,
+  saveReferralContext,
+} from '@/lib/referral-context';
+import type { ReferralLoginMetadata } from '@/types/referral';
 
 type LoginMethod = 'phone' | 'email' | 'google' | 'password';
 
@@ -36,6 +41,9 @@ export default function AuthPage() {
   const [authMode, setAuthMode] = useState<'login' | 'feedback'>('login');
   const [isI18nReady, setIsI18nReady] = useState(false);
   const userInfo = useUserStore(state => state.userInfo);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const logout = useUserStore(state => state.logout);
+  const loginSessionResetCheckedRef = useRef(false);
   const [logoSrc, setLogoSrc] = useState<string | StaticImageData>(
     environment.logoWideUrl || logoHorizontal,
   );
@@ -110,6 +118,40 @@ export default function AuthPage() {
 
   const searchParams = useSearchParams();
   const isInitialized = useUserStore(state => state.isInitialized);
+  const [referralMetadata, setReferralMetadata] =
+    useState<ReferralLoginMetadata>({});
+
+  useEffect(() => {
+    const inviteCode = searchParams.get('invite_code');
+    if (inviteCode) {
+      setReferralMetadata(
+        saveReferralContext({
+          invite_code: inviteCode,
+          referral_session_id:
+            searchParams.get('referral_session_id') || undefined,
+          referral_entry_source: 'invite_link',
+        }),
+      );
+      return;
+    }
+
+    setReferralMetadata(readReferralContext());
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!isInitialized || loginSessionResetCheckedRef.current) {
+      return;
+    }
+
+    loginSessionResetCheckedRef.current = true;
+    if (!isLoggedIn) {
+      return;
+    }
+
+    void logout(false).catch(() => {
+      loginSessionResetCheckedRef.current = false;
+    });
+  }, [isInitialized, isLoggedIn, logout]);
 
   const resolveRedirectPath = useCallback(() => {
     const fallback = '/admin';
@@ -324,6 +366,7 @@ export default function AuthPage() {
               onLoginSuccess={handleAuthSuccess}
               loginContext={loginContext}
               courseId={courseIdFromRedirect || undefined}
+              referralMetadata={referralMetadata}
             />
           );
         case 'email':
@@ -361,6 +404,7 @@ export default function AuthPage() {
       isGoogleLoading,
       loginContext,
       courseIdFromRedirect,
+      referralMetadata,
       isEmailEnabled,
     ],
   );

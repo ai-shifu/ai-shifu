@@ -63,7 +63,13 @@
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe前端可公开的Publishable Key | 空字符串 |
 | `NEXT_PUBLIC_STRIPE_ENABLED`         | 是否启用Stripe前端支付入口        | `false`  |
 
-### 9. 法律文档配置 (Legal Documents Configuration)
+### 9. 公开站点配置 (Public Site Configuration)
+
+| 变量名              | 用途                        | 默认值                | 说明                                           |
+| ------------------- | --------------------------- | --------------------- | ---------------------------------------------- |
+| `OFFICIAL_SITE_URL` | AI 师傅官网链接，用于邀请页 | `https://ai-shifu.cn` | 留空则邀请页品牌文案和 logo 默认链接到中文官网 |
+
+### 10. 法律文档配置 (Legal Documents Configuration)
 
 | 变量名                      | 用途            | 默认值   | 说明                           |
 | --------------------------- | --------------- | -------- | ------------------------------ |
@@ -107,8 +113,10 @@ const googleRedirect = '/login/google-callback';
 const legalUrls = environment.legalUrls;
 const agreementUrlZhCN = legalUrls.agreement['zh-CN']; // 中文服务协议URL
 const agreementUrlEnUS = legalUrls.agreement['en-US']; // 英文服务协议URL
+const agreementUrlFrFR = legalUrls.agreement['fr-FR']; // 法文服务协议URL
 const privacyUrlZhCN = legalUrls.privacy['zh-CN']; // 中文隐私政策URL
 const privacyUrlEnUS = legalUrls.privacy['en-US']; // 英文隐私政策URL
+const privacyUrlFrFR = legalUrls.privacy['fr-FR']; // 法文隐私政策URL
 ```
 
 ### 在API路由中使用

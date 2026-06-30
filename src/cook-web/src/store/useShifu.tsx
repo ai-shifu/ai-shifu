@@ -26,6 +26,7 @@ import {
 import api from '@/api';
 import { debounce } from 'lodash';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
+import { normalizeModelOptions } from './modelOptions';
 import {
   createContext,
   ReactElement,
@@ -1460,43 +1461,6 @@ export const ShifuProvider = ({
     );
   };
 
-  const normalizeModelOptions = (list: any): ModelOption[] => {
-    if (!Array.isArray(list)) return [];
-    const seen = new Set<string>();
-    const options: ModelOption[] = [];
-
-    list.forEach(item => {
-      if (typeof item === 'string') {
-        const value = item.trim();
-        if (value && !seen.has(value)) {
-          seen.add(value);
-          options.push({ value, label: value });
-        }
-        return;
-      }
-
-      if (item && typeof item === 'object') {
-        const value = String(item.model || item.value || '').trim();
-        if (!value || seen.has(value)) {
-          return;
-        }
-        const labelSource =
-          item.display_name || item.displayName || item.label || value;
-        const label = String(labelSource || value).trim() || value;
-        const creditMultiplierLabel =
-          item.credit_multiplier_label || item.creditMultiplierLabel || '';
-        seen.add(value);
-        options.push({
-          value,
-          label,
-          credit_multiplier_label: String(creditMultiplierLabel || ''),
-        });
-      }
-    });
-
-    return options;
-  };
-
   const loadModels = async () => {
     const list = await api.getModelList({});
     setModels(normalizeModelOptions(list));
@@ -1871,9 +1835,12 @@ export const ShifuProvider = ({
     }
     const shifu_bid = payload?.shifu_bid ?? currentShifu?.bid ?? '';
     const outline_bid = payload?.outline_bid ?? (currentNode?.bid || '');
-    const data = payload?.data ?? currentMdflow.current;
+    const data = payload?.data ?? currentMdflow.current ?? '';
     const resolvedBaseRevision =
       payload?.base_revision ?? baseRevision ?? undefined;
+    if (!shifu_bid || !outline_bid) {
+      return;
+    }
     if (saveMdflowLockRef.current.inflight) {
       if (outline_bid && saveMdflowLockRef.current.outlineId !== outline_bid) {
         // When another outline save is in-flight, skip cross-outline saves

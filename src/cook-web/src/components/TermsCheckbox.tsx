@@ -4,7 +4,8 @@ import { Checkbox } from '@/components/ui/Checkbox';
 import { cn } from '@/lib/utils';
 import { Trans, useTranslation } from 'react-i18next';
 import { useEnvStore } from '@/c-store';
-import { EnvStoreState } from '@/c-types/store';
+import { EnvStoreState, SupportedLocale } from '@/c-types/store';
+import { normalizeLanguage } from '@/i18n';
 
 interface TermsCheckboxProps {
   checked: boolean;
@@ -30,9 +31,13 @@ export function TermsCheckbox({
   );
 
   // Get current language URL
-  const currentLang = (i18n.language || 'en-US') as 'zh-CN' | 'en-US';
-  const agreementUrl = legalUrls?.agreement?.[currentLang] || '';
-  const privacyUrl = legalUrls?.privacy?.[currentLang] || '';
+  const currentLang = normalizeLanguage(i18n.language) as SupportedLocale;
+  const agreementUrl =
+    legalUrls?.agreement?.[currentLang] ||
+    legalUrls?.agreement?.['en-US'] ||
+    '';
+  const privacyUrl =
+    legalUrls?.privacy?.[currentLang] || legalUrls?.privacy?.['en-US'] || '';
   return (
     <div className={cn('flex flex-row items-start gap-2 text-left', className)}>
       <Checkbox

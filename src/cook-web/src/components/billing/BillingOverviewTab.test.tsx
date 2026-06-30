@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import api from '@/api';
 import { toast } from '@/hooks/useToast';
@@ -23,6 +23,13 @@ jest.mock('react-i18next', () => ({
         return `${key}:${options.date}`;
       }
       if (
+        (key === 'module.billing.package.campaign.bonusBadge' ||
+          key === 'module.billing.checkout.bonusCreditsLabel') &&
+        options
+      ) {
+        return `${key}:${String(options.credits || options.baseCredits || '')}:${String(options.bonusCredits || '')}`;
+      }
+      if (
         key.startsWith('module.billing.catalog.topups.') &&
         key.endsWith('.title') &&
         options?.credits
@@ -35,6 +42,19 @@ jest.mock('react-i18next', () => ({
         options?.count
       ) {
         return `${key}:${options.count}`;
+      }
+      if (
+        key === 'module.billing.catalog.labels.providerWithChannel' &&
+        typeof options?.provider === 'string' &&
+        typeof options?.channel === 'string'
+      ) {
+        return `${options.provider} / ${options.channel}`;
+      }
+      if (
+        key === 'module.billing.checkout.expiresInValue' &&
+        typeof options?.countdown === 'string'
+      ) {
+        return `${key}:${options.countdown}`;
       }
       return key;
     },
@@ -172,6 +192,7 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 990,
       credit_amount: 5,
+      plan_tier: 10,
       auto_renew_enabled: true,
       highlights: [
         'module.billing.package.features.monthly.publish',
@@ -189,6 +210,7 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 19900,
       credit_amount: 100,
+      plan_tier: 20,
       auto_renew_enabled: true,
       highlights: [
         'module.billing.package.features.monthly.publish',
@@ -207,6 +229,7 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 800000,
       credit_amount: 5000,
+      plan_tier: 30,
       auto_renew_enabled: true,
       highlights: [
         'module.billing.package.features.yearly.lite.ops',
@@ -224,6 +247,7 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 1500000,
       credit_amount: 10000,
+      plan_tier: 40,
       auto_renew_enabled: true,
       highlights: [
         'module.billing.package.features.yearly.pro.branding',
@@ -245,6 +269,7 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 3000000,
       credit_amount: 22000,
+      plan_tier: 50,
       auto_renew_enabled: true,
       highlights: [
         'module.billing.package.features.yearly.premium.branding',
@@ -266,6 +291,14 @@ const CATALOG_RESPONSE = {
       currency: 'CNY',
       price_amount: 5000,
       credit_amount: 24,
+      campaign: {
+        campaign_bid: 'campaign-topup-small',
+        benefit_type: 'discount' as const,
+        discount_type: 'percent' as const,
+        discount_amount: 400,
+        discount_percent: 8,
+        campaign_price_amount: 4600,
+      },
     },
     {
       product_bid: 'bill-product-topup-medium',
@@ -312,6 +345,7 @@ const DAILY_PLAN = {
   currency: 'CNY',
   price_amount: 390,
   credit_amount: 21,
+  plan_tier: 5,
   auto_renew_enabled: true,
   highlights: [
     'module.billing.package.features.daily.publish',
@@ -414,8 +448,10 @@ describe('BillingOverviewTab', () => {
     );
 
     expect(
-      screen.getByText('module.billing.package.title'),
-    ).toBeInTheDocument();
+      screen.queryByRole('heading', {
+        name: 'module.billing.package.title',
+      }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('tab', {
         name: 'module.billing.package.intervalTabs.plans',
@@ -462,6 +498,11 @@ describe('BillingOverviewTab', () => {
     expect(
       screen.getByTestId('billing-plan-card-bill-product-plan-yearly-premium'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-yearly-premium-price-summary',
+      ),
+    ).toHaveClass('columnPriceSummary');
 
     await act(async () => {
       await user.click(
@@ -474,6 +515,21 @@ describe('BillingOverviewTab', () => {
     expect(
       screen.getByTestId('billing-topup-card-bill-product-topup-small'),
     ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-small'),
+      ).getByText('¥50'),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-small'),
+      ).getByText('¥46'),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-small'),
+      ).getByText('module.billing.package.campaign.discountBadge'),
+    ).toBeInTheDocument();
     expect(screen.getByTestId('billing-topup-note')).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.package.topup.noteInstant'),
@@ -483,6 +539,16 @@ describe('BillingOverviewTab', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
+      ).queryByText('module.billing.package.campaign.discountBadge'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
+      ).queryByText('¥99'),
     ).toBeInTheDocument();
     expect(
       screen.getByTestId('billing-topup-card-bill-product-topup-large'),
@@ -496,6 +562,73 @@ describe('BillingOverviewTab', () => {
     expect(
       screen.queryByTestId('billing-plan-card-free'),
     ).not.toBeInTheDocument();
+  });
+
+  test('renders campaign bonus credits for plans and topups', async () => {
+    const user = userEvent.setup();
+    const catalogWithBonus = {
+      ...CATALOG_RESPONSE,
+      plans: CATALOG_RESPONSE.plans.map(plan =>
+        plan.product_bid === 'bill-product-plan-monthly'
+          ? {
+              ...plan,
+              campaign: {
+                campaign_bid: 'campaign-plan-bonus',
+                benefit_type: 'bonus' as const,
+                discount_amount: 0,
+                discount_percent: 0,
+                campaign_price_amount: 0,
+                bonus_credit_amount: 2,
+              },
+            }
+          : plan,
+      ),
+      topups: CATALOG_RESPONSE.topups.map(product =>
+        product.product_bid === 'bill-product-topup-medium'
+          ? {
+              ...product,
+              campaign: {
+                campaign_bid: 'campaign-topup-bonus',
+                benefit_type: 'bonus' as const,
+                discount_amount: 0,
+                discount_percent: 0,
+                campaign_price_amount: 0,
+                bonus_credit_amount: 10,
+              },
+            }
+          : product,
+      ),
+    };
+    mockGetBillingCatalog.mockResolvedValue(catalogWithBonus);
+    mockUseSWR.mockReturnValue({
+      data: catalogWithBonus,
+      error: undefined,
+      isLoading: false,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      within(
+        screen.getByTestId(
+          'billing-plan-card-bill-product-plan-monthly-price-summary',
+        ),
+      ).getByText('module.billing.package.campaign.bonusBadge:2:'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('tab', {
+          name: 'module.billing.package.intervalTabs.topup',
+        }),
+      );
+    });
+
+    expect(
+      within(
+        screen.getByTestId('billing-topup-card-bill-product-topup-medium'),
+      ).getByText('module.billing.package.campaign.bonusBadge:10:'),
+    ).toBeInTheDocument();
   });
 
   test('hides daily plans even when the catalog returns them', () => {
@@ -634,7 +767,7 @@ describe('BillingOverviewTab', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('disables lower-tier monthly plans while a higher-tier monthly subscription is active', async () => {
+  test('blocks lower-tier preorder when the current subscription is Stripe-managed', async () => {
     const user = userEvent.setup();
 
     mockUseBillingOverview.mockReturnValue({
@@ -675,7 +808,7 @@ describe('BillingOverviewTab', () => {
     ).toBeDisabled();
     expect(
       screen.getByTestId('billing-plan-card-bill-product-plan-monthly-action'),
-    ).toHaveTextContent('module.billing.package.actions.downgradeDisabled');
+    ).toHaveTextContent('module.billing.package.actions.preorderDowngrade');
 
     await act(async () => {
       await user.hover(
@@ -686,8 +819,671 @@ describe('BillingOverviewTab', () => {
     });
 
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'module.billing.package.actions.upgradeOnlyTooltip',
+      'module.billing.package.actions.preorderProviderUnsupportedTooltip',
     );
+  });
+
+  test('lets trial users upgrade with an available checkout provider instead of manual', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['wechatpay'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 100,
+          reserved_credits: 0,
+          lifetime_granted_credits: 100,
+          lifetime_consumed_credits: 0,
+        },
+        subscription: {
+          subscription_bid: 'sub-trial-1',
+          product_bid: 'bill-product-plan-trial',
+          product_code: 'creator-plan-trial',
+          status: 'active',
+          billing_provider: 'manual',
+          current_period_start_at: '2026-05-29T05:44:32Z',
+          current_period_end_at: '2026-06-13T05:44:32Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-trial-upgrade-1',
+      provider: 'wechatpay',
+      payment_mode: 'subscription',
+      status: 'pending',
+      checkout_type: 'subscription_upgrade',
+      effective_mode: 'immediate',
+      payable_amount: 990,
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://wechatpay.test/trial-upgrade-qr',
+        },
+      },
+    });
+
+    renderOverviewTab();
+
+    const monthlyAction = screen.getByTestId(
+      'billing-plan-card-bill-product-plan-monthly-action',
+    );
+    expect(monthlyAction).toBeEnabled();
+    expect(monthlyAction).toHaveTextContent(
+      'module.billing.package.actions.upgradeNow',
+    );
+
+    await act(async () => {
+      await user.click(monthlyAction);
+    });
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'upgrade_immediate',
+          channel: 'wx_pub_qr',
+          payment_provider: 'wechatpay',
+          product_bid: 'bill-product-plan-monthly',
+        }),
+      );
+    });
+    expect(
+      await screen.findByTestId('billing-pingxx-qr-code'),
+    ).toBeInTheDocument();
+  });
+
+  test('lets manual paid subscribers upgrade with an available checkout provider', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['wechatpay'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-manual-paid-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'manual',
+          current_period_start_at: '2026-05-01T00:00:00Z',
+          current_period_end_at: '2026-05-30T15:59:59Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-manual-paid-upgrade-1',
+      provider: 'wechatpay',
+      payment_mode: 'subscription',
+      status: 'pending',
+      checkout_type: 'subscription_upgrade',
+      effective_mode: 'immediate',
+      payable_amount: 18910,
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://wechatpay.test/manual-paid-upgrade-qr',
+        },
+      },
+    });
+
+    renderOverviewTab();
+
+    const proAction = screen.getByTestId(
+      'billing-plan-card-bill-product-plan-monthly-pro-action',
+    );
+    expect(proAction).toBeEnabled();
+    expect(proAction).toHaveTextContent(
+      'module.billing.package.actions.upgradeNow',
+    );
+
+    await act(async () => {
+      await user.click(proAction);
+    });
+    expect(
+      screen.getByText('module.billing.checkout.upgradeDescription'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.billing.checkout.upgradeWithPreorderDescription',
+      ),
+    ).not.toBeInTheDocument();
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'upgrade_immediate',
+          channel: 'wx_pub_qr',
+          payment_provider: 'wechatpay',
+          product_bid: 'bill-product-plan-monthly-pro',
+        }),
+      );
+    });
+    expect(
+      await screen.findByTestId('billing-pingxx-qr-code'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.checkout.upgradeDescription'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.billing.checkout.prepaidOffsetLabel'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('passes preorder action for self-managed same-tier renewal', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-preorder-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      checkout_type: 'subscription_preorder',
+      effective_mode: 'cycle_end',
+      payable_amount: 990,
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/preorder-wechat-qr',
+        },
+      },
+    });
+
+    renderOverviewTab();
+
+    const currentPlanAction = screen.getByTestId(
+      'billing-plan-card-bill-product-plan-monthly-action',
+    );
+    expect(currentPlanAction).toBeEnabled();
+    expect(currentPlanAction).toHaveTextContent(
+      'module.billing.package.actions.preorderRenewal',
+    );
+
+    await act(async () => {
+      await user.click(currentPlanAction);
+    });
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'preorder',
+          channel: 'wx_pub_qr',
+          payment_provider: 'pingxx',
+          product_bid: 'bill-product-plan-monthly',
+        }),
+      );
+    });
+  });
+
+  test('disables same-tier renewal when the current period already includes a prepaid cycle', () => {
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2099-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    const currentPlanAction = screen.getByTestId(
+      'billing-plan-card-bill-product-plan-monthly-action',
+    );
+    expect(currentPlanAction).toBeDisabled();
+    expect(currentPlanAction).toHaveTextContent(
+      'module.billing.package.actions.preorderScheduled',
+    );
+  });
+
+  test('does not mark the current plan preordered for timezone-shifted single-cycle ends', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-05-29T00:00:00Z'));
+    mockEnvState.paymentChannels = ['wechatpay'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 105,
+          reserved_credits: 0,
+          lifetime_granted_credits: 105,
+          lifetime_consumed_credits: 0,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'wechatpay',
+          current_period_start_at: '2026-05-29T07:13:24+08:00',
+          current_period_end_at: '2026-06-28T07:59:59+08:00',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    const currentPlanAction = screen.getByTestId(
+      'billing-plan-card-bill-product-plan-monthly-action',
+    );
+    expect(currentPlanAction).toBeEnabled();
+    expect(currentPlanAction).toHaveTextContent(
+      'module.billing.package.actions.preorderRenewal',
+    );
+    expect(
+      screen.queryByTestId('billing-pending-preorder-banner'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('shows pending preorder and only lets higher-tier checkout use offset', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: 'bill-product-plan-monthly-pro',
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-upgrade-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      checkout_type: 'subscription_upgrade',
+      effective_mode: 'immediate',
+      prepaid_offset_amount: 40000,
+      payable_amount: 760000,
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/upgrade-wechat-qr',
+        },
+      },
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByTestId('billing-pending-preorder-banner'),
+    ).toHaveTextContent('module.billing.package.preorder.pending');
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-monthly-pro-action',
+      ),
+    ).toHaveTextContent('module.billing.package.actions.preorderScheduled');
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-monthly-pro-action',
+      ),
+    ).toBeDisabled();
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId(
+          'billing-plan-card-bill-product-plan-yearly-lite-action',
+        ),
+      );
+    });
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'upgrade_immediate',
+          channel: 'wx_pub_qr',
+          payment_provider: 'pingxx',
+          product_bid: 'bill-product-plan-yearly-lite',
+        }),
+      );
+    });
+    expect(
+      screen.getByText(
+        'module.billing.checkout.upgradeWithPreorderDescription',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('billing-pingxx-qr-code'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/7,600/)).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.checkout.prepaidOffsetLabel'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/400/)).toBeInTheDocument();
+  });
+
+  test('disables pending-preorder upgrades when the current provider is unavailable', async () => {
+    mockEnvState.paymentChannels = ['stripe'];
+    mockEnvState.stripeEnabled = 'true';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: 'bill-product-plan-monthly-pro',
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-yearly-lite-action',
+      ),
+    ).toBeDisabled();
+  });
+
+  test('disables active-subscription upgrades when the current provider is unavailable', async () => {
+    mockEnvState.paymentChannels = ['stripe'];
+    mockEnvState.stripeEnabled = 'true';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-monthly-pro-action',
+      ),
+    ).toBeDisabled();
+  });
+
+  test('shows same-plan pending preorder and keeps higher-tier upgrade available', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 5,
+          lifetime_granted_credits: 505,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: 'bill-product-plan-monthly',
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-upgrade-same-plan-pending',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      checkout_type: 'subscription_upgrade',
+      effective_mode: 'immediate',
+      preorder_order_bid: 'order-preorder-same-plan',
+      prepaid_offset_amount: 990,
+      payable_amount: 18910,
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/same-plan-upgrade-wechat-qr',
+        },
+      },
+    });
+
+    renderOverviewTab();
+
+    expect(
+      screen.getByTestId('billing-pending-preorder-banner'),
+    ).toHaveTextContent('module.billing.package.preorder.pending');
+    expect(
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly-action'),
+    ).toHaveTextContent('module.billing.package.actions.preorderScheduled');
+    expect(
+      screen.getByTestId('billing-plan-card-bill-product-plan-monthly-action'),
+    ).toBeDisabled();
+    expect(
+      screen.getByTestId(
+        'billing-plan-card-bill-product-plan-monthly-pro-action',
+      ),
+    ).toHaveTextContent('module.billing.package.actions.upgradeNow');
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId(
+          'billing-plan-card-bill-product-plan-monthly-pro-action',
+        ),
+      );
+    });
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'upgrade_immediate',
+          channel: 'wx_pub_qr',
+          payment_provider: 'pingxx',
+          product_bid: 'bill-product-plan-monthly-pro',
+        }),
+      );
+    });
+    expect(
+      await screen.findByTestId('billing-pingxx-qr-code'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.checkout.prepaidOffsetLabel'),
+    ).toBeInTheDocument();
   });
 
   test('renders the redesigned low balance alert card', () => {
@@ -892,6 +1688,72 @@ describe('BillingOverviewTab', () => {
     );
   });
 
+  test('uses the returned provider when a same-package checkout reuses an existing QR order', async () => {
+    const user = userEvent.setup();
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 12,
+          reserved_credits: 0,
+          lifetime_granted_credits: 120,
+          lifetime_consumed_credits: 108,
+        },
+        subscription: null,
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-plan-reused-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      expires_in_seconds: 1800,
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/reused-wechat-qr',
+        },
+      },
+    });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
+      );
+    });
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payment_provider: 'stripe',
+          product_bid: 'bill-product-plan-yearly',
+        }),
+      );
+    });
+
+    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(mockOpenBillingCheckoutUrl).not.toHaveBeenCalled();
+    expect(mockRememberStripeCheckoutSession).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId('billing-pingxx-expiration-countdown'),
+    ).toHaveTextContent('module.billing.checkout.expiresInValue:30:00');
+  });
+
   test('shows an in-app Pingxx subscription QR and allows switching channels', async () => {
     const user = userEvent.setup();
     mockEnvState.paymentChannels = ['pingxx'];
@@ -918,6 +1780,7 @@ describe('BillingOverviewTab', () => {
       provider: 'pingxx',
       payment_mode: 'subscription',
       status: 'pending',
+      expires_in_seconds: 1800,
       payment_payload: {
         credential: {
           wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
@@ -944,6 +1807,14 @@ describe('BillingOverviewTab', () => {
       );
     });
 
+    expect(
+      screen.getByText(
+        (_content, element) =>
+          element?.textContent ===
+          'module.billing.catalog.labels.providerPingxx / module.pay.wechatPay',
+      ),
+    ).toBeInTheDocument();
+
     await acceptBillingAgreement(user);
 
     await act(async () => {
@@ -965,6 +1836,15 @@ describe('BillingOverviewTab', () => {
     });
 
     expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('billing-pingxx-expiration-countdown'),
+    ).toHaveTextContent('module.billing.checkout.expiresInValue:30:00');
+    expect(screen.getByRole('checkbox')).toBeChecked();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.pay.clickRefresh',
+      }),
+    ).toBeEnabled();
 
     await act(async () => {
       await user.click(screen.getByTestId('billing-pingxx-channel-alipay_qr'));
@@ -1045,6 +1925,36 @@ describe('BillingOverviewTab', () => {
     });
     mockEnvState.paymentChannels = ['pingxx'];
     mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
     mockCheckoutBillingSubscription.mockResolvedValue({
       bill_order_bid: 'order-plan-pingxx-1',
       provider: 'pingxx',
@@ -1091,6 +2001,100 @@ describe('BillingOverviewTab', () => {
       });
     });
     await waitFor(() => {
+      expect(mockMutateOverview).toHaveBeenCalled();
+      expect(mockMutateSWRCache).toHaveBeenCalledWith([
+        'billing-wallet-buckets',
+        'Asia/Shanghai',
+      ]);
+      expect(
+        screen.queryByTestId('billing-pingxx-qr-code'),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  test('syncs the Pingxx order before refreshing the QR dialog manually', async () => {
+    const user = userEvent.setup();
+    mockEnvState.paymentChannels = ['pingxx'];
+    mockEnvState.stripeEnabled = 'false';
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 120.5,
+          reserved_credits: 0,
+          lifetime_granted_credits: 500,
+          lifetime_consumed_credits: 379.5,
+        },
+        subscription: {
+          subscription_bid: 'sub-1',
+          product_bid: 'bill-product-plan-monthly',
+          product_code: 'creator-plan-monthly',
+          status: 'active',
+          billing_provider: 'pingxx',
+          current_period_start_at: '2026-04-01T00:00:00Z',
+          current_period_end_at: '2026-05-01T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-plan-pingxx-1',
+      provider: 'pingxx',
+      payment_mode: 'subscription',
+      status: 'pending',
+      payment_payload: {
+        credential: {
+          wx_pub_qr: 'https://pingxx.test/plan-wechat-qr',
+        },
+      },
+    });
+    mockSyncBillingOrder.mockResolvedValueOnce({
+      bill_order_bid: 'order-plan-pingxx-1',
+      status: 'paid',
+    });
+
+    renderOverviewTab();
+
+    await act(async () => {
+      await user.click(
+        screen.getByTestId('billing-plan-card-bill-product-plan-yearly-action'),
+      );
+    });
+
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    expect(screen.getByTestId('billing-pingxx-qr-code')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.pay.clickRefresh',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockSyncBillingOrder).toHaveBeenCalledWith({
+        bill_order_bid: 'order-plan-pingxx-1',
+      });
+      expect(mockCheckoutBillingOrder).not.toHaveBeenCalled();
       expect(mockMutateOverview).toHaveBeenCalled();
       expect(mockMutateSWRCache).toHaveBeenCalledWith([
         'billing-wallet-buckets',

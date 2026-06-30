@@ -1,0 +1,423 @@
+{
+  "__namespace__": "module.operationsCourse",
+  "actions": {
+    "copyCourse": "Copier le cours",
+    "transferCreator": "Transférer le créateur"
+  },
+  "copyCourseDialog": {
+    "confirm": "Confirmer la copie",
+    "confirmDescription": "Copier le dernier brouillon de <strong>{courseName}</strong> pour créer un nouveau cours brouillon pour <strong>{targetCreator}</strong> nommé <strong>{newCourseName}</strong>.",
+    "confirmTitle": "Confirmer la copie du cours",
+    "contactPlaceholderEmail": "Saisissez l'e-mail du créateur cible",
+    "contactPlaceholderPhone": "Saisissez le numéro du créateur cible",
+    "contactType": "Type de contact",
+    "contactTypeEmail": "E-mail",
+    "contactTypePhone": "Téléphone",
+    "courseNameFallback": "Cours",
+    "courseNameSuffix": "-Copie",
+    "currentCreator": "Créateur actuel",
+    "description": "Copiez le dernier brouillon pour créer un nouveau cours brouillon pour le créateur cible.",
+    "identifier": "Créateur cible",
+    "identifierRequired": "Saisissez un contact valide pour le créateur cible",
+    "newCourseName": "Nom du nouveau cours",
+    "submitSuccess": "Cours copié avec succès",
+    "title": "Copier le cours"
+  },
+  "coursePromptDialog": {
+    "copy": "Copier",
+    "copyFailed": "Échec de la copie du prompt du cours",
+    "copySuccess": "Prompt du cours copié",
+    "empty": "Aucun prompt de cours",
+    "title": "Prompt du cours"
+  },
+  "detail": {
+    "basicInfo": "Informations de base",
+    "boolean": {
+      "no": "Non",
+      "yes": "Oui"
+    },
+    "chapterType": {
+      "chapter": "Chap.",
+      "lesson": "Sec."
+    },
+    "chapters": "Chapitres",
+    "chaptersTable": {
+      "chapterId": "ID du chapitre",
+      "contentDetail": "Détail",
+      "contentStatus": "Contenu",
+      "detailAction": "Détail",
+      "empty": "Aucune donnée de chapitre",
+      "followUpCount": "Questions",
+      "learningPermission": "Accès",
+      "modifier": "Modificateur",
+      "name": "Chapitre",
+      "position": "Position",
+      "ratingCount": "Notes",
+      "ratingScore": "Note",
+      "type": "Type",
+      "updatedAt": "Mis à jour",
+      "visibility": "Visibilité"
+    },
+    "contentDetailDialog": {
+      "copy": "Copier",
+      "copyFailed": "Échec de la copie",
+      "copySuccess": "Détail du contenu copié",
+      "empty": "Aucun contenu",
+      "sections": {
+        "content": "Contenu du cours",
+        "systemPrompt": "Prompt système"
+      },
+      "sources": {
+        "chapter": "Source : prompt de chapitre",
+        "course": "Source : prompt du cours",
+        "lesson": "Source : prompt de leçon"
+      },
+      "title": "Détail du contenu"
+    },
+    "contentStatus": {
+      "empty": "Vide",
+      "has": "Présent",
+      "unknown": "Inconnu"
+    },
+    "creditUsage": {
+      "count": "{count} enregistrements",
+      "description": "Consulter les enregistrements de consommation de crédits de ce cours.",
+      "details": {
+        "collapse": "Réduire",
+        "durationMinutesSeconds": "{minutes} min {seconds} s",
+        "durationSeconds": "{seconds} s",
+        "empty": "Aucun détail de consommation",
+        "expand": "Développer",
+        "openUsageDetails": "Ouvrir les détails des {count} consommations",
+        "table": {
+          "createdAt": "Consommé le",
+          "credits": "Crédits",
+          "inputTokens": "Tokens d'entrée",
+          "outputSummary": "Résumé de sortie",
+          "outputTokens": "Tokens de sortie",
+          "ttsContent": "Contenu synthétisé",
+          "ttsDuration": "Durée audio",
+          "ttsSegmentCount": "Segments",
+          "ttsWordCount": "Mots synthétisés"
+        },
+        "title": "Détails de consommation des crédits"
+      },
+      "filters": {
+        "mode": "Scène d'utilisation",
+        "modeAll": "Tous",
+        "reset": "Réinitialiser",
+        "scene": "Type d’utilisation",
+        "sceneAll": "Tous",
+        "time": "Heure",
+        "timePlaceholder": "Sélectionner une plage horaire",
+        "userKeyword": "Utilisateur",
+        "userKeywordPlaceholderEmail": "Saisir un e-mail ou un pseudonyme",
+        "userKeywordPlaceholderPhone": "Saisir un téléphone ou un pseudonyme"
+      },
+      "modelSummary": {
+        "multiple": "{model} et {count} modèles"
+      },
+      "modes": {
+        "ask": "Relance",
+        "learn": "Lecture",
+        "listen": "Écoute",
+        "mixed": "Mixte",
+        "unknown": "Scène inconnue"
+      },
+      "scenes": {
+        "debug": "Débogage",
+        "learning": "Apprentissage",
+        "preview": "Aperçu",
+        "unknown": "Type inconnu"
+      },
+      "table": {
+        "chapter": "Chapitre",
+        "createdAt": "Dernière consommation",
+        "credits": "Total des crédits consommés",
+        "empty": "Aucun enregistrement de consommation de crédits",
+        "lesson": "Leçon",
+        "mode": "Scène",
+        "model": "Modèle",
+        "nickname": "Surnom",
+        "scene": "Type d’utilisation",
+        "usageCount": "Nombre d'utilisations"
+      },
+      "title": "Consommation de crédits"
+    },
+    "creditUsageTab": "Consommation de crédits",
+    "fields": {
+      "courseId": "ID du cours",
+      "courseName": "Nom du cours",
+      "createdAt": "Créé le",
+      "creator": "Créateur",
+      "status": "Statut",
+      "updatedAt": "Mis à jour le"
+    },
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "Lire dans l’ordre : sortie d’origine -> suivi actuel -> réponse système actuelle.",
+        "fields": {
+          "chapter": "Chapitre / Leçon",
+          "currentAnswer": "Réponse système actuelle",
+          "currentFollowUp": "Suivi actuel",
+          "followUpTime": "Heure de suivi",
+          "lesson": "Leçon",
+          "nickname": "Pseudonyme",
+          "sourceOutput": "Sortie d’origine",
+          "turnIndex": "Tour",
+          "user": "Utilisateur",
+          "userId": "ID d’utilisateur"
+        },
+        "sections": {
+          "basicInfo": "Informations de base",
+          "currentRecord": "Détail du suivi actuel",
+          "timeline": "Chronologie"
+        },
+        "sourceUnavailable": "Impossible de localiser la sortie d’origine de cet enregistrement historique.",
+        "timeline": {
+          "current": "Tour actuel",
+          "student": "Apprenant",
+          "teacher": "Système"
+        },
+        "title": "Détail du suivi"
+      },
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Rechercher un chapitre / une leçon",
+        "chapterKeywordPlaceholder": "Saisissez le titre du chapitre ou de la leçon",
+        "followUpTime": "Heure de suivi",
+        "lessonKeyword": "Rechercher une leçon",
+        "lessonKeywordPlaceholder": "Saisissez le titre de la leçon",
+        "reset": "Réinitialiser",
+        "resultCount": "{count, plural, one {# résultat} other {# résultats}}",
+        "search": "Rechercher",
+        "sourceStatus": "Statut de la sortie d’origine",
+        "sourceStatusAll": "Tous les statuts",
+        "sourceStatusMissing": "Sortie d’origine introuvable",
+        "sourceStatusResolved": "Sortie d’origine localisée",
+        "timePlaceholder": "Début / fin du suivi",
+        "userKeyword": "Rechercher un utilisateur",
+        "userKeywordPlaceholder": "Téléphone / e-mail / pseudonyme",
+        "userKeywordPlaceholderEmail": "E-mail / Pseudonyme",
+        "userKeywordPlaceholderPhone": "Téléphone / pseudonyme"
+      },
+      "openMetric": "Ouvrir les données de suivi",
+      "summary": {
+        "followUpCount": "Suivis",
+        "latestFollowUpAt": "Dernier suivi",
+        "lessonCount": "Leçons",
+        "userCount": "Utilisateurs"
+      },
+      "table": {
+        "action": "Action",
+        "chapter": "Chapitre",
+        "content": "Contenu du suivi",
+        "createdAt": "Heure de suivi",
+        "detailAction": "Voir le détail",
+        "empty": "Aucune donnée de suivi",
+        "lesson": "Leçon",
+        "scopeHint": "Consultez les suivis des apprenants autour du contenu du cours pour repérer les points de blocage fréquents et les leçons à améliorer.",
+        "sourceMissing": "Sortie d’origine introuvable",
+        "sourceResolved": "Sortie d’origine localisée",
+        "title": "Liste des suivis",
+        "turnIndex": "Tour",
+        "user": "Utilisateur"
+      },
+      "title": "Données de suivi",
+      "turnIndex": "Tour {count}",
+      "turnIndexHelp": "L’ordre des tours repose sur l’heure de suivi dans le même enregistrement d’apprentissage."
+    },
+    "learningPermission": {
+      "free": "Gratuit",
+      "guest": "Sans connexion",
+      "paid": "Payé",
+      "unknown": "Inconnu"
+    },
+    "metrics": "Métriques",
+    "metricsLabels": {
+      "completedUserAvgCredits": "Moy. crédits consommés par utilisateur terminé",
+      "creditConsumedTotal": "Crédits consommés",
+      "creditUsageCount": "Nombre de consommations de crédits",
+      "creditUserCount": "Utilisateurs consommateurs de crédits",
+      "followUpCount": "Questions",
+      "learnerCount": "Apprenants",
+      "orderAmount": "Revenus collectés (codes coupon inclus)",
+      "orderCount": "Commandes",
+      "ratingScore": "Note",
+      "visitCount30d": "Visiteurs (30 j)"
+    },
+    "orders": {
+      "openMetric": "Ouvrir les données de commande"
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Rechercher un chapitre / une leçon",
+        "chapterKeywordPlaceholder": "Titre du chapitre / de la leçon",
+        "commentStatus": "Commentaire",
+        "commentStatusAll": "Tous",
+        "commentStatusCommented": "Avec commentaire",
+        "lessonKeyword": "Rechercher une leçon",
+        "lessonKeywordPlaceholder": "Titre de la leçon",
+        "mode": "Mode d’apprentissage",
+        "modeAll": "Tous les modes",
+        "ratingTime": "Heure de notation",
+        "reset": "Réinitialiser",
+        "resultCount": "{count, plural, one {# résultat} other {# résultats}}",
+        "score": "Note",
+        "scoreAll": "Toutes les notes",
+        "search": "Rechercher",
+        "sortBy": "Trier",
+        "sortByLatest": "Plus récent d’abord",
+        "sortByLowScore": "Note la plus basse d’abord",
+        "timePlaceholder": "Début / fin de la notation",
+        "userKeyword": "Rechercher un utilisateur",
+        "userKeywordPlaceholderEmail": "E-mail / Pseudonyme",
+        "userKeywordPlaceholderPhone": "Téléphone / pseudonyme"
+      },
+      "modes": {
+        "listen": "Écouter",
+        "read": "Lire"
+      },
+      "openMetric": "Ouvrir les données de notes",
+      "scoreValue": "{count} étoile(s)",
+      "summary": {
+        "averageScore": "Note moyenne",
+        "latestRatedAt": "Dernière note",
+        "ratingCount": "Notes",
+        "userCount": "Utilisateurs"
+      },
+      "table": {
+        "chapter": "Chapitre",
+        "comment": "Commentaire",
+        "empty": "Aucune donnée de note",
+        "guestUser": "Invité",
+        "lesson": "Leçon",
+        "mode": "Mode",
+        "ratedAt": "Heure de notation",
+        "score": "Note",
+        "title": "Liste des notes",
+        "user": "Utilisateur"
+      },
+      "title": "Données des notes"
+    },
+    "title": "Détail du cours",
+    "userLearningStatus": {
+      "completed": "Terminé",
+      "learning": "En apprentissage",
+      "notStarted": "Non commencé"
+    },
+    "userRole": {
+      "creator": "Enseignant",
+      "normal": "Utilisateur standard",
+      "operator": "Opérateur",
+      "student": "Apprenant"
+    },
+    "users": "Utilisateurs",
+    "usersCount": "{count} utilisateurs du cours",
+    "usersDescription": "Consulter les utilisateurs liés au cours, leur progression d’apprentissage, leur statut de paiement et leur activité récente.",
+    "usersFilters": {
+      "all": "Tous",
+      "learningStatus": "Statut d’apprentissage",
+      "paymentPaid": "Payé",
+      "paymentStatus": "Paiement",
+      "paymentUnpaid": "Non payé",
+      "userKeyword": "Rechercher un utilisateur",
+      "userKeywordPlaceholder": "Recherche par téléphone, e-mail ou pseudonyme",
+      "userKeywordPlaceholderEmail": "Recherche par e-mail ou pseudonyme",
+      "userKeywordPlaceholderPhone": "Recherche par téléphone ou pseudonyme",
+      "userRole": "Rôle utilisateur"
+    },
+    "usersTable": {
+      "account": "Téléphone / e-mail",
+      "accountEmail": "E-mail",
+      "accountPhone": "Téléphone",
+      "action": "Action",
+      "detailAction": "Détail",
+      "empty": "Aucune donnée utilisateur",
+      "isPaid": "Payé",
+      "joinedAt": "Inscrit le",
+      "lastLearnedAt": "Dernier apprentissage",
+      "lastLoginAt": "Dernière connexion",
+      "learningProgress": "Progression",
+      "learningStatus": "Statut d’apprentissage",
+      "nickname": "Pseudonyme",
+      "totalPaidAmount": "Montant payé",
+      "userId": "ID d’utilisateur",
+      "userRole": "Rôle utilisateur"
+    },
+    "visibility": {
+      "hidden": "Masqué",
+      "visible": "Visible"
+    }
+  },
+  "emptyList": "Aucun cours",
+  "filters": {
+    "courseId": "ID du cours",
+    "courseName": "Nom du cours",
+    "createdAt": "Créé le",
+    "creator": "Créateur",
+    "creatorEmailOrUserBid": "E-mail ou ID d’utilisateur",
+    "creatorMobileOrUserBid": "Mobile ou ID d’utilisateur",
+    "endTime": "Date de fin",
+    "startTime": "Date de début",
+    "status": "Statut"
+  },
+  "overview": {
+    "activeFilter": "Filtre rapide",
+    "metrics": {
+      "createdLast7d": "Nouveaux cours (7 j)",
+      "draftCourses": "Cours en brouillon",
+      "learningActive30d": "Cours avec apprentissage (30 j)",
+      "ordered30d": "Cours avec commandes (30 j)",
+      "publishedCourses": "Cours publiés",
+      "totalCourses": "Total des cours"
+    },
+    "title": "Vue d’ensemble",
+    "tooltips": {
+      "createdLast7d": "Cours créés au cours des 7 derniers jours",
+      "draftCourses": "Cours jamais publiés",
+      "learningActive30d": "Cours avec apprentissage dans les 30 derniers jours",
+      "ordered30d": "Cours avec commandes payées dans les 30 derniers jours",
+      "publishedCourses": "Cours publiés au moins une fois",
+      "totalCourses": "Total des cours"
+    }
+  },
+  "statusLabels": {
+    "published": "Publié",
+    "unknown": "Inconnu",
+    "unpublished": "Non publié"
+  },
+  "table": {
+    "action": "Action",
+    "courseId": "ID du cours",
+    "courseName": "Nom du cours",
+    "coursePrompt": "Prompt du cours",
+    "createdAt": "Créé le",
+    "creator": "Créateur",
+    "detailAction": "Détail",
+    "model": "Modèle",
+    "modifier": "Modificateur",
+    "price": "Prix",
+    "status": "Statut",
+    "updatedAt": "Mis à jour le"
+  },
+  "title": "Cours Gestion",
+  "transferCreatorDialog": {
+    "confirm": "Transférer",
+    "confirmDescription": "Transférer le créateur de {courseName} de {currentCreator} à {targetCreator}.",
+    "confirmTitle": "Confirmer Créateur Transfer",
+    "contactPlaceholderEmail": "Saisir l’e-mail du créateur cible",
+    "contactPlaceholderPhone": "Saisir le mobile du créateur cible",
+    "contactType": "Type de contact",
+    "contactTypeEmail": "E-mail",
+    "contactTypePhone": "Mobile",
+    "currentCreator": "Actuel Créateur",
+    "description": "Seul le créateur du cours change. Le contenu, la configuration et les autorisations partagées restent inchangés.",
+    "identifier": "Créateur cible",
+    "identifierRequired": "Veuillez saisir un contact de créateur cible valide",
+    "sameCreator": "Le contact cible appartient déjà au créateur actuel",
+    "submitSuccess": "Créateur transferred",
+    "title": "Transfer Créateur"
+  }
+}

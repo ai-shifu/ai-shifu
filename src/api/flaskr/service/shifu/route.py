@@ -34,7 +34,6 @@ import tempfile
 import json
 import uuid
 import re
-from datetime import datetime
 from pathlib import Path
 
 from flask import (
@@ -56,18 +55,17 @@ from flaskr.route.common import make_common_response, bypass_token_validation, f
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
 from flaskr.service.billing.admission import admit_creator_usage
-from flaskr.service.billing.api import (
-    build_operator_credit_orders_page,
-    get_operator_credit_order_detail,
+from flaskr.service.billing.api import assert_creator_debug_allowed
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
 )
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
-from .consts import UNIT_TYPE_GUEST
 from functools import wraps
 from enum import Enum
 from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.common.cache_provider import cache as redis
-from flaskr.common.config import get_config
+from flaskr.common.config import get_config, get_redis_key_prefix
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
@@ -75,6 +73,7 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
 )
 from flaskr.dao import db
+from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
@@ -91,6 +90,8 @@ from flaskr.service.user.utils import get_user_language
 from flaskr.service.user.utils import (
     ensure_demo_course_permissions,
     load_existing_demo_shifu_ids,
+    mark_creator_role_if_needed,
+    run_creator_granted_post_auth,
 )
 from flaskr.util.uuid import generate_id
 
@@ -107,44 +108,9 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     SUPPORTED_ASK_PROVIDER_MODES,
     SUPPORTED_ASK_ENABLED_STATUSES,
 )
-from flaskr.service.shifu.admin import (
-    OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
-    get_operator_course_overview,
-    get_operator_course_follow_up_detail,
-    get_operator_course_follow_ups,
-    get_operator_course_prompt,
-    get_operator_course_ratings,
-    get_operator_user_detail,
-    get_operator_user_credits,
-    get_operator_user_overview,
-    grant_operator_user_credits,
-    get_operator_course_chapter_detail,
-    get_operator_course_detail,
-    get_operator_course_users,
-    list_operator_courses,
-    list_operator_users,
-    transfer_operator_course_creator,
+from flaskr.service.shifu.admin_operations.route import (
+    register_admin_operations_routes,
 )
-from flaskr.service.order.api import (
-    get_operator_order_detail,
-    list_operator_orders,
-)
-from flaskr.service.promo.api import (
-    create_operator_promotion_campaign,
-    create_operator_promotion_coupon,
-    get_operator_promotion_campaign_detail,
-    get_operator_promotion_coupon_detail,
-    list_operator_promotion_campaign_redemptions,
-    list_operator_promotion_campaigns,
-    list_operator_promotion_coupon_codes,
-    list_operator_promotion_coupon_usages,
-    list_operator_promotion_coupons,
-    update_operator_promotion_campaign,
-    update_operator_promotion_campaign_status,
-    update_operator_promotion_coupon,
-    update_operator_promotion_coupon_status,
-)
-from flaskr.service.shifu.admin_dtos import AdminOperationUserCreditGrantRequestDTO
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
     preview_shifu_draft,
@@ -263,42 +229,34 @@ def _get_request_base_url() -> str:
     return resolve_public_origin()
 
 
-def _parse_datetime_filter(value: str, *, is_end: bool = False) -> datetime | None:
-    if not value:
-        return None
-    normalized = str(value).strip()
-    if not normalized:
-        return None
-    for datetime_format in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+def _resolve_publish_base_url(app: Flask) -> str:
+    """Prefer the creator's verified custom domain for published/preview links.
+
+    Falls back to the default public origin when the current shifu's creator has
+    no effective custom domain binding or resolution fails.
+    """
+    # Use the thread-local context getter (no args), not the shifu.utils
+    # get_shifu_creator_bid(app, shifu_bid) imported elsewhere in this module.
+    from flaskr.common.shifu_context import (
+        get_shifu_creator_bid as get_context_creator_bid,
+    )
+
+    creator_bid = get_context_creator_bid()
+    if creator_bid:
         try:
-            parsed = datetime.strptime(normalized, datetime_format)
-            if datetime_format == "%Y-%m-%d":
-                if is_end:
-                    parsed = parsed.replace(hour=23, minute=59, second=59)
-                else:
-                    parsed = parsed.replace(hour=0, minute=0, second=0)
-            return parsed
-        except ValueError:
-            continue
-    raise_param_error("datetime format invalid")
+            from flaskr.service.billing.api import (
+                resolve_effective_custom_origin,
+            )
 
-
-def _parse_positive_query_int(
-    raw_value: object,
-    *,
-    field_name: str,
-    default: int,
-    minimum: int = 1,
-) -> int:
-    if raw_value is None:
-        return default
-    try:
-        parsed_value = int(raw_value)
-    except (TypeError, ValueError):
-        raise_param_error(field_name)
-    if parsed_value < minimum:
-        raise_param_error(field_name)
-    return parsed_value
+            custom_origin = resolve_effective_custom_origin(app, creator_bid)
+            if custom_origin:
+                return custom_origin
+        except Exception:
+            app.logger.exception(
+                "Failed to resolve custom domain for publish link; creator_bid=%s",
+                creator_bid,
+            )
+    return _get_request_base_url()
 
 
 @inject
@@ -324,10 +282,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """Normalize the incoming contact type value."""
         return (raw_type or "").strip().lower()
 
-    def _require_operator() -> None:
-        if not getattr(request.user, "is_operator", False):
-            raise_error("server.shifu.noPermission")
-
     def _normalize_contacts(raw_contacts: object) -> list[str]:
         """Split and normalize contact identifiers from request payloads."""
         if isinstance(raw_contacts, str):
@@ -350,10 +304,20 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         creator_bid = str(getattr(request_user, "user_id", "") or "").strip()
         if not creator_bid or not getattr(request_user, "is_creator", False):
             return None
+        assert_creator_debug_allowed(app, creator_bid)
         return admit_creator_usage(
             app,
             creator_bid=creator_bid,
             usage_scene=BILL_USAGE_SCENE_DEBUG,
+        )
+
+    def _admit_creator_preview_usage_for_shifu(shifu_bid: str) -> None:
+        if is_builtin_demo_shifu(app, shifu_bid):
+            return
+        admit_creator_usage(
+            app,
+            shifu_bid=shifu_bid,
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
         )
 
     def _validate_contacts(contact_type: str, contacts: list[str]) -> list[str]:
@@ -393,7 +357,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         # Clear both legacy and current redis prefixes to avoid stale permissions.
         prefixes = {
             app.config.get("CACHE_KEY_PREFIX", "") or "",
-            get_config("REDIS_KEY_PREFIX") or "",
+            get_redis_key_prefix(app),
         }
         for prefix in prefixes:
             cache_key = f"{prefix}shifu_permission:{user_id}:{shifu_bid}"
@@ -509,1266 +473,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             )
         )
 
-    @app.route(path_prefix + "/admin/operations/courses", methods=["GET"])
-    def admin_operations_courses():
-        """
-        Operator course list
-        ---
-        tags:
-            - 课程
-        parameters:
-            - name: page_index
-              type: integer
-              required: false
-              description: Page index, defaults to 1 when omitted
-            - name: page_size
-              type: integer
-              required: false
-              description: Page size, defaults to 20 when omitted
-            - name: shifu_bid
-              type: string
-              required: false
-            - name: course_name
-              type: string
-              required: false
-            - name: creator_keyword
-              type: string
-              required: false
-              description: Exact match on user bid, phone, or email
-            - name: course_status
-              type: string
-              required: false
-              description: published or unpublished
-            - name: start_time
-              type: string
-              required: false
-              description: Course created start date (YYYY-MM-DD)
-            - name: end_time
-              type: string
-              required: false
-              description: Course created end date (YYYY-MM-DD)
-            - name: updated_start_time
-              type: string
-              required: false
-              description: Course updated start date (YYYY-MM-DD)
-            - name: updated_end_time
-              type: string
-              required: false
-              description: Course updated end date (YYYY-MM-DD)
-            - name: quick_filter
-              type: string
-              required: false
-              description: draft, published, created_last_7d, learning_active_30d, paid_order_30d
-        responses:
-            200:
-                description: List operator-visible courses
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                message:
-                                    type: string
-                                data:
-                                    $ref: "#/components/schemas/AdminOperationCourseListDTO"
-        """
-        _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
-
-        filters = {
-            "shifu_bid": request.args.get("shifu_bid", ""),
-            "course_name": request.args.get("course_name", ""),
-            "course_status": request.args.get("course_status", ""),
-            "quick_filter": request.args.get("quick_filter", ""),
-            "creator_keyword": request.args.get("creator_keyword", ""),
-            "start_time": _parse_datetime_filter(
-                request.args.get("start_time", ""),
-                is_end=False,
-            ),
-            "end_time": _parse_datetime_filter(
-                request.args.get("end_time", ""),
-                is_end=True,
-            ),
-            "updated_start_time": _parse_datetime_filter(
-                request.args.get("updated_start_time", ""),
-                is_end=False,
-            ),
-            "updated_end_time": _parse_datetime_filter(
-                request.args.get("updated_end_time", ""),
-                is_end=True,
-            ),
-        }
-        return make_common_response(
-            list_operator_courses(app, page_index, page_size, filters)
-        )
-
-    @app.route(path_prefix + "/admin/operations/courses/overview", methods=["GET"])
-    def admin_operations_course_overview():
-        """
-        Operator course overview
-        ---
-        tags:
-            - 课程
-        responses:
-            200:
-                description: Operator-visible course overview metrics
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                message:
-                                    type: string
-                                data:
-                                    $ref: "#/components/schemas/AdminOperationCourseOverviewDTO"
-        """
-        _require_operator()
-        return make_common_response(get_operator_course_overview(app))
-
-    @app.route(path_prefix + "/admin/operations/users", methods=["GET"])
-    def admin_operations_users():
-        """
-        Operator user list
-        ---
-        tags:
-            - User
-        parameters:
-            - name: page_index
-              type: integer
-              required: true
-            - name: page_size
-              type: integer
-              required: true
-            - name: user_bid
-              type: string
-              required: false
-            - name: identifier
-              type: string
-              required: false
-              description: User phone, email, identify, or user_bid keyword
-            - name: mobile
-              type: string
-              required: false
-              description: Deprecated alias for identifier
-            - name: nickname
-              type: string
-              required: false
-            - name: user_status
-              type: string
-              required: false
-              description: unregistered, registered, or paid
-            - name: user_role
-              type: string
-              required: false
-              description: regular, creator, learner, or operator
-            - name: quick_filter
-              type: string
-              required: false
-              description: creator, learner, registered, paid, created_last_30d, registered_last_30d, learning_active_30d, paid_last_30d, guest
-            - name: start_time
-              type: string
-              required: false
-              description: User created start date (YYYY-MM-DD)
-            - name: end_time
-              type: string
-              required: false
-              description: User created end date (YYYY-MM-DD)
-        responses:
-            200:
-                description: List active users for operators
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                message:
-                                    type: string
-                                data:
-                                    $ref: "#/components/schemas/AdminOperationUserListDTO"
-        """
-        _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
-
-        filters = {
-            "user_bid": request.args.get("user_bid", ""),
-            "identifier": request.args.get("identifier", ""),
-            "mobile": request.args.get("mobile", ""),
-            "nickname": request.args.get("nickname", ""),
-            "user_status": request.args.get("user_status", ""),
-            "user_role": request.args.get("user_role", ""),
-            "quick_filter": request.args.get("quick_filter", ""),
-            "start_time": _parse_datetime_filter(
-                request.args.get("start_time", ""),
-                is_end=False,
-            ),
-            "end_time": _parse_datetime_filter(
-                request.args.get("end_time", ""),
-                is_end=True,
-            ),
-        }
-        return make_common_response(
-            list_operator_users(app, page_index, page_size, filters)
-        )
-
-    @app.route(path_prefix + "/admin/operations/users/overview", methods=["GET"])
-    def admin_operations_user_overview():
-        """
-        Operator user overview
-        ---
-        tags:
-            - User
-        responses:
-            200:
-                description: Operator-visible user overview metrics
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                message:
-                                    type: string
-                                data:
-                                    $ref: "#/components/schemas/AdminOperationUserOverviewDTO"
-        """
-        _require_operator()
-        return make_common_response(get_operator_user_overview(app))
-
-    @app.route(path_prefix + "/admin/operations/orders", methods=["GET"])
-    def admin_operations_orders():
-        """
-        Operator global order list
-        ---
-        tags:
-            - Order
-        parameters:
-            - name: page_index
-              type: integer
-              required: true
-            - name: page_size
-              type: integer
-              required: true
-            - name: user_keyword
-              type: string
-              required: false
-              description: Exact match on user bid, phone, or email
-            - name: order_bid
-              type: string
-              required: false
-            - name: shifu_bid
-              type: string
-              required: false
-            - name: course_name
-              type: string
-              required: false
-            - name: status
-              type: string
-              required: false
-            - name: order_source
-              type: string
-              required: false
-              description: user_purchase, coupon_redeem, import_activation, or open_api
-            - name: payment_channel
-              type: string
-              required: false
-            - name: start_time
-              type: string
-              required: false
-              description: Order created start date (YYYY-MM-DD)
-            - name: end_time
-              type: string
-              required: false
-              description: Order created end date (YYYY-MM-DD)
-        responses:
-            200:
-                description: List global operator-visible orders
-        """
-        _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
-        page_size = min(page_size, OPERATOR_ORDER_LIST_MAX_PAGE_SIZE)
-
-        filters = {
-            "user_keyword": request.args.get("user_keyword", ""),
-            "order_bid": request.args.get("order_bid", ""),
-            "shifu_bid": request.args.get("shifu_bid", ""),
-            "course_name": request.args.get("course_name", ""),
-            "status": request.args.get("status", ""),
-            "order_source": request.args.get("order_source", ""),
-            "payment_channel": request.args.get("payment_channel", ""),
-            "start_time": _parse_datetime_filter(
-                request.args.get("start_time", ""),
-                is_end=False,
-            ),
-            "end_time": _parse_datetime_filter(
-                request.args.get("end_time", ""),
-                is_end=True,
-            ),
-        }
-        return make_common_response(
-            list_operator_orders(app, page_index, page_size, filters)
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/orders/<order_bid>/detail",
-        methods=["GET"],
-    )
-    def admin_operation_order_detail(order_bid: str):
-        """
-        Get operator order detail
-        ---
-        tags:
-            - Order
-        parameters:
-            - name: order_bid
-              in: path
-              type: string
-              required: true
-              description: Order business identifier
-        responses:
-            200:
-                description: Operator order detail
-        """
-        _require_operator()
-        if not str(order_bid or "").strip():
-            raise_param_error("order_bid")
-        return make_common_response(get_operator_order_detail(app, order_bid))
-
-    @app.route(path_prefix + "/admin/operations/orders/credits", methods=["GET"])
-    def admin_operations_credit_orders():
-        """
-        Operator global credit order list
-        ---
-        tags:
-            - Order
-        parameters:
-            - name: page_index
-              type: integer
-              required: false
-              description: Page index, defaults to 1 when omitted
-            - name: page_size
-              type: integer
-              required: false
-              description: Page size, defaults to 20 when omitted and is capped by OPERATOR_ORDER_LIST_MAX_PAGE_SIZE
-            - name: creator_keyword
-              type: string
-              required: false
-            - name: product_keyword
-              type: string
-              required: false
-            - name: bill_order_bid
-              type: string
-              required: false
-            - name: credit_order_kind
-              type: string
-              required: false
-              description: plan or topup
-            - name: status
-              type: string
-              required: false
-            - name: payment_provider
-              type: string
-              required: false
-            - name: start_time
-              type: string
-              required: false
-            - name: end_time
-              type: string
-              required: false
-        responses:
-            200:
-                description: List global operator-visible credit orders
-        """
-        _require_operator()
-        page_index = _parse_positive_query_int(
-            request.args.get("page_index"),
-            field_name="page_index",
-            default=1,
-        )
-        page_size = _parse_positive_query_int(
-            request.args.get("page_size"),
-            field_name="page_size",
-            default=20,
-        )
-        page_size = min(page_size, OPERATOR_ORDER_LIST_MAX_PAGE_SIZE)
-        return make_common_response(
-            build_operator_credit_orders_page(
-                app,
-                page_index=page_index,
-                page_size=page_size,
-                creator_keyword=request.args.get("creator_keyword", ""),
-                product_keyword=request.args.get("product_keyword", ""),
-                bill_order_bid=request.args.get("bill_order_bid", ""),
-                credit_order_kind=request.args.get("credit_order_kind", ""),
-                status=request.args.get("status", ""),
-                payment_provider=request.args.get("payment_provider", ""),
-                start_time=_parse_datetime_filter(
-                    request.args.get("start_time", ""),
-                    is_end=False,
-                ),
-                end_time=_parse_datetime_filter(
-                    request.args.get("end_time", ""),
-                    is_end=True,
-                ),
-            )
-        )
-
-    @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["GET"])
-    def admin_operations_promotion_coupons():
-        """Operator coupon batch list."""
-        _require_operator()
-        page_index = _parse_positive_query_int(
-            request.args.get("page_index"),
-            field_name="page_index",
-            default=1,
-        )
-        page_size = _parse_positive_query_int(
-            request.args.get("page_size"),
-            field_name="page_size",
-            default=20,
-        )
-
-        filters = {
-            "keyword": request.args.get("keyword", ""),
-            "name": request.args.get("name", ""),
-            "course_query": request.args.get("course_query", ""),
-            "shifu_bid": request.args.get("shifu_bid", ""),
-            "course_name": request.args.get("course_name", ""),
-            "usage_type": request.args.get("usage_type", ""),
-            "ops_state": request.args.get("ops_state", ""),
-            "discount_type": request.args.get("discount_type", ""),
-            "status": request.args.get("status", ""),
-            "start_time": _parse_datetime_filter(
-                request.args.get("start_time", ""),
-                is_end=False,
-            ),
-            "end_time": _parse_datetime_filter(
-                request.args.get("end_time", ""),
-                is_end=True,
-            ),
-        }
-        return make_common_response(
-            list_operator_promotion_coupons(app, page_index, page_size, filters)
-        )
-
-    @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["POST"])
-    def admin_create_operations_promotion_coupon():
-        """Create operator coupon batch."""
-        _require_operator()
-        payload = request.get_json(silent=True) or {}
-        return make_common_response(
-            create_operator_promotion_coupon(app, request.user.user_id, payload)
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>",
-        methods=["POST"],
-    )
-    def admin_update_operations_promotion_coupon(coupon_bid: str):
-        """Update operator coupon batch."""
-        _require_operator()
-        payload = request.get_json(silent=True) or {}
-        return make_common_response(
-            update_operator_promotion_coupon(
-                app, request.user.user_id, coupon_bid, payload
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/orders/credits/<bill_order_bid>/detail",
-        methods=["GET"],
-    )
-    def admin_operation_credit_order_detail(bill_order_bid: str):
-        """
-        Get operator credit order detail
-        ---
-        tags:
-            - Order
-        parameters:
-            - name: bill_order_bid
-              in: path
-              type: string
-              required: true
-              description: Billing order business identifier
-        responses:
-            200:
-                description: Operator credit order detail
-        """
-        _require_operator()
-        if not str(bill_order_bid or "").strip():
-            raise_param_error("bill_order_bid")
-        return make_common_response(
-            get_operator_credit_order_detail(
-                app,
-                bill_order_bid=bill_order_bid,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>",
-        methods=["GET"],
-    )
-    def admin_operations_promotion_coupon_detail(coupon_bid: str):
-        """Get operator coupon batch detail."""
-        _require_operator()
-        return make_common_response(
-            get_operator_promotion_coupon_detail(app, coupon_bid)
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>/status",
-        methods=["POST"],
-    )
-    def admin_operations_promotion_coupon_status(coupon_bid: str):
-        """Update operator coupon batch status."""
-        _require_operator()
-        payload = request.get_json(silent=True) or {}
-        enabled = payload.get("enabled")
-        return make_common_response(
-            update_operator_promotion_coupon_status(
-                app,
-                request.user.user_id,
-                coupon_bid,
-                enabled,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>/usages",
-        methods=["GET"],
-    )
-    def admin_operations_promotion_coupon_usages(coupon_bid: str):
-        """Get operator coupon usage list."""
-        _require_operator()
-        page_index = _parse_positive_query_int(
-            request.args.get("page_index"),
-            field_name="page_index",
-            default=1,
-        )
-        page_size = _parse_positive_query_int(
-            request.args.get("page_size"),
-            field_name="page_size",
-            default=20,
-        )
-        filters = {
-            "keyword": request.args.get("keyword", ""),
-            "status": request.args.get("status", ""),
-        }
-        return make_common_response(
-            list_operator_promotion_coupon_usages(
-                app, coupon_bid, page_index, page_size, filters
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/promotions/coupons/<coupon_bid>/codes",
-        methods=["GET"],
-    )
-    def admin_operations_promotion_coupon_codes(coupon_bid: str):
-        """Get operator coupon code pool list."""
-        _require_operator()
-        page_index = _parse_positive_query_int(
-            request.args.get("page_index"),
-            field_name="page_index",
-            default=1,
-        )
-        page_size = _parse_positive_query_int(
-            request.args.get("page_size"),
-            field_name="page_size",
-            default=20,
-        )
-        filters = {
-            "keyword": request.args.get("keyword", ""),
-        }
-        return make_common_response(
-            list_operator_promotion_coupon_codes(
-                app, coupon_bid, page_index, page_size, filters
-            )
-        )
-
-    @app.route(path_prefix + "/admin/operations/promotions/campaigns", methods=["GET"])
-    def admin_operations_promotion_campaigns():
-        """Operator campaign list."""
-        _require_operator()
-        page_index = _parse_positive_query_int(
-            request.args.get("page_index"),
-            field_name="page_index",
-            default=1,
-        )
-        page_size = _parse_positive_query_int(
-            request.args.get("page_size"),
-            field_name="page_size",
-            default=20,
-        )
-
-        filters = {
-            "keyword": request.args.get("keyword", ""),
-            "course_query": request.args.get("course_query", ""),
-            "shifu_bid": request.args.get("shifu_bid", ""),
-            "course_name": request.args.get("course_name", ""),
-            "apply_type": request.args.get("apply_type", ""),
-            "channel": request.args.get("channel", ""),
-            "discount_type": request.args.get("discount_type", ""),
-            "status": request.args.get("status", ""),
-            "start_time": _parse_datetime_filter(
-                request.args.get("start_time", ""),
-                is_end=False,
-            ),
-            "end_time": _parse_datetime_filter(
-                request.args.get("end_time", ""),
-                is_end=True,
-            ),
-        }
-        return make_common_response(
-            list_operator_promotion_campaigns(app, page_index, page_size, filters)
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/promotions/campaigns",
-        methods=["POST"],
-    )
-    def admin_create_operations_promotion_campaign():
-        """Create operator campaign."""
-        _require_operator()
-        payload = request.get_json(silent=True) or {}
-        return make_common_response(
-            create_operator_promotion_campaign(app, request.user.user_id, payload)
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>",
-        methods=["GET"],
-    )
-    def admin_operations_promotion_campaign_detail(promo_bid: str):
-        """Get operator campaign detail."""
-        _require_operator()
-        return make_common_response(
-            get_operator_promotion_campaign_detail(app, promo_bid)
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>",
-        methods=["POST"],
-    )
-    def admin_update_operations_promotion_campaign(promo_bid: str):
-        """Update operator campaign."""
-        _require_operator()
-        payload = request.get_json(silent=True) or {}
-        return make_common_response(
-            update_operator_promotion_campaign(
-                app, request.user.user_id, promo_bid, payload
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>/status",
-        methods=["POST"],
-    )
-    def admin_operations_promotion_campaign_status(promo_bid: str):
-        """Update operator campaign status."""
-        _require_operator()
-        payload = request.get_json(silent=True) or {}
-        enabled = payload.get("enabled")
-        return make_common_response(
-            update_operator_promotion_campaign_status(
-                app,
-                request.user.user_id,
-                promo_bid,
-                enabled,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/promotions/campaigns/<promo_bid>/redemptions",
-        methods=["GET"],
-    )
-    def admin_operations_promotion_campaign_redemptions(promo_bid: str):
-        """Get operator campaign redemption list."""
-        _require_operator()
-        page_index = _parse_positive_query_int(
-            request.args.get("page_index"),
-            field_name="page_index",
-            default=1,
-        )
-        page_size = _parse_positive_query_int(
-            request.args.get("page_size"),
-            field_name="page_size",
-            default=20,
-        )
-        filters = {
-            "keyword": request.args.get("keyword", ""),
-        }
-        return make_common_response(
-            list_operator_promotion_campaign_redemptions(
-                app,
-                promo_bid,
-                page_index,
-                page_size,
-                filters,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/users/<user_bid>/detail", methods=["GET"]
-    )
-    def admin_operation_user_detail(user_bid: str):
-        """
-        Get operator user detail
-        ---
-        tags:
-            - User
-        parameters:
-            - name: user_bid
-              in: path
-              type: string
-              required: true
-              description: User business identifier
-        responses:
-            200:
-                description: Operator user detail
-        """
-        _require_operator()
-        return make_common_response(get_operator_user_detail(app, user_bid))
-
-    @app.route(
-        path_prefix + "/admin/operations/users/<user_bid>/credits", methods=["GET"]
-    )
-    def admin_operation_user_credits(user_bid: str):
-        """
-        Get operator user credits detail
-        ---
-        tags:
-            - User
-        parameters:
-            - name: user_bid
-              in: path
-              type: string
-              required: true
-              description: User business identifier
-            - name: page_index
-              type: integer
-              required: false
-            - name: page_size
-              type: integer
-              required: false
-        responses:
-            200:
-                description: Operator user credits detail
-        """
-        _require_operator()
-        page_index = request.args.get("page_index", 1)
-        page_size = request.args.get("page_size", 20)
-        try:
-            page_index = int(page_index)
-            page_size = int(page_size)
-        except ValueError:
-            raise_param_error("page_index or page_size is not a number")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size is less than 1")
-
-        return make_common_response(
-            get_operator_user_credits(
-                app,
-                user_bid=user_bid,
-                page_index=page_index,
-                page_size=page_size,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/users/<user_bid>/credits/grant",
-        methods=["POST"],
-    )
-    def admin_operation_user_credit_grant(user_bid: str):
-        """
-        Grant operator user credits
-        ---
-        tags:
-            - User
-        parameters:
-            - name: user_bid
-              in: path
-              type: string
-              required: true
-              description: User business identifier
-        requestBody:
-            required: true
-            content:
-                application/json:
-                    schema:
-                        $ref: "#/components/schemas/AdminOperationUserCreditGrantRequestDTO"
-        responses:
-            200:
-                description: Operator user credits grant result
-        """
-        _require_operator()
-        try:
-            payload = AdminOperationUserCreditGrantRequestDTO.model_validate(
-                request.get_json() or {}
-            )
-        except Exception:
-            raise_param_error("credits_grant_payload")
-        return make_common_response(
-            grant_operator_user_credits(
-                app,
-                user_bid=user_bid,
-                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
-                payload=payload,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/courses/<shifu_bid>/prompt",
-        methods=["GET"],
-    )
-    def admin_operation_course_prompt(shifu_bid: str):
-        """Get operator course prompt."""
-        _require_operator()
-        return make_common_response(
-            get_operator_course_prompt(app, shifu_bid=shifu_bid)
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/courses/<shifu_bid>/detail", methods=["GET"]
-    )
-    def admin_operation_course_detail(shifu_bid: str):
-        """
-        Get operator course detail
-        ---
-        tags:
-            - Shifu
-        parameters:
-            - name: shifu_bid
-              in: path
-              type: string
-              required: true
-              description: Course shifu bid
-        responses:
-            200:
-                description: Operator course detail
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                message:
-                                    type: string
-                                data:
-                                    $ref: "#/components/schemas/AdminOperationCourseDetailDTO"
-        """
-        _require_operator()
-        return make_common_response(
-            get_operator_course_detail(
-                app,
-                shifu_bid=shifu_bid,
-            )
-        )
-
-    @app.route(
-        path_prefix
-        + "/admin/operations/courses/<shifu_bid>/chapters/<outline_item_bid>/detail",
-        methods=["GET"],
-    )
-    def admin_operation_course_chapter_detail(shifu_bid: str, outline_item_bid: str):
-        """
-        Get operator course chapter detail
-        ---
-        tags:
-            - Shifu
-        parameters:
-            - name: shifu_bid
-              in: path
-              type: string
-              required: true
-              description: Course shifu bid
-            - name: outline_item_bid
-              in: path
-              type: string
-              required: true
-              description: Outline item bid
-        responses:
-            200:
-                description: Operator course chapter detail
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                message:
-                                    type: string
-                                data:
-                                    $ref: "#/components/schemas/AdminOperationCourseChapterDetailDTO"
-        """
-        _require_operator()
-        return make_common_response(
-            get_operator_course_chapter_detail(
-                app,
-                shifu_bid=shifu_bid,
-                outline_item_bid=outline_item_bid,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/courses/<shifu_bid>/users", methods=["GET"]
-    )
-    def admin_operation_course_users(shifu_bid: str):
-        """
-        Get operator course users
-        ---
-        tags:
-            - Shifu
-        parameters:
-            - name: shifu_bid
-              in: path
-              type: string
-              required: true
-              description: Course shifu bid
-            - name: page
-              in: query
-              type: integer
-              required: false
-              description: Page index
-            - name: page_size
-              in: query
-              type: integer
-              required: false
-              description: Page size
-            - name: keyword
-              in: query
-              type: string
-              required: false
-              description: User keyword
-            - name: user_role
-              in: query
-              type: string
-              required: false
-              description: User role filter
-            - name: learning_status
-              in: query
-              type: string
-              required: false
-              description: Learning status filter
-            - name: payment_status
-              in: query
-              type: string
-              required: false
-              description: Payment status filter
-        responses:
-            200:
-                description: Operator course user list
-        """
-        _require_operator()
-        page_index = _parse_positive_query_int(
-            request.args.get("page"),
-            field_name="page",
-            default=1,
-        )
-        page_size = _parse_positive_query_int(
-            request.args.get("page_size"),
-            field_name="page_size",
-            default=20,
-        )
-        filters = {
-            "keyword": request.args.get("keyword", ""),
-            "user_role": request.args.get("user_role", ""),
-            "learning_status": request.args.get("learning_status", ""),
-            "payment_status": request.args.get("payment_status", ""),
-        }
-        return make_common_response(
-            get_operator_course_users(
-                app,
-                shifu_bid=shifu_bid,
-                page_index=page_index,
-                page_size=page_size,
-                filters=filters,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/courses/<shifu_bid>/ratings",
-        methods=["GET"],
-    )
-    def admin_operation_course_ratings(shifu_bid: str):
-        """
-        Get operator course rating list
-        ---
-        tags:
-            - Shifu
-        parameters:
-            - name: shifu_bid
-              in: path
-              type: string
-              required: true
-              description: Course shifu bid
-            - name: page
-              in: query
-              type: integer
-              required: false
-              description: Page index
-            - name: page_size
-              in: query
-              type: integer
-              required: false
-              description: Page size
-            - name: keyword
-              in: query
-              type: string
-              required: false
-              description: User keyword
-            - name: chapter_keyword
-              in: query
-              type: string
-              required: false
-              description: Chapter or lesson keyword
-            - name: score
-              in: query
-              type: string
-              required: false
-              description: Rating score filter
-            - name: mode
-              in: query
-              type: string
-              required: false
-              description: Rating mode filter
-            - name: has_comment
-              in: query
-              type: string
-              required: false
-              description: Whether to only return rows with comments
-            - name: sort_by
-              in: query
-              type: string
-              required: false
-              description: Rating sort option
-            - name: start_time
-              in: query
-              type: string
-              required: false
-              description: Inclusive filter start time
-            - name: end_time
-              in: query
-              type: string
-              required: false
-              description: Inclusive filter end time
-        responses:
-            200:
-                description: Operator course rating list
-        """
-        _require_operator()
-        page_index = _parse_positive_query_int(
-            request.args.get("page"),
-            field_name="page",
-            default=1,
-        )
-        page_size = _parse_positive_query_int(
-            request.args.get("page_size"),
-            field_name="page_size",
-            default=20,
-        )
-        filters = {
-            "keyword": request.args.get("keyword", ""),
-            "chapter_keyword": request.args.get("chapter_keyword", ""),
-            "score": request.args.get("score", ""),
-            "mode": request.args.get("mode", ""),
-            "has_comment": request.args.get("has_comment", ""),
-            "sort_by": request.args.get("sort_by", ""),
-            "start_time": _parse_datetime_filter(
-                request.args.get("start_time", ""),
-                is_end=False,
-            ),
-            "end_time": _parse_datetime_filter(
-                request.args.get("end_time", ""),
-                is_end=True,
-            ),
-        }
-        return make_common_response(
-            get_operator_course_ratings(
-                app,
-                shifu_bid=shifu_bid,
-                page_index=page_index,
-                page_size=page_size,
-                filters=filters,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/courses/<shifu_bid>/follow-ups",
-        methods=["GET"],
-    )
-    def admin_operation_course_follow_ups(shifu_bid: str):
-        """
-        Get operator course follow-up list
-        ---
-        tags:
-            - Shifu
-        parameters:
-            - name: shifu_bid
-              in: path
-              type: string
-              required: true
-              description: Course shifu bid
-            - name: page
-              in: query
-              type: integer
-              required: false
-              description: Page index
-            - name: page_size
-              in: query
-              type: integer
-              required: false
-              description: Page size
-            - name: keyword
-              in: query
-              type: string
-              required: false
-              description: User keyword
-            - name: chapter_keyword
-              in: query
-              type: string
-              required: false
-              description: Chapter or lesson keyword
-            - name: start_time
-              in: query
-              type: string
-              required: false
-              description: Inclusive filter start time
-            - name: end_time
-              in: query
-              type: string
-              required: false
-              description: Inclusive filter end time
-        responses:
-            200:
-                description: Operator course follow-up list
-        """
-        _require_operator()
-        page_index = _parse_positive_query_int(
-            request.args.get("page"),
-            field_name="page",
-            default=1,
-        )
-        page_size = _parse_positive_query_int(
-            request.args.get("page_size"),
-            field_name="page_size",
-            default=20,
-        )
-        filters = {
-            "keyword": request.args.get("keyword", ""),
-            "chapter_keyword": request.args.get("chapter_keyword", ""),
-            "start_time": _parse_datetime_filter(
-                request.args.get("start_time", ""),
-                is_end=False,
-            ),
-            "end_time": _parse_datetime_filter(
-                request.args.get("end_time", ""),
-                is_end=True,
-            ),
-        }
-        return make_common_response(
-            get_operator_course_follow_ups(
-                app,
-                shifu_bid=shifu_bid,
-                page_index=page_index,
-                page_size=page_size,
-                filters=filters,
-            )
-        )
-
-    @app.route(
-        path_prefix
-        + "/admin/operations/courses/<shifu_bid>/follow-ups/<generated_block_bid>/detail",
-        methods=["GET"],
-    )
-    def admin_operation_course_follow_up_detail(
-        shifu_bid: str,
-        generated_block_bid: str,
-    ):
-        """
-        Get operator course follow-up detail
-        ---
-        tags:
-            - Shifu
-        parameters:
-            - name: shifu_bid
-              in: path
-              type: string
-              required: true
-              description: Course shifu bid
-            - name: generated_block_bid
-              in: path
-              type: string
-              required: true
-              description: Follow-up generated block bid
-        responses:
-            200:
-                description: Operator course follow-up detail
-        """
-        _require_operator()
-        return make_common_response(
-            get_operator_course_follow_up_detail(
-                app,
-                shifu_bid=shifu_bid,
-                generated_block_bid=generated_block_bid,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/admin/operations/courses/<shifu_bid>/transfer-creator",
-        methods=["POST"],
-    )
-    def admin_transfer_course_creator(shifu_bid: str):
-        _require_operator()
-        payload = request.get_json() or {}
-        contact_type = _normalize_contact_type(payload.get("contact_type", ""))
-        allowed_methods = _get_login_methods_enabled()
-        if contact_type not in {"phone", "email"}:
-            raise_param_error("contact_type")
-        if allowed_methods and contact_type not in allowed_methods:
-            raise_param_error("contact_type")
-
-        identifiers = _validate_contacts(
-            contact_type,
-            _normalize_contacts(payload.get("identifier", "")),
-        )
-        if len(identifiers) != 1:
-            raise_param_error("contact")
-
-        return make_common_response(
-            transfer_operator_course_creator(
-                app,
-                shifu_bid=shifu_bid,
-                contact_type=contact_type,
-                identifier=identifiers[0],
-            )
-        )
+    register_admin_operations_routes(app, path_prefix=path_prefix)
 
     @app.route(path_prefix + "/shifus/<shifu_id>/archive", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
@@ -1917,8 +622,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             auth_types = ["edit", "publish"]
 
         demo_shifu_ids = load_existing_demo_shifu_ids()
+        creator_upgrade_contexts: dict[str, dict[str, object]] = {}
         for contact in contacts:
             aggregate = aggregate_by_contact.get(contact)
+            created_new_user = False
             should_grant_demo_permissions = False
             if aggregate is None:
                 aggregate, created_new_user = ensure_user_for_identifier(
@@ -1953,6 +660,16 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 ensure_demo_course_permissions(
                     app, aggregate.user_bid, demo_ids=demo_shifu_ids
                 )
+            if permission in {"edit", "publish"}:
+                creator_granted_now = mark_creator_role_if_needed(aggregate.user_bid)
+                if creator_granted_now:
+                    creator_upgrade_contexts.setdefault(
+                        aggregate.user_bid,
+                        {
+                            "created_new_user": created_new_user,
+                            "language": aggregate.user_language,
+                        },
+                    )
 
             auth = AiCourseAuth.query.filter(
                 AiCourseAuth.course_id == shifu_bid,
@@ -1974,6 +691,14 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             _clear_shifu_permission_cache(aggregate.user_bid, shifu_bid)
 
         db.session.commit()
+        for user_id, upgrade_context in creator_upgrade_contexts.items():
+            run_creator_granted_post_auth(
+                app,
+                user_id=user_id,
+                source="shifu_permission_grant",
+                created_new_user=bool(upgrade_context.get("created_new_user")),
+                language=str(upgrade_context.get("language") or ""),
+            )
         return make_common_response({"count": len(contacts)})
 
     @app.route(
@@ -2085,7 +810,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/ShifuDetailDto"
         """
         user_id = request.user.user_id
-        base_url = _get_request_base_url()
+        base_url = _resolve_publish_base_url(app)
         app.logger.info(f"get shifu detail, user_id: {user_id}, shifu_bid: {shifu_bid}")
         return make_common_response(
             get_shifu_draft_info(app, user_id, shifu_bid, base_url)
@@ -2223,20 +948,22 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         ask_provider_config = _parse_ask_provider_config(
             json_data.get("ask_provider_config")
         )
-        # TTS Configuration
-        tts_enabled = json_data.get("tts_enabled", False)
-        tts_provider = json_data.get("tts_provider", "") or ""
-        tts_provider = tts_provider.strip().lower()
-        tts_model = json_data.get("tts_model", "")
-        tts_voice_id = json_data.get("tts_voice_id", "")
-        tts_speed = json_data.get("tts_speed", 1.0)
-        tts_pitch = 0
-        tts_emotion = ""
+        # TTS Configuration — read without defaults so an omitted field stays
+        # None and is preserved (PATCH semantics), not reset to a default.
+        tts_enabled = json_data.get("tts_enabled")
+        tts_provider = json_data.get("tts_provider")
+        if isinstance(tts_provider, str):
+            tts_provider = tts_provider.strip().lower()
+        tts_model = json_data.get("tts_model")
+        tts_voice_id = json_data.get("tts_voice_id")
+        tts_speed = json_data.get("tts_speed")
+        tts_pitch = 0 if "tts_pitch" in json_data else None
+        tts_emotion = "" if "tts_emotion" in json_data else None
         # Language Output Configuration
-        use_learner_language = json_data.get("use_learner_language", False)
+        use_learner_language = json_data.get("use_learner_language")
         if isinstance(use_learner_language, str):
             use_learner_language = use_learner_language.lower() == "true"
-        base_url = _get_request_base_url()
+        base_url = _resolve_publish_base_url(app)
         return make_common_response(
             save_shifu_draft_info(
                 app,
@@ -2350,7 +1077,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     description: publish url
         """
         user_id = request.user.user_id
-        base_url = _get_request_base_url()
+        base_url = _resolve_publish_base_url(app)
         return make_common_response(
             publish_shifu_draft(app, user_id, shifu_bid, base_url)
         )
@@ -2396,7 +1123,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         user_id = request.user.user_id
         variables = request.get_json().get("variables")
-        base_url = _get_request_base_url()
+        base_url = _resolve_publish_base_url(app)
+        _admit_creator_preview_usage_for_shifu(shifu_bid)
         return make_common_response(
             preview_shifu_draft(app, user_id, shifu_bid, variables, base_url)
         )
@@ -2512,10 +1240,14 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         parent_bid = request.get_json().get("parent_bid")
         name = request.get_json().get("name")
         description = request.get_json().get("description", "")
-        type = request.get_json().get("type", UNIT_TYPE_GUEST)
+        # No defaults: None is passed through to create_outline, which applies its
+        # own fallback (a new outline still needs a concrete type/visibility).
+        type = request.get_json().get("type")
         index = request.get_json().get("index", None)
         system_prompt = request.get_json().get("system_prompt", None)
-        is_hidden = request.get_json().get("is_hidden", False)
+        is_hidden = request.get_json().get("is_hidden")
+        if isinstance(is_hidden, str):
+            is_hidden = is_hidden.lower() == "true"
         return make_common_response(
             create_outline(
                 app,
@@ -2588,8 +1320,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         description = request.get_json().get("description")
         index = request.get_json().get("index")
         system_prompt = request.get_json().get("system_prompt", None)
-        is_hidden = request.get_json().get("is_hidden", False)
-        type = request.get_json().get("type", UNIT_TYPE_GUEST)
+        # No defaults: an omitted type/is_hidden stays None and is preserved by
+        # modify_unit (PATCH semantics), instead of resetting to guest/visible.
+        is_hidden = request.get_json().get("is_hidden")
+        if isinstance(is_hidden, str):
+            is_hidden = is_hidden.lower() == "true"
+        type = request.get_json().get("type")
         return make_common_response(
             modify_unit(
                 app,
@@ -2823,7 +1559,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         user_id = request.user.user_id
         json_data = request.get_json() or {}
-        content = json_data.get("data")
+        content = json_data.get("data") or ""
         base_revision = json_data.get("base_revision")
         if base_revision is not None:
             try:
@@ -3372,7 +2108,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             set_language(original_language)
 
     @app.route(path_prefix + "/ask/preview", methods=["POST"])
-    @bypass_token_validation
     def ask_preview_api():
         """
         Preview ask provider output with current settings
@@ -3627,6 +2362,129 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 root_span_payload={"output": preview_output},
             )
 
+    @app.route(path_prefix + "/tts/minimax/voices", methods=["GET"])
+    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    def list_minimax_tts_voices_api():
+        from flaskr.service.tts.api import list_minimax_cloned_voices
+
+        user_id = request.user.user_id
+        shifu_bid = (request.args.get("shifu_bid") or "").strip()
+        return make_common_response(
+            {
+                "voices": list_minimax_cloned_voices(
+                    app,
+                    owner_user_bid=user_id,
+                    shifu_bid=shifu_bid,
+                )
+            }
+        )
+
+    @app.route(path_prefix + "/tts/minimax/voices/clone-cost", methods=["GET"])
+    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    def minimax_tts_clone_cost_api():
+        from flaskr.service.tts.api import build_minimax_clone_cost
+
+        user_id = request.user.user_id
+        shifu_bid = (request.args.get("shifu_bid") or "").strip()
+        return make_common_response(
+            build_minimax_clone_cost(app, creator_bid=user_id, shifu_bid=shifu_bid)
+        )
+
+    @app.route(path_prefix + "/tts/minimax/voices/validate-id", methods=["POST"])
+    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    def validate_minimax_tts_voice_id_api():
+        from flaskr.service.tts.api import (
+            is_valid_minimax_custom_voice_id,
+        )
+
+        payload = request.get_json(silent=True) or {}
+        voice_id = (payload.get("voice_id") or "").strip()
+        return make_common_response(
+            {
+                "voice_id": voice_id,
+                "valid": is_valid_minimax_custom_voice_id(voice_id),
+            }
+        )
+
+    @app.route(path_prefix + "/tts/minimax/voices/clone", methods=["POST"])
+    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
+    def clone_minimax_tts_voice_api():
+        from flaskr.service.tts.api import (
+            serialize_minimax_cloned_voice,
+            submit_minimax_voice_clone,
+        )
+
+        source_file = request.files.get("source_audio")
+        if source_file is None:
+            raise_param_error("source_audio is required")
+        prompt_file = request.files.get("prompt_audio")
+        row = submit_minimax_voice_clone(
+            app,
+            owner_user_bid=request.user.user_id,
+            shifu_bid=(request.form.get("shifu_bid") or "").strip(),
+            display_name=(request.form.get("display_name") or "").strip(),
+            voice_id=(request.form.get("voice_id") or "").strip(),
+            source_audio_bytes=source_file.read(),
+            source_filename=source_file.filename or "recording.webm",
+            source_content_type=source_file.content_type or "",
+            source_capture_method=(
+                request.form.get("source_capture_method") or "upload"
+            ).strip(),
+            prompt_audio_bytes=prompt_file.read() if prompt_file is not None else None,
+            prompt_filename=prompt_file.filename if prompt_file is not None else "",
+            prompt_content_type=(
+                prompt_file.content_type if prompt_file is not None else ""
+            ),
+        )
+        response = current_app.response_class(
+            response=make_common_response(serialize_minimax_cloned_voice(row)),
+            status=202,
+            mimetype="application/json",
+        )
+        return response
+
+    @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["GET"])
+    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    def get_minimax_tts_voice_api(voice_bid):
+        from flaskr.service.tts.api import get_minimax_cloned_voice
+
+        return make_common_response(
+            get_minimax_cloned_voice(
+                app,
+                owner_user_bid=request.user.user_id,
+                voice_bid=voice_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/tts/minimax/voices/<voice_bid>/retry",
+        methods=["POST"],
+    )
+    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
+    def retry_minimax_tts_voice_api(voice_bid):
+        from flaskr.service.tts.api import retry_minimax_voice_clone
+
+        return make_common_response(
+            retry_minimax_voice_clone(
+                app,
+                owner_user_bid=request.user.user_id,
+                voice_bid=voice_bid,
+            )
+        )
+
+    @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["DELETE"])
+    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
+    def delete_minimax_tts_voice_api(voice_bid):
+        from flaskr.service.tts.api import delete_minimax_cloned_voice
+
+        return make_common_response(
+            delete_minimax_cloned_voice(
+                app,
+                owner_user_bid=request.user.user_id,
+                voice_bid=voice_bid,
+            )
+        )
+
     @app.route(path_prefix + "/tts/config", methods=["GET"])
     @bypass_token_validation
     def tts_config_api():
@@ -3653,7 +2511,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(config)
 
     @app.route(path_prefix + "/tts/preview", methods=["POST"])
-    @bypass_token_validation
     def tts_preview_api():
         """
         Preview TTS with specified settings

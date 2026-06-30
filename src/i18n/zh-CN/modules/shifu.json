@@ -8,6 +8,7 @@
     "title": "授课提示词"
   },
   "history": {
+    "backToDocument": "返回文档",
     "collapse": "收起",
     "confirmDescription": "确认恢复后，当前节内容将被该版本完整覆盖。",
     "confirmLoadFailed": "加载版本内容失败，请稍后重试",
@@ -26,9 +27,13 @@
   "previewArea": {
     "action": "调试",
     "close": "收起学习模拟",
+    "copied": "片段已复制",
+    "copy": "复制片段",
+    "copyTooltip": "粘贴到左侧授课提示词，下次就会用这个片段讲课",
     "description": "感受学习者的体验，看提示词生成个性化课程的效果",
     "disabled": "请选择具体小节后再调试",
     "empty": "在左侧输入授课提示词，然后点击“调试”体验学习模拟",
+    "goToBilling": "购买积分",
     "loading": "正在生成学习模拟...",
     "open": "展开学习模拟",
     "title": "学习模拟",

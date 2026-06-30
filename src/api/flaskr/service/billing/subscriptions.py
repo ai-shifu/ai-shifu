@@ -43,9 +43,11 @@ from .consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_BUCKET_STATUS_EXPIRED,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
 )
@@ -63,11 +65,22 @@ from .models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from .preorders import (
+    PREORDER_STATE_ABSORBED_BY_UPGRADE,
+    PREORDER_STATE_PENDING_EFFECTIVE,
+    clear_subscription_preorder_metadata as _clear_subscription_preorder_metadata,
+    is_preorder_order as _is_preorder_order,
+    mark_preorder_absorbed_by_upgrade as _mark_preorder_absorbed_by_upgrade,
+    mark_preorder_effective_applied as _mark_preorder_effective_applied,
+    mark_subscription_preorder_pending as _mark_subscription_preorder_pending,
+    preorder_state as _preorder_state,
+)
 from .queries import (
     extract_order_metadata_datetime as _extract_order_metadata_datetime,
     extract_resolved_order_cycle_end_at as _extract_resolved_order_cycle_end_at,
     extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
     calculate_billing_cycle_end as _calc_provider_cycle_end,
+    calculate_self_managed_billing_cycle_end_after_boundary as _calc_self_managed_cycle_end_after_boundary,
     calculate_self_managed_billing_cycle_end as _calc_self_managed_cycle_end,
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
     load_primary_active_subscription as _load_primary_active_subscription,
@@ -105,7 +118,11 @@ _PENDING_RENEWAL_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
 )
 
-_SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
+SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
+
+
+def is_self_managed_billing_provider(provider: str | None) -> bool:
+    return _normalize_bid(provider).lower() in SELF_MANAGED_BILLING_PROVIDERS
 
 
 @dataclass(slots=True, frozen=True)
@@ -445,11 +462,17 @@ def ensure_subscription_renewal_order(
     if product is None:
         return None
 
-    cycle_end_at = _calculate_billing_cycle_end(
-        product,
-        cycle_start_at=cycle_start_at,
-        payment_provider=provider_name,
-    )
+    if is_self_managed_billing_provider(provider_name):
+        cycle_end_at = _calc_self_managed_cycle_end_after_boundary(
+            product,
+            cycle_boundary_at=cycle_start_at,
+        )
+    else:
+        cycle_end_at = _calculate_billing_cycle_end(
+            product,
+            cycle_start_at=cycle_start_at,
+            payment_provider=provider_name,
+        )
     if cycle_end_at is None:
         return None
 
@@ -458,6 +481,16 @@ def ensure_subscription_renewal_order(
         cycle_start_at=cycle_start_at,
         cycle_end_at=cycle_end_at,
     )
+    if order is not None and _is_preorder_order(order):
+        metadata = (
+            dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
+        )
+        metadata["renewal_event_bid"] = _normalize_bid(renewal_event_bid) or None
+        order.metadata_json = _normalize_json_object(metadata).to_metadata_json()
+        db.session.add(order)
+        db.session.flush()
+        return order
+
     metadata = (
         dict(order.metadata_json)
         if order and isinstance(order.metadata_json, dict)
@@ -583,7 +616,7 @@ def _calculate_billing_cycle_end(
     payment_provider: str = "",
 ) -> datetime | None:
     provider = _normalize_bid(payment_provider)
-    if provider in _SELF_MANAGED_BILLING_PROVIDERS:
+    if is_self_managed_billing_provider(provider):
         return _calc_self_managed_cycle_end(
             product,
             cycle_start_at=cycle_start_at,
@@ -615,6 +648,87 @@ def _should_defer_pingxx_renewal_activation(order: BillingOrder) -> bool:
     return order.paid_at < renewal_cycle_start_at
 
 
+def _is_manual_referral_invitation_renewal(order: BillingOrder) -> bool:
+    if (
+        order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+        or _normalize_bid(order.payment_provider) != "manual"
+    ):
+        return False
+
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    checkout_type = str(metadata.get("checkout_type") or "").strip()
+    return checkout_type == "referral_invitation_reward" or (
+        metadata.get("referral_invitation_reward") is True
+    )
+
+
+def _should_defer_subscription_renewal_activation(
+    order: BillingOrder,
+    *,
+    effective_from: datetime,
+) -> bool:
+    if (
+        order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+        or order.paid_at is None
+    ):
+        return False
+
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    if _extract_order_metadata_datetime(metadata, "applied_cycle_start_at") is not None:
+        return False
+    if effective_from <= datetime.now():
+        return False
+    return (
+        _should_defer_pingxx_renewal_activation(order)
+        or _is_preorder_order(order)
+        or _is_manual_referral_invitation_renewal(order)
+    )
+
+
+def _has_paid_referral_invitation_renewal_at_boundary(
+    subscription: BillingSubscription,
+    *,
+    boundary_at: datetime | None,
+) -> bool:
+    if boundary_at is None:
+        return False
+    order = _load_subscription_renewal_order_by_cycle(
+        subscription.subscription_bid,
+        cycle_start_at=boundary_at,
+        statuses=(BILLING_ORDER_STATUS_PAID,),
+    )
+    if order is None:
+        return False
+    return _is_manual_referral_invitation_renewal(order)
+
+
+def _is_same_product_preorder_renewal(order: BillingOrder) -> bool:
+    if (
+        order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+        or not _is_preorder_order(order)
+    ):
+        return False
+
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    target_product_bid = _normalize_bid(
+        metadata.get("target_product_bid")
+        or metadata.get("preorder_target_product_bid")
+        or metadata.get("product_bid")
+        or order.product_bid,
+    )
+    current_product_bid = _normalize_bid(metadata.get("current_product_bid"))
+    if not current_product_bid and order.subscription_bid:
+        subscription = _load_subscription_by_bid(order.subscription_bid)
+        if subscription is not None:
+            current_product_bid = _normalize_bid(subscription.product_bid)
+
+    return bool(
+        target_product_bid
+        and current_product_bid
+        and target_product_bid == current_product_bid
+    )
+
+
 def _activate_subscription_for_paid_order(
     app: Flask,
     order: BillingOrder,
@@ -623,6 +737,12 @@ def _activate_subscription_for_paid_order(
     force: bool = False,
 ) -> bool:
     if not order.subscription_bid:
+        return False
+
+    if (
+        _is_preorder_order(order)
+        and _preorder_state(order) != PREORDER_STATE_PENDING_EFFECTIVE
+    ):
         return False
 
     product = _load_billing_product_by_bid(order.product_bid)
@@ -647,8 +767,15 @@ def _activate_subscription_for_paid_order(
     if (
         order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
         and not force
-        and _should_defer_pingxx_renewal_activation(order)
+        and _should_defer_subscription_renewal_activation(
+            order,
+            effective_from=effective_from,
+        )
     ):
+        if _is_preorder_order(order):
+            _mark_subscription_preorder_pending(subscription, order)
+        _sync_subscription_lifecycle_events(app, subscription)
+        db.session.add(subscription)
         return False
 
     if order.order_type in {
@@ -658,6 +785,12 @@ def _activate_subscription_for_paid_order(
     }:
         if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
             _activate_reserved_subscription_grant_for_order(
+                app,
+                order=order,
+                effective_from=effective_from,
+                effective_to=effective_to,
+            )
+            _activate_reserved_campaign_bonus_grant_for_order(
                 app,
                 order=order,
                 effective_from=effective_from,
@@ -684,6 +817,10 @@ def _activate_subscription_for_paid_order(
             effective_from=effective_from,
             effective_to=effective_to,
         )
+        if _is_preorder_order(order):
+            _mark_preorder_effective_applied(order)
+            _clear_subscription_preorder_metadata(subscription)
+            db.session.add(order)
     else:
         subscription.current_period_start_at = (
             subscription.current_period_start_at or effective_from
@@ -787,6 +924,84 @@ def _load_grant_ledger_entry_for_order(order: BillingOrder) -> CreditLedgerEntry
     )
 
 
+def _repair_existing_paid_order_grant_bucket(
+    app: Flask,
+    *,
+    order: BillingOrder,
+    grant_entry: CreditLedgerEntry,
+) -> bool:
+    """Repair the mutable bucket snapshot for an already-granted paid order."""
+
+    if _normalize_bid(grant_entry.source_bid) != _normalize_bid(order.bill_order_bid):
+        return False
+
+    bucket = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.creator_bid == order.creator_bid,
+            CreditWalletBucket.wallet_bucket_bid == grant_entry.wallet_bucket_bid,
+        )
+        .order_by(CreditWalletBucket.id.desc())
+        .first()
+    )
+    if bucket is None:
+        return False
+
+    bucket_source_bid = _normalize_bid(bucket.source_bid)
+    if bucket_source_bid and bucket_source_bid != _normalize_bid(order.bill_order_bid):
+        return False
+
+    effective_to = grant_entry.expires_at
+    now = datetime.now()
+    if (
+        effective_to is not None
+        and effective_to <= now
+        and _to_decimal(bucket.available_credits) <= 0
+        and _to_decimal(bucket.reserved_credits) <= 0
+    ):
+        return False
+
+    changed = False
+    effective_from = grant_entry.consumable_from
+    if effective_from is not None and bucket.effective_from != effective_from:
+        bucket.effective_from = effective_from
+        changed = True
+    if bucket.effective_to != effective_to:
+        bucket.effective_to = effective_to
+        changed = True
+    if bucket.source_bid != order.bill_order_bid:
+        bucket.source_bid = order.bill_order_bid
+        changed = True
+
+    previous_status = int(bucket.status or 0)
+    if previous_status == CREDIT_BUCKET_STATUS_EXPIRED and (
+        _to_decimal(bucket.available_credits) > 0
+        or _to_decimal(bucket.reserved_credits) > 0
+    ):
+        _prepare_bucket_for_runtime_reuse(bucket)
+        changed = True
+
+    sync_credit_bucket_status(bucket)
+    if int(bucket.status or 0) != previous_status:
+        changed = True
+
+    if not changed:
+        return False
+
+    bucket.updated_at = now
+    db.session.add(bucket)
+
+    wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+    refresh_credit_wallet_snapshot(wallet)
+    persist_credit_wallet_snapshot(
+        wallet,
+        available_credits=wallet.available_credits,
+        reserved_credits=wallet.reserved_credits,
+        updated_at=now,
+    )
+    return True
+
+
 def _should_reserve_subscription_renewal_grant(
     order: BillingOrder,
     *,
@@ -856,6 +1071,14 @@ def _expire_credit_bucket_balance_for_transition(
     return available
 
 
+def _prepare_bucket_for_runtime_reuse(bucket: CreditWalletBucket) -> None:
+    """Allow an explicitly re-funded bucket to re-enter runtime status sync."""
+
+    current_status = int(bucket.status or 0)
+    if current_status == CREDIT_BUCKET_STATUS_EXPIRED:
+        bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED
+
+
 def _upsert_paid_order_credit_bucket(
     app: Flask,
     *,
@@ -917,7 +1140,11 @@ def _upsert_paid_order_credit_bucket(
             if bucket.effective_to is None:
                 bucket.effective_to = effective_to
         else:
-            if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+            same_product_preorder_renewal = _is_same_product_preorder_renewal(order)
+            if (
+                order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
+                and not same_product_preorder_renewal
+            ):
                 _expire_credit_bucket_balance_for_transition(
                     app,
                     wallet=wallet,
@@ -931,10 +1158,18 @@ def _upsert_paid_order_credit_bucket(
             bucket.reserved_credits = _quantize_credit_amount(
                 _to_decimal(bucket.reserved_credits)
             )
-            bucket.effective_from = effective_from
+            if same_product_preorder_renewal:
+                if (
+                    bucket.effective_from is None
+                    or bucket.effective_from > effective_from
+                ):
+                    bucket.effective_from = effective_from
+            else:
+                bucket.effective_from = effective_from
             bucket.effective_to = effective_to
 
     bucket.updated_at = now
+    _prepare_bucket_for_runtime_reuse(bucket)
     sync_credit_bucket_status(bucket)
     db.session.add(bucket)
     return bucket, reserve_grant
@@ -1009,6 +1244,7 @@ def _activate_reserved_subscription_grant_for_order(
         **_build_bucket_metadata_from_order(order),
     }
     bucket.updated_at = now
+    _prepare_bucket_for_runtime_reuse(bucket)
     sync_credit_bucket_status(bucket)
     db.session.add(bucket)
 
@@ -1031,6 +1267,317 @@ def _activate_reserved_subscription_grant_for_order(
     return True
 
 
+def _load_campaign_bonus_ledger_entry_for_order(
+    order: BillingOrder,
+) -> CreditLedgerEntry | None:
+    return (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == order.creator_bid,
+            CreditLedgerEntry.idempotency_key
+            == f"grant:campaign_bonus:{order.bill_order_bid}",
+        )
+        .order_by(CreditLedgerEntry.id.desc())
+        .first()
+    )
+
+
+def _activate_reserved_campaign_bonus_grant_for_order(
+    app: Flask,
+    *,
+    order: BillingOrder,
+    effective_from: datetime,
+    effective_to: datetime | None,
+) -> bool:
+    grant_entry = _load_campaign_bonus_ledger_entry_for_order(order)
+    if grant_entry is None:
+        return False
+
+    metadata = _normalize_json_object(grant_entry.metadata_json)
+    if str(metadata.get("bucket_credit_state") or "").strip().lower() != "reserved":
+        return False
+    if not _normalize_bid(grant_entry.wallet_bucket_bid):
+        return False
+
+    bucket = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.wallet_bucket_bid == grant_entry.wallet_bucket_bid,
+        )
+        .order_by(CreditWalletBucket.id.desc())
+        .first()
+    )
+    if bucket is None:
+        return False
+
+    wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+    now = datetime.now()
+    release_amount = min(
+        _to_decimal(grant_entry.amount),
+        _to_decimal(bucket.reserved_credits),
+    )
+    bucket.reserved_credits = _quantize_credit_amount(
+        _to_decimal(bucket.reserved_credits) - release_amount
+    )
+    bucket.available_credits = _quantize_credit_amount(
+        _to_decimal(bucket.available_credits) + release_amount
+    )
+    bucket.effective_from = effective_from
+    bucket.effective_to = effective_to
+    bucket.updated_at = now
+    _prepare_bucket_for_runtime_reuse(bucket)
+    sync_credit_bucket_status(bucket)
+    db.session.add(bucket)
+
+    metadata["bucket_credit_state"] = "available"
+    metadata["activated_at"] = now.isoformat()
+    grant_entry.expires_at = effective_to
+    grant_entry.consumable_from = effective_from
+    grant_entry.metadata_json = metadata.to_metadata_json()
+    grant_entry.updated_at = now
+    db.session.add(grant_entry)
+
+    refresh_credit_wallet_snapshot(wallet)
+    persist_credit_wallet_snapshot(
+        wallet,
+        available_credits=wallet.available_credits,
+        reserved_credits=wallet.reserved_credits,
+        updated_at=now,
+    )
+    grant_entry.balance_after = _quantize_credit_amount(wallet.available_credits)
+    return True
+
+
+def _void_reserved_subscription_grant_for_order(
+    app: Flask,
+    order: BillingOrder,
+    *,
+    absorbed_by_bill_order_bid: str,
+) -> bool:
+    grant_entry = _load_grant_ledger_entry_for_order(order)
+    if grant_entry is None:
+        return False
+
+    metadata = _normalize_json_object(grant_entry.metadata_json)
+    if str(metadata.get("bucket_credit_state") or "").strip().lower() != "reserved":
+        return False
+
+    bucket = None
+    if _normalize_bid(grant_entry.wallet_bucket_bid):
+        bucket = (
+            CreditWalletBucket.query.filter(
+                CreditWalletBucket.deleted == 0,
+                CreditWalletBucket.wallet_bucket_bid == grant_entry.wallet_bucket_bid,
+            )
+            .order_by(CreditWalletBucket.id.desc())
+            .first()
+        )
+    if bucket is None:
+        bucket = load_primary_credit_bucket_by_category(
+            order.creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+        )
+    if bucket is None:
+        return False
+
+    now = datetime.now()
+    release_amount = min(
+        _to_decimal(grant_entry.amount),
+        _to_decimal(bucket.reserved_credits),
+    )
+    if release_amount > 0:
+        bucket.reserved_credits = _quantize_credit_amount(
+            _to_decimal(bucket.reserved_credits) - release_amount
+        )
+        bucket.original_credits = _quantize_credit_amount(
+            max(Decimal("0"), _to_decimal(bucket.original_credits) - release_amount)
+        )
+        bucket.metadata_json = {
+            **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
+            "absorbed_preorder_order_bid": order.bill_order_bid,
+            "absorbed_by_bill_order_bid": absorbed_by_bill_order_bid,
+            "absorbed_at": now.isoformat(),
+        }
+        bucket.updated_at = now
+        sync_credit_bucket_status(bucket)
+        db.session.add(bucket)
+
+    metadata["bucket_credit_state"] = "absorbed"
+    metadata["absorbed_by_bill_order_bid"] = absorbed_by_bill_order_bid
+    metadata["absorbed_at"] = now.isoformat()
+    grant_entry.metadata_json = metadata.to_metadata_json()
+    grant_entry.updated_at = now
+    db.session.add(grant_entry)
+
+    wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+    refresh_credit_wallet_snapshot(wallet)
+    persist_credit_wallet_snapshot(
+        wallet,
+        available_credits=wallet.available_credits,
+        reserved_credits=wallet.reserved_credits,
+        updated_at=now,
+    )
+    grant_entry.balance_after = _quantize_credit_amount(wallet.available_credits)
+    return True
+
+
+def _void_reserved_campaign_bonus_grant_for_order(
+    app: Flask,
+    order: BillingOrder,
+    *,
+    absorbed_by_bill_order_bid: str,
+) -> bool:
+    grant_entry = _load_campaign_bonus_ledger_entry_for_order(order)
+    if grant_entry is None:
+        return False
+
+    metadata = _normalize_json_object(grant_entry.metadata_json)
+    if str(metadata.get("bucket_credit_state") or "").strip().lower() != "reserved":
+        return False
+    if not _normalize_bid(grant_entry.wallet_bucket_bid):
+        return False
+
+    bucket = (
+        CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.wallet_bucket_bid == grant_entry.wallet_bucket_bid,
+        )
+        .order_by(CreditWalletBucket.id.desc())
+        .first()
+    )
+    if bucket is None:
+        return False
+
+    now = datetime.now()
+    release_amount = min(
+        _to_decimal(grant_entry.amount),
+        _to_decimal(bucket.reserved_credits),
+    )
+    if release_amount > 0:
+        bucket.reserved_credits = _quantize_credit_amount(
+            _to_decimal(bucket.reserved_credits) - release_amount
+        )
+        bucket.original_credits = _quantize_credit_amount(
+            max(Decimal("0"), _to_decimal(bucket.original_credits) - release_amount)
+        )
+        bucket.updated_at = now
+        sync_credit_bucket_status(bucket)
+        db.session.add(bucket)
+
+    metadata["bucket_credit_state"] = "absorbed"
+    metadata["absorbed_by_bill_order_bid"] = absorbed_by_bill_order_bid
+    metadata["absorbed_at"] = now.isoformat()
+    grant_entry.metadata_json = metadata.to_metadata_json()
+    grant_entry.updated_at = now
+    db.session.add(grant_entry)
+
+    wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+    refresh_credit_wallet_snapshot(wallet)
+    persist_credit_wallet_snapshot(
+        wallet,
+        available_credits=wallet.available_credits,
+        reserved_credits=wallet.reserved_credits,
+        updated_at=now,
+    )
+    grant_entry.balance_after = _quantize_credit_amount(wallet.available_credits)
+    return True
+
+
+def _load_preorder_replaced_by_paid_upgrade(
+    upgrade_order: BillingOrder,
+) -> BillingOrder | None:
+    if (
+        int(upgrade_order.status or 0) != BILLING_ORDER_STATUS_PAID
+        or int(upgrade_order.order_type or 0) != BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+    ):
+        return None
+
+    metadata = (
+        upgrade_order.metadata_json
+        if isinstance(upgrade_order.metadata_json, dict)
+        else {}
+    )
+    preorder_order_bid = _normalize_bid(metadata.get("preorder_order_bid"))
+    if not preorder_order_bid:
+        return None
+
+    preorder_order = (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.creator_bid == upgrade_order.creator_bid,
+            BillingOrder.subscription_bid == upgrade_order.subscription_bid,
+            BillingOrder.bill_order_bid == preorder_order_bid,
+        )
+        .order_by(BillingOrder.id.desc())
+        .first()
+    )
+    if preorder_order is None or not _is_preorder_order(preorder_order):
+        return None
+
+    preorder_metadata = (
+        preorder_order.metadata_json
+        if isinstance(preorder_order.metadata_json, dict)
+        else {}
+    )
+    absorbed_by = _normalize_bid(preorder_metadata.get("absorbed_by_bill_order_bid"))
+    if absorbed_by and absorbed_by != upgrade_order.bill_order_bid:
+        return None
+
+    state = _preorder_state(preorder_order)
+    if state not in {
+        PREORDER_STATE_PENDING_EFFECTIVE,
+        PREORDER_STATE_ABSORBED_BY_UPGRADE,
+    }:
+        return None
+    if int(preorder_order.status or 0) != BILLING_ORDER_STATUS_PAID:
+        return None
+    return preorder_order
+
+
+def _absorb_preorder_replaced_by_paid_upgrade(
+    app: Flask,
+    order: BillingOrder,
+) -> bool:
+    preorder_order = _load_preorder_replaced_by_paid_upgrade(order)
+    if preorder_order is None:
+        return False
+
+    preorder_metadata = (
+        preorder_order.metadata_json
+        if isinstance(preorder_order.metadata_json, dict)
+        else {}
+    )
+    already_absorbed_by_order = (
+        _preorder_state(preorder_order) == PREORDER_STATE_ABSORBED_BY_UPGRADE
+        and _normalize_bid(preorder_metadata.get("absorbed_by_bill_order_bid"))
+        == order.bill_order_bid
+    )
+    if not already_absorbed_by_order:
+        _mark_preorder_absorbed_by_upgrade(
+            preorder_order,
+            upgrade_order_bid=order.bill_order_bid,
+        )
+    _void_reserved_subscription_grant_for_order(
+        app,
+        preorder_order,
+        absorbed_by_bill_order_bid=order.bill_order_bid,
+    )
+    _void_reserved_campaign_bonus_grant_for_order(
+        app,
+        preorder_order,
+        absorbed_by_bill_order_bid=order.bill_order_bid,
+    )
+
+    subscription = _load_subscription_by_bid(order.subscription_bid)
+    if subscription is not None:
+        _clear_subscription_preorder_metadata(subscription)
+        subscription.next_product_bid = ""
+        subscription.updated_at = datetime.now()
+        db.session.add(subscription)
+    db.session.add(preorder_order)
+    return True
+
+
 def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     grant_context = _resolve_credit_grant_context(order)
     if grant_context is None:
@@ -1045,6 +1592,18 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     if amount <= 0:
         return False
 
+    _absorb_preorder_replaced_by_paid_upgrade(app, order)
+
+    effective_from = _resolve_credit_bucket_effective_from(
+        order=order,
+        default_effective_from=order.paid_at or datetime.now(),
+    )
+    effective_to = _resolve_credit_bucket_effective_to(
+        order=order,
+        product=product,
+        effective_from=effective_from,
+    )
+
     idempotency_key = f"grant:{order.bill_order_bid}"
     existing_entry = (
         CreditLedgerEntry.query.filter(
@@ -1056,19 +1615,22 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         .first()
     )
     if existing_entry is not None:
+        _repair_existing_paid_order_grant_bucket(
+            app,
+            order=order,
+            grant_entry=existing_entry,
+        )
+        _grant_paid_campaign_bonus_credits(
+            app,
+            order=order,
+            product=product,
+            effective_from=effective_from,
+            effective_to=effective_to,
+        )
         _activate_subscription_for_paid_order(app, order)
         return False
 
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
-    effective_from = _resolve_credit_bucket_effective_from(
-        order=order,
-        default_effective_from=order.paid_at or datetime.now(),
-    )
-    effective_to = _resolve_credit_bucket_effective_to(
-        order=order,
-        product=product,
-        effective_from=effective_from,
-    )
 
     bucket, reserve_grant = _upsert_paid_order_credit_bucket(
         app,
@@ -1138,8 +1700,137 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     )
     db.session.add(ledger_entry)
 
+    _grant_paid_campaign_bonus_credits(
+        app,
+        order=order,
+        product=product,
+        effective_from=effective_from,
+        effective_to=effective_to,
+    )
     _activate_subscription_for_paid_order(app, order)
 
+    return True
+
+
+def _grant_paid_campaign_bonus_credits(
+    app: Flask,
+    *,
+    order: BillingOrder,
+    product: BillingProduct,
+    effective_from: datetime,
+    effective_to: datetime | None = None,
+) -> bool:
+    bonus_amount = _quantize_credit_amount(order.campaign_bonus_credit_amount)
+    if not _normalize_bid(order.campaign_bid) or bonus_amount <= 0:
+        return False
+
+    idempotency_key = f"grant:campaign_bonus:{order.bill_order_bid}"
+    existing_entry = (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.creator_bid == order.creator_bid,
+            CreditLedgerEntry.idempotency_key == idempotency_key,
+        )
+        .order_by(CreditLedgerEntry.id.desc())
+        .first()
+    )
+    if existing_entry is not None:
+        return False
+
+    wallet = _load_or_create_credit_wallet(app, order.creator_bid)
+    resolved_effective_to = effective_to or _resolve_credit_bucket_effective_to(
+        order=order,
+        product=product,
+        effective_from=effective_from,
+    )
+    bucket_category = resolve_bucket_category_from_order_type(
+        int(order.order_type or 0)
+    )
+    if bucket_category not in {
+        CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+        CREDIT_BUCKET_CATEGORY_TOPUP,
+    }:
+        return False
+    reserve_grant = (
+        bucket_category == CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+        and _should_reserve_subscription_renewal_grant(
+            order,
+            effective_from=effective_from,
+        )
+    )
+
+    bucket = CreditWalletBucket(
+        wallet_bucket_bid=generate_id(app),
+        wallet_bid=wallet.wallet_bid,
+        creator_bid=order.creator_bid,
+        bucket_category=bucket_category,
+        source_type=CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
+        source_bid=order.bill_order_bid,
+        priority=resolve_credit_bucket_priority(bucket_category),
+        original_credits=bonus_amount,
+        available_credits=_to_decimal(0) if reserve_grant else bonus_amount,
+        reserved_credits=bonus_amount if reserve_grant else _to_decimal(0),
+        consumed_credits=_to_decimal(0),
+        expired_credits=_to_decimal(0),
+        effective_from=effective_from,
+        effective_to=resolved_effective_to,
+        status=CREDIT_BUCKET_STATUS_ACTIVE,
+        metadata_json=_normalize_json_object(
+            {
+                **_build_bucket_metadata_from_order(order),
+                "campaign_bid": order.campaign_bid,
+                "campaign_bonus_credit_amount": bonus_amount,
+                "grant_reason": "campaign_bonus",
+                "bucket_credit_state": "reserved" if reserve_grant else "available",
+                "reserved_until": (
+                    effective_from.isoformat() if reserve_grant else None
+                ),
+            }
+        ).to_metadata_json(),
+    )
+    db.session.add(bucket)
+    sync_credit_bucket_status(bucket)
+    refresh_credit_wallet_snapshot(wallet)
+    balance_after = _quantize_credit_amount(wallet.available_credits)
+    next_lifetime_granted = _quantize_credit_amount(
+        _to_decimal(wallet.lifetime_granted_credits) + bonus_amount
+    )
+    ledger_entry = CreditLedgerEntry(
+        ledger_bid=generate_id(app),
+        creator_bid=order.creator_bid,
+        wallet_bid=wallet.wallet_bid,
+        wallet_bucket_bid=bucket.wallet_bucket_bid,
+        entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+        source_type=CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
+        source_bid=order.bill_order_bid,
+        idempotency_key=idempotency_key,
+        amount=bonus_amount,
+        balance_after=balance_after,
+        expires_at=resolved_effective_to,
+        consumable_from=effective_from,
+        metadata_json=_normalize_json_object(
+            {
+                "bill_order_bid": order.bill_order_bid,
+                "product_bid": order.product_bid,
+                "campaign_bid": order.campaign_bid,
+                "grant_reason": "campaign_bonus",
+                "bonus_credit_amount": bonus_amount,
+                "bucket_credit_state": "reserved" if reserve_grant else "available",
+                "reserved_until": (
+                    effective_from.isoformat() if reserve_grant else None
+                ),
+            }
+        ).to_metadata_json(),
+    )
+    wallet.available_credits = balance_after
+    persist_credit_wallet_snapshot(
+        wallet,
+        available_credits=wallet.available_credits,
+        reserved_credits=wallet.reserved_credits,
+        lifetime_granted_credits=next_lifetime_granted,
+        updated_at=datetime.now(),
+    )
+    db.session.add(ledger_entry)
     return True
 
 
@@ -1272,7 +1963,7 @@ def _resolve_credit_bucket_effective_to(
 
 
 def _is_self_managed_billing_order(order: BillingOrder) -> bool:
-    return _normalize_bid(order.payment_provider) in _SELF_MANAGED_BILLING_PROVIDERS
+    return is_self_managed_billing_provider(order.payment_provider)
 
 
 def _resolve_topup_bucket_effective_to(
@@ -1761,6 +2452,16 @@ def _sync_subscription_lifecycle_events(
                 event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
                 scheduled_at=scheduled_at,
             )
+        elif _has_paid_referral_invitation_renewal_at_boundary(
+            subscription,
+            boundary_at=scheduled_at,
+        ):
+            _upsert_subscription_renewal_event(
+                app,
+                subscription,
+                event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+                scheduled_at=scheduled_at,
+            )
         else:
             _cancel_subscription_renewal_events(
                 subscription.subscription_bid,
@@ -1909,3 +2610,5 @@ load_billing_product_by_bid = _load_billing_product_by_bid
 load_or_create_credit_wallet = _load_or_create_credit_wallet
 sync_subscription_lifecycle_events = _sync_subscription_lifecycle_events
 merge_provider_metadata = _merge_provider_metadata
+void_reserved_subscription_grant_for_order = _void_reserved_subscription_grant_for_order
+void_reserved_preorder_grant = _void_reserved_subscription_grant_for_order

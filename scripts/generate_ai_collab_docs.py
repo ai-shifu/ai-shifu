@@ -91,6 +91,13 @@ ROOT_SPEC = DocSpec(
         "complete for that area.",
         "Use English for code, comments, commit subjects, and instruction files. "
         "User-facing text still belongs in shared i18n JSON under `src/i18n/`.",
+        "In Chinese user-facing text and Chinese docs, do not use `创作者` as a "
+        "generic product term. Use `老师` for the general course-building or "
+        "teacher account role; use `课程负责人` or, inside an existing course "
+        "context, `负责人` when referring to a specific course owner.",
+        "Keep English and French translations aligned with that distinction: "
+        "use `teacher` / `enseignant` for the generic role, while a specific "
+        "course owner may still be translated as `creator` / `créateur`.",
     ),
     do=(
         "Start every task by locating the nearest `AGENTS.md`, then inherit the "
@@ -146,8 +153,8 @@ ROOT_SPEC = DocSpec(
         "`SKILL.md` for repeatable workflows that need step-by-step guidance.",
     ),
     commands=(
-        "`pre-commit run -a` from the repository root is the shared quality gate "
-        "before any commit-sized change lands.",
+        "`lefthook run pre-commit --all-files` from the repository root is the "
+        "shared quality gate before any commit-sized change lands.",
         "`cd src/api && pytest -q` is the broad backend verification baseline "
         "when a change touches shared backend contracts or multiple services.",
         "`cd src/cook-web && npm run type-check && npm run lint` is the broad "
@@ -297,8 +304,8 @@ COOK_WEB_SPEC = DocSpec(
         "`layout.tsx`, and `route.ts` own route entry behavior while shared UI "
         "logic stays under components, hooks, stores, or `lib/`.",
         "Route all user-facing text through shared i18n JSON namespaces under "
-        "`src/i18n/`, and keep the frontend language surface limited to `en-US` "
-        "and `zh-CN` unless product scope changes.",
+        "`src/i18n/`, and keep frontend user-facing locales aligned with "
+        "`src/i18n/locales.json`.",
         "Prefer shared utilities when logic appears in two or more places. Move "
         "stable parsing, routing, and serialization code into `lib/`, `hooks/`, "
         "or `c-utils/` instead of duplicating it in pages.",
@@ -1643,6 +1650,12 @@ def build_documents() -> dict[Path, str]:
                 "Keep the repository hard rules visible in those primary docs: "
                 "English-only code-facing text, no hardcoded user-facing strings "
                 "or secrets, and shared-contract doc updates in the same change.",
+                "For terminology, use `老师` in Chinese and `teacher` / "
+                "`enseignant` in translations for the generic role; use "
+                "`课程负责人` or `负责人` for a specific course owner, which "
+                "may still translate as `creator` / `créateur`; keep technical "
+                "`creator*` identifiers unchanged unless a contract migration "
+                "explicitly requires it.",
                 "Use `ARCHITECTURE.md`, `PLANS.md`, and "
                 "`docs/engineering-baseline.md` together: architecture map, "
                 "ExecPlan spec, and stable engineering handbook.",
@@ -1653,6 +1666,10 @@ def build_documents() -> dict[Path, str]:
                 "For complex design work, create an ExecPlan under "
                 "`docs/exec-plans/active/` and maintain it according to "
                 "`PLANS.md`.",
+                "When a branch already has an open PR, keep the PR title and "
+                "description in sync with the latest code changes so they "
+                "accurately describe the current implementation and "
+                "verification state.",
                 "Keep generated knowledge artifacts in sync by running "
                 "`python scripts/build_repo_knowledge_index.py` after docs "
                 "structure or metadata changes.",
@@ -1794,6 +1811,12 @@ def build_documents() -> dict[Path, str]:
                 "Keep the repository hard rules visible in those primary docs: "
                 "English-only code-facing text, no hardcoded user-facing strings "
                 "or secrets, and shared-contract doc updates in the same change.",
+                "For terminology, use `老师` in Chinese and `teacher` / "
+                "`enseignant` in translations for the generic role; use "
+                "`课程负责人` or `负责人` for a specific course owner, which "
+                "may still translate as `creator` / `créateur`; keep technical "
+                "`creator*` identifiers unchanged unless a contract migration "
+                "explicitly requires it.",
                 "Use `ARCHITECTURE.md`, `PLANS.md`, and "
                 "`docs/engineering-baseline.md` as the primary repository "
                 "knowledge entry points instead of duplicating them everywhere.",
@@ -1805,6 +1828,10 @@ def build_documents() -> dict[Path, str]:
                 "For complex design work, create an ExecPlan in "
                 "`docs/exec-plans/active/` and maintain it according to "
                 "`PLANS.md`.",
+                "When a branch already has an open PR, keep the PR title and "
+                "description in sync with the latest code changes so they "
+                "accurately describe the current implementation and "
+                "verification state.",
                 "Regenerate repository knowledge indexes with "
                 "`python scripts/build_repo_knowledge_index.py` after moving docs "
                 "or changing required metadata.",

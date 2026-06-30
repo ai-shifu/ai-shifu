@@ -56,6 +56,19 @@ export type AdminOperationCreditOrderListResponse = {
   total: number;
 };
 
+export type AdminOperationCreditOrderOverview = {
+  total_order_count: number;
+  paid_order_count: number;
+  pending_order_count: number;
+  refunded_order_count: number;
+  closed_order_count: number;
+  canceled_order_count: number;
+  available_credit_total: number;
+  paid_amount_total: number;
+  currency: string;
+  paid_amount_totals_by_currency: Record<string, number>;
+};
+
 export type AdminOperationCreditOrderDetailResponse = {
   order: AdminOperationCreditOrderItem;
   metadata: Record<string, unknown> | null;

@@ -1,9 +1,19 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
-import ScriptEditor from './ShifuEdit';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import ScriptEditor, {
+  resolveEditorOnboardingTriggerSource,
+} from './ShifuEdit';
 
 const refreshLabel = 'refresh';
 const mockMarkdownFlowEditor = jest.fn();
+const mockLessonPreview = jest.fn();
+const mockTrackEvent = jest.fn();
 
 jest.mock('next/dynamic', () => () => {
   const MockMarkdownFlowEditor = (props: Record<string, unknown>) => {
@@ -20,10 +30,33 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/components/ui/Button', () => ({
-  Button: ({ children, ...props }: React.ComponentProps<'button'>) => (
-    <button {...props}>{children}</button>
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    children,
+    href,
+    ...props
+  }: React.ComponentProps<'a'> & { href: string }) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
   ),
+}));
+
+jest.mock('@/components/ui/Button', () => ({
+  Button: ({
+    children,
+    asChild,
+    ...props
+  }: React.ComponentProps<'button'> & { asChild?: boolean }) => {
+    if (asChild && React.isValidElement(children)) {
+      return React.cloneElement(children, props);
+    }
+    return <button {...props}>{children}</button>;
+  },
 }));
 
 jest.mock('@/components/outline-tree', () => {
@@ -39,7 +72,13 @@ jest.mock('../loading', () => {
   MockLoading.displayName = 'MockLoading';
   return MockLoading;
 });
-jest.mock('@/components/lesson-preview', () => () => null);
+jest.mock('@/components/lesson-preview', () => ({
+  __esModule: true,
+  default: (props: Record<string, unknown>) => {
+    mockLessonPreview(props);
+    return null;
+  },
+}));
 jest.mock('./DraftConflictDialog', () => ({
   __esModule: true,
   default: ({
@@ -75,9 +114,13 @@ jest.mock('@/components/ui/Sheet', () => ({
   ),
 }));
 jest.mock('@/components/ui/Dialog', () => ({
-  Dialog: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Dialog: ({
+    children,
+    open,
+  }: {
+    children: React.ReactNode;
+    open?: boolean;
+  }) => (open ? <div>{children}</div> : null),
   DialogContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -108,9 +151,12 @@ jest.mock('@/c-store', () => ({
   useEnvStore: jest.fn(() => 'https://example.com'),
 }));
 jest.mock('@/c-common/hooks/useTracking', () => ({
-  useTracking: () => ({ trackEvent: jest.fn() }),
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 jest.mock('@/c-utils/urlUtils', () => ({
+  buildUrlWithLessonId: jest.fn((url: string, lessonId: string) =>
+    lessonId ? `${url}?lessonid=${lessonId}` : url,
+  ),
   replaceCurrentUrlWithLessonId: jest.fn(),
 }));
 jest.mock('@/components/lesson-preview/usePreviewChat', () => ({
@@ -225,6 +271,15 @@ jest.mock('@/store', () => ({
   useShifu: () => mockShifuState,
   useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
     selector(mockUserStoreState),
+  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      replayScenes: {
+        admin_home_onboarding: false,
+        course_editor_onboarding: false,
+      },
+      requestReplayAll: jest.fn(),
+      clearReplay: jest.fn(),
+    }),
 }));
 
 describe('ShifuEdit draft conflict checks', () => {
@@ -240,6 +295,8 @@ describe('ShifuEdit draft conflict checks', () => {
 
   beforeEach(() => {
     mockMarkdownFlowEditor.mockReset();
+    mockLessonPreview.mockReset();
+    mockTrackEvent.mockReset();
     mockLoadDraftMeta.mockReset();
     mockLoadModels.mockReset();
     mockLoadChapters.mockReset();
@@ -275,6 +332,7 @@ describe('ShifuEdit draft conflict checks', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   test('does not start draft conflict checks when a chapter node is selected', async () => {
@@ -288,6 +346,23 @@ describe('ShifuEdit draft conflict checks', () => {
     await waitFor(() => {
       expect(mockLoadDraftMeta).not.toHaveBeenCalled();
     });
+  });
+
+  test('defaults editor onboarding trigger source for direct editor entry', () => {
+    expect(resolveEditorOnboardingTriggerSource(null)).toBe('editor_entry');
+    expect(resolveEditorOnboardingTriggerSource('')).toBe('editor_entry');
+    expect(resolveEditorOnboardingTriggerSource('unknown')).toBe(
+      'editor_entry',
+    );
+    expect(resolveEditorOnboardingTriggerSource('manual_create')).toBe(
+      'manual_create',
+    );
+    expect(resolveEditorOnboardingTriggerSource('lobster_create')).toBe(
+      'lobster_create',
+    );
+    expect(resolveEditorOnboardingTriggerSource('skills_create')).toBe(
+      'skills_create',
+    );
   });
 
   test('still loads draft meta when a lesson node is selected', async () => {
@@ -453,5 +528,120 @@ describe('ShifuEdit draft conflict checks', () => {
     await waitFor(() => {
       expect(getLatestEditorProps().content).toBe('remote synced content');
     });
+  });
+
+  test('renders the history entry as a native link for the current lesson', async () => {
+    setLessonNode();
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    const historyLink = screen.getByTitle(
+      'module.shifu.history.title',
+    ) as HTMLAnchorElement;
+
+    expect(historyLink.getAttribute('href')).toBe(
+      '/shifu/shifu-1/history?lessonid=lesson-1',
+    );
+    expect(historyLink.getAttribute('target')).toBe('_blank');
+    expect(historyLink.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  test('tracks history entry clicks for the current lesson', async () => {
+    setLessonNode();
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    const historyLink = screen.getByTitle('module.shifu.history.title');
+    historyLink.click();
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('creator_lesson_history_click');
+  });
+
+  test('enables regenerate actions for editable lesson preview', async () => {
+    setLessonNode();
+
+    render(<ScriptEditor id='shifu-1' />);
+    fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
+
+    await waitFor(() => {
+      expect(mockLessonPreview).toHaveBeenCalled();
+    });
+
+    expect(mockLessonPreview.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        showGenerateBtn: true,
+      }),
+    );
+  });
+
+  test('does not enable regenerate actions before shifu data is ready', async () => {
+    setLessonNode();
+    mockShifuState.currentShifu =
+      null as unknown as typeof mockShifuState.currentShifu;
+
+    render(<ScriptEditor id='shifu-1' />);
+    fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
+
+    await waitFor(() => {
+      expect(mockLessonPreview).toHaveBeenCalled();
+    });
+
+    expect(mockLessonPreview.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        showGenerateBtn: false,
+      }),
+    );
+  });
+
+  test('renders the dedicated history layout in history mode', async () => {
+    setLessonNode();
+    baseActions.loadMdflowHistory.mockResolvedValue([
+      {
+        version_id: 11,
+        updated_at: '2026-05-19 10:00:00',
+        updated_at_display: '05-19 10:00:00',
+        updated_user_name: 'Operator',
+        updated_user_bid: 'user-1',
+      },
+    ]);
+    baseActions.loadMdflowHistoryVersionDetail.mockResolvedValue({
+      version_id: 11,
+      content: 'history body',
+      updated_at: '2026-05-19 10:00:00',
+      updated_at_display: '05-19 10:00:00',
+      updated_user_name: 'Operator',
+      updated_user_bid: 'user-1',
+      restored: false,
+    });
+
+    render(
+      <ScriptEditor
+        id='shifu-1'
+        initialViewMode='history'
+      />,
+    );
+
+    expect(
+      screen.getByText('module.shifu.history.backToDocument'),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(baseActions.loadMdflowHistory).toHaveBeenCalledWith(
+        'shifu-1',
+        'lesson-1',
+      );
+    });
+    await waitFor(() => {
+      expect(baseActions.loadMdflowHistoryVersionDetail).toHaveBeenCalledWith(
+        'shifu-1',
+        'lesson-1',
+        11,
+      );
+    });
+    expect(
+      screen.getByText('module.shifu.history.backToDocument'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.shifu.history.backToDocument'),
+    ).toHaveAttribute('href', '/shifu/shifu-1?lessonid=lesson-1');
   });
 });

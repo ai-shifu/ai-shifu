@@ -5,8 +5,8 @@ const LEARNING_MODE_STORAGE_PREFIX = 'course_learning_mode';
 const buildLearningModeStorageKey = (courseId?: string) =>
   courseId ? `${LEARNING_MODE_STORAGE_PREFIX}:${courseId}` : '';
 
-const isLearningMode = (value: string | null): value is LearningMode =>
-  value === 'listen' || value === 'read';
+const isStoredLearningMode = (value: string | null): value is LearningMode =>
+  value === 'listen' || value === 'read' || value === 'classroom';
 
 export const readLearningModeFromStorage = (
   courseId?: string,
@@ -22,7 +22,7 @@ export const readLearningModeFromStorage = (
 
   try {
     const value = window.localStorage.getItem(key);
-    return isLearningMode(value) ? value : null;
+    return isStoredLearningMode(value) ? value : null;
   } catch (error) {
     console.warn('Failed to read learning mode from storage', error);
     return null;

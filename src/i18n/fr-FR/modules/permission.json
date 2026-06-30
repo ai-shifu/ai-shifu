@@ -1,0 +1,28 @@
+{
+  "__namespace__": "module.permission",
+  "errors": {
+    "authRequired": "Veuillez vous connecter et réessayer",
+    "authRequiredTitle": "Authentification requise",
+    "forbidden": "Accès interdit",
+    "forbiddenTitle": "Interdit",
+    "generalError": "Une erreur s’est produite, veuillez réessayer plus tard",
+    "generalErrorTitle": "Erreur",
+    "noPermission": "Vous n’avez pas l’autorisation d’accéder à cette page. Veuillez contacter l’administrateur.",
+    "noPermissionTitle": "Autorisation refusée",
+    "notFound": "La ressource demandée est introuvable",
+    "notFoundTitle": "Introuvable",
+    "serverError": "Erreur serveur, veuillez réessayer plus tard",
+    "serverErrorTitle": "Erreur serveur"
+  },
+  "permission": {
+    "requestDescription": "Expliquez brièvement pourquoi vous avez besoin de l’accès ; nous traiterons votre demande dès que possible.",
+    "requestError": "Échec de l’envoi de la demande, veuillez réessayer plus tard",
+    "requestPlaceholder": "Veuillez saisir votre motif (par exemple : besoin professionnel, objectif d’apprentissage, etc.)",
+    "requestSubmit": "Envoyer la demande",
+    "requestSuccess": "Demande d’autorisation envoyée avec succès, nous la traiterons bientôt",
+    "requestTitle": "Demander l'accès"
+  },
+  "user": {
+    "login": "Connexion"
+  }
+}

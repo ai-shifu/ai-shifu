@@ -1,12 +1,12 @@
 'use client';
 
-import { X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
@@ -22,9 +22,16 @@ import { formatAdminCount } from '@/app/admin/lib/numberFormat';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
 import {
   Table,
   TableBody,
@@ -36,6 +43,7 @@ import {
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
+import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
 import {
   buildAdminOperationsCourseDetailUrl,
   buildAdminOperationsCourseFollowUpsUrl,
@@ -54,11 +62,13 @@ type ContactMode = 'phone' | 'email';
 type FollowUpFilters = {
   keyword: string;
   chapterKeyword: string;
+  sourceStatus: string;
   startTime: string;
   endTime: string;
 };
 
 const PAGE_SIZE = 20;
+const ALL_SOURCE_STATUS = 'all';
 const COLUMN_MIN_WIDTH = 80;
 const COLUMN_MAX_WIDTH = 420;
 const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationCourseFollowUpColumnWidths';
@@ -115,9 +125,39 @@ const EMPTY_FOLLOW_UP_DETAIL: AdminOperationCourseFollowUpDetailResponse = {
 const createFollowUpFilters = (): FollowUpFilters => ({
   keyword: '',
   chapterKeyword: '',
+  sourceStatus: ALL_SOURCE_STATUS,
   startTime: '',
   endTime: '',
 });
+
+const normalizeFollowUpFilters = (
+  filters: FollowUpFilters,
+): FollowUpFilters => ({
+  keyword: filters.keyword.trim(),
+  chapterKeyword: filters.chapterKeyword.trim(),
+  sourceStatus:
+    filters.sourceStatus.trim() === ALL_SOURCE_STATUS
+      ? ''
+      : filters.sourceStatus.trim(),
+  startTime: filters.startTime,
+  endTime: filters.endTime,
+});
+
+const areFollowUpFiltersEqual = (
+  first: FollowUpFilters,
+  second: FollowUpFilters,
+) =>
+  first.keyword === second.keyword &&
+  first.chapterKeyword === second.chapterKeyword &&
+  first.sourceStatus === second.sourceStatus &&
+  first.startTime === second.startTime &&
+  first.endTime === second.endTime;
+
+const isDefaultFollowUpFilters = (filters: FollowUpFilters) =>
+  areFollowUpFiltersEqual(
+    normalizeFollowUpFilters(filters),
+    normalizeFollowUpFilters(createFollowUpFilters()),
+  );
 
 const formatCount = (value: number, locale: string): string =>
   formatAdminCount(value, locale);
@@ -184,6 +224,26 @@ const resolveDetailLessonDisplay = ({
   emptyValue: string;
 }) => formatValue(lessonTitle || chapterTitle, emptyValue);
 
+const resolveOutlineFieldLabelKey = ({
+  lessonTitle,
+  chapterTitle,
+  hasChapterLabel,
+  lessonLabel,
+}: {
+  lessonTitle?: string;
+  chapterTitle?: string;
+  hasChapterLabel: string;
+  lessonLabel: string;
+}) => {
+  const normalizedChapterTitle = chapterTitle?.trim() || '';
+  const normalizedLessonTitle = lessonTitle?.trim() || '';
+  return normalizedChapterTitle &&
+    normalizedLessonTitle &&
+    normalizedChapterTitle !== normalizedLessonTitle
+    ? hasChapterLabel
+    : lessonLabel;
+};
+
 const resolvePrimaryAccount = ({
   mobile,
   email,
@@ -202,62 +262,13 @@ const resolvePrimaryAccount = ({
   return formatValue(preferred || alternate || userBid, emptyValue);
 };
 
-function ClearableTextInput({
-  id,
-  value,
-  placeholder,
-  clearLabel,
-  onChange,
-  onSubmit,
-}: {
-  id?: string;
-  value: string;
-  placeholder: string;
-  clearLabel: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
-}) {
-  const hasValue = value.trim().length > 0;
-
-  return (
-    <div className='relative'>
-      <Input
-        id={id}
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        onKeyDown={event => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            onSubmit();
-          }
-        }}
-        placeholder={placeholder}
-        className={cn('h-9', hasValue && 'pr-9')}
-      />
-      {hasValue ? (
-        <button
-          type='button'
-          aria-label={clearLabel}
-          className='absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground'
-          onMouseDown={event => event.preventDefault()}
-          onClick={() => onChange('')}
-        >
-          <X className='h-3.5 w-3.5' />
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
 /**
- * t('module.operationsCourse.detail.followUps.back')
  * t('module.operationsCourse.detail.followUps.title')
  * t('module.operationsCourse.detail.followUps.openMetric')
  * t('module.operationsCourse.detail.followUps.summary.followUpCount')
  * t('module.operationsCourse.detail.followUps.summary.userCount')
  * t('module.operationsCourse.detail.followUps.summary.lessonCount')
  * t('module.operationsCourse.detail.followUps.summary.latestFollowUpAt')
- * t('module.operationsCourse.detail.followUps.summary.scopeHint')
  * t('module.operationsCourse.detail.followUps.filters.userKeyword')
  * t('module.operationsCourse.detail.followUps.filters.userKeywordPlaceholder')
  * t('module.operationsCourse.detail.followUps.filters.userKeywordPlaceholderPhone')
@@ -326,6 +337,9 @@ export default function AdminOperationCourseFollowUpsPage() {
     useState<AdminOperationCourseFollowUpListResponse>(
       EMPTY_FOLLOW_UPS_RESPONSE,
     );
+  const [fullSummary, setFullSummary] = useState(
+    EMPTY_FOLLOW_UPS_RESPONSE.summary,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
   const [pageIndex, setPageIndex] = useState(1);
@@ -358,10 +372,13 @@ export default function AdminOperationCourseFollowUpsPage() {
       if (!shifuBid.trim()) {
         setError({ message: unknownErrorMessage });
         setFollowUps(EMPTY_FOLLOW_UPS_RESPONSE);
+        setFullSummary(EMPTY_FOLLOW_UPS_RESPONSE.summary);
         return;
       }
 
-      const resolvedFilters = nextFilters ?? filters;
+      const resolvedFilters = normalizeFollowUpFilters(nextFilters ?? filters);
+      const shouldRefreshFullSummary =
+        isDefaultFollowUpFilters(resolvedFilters);
       const requestId = listRequestIdRef.current + 1;
       listRequestIdRef.current = requestId;
       setLoading(true);
@@ -372,13 +389,20 @@ export default function AdminOperationCourseFollowUpsPage() {
           shifu_bid: shifuBid,
           page: targetPage,
           page_size: PAGE_SIZE,
-          keyword: resolvedFilters.keyword.trim(),
-          chapter_keyword: resolvedFilters.chapterKeyword.trim(),
+          include_summary: shouldRefreshFullSummary,
+          keyword: resolvedFilters.keyword,
+          chapter_keyword: resolvedFilters.chapterKeyword,
+          source_status: resolvedFilters.sourceStatus,
           start_time: resolvedFilters.startTime,
           end_time: resolvedFilters.endTime,
         })) as AdminOperationCourseFollowUpListResponse;
         if (requestId !== listRequestIdRef.current) {
           return;
+        }
+        if (shouldRefreshFullSummary) {
+          setFullSummary(
+            response?.summary || EMPTY_FOLLOW_UPS_RESPONSE.summary,
+          );
         }
         setFollowUps({
           summary: response?.summary || EMPTY_FOLLOW_UPS_RESPONSE.summary,
@@ -485,10 +509,31 @@ export default function AdminOperationCourseFollowUpsPage() {
   const outlineColumnLabel = hasChapterHierarchy
     ? tOperations('detail.followUps.table.chapter')
     : tOperations('detail.followUps.table.lesson');
-  const summaryScopeHint = tOperations('detail.followUps.summary.scopeHint');
   const turnIndexHelpText = tOperations('detail.followUps.turnIndexHelp');
+  const tableScopeHint = tOperations('detail.followUps.table.scopeHint');
+  const resolveDetailOutlineFieldLabel = useCallback(
+    ({
+      lessonTitle,
+      chapterTitle,
+    }: {
+      lessonTitle?: string;
+      chapterTitle?: string;
+    }) => {
+      const fieldKey = resolveOutlineFieldLabelKey({
+        lessonTitle,
+        chapterTitle,
+        hasChapterLabel: 'detail.followUps.drawer.fields.chapter',
+        lessonLabel: 'detail.followUps.drawer.fields.lesson',
+      });
+      return fieldKey === 'detail.followUps.drawer.fields.lesson'
+        ? tOperations('detail.followUps.drawer.fields.lesson')
+        : tOperations('detail.followUps.drawer.fields.chapter');
+    },
+    [tOperations],
+  );
   const userKeywordInputId = 'follow-up-user-keyword-filter';
   const outlineKeywordInputId = 'follow-up-outline-keyword-filter';
+  const sourceStatusSelectId = 'follow-up-source-status-filter';
   const followUpTimeFilterAriaLabel = tOperations(
     'detail.followUps.filters.followUpTime',
   );
@@ -497,31 +542,31 @@ export default function AdminOperationCourseFollowUpsPage() {
       {
         key: 'followUpCount',
         label: tOperations('detail.followUps.summary.followUpCount'),
-        value: formatCount(followUps.summary.follow_up_count, i18n.language),
+        value: formatCount(fullSummary.follow_up_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'userCount',
         label: tOperations('detail.followUps.summary.userCount'),
-        value: formatCount(followUps.summary.user_count, i18n.language),
+        value: formatCount(fullSummary.user_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'lessonCount',
         label: tOperations('detail.followUps.summary.lessonCount'),
-        value: formatCount(followUps.summary.lesson_count, i18n.language),
+        value: formatCount(fullSummary.lesson_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'latestFollowUpAt',
         label: tOperations('detail.followUps.summary.latestFollowUpAt'),
         value:
-          formatAdminNaiveDateTime(followUps.summary.latest_follow_up_at) ||
+          formatAdminNaiveDateTime(fullSummary.latest_follow_up_at) ||
           emptyValue,
         tone: 'timestamp' as const,
       },
     ],
-    [emptyValue, followUps.summary, i18n.language, tOperations],
+    [emptyValue, fullSummary, i18n.language, tOperations],
   );
 
   const resolveUserSecondary = useCallback(
@@ -536,22 +581,30 @@ export default function AdminOperationCourseFollowUpsPage() {
   );
 
   const handleSearch = useCallback(() => {
-    const nextFilters = {
-      keyword: filtersDraft.keyword.trim(),
-      chapterKeyword: filtersDraft.chapterKeyword.trim(),
-      startTime: filtersDraft.startTime,
-      endTime: filtersDraft.endTime,
-    };
+    const nextFilters = normalizeFollowUpFilters(filtersDraft);
+    if (pageIndex === 1 && areFollowUpFiltersEqual(nextFilters, filters)) {
+      return;
+    }
     setFilters(nextFilters);
     setPageIndex(1);
-  }, [filtersDraft]);
+  }, [filters, filtersDraft, pageIndex]);
 
   const handleReset = useCallback(() => {
     const nextFilters = createFollowUpFilters();
+    if (
+      pageIndex === 1 &&
+      areFollowUpFiltersEqual(nextFilters, filters) &&
+      areFollowUpFiltersEqual(nextFilters, filtersDraft)
+    ) {
+      return;
+    }
     setFiltersDraft(nextFilters);
+    if (pageIndex === 1 && areFollowUpFiltersEqual(nextFilters, filters)) {
+      return;
+    }
     setFilters(nextFilters);
     setPageIndex(1);
-  }, []);
+  }, [filters, filtersDraft, pageIndex]);
 
   const handlePageChange = useCallback(
     (nextPage: number) => {
@@ -628,25 +681,20 @@ export default function AdminOperationCourseFollowUpsPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-        <div className='mb-5 flex shrink-0 flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between'>
-          <div className='space-y-1'>
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {tOperations('detail.followUps.title')}
-            </h1>
-            <p className='text-sm text-muted-foreground'>{summaryScopeHint}</p>
-          </div>
-          <Button
-            variant='outline'
-            className='sm:mr-3'
-            onClick={() => {
-              if (detailPageUrl) {
-                router.push(detailPageUrl);
-              }
-            }}
-          >
-            {tOperations('detail.followUps.back')}
-          </Button>
-        </div>
+        <AdminOperationsBreadcrumb
+          items={[
+            {
+              label: tOperations('title'),
+              href: '/admin/operations',
+            },
+            {
+              label: tOperations('detail.title'),
+              href: detailPageUrl || undefined,
+            },
+            { label: tOperations('detail.followUps.title') },
+          ]}
+        />
+        <AdminTitle title={tOperations('detail.followUps.title')} />
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>
           <div className='space-y-5 pb-6'>
@@ -691,6 +739,9 @@ export default function AdminOperationCourseFollowUpsPage() {
                     {tOperations('detail.followUps.table.title')}
                   </CardTitle>
                   <p className='text-xs leading-5 text-muted-foreground/85'>
+                    {tableScopeHint}
+                  </p>
+                  <p className='text-xs leading-5 text-muted-foreground/85'>
                     {turnIndexHelpText}
                   </p>
                 </div>
@@ -711,7 +762,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                       >
                         {tOperations('detail.followUps.filters.userKeyword')}
                       </label>
-                      <ClearableTextInput
+                      <AdminClearableInput
                         id={userKeywordInputId}
                         value={filtersDraft.keyword}
                         placeholder={userKeywordPlaceholder}
@@ -732,7 +783,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                       >
                         {outlineFilterLabel}
                       </label>
-                      <ClearableTextInput
+                      <AdminClearableInput
                         id={outlineKeywordInputId}
                         value={filtersDraft.chapterKeyword}
                         placeholder={outlineFilterPlaceholder}
@@ -745,6 +796,51 @@ export default function AdminOperationCourseFollowUpsPage() {
                         }
                         onSubmit={handleSearch}
                       />
+                    </div>
+                    <div className='flex flex-col gap-2'>
+                      <label
+                        htmlFor={sourceStatusSelectId}
+                        className='text-xs font-medium text-muted-foreground'
+                      >
+                        {tOperations('detail.followUps.filters.sourceStatus')}
+                      </label>
+                      <Select
+                        value={filtersDraft.sourceStatus}
+                        onValueChange={value =>
+                          setFiltersDraft(previous => ({
+                            ...previous,
+                            sourceStatus: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger
+                          id={sourceStatusSelectId}
+                          className='h-9'
+                        >
+                          <SelectValue
+                            placeholder={tOperations(
+                              'detail.followUps.filters.sourceStatusAll',
+                            )}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ALL_SOURCE_STATUS}>
+                            {tOperations(
+                              'detail.followUps.filters.sourceStatusAll',
+                            )}
+                          </SelectItem>
+                          <SelectItem value='resolved'>
+                            {tOperations(
+                              'detail.followUps.filters.sourceStatusResolved',
+                            )}
+                          </SelectItem>
+                          <SelectItem value='missing'>
+                            {tOperations(
+                              'detail.followUps.filters.sourceStatusMissing',
+                            )}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className='flex flex-col gap-2'>
                       <label className='text-xs font-medium text-muted-foreground'>
@@ -772,12 +868,13 @@ export default function AdminOperationCourseFollowUpsPage() {
                     </div>
                   </div>
 
-                  <div className='mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3 xl:items-end'>
+                  <div className='mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end'>
                     <div className='pl-3 text-sm text-muted-foreground xl:self-center'>
                       {tOperations('detail.followUps.filters.resultCount', {
                         count: followUps.total,
                       })}
                     </div>
+                    <div className='hidden xl:block' />
                     <div className='hidden xl:block' />
                     <div className='flex min-h-9 items-center justify-start gap-2 md:justify-end'>
                       <Button
@@ -813,7 +910,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                     loading={loading}
                     isEmpty={rows.length === 0}
                     emptyContent={tOperations('detail.followUps.table.empty')}
-                    emptyColSpan={6}
+                    emptyColSpan={Object.keys(COLUMN_DEFAULT_WIDTHS).length}
                     withTooltipProvider
                     tableWrapperClassName='overflow-auto'
                     loadingClassName='min-h-[240px]'
@@ -991,6 +1088,25 @@ export default function AdminOperationCourseFollowUpsPage() {
                                           emptyValue={emptyValue}
                                           className='mx-auto block max-w-full text-sm font-medium text-foreground transition-colors group-hover:text-primary'
                                         />
+                                        <div className='mt-2 flex justify-center'>
+                                          <Badge
+                                            variant='outline'
+                                            className={cn(
+                                              'border px-2 py-0.5 text-[11px] font-medium',
+                                              item.has_source_output
+                                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                                : 'border-amber-200 bg-amber-50 text-amber-700',
+                                            )}
+                                          >
+                                            {item.has_source_output
+                                              ? tOperations(
+                                                  'detail.followUps.table.sourceResolved',
+                                                )
+                                              : tOperations(
+                                                  'detail.followUps.table.sourceMissing',
+                                                )}
+                                          </Badge>
+                                        </div>
                                       </button>
                                     </TableCell>
                                     <TableCell
@@ -1028,25 +1144,16 @@ export default function AdminOperationCourseFollowUpsPage() {
                         </TableBody>
                       </Table>
                     )}
-                    footer={
-                      <AdminPagination
-                        pageIndex={currentPage}
-                        pageCount={pageCount}
-                        onPageChange={handlePageChange}
-                        prevLabel={t('module.order.paginationPrev', 'Previous')}
-                        nextLabel={t('module.order.paginationNext', 'Next')}
-                        prevAriaLabel={t(
-                          'module.order.paginationPrevAriaLabel',
-                          'Go to previous page',
-                        )}
-                        nextAriaLabel={t(
-                          'module.order.paginationNextAriaLabel',
-                          'Go to next page',
-                        )}
-                        className='mx-0 w-auto justify-end'
-                        hideWhenSinglePage
-                      />
-                    }
+                    pagination={{
+                      pageIndex: currentPage,
+                      pageCount,
+                      onPageChange: handlePageChange,
+                      prevLabel: t('module.order.paginationPrev'),
+                      nextLabel: t('module.order.paginationNext'),
+                      prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+                      nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+                      hideWhenSinglePage: true,
+                    }}
                   />
                 )}
               </CardContent>
@@ -1064,6 +1171,7 @@ export default function AdminOperationCourseFollowUpsPage() {
         contactMode={contactMode}
         defaultUserName={defaultUserName}
         resolveLessonDisplay={resolveDetailLessonDisplay}
+        resolveOutlineFieldLabel={resolveDetailOutlineFieldLabel}
         onRetry={fetchFollowUpDetail}
         onOpenChange={handleDetailOpenChange}
       />

@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from flask import Flask
@@ -11,11 +12,12 @@ from flaskr.dao import db
 from flaskr.service.common.models import AppException
 from flaskr.service.shifu import admin as admin_module
 from flaskr.service.shifu.admin import (
-    _load_course_activity_map,
     _load_latest_shifus,
     _build_operator_course_overview,
+    OperatorCourseListSeed,
     list_operator_courses,
 )
+from flaskr.service.shifu.course_activity import load_course_activity_map
 from flaskr.service.learn.const import LEARN_STATUS_COMPLETED
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_SUCCESS
@@ -25,7 +27,7 @@ from flaskr.service.shifu.admin_dtos import (
     AdminOperationCourseOverviewDTO,
     AdminOperationCourseSummaryDTO,
 )
-from flaskr.service.shifu.models import PublishedShifu
+from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 
 
@@ -86,7 +88,9 @@ def test_list_operator_courses_prefers_latest_draft_and_formats_contacts():
     with patch(
         "flaskr.service.shifu.admin._find_matching_creator_bids"
     ) as creator_mock:
-        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+        with patch(
+            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
+        ) as latest_mock:
             with patch(
                 "flaskr.service.shifu.admin._load_course_activity_map"
             ) as activity_mock:
@@ -171,7 +175,9 @@ def test_list_operator_courses_paginates_merged_results():
     with patch(
         "flaskr.service.shifu.admin._find_matching_creator_bids"
     ) as creator_mock:
-        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+        with patch(
+            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
+        ) as latest_mock:
             with patch(
                 "flaskr.service.shifu.admin._load_course_activity_map"
             ) as activity_mock:
@@ -208,6 +214,79 @@ def test_list_operator_courses_paginates_merged_results():
     assert result.items[0].shifu_bid == "course-1"
 
 
+def test_list_operator_courses_attaches_prompt_flags_for_lightweight_page_items():
+    app = Flask(__name__)
+    draft_seed = OperatorCourseListSeed(
+        id=11,
+        shifu_bid="course-draft",
+        title="Draft Seed",
+        price="29.00",
+        llm="gpt-4.1-mini",
+        created_user_bid="creator-1",
+        updated_user_bid="creator-1",
+        created_at=datetime(2025, 4, 2, 10, 0, 0),
+        updated_at=datetime(2025, 4, 4, 10, 0, 0),
+    )
+    published_seed = OperatorCourseListSeed(
+        id=12,
+        shifu_bid="course-published",
+        title="Published Seed",
+        price="59.00",
+        llm="gpt-4.1",
+        created_user_bid="creator-2",
+        updated_user_bid="creator-2",
+        created_at=datetime(2025, 4, 1, 10, 0, 0),
+        updated_at=datetime(2025, 4, 3, 10, 0, 0),
+    )
+
+    def attach_prompt_flags(model, rows):
+        for row in rows:
+            row.has_course_prompt = model is PublishedShifu
+
+    with patch(
+        "flaskr.service.shifu.admin._find_matching_creator_bids"
+    ) as creator_mock:
+        with patch(
+            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
+        ) as latest_mock:
+            with patch(
+                "flaskr.service.shifu.admin._load_course_activity_map"
+            ) as activity_mock:
+                with patch(
+                    "flaskr.service.shifu.admin._attach_course_prompt_flags",
+                    side_effect=attach_prompt_flags,
+                ):
+                    with patch(
+                        "flaskr.service.shifu.admin._load_user_map"
+                    ) as user_map_mock:
+                        with patch(
+                            "flaskr.service.shifu.admin._build_operator_course_overview",
+                            return_value=EMPTY_COURSE_OVERVIEW,
+                        ):
+                            creator_mock.return_value = None
+                            latest_mock.side_effect = [[draft_seed], [published_seed]]
+                            activity_mock.return_value = {}
+                            user_map_mock.return_value = {
+                                "creator-1": {
+                                    "mobile": "",
+                                    "email": "creator-1@example.com",
+                                    "nickname": "",
+                                },
+                                "creator-2": {
+                                    "mobile": "",
+                                    "email": "creator-2@example.com",
+                                    "nickname": "",
+                                },
+                            }
+
+                            result = list_operator_courses(app, 2, 1, {})
+
+    assert result.total == 2
+    assert len(result.items) == 1
+    assert result.items[0].shifu_bid == "course-published"
+    assert result.items[0].has_course_prompt is True
+
+
 def test_list_operator_courses_uses_latest_activity_for_updater_and_updated_at():
     app = Flask(__name__)
     draft_course = DummyCourse(
@@ -232,7 +311,9 @@ def test_list_operator_courses_uses_latest_activity_for_updater_and_updated_at()
     with patch(
         "flaskr.service.shifu.admin._find_matching_creator_bids"
     ) as creator_mock:
-        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+        with patch(
+            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
+        ) as latest_mock:
             with patch(
                 "flaskr.service.shifu.admin._load_course_activity_map"
             ) as activity_mock:
@@ -296,7 +377,9 @@ def test_list_operator_courses_filters_by_latest_activity_updated_range():
     with patch(
         "flaskr.service.shifu.admin._find_matching_creator_bids"
     ) as creator_mock:
-        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+        with patch(
+            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
+        ) as latest_mock:
             with patch(
                 "flaskr.service.shifu.admin._load_course_activity_map"
             ) as activity_mock:
@@ -394,7 +477,7 @@ def test_load_course_activity_map_prefers_latest_outline_activity_row(app):
         )
         db.session.commit()
 
-        activity_map = _load_course_activity_map([draft_course], [])
+        activity_map = load_course_activity_map([draft_course], [])
 
     assert activity_map[shifu_bid]["updated_user_bid"] == "editor-2"
     assert activity_map[shifu_bid]["updated_at"] == datetime(2025, 4, 5, 10, 0, 0)
@@ -437,7 +520,7 @@ def test_load_course_activity_map_prefers_outline_when_timestamp_ties_course(app
         )
         db.session.commit()
 
-        activity_map = _load_course_activity_map([draft_course], [])
+        activity_map = load_course_activity_map([draft_course], [])
 
     assert activity_map[shifu_bid]["updated_user_bid"] == "outline-editor"
     assert activity_map[shifu_bid]["updated_at"] == shared_updated_at
@@ -476,7 +559,9 @@ def test_list_operator_courses_filters_out_builtin_demo_courses_only():
     with patch(
         "flaskr.service.shifu.admin._find_matching_creator_bids"
     ) as creator_mock:
-        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+        with patch(
+            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
+        ) as latest_mock:
             with patch(
                 "flaskr.service.shifu.admin._load_course_activity_map"
             ) as activity_mock:
@@ -540,7 +625,9 @@ def test_list_operator_courses_skips_system_user_lookup():
     with patch(
         "flaskr.service.shifu.admin._find_matching_creator_bids"
     ) as creator_mock:
-        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+        with patch(
+            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
+        ) as latest_mock:
             with patch(
                 "flaskr.service.shifu.admin._load_course_activity_map"
             ) as activity_mock:
@@ -597,7 +684,9 @@ def test_list_operator_courses_filters_by_course_status():
     with patch(
         "flaskr.service.shifu.admin._find_matching_creator_bids"
     ) as creator_mock:
-        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+        with patch(
+            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
+        ) as latest_mock:
             with patch(
                 "flaskr.service.shifu.admin._load_course_activity_map"
             ) as activity_mock:
@@ -692,7 +781,9 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch):
     with patch(
         "flaskr.service.shifu.admin._find_matching_creator_bids"
     ) as creator_mock:
-        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+        with patch(
+            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
+        ) as latest_mock:
             with patch(
                 "flaskr.service.shifu.admin._load_course_activity_map"
             ) as activity_mock:
@@ -767,7 +858,9 @@ def test_list_operator_courses_rejects_invalid_quick_filter_before_loading_overv
     with patch(
         "flaskr.service.shifu.admin._build_operator_course_overview"
     ) as overview_mock:
-        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
+        with patch(
+            "flaskr.service.shifu.admin._load_latest_shifu_seeds"
+        ) as latest_mock:
             try:
                 list_operator_courses(app, 1, 20, {"quick_filter": "invalid"})
             except AppException as exc:
@@ -795,6 +888,12 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
     user_bid = uuid.uuid4().hex[:32]
 
     with app.app_context():
+        Order.query.delete()
+        LearnProgressRecord.query.delete()
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
         db.session.add_all(
             [
                 DraftShifu(
@@ -957,32 +1056,7 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
             ]
         )
         db.session.commit()
-        draft_rows = (
-            DraftShifu.query.filter(
-                DraftShifu.shifu_bid.in_(
-                    [
-                        draft_only_bid,
-                        published_with_draft_bid,
-                        builtin_demo_bid,
-                    ]
-                )
-            )
-            .order_by(DraftShifu.id.asc())
-            .all()
-        )
-        published_rows = (
-            PublishedShifu.query.filter(
-                PublishedShifu.shifu_bid.in_(
-                    [published_only_bid, published_with_draft_bid]
-                )
-            )
-            .order_by(PublishedShifu.id.asc())
-            .all()
-        )
-
-        with patch("flaskr.service.shifu.admin._load_latest_shifus") as latest_mock:
-            latest_mock.side_effect = [draft_rows, published_rows]
-            summary = _build_operator_course_overview(app)
+        summary = _build_operator_course_overview(app)
 
     assert summary.total_course_count == 3
     assert summary.draft_course_count == 1
@@ -990,6 +1064,276 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
     assert summary.created_last_7d_course_count == 2
     assert summary.learning_active_30d_course_count == 2
     assert summary.paid_order_30d_course_count == 2
+
+
+def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_order(
+    app,
+):
+    creator_bid = uuid.uuid4().hex[:32]
+    draft_only_bid = uuid.uuid4().hex[:32]
+    published_only_bid = uuid.uuid4().hex[:32]
+    published_with_draft_bid = uuid.uuid4().hex[:32]
+    builtin_demo_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        DraftOutlineItem.query.delete()
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
+        db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=draft_only_bid,
+                    title="Draft Only Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="draft prompt",
+                    price=Decimal("19"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 28, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 28, 9, 0, 0),
+                ),
+                DraftShifu(
+                    shifu_bid=published_with_draft_bid,
+                    title="Draft Wins Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="draft prompt",
+                    price=Decimal("99"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 20, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 20, 9, 0, 0),
+                ),
+                DraftShifu(
+                    shifu_bid=builtin_demo_bid,
+                    title="AI-Shifu Creation Guide",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("0"),
+                    created_user_bid="system",
+                    updated_user_bid="system",
+                    created_at=datetime(2025, 4, 29, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 29, 9, 0, 0),
+                ),
+                PublishedShifu(
+                    shifu_bid=published_only_bid,
+                    title="Published Only Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("49"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 15, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 15, 9, 0, 0),
+                ),
+                PublishedShifu(
+                    shifu_bid=published_with_draft_bid,
+                    title="Published Loses Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("79"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 18, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 18, 9, 0, 0),
+                ),
+            ]
+        )
+        db.session.flush()
+        db.session.add(
+            DraftOutlineItem(
+                outline_item_bid=uuid.uuid4().hex[:32],
+                shifu_bid=published_with_draft_bid,
+                title="Latest Outline Update",
+                parent_bid="",
+                position="1",
+                created_user_bid=creator_bid,
+                updated_user_bid="editor-1",
+                updated_at=datetime(2025, 5, 1, 10, 0, 0),
+            )
+        )
+        db.session.commit()
+
+        with patch("flaskr.service.shifu.admin._load_user_map") as user_map_mock:
+            user_map_mock.return_value = {
+                creator_bid: {
+                    "mobile": "15811112222",
+                    "email": "creator@example.com",
+                    "nickname": "Creator One",
+                },
+                "editor-1": {
+                    "mobile": "13200001111",
+                    "email": "editor@example.com",
+                    "nickname": "Editor One",
+                },
+            }
+            result = list_operator_courses(app, 1, 20, {})
+            second_page_result = list_operator_courses(app, 2, 1, {})
+
+    assert result.total == 3
+    assert [item.shifu_bid for item in result.items] == [
+        published_with_draft_bid,
+        draft_only_bid,
+        published_only_bid,
+    ]
+    assert result.items[0].course_name == "Draft Wins Course"
+    assert result.items[0].course_status == "published"
+    assert result.items[0].updated_at == "2025-05-01T10:00:00Z"
+    assert result.items[0].updater_user_bid == "editor-1"
+    assert result.items[0].updater_nickname == "Editor One"
+    assert result.items[1].course_status == "unpublished"
+    assert result.items[2].course_status == "published"
+    assert second_page_result.total == 3
+    assert second_page_result.page == 2
+    assert second_page_result.page_count == 3
+    assert [item.shifu_bid for item in second_page_result.items] == [draft_only_bid]
+
+
+def test_list_operator_courses_sql_path_uses_current_outline_revisions_only(app):
+    creator_bid = uuid.uuid4().hex[:32]
+    shifu_bid = uuid.uuid4().hex[:32]
+    outline_item_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        DraftOutlineItem.query.delete()
+        PublishedOutlineItem.query.delete()
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
+        db.session.add(
+            DraftShifu(
+                shifu_bid=shifu_bid,
+                title="Current Outline Revision Course",
+                description="desc",
+                avatar_res_bid="",
+                keywords="",
+                llm="gpt-test",
+                llm_temperature=Decimal("0"),
+                llm_system_prompt="",
+                price=Decimal("19"),
+                created_user_bid=creator_bid,
+                updated_user_bid=creator_bid,
+                created_at=datetime(2025, 4, 1, 9, 0, 0),
+                updated_at=datetime(2025, 4, 1, 10, 0, 0),
+            )
+        )
+        db.session.flush()
+        db.session.add_all(
+            [
+                DraftOutlineItem(
+                    outline_item_bid=outline_item_bid,
+                    shifu_bid=shifu_bid,
+                    title="Old Active Revision",
+                    parent_bid="",
+                    position="1",
+                    created_user_bid=creator_bid,
+                    updated_user_bid="old-outline-editor",
+                    updated_at=datetime(2025, 5, 5, 10, 0, 0),
+                ),
+                DraftOutlineItem(
+                    outline_item_bid=outline_item_bid,
+                    shifu_bid=shifu_bid,
+                    title="Current Deleted Revision",
+                    parent_bid="",
+                    position="1",
+                    deleted=1,
+                    created_user_bid=creator_bid,
+                    updated_user_bid="deleted-outline-editor",
+                    updated_at=datetime(2025, 5, 6, 10, 0, 0),
+                ),
+            ]
+        )
+        db.session.commit()
+
+        result = list_operator_courses(app, 1, 20, {})
+        filtered_result = list_operator_courses(
+            app,
+            1,
+            20,
+            {"updated_start_time": datetime(2025, 5, 1, 0, 0, 0)},
+        )
+
+    assert result.total == 1
+    assert result.items[0].shifu_bid == shifu_bid
+    assert result.items[0].updated_at == "2025-04-01T10:00:00Z"
+    assert result.items[0].updater_user_bid == creator_bid
+    assert filtered_result.total == 0
+    assert filtered_result.items == []
+
+
+def test_list_operator_courses_sql_path_filters_trimmed_builtin_demo_courses(app):
+    creator_bid = uuid.uuid4().hex[:32]
+    demo_bid = uuid.uuid4().hex[:32]
+    normal_bid = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        DraftOutlineItem.query.delete()
+        PublishedShifu.query.delete()
+        DraftShifu.query.delete()
+        db.session.commit()
+
+        db.session.add_all(
+            [
+                DraftShifu(
+                    shifu_bid=demo_bid,
+                    title=" AI-Shifu Creation Guide ",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("0"),
+                    created_user_bid=" system ",
+                    updated_user_bid="system",
+                    created_at=datetime(2025, 4, 29, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 29, 9, 0, 0),
+                ),
+                DraftShifu(
+                    shifu_bid=normal_bid,
+                    title="Normal Draft Course",
+                    description="desc",
+                    avatar_res_bid="",
+                    keywords="",
+                    llm="gpt-test",
+                    llm_temperature=Decimal("0"),
+                    llm_system_prompt="",
+                    price=Decimal("19"),
+                    created_user_bid=creator_bid,
+                    updated_user_bid=creator_bid,
+                    created_at=datetime(2025, 4, 28, 9, 0, 0),
+                    updated_at=datetime(2025, 4, 28, 9, 0, 0),
+                ),
+            ]
+        )
+        db.session.commit()
+
+        result = list_operator_courses(app, 1, 20, {})
+
+    assert result.total == 1
+    assert [item.shifu_bid for item in result.items] == [normal_bid]
 
 
 def test_merge_courses_checks_published_visibility_once():
@@ -1016,7 +1360,7 @@ def test_merge_courses_checks_published_visibility_once():
         "flaskr.service.shifu.admin._is_operator_visible_course",
         side_effect=[True, True],
     ) as visible_mock:
-        merged_courses, published_bids = admin_module._merge_courses(
+        merged_courses, published_bids, _ = admin_module._merge_courses(
             [draft_course], [published_course]
         )
 
@@ -1095,13 +1439,23 @@ class FakeOuterQuery:
         self.filters = []
         self.ordering = []
         self.result = result
+        self.options_calls = []
+        self.with_entities_calls = []
 
     def filter(self, *conditions):
         self.filters.extend(conditions)
         return self
 
+    def options(self, *options):
+        self.options_calls.extend(options)
+        return self
+
     def order_by(self, *ordering):
         self.ordering.extend(ordering)
+        return self
+
+    def with_entities(self, *columns):
+        self.with_entities_calls.append(columns)
         return self
 
     def all(self):
@@ -1117,7 +1471,7 @@ class FakeSession:
     def query(self, target):
         if target == ("max", "id", "max_id"):
             return self.latest_query
-        if target is FakeModel:
+        if isinstance(target, type) and issubclass(target, FakeModel):
             return self.outer_query
         id_query = FakeIdQuery(target)
         self.id_queries.append(id_query)
@@ -1144,6 +1498,14 @@ class FakeModel:
     created_user_bid = FakeColumn("created_user_bid")
     created_at = FakeColumn("created_at")
     updated_at = FakeColumn("updated_at")
+
+
+class FakeMappedModel(FakeModel):
+    __mapper__ = object()
+    llm_system_prompt = FakeColumn("llm_system_prompt")
+    price = FakeColumn("price")
+    llm = FakeColumn("llm")
+    updated_user_bid = FakeColumn("updated_user_bid")
 
 
 def test_load_latest_shifus_filters_on_latest_rows(monkeypatch):
@@ -1189,3 +1551,40 @@ def test_load_latest_shifus_filters_on_latest_rows(monkeypatch):
         ("desc", "updated_at"),
         ("desc", "id"),
     ]
+
+
+def test_load_latest_shifus_skips_loader_options_for_lightweight_queries(monkeypatch):
+    latest_query = FakeLatestQuery()
+    outer_query = FakeOuterQuery(
+        [
+            SimpleNamespace(
+                id=1,
+                shifu_bid="course-1",
+                title="Course 1",
+                price="19.00",
+                llm="gpt-4.1-mini",
+                created_user_bid="creator-1",
+                updated_user_bid="creator-1",
+                created_at=datetime(2025, 4, 1, 10, 0, 0),
+                updated_at=datetime(2025, 4, 2, 10, 0, 0),
+            )
+        ]
+    )
+    fake_db = FakeDB(latest_query, outer_query)
+    monkeypatch.setattr(admin_module, "db", fake_db)
+
+    result = _load_latest_shifus(
+        FakeMappedModel,
+        shifu_bid="",
+        course_name="",
+        creator_bids=None,
+        start_time=None,
+        end_time=None,
+        updated_start_time=None,
+        updated_end_time=None,
+        lightweight=True,
+    )
+
+    assert len(outer_query.options_calls) == 0
+    assert len(outer_query.with_entities_calls) == 1
+    assert result[0].shifu_bid == "course-1"

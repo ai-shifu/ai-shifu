@@ -1,12 +1,13 @@
 'use client';
 
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
@@ -21,7 +22,6 @@ import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
 import {
   Select,
   SelectContent,
@@ -40,6 +40,7 @@ import {
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
+import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
 import {
   buildAdminOperationsCourseDetailUrl,
   buildAdminOperationsCourseRatingsUrl,
@@ -108,6 +109,30 @@ const createRatingFilters = (): RatingFilters => ({
   startTime: '',
   endTime: '',
 });
+
+const normalizeRatingFilters = (filters: RatingFilters): RatingFilters => ({
+  keyword: filters.keyword.trim(),
+  chapterKeyword: filters.chapterKeyword.trim(),
+  score: filters.score,
+  mode: filters.mode,
+  commentFilter: filters.commentFilter,
+  sortBy: filters.sortBy,
+  startTime: filters.startTime,
+  endTime: filters.endTime,
+});
+
+const areRatingFiltersEqual = (first: RatingFilters, second: RatingFilters) =>
+  first.keyword === second.keyword &&
+  first.chapterKeyword === second.chapterKeyword &&
+  first.score === second.score &&
+  first.mode === second.mode &&
+  first.commentFilter === second.commentFilter &&
+  first.sortBy === second.sortBy &&
+  first.startTime === second.startTime &&
+  first.endTime === second.endTime;
+
+const isDefaultRatingFilters = (filters: RatingFilters) =>
+  areRatingFiltersEqual(filters, createRatingFilters());
 
 const formatCount = (value: number, locale: string): string =>
   formatAdminCount(value, locale);
@@ -179,56 +204,8 @@ const resolvePrimaryAccount = ({
   return formatValue(preferred, emptyValue);
 };
 
-function ClearableTextInput({
-  id,
-  value,
-  placeholder,
-  clearLabel,
-  onChange,
-  onSubmit,
-}: {
-  id?: string;
-  value: string;
-  placeholder: string;
-  clearLabel: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
-}) {
-  const hasValue = value.trim().length > 0;
-
-  return (
-    <div className='relative'>
-      <Input
-        id={id}
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        onKeyDown={event => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            onSubmit();
-          }
-        }}
-        placeholder={placeholder}
-        className={cn('h-9', hasValue && 'pr-9')}
-      />
-      {hasValue ? (
-        <button
-          type='button'
-          aria-label={clearLabel}
-          className='absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground'
-          onMouseDown={event => event.preventDefault()}
-          onClick={() => onChange('')}
-        >
-          <X className='h-3.5 w-3.5' />
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
 /*
  * Translation usage markers for scripts/check_translation_usage.py:
- * t('module.operationsCourse.detail.ratings.back')
  * t('module.operationsCourse.detail.ratings.title')
  * t('module.operationsCourse.detail.ratings.openMetric')
  * t('module.operationsCourse.detail.ratings.emptyValue')
@@ -236,7 +213,6 @@ function ClearableTextInput({
  * t('module.operationsCourse.detail.ratings.summary.ratingCount')
  * t('module.operationsCourse.detail.ratings.summary.userCount')
  * t('module.operationsCourse.detail.ratings.summary.latestRatedAt')
- * t('module.operationsCourse.detail.ratings.summary.scopeHint')
  * t('module.operationsCourse.detail.ratings.filters.userKeyword')
  * t('module.operationsCourse.detail.ratings.filters.userKeywordPlaceholderPhone')
  * t('module.operationsCourse.detail.ratings.filters.userKeywordPlaceholderEmail')
@@ -299,6 +275,9 @@ export default function AdminOperationCourseRatingsPage() {
 
   const [ratings, setRatings] =
     useState<AdminOperationCourseRatingListResponse>(EMPTY_RATINGS_RESPONSE);
+  const [fullSummary, setFullSummary] = useState(
+    EMPTY_RATINGS_RESPONSE.summary,
+  );
   const [pageIndex, setPageIndex] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
@@ -307,6 +286,7 @@ export default function AdminOperationCourseRatingsPage() {
   const [filtersDraft, setFiltersDraft] =
     useState<RatingFilters>(createRatingFilters);
   const requestIdRef = useRef(0);
+  const fullSummaryLoadedRef = useRef(false);
 
   const detailPageUrl = useMemo(
     () => buildAdminOperationsCourseDetailUrl(shifuBid),
@@ -328,11 +308,17 @@ export default function AdminOperationCourseRatingsPage() {
     async (nextPage: number, nextFilters: RatingFilters) => {
       if (!shifuBid) {
         setRatings(EMPTY_RATINGS_RESPONSE);
+        setFullSummary(EMPTY_RATINGS_RESPONSE.summary);
+        fullSummaryLoadedRef.current = false;
         setError({ message: unknownErrorMessage });
         setLoading(false);
         return;
       }
 
+      const resolvedFilters = normalizeRatingFilters(nextFilters);
+      const shouldRefreshFullSummary =
+        isDefaultRatingFilters(resolvedFilters) &&
+        !fullSummaryLoadedRef.current;
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
       setLoading(true);
@@ -342,24 +328,34 @@ export default function AdminOperationCourseRatingsPage() {
           shifu_bid: shifuBid,
           page: nextPage,
           page_size: PAGE_SIZE,
-          keyword: nextFilters.keyword,
-          chapter_keyword: nextFilters.chapterKeyword,
+          include_summary: shouldRefreshFullSummary,
+          keyword: resolvedFilters.keyword,
+          chapter_keyword: resolvedFilters.chapterKeyword,
           score:
-            nextFilters.score === FILTER_ALL_OPTION ? '' : nextFilters.score,
-          mode: nextFilters.mode === FILTER_ALL_OPTION ? '' : nextFilters.mode,
+            resolvedFilters.score === FILTER_ALL_OPTION
+              ? ''
+              : resolvedFilters.score,
+          mode:
+            resolvedFilters.mode === FILTER_ALL_OPTION
+              ? ''
+              : resolvedFilters.mode,
           has_comment:
-            nextFilters.commentFilter === COMMENT_FILTER_COMMENTED_OPTION
+            resolvedFilters.commentFilter === COMMENT_FILTER_COMMENTED_OPTION
               ? 'true'
               : '',
           sort_by:
-            nextFilters.sortBy === SORT_BY_LATEST_OPTION
+            resolvedFilters.sortBy === SORT_BY_LATEST_OPTION
               ? ''
-              : nextFilters.sortBy,
-          start_time: nextFilters.startTime,
-          end_time: nextFilters.endTime,
+              : resolvedFilters.sortBy,
+          start_time: resolvedFilters.startTime,
+          end_time: resolvedFilters.endTime,
         });
         if (requestId !== requestIdRef.current) {
           return;
+        }
+        if (shouldRefreshFullSummary) {
+          setFullSummary(response?.summary || EMPTY_RATINGS_RESPONSE.summary);
+          fullSummaryLoadedRef.current = true;
         }
         setRatings(response || EMPTY_RATINGS_RESPONSE);
       } catch (err) {
@@ -411,7 +407,6 @@ export default function AdminOperationCourseRatingsPage() {
   const outlineColumnLabel = hasChapterHierarchy
     ? tOperations('detail.ratings.table.chapter')
     : tOperations('detail.ratings.table.lesson');
-  const summaryScopeHint = tOperations('detail.ratings.summary.scopeHint');
   const userKeywordInputId = 'rating-user-keyword-filter';
   const outlineKeywordInputId = 'rating-outline-keyword-filter';
   const ratingTimeFilterAriaLabel = tOperations(
@@ -429,31 +424,30 @@ export default function AdminOperationCourseRatingsPage() {
       {
         key: 'averageScore',
         label: tOperations('detail.ratings.summary.averageScore'),
-        value: ratings.summary.average_score || emptyValue,
+        value: fullSummary.average_score || emptyValue,
         tone: 'number' as const,
       },
       {
         key: 'ratingCount',
         label: tOperations('detail.ratings.summary.ratingCount'),
-        value: formatCount(ratings.summary.rating_count, i18n.language),
+        value: formatCount(fullSummary.rating_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'userCount',
         label: tOperations('detail.ratings.summary.userCount'),
-        value: formatCount(ratings.summary.user_count, i18n.language),
+        value: formatCount(fullSummary.user_count, i18n.language),
         tone: 'number' as const,
       },
       {
         key: 'latestRatedAt',
         label: tOperations('detail.ratings.summary.latestRatedAt'),
         value:
-          formatAdminNaiveDateTime(ratings.summary.latest_rated_at) ||
-          emptyValue,
+          formatAdminNaiveDateTime(fullSummary.latest_rated_at) || emptyValue,
         tone: 'timestamp' as const,
       },
     ],
-    [emptyValue, i18n.language, ratings.summary, tOperations],
+    [emptyValue, fullSummary, i18n.language, tOperations],
   );
 
   const resolveUserSecondary = useCallback(
@@ -481,26 +475,36 @@ export default function AdminOperationCourseRatingsPage() {
   );
 
   const handleSearch = useCallback(() => {
-    const nextFilters = {
-      keyword: filtersDraft.keyword.trim(),
-      chapterKeyword: filtersDraft.chapterKeyword.trim(),
-      score: filtersDraft.score,
-      mode: filtersDraft.mode,
-      commentFilter: filtersDraft.commentFilter,
-      sortBy: filtersDraft.sortBy,
-      startTime: filtersDraft.startTime,
-      endTime: filtersDraft.endTime,
-    };
+    const nextFilters = normalizeRatingFilters(filtersDraft);
+    if (pageIndex === 1 && areRatingFiltersEqual(nextFilters, filters)) {
+      return;
+    }
+    if (
+      isDefaultRatingFilters(nextFilters) &&
+      !isDefaultRatingFilters(filters)
+    ) {
+      fullSummaryLoadedRef.current = false;
+    }
     setFilters(nextFilters);
     setPageIndex(1);
-  }, [filtersDraft]);
+  }, [filters, filtersDraft, pageIndex]);
 
   const handleReset = useCallback(() => {
     const nextFilters = createRatingFilters();
+    if (
+      pageIndex === 1 &&
+      areRatingFiltersEqual(nextFilters, filters) &&
+      areRatingFiltersEqual(nextFilters, filtersDraft)
+    ) {
+      return;
+    }
     setFiltersDraft(nextFilters);
+    if (!areRatingFiltersEqual(nextFilters, filters)) {
+      fullSummaryLoadedRef.current = false;
+    }
     setFilters(nextFilters);
     setPageIndex(1);
-  }, []);
+  }, [filters, filtersDraft, pageIndex]);
 
   const handlePageChange = useCallback(
     (nextPage: number) => {
@@ -517,7 +521,7 @@ export default function AdminOperationCourseRatingsPage() {
       key: 'keyword',
       label: tOperations('detail.ratings.filters.userKeyword'),
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           id={userKeywordInputId}
           value={filtersDraft.keyword}
           placeholder={userKeywordPlaceholder}
@@ -536,7 +540,7 @@ export default function AdminOperationCourseRatingsPage() {
       key: 'chapterKeyword',
       label: outlineFilterLabel,
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           id={outlineKeywordInputId}
           value={filtersDraft.chapterKeyword}
           placeholder={outlineFilterPlaceholder}
@@ -728,25 +732,20 @@ export default function AdminOperationCourseRatingsPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-        <div className='mb-5 flex shrink-0 flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between'>
-          <div className='space-y-1'>
-            <h1 className='text-2xl font-semibold text-gray-900'>
-              {tOperations('detail.ratings.title')}
-            </h1>
-            <p className='text-sm text-muted-foreground'>{summaryScopeHint}</p>
-          </div>
-          <Button
-            variant='outline'
-            className='sm:mr-3'
-            onClick={() => {
-              if (detailPageUrl) {
-                router.push(detailPageUrl);
-              }
-            }}
-          >
-            {tOperations('detail.ratings.back')}
-          </Button>
-        </div>
+        <AdminOperationsBreadcrumb
+          items={[
+            {
+              label: tOperations('title'),
+              href: '/admin/operations',
+            },
+            {
+              label: tOperations('detail.title'),
+              href: detailPageUrl || undefined,
+            },
+            { label: tOperations('detail.ratings.title') },
+          ]}
+        />
+        <AdminTitle title={tOperations('detail.ratings.title')} />
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>
           <div className='space-y-5 pb-6'>
@@ -891,7 +890,7 @@ export default function AdminOperationCourseRatingsPage() {
                     loading={loading}
                     isEmpty={rows.length === 0}
                     emptyContent={tOperations('detail.ratings.table.empty')}
-                    emptyColSpan={6}
+                    emptyColSpan={Object.keys(COLUMN_DEFAULT_WIDTHS).length}
                     withTooltipProvider
                     tableWrapperClassName='overflow-auto'
                     loadingClassName='min-h-[240px]'
@@ -1084,23 +1083,16 @@ export default function AdminOperationCourseRatingsPage() {
                         </TableBody>
                       </Table>
                     )}
-                    footer={
-                      <AdminPagination
-                        pageIndex={currentPage}
-                        pageCount={pageCount}
-                        onPageChange={handlePageChange}
-                        prevLabel={t('module.order.paginationPrev')}
-                        nextLabel={t('module.order.paginationNext')}
-                        prevAriaLabel={t(
-                          'module.order.paginationPrevAriaLabel',
-                        )}
-                        nextAriaLabel={t(
-                          'module.order.paginationNextAriaLabel',
-                        )}
-                        className='mx-0 w-auto justify-end'
-                        hideWhenSinglePage
-                      />
-                    }
+                    pagination={{
+                      pageIndex: currentPage,
+                      pageCount,
+                      onPageChange: handlePageChange,
+                      prevLabel: t('module.order.paginationPrev'),
+                      nextLabel: t('module.order.paginationNext'),
+                      prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+                      nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+                      hideWhenSinglePage: true,
+                    }}
                   />
                 )}
               </CardContent>

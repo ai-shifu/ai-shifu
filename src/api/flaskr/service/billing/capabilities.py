@@ -134,6 +134,22 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         notes=("Admin reports remain available from the billing console.",),
     ),
     BillingCapabilityDefinition(
+        key="admin_campaigns",
+        status="active",
+        audience="admin",
+        user_visible=True,
+        default_enabled=True,
+        route_entries=(
+            ("GET", "/api/admin/billing/products/options"),
+            ("GET", "/api/admin/billing/campaigns"),
+            ("POST", "/api/admin/billing/campaigns"),
+            ("GET", "/api/admin/billing/campaigns/{campaign_bid}"),
+            ("POST", "/api/admin/billing/campaigns/{campaign_bid}"),
+            ("POST", "/api/admin/billing/campaigns/{campaign_bid}/status"),
+        ),
+        notes=("Admin package campaign configuration routes remain enabled.",),
+    ),
+    BillingCapabilityDefinition(
         key="runtime_billing_extensions",
         status="active",
         audience="runtime",
@@ -222,6 +238,7 @@ _CAPABILITIES: tuple[BillingCapabilityDefinition, ...] = (
         task_entries=(
             "billing.aggregate_daily_usage_metrics",
             "billing.aggregate_daily_ledger_summary",
+            "billing.finalize_daily_ledger_summary",
             "billing.rebuild_daily_aggregates",
         ),
         cli_entries=("flask console billing rebuild-daily-aggregates",),

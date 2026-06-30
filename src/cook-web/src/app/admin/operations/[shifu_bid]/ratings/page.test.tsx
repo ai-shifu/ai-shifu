@@ -5,6 +5,7 @@ import AdminOperationCourseRatingsPage from './page';
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockGetAdminOperationCourseRatings = jest.fn();
+const mockBrowserTimeZone = jest.fn(() => 'UTC');
 const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
 let mockLanguage = 'en-US';
 const mockEnvState = {
@@ -29,6 +30,22 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ href: string }>) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -51,6 +68,10 @@ jest.mock('@/c-store', () => ({
       defaultLoginMethod: string;
     }) => unknown,
   ) => selector(mockEnvState),
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -158,6 +179,8 @@ describe('AdminOperationCourseRatingsPage', () => {
     mockReplace.mockReset();
     mockPush.mockReset();
     mockGetAdminOperationCourseRatings.mockReset();
+    mockBrowserTimeZone.mockReset();
+    mockBrowserTimeZone.mockReturnValue('UTC');
     mockLanguage = 'en-US';
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
@@ -214,23 +237,21 @@ describe('AdminOperationCourseRatingsPage', () => {
     });
   });
 
-  test('renders rating list and can return to course detail', async () => {
+  test('renders rating list with breadcrumb navigation', async () => {
     render(<AdminOperationCourseRatingsPage />);
 
     expect(
-      await screen.findByText('module.operationsCourse.detail.ratings.title'),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsCourse.detail.ratings.title',
+      }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'module.operationsCourse.detail.ratings.summary.scopeHint',
-      ),
-    ).toBeInTheDocument();
-
     await waitFor(() => {
       expect(mockGetAdminOperationCourseRatings).toHaveBeenCalledWith({
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
+        include_summary: true,
         keyword: '',
         chapter_keyword: '',
         score: '',
@@ -249,13 +270,59 @@ describe('AdminOperationCourseRatingsPage', () => {
         .length,
     ).toBeGreaterThan(0);
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCourse.detail.ratings.back',
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.title',
       }),
-    );
+    ).toHaveAttribute('href', '/admin/operations');
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.detail.title',
+      }),
+    ).toHaveAttribute('href', '/admin/operations/course-1');
+  });
 
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations/course-1');
+  test('keeps rating timestamps as returned wall-clock time when browser timezone changes', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+    mockGetAdminOperationCourseRatings.mockResolvedValueOnce({
+      summary: {
+        average_score: '4.5',
+        rating_count: 1,
+        user_count: 1,
+        latest_rated_at: '2026-04-05T01:30:00Z',
+      },
+      items: [
+        {
+          lesson_feedback_bid: 'feedback-1',
+          progress_record_bid: 'progress-1',
+          user_bid: 'student-1',
+          mobile: '13900001235',
+          email: '',
+          nickname: 'Bob',
+          chapter_outline_item_bid: 'chapter-1',
+          chapter_title: 'Chapter 1',
+          lesson_outline_item_bid: 'lesson-1',
+          lesson_title: 'Lesson 1',
+          score: 5,
+          comment: 'Very helpful lesson',
+          mode: 'read',
+          rated_at: '2026-04-05T01:30:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      page_count: 1,
+    });
+
+    render(<AdminOperationCourseRatingsPage />);
+
+    await screen.findByText('Very helpful lesson');
+
+    expect(document.body.textContent).toContain('2026-04-05');
+    expect(document.body.textContent).toContain('01:30:00');
+    expect(document.body.textContent).not.toContain('2026-04-04');
+    expect(document.body.textContent).not.toContain('18:30:00');
   });
 
   test('formats rating summary counts without grouping in Chinese locale', async () => {
@@ -280,6 +347,214 @@ describe('AdminOperationCourseRatingsPage', () => {
     expect(screen.getByText('12000')).toBeInTheDocument();
     expect(screen.queryByText('76,384')).not.toBeInTheDocument();
     expect(screen.queryByText('12,000')).not.toBeInTheDocument();
+  });
+
+  test('keeps summary cards scoped to all ratings when filters change', async () => {
+    mockGetAdminOperationCourseRatings
+      .mockResolvedValueOnce({
+        summary: {
+          average_score: '4.2',
+          rating_count: 42,
+          user_count: 7,
+          latest_rated_at: '2026-04-05T11:02:00Z',
+        },
+        items: [
+          {
+            lesson_feedback_bid: 'feedback-all',
+            progress_record_bid: 'progress-1',
+            user_bid: 'student-1',
+            mobile: '13900001235',
+            email: '',
+            nickname: 'Bob',
+            chapter_outline_item_bid: 'chapter-1',
+            chapter_title: 'Chapter 1',
+            lesson_outline_item_bid: 'lesson-1',
+            lesson_title: 'Lesson 1',
+            score: 5,
+            comment: 'All rating comment',
+            mode: 'read',
+            rated_at: '2026-04-05T11:02:00Z',
+          },
+        ],
+        page: 1,
+        page_size: 20,
+        total: 42,
+        page_count: 3,
+      })
+      .mockResolvedValueOnce({
+        summary: {
+          average_score: '',
+          rating_count: 0,
+          user_count: 0,
+          latest_rated_at: '',
+        },
+        items: [
+          {
+            lesson_feedback_bid: 'feedback-filtered',
+            progress_record_bid: 'progress-2',
+            user_bid: 'student-2',
+            mobile: '13900009999',
+            email: '',
+            nickname: 'Alice',
+            chapter_outline_item_bid: 'chapter-2',
+            chapter_title: 'Chapter 2',
+            lesson_outline_item_bid: 'lesson-2',
+            lesson_title: 'Lesson 2',
+            score: 3,
+            comment: 'Filtered rating comment',
+            mode: 'listen',
+            rated_at: '2026-04-06T11:02:00Z',
+          },
+        ],
+        page: 1,
+        page_size: 20,
+        total: 1,
+        page_count: 1,
+      });
+
+    render(<AdminOperationCourseRatingsPage />);
+
+    expect(await screen.findByText('All rating comment')).toBeInTheDocument();
+    expect(screen.getByText('4.2')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsCourse.detail.ratings.filters.userKeywordPlaceholderPhone',
+      ),
+      {
+        target: { value: 'student-2' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsCourse.detail.ratings.filters.search',
+      }),
+    );
+
+    expect(
+      await screen.findByText('Filtered rating comment'),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseRatings).toHaveBeenLastCalledWith({
+        shifu_bid: 'course-1',
+        page: 1,
+        page_size: 20,
+        include_summary: false,
+        keyword: 'student-2',
+        chapter_keyword: '',
+        score: '',
+        mode: '',
+        has_comment: '',
+        sort_by: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+    expect(screen.getByText('4.2')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+  });
+
+  test('skips summary refresh when paging through unfiltered ratings', async () => {
+    mockGetAdminOperationCourseRatings
+      .mockResolvedValueOnce({
+        summary: {
+          average_score: '4.2',
+          rating_count: 42,
+          user_count: 7,
+          latest_rated_at: '2026-04-05T11:02:00Z',
+        },
+        items: [
+          {
+            lesson_feedback_bid: 'feedback-page-1',
+            progress_record_bid: 'progress-1',
+            user_bid: 'student-1',
+            mobile: '13900001235',
+            email: '',
+            nickname: 'Bob',
+            chapter_outline_item_bid: 'chapter-1',
+            chapter_title: 'Chapter 1',
+            lesson_outline_item_bid: 'lesson-1',
+            lesson_title: 'Lesson 1',
+            score: 5,
+            comment: 'First page rating comment',
+            mode: 'read',
+            rated_at: '2026-04-05T11:02:00Z',
+          },
+        ],
+        page: 1,
+        page_size: 20,
+        total: 42,
+        page_count: 3,
+      })
+      .mockResolvedValueOnce({
+        summary: {
+          average_score: '',
+          rating_count: 0,
+          user_count: 0,
+          latest_rated_at: '',
+        },
+        items: [
+          {
+            lesson_feedback_bid: 'feedback-page-2',
+            progress_record_bid: 'progress-2',
+            user_bid: 'student-2',
+            mobile: '13900009999',
+            email: '',
+            nickname: 'Alice',
+            chapter_outline_item_bid: 'chapter-2',
+            chapter_title: 'Chapter 2',
+            lesson_outline_item_bid: 'lesson-2',
+            lesson_title: 'Lesson 2',
+            score: 4,
+            comment: 'Second page rating comment',
+            mode: 'listen',
+            rated_at: '2026-04-06T11:02:00Z',
+          },
+        ],
+        page: 2,
+        page_size: 20,
+        total: 42,
+        page_count: 3,
+      });
+
+    render(<AdminOperationCourseRatingsPage />);
+
+    expect(
+      await screen.findByText('First page rating comment'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('4.2')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('link', {
+        name: 'module.order.paginationNextAriaLabel',
+      }),
+    );
+
+    expect(
+      await screen.findByText('Second page rating comment'),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockGetAdminOperationCourseRatings).toHaveBeenLastCalledWith({
+        shifu_bid: 'course-1',
+        page: 2,
+        page_size: 20,
+        include_summary: false,
+        keyword: '',
+        chapter_keyword: '',
+        score: '',
+        mode: '',
+        has_comment: '',
+        sort_by: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+    expect(screen.getByText('4.2')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
   });
 
   test('submits search filters including score, mode, comment filter, sort, and rating time', async () => {
@@ -339,6 +614,7 @@ describe('AdminOperationCourseRatingsPage', () => {
         shifu_bid: 'course-1',
         page: 1,
         page_size: 20,
+        include_summary: false,
         keyword: '13900001235',
         chapter_keyword: 'Chapter 1',
         score: '5',
@@ -357,7 +633,10 @@ describe('AdminOperationCourseRatingsPage', () => {
 
     render(<AdminOperationCourseRatingsPage />);
 
-    await screen.findByText('module.operationsCourse.detail.ratings.title');
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'module.operationsCourse.detail.ratings.title',
+    });
 
     expect(
       screen.getByPlaceholderText(

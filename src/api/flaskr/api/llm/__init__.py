@@ -4,6 +4,7 @@ import time
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
+from decimal import Decimal, InvalidOperation, ROUND_CEILING
 import logging
 import requests
 import litellm
@@ -18,8 +19,17 @@ from flaskr.api.langfuse import (
 )
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
+from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
+)
+from flaskr.service.billing.models import CreditUsageRate
 from flaskr.service.metering import UsageContext, record_llm_usage
-from flaskr.service.metering.consts import BILL_USAGE_TYPE_LLM, normalize_usage_scene
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    normalize_usage_scene,
+)
 from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
@@ -90,6 +100,7 @@ class ProviderState:
 
 MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
 PROVIDER_STATES: Dict[str, ProviderState] = {}
+_USAGE_OUTPUT_TEXT_MAX_LENGTH = 12000
 
 
 def _log(level: str, message: str) -> None:
@@ -138,6 +149,22 @@ def _extract_input_cache(usage: Any) -> int:
     if details is not None:
         return int(getattr(details, "cached_tokens", 0) or 0)
     return 0
+
+
+def _attach_usage_output_text(
+    metadata: Dict[str, Any],
+    response_text: str,
+) -> Dict[str, Any]:
+    """Store a bounded response excerpt for operator usage detail summaries."""
+
+    normalized_response_text = str(response_text or "").strip()
+    if not normalized_response_text or "output_text" in metadata:
+        return metadata
+    next_metadata = dict(metadata)
+    next_metadata["output_text"] = normalized_response_text[
+        :_USAGE_OUTPUT_TEXT_MAX_LENGTH
+    ]
+    return next_metadata
 
 
 def _normalize_model_config(value: Any) -> list[str]:
@@ -288,6 +315,14 @@ def _fetch_provider_models(api_key: str, base_url: str | None) -> list[str]:
     return [item.get("id", "") for item in data.get("data", []) if item.get("id")]
 
 
+def _is_litellm_repeated_stream_chunk_error(exc: Exception) -> bool:
+    message = str(exc)
+    return (
+        "repeating the same chunk" in message
+        and exc.__class__.__module__.startswith("litellm")
+    )
+
+
 def _stream_litellm_completion(
     app: Flask, model: str, messages: list, params: dict, kwargs: dict
 ):
@@ -418,24 +453,25 @@ def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
 
 
 def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
-    if model_id.startswith("gemini-2.5-pro"):
-        return {
-            "reasoning_effort": "low",
-            "temperature": temperature,
-        }
-    if model_id.startswith("gemini-3"):
-        return {
-            "reasoning_effort": "low",
-            "temperature": temperature,
-        }
-    if model_id.startswith("gemini"):
-        return {
-            "reasoning_effort": "none",
-            "temperature": temperature,
-        }
-    return {
+    # Gemini thinking is controlled via LiteLLM's reasoning_effort mapping. Some
+    # Gemini model ids are not included in LiteLLM's supported-params table yet,
+    # so explicitly allow reasoning_effort for Gemini requests.
+    params: Dict[str, Any] = {
         "temperature": temperature,
+        "allowed_openai_params": ["reasoning_effort"],
     }
+    if model_id.startswith("gemini-3"):
+        # Gemini 3 Flash-family supports minimal thinking; LiteLLM falls back to
+        # low for Gemini 3 models that do not support minimal.
+        params["reasoning_effort"] = "minimal"
+    elif model_id.startswith("gemini-2.5-pro"):
+        # Gemini 2.5 Pro cannot disable thinking, so use the lowest supported
+        # reasoning level.
+        params["reasoning_effort"] = "low"
+    elif model_id.startswith("gemini"):
+        # Older Gemini models can use the cost-optimized no-thinking mapping.
+        params["reasoning_effort"] = "none"
+    return params
 
 
 def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
@@ -486,6 +522,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         default_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         prefix=QWEN_PREFIX,
         extra_models=["deepseek-r1", "deepseek-v3"],
+        wildcard_prefixes=(QWEN_PREFIX,),
         config_hint="QWEN_API_KEY,QWEN_API_URL",
         custom_llm_provider="openai",
         reload_params=_reload_qwen_params,
@@ -730,6 +767,7 @@ def invoke_llm(
     usage_metadata.setdefault("generation_name", generation_name)
     if "temperature" in kwargs:
         usage_metadata.setdefault("temperature", kwargs.get("temperature"))
+    usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
     if usage is None:
         usage_metadata.setdefault("usage_source", "missing")
         record_llm_usage(
@@ -843,28 +881,38 @@ def chat_llm(
             params,
             kwargs,
         )
-        for res in response:
-            if start_completion_time is None:
-                start_completion_time = datetime.now()
-            if len(res.choices) and res.choices[0].delta.content:
-                response_text += res.choices[0].delta.content
-                yield LLMStreamResponse(
-                    res.id,
-                    True if res.choices[0].finish_reason else False,
-                    False,
-                    res.choices[0].delta.content,
-                    res.choices[0].finish_reason,
-                    None,
-                )
-            res_usage = getattr(res, "usage", None)
-            if res_usage:
-                input_cache_tokens = _extract_input_cache(res_usage)
-                usage = ModelUsage(
-                    unit="TOKENS",
-                    input=res_usage.prompt_tokens,
-                    output=res_usage.completion_tokens,
-                    total=res_usage.total_tokens,
-                )
+        try:
+            for res in response:
+                if start_completion_time is None:
+                    start_completion_time = datetime.now()
+                if len(res.choices) and res.choices[0].delta.content:
+                    response_text += res.choices[0].delta.content
+                    yield LLMStreamResponse(
+                        res.id,
+                        True if res.choices[0].finish_reason else False,
+                        False,
+                        res.choices[0].delta.content,
+                        res.choices[0].finish_reason,
+                        None,
+                    )
+                res_usage = getattr(res, "usage", None)
+                if res_usage:
+                    input_cache_tokens = _extract_input_cache(res_usage)
+                    usage = ModelUsage(
+                        unit="TOKENS",
+                        input=res_usage.prompt_tokens,
+                        output=res_usage.completion_tokens,
+                        total=res_usage.total_tokens,
+                    )
+        except Exception as exc:
+            if not (_is_litellm_repeated_stream_chunk_error(exc) and response_text):
+                raise
+            app.logger.warning(
+                "LiteLLM repeated streaming chunk detected; ending stream with partial response | model=%s | response_chars=%s | error=%s",
+                invoke_model,
+                len(response_text),
+                exc,
+            )
     else:
         raise_error_with_args(
             "server.llm.modelNotSupported",
@@ -897,6 +945,7 @@ def chat_llm(
     usage_metadata.setdefault("generation_name", generation_name)
     if "temperature" in kwargs:
         usage_metadata.setdefault("temperature", kwargs.get("temperature"))
+    usage_metadata = _attach_usage_output_text(usage_metadata, response_text)
     if usage is None:
         usage_metadata.setdefault("usage_source", "missing")
         record_llm_usage(
@@ -940,39 +989,16 @@ def chat_llm(
     )
 
 
-def _attach_credit_multiplier_label(app: Flask, option: dict[str, Any]) -> dict[str, Any]:
-    model = str(option.get("model") or "").strip()
-    if not model:
-        return option
-    provider, _normalized = _resolve_provider_for_model(model)
-    try:
-        from flaskr.service.billing.charges import resolve_credit_multiplier_label
-
-        label = resolve_credit_multiplier_label(
-            usage_type=BILL_USAGE_TYPE_LLM,
-            provider=provider or "",
-            model=model,
-        )
-    except Exception as exc:
-        app.logger.debug("Skipping LLM credit multiplier label: %s", exc)
-        return option
-    if label:
-        option["credit_multiplier_label"] = label
-    return option
-
-
 def _build_model_options(
     app: Flask, available_models: list[str]
 ) -> list[dict[str, Any]]:
     allowed, display_names = _resolve_allowed_model_config()
 
     if not allowed:
-        return [
-            _attach_credit_multiplier_label(
-                app, {"model": model, "display_name": model}
-            )
-            for model in available_models
-        ]
+        return _attach_credit_multipliers(
+            app,
+            [{"model": model, "display_name": model} for model in available_models],
+        )
 
     available_set = set(available_models)
     filtered_models: list[str] = []
@@ -996,16 +1022,140 @@ def _build_model_options(
         dict(zip(allowed, display_names)) if display_names_enabled else {}
     )
 
-    return [
-        _attach_credit_multiplier_label(
-            app,
-            {
-                "model": model,
-                "display_name": display_map.get(model, model),
-            },
-        )
+    options = [
+        {
+            "model": model,
+            "display_name": display_map.get(model, model),
+        }
         for model in filtered_models
     ]
+    return _attach_credit_multipliers(app, options)
+
+
+def _resolve_billing_rate_identity(model: str) -> tuple[str, list[str]]:
+    provider, actual_model = _resolve_provider_for_model(model)
+    candidates: list[str] = []
+    for candidate in (actual_model, model):
+        normalized = str(candidate or "").strip()
+        if normalized and normalized not in candidates:
+            candidates.append(normalized)
+    return provider or "", candidates
+
+
+def _rate_per_token(rate: CreditUsageRate | None) -> Decimal | None:
+    if rate is None:
+        return None
+    try:
+        unit_size = max(int(rate.unit_size or 1), 1)
+        return Decimal(str(rate.credits_per_unit or 0)) / Decimal(str(unit_size))
+    except (InvalidOperation, ValueError, TypeError, ZeroDivisionError):
+        return None
+
+
+def _select_credit_usage_rate(
+    rows: list[CreditUsageRate],
+    *,
+    provider: str,
+    model_candidates: list[str],
+    now: datetime,
+) -> CreditUsageRate | None:
+    normalized_provider = str(provider or "").strip()
+    normalized_models = [
+        str(model or "").strip() for model in model_candidates if model
+    ]
+    if not normalized_models:
+        return None
+    candidate_set = set(normalized_models)
+    model_priority = {
+        model: len(normalized_models) - index
+        for index, model in enumerate(normalized_models)
+    }
+    candidates = [
+        row
+        for row in rows
+        if row.effective_from <= now
+        and (row.effective_to is None or row.effective_to > now)
+        and row.provider in {normalized_provider, "*"}
+        and row.model in candidate_set.union({"*"})
+    ]
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda row: (
+            row.provider == normalized_provider,
+            row.model in candidate_set,
+            model_priority.get(row.model, 0),
+            row.effective_from or datetime.min,
+            int(row.id or 0),
+        ),
+        reverse=True,
+    )
+    return candidates[0]
+
+
+def _load_llm_output_rate_rows(app: Flask) -> list[CreditUsageRate]:
+    with app.app_context():
+        return (
+            CreditUsageRate.query.filter(
+                CreditUsageRate.deleted == 0,
+                CreditUsageRate.status == CREDIT_USAGE_RATE_STATUS_ACTIVE,
+                CreditUsageRate.usage_type == BILL_USAGE_TYPE_LLM,
+                CreditUsageRate.usage_scene == BILL_USAGE_SCENE_PROD,
+                CreditUsageRate.billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            )
+            .order_by(CreditUsageRate.effective_from.desc(), CreditUsageRate.id.desc())
+            .all()
+        )
+
+
+def _attach_credit_multipliers(
+    app: Flask, options: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
+    if not options or not default_model:
+        return [{**option, "credit_multiplier": None} for option in options]
+
+    try:
+        rows = _load_llm_output_rate_rows(app)
+        now = datetime.now()
+        default_provider, default_model_candidates = _resolve_billing_rate_identity(
+            default_model
+        )
+        default_rate = _rate_per_token(
+            _select_credit_usage_rate(
+                rows,
+                provider=default_provider,
+                model_candidates=default_model_candidates,
+                now=now,
+            )
+        )
+        if default_rate is None or default_rate <= 0:
+            return [{**option, "credit_multiplier": None} for option in options]
+
+        enriched: list[dict[str, Any]] = []
+        for option in options:
+            model = str(option.get("model") or "").strip()
+            provider, model_candidates = _resolve_billing_rate_identity(model)
+            model_rate = _rate_per_token(
+                _select_credit_usage_rate(
+                    rows,
+                    provider=provider,
+                    model_candidates=model_candidates,
+                    now=now,
+                )
+            )
+            multiplier = None
+            if model_rate is not None and model_rate > 0:
+                multiplier = int(
+                    (model_rate / default_rate).to_integral_value(
+                        rounding=ROUND_CEILING
+                    )
+                )
+            enriched.append({**option, "credit_multiplier": multiplier})
+        return enriched
+    except Exception as exc:
+        _log_warning(f"load LLM credit multipliers error: {exc}")
+        return [{**option, "credit_multiplier": None} for option in options]
 
 
 def get_current_models(app: Flask) -> list[dict[str, Any]]:

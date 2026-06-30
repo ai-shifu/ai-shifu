@@ -10,13 +10,20 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
+import {
+  extractCustomButtonAfterContentInnerHtml,
+  hasCustomButtonAfterContent,
+  stripCustomButtonAfterContent,
+} from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 
 interface ContentBlockProps {
   item: ChatContentItem;
   mobileStyle: boolean;
   blockBid: string;
+  contentRenderKey?: string;
   confirmButtonText?: string;
   copyButtonText?: string;
   copiedButtonText?: string;
@@ -27,7 +34,8 @@ interface ContentBlockProps {
   onAudioPlayStateChange?: (blockBid: string, isPlaying: boolean) => void;
   onAudioEnded?: (blockBid: string) => void;
   showAudioAction?: boolean;
-  onTypeFinished?: (blockBid: string) => void;
+  onTypeFinished?: (blockBid: string, content: string) => void;
+  enableStreamingTypewriter?: boolean;
 }
 
 const ContentBlock = memo(
@@ -35,6 +43,7 @@ const ContentBlock = memo(
     item,
     mobileStyle,
     blockBid,
+    contentRenderKey,
     confirmButtonText,
     copyButtonText,
     copiedButtonText,
@@ -46,6 +55,7 @@ const ContentBlock = memo(
     onAudioEnded,
     showAudioAction = true,
     onTypeFinished,
+    enableStreamingTypewriter = false,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
@@ -71,9 +81,6 @@ const ContentBlock = memo(
       },
       [onSend, blockBid],
     );
-    const handleTypeFinished = useCallback(() => {
-      onTypeFinished?.(blockBid);
-    }, [blockBid, onTypeFinished]);
 
     const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
     const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));
@@ -86,6 +93,24 @@ const ContentBlock = memo(
       isPaySystemInteractionContent(item.content);
     const resolvedReadonly = isPayInteraction ? false : item.readonly;
     const resolvedUserInput = isPayInteraction ? '' : item.user_input;
+    const shouldEnableTypewriter =
+      enableStreamingTypewriter &&
+      item.shouldUseTypewriter === true &&
+      item.element_type === 'text';
+    const isRichContentElement =
+      item.type === ChatContentItemType.CONTENT && item.element_type !== 'text';
+    const shouldRenderExternalCustomButton =
+      isRichContentElement && hasCustomButtonAfterContent(item.content);
+    const renderedContent =
+      shouldEnableTypewriter || shouldRenderExternalCustomButton
+        ? (stripCustomButtonAfterContent(item.content) ?? '')
+        : item.content || '';
+    const externalCustomButtonInnerHtml = shouldRenderExternalCustomButton
+      ? extractCustomButtonAfterContentInnerHtml(item.content)
+      : '';
+    const handleTypeFinished = useCallback(() => {
+      onTypeFinished?.(blockBid, renderedContent);
+    }, [blockBid, onTypeFinished, renderedContent]);
 
     if (isLessonFeedbackInteraction) {
       return null;
@@ -101,8 +126,10 @@ const ContentBlock = memo(
         {...(mobileStyle ? longPressEvent : {})}
       >
         <ContentRender
-          enableTypewriter={false}
-          content={item.content || ''}
+          key={contentRenderKey}
+          enableTypewriter={shouldEnableTypewriter}
+          typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
+          content={renderedContent}
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}
           userInput={resolvedUserInput}
@@ -116,6 +143,20 @@ const ContentBlock = memo(
           onSend={_onSend}
           onTypeFinished={handleTypeFinished}
         />
+        {shouldRenderExternalCustomButton && externalCustomButtonInnerHtml ? (
+          <button
+            type='button'
+            className='content-render-custom-button-after-content mt-3 inline-flex min-w-[58px] items-center justify-center px-3 leading-none [&_img]:inline-block [&_img]:shrink-0 [&_span]:leading-none [&_span]:whitespace-nowrap'
+            onClick={handleClick}
+          >
+            <span
+              className='content-render-custom-button-after-content-inner inline-flex items-center justify-center gap-1.5 whitespace-nowrap leading-none'
+              dangerouslySetInnerHTML={{
+                __html: externalCustomButtonInnerHtml,
+              }}
+            />
+          </button>
+        ) : null}
         {mobileStyle && hasAudioContent && shouldShowAudioAction ? (
           <div className='mt-2 flex justify-end'>
             <AudioPlayer
@@ -149,9 +190,14 @@ const ContentBlock = memo(
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
+      prevProps.contentRenderKey === nextProps.contentRenderKey &&
+      prevProps.item.isHistory === nextProps.item.isHistory &&
+      prevProps.item.element_type === nextProps.item.element_type &&
       prevProps.confirmButtonText === nextProps.confirmButtonText &&
       prevProps.copyButtonText === nextProps.copyButtonText &&
       prevProps.copiedButtonText === nextProps.copiedButtonText &&
+      Boolean(prevProps.enableStreamingTypewriter) ===
+        Boolean(nextProps.enableStreamingTypewriter) &&
       Boolean(prevProps.autoPlayAudio) === Boolean(nextProps.autoPlayAudio) &&
       Boolean(prevProps.showAudioAction) ===
         Boolean(nextProps.showAudioAction) &&

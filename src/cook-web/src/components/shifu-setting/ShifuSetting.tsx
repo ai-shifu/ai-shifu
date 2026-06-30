@@ -6,26 +6,24 @@ import React, {
   useState,
 } from 'react';
 import { SSE } from 'sse.js';
-import { v4 as uuidv4 } from 'uuid';
 import {
-  Copy,
-  Check,
   Plus,
   Minus,
   Settings,
   Volume2,
   Loader2,
   Square,
-  ChevronDown,
+  Mic,
+  RotateCw,
+  Trash2,
 } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import useSWR from 'swr';
 import { uploadFile } from '@/lib/file';
+import { buildTraceHeaders } from '@/lib/request-trace';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import {
   type AudioSegment,
   mergeAudioSegmentByUniqueKey,
@@ -39,45 +37,20 @@ import {
   SheetTrigger,
 } from '@/components/ui/Sheet';
 import { Input } from '@/components/ui/Input';
-import { Label } from '@/components/ui/Label';
 import { Button } from '@/components/ui/Button';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
-import { ScrollArea } from '@/components/ui/ScrollArea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/AlertDialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/Dialog';
 import { Badge } from '@/components/ui/Badge';
 import { Textarea } from '@/components/ui/Textarea';
 import { Switch } from '@/components/ui/Switch';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/DropdownMenu';
 import {
   Form,
   FormControl,
@@ -86,7 +59,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/Form';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import {
@@ -96,19 +69,30 @@ import {
   resumeAudioContext,
 } from '@/lib/audio-playback';
 import { useToast } from '@/hooks/useToast';
-import { cn } from '@/lib/utils';
 
 import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import { useShifu, useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
-import { isValidEmail } from '@/lib/validators';
+import { useBillingOverview } from '@/hooks/useBillingData';
 import {
   AskProviderSchemaValidationError,
   buildAskProviderConfigForSubmit as buildAskProviderConfigBySchema,
 } from '@/components/shifu-setting/ask-provider-schema';
 import AskSettingsSection from '@/components/shifu-setting/AskSettingsSection';
+import MiniMaxVoiceCloneDialog from '@/components/shifu-setting/MiniMaxVoiceCloneDialog';
+import {
+  buildMiniMaxClonedVoiceListParams,
+  buildMiniMaxVoiceOptions,
+  executeMiniMaxVoiceAction,
+  isMiniMaxProvider,
+  isValidMiniMaxCustomVoiceId,
+  loadMiniMaxVoiceRefreshData,
+  shouldPreserveCustomMiniMaxVoice,
+  type MiniMaxCloneCost,
+  type MiniMaxClonedVoice,
+} from '@/components/shifu-setting/minimax-voice-clone';
 import {
   buildTtsModelOptionValue,
   filterTtsVoicesForModel,
@@ -116,6 +100,10 @@ import {
   parseTtsModelOptionValue,
   type TtsModelOption,
 } from '@/components/shifu-setting/tts-model-options';
+import {
+  buildOnboardingTargetProps,
+  ONBOARDING_TARGET_IDS,
+} from '@/lib/onboardingTargets';
 
 interface Shifu {
   description: string;
@@ -162,55 +150,38 @@ const ASK_PROVIDER_LLM = 'llm';
 const ASK_PROVIDER_MODE_PROVIDER_ONLY = 'provider_only';
 const ASK_TEMPERATURE_MIN = 0;
 const ASK_TEMPERATURE_MAX = 2;
-type CopyingState = {
-  previewUrl: boolean;
-  url: boolean;
+const TTS_PREVIEW_CURRENT_TARGET = 'tts-current';
+type TtsPreviewOptions = {
+  voiceId?: string;
+  targetKey?: string;
+  demoAudioUrl?: string;
 };
-
-const defaultCopyingState: CopyingState = {
-  previewUrl: false,
-  url: false,
-};
-
-type SharedPermission = {
-  user_id: string;
-  identifier: string;
-  nickname?: string;
-  permission: 'view' | 'edit' | 'publish';
-};
-
-const MAX_SHARED_PERMISSION_COUNT = 10;
-const INVALID_CONTACT_SAMPLE_LIMIT = 5;
-// Keep phone validation aligned with backend bulk rules (11 digits only).
-const PERMISSION_PHONE_PATTERN = /^\d{11}$/;
-const PHONE_EXTRACT_PATTERN = /(?:^|\D)(\d{11})(?!\d)/g;
-const PHONE_TOKEN_PATTERN = /\d{11}/;
-const PHONE_TOKEN_SPLIT_PATTERN = /[\s,;\n\uFF0C\uFF1B]+/;
-const EMAIL_EXTRACT_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-const EMAIL_CANDIDATE_PATTERN = /[^\s,\uFF0C;\uFF1B]+@[^\s,\uFF0C;\uFF1B]+/g;
-
-const unique = (items: string[]): string[] => Array.from(new Set(items));
-
-const normalizeEmailCandidate = (value: string): string =>
-  value.replace(/^[,\uFF0C;\uFF1B.\u3002]+|[,\uFF0C;\uFF1B.\u3002]+$/g, '');
 
 export default function ShifuSettingDialog({
   shifuId,
   onSave,
+  triggerTargetId,
+  openSignal,
+  shouldStayOpen,
 }: {
   shifuId: string;
   onSave: () => void;
+  triggerTargetId?: string;
+  openSignal?: string;
+  shouldStayOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const lastAppliedOpenSignalRef = useRef<string | null>(null);
+  const openedByOnboardingRef = useRef(false);
   const { t } = useTranslation();
-  const { currentShifu, models, actions } = useShifu();
-  const currentUser = useUserStore(state => state.userInfo);
-  const currentUserId = currentUser?.user_id || '';
+  const { currentShifu, models } = useShifu();
   const { toast } = useToast();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
   const currencySymbol = useEnvStore(state => state.currencySymbol);
-  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
-  const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
+  const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
+  const { data: billingOverview } = useBillingOverview();
+  const debugAllowed =
+    !billingEnabled || billingOverview?.debug_allowed === true;
   const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
   const resolvedDefaultModel =
     models.find(option => option.value === defaultLlmModel)?.label ||
@@ -228,451 +199,7 @@ export default function ShifuSettingDialog({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState('');
-  const [copying, setCopying] = useState<CopyingState>(defaultCopyingState);
-  const copyTimeoutRef = useRef<
-    Record<keyof CopyingState, ReturnType<typeof setTimeout> | null>
-  >({
-    previewUrl: null,
-    url: null,
-  });
   const { trackEvent } = useTracking();
-  const canManagePermissions =
-    Boolean(currentShifu?.created_user_bid) &&
-    currentShifu?.created_user_bid === currentUserId;
-  const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
-  const [permissionInput, setPermissionInput] = useState('');
-  const [permissionError, setPermissionError] = useState('');
-  const [permissionLevel, setPermissionLevel] =
-    useState<SharedPermission['permission']>('view');
-  const [grantLoading, setGrantLoading] = useState(false);
-  const [grantConfirmOpen, setGrantConfirmOpen] = useState(false);
-  const [pendingGrantContacts, setPendingGrantContacts] = useState<string[]>(
-    [],
-  );
-  const [pendingGrantPermission, setPendingGrantPermission] =
-    useState<SharedPermission['permission']>('view');
-  const [permissionEditMode, setPermissionEditMode] = useState(false);
-  const [permissionEdits, setPermissionEdits] = useState<
-    Record<string, SharedPermission['permission']>
-  >({});
-  const [permissionRemovals, setPermissionRemovals] = useState<Set<string>>(
-    new Set(),
-  );
-  const [permissionConfirmOpen, setPermissionConfirmOpen] = useState(false);
-  const [permissionSaveLoading, setPermissionSaveLoading] = useState(false);
-
-  const contactType = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
-    [defaultLoginMethod, loginMethodsEnabled],
-  );
-
-  const permissionKey = useMemo(() => {
-    if (!permissionDialogOpen || !currentShifu?.bid || !canManagePermissions) {
-      return null;
-    }
-    return ['shifu-permissions', currentShifu.bid, contactType] as const;
-  }, [
-    canManagePermissions,
-    contactType,
-    currentShifu?.bid,
-    permissionDialogOpen,
-  ]);
-
-  const {
-    data: permissionData,
-    error: permissionLoadError,
-    isLoading: permissionLoading,
-    mutate: refreshPermissionList,
-  } = useSWR(
-    permissionKey,
-    async ([, shifuBid, contactTypeValue]) =>
-      (await api.listShifuPermissions({
-        shifu_bid: shifuBid,
-        contact_type: contactTypeValue,
-      })) as { items?: SharedPermission[] },
-    { revalidateOnFocus: false },
-  );
-
-  const permissionList = useMemo(
-    () => permissionData?.items || [],
-    [permissionData],
-  );
-
-  useEffect(() => {
-    if (!permissionLoadError || !permissionDialogOpen) {
-      return;
-    }
-    const message =
-      permissionLoadError instanceof Error
-        ? permissionLoadError.message
-        : t('common.core.unknownError');
-    toast({ title: message, variant: 'destructive' });
-  }, [permissionDialogOpen, permissionLoadError, t, toast]);
-
-  const contactLabel =
-    contactType === 'email'
-      ? t('module.shifuSetting.permissionEmailLabel')
-      : t('module.shifuSetting.permissionPhoneLabel');
-  const contactPlaceholder =
-    contactType === 'email'
-      ? t('module.shifuSetting.permissionEmailPlaceholder')
-      : t('module.shifuSetting.permissionPhonePlaceholder');
-
-  const permissionOptions = useMemo(
-    () => [
-      { value: 'view', label: t('module.shifuSetting.permissionReadOnly') },
-      { value: 'edit', label: t('module.shifuSetting.permissionEdit') },
-      { value: 'publish', label: t('module.shifuSetting.permissionPublish') },
-    ],
-    [t],
-  );
-
-  // Extract phone/email identifiers from free-form input and align with backend rules.
-  const parseContacts = useCallback(
-    (value: string) => {
-      if (!value.trim()) {
-        return { contacts: [], invalidContacts: [] };
-      }
-
-      if (contactType === 'phone') {
-        const matches = Array.from(value.matchAll(PHONE_EXTRACT_PATTERN)).map(
-          match => match[1],
-        );
-        const contacts = unique(matches).filter(phone =>
-          PERMISSION_PHONE_PATTERN.test(phone),
-        );
-        const tokens = value
-          .split(PHONE_TOKEN_SPLIT_PATTERN)
-          .filter(token => token.length > 0);
-        const invalidContacts = unique(
-          tokens
-            .filter(
-              token => /\d/.test(token) && !PHONE_TOKEN_PATTERN.test(token),
-            )
-            .map(token => token.replace(/\D/g, ''))
-            .filter(
-              candidate =>
-                candidate.length > 0 &&
-                !PERMISSION_PHONE_PATTERN.test(candidate),
-            ),
-        );
-        return { contacts, invalidContacts };
-      }
-
-      const emailMatches = Array.from(
-        value.matchAll(EMAIL_EXTRACT_PATTERN),
-      ).map(match => match[0].toLowerCase());
-      const contacts = unique(emailMatches);
-      const candidateMatches = Array.from(
-        value.matchAll(EMAIL_CANDIDATE_PATTERN),
-      ).map(match => normalizeEmailCandidate(match[0]).toLowerCase());
-      const invalidContacts = unique(candidateMatches).filter(
-        candidate => candidate && !isValidEmail(candidate),
-      );
-      return { contacts, invalidContacts };
-    },
-    [contactType],
-  );
-
-  const handleGrantPermissions = useCallback(async () => {
-    if (!currentShifu?.bid || !canManagePermissions) {
-      return;
-    }
-    const { contacts, invalidContacts } = parseContacts(permissionInput);
-    if (invalidContacts.length > 0) {
-      const sample = invalidContacts
-        .slice(0, INVALID_CONTACT_SAMPLE_LIMIT)
-        .join(', ');
-      const messageContacts =
-        invalidContacts.length > INVALID_CONTACT_SAMPLE_LIMIT
-          ? `${sample}...`
-          : sample;
-      setPermissionError(
-        contactType === 'email'
-          ? t('module.shifuSetting.permissionEmailInvalid', {
-              values: messageContacts,
-            })
-          : t('module.shifuSetting.permissionPhoneInvalid', {
-              values: messageContacts,
-            }),
-      );
-      return;
-    }
-    if (contacts.length === 0) {
-      setPermissionError(t('module.shifuSetting.permissionContactRequired'));
-      return;
-    }
-    const normalizedExisting = new Set(
-      permissionList.map(item =>
-        contactType === 'email'
-          ? (item.identifier || '').toLowerCase()
-          : item.identifier || '',
-      ),
-    );
-    const normalizedContacts = contacts.map(contact =>
-      contactType === 'email' ? contact.toLowerCase() : contact,
-    );
-    const ownerEmail =
-      typeof currentUser?.email === 'string'
-        ? currentUser.email.toLowerCase()
-        : '';
-    const ownerPhoneCandidate =
-      typeof currentUser?.phone === 'string'
-        ? currentUser.phone
-        : typeof currentUser?.mobile === 'string'
-          ? currentUser.mobile
-          : typeof currentUser?.user_mobile === 'string'
-            ? currentUser.user_mobile
-            : '';
-    const ownerPhone = ownerPhoneCandidate.replace(/\D/g, '');
-    const ownerContact = contactType === 'email' ? ownerEmail : ownerPhone;
-    if (ownerContact && normalizedContacts.includes(ownerContact)) {
-      setPermissionError(t('module.shifuSetting.permissionOwnerNotAllowed'));
-      return;
-    }
-    const existingContacts = contacts.filter((contact, index) =>
-      normalizedExisting.has(normalizedContacts[index]),
-    );
-    const newContacts = contacts.filter(
-      (_contact, index) => !normalizedExisting.has(normalizedContacts[index]),
-    );
-
-    if (existingContacts.length > 0) {
-      const sample = existingContacts
-        .slice(0, INVALID_CONTACT_SAMPLE_LIMIT)
-        .join(', ');
-      const messageContacts =
-        existingContacts.length > INVALID_CONTACT_SAMPLE_LIMIT
-          ? `${sample}...`
-          : sample;
-      setPermissionError(
-        t('module.shifuSetting.permissionDuplicate', {
-          values: messageContacts,
-        }),
-      );
-      return;
-    }
-
-    if (
-      permissionList.length + newContacts.length >
-      MAX_SHARED_PERMISSION_COUNT
-    ) {
-      setPermissionError(
-        t('module.shifuSetting.permissionLimit', {
-          count: MAX_SHARED_PERMISSION_COUNT,
-        }),
-      );
-      return;
-    }
-
-    setPermissionError('');
-    setPendingGrantContacts(newContacts);
-    setPendingGrantPermission(permissionLevel);
-    setGrantConfirmOpen(true);
-  }, [
-    canManagePermissions,
-    contactType,
-    currentShifu?.bid,
-    parseContacts,
-    permissionInput,
-    permissionLevel,
-    permissionList,
-    t,
-    currentUser,
-  ]);
-
-  const handleConfirmGrantPermissions = useCallback(async () => {
-    if (
-      !currentShifu?.bid ||
-      !canManagePermissions ||
-      pendingGrantContacts.length === 0
-    ) {
-      setGrantConfirmOpen(false);
-      return;
-    }
-    setPermissionError('');
-    setGrantLoading(true);
-    try {
-      await api.grantShifuPermissions({
-        shifu_bid: currentShifu.bid,
-        contact_type: contactType,
-        contacts: pendingGrantContacts,
-        permission: pendingGrantPermission,
-      });
-      toast({ title: t('module.shifuSetting.permissionGrantSuccess') });
-      setPermissionInput('');
-      await refreshPermissionList();
-      setPermissionDialogOpen(false);
-      setGrantConfirmOpen(false);
-      setPendingGrantContacts([]);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : t('common.core.unknownError');
-      toast({ title: message, variant: 'destructive' });
-    } finally {
-      setGrantLoading(false);
-    }
-  }, [
-    canManagePermissions,
-    contactType,
-    currentShifu?.bid,
-    pendingGrantContacts,
-    pendingGrantPermission,
-    refreshPermissionList,
-    t,
-    toast,
-  ]);
-
-  const pendingGrantPermissionLabel = useMemo(() => {
-    const match = permissionOptions.find(
-      option => option.value === pendingGrantPermission,
-    );
-    return match?.label || pendingGrantPermission;
-  }, [pendingGrantPermission, permissionOptions]);
-
-  const handleUpdatePermission = useCallback(
-    (
-      item: SharedPermission,
-      nextPermission: SharedPermission['permission'],
-    ) => {
-      if (item.permission === nextPermission) {
-        setPermissionEdits(prev => {
-          if (!(item.user_id in prev)) {
-            return prev;
-          }
-          const next = { ...prev };
-          delete next[item.user_id];
-          return next;
-        });
-        return;
-      }
-      setPermissionEdits(prev => ({
-        ...prev,
-        [item.user_id]: nextPermission,
-      }));
-    },
-    [],
-  );
-
-  const handleSavePermissionChanges = useCallback(async () => {
-    if (!currentShifu?.bid || !canManagePermissions) {
-      return;
-    }
-    const removalIds = Array.from(permissionRemovals);
-    const updates = Object.entries(permissionEdits).filter(
-      ([userId]) => !permissionRemovals.has(userId),
-    );
-    if (removalIds.length === 0 && updates.length === 0) {
-      toast({
-        title: t('module.shifuSetting.permissionEditNoChanges'),
-      });
-      return;
-    }
-    setPermissionSaveLoading(true);
-    try {
-      type PermissionOperation = {
-        type: 'remove' | 'grant';
-        userId: string;
-        permission?: SharedPermission['permission'];
-        identifier?: string;
-      };
-
-      const removalOperations: PermissionOperation[] = removalIds.map(
-        userId => ({
-          type: 'remove' as const,
-          userId,
-        }),
-      );
-      const grantOperations: PermissionOperation[] = updates.map(
-        ([userId, nextPermission]) => {
-          const item = permissionList.find(entry => entry.user_id === userId);
-          return {
-            type: 'grant' as const,
-            userId,
-            permission: nextPermission,
-            identifier: item?.identifier || '',
-          };
-        },
-      );
-      const operations = [...removalOperations, ...grantOperations];
-
-      const missingIdentifiers = operations.filter(
-        operation => operation.type === 'grant' && !operation.identifier,
-      );
-      if (missingIdentifiers.length > 0) {
-        throw new Error(t('module.shifuSetting.permissionContactRequired'));
-      }
-
-      const removals = operations.filter(
-        operation => operation.type === 'remove',
-      );
-      const grants = operations.filter(operation => operation.type === 'grant');
-
-      const removalResults = await Promise.allSettled(
-        removals.map(operation =>
-          api.removeShifuPermission({
-            shifu_bid: currentShifu.bid,
-            user_id: operation.userId,
-          }),
-        ),
-      );
-      const grantResults = await Promise.allSettled(
-        grants.map(operation =>
-          api.grantShifuPermissions({
-            shifu_bid: currentShifu.bid,
-            contact_type: contactType,
-            contacts: [operation.identifier || ''],
-            permission: operation.permission || 'view',
-          }),
-        ),
-      );
-      const results = [...removalResults, ...grantResults];
-
-      const failed = results
-        .map((result, index) => ({
-          result,
-          operation: [...removals, ...grants][index],
-        }))
-        .filter(item => item.result.status === 'rejected')
-        .map(item => item.operation.identifier || item.operation.userId);
-
-      await refreshPermissionList();
-      setPermissionConfirmOpen(false);
-
-      if (failed.length > 0) {
-        setPermissionEdits({});
-        setPermissionRemovals(new Set());
-        toast({
-          title: t('common.core.unknownError'),
-          description: failed.join(', '),
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      toast({ title: t('module.shifuSetting.permissionEditSuccess') });
-      setPermissionEditMode(false);
-      setPermissionEdits({});
-      setPermissionRemovals(new Set());
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : t('common.core.unknownError');
-      toast({ title: message, variant: 'destructive' });
-    } finally {
-      setPermissionSaveLoading(false);
-    }
-  }, [
-    canManagePermissions,
-    contactType,
-    currentShifu?.bid,
-    permissionEdits,
-    permissionList,
-    permissionRemovals,
-    refreshPermissionList,
-    t,
-    toast,
-  ]);
-
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   // Ask configuration state
   const [askModel, setAskModel] = useState('');
@@ -704,18 +231,54 @@ export default function ShifuSettingDialog({
   const [ttsVoiceId, setTtsVoiceId] = useState('');
   const [ttsSpeed, setTtsSpeed] = useState<number | null>(1.0);
   const [ttsSpeedInput, setTtsSpeedInput] = useState<string>('1.0');
+  const [minimaxClonedVoices, setMinimaxClonedVoices] = useState<
+    MiniMaxClonedVoice[]
+  >([]);
+  const [minimaxCloneCost, setMinimaxCloneCost] =
+    useState<MiniMaxCloneCost | null>(null);
+  const [minimaxCloneDialogOpen, setMinimaxCloneDialogOpen] = useState(false);
+  const [minimaxManualVoiceId, setMinimaxManualVoiceId] = useState('');
   const ttsProviderToastShownRef = useRef(false);
 
   // Language Output Configuration state
   const [useLearnerLanguage, setUseLearnerLanguage] = useState(false);
+  const open = internalOpen;
+  const isOnboardingOpen = Boolean(shouldStayOpen);
+
+  const updateOpen = useCallback((nextOpen: boolean) => {
+    setInternalOpen(nextOpen);
+  }, []);
+
+  useEffect(() => {
+    if (!openSignal) {
+      lastAppliedOpenSignalRef.current = null;
+      return;
+    }
+    if (lastAppliedOpenSignalRef.current === openSignal) {
+      return;
+    }
+    lastAppliedOpenSignalRef.current = openSignal;
+    openedByOnboardingRef.current = true;
+    setInternalOpen(true);
+  }, [openSignal]);
+
+  useEffect(() => {
+    if (shouldStayOpen !== false || !openedByOnboardingRef.current) {
+      return;
+    }
+    openedByOnboardingRef.current = false;
+    setInternalOpen(false);
+  }, [shouldStayOpen]);
 
   // TTS Preview state
   const [ttsPreviewLoading, setTtsPreviewLoading] = useState(false);
   const [ttsPreviewPlaying, setTtsPreviewPlaying] = useState(false);
+  const [ttsPreviewTarget, setTtsPreviewTarget] = useState<string | null>(null);
   const ttsPreviewSessionRef = useRef(0);
   const ttsPreviewStreamRef = useRef<any>(null);
   const ttsPreviewAudioContextRef = useRef<AudioContext | null>(null);
   const ttsPreviewSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const ttsPreviewHtmlAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsPreviewSegmentsRef = useRef<AudioSegment[]>([]);
   const ttsPreviewSegmentIndexRef = useRef(0);
   const ttsPreviewIsPlayingRef = useRef(false);
@@ -735,6 +298,17 @@ export default function ShifuSettingDialog({
     ttsPreviewWaitingRef.current = false;
     ttsPreviewSegmentsRef.current = [];
     ttsPreviewSegmentIndexRef.current = 0;
+
+    if (ttsPreviewHtmlAudioRef.current) {
+      const audio = ttsPreviewHtmlAudioRef.current;
+      audio.onplaying = null;
+      audio.onended = null;
+      audio.onerror = null;
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      ttsPreviewHtmlAudioRef.current = null;
+    }
 
     if (ttsPreviewSourceRef.current) {
       try {
@@ -764,6 +338,7 @@ export default function ShifuSettingDialog({
     cleanupTtsPreview();
     setTtsPreviewLoading(false);
     setTtsPreviewPlaying(false);
+    setTtsPreviewTarget(null);
   }, [cleanupTtsPreview]);
 
   const playPreviewSegment = useCallback(
@@ -861,6 +436,8 @@ export default function ShifuSettingDialog({
     speed: { min: number; max: number; step: number; default: number };
     pitch: { min: number; max: number; step: number; default: number };
     supports_emotion: boolean;
+    supports_custom_voice_id?: boolean;
+    supports_voice_cloning?: boolean;
     models: { value: string; label: string }[];
     voices: { value: string; label: string; resource_id?: string }[];
     emotions: { value: string; label: string }[];
@@ -914,40 +491,71 @@ export default function ShifuSettingDialog({
     fetchConfig();
   }, [normalizeAskProviders, normalizeTtsProviders]);
 
+  const refreshMinimaxVoiceData = useCallback(async () => {
+    if (!shifuId) return;
+    const result = await loadMiniMaxVoiceRefreshData({
+      fetchVoices: () =>
+        api.listMinimaxTtsVoices(
+          buildMiniMaxClonedVoiceListParams(shifuId),
+        ) as Promise<{
+          voices?: MiniMaxClonedVoice[];
+        }>,
+      fetchCloneCost: () =>
+        api.getMinimaxTtsCloneCost({
+          shifu_bid: shifuId,
+        }) as Promise<MiniMaxCloneCost>,
+    });
+    if (result.voices !== null) {
+      setMinimaxClonedVoices(result.voices);
+    }
+    if (result.cloneCost !== null) {
+      setMinimaxCloneCost(result.cloneCost);
+    }
+    if (result.errors.length > 0) {
+      console.error(
+        'Failed to refresh MiniMax voice clone data:',
+        result.errors,
+      );
+    }
+  }, [shifuId]);
+
   const resolvedProvider = (() => {
-    const provider = (ttsProvider || '').trim().toLowerCase();
+    const provider = (ttsProvider || '').trim();
+    const fallbackProvider =
+      ttsConfig?.model_options?.[0]?.provider ||
+      ttsConfig?.providers?.[0]?.name ||
+      '';
     if (!provider) {
-      return ttsConfig?.model_options?.[0]?.provider || '';
+      return fallbackProvider;
     }
     if (ttsConfig?.providers?.length) {
       const exists = ttsConfig.providers.some(p => p.name === provider);
-      return exists
-        ? provider
-        : ttsConfig.model_options?.[0]?.provider || provider;
+      return exists ? provider : fallbackProvider || provider;
     }
     return provider;
   })();
   useEffect(() => {
     if (!ttsEnabled) return;
-    if (!ttsConfig?.model_options?.length) return;
-    const selectedValue = buildTtsModelOptionValue(ttsProvider, ttsModel);
-    const selectedOption = ttsConfig.model_options.find(
-      option => option.value === selectedValue,
-    );
-    if (selectedOption) {
+    const options = ttsConfig?.model_options || [];
+    if (!options.length) return;
+    const currentValue = buildTtsModelOptionValue(resolvedProvider, ttsModel);
+    if (currentValue && options.some(option => option.value === currentValue)) {
       return;
     }
-    const fallback = ttsConfig.model_options[0];
+    const fallback = options[0];
     setTtsProvider(fallback.provider);
     setTtsModel(fallback.model);
-  }, [ttsEnabled, ttsProvider, ttsModel, ttsConfig]);
+  }, [resolvedProvider, ttsEnabled, ttsModel, ttsConfig]);
 
   // Get current provider config
   const currentProviderConfig =
     ttsConfig?.providers.find(p => p.name === resolvedProvider) ||
     ttsConfig?.providers[0];
 
-  const ttsModelOptions = ttsConfig?.model_options || [];
+  const ttsModelOptions = useMemo(
+    () => ttsConfig?.model_options || [],
+    [ttsConfig?.model_options],
+  );
   const ttsModelSelectValue = buildTtsModelOptionValue(
     resolvedProvider,
     ttsModel,
@@ -964,6 +572,139 @@ export default function ShifuSettingDialog({
     [currentProviderConfig?.voices, resolvedProvider, ttsModel],
   );
 
+  const showMiniMaxVoiceActionError = useCallback(
+    (error: unknown) => {
+      toast({
+        title: t('common.core.actionFailed'),
+        description:
+          error instanceof Error
+            ? error.message
+            : t('common.core.unknownError'),
+        variant: 'destructive',
+      });
+    },
+    [t, toast],
+  );
+
+  const retryMiniMaxVoice = useCallback(
+    async (voiceBid: string) => {
+      await executeMiniMaxVoiceAction({
+        action: () =>
+          api.retryMinimaxTtsVoice({
+            voice_bid: voiceBid,
+          }),
+        onSuccess: refreshMinimaxVoiceData,
+        onError: showMiniMaxVoiceActionError,
+      });
+    },
+    [refreshMinimaxVoiceData, showMiniMaxVoiceActionError],
+  );
+
+  const deleteMiniMaxVoice = useCallback(
+    async (voice: MiniMaxClonedVoice) => {
+      await executeMiniMaxVoiceAction({
+        action: () =>
+          api.deleteMinimaxTtsVoice({
+            voice_bid: voice.voice_bid,
+          }),
+        onSuccess: () => {
+          if (ttsVoiceId === voice.voice_id) {
+            setTtsVoiceId(ttsVoiceOptions[0]?.value || '');
+          }
+          refreshMinimaxVoiceData();
+        },
+        onError: showMiniMaxVoiceActionError,
+      });
+    },
+    [
+      refreshMinimaxVoiceData,
+      showMiniMaxVoiceActionError,
+      ttsVoiceId,
+      ttsVoiceOptions,
+    ],
+  );
+
+  const isMiniMaxTtsProvider = isMiniMaxProvider(resolvedProvider);
+  const supportsMiniMaxVoiceCloning =
+    isMiniMaxTtsProvider &&
+    currentProviderConfig?.supports_voice_cloning === true;
+  const minimaxStatusLabels = useMemo(
+    () => ({
+      queued: t('module.shifuSetting.minimaxCloneStatus.queued'),
+      processing: t('module.shifuSetting.minimaxCloneStatus.processing'),
+      billing_pending: t(
+        'module.shifuSetting.minimaxCloneStatus.billing_pending',
+      ),
+      failed: t('module.shifuSetting.minimaxCloneStatus.failed'),
+      ready: t('module.shifuSetting.minimaxCloneStatus.ready'),
+    }),
+    [t],
+  );
+  const mergedTtsVoiceOptions = useMemo(() => {
+    if (!isMiniMaxTtsProvider) {
+      return ttsVoiceOptions.map(option => ({
+        ...option,
+        source: 'built_in' as const,
+        disabled: false,
+      }));
+    }
+    return buildMiniMaxVoiceOptions({
+      builtInVoices: ttsVoiceOptions,
+      clonedVoices: minimaxClonedVoices,
+      currentVoiceId: ttsVoiceId,
+      manualLabel: t('module.shifuSetting.minimaxManualVoiceLabel'),
+      statusLabels: minimaxStatusLabels,
+    });
+  }, [
+    isMiniMaxTtsProvider,
+    minimaxClonedVoices,
+    minimaxStatusLabels,
+    t,
+    ttsVoiceId,
+    ttsVoiceOptions,
+  ]);
+  const builtInTtsVoiceOptions = useMemo(
+    () => mergedTtsVoiceOptions.filter(option => option.source === 'built_in'),
+    [mergedTtsVoiceOptions],
+  );
+  const clonedTtsVoiceOptions = useMemo(
+    () => mergedTtsVoiceOptions.filter(option => option.source === 'cloned'),
+    [mergedTtsVoiceOptions],
+  );
+  const manualTtsVoiceOptions = useMemo(
+    () => mergedTtsVoiceOptions.filter(option => option.source === 'manual'),
+    [mergedTtsVoiceOptions],
+  );
+
+  useEffect(() => {
+    if (!open || !ttsEnabled || !isMiniMaxTtsProvider) {
+      return;
+    }
+    refreshMinimaxVoiceData();
+  }, [isMiniMaxTtsProvider, open, refreshMinimaxVoiceData, ttsEnabled]);
+
+  useEffect(() => {
+    if (!open || !isMiniMaxTtsProvider) {
+      return;
+    }
+    const hasPendingVoice = minimaxClonedVoices.some(voice =>
+      ['queued', 'processing', 'billing_pending'].includes(
+        String(voice.status || ''),
+      ),
+    );
+    if (!hasPendingVoice) {
+      return;
+    }
+    const timer = setInterval(() => {
+      refreshMinimaxVoiceData();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [
+    isMiniMaxTtsProvider,
+    minimaxClonedVoices,
+    open,
+    refreshMinimaxVoiceData,
+  ]);
   const normalizeSpeed = useCallback(
     (value: number) => {
       const min = currentProviderConfig?.speed.min ?? 0.5;
@@ -979,7 +720,6 @@ export default function ShifuSettingDialog({
   const speedValue = normalizeSpeed(ttsSpeed ?? speedMin);
   const isSpeedAtMin = speedValue <= speedMin;
   const isSpeedAtMax = speedValue >= speedMax;
-
   useEffect(() => {
     if (ttsSpeed === null || Number.isNaN(ttsSpeed)) {
       setTtsSpeedInput('');
@@ -1037,6 +777,19 @@ export default function ShifuSettingDialog({
     },
     [getAskProviderDefaultConfig],
   );
+
+  const applyMinimaxManualVoiceId = useCallback(() => {
+    const normalizedVoiceId = minimaxManualVoiceId.trim();
+    if (!isValidMiniMaxCustomVoiceId(normalizedVoiceId)) {
+      toast({
+        title: t('module.shifuSetting.minimaxManualVoiceInvalid'),
+        variant: 'destructive',
+      });
+      return;
+    }
+    setTtsVoiceId(normalizedVoiceId);
+    setMinimaxManualVoiceId('');
+  }, [minimaxManualVoiceId, t, toast]);
 
   useEffect(() => {
     if (!askConfigMeta?.providers?.length) return;
@@ -1107,43 +860,73 @@ export default function ShifuSettingDialog({
 
   // Sanitize and default selections when provider/config changes
   useEffect(() => {
-    if (!ttsConfig) return;
+    if (!ttsConfig || !resolvedProvider) return;
+    const provider = ttsConfig.providers.find(p => p.name === resolvedProvider);
+    if (!provider) return;
 
-    if (ttsEnabled && ttsConfig.model_options.length > 0) {
+    if (ttsModelOptions.length > 0) {
       const currentValue = buildTtsModelOptionValue(resolvedProvider, ttsModel);
-      if (
-        !ttsConfig.model_options.some(option => option.value === currentValue)
-      ) {
-        const fallback = ttsConfig.model_options[0];
-        setTtsProvider(fallback.provider);
-        setTtsModel(fallback.model);
-        return;
+      const modelValues = new Set(ttsModelOptions.map(option => option.value));
+      const fallbackModel = ttsModelOptions[0];
+      if (ttsEnabled) {
+        if (!currentValue || !modelValues.has(currentValue)) {
+          setTtsProvider(fallbackModel.provider);
+          setTtsModel(fallbackModel.model);
+        }
+      } else if (ttsModel && currentValue && !modelValues.has(currentValue)) {
+        setTtsModel('');
       }
     }
 
-    if (ttsVoiceOptions.length > 0) {
-      const voiceValues = new Set(ttsVoiceOptions.map(v => v.value));
-      const fallbackVoice = ttsVoiceOptions[0]?.value || '';
-      if (ttsEnabled && !voiceValues.has(ttsVoiceId)) {
-        setTtsVoiceId(fallbackVoice);
-      } else if (!ttsEnabled && ttsVoiceId && !voiceValues.has(ttsVoiceId)) {
+    if (provider.voices?.length > 0 || mergedTtsVoiceOptions.length > 0) {
+      const selectableVoiceOptions = mergedTtsVoiceOptions.filter(
+        option => !option.disabled,
+      );
+      const voiceValues = new Set(selectableVoiceOptions.map(v => v.value));
+      const fallbackVoice = selectableVoiceOptions[0]?.value || '';
+      const currentClonedVoice = isMiniMaxProvider(provider.name)
+        ? minimaxClonedVoices.find(
+            voice => (voice.voice_id || '').trim() === ttsVoiceId,
+          )
+        : undefined;
+      const preserveCustomVoice =
+        !currentClonedVoice &&
+        shouldPreserveCustomMiniMaxVoice({
+          providerName: provider.name,
+          supportsCustomVoiceId: provider.supports_custom_voice_id,
+          voiceId: ttsVoiceId,
+          builtInVoices: ttsVoiceOptions,
+        });
+      if (ttsEnabled) {
+        const nextVoice =
+          voiceValues.has(ttsVoiceId) || preserveCustomVoice
+            ? ttsVoiceId
+            : fallbackVoice;
+        if (nextVoice && nextVoice !== ttsVoiceId) {
+          setTtsVoiceId(nextVoice);
+        }
+      } else if (
+        ttsVoiceId &&
+        !voiceValues.has(ttsVoiceId) &&
+        !preserveCustomVoice
+      ) {
         setTtsVoiceId('');
       }
-    } else if (ttsVoiceId) {
-      setTtsVoiceId('');
     }
+
   }, [
     ttsConfig,
     resolvedProvider,
     ttsModel,
     ttsVoiceId,
     ttsEnabled,
+    ttsModelOptions,
     ttsVoiceOptions,
+    mergedTtsVoiceOptions,
+    minimaxClonedVoices,
   ]);
   // Define the validation schema using Zod
   const shifuSchema = z.object({
-    previewUrl: z.string(),
-    url: z.string(),
     name: z
       .string()
       .min(1, t('module.shifuSetting.shifuNameEmpty'))
@@ -1182,8 +965,6 @@ export default function ShifuSettingDialog({
   const form = useForm({
     resolver: zodResolver(shifuSchema),
     defaultValues: {
-      previewUrl: '',
-      url: '',
       name: '',
       description: '',
       model: '',
@@ -1193,31 +974,6 @@ export default function ShifuSettingDialog({
     },
   });
   const isDirty = form.formState.isDirty;
-  useEffect(() => {
-    return () => {
-      Object.values(copyTimeoutRef.current).forEach(timeout => {
-        if (timeout) {
-          clearTimeout(timeout);
-        }
-      });
-    };
-  }, []);
-
-  // Handle copy to clipboard
-  const handleCopy = (field: keyof CopyingState) => {
-    const existingTimeout = copyTimeoutRef.current[field];
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-      copyTimeoutRef.current[field] = null;
-    }
-    navigator.clipboard.writeText(form.getValues(field));
-    setCopying(prev => ({ ...prev, [field]: true }));
-
-    copyTimeoutRef.current[field] = setTimeout(() => {
-      setCopying(prev => ({ ...prev, [field]: false }));
-      copyTimeoutRef.current[field] = null;
-    }, 2000);
-  };
 
   // Handle keyword addition
   const handleAddKeyword = () => {
@@ -1299,7 +1055,10 @@ export default function ShifuSettingDialog({
     ) => {
       try {
         const providerForSubmit =
-          resolvedProvider || ttsConfig?.providers?.[0]?.name || '';
+          resolvedProvider ||
+          ttsConfig?.model_options?.[0]?.provider ||
+          ttsConfig?.providers?.[0]?.name ||
+          '';
         const askProviderForSubmit =
           resolvedAskProvider ||
           askConfigMeta?.default?.provider ||
@@ -1363,7 +1122,7 @@ export default function ShifuSettingDialog({
           onSave();
         }
         if (needClose) {
-          setOpen(false);
+          updateOpen(false);
         }
       } catch (error) {
         if (!currentShifu?.readonly && error instanceof Error) {
@@ -1373,7 +1132,7 @@ export default function ShifuSettingDialog({
           });
         }
         if (currentShifu?.readonly) {
-          setOpen(false);
+          updateOpen(false);
         }
       }
     },
@@ -1400,6 +1159,7 @@ export default function ShifuSettingDialog({
       resolvedAskProvider,
       toast,
       t,
+      updateOpen,
     ],
   );
 
@@ -1417,8 +1177,6 @@ export default function ShifuSettingDialog({
         description: result.description,
         price: (result.price ?? 0).toFixed(2),
         model: result.model || '',
-        previewUrl: result.preview_url,
-        url: result.url,
         temperature: result.temperature + '',
         systemPrompt: result.system_prompt || '',
       });
@@ -1466,113 +1224,189 @@ export default function ShifuSettingDialog({
     }
   };
 
-  // TTS Preview handler
-  const handleTtsPreview = useCallback(async () => {
-    // Stop if already playing
-    if (ttsPreviewPlaying || ttsPreviewLoading) {
-      stopTtsPreview();
-      return;
-    }
+  const handleTtsPreview = useCallback(
+    async (options: TtsPreviewOptions = {}) => {
+      const targetKey = options.targetKey || TTS_PREVIEW_CURRENT_TARGET;
+      const demoAudioUrl = (options.demoAudioUrl || '').trim();
+      const previewVoiceId = (options.voiceId ?? ttsVoiceId ?? '').trim();
+      const sameTargetActive =
+        (ttsPreviewPlaying || ttsPreviewLoading) &&
+        ttsPreviewTarget === targetKey;
 
-    const sessionId = ttsPreviewSessionRef.current + 1;
-    ttsPreviewSessionRef.current = sessionId;
-    requestExclusive(stopTtsPreview);
-    setTtsPreviewLoading(true);
-    setTtsPreviewPlaying(true);
-    ttsPreviewIsPlayingRef.current = true;
-    ttsPreviewIsStreamingRef.current = true;
-    ttsPreviewWaitingRef.current = true;
-    ttsPreviewSegmentsRef.current = [];
-    ttsPreviewSegmentIndexRef.current = 0;
-    closeTtsPreviewStream();
+      if (sameTargetActive) {
+        stopTtsPreview();
+        return;
+      }
+      if (ttsPreviewPlaying || ttsPreviewLoading) {
+        stopTtsPreview();
+      }
 
-    const baseUrl = getResolvedBaseURL();
-    const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Request-ID': uuidv4().replace(/-/g, ''),
-      },
-      payload: JSON.stringify({
-        provider: resolvedProvider,
-        model: ttsModel || '',
-        voice_id: ttsVoiceId || '',
-        speed: speedValue,
-        pitch: 0,
-        emotion: '',
-      }),
-      method: 'POST',
-    });
+      if (!debugAllowed && !demoAudioUrl) {
+        toast({
+          title: t('module.shifuSetting.debugDisabledBySoftLimit'),
+          variant: 'destructive',
+        });
+        return;
+      }
 
-    source.addEventListener('message', event => {
-      const raw = event?.data;
-      if (!raw) return;
-      const payload = String(raw).trim();
-      if (!payload) return;
+      const sessionId = ttsPreviewSessionRef.current + 1;
+      ttsPreviewSessionRef.current = sessionId;
+      requestExclusive(stopTtsPreview);
+      setTtsPreviewTarget(targetKey);
+      setTtsPreviewLoading(true);
+      setTtsPreviewPlaying(true);
+      ttsPreviewIsPlayingRef.current = true;
+      ttsPreviewIsStreamingRef.current = !demoAudioUrl;
+      ttsPreviewWaitingRef.current = !demoAudioUrl;
+      ttsPreviewSegmentsRef.current = [];
+      ttsPreviewSegmentIndexRef.current = 0;
+      closeTtsPreviewStream();
 
-      try {
-        const response = JSON.parse(payload);
-        if (ttsPreviewSessionRef.current !== sessionId) {
-          return;
-        }
-
-        if (response?.type === 'audio_segment') {
-          const segmentPayload = response.content ?? response.data;
-          if (!segmentPayload) return;
-          const mappedSegment = normalizeAudioSegmentPayload(segmentPayload);
-          if (!mappedSegment) {
+      if (demoAudioUrl) {
+        const audio = new Audio(demoAudioUrl);
+        ttsPreviewHtmlAudioRef.current = audio;
+        audio.onplaying = () => {
+          if (ttsPreviewSessionRef.current !== sessionId) {
             return;
           }
-
-          const updatedSegments = mergeAudioSegmentByUniqueKey(
-            'tts-preview',
-            ttsPreviewSegmentsRef.current,
-            mappedSegment,
-          );
-          if (updatedSegments !== ttsPreviewSegmentsRef.current) {
-            ttsPreviewSegmentsRef.current = updatedSegments;
-          }
-
-          if (ttsPreviewWaitingRef.current) {
-            playPreviewSegment(ttsPreviewSegmentIndexRef.current, sessionId);
-          }
-          return;
-        }
-
-        if (response?.type === 'audio_complete') {
-          ttsPreviewIsStreamingRef.current = false;
           setTtsPreviewLoading(false);
-          closeTtsPreviewStream();
-          if (ttsPreviewSegmentsRef.current.length === 0) {
+          setTtsPreviewPlaying(true);
+          ttsPreviewIsPlayingRef.current = true;
+        };
+        audio.onended = () => {
+          if (ttsPreviewSessionRef.current === sessionId) {
+            stopTtsPreview();
+          }
+        };
+        audio.onerror = () => {
+          if (ttsPreviewSessionRef.current !== sessionId) {
+            return;
+          }
+          toast({
+            title: t('module.shifuSetting.minimaxClonePreviewFailed'),
+            variant: 'destructive',
+          });
+          stopTtsPreview();
+        };
+
+        try {
+          await audio.play();
+          if (ttsPreviewSessionRef.current === sessionId) {
+            setTtsPreviewLoading(false);
+            setTtsPreviewPlaying(true);
+          }
+        } catch {
+          if (ttsPreviewSessionRef.current === sessionId) {
+            toast({
+              title: t('module.shifuSetting.minimaxClonePreviewFailed'),
+              variant: 'destructive',
+            });
             stopTtsPreview();
           }
         }
-      } catch (error) {
-        console.warn('TTS preview stream parse error:', error);
-      }
-    });
-
-    source.addEventListener('error', error => {
-      if (ttsPreviewSessionRef.current !== sessionId) {
         return;
       }
-      console.error('TTS preview stream failed:', error);
-      stopTtsPreview();
-    });
 
-    source.stream();
-    ttsPreviewStreamRef.current = source;
-  }, [
-    resolvedProvider,
-    ttsModel,
-    ttsVoiceId,
-    speedValue,
-    ttsPreviewPlaying,
-    ttsPreviewLoading,
-    closeTtsPreviewStream,
-    playPreviewSegment,
-    requestExclusive,
-    stopTtsPreview,
-  ]);
+      const baseUrl = getResolvedBaseURL();
+      const token = useUserStore.getState().getToken();
+      const traceHeaders = buildTraceHeaders({
+        'Content-Type': 'application/json',
+        ...(token
+          ? {
+              Authorization: `Bearer ${token}`,
+              Token: token,
+            }
+          : {}),
+      });
+      const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
+        headers: traceHeaders.headers,
+        payload: JSON.stringify({
+          provider: resolvedProvider,
+          model: ttsModel || '',
+          voice_id: previewVoiceId,
+          speed: speedValue,
+          pitch: 0,
+          emotion: '',
+        }),
+        method: 'POST',
+      });
+
+      source.addEventListener('message', event => {
+        const raw = event?.data;
+        if (!raw) return;
+        const payload = String(raw).trim();
+        if (!payload) return;
+
+        try {
+          const response = JSON.parse(payload);
+          if (ttsPreviewSessionRef.current !== sessionId) {
+            return;
+          }
+
+          if (response?.type === 'audio_segment') {
+            const segmentPayload = response.content ?? response.data;
+            if (!segmentPayload) return;
+            const mappedSegment = normalizeAudioSegmentPayload(segmentPayload);
+            if (!mappedSegment) {
+              return;
+            }
+
+            const updatedSegments = mergeAudioSegmentByUniqueKey(
+              'tts-preview',
+              ttsPreviewSegmentsRef.current,
+              mappedSegment,
+            );
+            if (updatedSegments !== ttsPreviewSegmentsRef.current) {
+              ttsPreviewSegmentsRef.current = updatedSegments;
+            }
+
+            if (ttsPreviewWaitingRef.current) {
+              playPreviewSegment(ttsPreviewSegmentIndexRef.current, sessionId);
+            }
+            return;
+          }
+
+          if (response?.type === 'audio_complete') {
+            ttsPreviewIsStreamingRef.current = false;
+            setTtsPreviewLoading(false);
+            closeTtsPreviewStream();
+            if (ttsPreviewSegmentsRef.current.length === 0) {
+              stopTtsPreview();
+            }
+          }
+        } catch (error) {
+          console.warn('TTS preview stream parse error:', error);
+        }
+      });
+
+      source.addEventListener('error', error => {
+        if (ttsPreviewSessionRef.current !== sessionId) {
+          return;
+        }
+        console.error('TTS preview stream failed:', error);
+        stopTtsPreview();
+      });
+
+      source.stream();
+      ttsPreviewStreamRef.current = source;
+    },
+    [
+      resolvedProvider,
+      ttsModel,
+      ttsVoiceId,
+      speedValue,
+      ttsPreviewPlaying,
+      ttsPreviewLoading,
+      ttsPreviewTarget,
+      closeTtsPreviewStream,
+      playPreviewSegment,
+      requestExclusive,
+      stopTtsPreview,
+      debugAllowed,
+      t,
+      toast,
+    ],
+  );
 
   // Cleanup TTS preview audio on unmount
   useEffect(() => {
@@ -1591,14 +1425,14 @@ export default function ShifuSettingDialog({
   const submitForm = useCallback(
     async (needClose = true, saveType: 'auto' | 'manual' = 'manual') => {
       if (currentShifu?.readonly) {
-        setOpen(false);
+        updateOpen(false);
         return true;
       }
       const isNameValid = await form.trigger('name');
       const isPriceValid = await form.trigger('price');
       if (!isPriceValid) {
         if (needClose) {
-          setOpen(true);
+          updateOpen(true);
         }
         return false;
       }
@@ -1611,20 +1445,20 @@ export default function ShifuSettingDialog({
           }),
         });
         if (needClose) {
-          setOpen(true);
+          updateOpen(true);
         }
         return false;
       }
       if (!isNameValid) {
         if (needClose) {
-          setOpen(true);
+          updateOpen(true);
         }
         return false;
       }
       await onSubmit(form.getValues(), needClose, saveType);
       return true;
     },
-    [form, onSubmit, setOpen, t, currentShifu?.readonly],
+    [form, onSubmit, updateOpen, t, currentShifu?.readonly],
   );
 
   useEffect(() => {
@@ -1642,13 +1476,17 @@ export default function ShifuSettingDialog({
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
+      if (isOnboardingOpen && !nextOpen) {
+        updateOpen(true);
+        return;
+      }
       if (!nextOpen) {
         submitForm(true, 'manual');
         return;
       }
-      setOpen(true);
+      updateOpen(true);
     },
-    [submitForm, setOpen],
+    [isOnboardingOpen, submitForm, updateOpen],
   );
 
   const adjustTemperature = (delta: number) => {
@@ -1675,6 +1513,13 @@ export default function ShifuSettingDialog({
 
   const handleAskPreview = useCallback(async () => {
     if (currentShifu?.readonly || askPreviewLoading) {
+      return;
+    }
+    if (!debugAllowed) {
+      toast({
+        title: t('module.shifuSetting.debugDisabledBySoftLimit'),
+        variant: 'destructive',
+      });
       return;
     }
     const query = askPreviewQuery.trim();
@@ -1750,527 +1595,38 @@ export default function ShifuSettingDialog({
     askTemperatureInput,
     buildAskProviderConfigForSubmit,
     currentShifu?.readonly,
+    debugAllowed,
     normalizeAskTemperature,
     resolvedAskProvider,
     t,
     toast,
   ]);
 
-  const permissionLabelMap = useMemo(() => {
-    return permissionOptions.reduce<Record<string, string>>((map, option) => {
-      map[option.value] = option.label;
-      return map;
-    }, {});
-  }, [permissionOptions]);
-  const permissionOriginalMap = useMemo(() => {
-    const map = new Map<string, SharedPermission['permission']>();
-    permissionList.forEach(item => {
-      map.set(item.user_id, item.permission);
-    });
-    return map;
-  }, [permissionList]);
-  const sortedPermissionList = useMemo(() => {
-    const orderMap: Record<SharedPermission['permission'], number> = {
-      view: 0,
-      edit: 1,
-      publish: 2,
-    };
-    return [...permissionList].sort((a, b) => {
-      const orderDiff = orderMap[a.permission] - orderMap[b.permission];
-      if (orderDiff !== 0) {
-        return orderDiff;
-      }
-      const aValue = (a.identifier || a.user_id || '').toLowerCase();
-      const bValue = (b.identifier || b.user_id || '').toLowerCase();
-      return aValue.localeCompare(bValue);
-    });
-  }, [permissionList]);
-  const permissionChangeSummary = useMemo(() => {
-    return Object.entries(permissionEdits)
-      .filter(([userId]) => !permissionRemovals.has(userId))
-      .map(([userId, nextPermission]) => {
-        const originalPermission = permissionOriginalMap.get(userId) || 'view';
-        const label = permissionLabelMap[nextPermission] || nextPermission;
-        const originalLabel =
-          permissionLabelMap[originalPermission] || originalPermission;
-        const item = permissionList.find(entry => entry.user_id === userId);
-        return {
-          userId,
-          identifier: item?.identifier || item?.user_id || userId,
-          from: originalLabel,
-          to: label,
-        };
-      });
-  }, [
-    permissionEdits,
-    permissionLabelMap,
-    permissionList,
-    permissionOriginalMap,
-    permissionRemovals,
-  ]);
-  const permissionRemovalSummary = useMemo(() => {
-    return permissionList
-      .filter(item => permissionRemovals.has(item.user_id))
-      .map(item => ({
-        userId: item.user_id,
-        identifier: item.identifier || item.user_id,
-      }));
-  }, [permissionList, permissionRemovals]);
-
   return (
     <>
-      <Dialog
-        open={permissionDialogOpen}
-        onOpenChange={nextOpen => {
-          setPermissionDialogOpen(nextOpen);
-          if (!nextOpen) {
-            setPermissionError('');
-            setPermissionInput('');
-            setPermissionEditMode(false);
-            setPermissionEdits({});
-            setPermissionRemovals(new Set());
-            setGrantConfirmOpen(false);
-            setPermissionConfirmOpen(false);
-            setPendingGrantContacts([]);
-            setPendingGrantPermission('view');
-            setPermissionLevel('view');
-            setGrantLoading(false);
-            setPermissionSaveLoading(false);
-          }
-        }}
-      >
-        <DialogContent className='pb-4'>
-          <DialogHeader>
-            <DialogTitle>
-              <span>{t('module.shifuSetting.permissionDialogTitle')}</span>
-            </DialogTitle>
-          </DialogHeader>
-          <Tabs
-            defaultValue='grant'
-            className='w-full'
-          >
-            <TabsList className='mb-1 w-full justify-start bg-transparent p-0'>
-              <TabsTrigger
-                value='grant'
-                className='rounded-none border-b-2 border-transparent px-0 pb-2 pt-0 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none'
-              >
-                {t('module.shifuSetting.permissionTabGrant')}
-              </TabsTrigger>
-              <TabsTrigger
-                value='list'
-                className='ml-6 rounded-none border-b-2 border-transparent px-0 pb-2 pt-0 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none'
-              >
-                {t('module.shifuSetting.permissionTabList')}
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent
-              value='grant'
-              className='mt-1 min-h-[256px]'
-            >
-              <div className='space-y-6'>
-                <div className='space-y-4'>
-                  <Label className='text-sm font-medium text-foreground'>
-                    {contactLabel}
-                  </Label>
-                  <Textarea
-                    value={permissionInput}
-                    onChange={event => {
-                      setPermissionInput(event.target.value);
-                      if (permissionError) {
-                        setPermissionError('');
-                      }
-                    }}
-                    placeholder={contactPlaceholder}
-                    rows={3}
-                  />
-                  {permissionError ? (
-                    <p className='text-xs text-destructive'>
-                      {permissionError}
-                    </p>
-                  ) : null}
-                </div>
-                <div className='space-y-4'>
-                  <Label className='text-sm font-medium text-foreground'>
-                    {t('module.shifuSetting.permissionLabel')}
-                  </Label>
-                  <RadioGroup
-                    value={permissionLevel}
-                    onValueChange={value =>
-                      setPermissionLevel(
-                        value as SharedPermission['permission'],
-                      )
-                    }
-                    className='flex flex-row flex-wrap gap-x-8 gap-y-2'
-                  >
-                    {permissionOptions.map(option => (
-                      <div
-                        key={option.value}
-                        className='flex items-center'
-                      >
-                        <RadioGroupItem
-                          value={option.value}
-                          id={`permission-${option.value}`}
-                        />
-                        <Label
-                          htmlFor={`permission-${option.value}`}
-                          className='ml-2 text-sm font-medium text-foreground'
-                        >
-                          {option.value === 'publish' ? (
-                            <>
-                              {option.label}
-                              <span className='text-xs text-muted-foreground'>
-                                {t(
-                                  'module.shifuSetting.permissionPublishHintWrapped',
-                                  {
-                                    hint: t(
-                                      'module.shifuSetting.permissionPublishHint',
-                                    ),
-                                  },
-                                )}
-                              </span>
-                            </>
-                          ) : (
-                            option.label
-                          )}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                </div>
-              </div>
-              <DialogFooter className='mt-8 gap-2'>
-                <Button
-                  type='button'
-                  variant='outline'
-                  onClick={() => setPermissionDialogOpen(false)}
-                  disabled={grantLoading}
-                >
-                  {t('common.core.cancel')}
-                </Button>
-                <Button
-                  type='button'
-                  onClick={handleGrantPermissions}
-                  disabled={grantLoading}
-                >
-                  {grantLoading
-                    ? t('common.core.submitting')
-                    : t('module.shifuSetting.permissionGrant')}
-                </Button>
-              </DialogFooter>
-            </TabsContent>
-            <TabsContent
-              value='list'
-              className='mt-1 min-h-[256px]'
-            >
-              <ScrollArea
-                type='always'
-                className='mt-3 h-[180px] pr-2'
-              >
-                {permissionLoading ? (
-                  <div className='text-xs text-muted-foreground'>
-                    {t('module.shifuSetting.permissionLoading')}
-                  </div>
-                ) : permissionList.length === 0 ? (
-                  <div className='text-xs text-muted-foreground'>
-                    {t('module.shifuSetting.permissionEmpty')}
-                  </div>
-                ) : (
-                  <div className='space-y-1'>
-                    {sortedPermissionList.map(item => (
-                      <div
-                        key={item.user_id}
-                        className='flex items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/40'
-                      >
-                        <div className='min-w-0 flex-1'>
-                          <div className='text-sm font-medium min-w-0'>
-                            <span className='relative inline-block max-w-full pr-3'>
-                              <span
-                                className={cn(
-                                  'block truncate',
-                                  permissionRemovals.has(item.user_id) &&
-                                    'line-through text-muted-foreground',
-                                )}
-                              >
-                                {item.identifier || item.user_id}
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                        {!permissionEditMode ? (
-                          <div className='flex items-center gap-1 text-xs font-medium text-muted-foreground'>
-                            <span>
-                              {permissionLabelMap[item.permission] ||
-                                item.permission}
-                            </span>
-                          </div>
-                        ) : (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type='button'
-                                className='flex items-center gap-1 text-xs font-medium text-primary hover:text-primary'
-                              >
-                                {permissionRemovals.has(item.user_id)
-                                  ? t('module.shifuSetting.permissionRemoved')
-                                  : permissionLabelMap[
-                                      permissionEdits[item.user_id] ||
-                                        item.permission
-                                    ] ||
-                                    permissionEdits[item.user_id] ||
-                                    item.permission}
-                                <ChevronDown className='h-3.5 w-3.5' />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align='end'>
-                              {permissionOptions.map(option => (
-                                <DropdownMenuItem
-                                  key={option.value}
-                                  className='justify-between'
-                                  onSelect={() => {
-                                    if (permissionRemovals.has(item.user_id)) {
-                                      setPermissionRemovals(prev => {
-                                        const next = new Set(prev);
-                                        next.delete(item.user_id);
-                                        return next;
-                                      });
-                                    }
-                                    handleUpdatePermission(
-                                      item,
-                                      option.value as SharedPermission['permission'],
-                                    );
-                                  }}
-                                >
-                                  <span>{option.label}</span>
-                                  {(permissionEdits[item.user_id] ||
-                                    item.permission) === option.value ? (
-                                    <Check className='h-4 w-4 text-primary' />
-                                  ) : (
-                                    <span className='h-4 w-4' />
-                                  )}
-                                </DropdownMenuItem>
-                              ))}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className='text-destructive focus:text-destructive'
-                                onSelect={() => {
-                                  setPermissionRemovals(prev => {
-                                    const next = new Set(prev);
-                                    if (next.has(item.user_id)) {
-                                      next.delete(item.user_id);
-                                    } else {
-                                      next.add(item.user_id);
-                                    }
-                                    return next;
-                                  });
-                                  setPermissionEdits(current => {
-                                    if (!(item.user_id in current)) {
-                                      return current;
-                                    }
-                                    const updated = { ...current };
-                                    delete updated[item.user_id];
-                                    return updated;
-                                  });
-                                }}
-                              >
-                                {permissionRemovals.has(item.user_id)
-                                  ? t(
-                                      'module.shifuSetting.permissionRemoveUndo',
-                                    )
-                                  : t('module.shifuSetting.permissionRemove')}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-              {permissionList.length > 0 ? (
-                <div className='mt-4 text-xs text-muted-foreground'>
-                  {t('module.shifuSetting.permissionCount', {
-                    count: permissionList.length,
-                    max: MAX_SHARED_PERMISSION_COUNT,
-                  })}
-                </div>
-              ) : null}
-              <DialogFooter className='mt-4 gap-2'>
-                {permissionEditMode ? (
-                  <Button
-                    type='button'
-                    onClick={() => {
-                      const hasChanges =
-                        permissionRemovals.size > 0 ||
-                        Object.keys(permissionEdits).length > 0;
-                      if (!hasChanges) {
-                        setPermissionEditMode(false);
-                        setPermissionEdits({});
-                        setPermissionRemovals(new Set());
-                        return;
-                      }
-                      setPermissionConfirmOpen(true);
-                    }}
-                  >
-                    {t('common.core.confirm')}
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      type='button'
-                      variant='outline'
-                      onClick={() => setPermissionDialogOpen(false)}
-                    >
-                      {t('common.core.cancel')}
-                    </Button>
-                    <Button
-                      type='button'
-                      onClick={() => {
-                        setPermissionEditMode(true);
-                        setPermissionEdits({});
-                        setPermissionRemovals(new Set());
-                      }}
-                    >
-                      {t('module.shifuSetting.permissionEdit')}
-                    </Button>
-                  </>
-                )}
-              </DialogFooter>
-            </TabsContent>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog
-        open={grantConfirmOpen}
-        onOpenChange={openState => {
-          setGrantConfirmOpen(openState);
-          if (!openState) {
-            setPendingGrantContacts([]);
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('module.shifuSetting.permissionGrantConfirmTitle')}
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className='space-y-2 text-sm text-muted-foreground'>
-                <div>
-                  <Trans
-                    i18nKey='module.shifuSetting.permissionGrantConfirmDesc'
-                    values={{
-                      contactType: contactLabel,
-                      permission: pendingGrantPermissionLabel,
-                    }}
-                    components={{
-                      strong: <span className='font-medium text-foreground' />,
-                    }}
-                  />
-                </div>
-                <div className='space-y-1'>
-                  {pendingGrantContacts.map(contact => (
-                    <div key={contact}>{contact}</div>
-                  ))}
-                </div>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={grantLoading}>
-              {t('common.core.cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={grantLoading}
-              onClick={event => {
-                event.preventDefault();
-                handleConfirmGrantPermissions();
-              }}
-            >
-              {grantLoading
-                ? t('common.core.submitting')
-                : t('common.core.confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={permissionConfirmOpen}
-        onOpenChange={openState => {
-          setPermissionConfirmOpen(openState);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('module.shifuSetting.permissionEditConfirmTitle')}
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className='space-y-2 text-sm text-muted-foreground'>
-                {permissionChangeSummary.length > 0 ? (
-                  <div>
-                    <div className='font-medium text-foreground'>
-                      {t('module.shifuSetting.permissionEditChangeTitle')}
-                    </div>
-                    <div className='mt-1 space-y-1'>
-                      {permissionChangeSummary.map(item => (
-                        <div key={item.userId}>
-                          {t('module.shifuSetting.permissionEditChangeItem', {
-                            identifier: item.identifier,
-                            from: item.from,
-                            to: item.to,
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {permissionRemovalSummary.length > 0 ? (
-                  <div>
-                    <div className='font-medium text-foreground'>
-                      {t('module.shifuSetting.permissionEditRemoveTitle')}
-                    </div>
-                    <div className='mt-1 space-y-1'>
-                      {permissionRemovalSummary.map(item => (
-                        <div key={item.userId}>{item.identifier}</div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={permissionSaveLoading}>
-              {t('common.core.cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={permissionSaveLoading}
-              onClick={event => {
-                event.preventDefault();
-                handleSavePermissionChanges();
-              }}
-            >
-              {permissionSaveLoading
-                ? t('common.core.submitting')
-                : t('common.core.confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <Sheet
         open={open}
+        modal={!isOnboardingOpen}
         onOpenChange={handleOpenChange}
       >
         <SheetTrigger asChild>
-          <div className='flex items-center justify-center rounded-lg cursor-pointer'>
+          <div
+            className='flex items-center justify-center rounded-lg cursor-pointer'
+            {...buildOnboardingTargetProps(
+              triggerTargetId || ONBOARDING_TARGET_IDS.editorSettingsEntry,
+            )}
+          >
             <Settings size={16} />
           </div>
         </SheetTrigger>
         <SheetContent
           side='right'
+          hideOverlay={isOnboardingOpen}
+          onInteractOutside={event => {
+            if (isOnboardingOpen) {
+              event.preventDefault();
+            }
+          }}
           className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0'
         >
           <SheetHeader className='px-6 pt-[19px] pb-4'>
@@ -2413,90 +1769,6 @@ export default function ShifuSettingDialog({
 
                 <FormField
                   control={form.control}
-                  name='previewUrl'
-                  render={({ field }) => (
-                    <FormItem className='space-y-2 mb-4'>
-                      <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.previewUrl')}
-                      </FormLabel>
-                      <FormControl>
-                        <div className='flex items-center gap-2'>
-                          <input
-                            type='hidden'
-                            {...field}
-                          />
-                          <span
-                            className='flex-1 text-sm underline whitespace-nowrap overflow-hidden text-ellipsis'
-                            style={{
-                              color: 'var(--base-muted-foreground, #737373)',
-                            }}
-                            title={field.value}
-                          >
-                            {field.value}
-                          </span>
-                          <button
-                            type='button'
-                            onClick={() => handleCopy('previewUrl')}
-                            className='flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none'
-                            style={{ width: 20, height: 20 }}
-                          >
-                            {copying.previewUrl ? (
-                              <Check className='w-[14px] h-[14px]' />
-                            ) : (
-                              <Copy className='w-[14px] h-[14px]' />
-                            )}
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='url'
-                  render={({ field }) => (
-                    <FormItem className='space-y-2 mb-4'>
-                      <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.learningUrl')}
-                      </FormLabel>
-                      <FormControl>
-                        <div className='flex items-center gap-2'>
-                          <input
-                            type='hidden'
-                            {...field}
-                          />
-                          <span
-                            className='flex-1 text-sm underline whitespace-nowrap overflow-hidden text-ellipsis'
-                            style={{
-                              color: 'var(--base-muted-foreground, #737373)',
-                            }}
-                            title={field.value}
-                          >
-                            {field.value}
-                          </span>
-                          <button
-                            type='button'
-                            onClick={() => handleCopy('url')}
-                            className='flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none'
-                            style={{ width: 20, height: 20 }}
-                          >
-                            {copying.url ? (
-                              <Check className='w-[14px] h-[14px]' />
-                            ) : (
-                              <Copy className='w-[14px] h-[14px]' />
-                            )}
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
                   name='model'
                   render={({ field }) => (
                     <FormItem className='space-y-2 mb-4'>
@@ -2606,33 +1878,35 @@ export default function ShifuSettingDialog({
                   )}
                 />
 
-                <AskSettingsSection
-                  readonly={currentShifu?.readonly}
-                  askProviderOptions={askProviderOptions}
-                  resolvedAskProvider={resolvedAskProvider}
-                  askProviderLlmValue={ASK_PROVIDER_LLM}
-                  askModel={askModel}
-                  onAskModelChange={setAskModel}
-                  askTemperature={askTemperature}
-                  askTemperatureInput={askTemperatureInput}
-                  setAskTemperature={setAskTemperature}
-                  setAskTemperatureInput={setAskTemperatureInput}
-                  normalizeAskTemperature={normalizeAskTemperature}
-                  adjustAskTemperature={adjustAskTemperature}
-                  onAskProviderChange={handleAskProviderChange}
-                  askProviderFieldEntries={askProviderFieldEntries}
-                  askProviderRequiredFields={askProviderRequiredFields}
-                  askProviderConfig={askProviderConfig}
-                  setAskProviderConfig={setAskProviderConfig}
-                  askProviderObjectInputs={askProviderObjectInputs}
-                  setAskProviderObjectInputs={setAskProviderObjectInputs}
-                  askPreviewLoading={askPreviewLoading}
-                  askPreviewQuery={askPreviewQuery}
-                  setAskPreviewQuery={setAskPreviewQuery}
-                  handleAskPreview={handleAskPreview}
-                  askPreviewMeta={askPreviewMeta}
-                  askPreviewResult={askPreviewResult}
-                />
+                <div>
+                  <AskSettingsSection
+                    readonly={currentShifu?.readonly || !debugAllowed}
+                    askProviderOptions={askProviderOptions}
+                    resolvedAskProvider={resolvedAskProvider}
+                    askProviderLlmValue={ASK_PROVIDER_LLM}
+                    askModel={askModel}
+                    onAskModelChange={setAskModel}
+                    askTemperature={askTemperature}
+                    askTemperatureInput={askTemperatureInput}
+                    setAskTemperature={setAskTemperature}
+                    setAskTemperatureInput={setAskTemperatureInput}
+                    normalizeAskTemperature={normalizeAskTemperature}
+                    adjustAskTemperature={adjustAskTemperature}
+                    onAskProviderChange={handleAskProviderChange}
+                    askProviderFieldEntries={askProviderFieldEntries}
+                    askProviderRequiredFields={askProviderRequiredFields}
+                    askProviderConfig={askProviderConfig}
+                    setAskProviderConfig={setAskProviderConfig}
+                    askProviderObjectInputs={askProviderObjectInputs}
+                    setAskProviderObjectInputs={setAskProviderObjectInputs}
+                    askPreviewLoading={askPreviewLoading}
+                    askPreviewQuery={askPreviewQuery}
+                    setAskPreviewQuery={setAskPreviewQuery}
+                    handleAskPreview={handleAskPreview}
+                    askPreviewMeta={askPreviewMeta}
+                    askPreviewResult={askPreviewResult}
+                  />
+                </div>
 
                 {/* Language Output Configuration Section */}
                 <div className='mb-6'>
@@ -2655,7 +1929,12 @@ export default function ShifuSettingDialog({
 
                 {/* TTS Configuration Section */}
                 <div className='mb-6'>
-                  <div className='flex items-start justify-between mb-4'>
+                  <div
+                    className='flex items-start justify-between mb-4'
+                    {...buildOnboardingTargetProps(
+                      ONBOARDING_TARGET_IDS.editorCourseListenMode,
+                    )}
+                  >
                     <div className='space-y-1'>
                       <FormLabel className='text-sm font-medium text-foreground'>
                         {t('module.shifuSetting.ttsTitle')}
@@ -2673,6 +1952,7 @@ export default function ShifuSettingDialog({
 
                   {ttsEnabled && (
                     <>
+                      {/* Model Selection */}
                       <div className='space-y-2 mb-4'>
                         <FormLabel className='text-sm font-medium text-foreground'>
                           {t('module.shifuSetting.ttsModel')}
@@ -2714,7 +1994,22 @@ export default function ShifuSettingDialog({
                         </FormLabel>
                         <Select
                           value={ttsVoiceId}
-                          onValueChange={setTtsVoiceId}
+                          onValueChange={value => {
+                            setTtsVoiceId(value);
+                            if (resolvedProvider === 'volcengine') {
+                              const selectedVoice = ttsVoiceOptions.find(
+                                option => option.value === value,
+                              );
+                              const inferredResourceId =
+                                selectedVoice?.resource_id;
+                              if (
+                                inferredResourceId &&
+                                inferredResourceId !== ttsModel
+                              ) {
+                                setTtsModel(inferredResourceId);
+                              }
+                            }
+                          }}
                           disabled={currentShifu?.readonly}
                         >
                           <SelectTrigger className='h-9'>
@@ -2725,16 +2020,280 @@ export default function ShifuSettingDialog({
                             />
                           </SelectTrigger>
                           <SelectContent>
-                            {ttsVoiceOptions.map(option => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
+                            {isMiniMaxTtsProvider ? (
+                              <>
+                                {builtInTtsVoiceOptions.length > 0 ? (
+                                  <SelectGroup>
+                                    <SelectLabel>
+                                      {t(
+                                        'module.shifuSetting.minimaxVoiceGroupBuiltIn',
+                                      )}
+                                    </SelectLabel>
+                                    {builtInTtsVoiceOptions.map(option => (
+                                      <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                        disabled={option.disabled}
+                                      >
+                                        <span className='truncate'>
+                                          {option.label}
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                ) : null}
+                                {clonedTtsVoiceOptions.length > 0 ? (
+                                  <>
+                                    {builtInTtsVoiceOptions.length > 0 ? (
+                                      <SelectSeparator />
+                                    ) : null}
+                                    <SelectGroup>
+                                      <SelectLabel>
+                                        {t(
+                                          'module.shifuSetting.minimaxVoiceGroupCloned',
+                                        )}
+                                      </SelectLabel>
+                                      {clonedTtsVoiceOptions.map(option => (
+                                        <SelectItem
+                                          key={option.value}
+                                          value={option.value}
+                                          disabled={option.disabled}
+                                        >
+                                          <span className='truncate'>
+                                            {option.label}
+                                          </span>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </>
+                                ) : null}
+                                {manualTtsVoiceOptions.length > 0 ? (
+                                  <>
+                                    {builtInTtsVoiceOptions.length > 0 ||
+                                    clonedTtsVoiceOptions.length > 0 ? (
+                                      <SelectSeparator />
+                                    ) : null}
+                                    <SelectGroup>
+                                      <SelectLabel>
+                                        {t(
+                                          'module.shifuSetting.minimaxVoiceGroupManual',
+                                        )}
+                                      </SelectLabel>
+                                      {manualTtsVoiceOptions.map(option => (
+                                        <SelectItem
+                                          key={option.value}
+                                          value={option.value}
+                                          disabled={option.disabled}
+                                        >
+                                          <span className='flex min-w-0 items-center justify-between gap-2'>
+                                            <span className='truncate'>
+                                              {option.label}
+                                            </span>
+                                            <Badge
+                                              variant='secondary'
+                                              className='shrink-0'
+                                            >
+                                              {t(
+                                                'module.shifuSetting.minimaxManualVoiceBadge',
+                                              )}
+                                            </Badge>
+                                          </span>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </>
+                                ) : null}
+                              </>
+                            ) : (
+                              mergedTtsVoiceOptions.map(option => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                  disabled={option.disabled}
+                                >
+                                  <span className='truncate'>
+                                    {option.label}
+                                  </span>
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
+
+                        {isMiniMaxTtsProvider &&
+                          currentProviderConfig?.supports_custom_voice_id && (
+                            <div className='flex gap-2'>
+                              <Input
+                                value={minimaxManualVoiceId}
+                                onChange={event =>
+                                  setMinimaxManualVoiceId(event.target.value)
+                                }
+                                placeholder={t(
+                                  'module.shifuSetting.minimaxManualVoicePlaceholder',
+                                )}
+                                disabled={currentShifu?.readonly}
+                                className='h-9 flex-1'
+                              />
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='sm'
+                                onClick={applyMinimaxManualVoiceId}
+                                disabled={currentShifu?.readonly}
+                              >
+                                {t(
+                                  'module.shifuSetting.minimaxManualVoiceApply',
+                                )}
+                              </Button>
+                            </div>
+                          )}
+
+                        {supportsMiniMaxVoiceCloning && (
+                          <div className='space-y-2 rounded-md border p-3'>
+                            <div className='flex items-center justify-between gap-2'>
+                              <div className='min-w-0'>
+                                <p className='text-sm font-medium'>
+                                  {t(
+                                    'module.shifuSetting.minimaxCloneSectionTitle',
+                                  )}
+                                </p>
+                                <p className='truncate text-xs text-muted-foreground'>
+                                  {minimaxCloneCost?.estimated_credits &&
+                                  minimaxCloneCost.estimated_credits !== '0'
+                                    ? t(
+                                        'module.shifuSetting.minimaxCloneCostCredits',
+                                        {
+                                          credits:
+                                            minimaxCloneCost.estimated_credits,
+                                        },
+                                      )
+                                    : t(
+                                        'module.shifuSetting.minimaxCloneCostFree',
+                                      )}
+                                </p>
+                              </div>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='sm'
+                                onClick={() => setMinimaxCloneDialogOpen(true)}
+                                disabled={currentShifu?.readonly}
+                              >
+                                <Mic className='mr-2 h-4 w-4' />
+                                {t('module.shifuSetting.minimaxCloneCreate')}
+                              </Button>
+                            </div>
+
+                            {minimaxClonedVoices.length === 0 ? (
+                              <p className='text-xs text-muted-foreground'>
+                                {t('module.shifuSetting.minimaxCloneEmpty')}
+                              </p>
+                            ) : (
+                              <div className='space-y-2'>
+                                {minimaxClonedVoices.map(voice => {
+                                  const previewTarget = `clone:${voice.voice_bid}`;
+                                  const previewLoading =
+                                    ttsPreviewTarget === previewTarget &&
+                                    ttsPreviewLoading;
+                                  const previewPlaying =
+                                    ttsPreviewTarget === previewTarget &&
+                                    ttsPreviewPlaying;
+                                  const ready = voice.status === 'ready';
+                                  const canPreview =
+                                    ready &&
+                                    (debugAllowed ||
+                                      Boolean(
+                                        (
+                                          voice.minimax_demo_audio_url || ''
+                                        ).trim(),
+                                      ));
+
+                                  return (
+                                    <div
+                                      key={voice.voice_bid}
+                                      className='flex items-center justify-between gap-2 text-sm'
+                                    >
+                                      <div className='min-w-0'>
+                                        <p className='truncate'>
+                                          {voice.display_name || voice.voice_id}
+                                        </p>
+                                        <p className='truncate text-xs text-muted-foreground'>
+                                          {voice.voice_id}
+                                        </p>
+                                      </div>
+                                      <div className='flex shrink-0 items-center gap-1'>
+                                        <Badge variant='secondary'>
+                                          {t(
+                                            `module.shifuSetting.minimaxCloneStatus.${voice.status}`,
+                                          )}
+                                        </Badge>
+                                        <Button
+                                          type='button'
+                                          variant='ghost'
+                                          size='icon'
+                                          className='h-7 w-7'
+                                          onClick={() =>
+                                            handleTtsPreview({
+                                              voiceId: voice.voice_id,
+                                              targetKey: previewTarget,
+                                              demoAudioUrl:
+                                                voice.minimax_demo_audio_url ||
+                                                '',
+                                            })
+                                          }
+                                          disabled={!canPreview}
+                                          title={
+                                            canPreview
+                                              ? t(
+                                                  'module.shifuSetting.minimaxClonePreview',
+                                                )
+                                              : t(
+                                                  'module.shifuSetting.minimaxClonePreviewUnavailable',
+                                                )
+                                          }
+                                        >
+                                          {previewLoading ? (
+                                            <Loader2 className='h-4 w-4 animate-spin' />
+                                          ) : previewPlaying ? (
+                                            <Square className='h-4 w-4' />
+                                          ) : (
+                                            <Volume2 className='h-4 w-4' />
+                                          )}
+                                        </Button>
+                                        {voice.status === 'failed' && (
+                                          <Button
+                                            type='button'
+                                            variant='ghost'
+                                            size='icon'
+                                            className='h-7 w-7'
+                                            onClick={() =>
+                                              retryMiniMaxVoice(voice.voice_bid)
+                                            }
+                                            disabled={currentShifu?.readonly}
+                                          >
+                                            <RotateCw className='h-4 w-4' />
+                                          </Button>
+                                        )}
+                                        <Button
+                                          type='button'
+                                          variant='ghost'
+                                          size='icon'
+                                          className='h-7 w-7'
+                                          onClick={() =>
+                                            deleteMiniMaxVoice(voice)
+                                          }
+                                          disabled={currentShifu?.readonly}
+                                        >
+                                          <Trash2 className='h-4 w-4' />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Speed Adjustment */}
@@ -2814,16 +2373,30 @@ export default function ShifuSettingDialog({
                         <Button
                           type='button'
                           variant='outline'
-                          onClick={handleTtsPreview}
-                          disabled={ttsPreviewLoading}
+                          onClick={() => handleTtsPreview()}
+                          disabled={
+                            (ttsPreviewLoading &&
+                              ttsPreviewTarget ===
+                                TTS_PREVIEW_CURRENT_TARGET) ||
+                            !debugAllowed
+                          }
                           className='w-full'
+                          title={
+                            debugAllowed
+                              ? undefined
+                              : t(
+                                  'module.shifuSetting.debugDisabledBySoftLimit',
+                                )
+                          }
                         >
-                          {ttsPreviewLoading ? (
+                          {ttsPreviewLoading &&
+                          ttsPreviewTarget === TTS_PREVIEW_CURRENT_TARGET ? (
                             <>
                               <Loader2 className='mr-2 h-4 w-4 animate-spin' />
                               {t('module.shifuSetting.ttsPreviewLoading')}
                             </>
-                          ) : ttsPreviewPlaying ? (
+                          ) : ttsPreviewPlaying &&
+                            ttsPreviewTarget === TTS_PREVIEW_CURRENT_TARGET ? (
                             <>
                               <Square className='mr-2 h-4 w-4' />
                               {t('module.shifuSetting.ttsPreviewStop')}
@@ -2839,29 +2412,6 @@ export default function ShifuSettingDialog({
                     </>
                   )}
                 </div>
-
-                {canManagePermissions && (
-                  <div className='mb-6'>
-                    <div className='flex items-start justify-between gap-4'>
-                      <div className='space-y-1'>
-                        <FormLabel className='text-sm font-medium text-foreground'>
-                          {t('module.shifuSetting.permissionSectionTitle')}
-                        </FormLabel>
-                        <p className='text-xs text-muted-foreground'>
-                          {t('module.shifuSetting.permissionSectionDesc')}
-                        </p>
-                      </div>
-                      <Button
-                        type='button'
-                        variant='outline'
-                        size='sm'
-                        onClick={() => setPermissionDialogOpen(true)}
-                      >
-                        {t('module.shifuSetting.permissionManage')}
-                      </Button>
-                    </div>
-                  </div>
-                )}
 
                 <div className='space-y-2 mb-4'>
                   <span className='text-sm font-medium text-foreground'>
@@ -2944,6 +2494,30 @@ export default function ShifuSettingDialog({
           </Form>
         </SheetContent>
       </Sheet>
+      <MiniMaxVoiceCloneDialog
+        open={minimaxCloneDialogOpen}
+        onOpenChange={setMinimaxCloneDialogOpen}
+        shifuId={shifuId}
+        cloneCost={minimaxCloneCost}
+        onRefreshCost={refreshMinimaxVoiceData}
+        onVoiceChange={voice => {
+          setMinimaxClonedVoices(prev => {
+            const next = prev.filter(
+              item => item.voice_bid !== voice.voice_bid,
+            );
+            return [voice, ...next];
+          });
+        }}
+        onVoiceReady={voice => {
+          setTtsVoiceId(voice.voice_id);
+          setMinimaxClonedVoices(prev => {
+            const next = prev.filter(
+              item => item.voice_bid !== voice.voice_bid,
+            );
+            return [voice, ...next];
+          });
+        }}
+      />
     </>
   );
 }

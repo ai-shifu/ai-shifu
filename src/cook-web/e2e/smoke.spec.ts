@@ -12,6 +12,7 @@ type NetworkEntry = {
   status: number | null;
   url: string;
   requestId: string;
+  harnessRunId: string;
 };
 
 const DEFAULT_PHONE = process.env.AI_SHIFU_TEST_PHONE || '13800138000';
@@ -27,6 +28,8 @@ const DEFAULT_TEMPO_URL =
   process.env.AI_SHIFU_TEMPO_URL || 'http://127.0.0.1:3200';
 const DEFAULT_PROMETHEUS_URL =
   process.env.AI_SHIFU_PROMETHEUS_URL || 'http://127.0.0.1:9090';
+const HARNESS_RUN_ID =
+  process.env.AI_SHIFU_HARNESS_RUN_ID || `pw-run-${Date.now()}`;
 
 const createRequestId = (testInfo: TestInfo) =>
   `pw-${Date.now()}-${testInfo.title
@@ -54,13 +57,21 @@ const ensurePhoneLoginVisible = async (page: Page) => {
   return phoneInput;
 };
 
-const buildObservabilityHints = (requestId: string) => ({
+const buildObservabilityHints = (
+  requestId: string,
+  harnessRunId: string,
+  diagnosticsPath?: string,
+) => ({
   grafana: DEFAULT_GRAFANA_URL,
   loki: DEFAULT_LOKI_URL,
   tempo: DEFAULT_TEMPO_URL,
   prometheus: DEFAULT_PROMETHEUS_URL,
   requestId,
+  harnessRunId,
   diagnosticsCommand: `cd src/api && python scripts/harness_diagnostics.py --request-id ${requestId}`,
+  traceRunCommand: diagnosticsPath
+    ? `python scripts/harness/trace_run.py --run-id ${harnessRunId} --request-id ${requestId} --browser-diagnostics ${diagnosticsPath}`
+    : `python scripts/harness/trace_run.py --run-id ${harnessRunId} --request-id ${requestId}`,
 });
 
 const loginWithPhone = async (page: Page, redirectPath: string) => {
@@ -134,7 +145,12 @@ test.describe('agent-first smoke harness', () => {
     lastObservedRequestId = requestId;
     await page.context().setExtraHTTPHeaders({
       'X-Request-ID': requestId,
+      'X-Harness-Run-ID': HARNESS_RUN_ID,
     });
+    await page.addInitScript(harnessRunId => {
+      (window as any).__HARNESS_RUN_ID__ = harnessRunId;
+      window.sessionStorage.setItem('harness_run_id', String(harnessRunId));
+    }, HARNESS_RUN_ID);
 
     page.on('console', message => {
       consoleEntries.push({
@@ -148,7 +164,13 @@ test.describe('agent-first smoke harness', () => {
 
     page.on('response', async response => {
       const request = response.request();
-      const headers = await request.allHeaders();
+      let headers: Record<string, string> = {};
+      try {
+        headers = await request.allHeaders();
+      } catch {
+        // Response callbacks can still settle while Playwright is closing the page.
+        headers = {};
+      }
       const requestIdHeader = headers['x-request-id'];
       if (requestIdHeader) {
         lastObservedRequestId = requestIdHeader;
@@ -159,6 +181,7 @@ test.describe('agent-first smoke harness', () => {
         status: response.status(),
         url: response.url(),
         requestId: requestIdHeader || lastObservedRequestId,
+        harnessRunId: headers['x-harness-run-id'] || HARNESS_RUN_ID,
       });
       if (networkEntries.length > 60) {
         networkEntries = networkEntries.slice(-60);
@@ -172,6 +195,7 @@ test.describe('agent-first smoke harness', () => {
         status: null,
         url: request.url(),
         requestId: lastObservedRequestId,
+        harnessRunId: HARNESS_RUN_ID,
       });
       if (networkEntries.length > 60) {
         networkEntries = networkEntries.slice(-60);
@@ -195,11 +219,16 @@ test.describe('agent-first smoke harness', () => {
       JSON.stringify(
         {
           pageUrl: page.url(),
+          harnessRunId: HARNESS_RUN_ID,
           lastRequestId: lastObservedRequestId,
           console: consoleEntries,
           network: networkEntries.slice(-25),
           screenshot: screenshotPath,
-          observability: buildObservabilityHints(lastObservedRequestId),
+          observability: buildObservabilityHints(
+            lastObservedRequestId,
+            HARNESS_RUN_ID,
+            diagnosticsPath,
+          ),
         },
         null,
         2,

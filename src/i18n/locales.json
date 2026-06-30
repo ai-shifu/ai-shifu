@@ -5,6 +5,10 @@
       "label": "English",
       "rtl": false
     },
+    "fr-FR": {
+      "label": "Français",
+      "rtl": false
+    },
     "zh-CN": {
       "label": "中文",
       "rtl": false
@@ -31,16 +35,21 @@
     "module.feedback",
     "module.groupon",
     "module.lesson",
+    "module.onboarding",
     "module.operationsCourse",
+    "module.operationsCreditNotifications",
     "module.operationsOrder",
     "module.operationsPromotion",
     "module.operationsUser",
+    "module.operationsVoiceClone",
     "module.order",
     "module.pay",
     "module.permission",
     "module.preview",
+    "module.profileOnboarding",
     "module.profiles",
     "module.profilesManage",
+    "module.referral",
     "module.renderUi.core",
     "module.renderUi.inlineInput",
     "module.settings",
@@ -53,6 +62,7 @@
     "server.billing",
     "server.check",
     "server.common",
+    "server.creatorAnalytics",
     "server.discount",
     "server.file",
     "server.genMdf",

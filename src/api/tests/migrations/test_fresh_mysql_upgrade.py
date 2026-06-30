@@ -23,6 +23,14 @@ def _get_expected_head() -> str:
     return ScriptDirectory.from_config(config).get_current_head()
 
 
+def test_alembic_migrations_have_single_head():
+    config = Config(str(API_ROOT / "migrations" / "alembic.ini"))
+    config.set_main_option("script_location", str(API_ROOT / "migrations"))
+    heads = ScriptDirectory.from_config(config).get_heads()
+
+    assert heads == ["d4e5f6a7b8c9"]
+
+
 def _get_base_mysql_uri() -> str:
     if os.getenv(SMOKE_FLAG) != "1":
         pytest.skip(f"Set {SMOKE_FLAG}=1 to run the fresh-MySQL migration smoke test.")

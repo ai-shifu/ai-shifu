@@ -2873,6 +2873,96 @@ def test_listen_adapter_keeps_html_stream_as_single_element_on_break(app):
         assert result.elements[0].is_new is True
 
 
+def test_listen_adapter_preserves_structural_fragment_without_html_target(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-structural-fallback"
+    shifu_bid = "shifu-listen-structural-fallback"
+    outline_bid = "outline-listen-structural-fallback"
+    progress_bid = "progress-listen-structural-fallback"
+    generated_block_bid = "generated-listen-structural-fallback"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        db.session.add_all(
+            [
+                LearnProgressRecord(
+                    progress_record_bid=progress_bid,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=outline_bid,
+                    user_bid=user_bid,
+                    status=LEARN_STATUS_IN_PROGRESS,
+                    block_position=0,
+                ),
+                LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid=progress_bid,
+                    user_bid=user_bid,
+                    block_bid="block-listen-structural-fallback",
+                    outline_item_bid=outline_bid,
+                    shifu_bid=shifu_bid,
+                    type=0,
+                    role=ROLE_TEACHER,
+                    generated_content="",
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                ),
+            ]
+        )
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        events = [
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="<style>*{box-sizing:border-box}</style>",
+            ).set_mdflow_stream_parts(
+                [("<style>*{box-sizing:border-box}</style>", "html", 0)]
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            ),
+        ]
+
+        streamed = list(adapter.process(events))
+        element_events = [item.content for item in streamed if item.type == "element"]
+
+        assert len(element_events) >= 1
+        assert element_events[0].element_type == ElementType.HTML
+        assert "<style>*{box-sizing:border-box}</style>" in element_events[0].content
+
+
 def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(app):
     _require_app(app)
 

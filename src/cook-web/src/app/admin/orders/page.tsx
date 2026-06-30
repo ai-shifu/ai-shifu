@@ -1,154 +1,64 @@
 'use client';
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import api from '@/api';
-import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
-import {
-  ADMIN_TABLE_HEADER_CELL_CLASS,
-  ADMIN_TABLE_HEADER_LAST_CELL_CLASS,
-  ADMIN_TABLE_RESIZE_HANDLE_CLASS,
-  getAdminStickyRightCellClass,
-  getAdminStickyRightHeaderClass,
-} from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
-import Loading from '@/components/loading';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/Popover';
-import { ScrollArea } from '@/components/ui/ScrollArea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/Table';
-import { Badge } from '@/components/ui/Badge';
 import OrderDetailSheet from '@/components/order/OrderDetailSheet';
-import ImportActivationDialog from '@/components/order/ImportActivationDialog';
+import CreatorRedemptionCodesTab from './CreatorRedemptionCodesTab';
+import OrdersFilterPanel from './OrdersFilterPanel';
+import OrdersTable from './OrdersTable';
+import {
+  COLUMN_KEYS,
+  COLUMN_MAX_WIDTH,
+  COLUMN_MIN_WIDTH,
+  COLUMN_WIDTH_STORAGE_KEY,
+  DEFAULT_COLUMN_WIDTHS,
+  createDefaultFilters,
+  createFiltersFromSearchParams,
+  PAGE_SIZE,
+  QUERY_SHIFU_BID_KEY,
+  QUERY_STATUS_KEY,
+  QUERY_TAB_KEY,
+  resolveOrdersPageTab,
+  serializeShifuBidQuery,
+  type ColumnKey,
+  type ColumnWidthState,
+  type OrderFilters,
+  type OrderListResponse,
+  type OrdersPageTab,
+} from './ordersPageShared';
 import { cn } from '@/lib/utils';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
-import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
-
-type OrderListResponse = {
-  items: OrderSummary[];
-  page: number;
-  page_count: number;
-  page_size: number;
-  total: number;
-};
-
-type OrderFilters = {
-  order_bid: string;
-  user_bid: string;
-  shifu_bids: string[];
-  status: string;
-  payment_channel: string;
-  start_time: string;
-  end_time: string;
-};
-
-const PAGE_SIZE = 20;
-const DEFAULT_ORDER_STATUS = '502';
-const QUERY_STATUS_KEY = 'status';
-const QUERY_SHIFU_BID_KEY = 'shifu_bid';
-const COLUMN_MIN_WIDTH = 80;
-const COLUMN_MAX_WIDTH = 360;
-const COLUMN_WIDTH_STORAGE_KEY = 'adminOrdersColumnWidths';
-
-const DEFAULT_COLUMN_WIDTHS = {
-  orderId: 260,
-  shifu: 120,
-  user: 160,
-  amount: 70,
-  status: 110,
-  payment: 90,
-  createdAt: 170,
-  action: 100,
-};
-
-type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
-type ColumnWidthState = Record<ColumnKey, number>;
-const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
-type SearchParamsLike = Pick<
-  URLSearchParams,
-  'get' | 'has' | 'toString'
-> | null;
-
-const SINGLE_SELECT_ITEM_CLASS =
-  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
-
-const createDefaultFilters = (): OrderFilters => ({
-  order_bid: '',
-  user_bid: '',
-  shifu_bids: [],
-  status: DEFAULT_ORDER_STATUS,
-  payment_channel: '',
-  start_time: '',
-  end_time: '',
-});
-
-const parseShifuBidQuery = (value: string | null): string[] =>
-  Array.from(
-    new Set(
-      (value || '')
-        .split(',')
-        .map(item => item.trim())
-        .filter(Boolean),
-    ),
-  );
-
-const serializeShifuBidQuery = (value: string[]): string =>
-  parseShifuBidQuery(value.join(',')).join(',');
-
-const createFiltersFromSearchParams = (
-  searchParams: SearchParamsLike,
-): OrderFilters => ({
-  ...createDefaultFilters(),
-  shifu_bids: parseShifuBidQuery(
-    searchParams?.get(QUERY_SHIFU_BID_KEY) || null,
-  ),
-  status: searchParams?.has(QUERY_STATUS_KEY)
-    ? searchParams.get(QUERY_STATUS_KEY) || ''
-    : DEFAULT_ORDER_STATUS,
-});
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import {
+  ORDER_TABS_LIST_CLASSNAME,
+  ORDER_TABS_TRIGGER_CLASSNAME,
+} from '@/app/admin/operations/orders/orderUiShared';
 
 const OrdersPage = () => {
   const { t, i18n } = useTranslation();
+  const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamsString = searchParams?.toString() || '';
+  const activeTabFromUrl = useMemo(
+    () =>
+      resolveOrdersPageTab(
+        new URLSearchParams(searchParamsString).get(QUERY_TAB_KEY),
+      ),
+    [searchParamsString],
+  );
   const hasStatusQuery = useMemo(
     () => new URLSearchParams(searchParamsString).has(QUERY_STATUS_KEY),
     [searchParamsString],
@@ -182,7 +92,6 @@ const OrdersPage = () => {
   const [total, setTotal] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<OrderSummary | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [courses, setCourses] = useState<Shifu[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesError, setCoursesError] = useState<string | null>(null);
@@ -190,20 +99,7 @@ const OrdersPage = () => {
   const [filters, setFilters] = useState<OrderFilters>(() => initialFilters);
   const filtersRef = useRef<OrderFilters>(initialFilters);
   const [expanded, setExpanded] = useState(false);
-  const [cols, setCols] = useState(4);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (typeof window === 'undefined') return;
-      const width = window.innerWidth;
-      if (width >= 1024) setCols(3);
-      else if (width >= 768) setCols(2);
-      else setCols(1);
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const [activeTab, setActiveTab] = useState<OrdersPageTab>(activeTabFromUrl);
 
   const {
     setColumnWidths,
@@ -217,8 +113,6 @@ const OrdersPage = () => {
     minWidth: COLUMN_MIN_WIDTH,
     maxWidth: COLUMN_MAX_WIDTH,
   });
-
-  const ALL_OPTION_VALUE = '__all__';
 
   const payOrderExpireMinutes = useMemo(() => {
     if (!Number.isFinite(payOrderExpireSeconds) || payOrderExpireSeconds <= 0) {
@@ -270,6 +164,14 @@ const OrdersPage = () => {
   );
 
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
+  const locale = i18n?.language || 'en-US';
+  const filterControlClassName = cn(
+    'min-w-0 flex-1',
+    !locale.startsWith('zh') && 'xl:max-w-[220px]',
+  );
+  const filterLabelClassName = locale.startsWith('zh')
+    ? 'w-16 text-right'
+    : 'w-24 text-right';
 
   const contactType = useMemo(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
@@ -293,50 +195,26 @@ const OrdersPage = () => {
     return t('module.order.filters.userBid');
   }, [isEmailMode, loginMethodsEnabled, t]);
 
-  const displayStatusValue = filters.status || ALL_OPTION_VALUE;
-  const displayChannelValue = filters.payment_channel || ALL_OPTION_VALUE;
+  useEffect(() => {
+    setActiveTab(activeTabFromUrl);
+  }, [activeTabFromUrl]);
 
-  const courseNameMap = useMemo(() => {
-    const map = new Map<string, string>();
-    courses.forEach(course => {
-      if (!course.bid) {
-        return;
+  const updateTab = useCallback(
+    (nextTab: OrdersPageTab) => {
+      setActiveTab(nextTab);
+      const nextSearchParams = new URLSearchParams(searchParamsString);
+      if (nextTab === 'orders') {
+        nextSearchParams.delete(QUERY_TAB_KEY);
+      } else {
+        nextSearchParams.set(QUERY_TAB_KEY, nextTab);
       }
-      map.set(course.bid, course.name || course.bid);
-    });
-    return map;
-  }, [courses]);
-
-  const selectedCourseNames = useMemo(
-    () => filters.shifu_bids.map(bid => courseNameMap.get(bid) || bid),
-    [courseNameMap, filters.shifu_bids],
+      const query = nextSearchParams.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    },
+    [pathname, router, searchParamsString],
   );
-
-  const selectedCourseLabel = useMemo(() => {
-    if (selectedCourseNames.length === 0) {
-      return t('module.order.filters.shifuBid');
-    }
-    if (selectedCourseNames.length <= 2) {
-      return selectedCourseNames.join(', ');
-    }
-    const shortList = selectedCourseNames.slice(0, 2).join(', ');
-    return `${shortList} +${selectedCourseNames.length - 2}`;
-  }, [selectedCourseNames, t]);
-
-  const filteredCourses = useMemo(() => {
-    const keyword = courseSearch.trim().toLowerCase();
-    if (!keyword) {
-      return courses;
-    }
-    return courses.filter(course => {
-      const name = (course.name || '').toLowerCase();
-      const bid = (course.bid || '').toLowerCase();
-      const matchesName = name.includes(keyword);
-      const matchesBid = Boolean(bid && bid === keyword);
-      return matchesName || matchesBid;
-    });
-  }, [courseSearch, courses]);
-
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
@@ -391,6 +269,18 @@ const OrdersPage = () => {
     return approx;
   };
 
+  const resolveStatusLabel = useCallback(
+    (order: OrderSummary) => {
+      if (order.status === 505 && payOrderExpireMinutes > 0) {
+        return t('module.order.statusLabels.timeout', {
+          minutes: payOrderExpireMinutes,
+        });
+      }
+      return t(order.status_key);
+    },
+    [payOrderExpireMinutes, t],
+  );
+
   const autoAdjustColumns = useCallback(
     (items: OrderSummary[]) => {
       if (!items || items.length === 0) {
@@ -411,17 +301,22 @@ const OrdersPage = () => {
         ColumnKey,
         (order: OrderSummary) => string[]
       > = {
-        orderId: order => [order.order_bid],
         shifu: order => [order.shifu_name || order.shifu_bid],
         user: order => [
           (isEmailMode ? order.user_email : order.user_mobile) ||
             order.user_bid,
           order.user_nickname || defaultUserName,
         ],
-        amount: order => [formatMoney(order.paid_price)],
-        status: order => [t(order.status_key)],
+        status: order => [resolveStatusLabel(order)],
+        paidAmount: order => [formatMoney(order.paid_price)],
+        discountInfo: order => [
+          order.discount_amount && order.discount_amount !== '0'
+            ? formatMoney(order.discount_amount)
+            : '-',
+        ],
         payment: order => [t(order.payment_channel_key)],
         createdAt: order => [order.created_at],
+        orderId: order => [order.order_bid],
         action: () => [t('module.order.table.view')],
       };
 
@@ -432,13 +327,14 @@ const OrdersPage = () => {
             return;
           }
           const multiplierMap: Partial<Record<ColumnKey, number>> = {
-            orderId: 5,
             shifu: 4.4,
             user: 4.6,
-            amount: 4,
             status: 4.4,
+            paidAmount: 4.4,
+            discountInfo: 4.8,
             payment: 4.4,
             createdAt: 4.8,
+            orderId: 5,
             action: 4.4,
           };
           const multiplier = multiplierMap[key] ?? 7;
@@ -475,39 +371,11 @@ const OrdersPage = () => {
       formatMoney,
       isEmailMode,
       isManualColumn,
+      resolveStatusLabel,
       setColumnWidths,
       t,
     ],
   );
-
-  const resolveStatusLabel = useCallback(
-    (order: OrderSummary) => {
-      if (order.status === 505 && payOrderExpireMinutes > 0) {
-        return t('module.order.statusLabels.timeout', {
-          minutes: payOrderExpireMinutes,
-        });
-      }
-      return t(order.status_key);
-    },
-    [payOrderExpireMinutes, t],
-  );
-
-  const renderResizeHandle = (key: ColumnKey) => (
-    <span
-      className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
-      {...getResizeHandleProps(key)}
-    />
-  );
-
-  const renderTooltipText = (text?: string, className?: string) => {
-    return (
-      <AdminTooltipText
-        text={text}
-        emptyValue='-'
-        className={cn('truncate', className)}
-      />
-    );
-  };
 
   useEffect(() => {
     if (!isInitialized || isGuest) {
@@ -611,10 +479,10 @@ const OrdersPage = () => {
   );
 
   useEffect(() => {
-    if (isInitialized && !isGuest) {
+    if (isInitialized && !isGuest && activeTab === 'orders') {
       fetchOrders(1);
     }
-  }, [fetchOrders, i18n.language, isGuest, isInitialized]);
+  }, [activeTab, fetchOrders, i18n.language, isGuest, isInitialized]);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -627,11 +495,12 @@ const OrdersPage = () => {
   }, [isInitialized, isGuest]);
 
   useEffect(() => {
-    if (!isInitialized || isGuest || hasStatusQuery) {
+    if (!isInitialized || isGuest || hasStatusQuery || activeTab !== 'orders') {
       return;
     }
     syncJumpFiltersQuery(initialFilters);
   }, [
+    activeTab,
     hasStatusQuery,
     initialFilters,
     isGuest,
@@ -680,216 +549,7 @@ const OrdersPage = () => {
     setDetailOpen(true);
   };
 
-  const resolveStatusVariant = (status: number) => {
-    if (status === 502) {
-      return 'default';
-    }
-    if (status === 503 || status === 505) {
-      return 'destructive';
-    }
-    return 'secondary';
-  };
-
-  const filterItems = [
-    {
-      key: 'user_bid',
-      label: userBidPlaceholder,
-      component: (
-        <Input
-          value={filters.user_bid}
-          onChange={event => handleFilterChange('user_bid', event.target.value)}
-          placeholder={userBidPlaceholder}
-          className='h-9'
-        />
-      ),
-    },
-    {
-      key: 'shifu_bids',
-      label: t('module.order.filters.shifuBid'),
-      component: (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              size='sm'
-              variant='outline'
-              type='button'
-              className='h-9 w-full justify-between font-normal'
-              title={selectedCourseNames.join(', ')}
-            >
-              <span
-                className={cn(
-                  'flex-1 truncate text-left',
-                  filters.shifu_bids.length === 0
-                    ? 'text-muted-foreground'
-                    : 'text-foreground',
-                )}
-              >
-                {selectedCourseLabel}
-              </span>
-              <ChevronDown className='h-4 w-4 text-muted-foreground' />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            align='start'
-            className='p-3'
-            style={{
-              width: 'var(--radix-popover-trigger-width)',
-              maxWidth: 'var(--radix-popover-trigger-width)',
-            }}
-          >
-            <Input
-              value={courseSearch}
-              onChange={event => setCourseSearch(event.target.value)}
-              placeholder={t('module.order.filters.searchCourseOrId')}
-              className='h-8'
-            />
-            <ScrollArea className='mt-3 h-48'>
-              {coursesLoading ? (
-                <div className='flex items-center justify-center py-4'>
-                  <Loading className='h-5 w-5' />
-                </div>
-              ) : coursesError ? (
-                <div className='px-2 py-3 text-xs text-destructive'>
-                  {coursesError}
-                </div>
-              ) : filteredCourses.length === 0 ? (
-                <div className='px-2 py-3 text-xs text-muted-foreground'>
-                  {t('common.core.noShifus')}
-                </div>
-              ) : (
-                <div className='space-y-1'>
-                  {filteredCourses.map(course => {
-                    const isSelected = filters.shifu_bids.includes(course.bid);
-                    const courseName = course.name || course.bid;
-                    return (
-                      <button
-                        key={course.bid}
-                        type='button'
-                        onClick={() => handleCourseToggle(course.bid)}
-                        className='flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent'
-                        aria-pressed={isSelected}
-                      >
-                        <span
-                          className={cn(
-                            'mt-0.5 flex h-4 w-4 items-center justify-center rounded border',
-                            isSelected
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-muted-foreground/40 text-transparent',
-                          )}
-                        >
-                          <Check className='h-3 w-3' />
-                        </span>
-                        <span className='flex flex-col min-w-0'>
-                          <span className='text-sm text-foreground truncate'>
-                            {courseName}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </ScrollArea>
-          </PopoverContent>
-        </Popover>
-      ),
-    },
-    {
-      key: 'status',
-      label: t('module.order.filters.status'),
-      component: (
-        <Select
-          value={displayStatusValue}
-          onValueChange={value =>
-            handleFilterChange(
-              'status',
-              value === ALL_OPTION_VALUE ? '' : value,
-            )
-          }
-        >
-          <SelectTrigger className='h-9'>
-            <SelectValue placeholder={t('module.order.filters.status')} />
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map(option => (
-              <SelectItem
-                key={option.value || 'all'}
-                value={option.value || ALL_OPTION_VALUE}
-                className={SINGLE_SELECT_ITEM_CLASS}
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ),
-    },
-    {
-      key: 'payment_channel',
-      label: t('module.order.filters.channel'),
-      component: (
-        <Select
-          value={displayChannelValue}
-          onValueChange={value =>
-            handleFilterChange(
-              'payment_channel',
-              value === ALL_OPTION_VALUE ? '' : value,
-            )
-          }
-        >
-          <SelectTrigger className='h-9'>
-            <SelectValue placeholder={t('module.order.filters.channel')} />
-          </SelectTrigger>
-          <SelectContent>
-            {channelOptions.map(option => (
-              <SelectItem
-                key={option.value || 'all'}
-                value={option.value || ALL_OPTION_VALUE}
-                className={SINGLE_SELECT_ITEM_CLASS}
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ),
-    },
-    {
-      key: 'date_range',
-      label: t('module.order.table.createdAt'),
-      component: (
-        <AdminDateRangeFilter
-          startValue={filters.start_time}
-          endValue={filters.end_time}
-          onChange={range => {
-            handleFilterChange('start_time', range.start);
-            handleFilterChange('end_time', range.end);
-          }}
-          placeholder={`${t('module.order.filters.startTime')} ~ ${t(
-            'module.order.filters.endTime',
-          )}`}
-          resetLabel={t('module.order.filters.reset')}
-          clearLabel={t('module.chat.lessonFeedbackClearInput')}
-        />
-      ),
-    },
-    {
-      key: 'order_bid',
-      label: t('module.order.filters.orderBid'),
-      component: (
-        <Input
-          value={filters.order_bid}
-          onChange={event =>
-            handleFilterChange('order_bid', event.target.value)
-          }
-          placeholder={t('module.order.filters.orderBid')}
-          className='h-9'
-        />
-      ),
-    },
-  ];
-
-  if (error) {
+  if (activeTab === 'orders' && error) {
     return (
       <div className='h-full p-0'>
         <ErrorDisplay
@@ -903,302 +563,80 @@ const OrdersPage = () => {
 
   return (
     <div className='h-full p-0'>
-      <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-        <div className='flex items-center justify-between mb-5'>
-          <h1 className='text-2xl font-semibold text-gray-900'>
-            {t('module.order.title')}
-          </h1>
-          <div className='flex items-center gap-3'>
-            <div className='text-sm text-muted-foreground'>
-              {t('module.order.totalCount', { count: total })}
-            </div>
-            <Button
-              size='sm'
-              onClick={() => setImportOpen(true)}
-            >
-              {t('module.order.importActivation.action')}
-            </Button>
-          </div>
-        </div>
+      <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden'>
+        <AdminBreadcrumb items={[{ label: t('module.order.title') }]} />
+        <Tabs
+          value={activeTab}
+          className='flex min-h-0 flex-1 flex-col'
+          onValueChange={value => updateTab(value as OrdersPageTab)}
+        >
+          <AdminTitle
+            title={t('module.order.title')}
+            tabs={
+              <TabsList
+                className={ORDER_TABS_LIST_CLASSNAME}
+                data-testid='creator-orders-tabs'
+              >
+                <TabsTrigger
+                  value='orders'
+                  className={ORDER_TABS_TRIGGER_CLASSNAME}
+                >
+                  {t('module.order.tabs.orders')}
+                </TabsTrigger>
+                <TabsTrigger
+                  value='redemptionCodes'
+                  className={ORDER_TABS_TRIGGER_CLASSNAME}
+                >
+                  {t('module.order.tabs.redemptionCodes')}
+                </TabsTrigger>
+              </TabsList>
+            }
+          />
 
-        <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'>
-          <div
-            className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 transition-all`}
-          >
-            {(expanded ? filterItems : filterItems.slice(0, cols - 1)).map(
-              f => (
-                <div
-                  key={f.key}
-                  className='flex items-center'
-                >
-                  <span
-                    className={cn(
-                      "shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right after:ml-0.5 after:content-[':']",
-                      i18n.language?.startsWith('zh') ? 'w-18' : 'w-28',
-                    )}
-                  >
-                    {f.label}
-                  </span>
-                  <div className='flex-1 min-w-0'>{f.component}</div>
-                </div>
-              ),
-            )}
+          <div className='min-h-0 flex-1 overflow-hidden pr-1'>
+            {activeTab === 'orders' ? (
+              <div className='flex h-full min-h-0 flex-col gap-5 pb-6'>
+                <OrdersFilterPanel
+                  filters={filters}
+                  courses={courses}
+                  coursesLoading={coursesLoading}
+                  coursesError={coursesError}
+                  courseSearch={courseSearch}
+                  expanded={expanded}
+                  userBidPlaceholder={userBidPlaceholder}
+                  statusOptions={statusOptions}
+                  channelOptions={channelOptions}
+                  contentClassName={filterControlClassName}
+                  expandedLabelClassName={filterLabelClassName}
+                  onCourseSearchChange={setCourseSearch}
+                  onExpandedChange={setExpanded}
+                  onFilterChange={handleFilterChange}
+                  onCourseToggle={handleCourseToggle}
+                  onReset={handleReset}
+                  onSearch={handleSearch}
+                />
 
-            {!expanded && (
-              <div className='flex items-center justify-end gap-2'>
-                <Button
-                  size='sm'
-                  variant='outline'
-                  onClick={handleReset}
-                >
-                  {t('module.order.filters.reset')}
-                </Button>
-                <Button
-                  size='sm'
-                  onClick={handleSearch}
-                >
-                  {t('module.order.filters.search')}
-                </Button>
-                <Button
-                  size='sm'
-                  variant='ghost'
-                  className='px-2 text-primary'
-                  onClick={() => setExpanded(true)}
-                >
-                  {t('common.core.expand')}
-                  <ChevronDown className='ml-1 h-4 w-4' />
-                </Button>
+                <OrdersTable
+                  orders={orders}
+                  loading={loading}
+                  total={total}
+                  pageIndex={pageIndex}
+                  pageCount={pageCount}
+                  isEmailMode={isEmailMode}
+                  defaultUserName={defaultUserName}
+                  getColumnStyle={getColumnStyle}
+                  getResizeHandleProps={getResizeHandleProps}
+                  formatMoney={formatMoney}
+                  resolveStatusLabel={resolveStatusLabel}
+                  onPageChange={handlePageChange}
+                  onViewDetail={handleViewDetail}
+                />
               </div>
+            ) : (
+              <CreatorRedemptionCodesTab reloadKey={0} />
             )}
           </div>
-          {expanded && (
-            <div className='mt-4 flex justify-end gap-2'>
-              <Button
-                size='sm'
-                variant='outline'
-                onClick={handleReset}
-              >
-                {t('module.order.filters.reset')}
-              </Button>
-              <Button
-                size='sm'
-                onClick={handleSearch}
-              >
-                {t('module.order.filters.search')}
-              </Button>
-              <Button
-                size='sm'
-                variant='ghost'
-                className='px-2 text-primary'
-                onClick={() => setExpanded(false)}
-              >
-                {t('common.core.collapse')}
-                <ChevronUp className='ml-1 h-4 w-4' />
-              </Button>
-            </div>
-          )}
-        </div>
-
-        <AdminTableShell
-          loading={loading}
-          isEmpty={orders.length === 0}
-          emptyContent={t('module.order.emptyList')}
-          emptyColSpan={8}
-          withTooltipProvider
-          containerClassName='flex-1'
-          tableWrapperClassName='flex-1 overflow-auto'
-          table={emptyRow => (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CLASS}
-                    style={getColumnStyle('orderId')}
-                  >
-                    {t('module.order.table.orderId')}
-                    {renderResizeHandle('orderId')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CLASS}
-                    style={getColumnStyle('shifu')}
-                  >
-                    {t('module.order.table.shifu')}
-                    {renderResizeHandle('shifu')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CLASS}
-                    style={getColumnStyle('user')}
-                  >
-                    {t('module.order.table.user')}
-                    {renderResizeHandle('user')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CLASS}
-                    style={getColumnStyle('amount')}
-                  >
-                    {t('module.order.table.amount')}
-                    {renderResizeHandle('amount')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CLASS}
-                    style={getColumnStyle('status')}
-                  >
-                    {t('module.order.table.status')}
-                    {renderResizeHandle('status')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_CELL_CLASS}
-                    style={getColumnStyle('payment')}
-                  >
-                    {t('module.order.table.payment')}
-                    {renderResizeHandle('payment')}
-                  </TableHead>
-                  <TableHead
-                    className={ADMIN_TABLE_HEADER_LAST_CELL_CLASS}
-                    style={getColumnStyle('createdAt')}
-                  >
-                    {t('module.order.table.createdAt')}
-                    {renderResizeHandle('createdAt')}
-                  </TableHead>
-                  <TableHead
-                    className={getAdminStickyRightHeaderClass()}
-                    style={getColumnStyle('action')}
-                  >
-                    {t('module.order.table.action')}
-                    {renderResizeHandle('action')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {emptyRow}
-                {orders.map(order => (
-                  <TableRow key={order.order_bid}>
-                    <TableCell
-                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                      style={getColumnStyle('orderId')}
-                    >
-                      {renderTooltipText(order.order_bid)}
-                    </TableCell>
-                    <TableCell
-                      className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
-                      style={getColumnStyle('shifu')}
-                    >
-                      {renderTooltipText(
-                        order.shifu_name || order.shifu_bid,
-                        'text-foreground',
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                      style={getColumnStyle('user')}
-                    >
-                      {renderTooltipText(
-                        (isEmailMode ? order.user_email : order.user_mobile) ||
-                          order.user_bid,
-                        'text-foreground whitespace-nowrap',
-                      )}
-                      <br />
-                      {renderTooltipText(
-                        order.user_nickname || defaultUserName,
-                        'text-xs text-muted-foreground mt-1',
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                      style={getColumnStyle('amount')}
-                    >
-                      <div className='flex flex-col gap-1'>
-                        {renderTooltipText(
-                          formatMoney(order.paid_price),
-                          'text-foreground',
-                        )}
-                        {order.discount_amount &&
-                          order.discount_amount !== '0' && (
-                            <span className='text-xs text-muted-foreground'>
-                              <span className="after:content-[':'] after:mr-1">
-                                {t('module.order.fields.discount')}
-                              </span>
-                              {formatMoney(order.discount_amount)}
-                            </span>
-                          )}
-                        {order.coupon_codes?.length > 0 && (
-                          <span
-                            className='text-xs text-muted-foreground'
-                            title={order.coupon_codes.join(', ')}
-                          >
-                            <span className="after:content-[':'] after:mr-1">
-                              {t('module.order.sections.coupons')}
-                            </span>
-                            {order.coupon_codes.length}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell
-                      className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
-                      style={getColumnStyle('status')}
-                    >
-                      <Badge variant={resolveStatusVariant(order.status)}>
-                        {resolveStatusLabel(order)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell
-                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
-                      style={getColumnStyle('payment')}
-                    >
-                      <div className='text-sm text-foreground'>
-                        {renderTooltipText(
-                          t(order.payment_channel_key),
-                          'text-sm',
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell
-                      className='whitespace-nowrap overflow-hidden text-ellipsis'
-                      style={getColumnStyle('createdAt')}
-                    >
-                      {renderTooltipText(
-                        formatAdminUtcDateTime(order.created_at),
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className={getAdminStickyRightCellClass(
-                        'whitespace-nowrap overflow-hidden text-ellipsis',
-                      )}
-                      style={getColumnStyle('action')}
-                    >
-                      <Button
-                        size='sm'
-                        variant='outline'
-                        onClick={() => handleViewDetail(order)}
-                      >
-                        {t('module.order.table.view')}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-          footer={
-            <AdminPagination
-              pageIndex={pageIndex}
-              pageCount={pageCount}
-              onPageChange={handlePageChange}
-              prevLabel={t('module.order.paginationPrev', 'Previous')}
-              nextLabel={t('module.order.paginationNext', 'Next')}
-              prevAriaLabel={t(
-                'module.order.paginationPrevAriaLabel',
-                'Go to previous page',
-              )}
-              nextAriaLabel={t(
-                'module.order.paginationNextAriaLabel',
-                'Go to next page',
-              )}
-              className='justify-end w-auto mx-0'
-            />
-          }
-        />
+        </Tabs>
         <OrderDetailSheet
           open={detailOpen}
           orderBid={selectedOrder?.order_bid}
@@ -1208,12 +646,6 @@ const OrdersPage = () => {
               setSelectedOrder(null);
             }
           }}
-        />
-
-        <ImportActivationDialog
-          open={importOpen}
-          onOpenChange={setImportOpen}
-          onSuccess={() => fetchOrders(1)}
         />
       </div>
     </div>

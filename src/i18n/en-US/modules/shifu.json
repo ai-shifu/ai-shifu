@@ -8,6 +8,7 @@
     "title": "Teaching Prompts"
   },
   "history": {
+    "backToDocument": "Back to document",
     "collapse": "Collapse",
     "confirmDescription": "After confirmation, the current lesson content will be fully replaced by this version.",
     "confirmLoadFailed": "Failed to load this version content. Please try again later.",
@@ -26,9 +27,13 @@
   "previewArea": {
     "action": "Debug",
     "close": "Collapse learning simulation",
+    "copied": "Snippet copied",
+    "copy": "Copy snippet",
+    "copyTooltip": "Paste it into the teaching prompt on the left, and next time it will teach with this snippet",
     "description": "Feel the learner’s experience and see how prompts personalize courses",
     "disabled": "Select a unit before debugging.",
     "empty": "Enter teaching prompts on the left, then click \"Debug\" to experience learning simulation",
+    "goToBilling": "Buy credits",
     "loading": "Generating learning simulation...",
     "open": "Expand learning simulation",
     "title": "Learning Simulation",

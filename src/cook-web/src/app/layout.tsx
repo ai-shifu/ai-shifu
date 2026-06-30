@@ -4,7 +4,8 @@ import './globals.css';
 import { ConfigProvider } from '@/components/config-provider';
 import UmamiLoader from '@/components/analytics/UmamiLoader';
 import RuntimeConfigInitializer from '@/components/RuntimeConfigInitializer';
-import { UserProvider } from '@/store';
+import DomReconcilerGuard from '@/components/DomReconcilerGuard';
+import { UserProvider } from '@/store/userProvider';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
@@ -18,12 +19,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang='en'>
+    <html
+      lang='en'
+      translate='no'
+    >
       <body className='min-h-screen overflow-x-hidden overscroll-none'>
         <div
           id='root'
           className='min-h-screen'
         >
+          <DomReconcilerGuard />
           <ConfigProvider>
             <RuntimeConfigInitializer />
             <UmamiLoader />

@@ -8,7 +8,7 @@ import logging
 import html
 
 # Import models to ensure they are registered with SQLAlchemy
-from .models import LearnGeneratedAudio  # noqa: F401
+from .models import LearnGeneratedAudio, TTSMiniMaxClonedVoice  # noqa: F401
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts.patterns import (
     ANY_HTML_TAG,
@@ -31,6 +31,13 @@ from flaskr.service.tts.patterns import (
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
 _FENCE = "```"
+
+
+def resolve_tts_billable_chars(text: str, usage_characters: int = 0) -> int:
+    provider_usage_characters = int(usage_characters or 0)
+    if provider_usage_characters > 0:
+        return provider_usage_characters
+    return len(text or "")
 
 
 def _strip_incomplete_fenced_code(text: str) -> tuple[str, bool]:

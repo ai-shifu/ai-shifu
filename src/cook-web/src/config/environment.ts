@@ -48,18 +48,19 @@ interface EnvironmentConfig {
   // Redirect Configuration
   homeUrl: string;
   contactUsUrl: string;
+  officialSiteUrl: string;
 
   // Legal Documents Configuration
   legalUrls: {
-    agreement: {
-      'zh-CN': string;
-      'en-US': string;
-    };
-    privacy: {
-      'zh-CN': string;
-      'en-US': string;
-    };
+    agreement: Record<'zh-CN' | 'en-US' | 'fr-FR', string>;
+    privacy: Record<'zh-CN' | 'en-US' | 'fr-FR', string>;
   };
+}
+
+export const DEFAULT_OFFICIAL_SITE_URL = 'https://ai-shifu.cn';
+
+export function resolveOfficialSiteUrl(value?: string): string {
+  return (value || '').trim() || DEFAULT_OFFICIAL_SITE_URL;
 }
 
 /**
@@ -318,6 +319,15 @@ function getContactUsUrl(): string {
 }
 
 /**
+ * Gets official site URL
+ */
+function getOfficialSiteUrl(): string {
+  return resolveOfficialSiteUrl(
+    getRuntimeEnv('OFFICIAL_SITE_URL') || process.env.OFFICIAL_SITE_URL,
+  );
+}
+
+/**
  * Gets currency symbol
  */
 function getCurrencySymbol(): string {
@@ -328,8 +338,8 @@ function getCurrencySymbol(): string {
  * Gets legal document URLs for all supported languages
  */
 function getLegalUrls(): {
-  agreement: { 'zh-CN': string; 'en-US': string };
-  privacy: { 'zh-CN': string; 'en-US': string };
+  agreement: { 'zh-CN': string; 'en-US': string; 'fr-FR': string };
+  privacy: { 'zh-CN': string; 'en-US': string; 'fr-FR': string };
 } {
   return {
     agreement: {
@@ -341,6 +351,10 @@ function getLegalUrls(): {
         getRuntimeEnv('LEGAL_AGREEMENT_URL_EN_US') ||
         process.env.LEGAL_AGREEMENT_URL_EN_US ||
         '',
+      'fr-FR':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_FR_FR') ||
+        process.env.LEGAL_AGREEMENT_URL_FR_FR ||
+        '',
     },
     privacy: {
       'zh-CN':
@@ -350,6 +364,10 @@ function getLegalUrls(): {
       'en-US':
         getRuntimeEnv('LEGAL_PRIVACY_URL_EN_US') ||
         process.env.LEGAL_PRIVACY_URL_EN_US ||
+        '',
+      'fr-FR':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_FR_FR') ||
+        process.env.LEGAL_PRIVACY_URL_FR_FR ||
         '',
     },
   };
@@ -398,6 +416,7 @@ export const environment: EnvironmentConfig = {
   // Redirect Configuration
   homeUrl: getHomeUrl(),
   contactUsUrl: getContactUsUrl(),
+  officialSiteUrl: getOfficialSiteUrl(),
   currencySymbol: getCurrencySymbol(),
 
   // Legal Documents Configuration

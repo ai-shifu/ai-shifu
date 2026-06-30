@@ -103,8 +103,8 @@ describe('OperatorOrderDetailSheet', () => {
         order_source: '',
         order_source_key: '',
         coupon_codes: ['FREE100'],
-        created_at: '2026-04-23T10:00:00Z',
-        updated_at: '2026-04-23T11:00:00Z',
+        created_at: '2026-04-23T10:00:00+08:00',
+        updated_at: '2026-04-23T11:00:00+08:00',
       },
       payment: {
         payment_channel: 'manual',
@@ -145,6 +145,9 @@ describe('OperatorOrderDetailSheet', () => {
       await screen.findByText('module.operationsOrder.detail.title'),
     ).toBeInTheDocument();
     expect(screen.getByText('order-1')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-23 10:00:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-23 11:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-23 02:00:00')).not.toBeInTheDocument();
     expect(
       screen.getByText('module.operationsOrder.source.importActivation'),
     ).toBeInTheDocument();

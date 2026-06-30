@@ -1,0 +1,139 @@
+name: Bump markdown-flow-ui
+
+# Manually update the markdown-flow-ui dependency pin in src/cook-web/package.json
+# on a feature branch, then commit & push the bump back to that branch.
+#
+# Use this after publishing a new markdown-flow-ui build from
+# https://github.com/ai-shifu/markdown-flow-ui so this project picks it up.
+#
+# How to run:
+#   Actions -> Bump markdown-flow-ui -> Run workflow
+#     - "Use workflow from": pick the feature branch to update (NOT main)
+#     - version: the markdown-flow-ui version to pin, e.g. 0.1.128 or 0.1.128-dev.1
+#
+# Pins an EXACT version (drops any ^ range) so dev builds can be locked for
+# debugging, and refreshes package-lock.json so CI's `npm ci` stays green.
+# Refuses to run on the default branch (main).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "markdown-flow-ui version to pin, e.g. 0.1.128 or 0.1.128-dev.1"
+        required: true
+        type: string
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # allow pushing the bump commit back to the branch
+
+    steps:
+      # Never bump the pin directly on the protected default branch.
+      - name: Guard against running on main
+        if: github.ref_name == 'main'
+        run: |
+          echo "::error::Do not bump markdown-flow-ui on 'main'. Run this workflow from a feature branch, then PR the change in."
+          exit 1
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate version exists on npm
+        env:
+          MF_UI_VERSION: ${{ inputs.version }}
+        run: |
+          node <<'NODE'
+          const cp = require("child_process");
+
+          const version = (process.env.MF_UI_VERSION || "").trim();
+          if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version)) {
+            console.error(`::error::Invalid version '${version}'.`);
+            process.exit(1);
+          }
+
+          let versions = [];
+          try {
+            const out = cp.execSync("npm view markdown-flow-ui versions --json", { encoding: "utf8" });
+            const parsed = JSON.parse(out);
+            versions = Array.isArray(parsed) ? parsed : [parsed];
+          } catch (e) {
+            console.error(`::error::Failed to query npm: ${e.message}`);
+            process.exit(1);
+          }
+
+          if (!versions.includes(version)) {
+            console.error(
+              `::error::markdown-flow-ui@${version} was not found on npm. ` +
+                "Publish it first from markdown-flow-ui (run its Publish action), then retry.",
+            );
+            process.exit(1);
+          }
+
+          console.log(`OK: markdown-flow-ui@${version} exists on npm.`);
+          NODE
+
+      - name: Update package.json pin
+        env:
+          MF_UI_VERSION: ${{ inputs.version }}
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+
+          const path = "src/cook-web/package.json";
+          const version = (process.env.MF_UI_VERSION || "").trim();
+
+          let content = fs.readFileSync(path, "utf8");
+          const re = /("markdown-flow-ui"\s*:\s*")[^"]*(")/;
+          if (!re.test(content)) {
+            console.error(`::error::No 'markdown-flow-ui' dependency found in ${path}.`);
+            process.exit(1);
+          }
+
+          content = content.replace(re, `$1${version}$2`);
+          fs.writeFileSync(path, content);
+          console.log(`Pinned markdown-flow-ui ${version} (exact) in ${path}`);
+          NODE
+
+      # Keep package-lock.json in sync so CI's `npm ci` (e.g. prettier-check,
+      # runtime-harness) doesn't fail on a mismatched lockfile.
+      - name: Update lockfile
+        working-directory: src/cook-web
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Commit and push
+        env:
+          MF_UI_VERSION: ${{ inputs.version }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          if git diff --quiet -- src/cook-web/package.json src/cook-web/package-lock.json; then
+            echo "No change: already pins markdown-flow-ui ${MF_UI_VERSION}."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/cook-web/package.json src/cook-web/package-lock.json
+          git commit -m "chore: bump markdown-flow-ui to ${MF_UI_VERSION}"
+          git push origin "HEAD:${BRANCH_NAME}"
+
+      - name: Summary
+        env:
+          MF_UI_VERSION: ${{ inputs.version }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          {
+            echo "## Pinned \`markdown-flow-ui@${MF_UI_VERSION}\`"
+            echo ""
+            echo "- Branch: \`${BRANCH_NAME}\`"
+            echo "- Files: \`src/cook-web/package.json\` + \`package-lock.json\`"
+          } >> "$GITHUB_STEP_SUMMARY"

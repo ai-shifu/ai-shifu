@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from flaskr.service.billing.consts import BILL_SYS_CONFIG_SEEDS
+from flaskr.service.billing.consts import (
+    BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
+    BILL_SYS_CONFIG_SEEDS,
+)
 
 _API_ROOT = Path(__file__).resolve().parents[3]
 
@@ -19,4 +22,7 @@ def test_billing_sys_config_bootstrap_moves_out_of_alembic() -> None:
     assert "seed-bootstrap-data" in cli_source
     assert "BILL_SYS_CONFIG_SEEDS" in cli_source
     assert "seed_billing_bootstrap_data" in cli_source
-    assert len(BILL_SYS_CONFIG_SEEDS) == 4
+    assert len(BILL_SYS_CONFIG_SEEDS) == 5
+    assert BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG in {
+        str(seed["key"]) for seed in BILL_SYS_CONFIG_SEEDS
+    }

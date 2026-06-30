@@ -4,10 +4,12 @@ import json
 import queue
 import threading
 import contextlib
+from dataclasses import replace
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Generator, Iterable, Optional, Union
 from flaskr.service.learn.const import (
+    INPUT_TYPE_ASK,
     ROLE_STUDENT,
     ROLE_TEACHER,
     CONTEXT_INTERACTION_NEXT,
@@ -229,6 +231,12 @@ class RUNLLMProvider(LLMProvider):
         self.trace_args = trace_args
         self.usage_context = usage_context
         self.usage_scene = usage_scene
+
+    def set_usage_generated_block_bid(self, generated_block_bid: str) -> None:
+        self.usage_context = replace(
+            self.usage_context,
+            generated_block_bid=str(generated_block_bid or ""),
+        )
 
     def _log_preview_output(
         self,
@@ -483,11 +491,12 @@ class MdflowContextV2:
         current_app.logger.info(f"build_context_from_blocks variables: {variables}")
 
         for generated_block in blocks:
-            if (
-                generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE
-                and generated_block.position < len(block_list)
+            if generated_block.position < 0 or generated_block.position >= len(
+                block_list
             ):
-                block = block_list[generated_block.position]
+                continue
+            block = block_list[generated_block.position]
+            if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
                 message_list.append(
                     {
                         "role": "user",
@@ -503,11 +512,27 @@ class MdflowContextV2:
                         "content": generated_block.generated_content or "",
                     }
                 )
+            elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
+                # Hand the raw interaction syntax to markdown-flow as an
+                # assistant message. Its _transform_context_messages expands
+                # ?[%{{var}}...] into {user: <value>} + {assistant: "ok"}
+                # using `variables`, instead of us crudely flattening the
+                # input into a bare user message.
+                message_list.append(
+                    {
+                        "role": "assistant",
+                        "content": block.content or "",
+                    }
+                )
         return message_list
 
 
 class _PreviewContextStore:
     _DEFAULT_TTL_SECONDS = 30 * 60
+    # Sentinel block_index for entries supplied via replace_context without
+    # block_index metadata. Negative values are kept by any real-block
+    # truncation (which discards entries with block_index >= request index).
+    _REPLACE_SENTINEL_BLOCK_INDEX = -1
 
     def __init__(
         self,
@@ -551,41 +576,130 @@ class _PreviewContextStore:
         except Exception:
             return
 
-    def get_context(self, document: str, block_index: int) -> list[dict[str, str]]:
+    @staticmethod
+    def _entries_to_messages(entries: list[dict]) -> list[dict[str, str]]:
+        messages: list[dict[str, str]] = []
+        for entry in entries:
+            user_text = entry.get("user")
+            if user_text:
+                messages.append({"role": "user", "content": user_text})
+            assistant_text = entry.get("assistant")
+            if assistant_text:
+                messages.append({"role": "assistant", "content": assistant_text})
+        return messages
+
+    def _load_entries(self, document: str) -> Optional[list[dict]]:
         payload = self.load()
         if not payload:
-            return []
+            return None
+        doc_hash = payload.get("document_hash")
+        if document and doc_hash != self._hash_document(document):
+            self.clear()
+            return None
+        entries = payload.get("entries")
+        if not isinstance(entries, list):
+            self.clear()
+            return None
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(
+                entry.get("block_index"), int
+            ):
+                self.clear()
+                return None
+        return entries
+
+    def get_context(self, document: str, block_index: int) -> list[dict[str, str]]:
         if block_index == 0:
             self.clear()
             return []
-        doc_hash = payload.get("document_hash")
-        if document and doc_hash and doc_hash != self._hash_document(document):
-            self.clear()
+        entries = self._load_entries(document)
+        if not entries:
             return []
-        context = payload.get("context")
-        if not isinstance(context, list):
-            return []
-        return [item for item in context if isinstance(item, dict)]
+        kept = [entry for entry in entries if entry["block_index"] < block_index]
+        if len(kept) != len(entries):
+            self.save(
+                {
+                    "document_hash": self._hash_document(document),
+                    "entries": kept,
+                }
+            )
+        return self._entries_to_messages(kept)
 
     def replace_context(self, document: str, context: list[dict[str, str]]) -> None:
-        payload = {
-            "context": context,
-            "document_hash": self._hash_document(document),
-        }
-        self.save(payload)
+        """Replace cached context from a raw role/content message list.
 
-    def append_context(self, document: str, messages: list[dict[str, str]]) -> None:
-        if not messages:
-            return
-        payload = self.load()
-        context = payload.get("context")
-        if not isinstance(context, list):
-            context = []
-        context.extend(messages)
+        Used when callers pass a full context payload without per-block
+        metadata. Entries get a sentinel block_index so subsequent
+        block-based truncation in get_context() preserves them.
+        """
+        entries: list[dict] = []
+        pending_user: Optional[str] = None
+        for item in context or []:
+            if not isinstance(item, dict):
+                continue
+            role = item.get("role")
+            content = item.get("content")
+            if not content:
+                continue
+            if role == "user":
+                if pending_user is not None:
+                    entries.append(
+                        {
+                            "block_index": self._REPLACE_SENTINEL_BLOCK_INDEX,
+                            "user": pending_user,
+                            "assistant": None,
+                        }
+                    )
+                pending_user = content
+            elif role == "assistant":
+                entries.append(
+                    {
+                        "block_index": self._REPLACE_SENTINEL_BLOCK_INDEX,
+                        "user": pending_user,
+                        "assistant": content,
+                    }
+                )
+                pending_user = None
+        if pending_user is not None:
+            entries.append(
+                {
+                    "block_index": self._REPLACE_SENTINEL_BLOCK_INDEX,
+                    "user": pending_user,
+                    "assistant": None,
+                }
+            )
         self.save(
             {
-                "context": context,
                 "document_hash": self._hash_document(document),
+                "entries": entries,
+            }
+        )
+
+    def append_context(
+        self,
+        document: str,
+        block_index: int,
+        user_message: Optional[str],
+        assistant_message: Optional[str],
+    ) -> None:
+        if not user_message and not assistant_message:
+            return
+        doc_hash = self._hash_document(document)
+        payload = self.load()
+        entries = payload.get("entries") if isinstance(payload, dict) else None
+        if not isinstance(entries, list) or payload.get("document_hash") != doc_hash:
+            entries = []
+        entries.append(
+            {
+                "block_index": block_index,
+                "user": user_message or None,
+                "assistant": assistant_message or None,
+            }
+        )
+        self.save(
+            {
+                "document_hash": doc_hash,
+                "entries": entries,
             }
         )
 
@@ -813,21 +927,23 @@ class RunScriptPreviewContextV2:
         content_chunks: list[str],
         current_block_content: str,
     ) -> None:
-        new_messages: list[dict[str, str]] = []
         user_input_text = MdflowContextV2.flatten_user_input_map(
             preview_request.user_input
         )
         content_text = "".join(content_chunks).strip()
         if content_text:
             user_message = user_input_text or current_block_content
-            if user_message:
-                new_messages.append({"role": "user", "content": user_message})
-            new_messages.append({"role": "assistant", "content": content_text})
-        elif user_input_text:
-            new_messages.append({"role": "user", "content": user_input_text})
-        if not new_messages:
+        else:
+            user_message = user_input_text
+        assistant_message = content_text or None
+        if not user_message and not assistant_message:
             return
-        context_store.append_context(document, new_messages)
+        context_store.append_context(
+            document,
+            preview_request.block_index,
+            user_message or None,
+            assistant_message,
+        )
 
     def _resolve_preview_variables(
         self,
@@ -1372,7 +1488,11 @@ class RunScriptContextV2:
         )
 
     def _should_stream_tts(self) -> bool:
-        return (not self._preview_mode) and bool(getattr(self, "_listen", False))
+        return (
+            (not self._preview_mode)
+            and getattr(self, "_input_type", None) != INPUT_TYPE_ASK
+            and bool(getattr(self, "_listen", False))
+        )
 
     def _try_create_tts_processor(
         self,
@@ -1559,13 +1679,22 @@ class RunScriptContextV2:
                 )
 
     def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
+        # Order so that a record which has started learning wins over a
+        # fresh NOT_STARTED placeholder. A parallel ask SSE running before
+        # the main run committed cannot see the main row under MVCC and
+        # falls through to creating a sibling at block_position=0; without
+        # this ordering the next main-flow SSE would pick that fresh row
+        # by id.desc() and restart the lesson from the first block.
         attend_info: LearnProgressRecord = (
             LearnProgressRecord.query.filter(
                 LearnProgressRecord.outline_item_bid == outline_bid,
                 LearnProgressRecord.user_bid == self._user_info.user_id,
                 LearnProgressRecord.status != LEARN_STATUS_RESET,
             )
-            .order_by(LearnProgressRecord.id.desc())
+            .order_by(
+                (LearnProgressRecord.status == LEARN_STATUS_NOT_STARTED).asc(),
+                LearnProgressRecord.id.desc(),
+            )
             .first()
         )
         if not attend_info:
@@ -2040,7 +2169,7 @@ class RunScriptContextV2:
                 return True
         return False
 
-    def _maybe_emit_feedback_before_access_gate(
+    def _maybe_emit_feedback_after_access_gate(
         self,
         *,
         parsed_interaction: dict,
@@ -2053,7 +2182,7 @@ class RunScriptContextV2:
             return
         yield from self._emit_lesson_feedback_interaction(progress_record)
 
-    def _emit_feedback_before_exception_gate(
+    def _emit_feedback_after_exception_gate(
         self,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if not self._outline_item_info:
@@ -2092,26 +2221,63 @@ class RunScriptContextV2:
             return
         yield from self._emit_lesson_feedback_interaction(latest_completed_progress)
 
+    def _ensure_current_attend_for_gate_interaction(self) -> LearnProgressRecord | None:
+        if self._current_attend:
+            return self._current_attend
+        if not self._outline_item_info:
+            return None
+
+        outline_bid = getattr(self._outline_item_info, "bid", "")
+        shifu_bid = getattr(self._outline_item_info, "shifu_bid", "")
+        user_bid = getattr(self._user_info, "user_id", "")
+        if not outline_bid or not shifu_bid or not user_bid:
+            return None
+
+        current_attend = (
+            LearnProgressRecord.query.filter(
+                LearnProgressRecord.outline_item_bid == outline_bid,
+                LearnProgressRecord.user_bid == user_bid,
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+            )
+            .order_by(LearnProgressRecord.id.desc())
+            .first()
+        )
+        if current_attend is None:
+            current_attend = LearnProgressRecord(
+                progress_record_bid=generate_id(self.app),
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                user_bid=user_bid,
+                status=LEARN_STATUS_NOT_STARTED,
+                block_position=0,
+            )
+            db.session.add(current_attend)
+            db.session.flush()
+
+        self._current_attend = current_attend
+        return current_attend
+
     def _emit_current_progress_gate_interaction(
         self,
         content: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        if not self._current_attend:
+        current_attend = self._ensure_current_attend_for_gate_interaction()
+        if not current_attend:
             return
-        outline_bid = self._current_attend.outline_item_bid or getattr(
+        outline_bid = current_attend.outline_item_bid or getattr(
             self._outline_item_info, "bid", ""
         )
         if not outline_bid:
             return
         generated_block: LearnGeneratedBlock = init_generated_block(
             self.app,
-            shifu_bid=self._current_attend.shifu_bid,
+            shifu_bid=current_attend.shifu_bid,
             outline_item_bid=outline_bid,
-            progress_record_bid=self._current_attend.progress_record_bid,
+            progress_record_bid=current_attend.progress_record_bid,
             user_bid=self._user_info.user_id,
             block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
             mdflow=content,
-            block_index=self._current_attend.block_position,
+            block_index=current_attend.block_position,
         )
         generated_block.role = ROLE_TEACHER
         generated_block.block_content_conf = content
@@ -2133,10 +2299,10 @@ class RunScriptContextV2:
         current_outline_completed: bool,
         has_next_outline_item: bool,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        if current_outline_completed:
-            yield from self._emit_lesson_feedback_interaction(progress_record)
         if has_next_outline_item:
             yield from self._emit_next_chapter_interaction(progress_record)
+        if current_outline_completed:
+            yield from self._emit_lesson_feedback_interaction(progress_record)
 
     def _get_default_llm_settings(self) -> LLMSettings:
         return LLMSettings(
@@ -2432,18 +2598,19 @@ class RunScriptContextV2:
             progress_record_bid=self._current_attend.progress_record_bid,
             usage_scene=usage_scene,
         )
+        llm_provider = RUNLLMProvider(
+            app,
+            llm_settings,
+            self._trace,
+            self._trace_root_span,
+            self._trace_args,
+            usage_context,
+            usage_scene,
+        )
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
             document_prompt=system_prompt,
-            llm_provider=RUNLLMProvider(
-                app,
-                llm_settings,
-                self._trace,
-                self._trace_root_span,
-                self._trace_args,
-                usage_context,
-                usage_scene,
-            ),
+            llm_provider=llm_provider,
             use_learner_language=self._shifu_info.use_learner_language,
             visual_mode=True,
         )
@@ -2542,12 +2709,6 @@ class RunScriptContextV2:
                 for button in parsed_interaction.get("buttons"):
                     if button.get("value") == "_sys_pay":
                         if not self._is_paid:
-                            yield from self._maybe_emit_feedback_before_access_gate(
-                                parsed_interaction=parsed_interaction,
-                                progress_record=run_script_info.attend,
-                                is_tail_gate=run_script_info.block_position
-                                >= len(block_list) - 1,
-                            )
                             # Use translated content from database if available
                             interaction_content = (
                                 generated_block.block_content_conf
@@ -2576,6 +2737,12 @@ class RunScriptContextV2:
                                 generated_block_bid=generated_block.generated_block_bid,
                                 type=GeneratedType.INTERACTION,
                                 content=interaction_content,
+                            )
+                            yield from self._maybe_emit_feedback_after_access_gate(
+                                parsed_interaction=parsed_interaction,
+                                progress_record=run_script_info.attend,
+                                is_tail_gate=run_script_info.block_position
+                                >= len(block_list) - 1,
                             )
                             self._can_continue = False
                             db.session.flush()
@@ -2594,12 +2761,6 @@ class RunScriptContextV2:
                             db.session.flush()
                             return
                         else:
-                            yield from self._maybe_emit_feedback_before_access_gate(
-                                parsed_interaction=parsed_interaction,
-                                progress_record=run_script_info.attend,
-                                is_tail_gate=run_script_info.block_position
-                                >= len(block_list) - 1,
-                            )
                             # Use translated content from database if available
                             interaction_content = (
                                 generated_block.block_content_conf
@@ -2628,6 +2789,12 @@ class RunScriptContextV2:
                                 generated_block_bid=generated_block.generated_block_bid,
                                 type=GeneratedType.INTERACTION,
                                 content=interaction_content,
+                            )
+                            yield from self._maybe_emit_feedback_after_access_gate(
+                                parsed_interaction=parsed_interaction,
+                                progress_record=run_script_info.attend,
+                                is_tail_gate=run_script_info.block_position
+                                >= len(block_list) - 1,
                             )
                             self._can_continue = False
                             db.session.flush()
@@ -2649,6 +2816,9 @@ class RunScriptContextV2:
 
                 # Render interaction content with translation (INPUT mode, no cached block)
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
+                llm_provider.set_usage_generated_block_bid(
+                    generated_block.generated_block_bid
+                )
                 interaction_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
@@ -2706,6 +2876,9 @@ class RunScriptContextV2:
             generated_block.position = run_script_info.block_position
             # For STUDENT records, also store translated interaction block
             # (in case this record is returned instead of TEACHER record)
+            llm_provider.set_usage_generated_block_bid(
+                generated_block.generated_block_bid
+            )
             interaction_result = mdflow_context.process(
                 block_index=run_script_info.block_position,
                 mode=ProcessMode.COMPLETE,
@@ -2737,7 +2910,10 @@ class RunScriptContextV2:
                 llm_settings=llm_settings,
                 attend_id=self._current_attend.progress_record_bid,
                 fmt_prompt="",
-                usage_context=usage_context,
+                usage_context=replace(
+                    usage_context,
+                    generated_block_bid=generated_block.generated_block_bid,
+                ),
                 chapter_title=chapter_title,
                 scene=f"{trace_scene}_interaction",
             )
@@ -2919,6 +3095,9 @@ class RunScriptContextV2:
 
                 # Render interaction content with translation after validation error
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
+                llm_provider.set_usage_generated_block_bid(
+                    generated_block.generated_block_bid
+                )
                 interaction_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
@@ -2957,11 +3136,6 @@ class RunScriptContextV2:
             if block.block_type == BlockType.INTERACTION:
                 interaction_parser: InteractionParser = InteractionParser()
                 parsed_interaction = interaction_parser.parse(block.content)
-                yield from self._maybe_emit_feedback_before_access_gate(
-                    parsed_interaction=parsed_interaction,
-                    progress_record=run_script_info.attend,
-                    is_tail_gate=run_script_info.block_position >= len(block_list) - 1,
-                )
                 if (
                     parsed_interaction.get("buttons")
                     and len(parsed_interaction.get("buttons")) > 0
@@ -2989,6 +3163,9 @@ class RunScriptContextV2:
                 # Call process() without user_input to trigger interaction rendering
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
                 app.logger.info(f"render_interaction: {run_script_info.block_position}")
+                llm_provider.set_usage_generated_block_bid(
+                    generated_block.generated_block_bid
+                )
 
                 interaction_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
@@ -3014,6 +3191,11 @@ class RunScriptContextV2:
                     generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.INTERACTION,
                     content=rendered_content,
+                )
+                yield from self._maybe_emit_feedback_after_access_gate(
+                    parsed_interaction=parsed_interaction,
+                    progress_record=run_script_info.attend,
+                    is_tail_gate=run_script_info.block_position >= len(block_list) - 1,
                 )
                 self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
@@ -3057,6 +3239,9 @@ class RunScriptContextV2:
                         return
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
                 _persist_generated_block_for_events(generated_block)
+                llm_provider.set_usage_generated_block_bid(
+                    generated_block.generated_block_bid
+                )
                 generated_content = ""
                 tts_processor = None
                 tts_enabled = bool(self._should_stream_tts())
@@ -3308,17 +3493,17 @@ class RunScriptContextV2:
         except PaidException:
             app.logger.info("PaidException")
             self._can_continue = False
-            yield from self._emit_feedback_before_exception_gate()
             yield from self._emit_current_progress_gate_interaction(
                 f"?[{_('server.order.checkout')}//_sys_pay]"
             )
+            yield from self._emit_feedback_after_exception_gate()
         except UserNotLoginException:
             app.logger.info("UserNotLoginException")
             self._can_continue = False
-            yield from self._emit_feedback_before_exception_gate()
             yield from self._emit_current_progress_gate_interaction(
                 f"?[{_('server.user.login')}//_sys_login]"
             )
+            yield from self._emit_feedback_after_exception_gate()
 
     def has_next(self) -> bool:
         return self._can_continue
@@ -3411,8 +3596,15 @@ class RunScriptContextV2:
                     anchor_generated_block_bid = (
                         anchor_element.generated_block_bid or ""
                     )
-                    if self._input_type == "ask":
-                        self._anchor_element_bid = reload_element_bid
+                # Trust the frontend-supplied element_bid for ask runs even if
+                # the row is not yet visible in this session: the main run
+                # holds the element in an uncommitted transaction, so MVCC
+                # isolation hides it from the parallel ask session. Recording
+                # it here ensures handle_input_ask receives the real
+                # element_bid instead of an empty anchor that would force a
+                # synthetic fallback in listen_element_run_sidecar.
+                if self._input_type == "ask":
+                    self._anchor_element_bid = reload_element_bid
 
             # Frontend element-protocol flows may still pass element_bid through
             # reload_generated_block_bid. Always prefer the persisted source block

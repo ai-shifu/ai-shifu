@@ -8,6 +8,7 @@ Date: 2025-08-07
 """
 
 from flaskr.common.cache_provider import cache as redis
+from flaskr.common.config import get_redis_key_prefix
 from ...dao import db
 from .models import FavoriteScenario, AiCourseAuth
 from ..common.models import raise_error
@@ -112,9 +113,17 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
         isUpdate = False
         if resource_id == "":
             file_id = str(uuid.uuid4()).replace("-", "")
+            resource = None
         else:
-            isUpdate = True
             file_id = resource_id
+            resource = Resource.query.filter_by(resource_id=file_id).first()
+            if resource is not None:
+                isUpdate = True
+            else:
+                app.logger.warning(
+                    "upload_file received missing resource_id=%s; creating a new resource",
+                    file_id,
+                )
 
         content_type = get_image_content_type(file.filename)
         result = upload_to_storage(
@@ -126,7 +135,6 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
         )
 
         if isUpdate:
-            resource = Resource.query.filter_by(resource_id=file_id).first()
             resource.name = file.filename
             resource.oss_bucket = result.bucket
             resource.oss_name = result.object_key
@@ -261,14 +269,8 @@ def shifu_permission_verification(
         bool: True if the user has the permission
     """
     with app.app_context():
-        cache_key = (
-            get_config("REDIS_KEY_PREFIX")
-            + "shifu_permission:"
-            + user_id
-            + ":"
-            + shifu_id
-        )
-        cache_key_expire = int(get_config("SHIFU_PERMISSION_CACHE_EXPIRE"))
+        cache_key = f"{get_redis_key_prefix(app)}shifu_permission:{user_id}:{shifu_id}"
+        cache_key_expire = int(get_config("SHIFU_PERMISSION_CACHE_EXPIRE", 300))
         cache_result = redis.get(cache_key)
         if cache_result is not None:
             try:

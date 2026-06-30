@@ -23,11 +23,24 @@ to.
   before creating new abstractions.
 - Use ExecPlans for complex work. `PLANS.md` defines the format, and active
   plans live under `docs/exec-plans/active/`.
+- Before committing, run `python scripts/check_dev_tools.py` to confirm
+  lefthook and its underlying tools are installed; the local checks are
+  silently skipped if lefthook was never installed.
+- When a branch already has an open PR, keep the PR title and description in
+  sync with the latest code changes so they accurately describe the current
+  implementation and verification state.
 - Keep shared instruction surfaces aligned. When shared rules move, update the
   touched `AGENTS.md`, `CLAUDE.md`, generated `.cursor` rules, and generated
   `.github` instructions in the same change.
 - Keep code-facing text in English and keep user-facing text in shared i18n
   JSON under `src/i18n/`.
+- In Chinese user-facing text and Chinese docs, do not use `创作者` as a
+  generic product term. Use `老师` for the general course-building or teacher
+  account role; use `课程负责人` or, inside an existing course context,
+  `负责人` when referring to a specific course owner.
+- Keep English and French translations aligned with that distinction: use
+  `teacher` / `enseignant` for the generic role, while a specific course
+  owner may still be translated as `creator` / `créateur`.
 
 ## Avoid
 
@@ -51,8 +64,48 @@ to.
   metadata, and generated harness artifacts.
 - `python scripts/check_architecture_boundaries.py` validates the committed
   frontend/backend boundary baseline and blocks new drift.
-- `pre-commit run -a` is the repository-wide verification gate before a
-  commit-sized change lands.
+- `python scripts/check_dev_tools.py` verifies lefthook and its underlying
+  tools are installed, so the pre-commit hooks are not silently skipped.
+- `lefthook run pre-commit --all-files` is the repository-wide verification
+  gate before a commit-sized change lands.
+
+## MarkdownFlow component libraries
+
+ai-shifu consumes two MarkdownFlow component libraries. Changing either is
+usually done in order to use it here, so the overall flow is: **change the
+library → publish a build → point ai-shifu at it → debug locally / on test / in
+prod**.
+
+| Library            | Kind             | Pinned in                                            | Published from                                                            |
+| ------------------ | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| `markdown-flow`    | Python (backend) | `src/api/requirements.txt` (`markdown-flow==<ver>`)  | [markdown-flow-agent-py](https://github.com/ai-shifu/markdown-flow-agent-py) (PyPI) |
+| `markdown-flow-ui` | npm (frontend)   | `src/cook-web/package.json` (`"markdown-flow-ui"`)   | [markdown-flow-ui](https://github.com/ai-shifu/markdown-flow-ui) (npm)    |
+
+### Trying a library change against this project
+
+1. In the library repo, on your branch, run its **Publish** action to release a
+   build — use a `dev` build (`X.Y.Z.devN` on PyPI, `X.Y.Z-dev.N` on npm) for a
+   throwaway test package. Wait for the run to pass; the version is now published.
+2. Point this project at that version:
+   - **Locally (uncommitted)**: edit the pin in `src/api/requirements.txt`
+     (backend) or `src/cook-web/package.json` (frontend).
+   - **On an already-pushed feature branch**: run the matching bump action —
+     **Bump markdown-flow** (`bump-markdown-flow.yml`) or **Bump markdown-flow-ui**
+     (`bump-markdown-flow-ui.yml`). Each validates the version is published,
+     updates the pin, and pushes the bump back to the branch. Both refuse to run
+     on `main`. (The frontend bump pins an exact version and refreshes
+     `src/cook-web/package-lock.json` so CI's `npm ci` stays green.)
+
+### Rule: `main` must pin RELEASE versions of both libraries
+
+dev builds are for feature-branch / cross-repo testing only. `main` must always
+pin **release** versions (`X.Y.Z`) of both libraries. Two CI checks enforce this
+on every PR into `main` and fail on a pre-release/dev pin:
+
+- **Check markdown-flow release pin** (`check-markdown-flow-release.yml`) — backend.
+- **Check markdown-flow-ui release pin** (`check-markdown-flow-ui-release.yml`) — frontend.
+
+Pin release versions of both before merging.
 
 ## Tests
 

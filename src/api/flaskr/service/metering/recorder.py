@@ -227,6 +227,7 @@ def record_tts_usage(
     status: int = 0,
     error_message: str = "",
     extra: Optional[Dict[str, Any]] = None,
+    enqueue_settlement: bool = True,
 ) -> str:
     resolved_usage_bid = usage_bid or generate_id(app)
     normalized_usage_scene = normalize_usage_scene(context.usage_scene)
@@ -266,7 +267,7 @@ def record_tts_usage(
         extra=extra or None,
     )
     if _persist_usage_record(app, record):
-        if _should_enqueue_usage_settlement(
+        if enqueue_settlement and _should_enqueue_usage_settlement(
             billable=resolved_billable,
             status=status,
             record_level=record_level,

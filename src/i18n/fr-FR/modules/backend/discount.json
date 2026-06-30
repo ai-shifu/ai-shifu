@@ -1,0 +1,12 @@
+{
+  "__namespace__": "server.discount",
+  "__flat__": {
+    "discountAlreadyExpired": "Le code de réduction n’est pas valide.",
+    "discountAlreadyUsed": "Le code de réduction a déjà été utilisé.",
+    "discountLimitExceeded": "La limite d’utilisation du code de réduction est dépassée.",
+    "discountNotApply": "Le code de réduction ne s’applique pas à ce cours.",
+    "discountNotFound": "Le code de réduction n’existe pas.",
+    "discountNotStart": "Le code de réduction n’a pas encore commencé.",
+    "orderDiscountAlreadyUsed": "Une réduction a déjà été utilisée pour cette commande"
+  }
+}

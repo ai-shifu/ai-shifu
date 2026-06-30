@@ -31,7 +31,7 @@ describe('tts-model-options', () => {
       provider: 'baidu',
       model: '',
     });
-    expect(options[0].credit_multiplier_label).toBe('2x');
+    expect(options[0].creditMultiplierLabel).toBe('2x');
   });
 
   test('filters volcengine voices by selected resource model', () => {

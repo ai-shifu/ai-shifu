@@ -16,6 +16,29 @@ import {
 
 const MARKDOWN_VIDEO_IFRAME_PATTERN =
   /<iframe\b[^>]*\bdata-tag\s*=\s*(["'])video\1[^>]*>[\s\S]*?<\/iframe>/i;
+const MIN_LISTEN_MODE_TTS_TEXT_LENGTH = 2;
+const CUSTOM_BUTTON_RE =
+  /<custom-button-after-content\b[\s\S]*?<\/custom-button-after-content>/gi;
+const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
+const HTML_TAG_RE = /<\/?\s*[a-zA-Z][a-zA-Z0-9:_-]*\b[^>]*>/g;
+const HTML_SPACE_ENTITY_RE = /&(?:nbsp|ensp|emsp|thinsp|zwnj|zwj);/gi;
+const SPEAKABLE_TEXT_RE = /[\p{L}\p{N}]/u;
+
+const normalizeListenModeSpeakableText = (content?: string) =>
+  String(content ?? '')
+    .replace(CUSTOM_BUTTON_RE, ' ')
+    .replace(HTML_COMMENT_RE, ' ')
+    .replace(HTML_TAG_RE, ' ')
+    .replace(HTML_SPACE_ENTITY_RE, ' ')
+    .trim();
+
+const hasListenModeSpeakableText = (content?: string) => {
+  const text = normalizeListenModeSpeakableText(content);
+  return (
+    text.length >= MIN_LISTEN_MODE_TTS_TEXT_LENGTH &&
+    SPEAKABLE_TEXT_RE.test(text)
+  );
+};
 
 export const sortByPosition = <T extends { position?: number }>(
   list: T[] = [],
@@ -53,16 +76,12 @@ const sortSubtitleCues = (cues: ElementSubtitleCue[]) =>
 
 interface ListenSlideSubtitleCueSource {
   payload?: StudyRecordPayload;
+  audioTracks?: AudioTrack[];
 }
 
-export const resolveListenSlideSubtitleCues = (
-  item: ListenSlideSubtitleCueSource,
+const normalizeRawSubtitleCues = (
+  rawSubtitleCues: unknown,
 ): ElementSubtitleCue[] | undefined => {
-  const audioPayload = item.payload?.audio as
-    | StudyRecordAudioPayload
-    | undefined;
-  const rawSubtitleCues = audioPayload?.subtitle_cues as unknown;
-
   if (!Array.isArray(rawSubtitleCues)) {
     return undefined;
   }
@@ -107,15 +126,64 @@ export const resolveListenSlideSubtitleCues = (
     : undefined;
 };
 
+const resolveAudioTrackSubtitleCues = (
+  tracks: AudioTrack[] = [],
+): unknown[] => {
+  return sortByPosition(tracks).flatMap(track => {
+    if (track.subtitleCues?.length) {
+      return track.subtitleCues.map(cue => ({
+        ...cue,
+        position: cue.position ?? track.position,
+      }));
+    }
+
+    return sortSegmentsByIndex(track.audioSegments ?? []).flatMap(segment =>
+      (segment.subtitleCues ?? []).map(cue => ({
+        ...cue,
+        position: cue.position ?? segment.position ?? track.position,
+      })),
+    );
+  });
+};
+
+export const resolveListenSlideSubtitleCues = (
+  item: ListenSlideSubtitleCueSource,
+): ElementSubtitleCue[] | undefined => {
+  const audioPayload = item.payload?.audio as
+    | StudyRecordAudioPayload
+    | undefined;
+  const payloadSubtitleCues = normalizeRawSubtitleCues(
+    audioPayload?.subtitle_cues,
+  );
+
+  if (payloadSubtitleCues?.length) {
+    return payloadSubtitleCues;
+  }
+
+  const trackSubtitleCues = resolveAudioTrackSubtitleCues(
+    item.audioTracks ?? [],
+  );
+  return trackSubtitleCues.length > 0
+    ? normalizeRawSubtitleCues(trackSubtitleCues)
+    : undefined;
+};
+
 export const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
   const trackByPosition = new Map<number, AudioTrack>();
 
   (item.audioTracks ?? []).forEach(track => {
     const position = Number(track.position ?? 0);
+    const trackSubtitleCues = track.subtitleCues?.length
+      ? track.subtitleCues
+      : sortSegmentsByIndex(track.audioSegments ?? []).flatMap(
+          segment => segment.subtitleCues ?? [],
+        );
     trackByPosition.set(position, {
       ...track,
       position,
       audioSegments: sortSegmentsByIndex(track.audioSegments ?? []),
+      subtitleCues:
+        trackSubtitleCues.length > 0 ? trackSubtitleCues : undefined,
     });
   });
 
@@ -128,6 +196,11 @@ interface ListenSlideAudioSource {
   isAudioStreaming?: boolean;
 }
 
+const hasFinalizedAudioSegments = (track: AudioTrack) => {
+  const segments = sortSegmentsByIndex(track.audioSegments ?? []);
+  return segments.length > 0 && Boolean(segments[segments.length - 1]?.isFinal);
+};
+
 export const resolveListenSlideAudioSource = (
   item: ChatContentItem,
 ): ListenSlideAudioSource => {
@@ -138,6 +211,30 @@ export const resolveListenSlideAudioSource = (
 
   // Keep one canonical source in slide playback to avoid duplicated playback.
   if (playableTracks.length > 0) {
+    const completedTrack = playableTracks.find(track =>
+      Boolean(track.audioUrl?.trim()),
+    );
+    if (completedTrack?.audioUrl) {
+      const completedTrackAudioSegments = mergeAudioSegmentDataList(
+        item.element_bid,
+        getAudioSegmentDataListFromTracks([completedTrack]),
+      );
+
+      // Preserve streamed segment history with the completed URL so the slide
+      // player can continue from the played boundary instead of replaying from
+      // the beginning when backfilled audio finalizes mid-session.
+      return {
+        audioUrl: completedTrack.audioUrl,
+        audioSegments:
+          completedTrackAudioSegments.length > 0
+            ? completedTrackAudioSegments
+            : undefined,
+        isAudioStreaming:
+          Boolean(completedTrack.isAudioStreaming) &&
+          !hasFinalizedAudioSegments(completedTrack),
+      };
+    }
+
     const trackAudioSegments = mergeAudioSegmentDataList(
       item.element_bid,
       getAudioSegmentDataListFromTracks(playableTracks),
@@ -193,13 +290,74 @@ export const canRequestListenModeTtsForItem = (
   }
 
   return Boolean(
-    item.is_speakable ||
+    (item.is_speakable === true && hasListenModeSpeakableText(item.content)) ||
     item.audio_url ||
     item.audioUrl ||
     item.isAudioStreaming ||
     item.audio_segments?.length ||
     hasAudioContentInTracks(item.audioTracks ?? []),
   );
+};
+
+export const hasPlayableListenAudioForItem = (item?: ChatContentItem | null) =>
+  Boolean(
+    item?.audio_url?.trim() ||
+    item?.audioUrl?.trim() ||
+    item?.isAudioStreaming ||
+    (item?.audio_segments?.length ?? 0) > 0 ||
+    hasAudioContentInTracks(item?.audioTracks ?? []),
+  );
+
+export const isListenModeAudioBackfillCandidate = (
+  item?: ChatContentItem | null,
+) => {
+  if (!item || item.type !== 'content') {
+    return false;
+  }
+
+  const elementBid = item.element_bid?.trim();
+  if (!elementBid || elementBid === 'loading') {
+    return false;
+  }
+
+  return (
+    item.is_speakable !== false && hasListenModeSpeakableText(item.content)
+  );
+};
+
+export const isListenModeAudioBackfillReady = (item?: ChatContentItem | null) =>
+  Boolean(
+    item?.isHistory ||
+    item?.isAudioBackfillReady ||
+    hasPlayableListenAudioForItem(item),
+  );
+
+export const getMissingListenModeAudioBlockBids = (
+  items: ChatContentItem[],
+) => {
+  const seen = new Set<string>();
+  const missingBids: string[] = [];
+
+  items.forEach(item => {
+    if (!isListenModeAudioBackfillCandidate(item)) {
+      return;
+    }
+
+    if (hasPlayableListenAudioForItem(item)) {
+      return;
+    }
+
+    const requestBid =
+      item.generated_block_bid?.trim() || item.element_bid?.trim();
+    if (!requestBid || seen.has(requestBid)) {
+      return;
+    }
+
+    seen.add(requestBid);
+    missingBids.push(requestBid);
+  });
+
+  return missingBids;
 };
 
 export const resolveListenModeTtsReadyElementBids = (
@@ -249,8 +407,29 @@ export const buildSlidePageMapping = (
   pageIndices: number[],
   fallbackPage: number,
 ): ListenSlidePageMapping => {
+  const itemIdentityBids = new Set(
+    [item.element_bid, item.generated_block_bid].filter(Boolean),
+  );
   const blockSlides = [...(item.listenSlides ?? [])]
-    .filter(slide => slide.element_bid === item.element_bid)
+    .filter(slide => {
+      const generatedBlockBid = slide.generated_block_bid || '';
+      const explicitSlideIdentityBids = [
+        slide.element_bid,
+        slide.target_element_bid,
+      ].filter(
+        (bid): bid is string => Boolean(bid) && bid !== generatedBlockBid,
+      );
+
+      if (explicitSlideIdentityBids.length > 0) {
+        return explicitSlideIdentityBids.some(bid => itemIdentityBids.has(bid));
+      }
+
+      if (generatedBlockBid) {
+        return item.generated_block_bid === generatedBlockBid;
+      }
+
+      return true;
+    })
     .sort(
       (a, b) =>
         Number(a.slide_index ?? 0) - Number(b.slide_index ?? 0) ||

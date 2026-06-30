@@ -186,6 +186,9 @@ docker/milvus_data/
 # Logs
 src/api/logs/
 
+# Harness runtime artifacts
+artifacts/runs/
+
 ###############################################################################
 # Never ignore these files (exceptions to above rules)
 ###############################################################################

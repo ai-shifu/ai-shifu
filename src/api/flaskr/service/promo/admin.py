@@ -327,7 +327,7 @@ def _apply_keyword_filter(query, keyword: str, user_bid_field, *text_fields):
 
 
 def _build_coupon_status_filter(status: str):
-    normalized = str(status or "").strip()
+    normalized = str(status or "").strip().lower()
     if not normalized:
         return None
     now = _now_local_naive()
@@ -350,11 +350,11 @@ def _build_coupon_status_filter(status: str):
             enabled_filter,
             Coupon.end < now,
         )
-    return None
+    raise_param_error("status")
 
 
 def _build_campaign_status_filter(status: str):
-    normalized = str(status or "").strip()
+    normalized = str(status or "").strip().lower()
     if not normalized:
         return None
     now = _now_local_naive()
@@ -377,7 +377,7 @@ def _build_campaign_status_filter(status: str):
             enabled_filter,
             PromoCampaign.end_at < now,
         )
-    return None
+    raise_param_error("status")
 
 
 def _generate_random_coupon_code(length: int = 12) -> str:
@@ -539,6 +539,20 @@ def _compute_coupon_status(coupon: Coupon) -> str:
     return "active"
 
 
+def _compute_coupon_ops_states(coupon: Coupon) -> list[str]:
+    now = _now_local_naive()
+    states: list[str] = []
+    if int(coupon.used_count or 0) >= int(coupon.total_count or 0):
+        states.append("used_up")
+    if (
+        coupon.end
+        and coupon.end >= now
+        and coupon.end <= now + timedelta(days=PROMOTION_EXPIRING_SOON_DAYS)
+    ):
+        states.append("expiring_soon")
+    return states
+
+
 def _compute_campaign_status(campaign: PromoCampaign) -> str:
     now = _now_local_naive()
     if not is_campaign_enabled_for_runtime(campaign):
@@ -551,12 +565,16 @@ def _compute_campaign_status(campaign: PromoCampaign) -> str:
 
 
 def _build_coupon_item(
-    coupon: Coupon, course_map: Dict[str, DraftShifu | PublishedShifu]
+    coupon: Coupon,
+    course_map: Dict[str, DraftShifu | PublishedShifu],
+    user_name_map: Dict[str, str] | None = None,
 ) -> AdminPromotionCouponItemDTO:
     scope_type, shifu_bid = _parse_coupon_scope(coupon.filter or "{}")
     course = course_map.get(shifu_bid)
     computed_status = _compute_coupon_status(coupon)
+    ops_states = _compute_coupon_ops_states(coupon)
     usage_type = int(coupon.usage_type or COUPON_APPLY_TYPE_ALL)
+    created_user_bid = coupon.created_user_bid or ""
     return AdminPromotionCouponItemDTO(
         coupon_bid=coupon.coupon_bid or "",
         name=getattr(coupon, "name", "") or coupon.channel or "",
@@ -578,8 +596,11 @@ def _build_coupon_item(
         end_at=_format_promotion_admin_datetime(coupon.end),
         total_count=int(coupon.total_count or 0),
         used_count=int(coupon.used_count or 0),
+        ops_states=ops_states,
         computed_status=computed_status,
         computed_status_key=COUPON_COMPUTED_STATUS_KEY_MAP[computed_status],
+        created_user_bid=created_user_bid,
+        created_user_name=(user_name_map or {}).get(created_user_bid, ""),
         created_at=_format_promotion_admin_datetime(coupon.created_at),
         updated_at=_format_promotion_admin_datetime(coupon.updated_at),
     )
@@ -591,9 +612,11 @@ def _build_campaign_item(
     applied_order_count: int,
     total_discount_amount: decimal.Decimal,
     has_redemptions: bool,
+    user_name_map: Dict[str, str] | None = None,
 ) -> AdminPromotionCampaignItemDTO:
     computed_status = _compute_campaign_status(campaign)
     course = course_map.get(campaign.shifu_bid or "")
+    created_user_bid = campaign.created_user_bid or ""
     return AdminPromotionCampaignItemDTO(
         promo_bid=campaign.promo_bid or "",
         name=campaign.name or "",
@@ -614,6 +637,8 @@ def _build_campaign_item(
         applied_order_count=applied_order_count,
         has_redemptions=has_redemptions,
         total_discount_amount=_format_decimal(total_discount_amount),
+        created_user_bid=created_user_bid,
+        created_user_name=(user_name_map or {}).get(created_user_bid, ""),
         created_at=_format_promotion_admin_datetime(campaign.created_at),
         updated_at=_format_promotion_admin_datetime(campaign.updated_at),
     )
@@ -633,24 +658,30 @@ def _find_course_bids_by_name(keyword: str) -> set[str]:
     normalized = str(keyword or "").strip()
     if not normalized:
         return set()
+    like_pattern = f"%{normalized}%"
     results = set()
     for model in (PublishedShifu, DraftShifu):
-        records = model.query.filter(
-            model.deleted == 0,
-            model.title.like(f"%{normalized}%"),
-        ).all()
-        for record in records:
-            if record.shifu_bid:
-                results.add(record.shifu_bid)
+        rows = (
+            db.session.query(model.shifu_bid)
+            .filter(
+                model.deleted == 0,
+                model.title.like(like_pattern),
+            )
+            .distinct()
+            .all()
+        )
+        for row in rows:
+            shifu_bid = str(row[0] or "").strip()
+            if shifu_bid:
+                results.add(shifu_bid)
     return results
 
 
-def list_operator_promotion_coupons(
-    app: Flask, page: int, page_size: int, filters: dict
+def _list_promotion_coupons(
+    page: int, page_size: int, filters: dict, base_query
 ) -> AdminPromotionListResponseDTO:
-    del app
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
-    query = Coupon.query.filter(Coupon.deleted == 0)
+    query = base_query
     keyword = str(filters.get("keyword", "") or "").strip()
     name = str(filters.get("name", "") or "").strip()
     course_query = str(
@@ -701,6 +732,21 @@ def list_operator_promotion_coupons(
         )
     if course_query:
         course_bids = _resolve_course_query_bids(course_query)
+        if not course_bids:
+            return _build_paged_response(
+                AdminPromotionSummaryDTO(
+                    total=0,
+                    active=0,
+                    usage_count=0,
+                    latest_usage_at="",
+                    covered_courses=0,
+                    discount_amount="0",
+                ),
+                page,
+                page_size,
+                0,
+                [],
+            )
         query = query.filter(
             Coupon.filter.in_(
                 [
@@ -790,14 +836,32 @@ def list_operator_promotion_coupons(
 
     start = (page - 1) * page_size
     paged = query.order_by(Coupon.id.desc()).offset(start).limit(page_size).all()
-    course_bids = [
-        _parse_coupon_scope(coupon.filter or "{}")[1]
+    coupon_scope_map = {
+        coupon.coupon_bid: _parse_coupon_scope(coupon.filter or "{}")
         for coupon in paged
-        if _parse_coupon_scope(coupon.filter or "{}")[1]
-    ]
+    }
+    course_bids = [scope[1] for scope in coupon_scope_map.values() if scope[1]]
     course_map = _load_shifu_map(course_bids)
-    items = [_build_coupon_item(coupon, course_map).__json__() for coupon in paged]
+    user_name_map = _load_user_name_map(
+        [coupon.created_user_bid for coupon in paged if coupon.created_user_bid]
+    )
+    items = [
+        _build_coupon_item(coupon, course_map, user_name_map).__json__()
+        for coupon in paged
+    ]
     return _build_paged_response(summary, page, page_size, summary.total, items)
+
+
+def list_operator_promotion_coupons(
+    app: Flask, page: int, page_size: int, filters: dict
+) -> AdminPromotionListResponseDTO:
+    del app
+    return _list_promotion_coupons(
+        page,
+        page_size,
+        filters,
+        Coupon.query.filter(Coupon.deleted == 0),
+    )
 
 
 def _load_coupon_or_404(coupon_bid: str) -> Coupon:
@@ -1061,7 +1125,7 @@ def get_operator_promotion_coupon_detail(
         .order_by(CouponUsage.updated_at.desc())
         .first()
     )
-    item = _build_coupon_item(coupon, course_map)
+    item = _build_coupon_item(coupon, course_map, user_name_map)
     item.scope_type = scope_type
     return AdminPromotionCouponDetailDTO(
         coupon=item,
@@ -1429,6 +1493,21 @@ def list_operator_promotion_campaigns(
         )
     if course_query:
         course_bids = _resolve_course_query_bids(course_query)
+        if not course_bids:
+            return _build_paged_response(
+                AdminPromotionSummaryDTO(
+                    total=0,
+                    active=0,
+                    usage_count=0,
+                    latest_usage_at="",
+                    covered_courses=0,
+                    discount_amount="0",
+                ),
+                page,
+                page_size,
+                0,
+                [],
+            )
         query = query.filter(PromoCampaign.shifu_bid.in_(course_bids))
     start_time = filters.get("start_time")
     end_time = filters.get("end_time")
@@ -1535,6 +1614,9 @@ def list_operator_promotion_campaigns(
     course_map = _load_shifu_map(
         [campaign.shifu_bid for campaign in paged if campaign.shifu_bid]
     )
+    user_name_map = _load_user_name_map(
+        [campaign.created_user_bid for campaign in paged if campaign.created_user_bid]
+    )
     items = [
         _build_campaign_item(
             campaign,
@@ -1546,6 +1628,7 @@ def list_operator_promotion_campaigns(
             bool(
                 stats_map.get(campaign.promo_bid or "", {}).get("redemption_count", 0)
             ),
+            user_name_map,
         ).__json__()
         for campaign in paged
     ]
@@ -1729,6 +1812,7 @@ def get_operator_promotion_campaign_detail(
         int(stats.get("count", 0)),
         stats.get("discount_amount", decimal.Decimal("0")),
         bool(stats.get("redemption_count", 0)),
+        user_name_map,
     )
     return AdminPromotionCampaignDetailDTO(
         campaign=item,

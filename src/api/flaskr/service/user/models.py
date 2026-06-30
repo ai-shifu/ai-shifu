@@ -7,6 +7,7 @@ from sqlalchemy import (
     Text,
     SmallInteger,
     DateTime,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
@@ -179,7 +180,73 @@ class UserInfo(db.Model):
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
+    creator_activated_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Timestamp when creator access was first activated",
+    )
 
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Last update timestamp",
+        onupdate=func.now(),
+    )
+
+
+class UserOnboardingState(db.Model):
+    __tablename__ = "user_onboarding_states"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_bid",
+            "scene_key",
+            "version",
+            name="uk_user_onboarding_state_user_scene_version",
+        ),
+    )
+
+    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
+    user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="User business identifier",
+    )
+    scene_key = Column(
+        String(64),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Onboarding scene key",
+    )
+    version = Column(
+        String(32),
+        nullable=False,
+        default="v1",
+        comment="Onboarding version",
+    )
+    status = Column(
+        String(32),
+        nullable=False,
+        default="completed",
+        comment="Onboarding state status",
+    )
+    trigger_source = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="Trigger source",
+    )
+    completed_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Completion timestamp",
+    )
+    created_at = Column(
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+    )
     updated_at = Column(
         DateTime,
         nullable=False,

@@ -8,6 +8,7 @@ from flaskr.service.billing.consts import (
     BILLING_INTERVAL_DAY,
     BILLING_INTERVAL_MONTH,
     BILLING_INTERVAL_YEAR,
+    BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
     BILL_CONFIG_KEY_CREDIT_PRECISION,
     BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
     BILL_CONFIG_KEY_RATE_VERSION,
@@ -25,10 +26,15 @@ from flaskr.service.billing.consts import (
     BILL_SYS_CONFIG_SEEDS,
     CREDIT_USAGE_RATE_SEEDS,
 )
-from flaskr.service.billing.models import BillingProduct, CreditUsageRate
+from flaskr.service.billing.models import (
+    BillingProduct,
+    CreditUsageRate,
+    NotificationRecord,
+)
 from flaskr.service.billing.queries import (
     calculate_billing_cycle_end,
     calculate_self_managed_billing_cycle_end,
+    calculate_self_managed_billing_cycle_end_after_boundary,
 )
 from flaskr.service.metering import consts as metering_consts
 from flaskr.service.promo import consts as promo_consts
@@ -42,6 +48,8 @@ def test_billing_models_register_core_tables() -> None:
     assert "bill_products" in tables
     assert "bill_subscriptions" in tables
     assert "bill_orders" in tables
+    assert "bill_campaigns" in tables
+    assert "bill_campaign_products" in tables
     assert "credit_wallets" in tables
     assert "credit_wallet_buckets" in tables
     assert "credit_ledger_entries" in tables
@@ -54,6 +62,8 @@ def test_billing_models_register_core_tables() -> None:
 
     credit_ledger_entries = tables["credit_ledger_entries"]
     assert "wallet_bucket_bid" in credit_ledger_entries.c
+    assert "campaign_bid" in tables["bill_orders"].c
+    assert "expires_at" in tables["bill_orders"].c
     assert "idempotency_key" in credit_ledger_entries.c
     assert credit_ledger_entries.c.amount.type.precision == 20
     assert credit_ledger_entries.c.amount.type.scale == 10
@@ -147,23 +157,41 @@ def test_calculate_self_managed_billing_cycle_end_uses_validity_day_end() -> Non
     assert calculate_self_managed_billing_cycle_end(
         daily_product,
         cycle_start_at=datetime(2026, 4, 16, 12, 0, 0),
-    ) == datetime(2026, 4, 22, 23, 59, 59)
+    ) == datetime(2026, 4, 22, 15, 59, 59)
     assert calculate_self_managed_billing_cycle_end(
         monthly_product,
         cycle_start_at=datetime(2026, 4, 16, 12, 0, 0),
-    ) == datetime(2026, 5, 15, 23, 59, 59)
+    ) == datetime(2026, 5, 15, 15, 59, 59)
     assert calculate_self_managed_billing_cycle_end(
         monthly_product,
         cycle_start_at=datetime(2026, 1, 31, 12, 0, 0),
-    ) == datetime(2026, 3, 1, 23, 59, 59)
+    ) == datetime(2026, 3, 1, 15, 59, 59)
     assert calculate_self_managed_billing_cycle_end(
         yearly_product,
         cycle_start_at=datetime(2026, 4, 16, 12, 0, 0),
-    ) == datetime(2027, 4, 16, 23, 59, 59)
+    ) == datetime(2027, 4, 16, 15, 59, 59)
     assert calculate_self_managed_billing_cycle_end(
         yearly_product,
         cycle_start_at=datetime(2024, 2, 29, 12, 0, 0),
-    ) == datetime(2025, 3, 1, 23, 59, 59)
+    ) == datetime(2025, 3, 1, 15, 59, 59)
+
+
+def test_calculate_self_managed_billing_cycle_end_stores_local_day_end_as_utc_naive() -> (
+    None
+):
+    monthly_product = BillingProduct(
+        billing_interval=BILLING_INTERVAL_MONTH,
+        billing_interval_count=1,
+    )
+
+    assert calculate_self_managed_billing_cycle_end(
+        monthly_product,
+        cycle_start_at=datetime(2026, 5, 29, 7, 13, 24),
+    ) == datetime(2026, 6, 27, 15, 59, 59)
+    assert calculate_self_managed_billing_cycle_end_after_boundary(
+        monthly_product,
+        cycle_boundary_at=datetime(2026, 6, 27, 15, 59, 59),
+    ) == datetime(2026, 7, 27, 15, 59, 59)
 
 
 def test_credit_usage_rate_model_registers_unique_constraints() -> None:
@@ -178,14 +206,37 @@ def test_credit_usage_rate_model_registers_unique_constraints() -> None:
 
 
 def test_billing_sys_config_seeds_cover_required_bootstrap_keys() -> None:
-    assert len(BILL_SYS_CONFIG_SEEDS) == 4
+    assert len(BILL_SYS_CONFIG_SEEDS) == 5
     assert {row["key"] for row in BILL_SYS_CONFIG_SEEDS} == {
+        BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
         BILL_CONFIG_KEY_CREDIT_PRECISION,
         BILL_CONFIG_KEY_LOW_BALANCE_THRESHOLD,
         BILL_CONFIG_KEY_RENEWAL_TASK_CONFIG,
         BILL_CONFIG_KEY_RATE_VERSION,
     }
     assert all(row["is_encrypted"] == 0 for row in BILL_SYS_CONFIG_SEEDS)
+
+
+def test_notification_records_model_uses_shared_notification_table() -> None:
+    table = NotificationRecord.__table__
+
+    assert NotificationRecord.__tablename__ == "notification_records"
+    assert "notification_bid" in table.c
+    assert "notification_type" in table.c
+    assert "channel" in table.c
+    assert "creator_bid" in table.c
+    assert "dedupe_key" in table.c
+    assert "template_params" in table.c
+    assert "policy_snapshot" in table.c
+    assert "provider_response" in table.c
+
+    unique_constraint_names = {
+        constraint.name
+        for constraint in table.constraints
+        if getattr(constraint, "name", None)
+    }
+    assert "uq_notification_records_notification_bid" in unique_constraint_names
+    assert "uq_notification_records_dedupe_key" in unique_constraint_names
 
 
 def test_billing_consts_keep_7100_segment_isolated_and_reuse_metering_usage_codes() -> (

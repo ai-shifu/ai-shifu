@@ -10,6 +10,18 @@ describe('buildAdminMenuItems', () => {
       '/admin',
       '/admin/orders',
       '/admin/dashboard',
+      '/admin/referral',
+    ]);
+  });
+
+  test('excludes referral invite entry when referral is unavailable', () => {
+    const options = { t, isOperator: false, showReferralInvite: false };
+    const menuItems = buildAdminMenuItems(options);
+
+    expect(menuItems.map(item => item.href)).toEqual([
+      '/admin',
+      '/admin/orders',
+      '/admin/dashboard',
     ]);
   });
 
@@ -20,6 +32,7 @@ describe('buildAdminMenuItems', () => {
       '/admin',
       '/admin/orders',
       '/admin/dashboard',
+      '/admin/referral',
       undefined,
     ]);
     expect(menuItems.at(-1)).toMatchObject({
@@ -40,6 +53,26 @@ describe('buildAdminMenuItems', () => {
           id: 'operations-order',
           label: 'common.core.orderManagement',
           href: '/admin/operations/orders',
+        },
+        {
+          id: 'operations-promotion',
+          label: 'common.core.promotionManagement',
+          href: '/admin/operations/promotions',
+        },
+        {
+          id: 'operations-credit-notification',
+          label: 'common.core.creditNotificationManagement',
+          href: '/admin/operations/credit-notifications',
+        },
+        {
+          id: 'operations-voice-clone',
+          label: 'common.core.voiceCloneManagement',
+          href: '/admin/operations/voice-clones',
+        },
+        {
+          id: 'operations-profile-onboarding',
+          label: 'common.core.profileOnboardingManagement',
+          href: '/admin/operations/profile-onboarding',
         },
       ],
     });

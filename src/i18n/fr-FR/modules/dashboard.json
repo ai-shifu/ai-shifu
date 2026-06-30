@@ -1,0 +1,202 @@
+{
+  "__namespace__": "module.dashboard",
+  "detail": {
+    "basicInfo": {
+      "chapterCount": "Nombre de chapitres",
+      "courseName": "Nom du cours",
+      "createdAt": "Créé le",
+      "learnerCount": "Nombre d’apprenants",
+      "status": "Statut du cours",
+      "statusLabels": {
+        "published": "Publié",
+        "unpublished": "Non publié"
+      },
+      "title": "Informations de base"
+    },
+    "courseIdLabel": "ID du cours",
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "Consultez la question actuelle de l’apprenant et la réponse associée pour repérer les points de blocage et vérifier si le contenu du cours est clair.",
+        "fields": {
+          "currentAnswer": "Réponse actuelle",
+          "currentFollowUp": "Question actuelle",
+          "followUpTime": "Heure de la question",
+          "lesson": "Leçon liée",
+          "nickname": "Pseudo",
+          "turnIndex": "Tour",
+          "user": "Apprenant"
+        },
+        "sections": {
+          "basicInfo": "Informations de base",
+          "currentRecord": "Enregistrement actuel",
+          "timeline": "Chronologie des questions"
+        },
+        "timeline": {
+          "current": "Actuel",
+          "student": "Apprenant",
+          "teacher": "Réponse du cours"
+        },
+        "title": "Détail de la question"
+      },
+      "filters": {
+        "chapterKeyword": "Chapitre",
+        "chapterKeywordPlaceholder": "Saisir un chapitre ou une leçon",
+        "followUpTime": "Heure de la question",
+        "lessonKeyword": "Leçon",
+        "lessonKeywordPlaceholder": "Saisir le nom de la leçon",
+        "reset": "Réinitialiser",
+        "resultCount": "Total {count}",
+        "search": "Rechercher",
+        "sourceStatus": "Statut de la sortie d’origine",
+        "sourceStatusAll": "Tous les statuts",
+        "sourceStatusMissing": "Sortie d’origine introuvable",
+        "sourceStatusResolved": "Sortie d’origine localisée",
+        "timePlaceholder": "Sélectionner une période",
+        "userKeyword": "Apprenant",
+        "userKeywordPlaceholderEmail": "Saisir un pseudonyme ou un e-mail",
+        "userKeywordPlaceholderPhone": "Saisir un pseudonyme ou un téléphone"
+      },
+      "summary": {
+        "followUpCount": "Total des questions",
+        "latestFollowUpAt": "Dernière question",
+        "lessonCount": "Leçons concernées",
+        "scopeHint": "Consultez les questions des apprenants liées au contenu du cours afin d’identifier les blocages fréquents et les leçons à améliorer.",
+        "userCount": "Apprenants ayant posé des questions"
+      },
+      "table": {
+        "action": "Action",
+        "chapter": "Chapitre",
+        "content": "Contenu de la question",
+        "createdAt": "Heure de la question",
+        "detailAction": "Détail",
+        "empty": "Aucune donnée de question",
+        "lesson": "Leçon",
+        "sourceMissing": "Sortie d’origine introuvable",
+        "sourceResolved": "Sortie d’origine localisée",
+        "title": "Liste des questions",
+        "turnIndex": "Tour",
+        "user": "Apprenant"
+      },
+      "title": "Données de questions",
+      "turnIndex": "Tour {count}",
+      "turnIndexHelp": "L’ordre des tours repose sur l’heure de suivi dans le même enregistrement d’apprentissage."
+    },
+    "learners": {
+      "columns": {
+        "joinedAt": "Date d’inscription",
+        "lastLearningAt": "Dernier apprentissage",
+        "name": "Apprenant",
+        "progress": "Progression",
+        "questions": "Total des questions",
+        "status": "Statut d’apprentissage"
+      },
+      "empty": "Aucun apprenant pour le moment",
+      "filters": {
+        "lastLearningTime": "Dernier apprentissage",
+        "lastLearningTimePlaceholder": "Sélectionner une période",
+        "learningStatus": "Statut d’apprentissage",
+        "statusAll": "Tous",
+        "userKeyword": "Apprenant"
+      },
+      "searchPlaceholderEmail": "Saisir un pseudonyme ou un e-mail",
+      "searchPlaceholderPhone": "Saisir un pseudonyme ou un téléphone",
+      "status": {
+        "completed": "Terminé",
+        "learning": "En cours",
+        "notStarted": "Pas commencé"
+      },
+      "title": "Liste des apprenants",
+      "totalCount": "Total : {count} apprenants",
+      "viewFollowUps": "Voir les questions",
+      "viewFollowUpsForLearner": "Voir les questions de {learner}"
+    },
+    "metrics": {
+      "activeLearnersLast7Days": "Apprenants actifs (7 j)",
+      "completedLearners": "Apprenants ayant terminé",
+      "completionRate": "Taux d’achèvement",
+      "learningLearners": "Apprenants en cours",
+      "newLearnersLast7Days": "Nouveaux apprenants (7 j)",
+      "orderAmount": "Montant des commandes",
+      "orderCount": "Commandes",
+      "rating": "Note du cours",
+      "title": "Données clés",
+      "totalQuestions": "Questions de suivi"
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Chapitre",
+        "chapterKeywordPlaceholder": "Saisir un chapitre ou une leçon",
+        "commentStatus": "Commentaire",
+        "commentStatusAll": "Tous",
+        "commentStatusCommented": "Avec commentaire seulement",
+        "ratingTime": "Date de notation",
+        "reset": "Réinitialiser",
+        "resultCount": "Total {count}",
+        "score": "Note",
+        "scoreAll": "Toutes les notes",
+        "search": "Rechercher",
+        "timePlaceholder": "Sélectionner une période",
+        "userKeyword": "Apprenant",
+        "userKeywordPlaceholderEmail": "Saisir un pseudonyme ou un e-mail",
+        "userKeywordPlaceholderPhone": "Saisir un pseudonyme ou un téléphone"
+      },
+      "scoreValue": "{score} étoiles",
+      "summary": {
+        "averageScore": "Note moyenne",
+        "latestRatedAt": "Dernière note",
+        "ratingCount": "Nombre de notes",
+        "scopeHint": "Consultez les notes et commentaires utiles au créateur afin d’identifier les évolutions de satisfaction et les leçons à améliorer.",
+        "userCount": "Apprenants ayant noté"
+      },
+      "table": {
+        "comment": "Commentaire",
+        "empty": "Aucune donnée de note",
+        "guestUser": "Apprenant anonyme",
+        "lesson": "Leçon",
+        "ratedAt": "Date de notation",
+        "score": "Note",
+        "title": "Liste des notes",
+        "user": "Apprenant"
+      },
+      "title": "Données de notation"
+    },
+    "subtitle": "Les informations de base, les indicateurs clés et les données d’apprentissage des apprenants utilisent désormais des données en direct.",
+    "title": "Détail du cours"
+  },
+  "entry": {
+    "kpi": {
+      "courses": "Cours",
+      "learners": "Total apprenants",
+      "orderAmount": "Montant total des commandes",
+      "orders": "Total des commandes"
+    },
+    "table": {
+      "action": "Actions",
+      "course": "Cours",
+      "empty": "Aucun cours",
+      "footnote": "Cours : {count} (Périmètre : seules les données des cours que vous avez créés et possédez sont incluses. Les cours collaboratifs sont exclus.)",
+      "lastActive": "Dernière activité",
+      "learners": "Apprenants",
+      "orderAmount": "Montant de commande",
+      "orders": "Commandes",
+      "reset": "Réinitialiser",
+      "scopeNote": "Périmètre : seules les données des cours que vous avez créés et possédez sont incluses. Les cours collaboratifs sont exclus.",
+      "search": "Rechercher",
+      "searchPlaceholder": "Rechercher par nom ou ID de cours",
+      "title": "Liste des cours",
+      "totalCount": "Total : {count}",
+      "viewCourse": "Voir le cours",
+      "viewOrders": "Voir les commandes"
+    }
+  },
+  "filters": {
+    "dateRangePlaceholder": "Sélectionner une plage de dates",
+    "reset": "Réinitialiser"
+  },
+  "pagination": {
+    "next": "Suivant",
+    "prev": "Précédent"
+  },
+  "title": "Tableau de bord"
+}

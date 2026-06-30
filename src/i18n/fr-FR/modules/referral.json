@@ -1,0 +1,178 @@
+{
+  "__namespace__": "module.referral",
+  "abnormalStatus": {
+    "confirmedAbnormal": "Anomalie confirmée",
+    "normal": "Normal",
+    "reviewing": "En vérification",
+    "unknown": "Statut d’anomalie inconnu"
+  },
+  "creator": {
+    "copied": "Copié",
+    "copyLink": "Copier le lien",
+    "description": "Recommandez AI Shifu aux amis qui pourraient en avoir besoin.",
+    "emptyQueue": "Partagez votre lien d’invitation. Dès qu’un ami termine son inscription mobile, vous recevez immédiatement 1 mois d’avantages.",
+    "inviteCardDescription": "Copiez votre lien d’invitation et partagez-le avec un nouvel utilisateur qui n’a pas encore rejoint AI Shifu. Une fois l’inscription terminée via ce lien, vous recevrez la récompense d’abonnement correspondante.",
+    "inviteCardTitle": "Partager votre lien d’invitation",
+    "inviteLink": "Lien d’invitation",
+    "metrics": {
+      "rewarded": "Mois récompensés"
+    },
+    "queueColumns": {
+      "effectiveAt": "Début",
+      "expiresAt": "Fin",
+      "invitee": "Ami invité",
+      "reward": "Récompense",
+      "status": "Statut"
+    },
+    "queueTitle": "Invitations",
+    "refresh": "Actualiser",
+    "rewardRecordValue": "{cycles} mois d’abonnement Basic ({credits} crédits inclus)",
+    "rewardRulesTitle": "Règles de campagne",
+    "rules": {
+      "cap": "Les récompenses sont attribuées automatiquement et peuvent s’accumuler jusqu’à {cap} mois. Par exemple, 12 amis invités peuvent donner 12 mois d’abonnement Basic.",
+      "defer": "Si vous avez déjà un abonnement actif, la récompense commencera automatiquement après la fin de l’abonnement actuel.",
+      "firstRegistration": "Quand un ami termine sa première inscription via votre lien, l’invitation est considérée comme réussie.",
+      "inviteeBenefit": "Après inscription, l’ami invité reçoit l’offre d’essai nouvel utilisateur de 1000 crédits, valable 15 jours.",
+      "inviterReward": "Pour chaque ami inscrit avec succès, vous recevez {cycles} mois d’abonnement Basic ({credits} crédits inclus, valeur 199 RMB).",
+      "unregistered": "Partagez votre lien d’invitation avec de nouveaux utilisateurs qui ne se sont jamais inscrits à AI Shifu."
+    },
+    "shareMessage": "J’utilise AI Shifu pour transformer connaissances et expérience en cours interactifs individuels. Je vous recommande aussi d’essayer AI Shifu. Inscription avec 15 jours d’essai gratuit : {url}",
+    "title": "Inviter des amis",
+    "tooltips": {
+      "rewarded": "Mois déjà comptés dans les récompenses automatiques."
+    }
+  },
+  "inviteLanding": {
+    "badge": "Invitation d’un ami",
+    "brandName": "AI Shifu",
+    "codeLabel": "Code d’invitation",
+    "codePlaceholder": "Saisir le code",
+    "codeRequired": "Veuillez d’abord saisir un code d’invitation.",
+    "descriptionAfterBrand": " devenir votre partenaire pédagogique polyvalent et transformer connaissances et expérience en cours interactifs individuels.",
+    "descriptionBeforeBrand": "Laissez ",
+    "fallbackTitle": "Vous êtes invité à essayer AI Shifu !",
+    "formAria": "Entrée d’inscription par code d’invitation",
+    "formTitle": "Confirmer le code",
+    "invitedTitle": "{maskedMobile} vous invite à essayer AI Shifu !",
+    "register": "S’inscrire gratuitement",
+    "submitFailed": "Échec de l’envoi du code. Réessayez plus tard.",
+    "title": "Vous êtes invité à essayer AI Shifu !",
+    "trialHint": "Inscription avec 15 jours d’essai gratuit"
+  },
+  "operator": {
+    "actions": {
+      "cancelReward": "Annuler relation et récompense",
+      "detail": "Détail",
+      "freezeReward": "Geler la récompense",
+      "markNormal": "Marquer comme normal",
+      "markReviewing": "Marquer en vérification",
+      "reset": "Réinitialiser",
+      "search": "Rechercher"
+    },
+    "description": "Consultez les relations d’invitation, les statuts de récompense, les comptes invités, les artefacts de facturation et les exceptions manuelles.",
+    "detail": {
+      "abnormalStatus": "Statut d’anomalie",
+      "billOrder": "BID de commande",
+      "boundAt": "Date de liaison",
+      "campaign": "Campagne",
+      "inviteCode": "Code d’invitation",
+      "invitee": "Invité",
+      "inviteeMobile": "Mobile de l’invité",
+      "inviter": "Invitant",
+      "ledger": "BID d’écriture",
+      "loading": "Chargement",
+      "operatorNote": "Note opérateur",
+      "operatorNotePlaceholder": "Indiquer la raison de l’action manuelle",
+      "relationStatus": "Statut de la relation",
+      "reward": "Récompense et facturation",
+      "rewardBid": "BID de récompense",
+      "rewardProduct": "Produit de récompense",
+      "rewardQueue": {
+        "artifacts": {
+          "ledger": "Écriture",
+          "order": "Commande",
+          "reward": "Récompense"
+        },
+        "columns": {
+          "artifacts": "Commande / écriture comptable",
+          "credits": "Crédits",
+          "effectiveAt": "Début",
+          "expiresAt": "Expiration",
+          "index": "Cycle",
+          "invitee": "Invité",
+          "ledgerState": "État comptable",
+          "status": "Statut"
+        },
+        "empty": "Aucune récompense en file d’attente.",
+        "title": "File d’attente des récompenses"
+      },
+      "rewardStatus": "Statut de la récompense",
+      "subscription": "BID d’abonnement",
+      "title": "Détail de la relation d’invitation",
+      "walletBucket": "BID de la réserve de crédits"
+    },
+    "empty": "Aucune relation d’invitation.",
+    "filters": {
+      "abnormalStatus": "Statut d’anomalie",
+      "all": "Tous",
+      "campaignBid": "BID de campagne",
+      "inviteCode": "Code d’invitation",
+      "inviteeUserBid": "BID de l’utilisateur invité",
+      "inviterUserBid": "BID de l’utilisateur invitant",
+      "relationStatus": "Statut de la relation"
+    },
+    "loadFailed": "Échec du chargement des relations. Actualisez puis réessayez.",
+    "metrics": {
+      "abnormalRelations": "Relations anormales",
+      "generatedRewards": "Mois récompensés",
+      "totalRelations": "Relations d’invitation"
+    },
+    "pagination": {
+      "jumpInputAria": "Aller à la page des invitations",
+      "next": "Suivant",
+      "nextAria": "Page suivante",
+      "prev": "Précédent",
+      "prevAria": "Page précédente"
+    },
+    "refresh": "Actualiser",
+    "statusUpdated": "Statut mis à jour",
+    "table": {
+      "action": "Action",
+      "boundAt": "Date de liaison",
+      "campaign": "Campagne",
+      "inviteCode": "Code",
+      "invitee": "Invité",
+      "inviter": "Invitant",
+      "relationStatus": "Statut de la relation",
+      "rewardStatus": "Statut de la récompense"
+    },
+    "title": "Récompenses d’invitation",
+    "tooltips": {
+      "abnormalRelations": "Relations marquées en vérification ou anomalie confirmée.",
+      "generatedRewards": "Récompenses non annulées.",
+      "totalRelations": "Nombre total de relations liées."
+    },
+    "total": "{total} au total"
+  },
+  "relationStatus": {
+    "abnormalReviewing": "Anomalie en vérification",
+    "canceled": "Annulé",
+    "registered": "Inscrit",
+    "rewardActive": "Récompense active",
+    "rewardEnded": "Récompense terminée",
+    "rewardGenerated": "Récompense générée",
+    "rewardPendingEffective": "Récompense en attente",
+    "rewardSkippedCap": "Ignorée par plafond",
+    "unknown": "Statut de la relation inconnu"
+  },
+  "rewardStatus": {
+    "active": "Active",
+    "canceled": "Annulée",
+    "expired": "Expirée",
+    "frozen": "Gelée",
+    "generated": "Générée",
+    "pendingEffective": "En attente",
+    "skippedCap": "Ignorée par plafond",
+    "unknown": "Statut de la récompense inconnu"
+  }
+}

@@ -26,10 +26,19 @@ const api = {
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',
   ensureAdminCreator: 'POST /user/ensure_admin_creator',
+  getCreatorOnboardingStatus: 'GET /user/onboarding/status',
+  completeCreatorOnboarding: 'POST /user/onboarding/complete',
   loginPassword: 'POST /user/login_password',
   setPassword: 'POST /user/set_password',
   changePassword: 'POST /user/change_password',
   resetPassword: 'POST /user/reset_password',
+  getProfileOnboarding: 'GET /user/profile-onboarding',
+  completeProfileOnboarding: 'POST /user/profile-onboarding/complete',
+
+  // referral api
+  getReferralInviteProfile: 'GET /referral/invite-profile',
+  getReferralInvitePreview: 'GET /referral/invite-preview',
+  recordReferralInviteEvent: 'POST /referral/invite-event',
 
   // shifu api start
   getShifuList: 'GET /shifu/shifus',
@@ -97,16 +106,39 @@ const api = {
   askPreview: 'POST /shifu/ask/preview',
   ttsPreview: 'POST /shifu/tts/preview',
   ttsConfig: 'GET /shifu/tts/config',
+  listMinimaxTtsVoices: 'GET /shifu/tts/minimax/voices',
+  getMinimaxTtsVoice: 'GET /shifu/tts/minimax/voices/{voice_bid}',
+  retryMinimaxTtsVoice: 'POST /shifu/tts/minimax/voices/{voice_bid}/retry',
+  deleteMinimaxTtsVoice: 'DELETE /shifu/tts/minimax/voices/{voice_bid}',
+  getMinimaxTtsCloneCost: 'GET /shifu/tts/minimax/voices/clone-cost',
+  validateMinimaxTtsVoiceId: 'POST /shifu/tts/minimax/voices/validate-id',
   // admin order api
   getAdminOrders: 'GET /order/admin/orders',
   getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',
   getAdminOrderShifus: 'GET /order/admin/orders/shifus',
   importActivationOrder: 'POST /order/admin/orders/import-activation',
+  getCreatorCourseRedemptionCodes: 'GET /order/admin/orders/redemption-codes',
+  createCreatorCourseRedemptionCode:
+    'POST /order/admin/orders/redemption-codes',
+  getCreatorCourseRedemptionCodeDetail:
+    'GET /order/admin/orders/redemption-codes/{coupon_bid}',
+  updateCreatorCourseRedemptionCode:
+    'POST /order/admin/orders/redemption-codes/{coupon_bid}',
+  updateCreatorCourseRedemptionCodeStatus:
+    'POST /order/admin/orders/redemption-codes/{coupon_bid}/status',
+  getCreatorCourseRedemptionCodeUsages:
+    'GET /order/admin/orders/redemption-codes/{coupon_bid}/usages',
+  getCreatorCourseRedemptionCodeCodes:
+    'GET /order/admin/orders/redemption-codes/{coupon_bid}/codes',
   getAdminOperationUsersOverview: 'GET /shifu/admin/operations/users/overview',
   getAdminOperationUsers: 'GET /shifu/admin/operations/users',
+  getAdminOperationOrdersOverview:
+    'GET /shifu/admin/operations/orders/overview',
   getAdminOperationOrders: 'GET /shifu/admin/operations/orders',
   getAdminOperationOrderDetail:
     'GET /shifu/admin/operations/orders/{order_bid}/detail',
+  getAdminOperationCreditOrdersOverview:
+    'GET /shifu/admin/operations/orders/credits/overview',
   getAdminOperationCreditOrders: 'GET /shifu/admin/operations/orders/credits',
   getAdminOperationCreditOrderDetail:
     'GET /shifu/admin/operations/orders/credits/{bill_order_bid}/detail',
@@ -136,12 +168,60 @@ const api = {
     'POST /shifu/admin/operations/promotions/campaigns/{promo_bid}/status',
   getAdminOperationPromotionCampaignRedemptions:
     'GET /shifu/admin/operations/promotions/campaigns/{promo_bid}/redemptions',
+  getAdminOperationPromotionReferralCampaigns:
+    'GET /shifu/admin/operations/promotions/referral-campaigns',
+  createAdminOperationPromotionReferralCampaign:
+    'POST /shifu/admin/operations/promotions/referral-campaigns',
+  getAdminOperationPromotionReferralCampaignDetail:
+    'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}',
+  updateAdminOperationPromotionReferralCampaign:
+    'POST /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}',
+  updateAdminOperationPromotionReferralCampaignStatus:
+    'POST /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/status',
   getAdminOperationUserDetail:
     'GET /shifu/admin/operations/users/{user_bid}/detail',
   getAdminOperationUserCredits:
     'GET /shifu/admin/operations/users/{user_bid}/credits',
+  getAdminOperationUserCreditUsageDetail:
+    'GET /shifu/admin/operations/users/{user_bid}/credits/usages/{usage_bid}/detail',
+  getAdminOperationUserGrantBootstrap:
+    'GET /shifu/admin/operations/users/{user_bid}/credit-grant/bootstrap',
   grantAdminOperationUserCredits:
     'POST /shifu/admin/operations/users/{user_bid}/credits/grant',
+  grantAdminOperationUserPackage:
+    'POST /shifu/admin/operations/users/{user_bid}/packages/grant',
+  getAdminOperationCreditNotifications:
+    'GET /shifu/admin/operations/credit-notifications',
+  getAdminOperationVoiceClones: 'GET /shifu/admin/operations/voice-clones',
+  getAdminOperationCreditNotificationsOverview:
+    'GET /shifu/admin/operations/credit-notifications/overview',
+  getAdminOperationCreditNotificationDetail:
+    'GET /shifu/admin/operations/credit-notifications/{notification_bid}',
+  getAdminOperationCreditNotificationConfig:
+    'GET /shifu/admin/operations/credit-notifications/config',
+  updateAdminOperationCreditNotificationConfig:
+    'POST /shifu/admin/operations/credit-notifications/config',
+  syncAdminOperationCreditNotificationTemplate:
+    'POST /shifu/admin/operations/credit-notifications/templates/sync',
+  getAdminOperationCreditNotificationTemplates:
+    'GET /shifu/admin/operations/credit-notifications/templates',
+  dryRunAdminOperationCreditNotifications:
+    'POST /shifu/admin/operations/credit-notifications/dry-run',
+  requeueAdminOperationCreditNotification:
+    'POST /shifu/admin/operations/credit-notifications/{notification_bid}/requeue',
+  getAdminOperationProfileOnboardingConfig:
+    'GET /shifu/admin/operations/profile-onboarding',
+  updateAdminOperationProfileOnboardingConfig:
+    'POST /shifu/admin/operations/profile-onboarding',
+  getAdminOperationReferrals: 'GET /shifu/admin/operations/referrals',
+  getAdminOperationReferralsOverview:
+    'GET /shifu/admin/operations/referrals/overview',
+  getAdminOperationReferralDetail:
+    'GET /shifu/admin/operations/referrals/{relation_bid}',
+  updateAdminOperationReferralStatus:
+    'POST /shifu/admin/operations/referrals/{relation_bid}/status',
+  adjustAdminOperationReferral:
+    'POST /shifu/admin/operations/referrals/{relation_bid}/adjustment',
   getAdminOperationCoursesOverview:
     'GET /shifu/admin/operations/courses/overview',
   getAdminOperationCourses: 'GET /shifu/admin/operations/courses',
@@ -151,6 +231,10 @@ const api = {
     'GET /shifu/admin/operations/courses/{shifu_bid}/detail',
   getAdminOperationCourseUsers:
     'GET /shifu/admin/operations/courses/{shifu_bid}/users',
+  getAdminOperationCourseCreditUsages:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/credit-usages',
+  getAdminOperationCourseCreditUsageDetails:
+    'GET /shifu/admin/operations/courses/{shifu_bid}/credit-usages/details',
   getAdminOperationCourseRatings:
     'GET /shifu/admin/operations/courses/{shifu_bid}/ratings',
   getAdminOperationCourseFollowUps:
@@ -159,6 +243,8 @@ const api = {
     'GET /shifu/admin/operations/courses/{shifu_bid}/follow-ups/{generated_block_bid}/detail',
   getAdminOperationCourseChapterDetail:
     'GET /shifu/admin/operations/courses/{shifu_bid}/chapters/{outline_item_bid}/detail',
+  copyAdminOperationCourse:
+    'POST /shifu/admin/operations/courses/{shifu_bid}/copy',
   transferAdminOperationCourseCreator:
     'POST /shifu/admin/operations/courses/{shifu_bid}/transfer-creator',
 
@@ -178,6 +264,11 @@ const api = {
   // dashboard (teacher analytics)
   getDashboardEntry: 'GET /dashboard/entry',
   getDashboardCourseDetail: 'GET /dashboard/shifus/{shifu_bid}/detail',
+  getDashboardCourseLearners: 'GET /dashboard/shifus/{shifu_bid}/learners',
+  getDashboardCourseRatings: 'GET /dashboard/shifus/{shifu_bid}/ratings',
+  getDashboardCourseFollowUps: 'GET /dashboard/shifus/{shifu_bid}/follow-ups',
+  getDashboardCourseFollowUpDetail:
+    'GET /dashboard/shifus/{shifu_bid}/follow-ups/{generated_block_bid}/detail',
 
   // billing creator api
   getBillingBootstrap: 'GET /billing',
@@ -195,6 +286,13 @@ const api = {
 
   // billing admin api
   getAdminBillingSubscriptions: 'GET /admin/billing/subscriptions',
+  getAdminBillingCampaignProductOptions: 'GET /admin/billing/products/options',
+  getAdminBillingCampaigns: 'GET /admin/billing/campaigns',
+  createAdminBillingCampaign: 'POST /admin/billing/campaigns',
+  getAdminBillingCampaignDetail: 'GET /admin/billing/campaigns/{campaign_bid}',
+  updateAdminBillingCampaign: 'POST /admin/billing/campaigns/{campaign_bid}',
+  updateAdminBillingCampaignStatus:
+    'POST /admin/billing/campaigns/{campaign_bid}/status',
   getAdminBillingOrders: 'GET /admin/billing/orders',
   getAdminBillingEntitlements: 'GET /admin/billing/entitlements',
   getAdminBillingDomainAudits: 'GET /admin/billing/domain-audits',

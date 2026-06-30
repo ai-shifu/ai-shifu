@@ -11,6 +11,7 @@ from sqlalchemy import (
     Numeric,
     SmallInteger,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
@@ -404,6 +405,12 @@ class BillingOrder(BillingTableMixin, db.Model):
         nullable=True,
         comment="Refunded timestamp",
     )
+    expires_at = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="Checkout expiration timestamp",
+    )
     failure_code = Column(
         String(255),
         nullable=False,
@@ -421,6 +428,195 @@ class BillingOrder(BillingTableMixin, db.Model):
         JSON,
         nullable=True,
         comment="Billing order metadata",
+    )
+    campaign_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Applied billing campaign business identifier",
+    )
+    campaign_benefit_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Applied billing campaign benefit type code",
+    )
+    campaign_discount_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Applied billing campaign discount amount in minor units",
+    )
+    campaign_bonus_credit_amount = Column(
+        CREDIT_NUMERIC,
+        nullable=False,
+        default=0,
+        comment="Applied billing campaign bonus credit amount",
+    )
+
+
+class BillingCampaign(BillingTableMixin, db.Model):
+    __tablename__ = "bill_campaigns"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_bid",
+            name="uq_bill_campaigns_campaign_bid",
+        ),
+        Index(
+            "ix_bill_campaigns_enabled_start_end",
+            "enabled",
+            "start_at",
+            "end_at",
+        ),
+        {"comment": "Billing campaign definitions"},
+    )
+
+    campaign_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing campaign business identifier",
+    )
+    name = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Operator-facing campaign name",
+    )
+    note = Column(
+        String(500),
+        nullable=False,
+        default="",
+        comment="Operator-facing campaign note",
+    )
+    benefit_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        index=True,
+        comment="Campaign benefit type code",
+    )
+    discount_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Campaign discount type code",
+    )
+    discount_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Fixed discount amount in minor units",
+    )
+    discount_percent = Column(
+        Numeric(6, 2),
+        nullable=False,
+        default=0,
+        comment="Percent discount value",
+    )
+    bonus_credit_amount = Column(
+        CREDIT_NUMERIC,
+        nullable=False,
+        default=0,
+        comment="Bonus credit amount",
+    )
+    enabled = Column(
+        SmallInteger,
+        nullable=False,
+        default=1,
+        index=True,
+        comment="Enabled flag",
+    )
+    start_at = Column(
+        DateTime,
+        nullable=False,
+        index=True,
+        comment="Campaign start timestamp",
+    )
+    end_at = Column(
+        DateTime,
+        nullable=False,
+        index=True,
+        comment="Campaign end timestamp",
+    )
+    created_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Creator user business identifier",
+    )
+    updated_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Last updater user business identifier",
+    )
+
+
+class BillingCampaignProduct(BillingTableMixin, db.Model):
+    __tablename__ = "bill_campaign_products"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_bid",
+            "product_bid",
+            name="uq_bill_campaign_products_campaign_product",
+        ),
+        {"comment": "Billing campaign product bindings"},
+    )
+
+    campaign_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing campaign business identifier",
+    )
+    product_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing product business identifier",
+    )
+    product_type = Column(
+        SmallInteger,
+        nullable=False,
+        index=True,
+        comment="Billing product type snapshot",
+    )
+    discount_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Per-product campaign discount type code",
+    )
+    discount_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Per-product campaign discount amount in minor units",
+    )
+    discount_percent = Column(
+        Numeric(6, 2),
+        nullable=False,
+        default=0,
+        comment="Per-product campaign discount percent",
+    )
+    campaign_price_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Per-product campaign price amount in minor units",
+    )
+    bonus_credit_amount = Column(
+        CREDIT_NUMERIC,
+        nullable=False,
+        default=0,
+        comment="Per-product campaign bonus credit amount",
     )
 
 
@@ -726,6 +922,317 @@ class CreditLedgerEntry(BillingTableMixin, db.Model):
         JSON,
         nullable=True,
         comment="Billing ledger metadata",
+    )
+
+
+class NotificationRecord(BillingTableMixin, db.Model):
+    __tablename__ = "notification_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "notification_bid",
+            name="uq_notification_records_notification_bid",
+        ),
+        UniqueConstraint(
+            "dedupe_key",
+            name="uq_notification_records_dedupe_key",
+        ),
+        Index(
+            "ix_notification_records_status_type_created",
+            "status",
+            "notification_type",
+            "created_at",
+        ),
+        Index(
+            "ix_notification_records_creator_created",
+            "creator_bid",
+            "created_at",
+        ),
+        Index(
+            "ix_notification_records_source_type_source_bid",
+            "source_type",
+            "source_bid",
+        ),
+        Index(
+            "ix_notification_records_deleted_created_id",
+            "deleted",
+            "created_at",
+            "id",
+        ),
+        Index(
+            "ix_notification_records_deleted_status_created_id",
+            "deleted",
+            "status",
+            "created_at",
+            "id",
+        ),
+        Index(
+            "ix_notification_records_deleted_source_type_created_id",
+            "deleted",
+            "source_type",
+            "created_at",
+            "id",
+        ),
+        Index(
+            "ix_notification_records_deleted_type_created_id",
+            "deleted",
+            "notification_type",
+            "created_at",
+            "id",
+        ),
+        {"comment": "Notification delivery records"},
+    )
+
+    notification_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Notification business identifier",
+    )
+    notification_type = Column(
+        String(64),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Notification type",
+    )
+    channel = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Delivery channel",
+    )
+    creator_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Creator business identifier",
+    )
+    target_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Target user business identifier",
+    )
+    mobile_snapshot = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Recipient mobile snapshot",
+    )
+    source_type = Column(
+        String(64),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Notification source type",
+    )
+    source_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Notification source business identifier",
+    )
+    dedupe_key = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Notification idempotency key",
+    )
+    status = Column(
+        String(64),
+        nullable=False,
+        default="pending",
+        index=True,
+        comment="Notification delivery status",
+    )
+    template_code = Column(
+        String(128),
+        nullable=False,
+        default="",
+        comment="SMS template code snapshot",
+    )
+    template_params_json = Column(
+        "template_params",
+        JSON,
+        nullable=True,
+        comment="Template parameters snapshot",
+    )
+    policy_snapshot_json = Column(
+        "policy_snapshot",
+        JSON,
+        nullable=True,
+        comment="Notification policy snapshot",
+    )
+    provider_response_json = Column(
+        "provider_response",
+        JSON,
+        nullable=True,
+        comment="Provider response summary",
+    )
+    error_code = Column(
+        String(128),
+        nullable=False,
+        default="",
+        comment="Error code",
+    )
+    error_message = Column(
+        String(1024),
+        nullable=False,
+        default="",
+        comment="Error message",
+    )
+    requested_at = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="Notification requested timestamp",
+    )
+    attempted_at = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="Last delivery attempt timestamp",
+    )
+    sent_at = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="Provider accepted timestamp",
+    )
+    metadata_json = Column(
+        "metadata",
+        JSON,
+        nullable=True,
+        comment="Notification metadata",
+    )
+
+
+class NotificationTemplate(BillingTableMixin, db.Model):
+    __tablename__ = "notification_templates"
+    __table_args__ = (
+        UniqueConstraint(
+            "notification_template_bid",
+            name="uq_notification_templates_template_bid",
+        ),
+        UniqueConstraint(
+            "channel",
+            "provider",
+            "template_code",
+            name="uq_notification_templates_channel_provider_code",
+        ),
+        Index(
+            "ix_notification_templates_provider_status",
+            "provider",
+            "sync_status",
+        ),
+        {"comment": "Notification provider template metadata"},
+    )
+
+    notification_template_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Notification template business identifier",
+    )
+    channel = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Notification channel",
+    )
+    provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Notification provider",
+    )
+    template_code = Column(
+        String(128),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider template code",
+    )
+    template_name = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider template name",
+    )
+    template_content = Column(
+        Text,
+        nullable=True,
+        comment="Provider template content",
+    )
+    template_status = Column(
+        String(64),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider template audit status",
+    )
+    template_type = Column(
+        String(64),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider template type",
+    )
+    variable_attribute_json = Column(
+        "variable_attribute",
+        JSON,
+        nullable=True,
+        comment="Provider variable attribute payload",
+    )
+    provider_response_json = Column(
+        "provider_response",
+        JSON,
+        nullable=True,
+        comment="Provider template query response summary",
+    )
+    placeholders_json = Column(
+        "placeholders",
+        JSON,
+        nullable=True,
+        comment="Parsed template placeholders",
+    )
+    sync_status = Column(
+        String(64),
+        nullable=False,
+        default="pending",
+        index=True,
+        comment="Template sync status",
+    )
+    error_code = Column(
+        String(128),
+        nullable=False,
+        default="",
+        comment="Template sync error code",
+    )
+    error_message = Column(
+        Text,
+        nullable=True,
+        comment="Template sync error message",
+    )
+    last_synced_at = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="Last provider sync timestamp",
+    )
+    metadata_json = Column(
+        "metadata",
+        JSON,
+        nullable=True,
+        comment="Notification template metadata",
     )
 
 

@@ -5,9 +5,10 @@ import pytest
 
 
 class _FakeResponse:
-    def __init__(self, lines, *, status_error=None):
-        self._lines = lines
+    def __init__(self, lines=None, *, status_error=None, json_payload=None):
+        self._lines = lines or []
         self._status_error = status_error
+        self._json_payload = json_payload or {}
         self.headers = {"content-type": "text/event-stream"}
 
     def raise_for_status(self):
@@ -17,6 +18,9 @@ class _FakeResponse:
     def iter_lines(self, decode_unicode=True):
         _ = decode_unicode
         yield from self._lines
+
+    def json(self):
+        return self._json_payload
 
 
 def _sse_line(payload):
@@ -80,6 +84,7 @@ def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
                         "extra_info": {
                             "audio_length": 500,
                             "audio_sample_rate": 32000,
+                            "word_count": 2,
                             "usage_characters": 6,
                             "audio_format": "mp3",
                         },
@@ -105,7 +110,8 @@ def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
     assert chunks[0].subtitles[0]["text"] == "First."
     assert chunks[-1].is_final is True
     assert chunks[-1].duration_ms == 500
-    assert chunks[-1].word_count == 6
+    assert chunks[-1].word_count == 2
+    assert chunks[-1].usage_characters == 6
     assert chunks[-1].subtitles[0]["text"] == "First."
     assert gate_calls[0]["rpm_limit"] == 60
     assert post_calls[0][0].endswith("GroupId=test-group")
@@ -115,6 +121,55 @@ def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
     assert post_calls[0][1]["json"]["stream_options"] == {
         "exclude_aggregated_audio": True
     }
+
+
+def test_minimax_synthesize_splits_word_count_and_usage_characters(monkeypatch):
+    from flaskr.api.tts.base import AudioSettings, VoiceSettings
+    from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
+
+    config = {
+        "MINIMAX_API_KEY": "test-key",
+        "MINIMAX_GROUP_ID": "test-group",
+        "MINIMAX_TTS_MODEL": "speech-2.8-turbo",
+    }
+    post_calls = []
+
+    monkeypatch.setattr(
+        "flaskr.api.tts.minimax_provider.get_config",
+        lambda key: config.get(key, ""),
+    )
+
+    def _fake_post(url, **kwargs):
+        post_calls.append((url, kwargs))
+        return _FakeResponse(
+            json_payload={
+                "data": {"audio": "6161", "status": 2},
+                "extra_info": {
+                    "audio_length": 9900,
+                    "audio_sample_rate": 32000,
+                    "word_count": 52,
+                    "usage_characters": 26,
+                    "audio_format": "mp3",
+                },
+                "trace_id": "trace-1",
+                "base_resp": {"status_code": 0, "status_msg": "success"},
+            }
+        )
+
+    monkeypatch.setattr("flaskr.api.tts.minimax_provider.requests.post", _fake_post)
+
+    result = MinimaxTTSProvider().synthesize(
+        text="今天是不是很开心呀(laughs)，当然了！",
+        voice_settings=VoiceSettings(voice_id="male-qn-qingse"),
+        audio_settings=AudioSettings(format="mp3", sample_rate=32000),
+        model="speech-2.8-turbo",
+    )
+
+    assert result.audio_data == b"aa"
+    assert result.duration_ms == 9900
+    assert result.word_count == 52
+    assert result.usage_characters == 26
+    assert post_calls[0][0].endswith("GroupId=test-group")
 
 
 def test_minimax_http_streaming_raises_on_business_error(monkeypatch):
@@ -157,6 +212,8 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 
     calls = []
+    segment_usage_calls = []
+    aggregate_usage_calls = []
 
     class _FakeMinimaxProvider:
         def stream_synthesize(self, **kwargs):
@@ -178,6 +235,7 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
                 duration_ms=1000,
                 format="mp3",
                 word_count=10,
+                usage_characters=26,
                 subtitles=[],
             )
 
@@ -221,11 +279,11 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage",
-        lambda **_kwargs: None,
+        lambda **kwargs: segment_usage_calls.append(kwargs),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.tts_usage_recorder.record_tts_aggregated_usage",
-        lambda **_kwargs: None,
+        lambda **kwargs: aggregate_usage_calls.append(kwargs),
     )
 
     app = SimpleNamespace()
@@ -280,6 +338,10 @@ def test_streaming_tts_minimax_http_stream_sends_one_request_on_finalize(
         (0, 400),
         (500, 1000),
     ]
+    assert segment_usage_calls[0]["word_count"] == 10
+    assert segment_usage_calls[0]["usage_characters"] == 26
+    assert aggregate_usage_calls[0]["total_word_count"] == 10
+    assert aggregate_usage_calls[0]["total_usage_characters"] == 26
 
 
 def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
@@ -398,6 +460,130 @@ def test_streaming_tts_minimax_http_stream_falls_back_for_partial_subtitles(
         (0, 484),
         (484, 1000),
     ]
+
+
+def test_streaming_tts_minimax_http_stream_falls_back_when_stream_audio_invalid(
+    monkeypatch,
+):
+    from flaskr.service.learn.learn_dtos import GeneratedType
+    from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
+
+    stream_calls = []
+    synthesize_calls = []
+
+    class _FakeMinimaxProvider:
+        def stream_synthesize(self, **kwargs):
+            stream_calls.append(kwargs["text"])
+            yield SimpleNamespace(
+                audio_data=b"broken-stream-mp3",
+                is_final=True,
+                duration_ms=0,
+                format="mp3",
+                word_count=0,
+                subtitles=[],
+                trace_id="trace-invalid-audio",
+            )
+
+        def synthesize(self, **kwargs):
+            synthesize_calls.append(kwargs["text"])
+            return SimpleNamespace(
+                audio_data=b"complete-mp3",
+                duration_ms=1200,
+                format="mp3",
+                word_count=12,
+            )
+
+    def _fake_try_get_duration(audio_data, format="mp3"):
+        _ = format
+        if audio_data == b"broken-stream-mp3":
+            return None
+        if audio_data == b"complete-mp3":
+            return 1200
+        return 1200
+
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.is_tts_configured", lambda _provider: True
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.should_use_minimax_http_stream",
+        lambda _provider: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.MinimaxTTSProvider", _FakeMinimaxProvider
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.export_audio_range_best_effort",
+        lambda _audio_data, **_kwargs: (b"", 0),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.try_get_audio_duration_ms",
+        _fake_try_get_duration,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
+        lambda parts, output_format="mp3": b"".join(parts),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
+        lambda _audio, format="mp3": 1200,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.build_completed_audio_record",
+        lambda **kwargs: SimpleNamespace(**kwargs),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.save_audio_record",
+        lambda _record, commit=True: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.tts_handler.upload_audio_to_oss",
+        lambda _app, _audio, audio_bid: (f"https://example.com/{audio_bid}.mp3", "b"),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.tts.tts_usage_recorder.record_tts_aggregated_usage",
+        lambda **_kwargs: None,
+    )
+
+    processor = StreamingTTSProcessor(
+        app=SimpleNamespace(),
+        generated_block_bid="generated-http-stream-invalid-audio",
+        outline_bid="outline",
+        progress_record_bid="progress",
+        user_bid="user",
+        shifu_bid="shifu",
+        tts_provider="minimax",
+        tts_model="speech-2.8-turbo",
+    )
+    assert list(processor.process_chunk("First sentence. Second sentence.")) == []
+
+    events = list(processor.finalize(commit=False))
+    audio_segments = [
+        event for event in events if event.type == GeneratedType.AUDIO_SEGMENT
+    ]
+    audio_complete = [
+        event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+    ]
+
+    assert stream_calls == ["First sentence.\nSecond sentence."]
+    assert synthesize_calls == ["First sentence.\nSecond sentence."]
+    assert len(audio_segments) == 1
+    assert audio_segments[0].content.duration_ms == 1200
+    assert [cue.text for cue in audio_segments[0].content.subtitle_cues] == [
+        "First sentence.",
+        "Second sentence.",
+    ]
+    assert [
+        (cue.start_ms, cue.end_ms) for cue in audio_segments[0].content.subtitle_cues
+    ] == [
+        (0, 581),
+        (581, 1200),
+    ]
+    assert len(audio_complete) == 1
+    assert audio_complete[0].content.duration_ms == 1200
 
 
 def test_streaming_tts_minimax_http_stream_buffers_audio_until_provider_subtitles(

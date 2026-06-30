@@ -24,13 +24,13 @@ import { AppContext } from '../AppContext';
 import { BLOCK_TYPE } from '@/c-api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { useCourseStore } from '@/c-store/useCourseStore';
-import { useSystemStore } from '@/c-store/useSystemStore';
 import {
   EMPTY_ASK_MESSAGE_LIST,
   normalizeAskMessageList,
   type AskMessage,
 } from './askState';
 import { useAskStateStore } from './useAskStateStore';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 export type { AskMessage } from './askState';
 
 export interface AskBlockProps {
@@ -42,7 +42,6 @@ export interface AskBlockProps {
   outline_bid: string;
   preview_mode?: boolean;
   element_bid: string;
-  isOutputInProgress?: boolean;
   onToggleAskExpanded?: (element_bid: string) => void;
 }
 
@@ -59,7 +58,6 @@ export default function AskBlock({
   outline_bid,
   preview_mode = false,
   element_bid,
-  isOutputInProgress = false,
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t } = useTranslation();
@@ -67,9 +65,6 @@ export default function AskBlock({
   const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
-  const shouldUseListenMode = useSystemStore(
-    state => state.showLearningModeToggle,
-  );
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
   const hydrateAskList = useAskStateStore(state => state.hydrateAskList);
   const setAskList = useAskStateStore(state => state.setAskList);
@@ -86,6 +81,12 @@ export default function AskBlock({
       ? storedAskList
       : normalizeAskMessageList(askList);
   const hasDisplayMessages = displayList.length > 0;
+  const hasStreamingAnswerTypewriterMessage = displayList.some(
+    item =>
+      item.type === BLOCK_TYPE.ANSWER &&
+      item.isStreaming === true &&
+      item.shouldUseTypewriter === true,
+  );
 
   const [inputValue, setInputValue] = useState('');
   const sseRef = useRef<any>(null);
@@ -101,6 +102,8 @@ export default function AskBlock({
   const isLandscapeSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && forceDesktopSlidePanel;
   const expanded = isExpanded ?? (!mobileStyle && hasDisplayMessages);
+  const expandedRef = useRef(expanded);
+  const previousExpandedRef = useRef(expanded);
   const shouldForceSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && expanded;
   const shouldShowMobileDialog =
@@ -143,6 +146,9 @@ export default function AskBlock({
         newList[lastIndex] = {
           ...newList[lastIndex],
           isStreaming: false,
+          shouldUseTypewriter: expandedRef.current
+            ? newList[lastIndex].shouldUseTypewriter
+            : false,
         };
       }
       return newList;
@@ -164,6 +170,7 @@ export default function AskBlock({
             ...newList[lastIndex],
             content: nextText,
             isStreaming: true,
+            shouldUseTypewriter: newList[lastIndex].shouldUseTypewriter ?? true,
           };
         }
         return newList;
@@ -189,6 +196,7 @@ export default function AskBlock({
             content: nextText,
             isStreaming: true,
             element_bid: answerElementBid || newList[lastIndex].element_bid,
+            shouldUseTypewriter: newList[lastIndex].shouldUseTypewriter ?? true,
           };
         }
         return newList;
@@ -199,7 +207,7 @@ export default function AskBlock({
 
   const handleSendCustomQuestion = useCallback(async () => {
     const question = inputValue.trim();
-    if (isStreamingRef.current || isOutputInProgress) {
+    if (isStreamingRef.current) {
       showOutputInProgressToast();
       return;
     }
@@ -232,6 +240,7 @@ export default function AskBlock({
         content: '',
         isStreaming: true,
         element_bid: '',
+        shouldUseTypewriter: true,
       },
     ]);
 
@@ -250,7 +259,7 @@ export default function AskBlock({
         input_type: SSE_INPUT_TYPE.ASK,
         reload_generated_block_bid: element_bid,
         reload_element_bid: element_bid,
-        listen: shouldUseListenMode,
+        listen: false,
       },
       async response => {
         try {
@@ -259,7 +268,38 @@ export default function AskBlock({
           }
 
           if (response.type === SSE_OUTPUT_TYPE.ERROR) {
-            finalizeStreamingMessage();
+            // Backend rejected the ask (commonly the parallel-ask semaphore
+            // was full, see runscript_v2._ask_sem_acquire). The ask is not
+            // persisted, so a stale placeholder would survive a page reload
+            // as a question without an answer. Roll back the local ASK +
+            // ANSWER we appended before opening the SSE, restore the user's
+            // text so they can retry, and surface the backend's localized
+            // reason via toast.
+            setAskList(element_bid, prev => {
+              const next = [...prev];
+              if (
+                next.length &&
+                next[next.length - 1].type === BLOCK_TYPE.ANSWER
+              ) {
+                next.pop();
+              }
+              if (
+                next.length &&
+                next[next.length - 1].type === BLOCK_TYPE.ASK
+              ) {
+                next.pop();
+              }
+              return next;
+            });
+            setInputValue(question);
+
+            const backendMessage =
+              typeof response.content === 'string' ? response.content : '';
+            toast({
+              title: backendMessage || t('module.chat.outputInProgress'),
+            });
+
+            isStreamingRef.current = false;
             sseRef.current?.close();
             return;
           }
@@ -297,10 +337,15 @@ export default function AskBlock({
             }
           }
 
-          if (
-            response.type === SSE_OUTPUT_TYPE.BREAK ||
-            response.type === SSE_OUTPUT_TYPE.TEXT_END
-          ) {
+          if (response.type === SSE_OUTPUT_TYPE.BREAK) {
+            return;
+          }
+
+          if (response.type === SSE_OUTPUT_TYPE.TEXT_END) {
+            if (response.is_terminal !== true) {
+              return;
+            }
+
             finalizeStreamingMessage();
             sseRef.current?.close();
             return;
@@ -332,14 +377,13 @@ export default function AskBlock({
     preview_mode,
     element_bid,
     inputValue,
-    isOutputInProgress,
     dismissAskInputFocus,
     showOutputInProgressToast,
     finalizeStreamingMessage,
     replaceStreamingAnswerMessage,
     setAskList,
-    shouldUseListenMode,
     updateStreamingAnswerMessage,
+    t,
   ]);
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -369,6 +413,45 @@ export default function AskBlock({
       setIsFullscreen(false);
     }
   }, [expanded]);
+
+  useEffect(() => {
+    expandedRef.current = expanded;
+  }, [expanded]);
+
+  useEffect(() => {
+    const previousExpanded = previousExpandedRef.current;
+    previousExpandedRef.current = expanded;
+
+    if (previousExpanded === expanded) {
+      return;
+    }
+
+    // Expanding the sheet should not cancel an active answer typewriter session.
+    if (expanded) {
+      return;
+    }
+
+    setAskList(element_bid, prev => {
+      let hasChanges = false;
+      const nextList = prev.map(item => {
+        if (
+          item.type !== BLOCK_TYPE.ANSWER ||
+          item.shouldUseTypewriter !== true ||
+          item.isStreaming === true
+        ) {
+          return item;
+        }
+
+        hasChanges = true;
+        return {
+          ...item,
+          shouldUseTypewriter: false,
+        };
+      });
+
+      return hasChanges ? nextList : prev;
+    });
+  }, [element_bid, expanded, setAskList]);
 
   useEffect(() => {
     return () => {
@@ -508,10 +591,12 @@ export default function AskBlock({
 
   const renderMessages = ({
     extraClass,
+    messages = messagesToShow,
   }: {
     extraClass?: string;
+    messages?: AskMessage[];
   } = {}) => {
-    if (messagesToShow.length === 0) {
+    if (messages.length === 0) {
       return null;
     }
 
@@ -526,56 +611,68 @@ export default function AskBlock({
             : undefined
         }
       >
-        {messagesToShow.map((message, index) => (
-          <div
-            key={index}
-            className={cn(styles.messageWrapper)}
-            onClick={() => handleClickTitle(index)}
-            style={{
-              justifyContent:
-                message.type === BLOCK_TYPE.ASK ? 'flex-end' : 'flex-start',
-            }}
-          >
-            {message.type === BLOCK_TYPE.ASK ? (
-              <div
-                className={cn(
-                  styles.userMessage,
-                  expanded && styles.isExpanded,
-                )}
-              >
-                {message.content}
-              </div>
-            ) : (
-              <div
-                className={cn(styles.assistantMessage, styles.askIframeWrapper)}
-              >
-                <ContentRender
-                  content={message.content}
-                  customRenderBar={
-                    message.isStreaming
-                      ? () =>
-                          message.content?.trim() ? (
-                            <StreamingLoadingDotsBar />
-                          ) : (
-                            <LoadingBar />
-                          )
-                      : () => null
-                  }
-                  onSend={() => {}}
-                  userInput={''}
-                  interactionDefaultValueOptions={
-                    lessonFeedbackInteractionDefaultValueOptions
-                  }
-                  enableTypewriter={false}
-                  typingSpeed={20}
-                  readonly={true}
-                  copyButtonText={copyButtonText}
-                  copiedButtonText={copiedButtonText}
-                />
-              </div>
-            )}
-          </div>
-        ))}
+        {messages.map((message, index) => {
+          const messageRenderKey = `${message.type}-${message.element_bid || index}`;
+          const shouldEnableMessageTypewriter =
+            message.type === BLOCK_TYPE.ANSWER &&
+            message.shouldUseTypewriter === true;
+          // if (message.type === BLOCK_TYPE.ANSWER) {
+          //   console.log('message', message, shouldEnableMessageTypewriter);
+          // }
+          return (
+            <div
+              key={messageRenderKey}
+              className={cn(styles.messageWrapper)}
+              onClick={() => handleClickTitle(index)}
+              style={{
+                justifyContent:
+                  message.type === BLOCK_TYPE.ASK ? 'flex-end' : 'flex-start',
+              }}
+            >
+              {message.type === BLOCK_TYPE.ASK ? (
+                <div
+                  className={cn(
+                    styles.userMessage,
+                    expanded && styles.isExpanded,
+                  )}
+                >
+                  {message.content}
+                </div>
+              ) : (
+                <div
+                  className={cn(
+                    styles.assistantMessage,
+                    styles.askIframeWrapper,
+                  )}
+                >
+                  <ContentRender
+                    content={message.content}
+                    customRenderBar={
+                      message.isStreaming
+                        ? () =>
+                            message.content?.trim() ? (
+                              <StreamingLoadingDotsBar />
+                            ) : (
+                              <LoadingBar />
+                            )
+                        : () => null
+                    }
+                    onSend={() => {}}
+                    userInput={''}
+                    interactionDefaultValueOptions={
+                      lessonFeedbackInteractionDefaultValueOptions
+                    }
+                    enableTypewriter={shouldEnableMessageTypewriter}
+                    typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
+                    readonly={true}
+                    copyButtonText={copyButtonText}
+                    copiedButtonText={copiedButtonText}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -608,11 +705,12 @@ export default function AskBlock({
     return (
       <div className={cn(styles.askBlock, className, styles.mobile)}>
         {!expanded && renderMessages()}
-        {expanded && (
+        {(expanded || hasStreamingAnswerTypewriterMessage) && (
           <>
             <div
               className={styles.mobileOverlay}
               onClick={handleClose}
+              style={expanded ? undefined : { display: 'none' }}
             />
             <div
               className={cn(
@@ -620,6 +718,7 @@ export default function AskBlock({
                 isLandscapeSlideMobileDialog && styles.mobilePanelLandscape,
                 isFullscreen ? styles.mobilePanelFullscreen : '',
               )}
+              style={expanded ? undefined : { display: 'none' }}
             >
               <div className={styles.mobileHeader}>
                 <div className={styles.mobileTitle}>
@@ -662,6 +761,7 @@ export default function AskBlock({
               >
                 {renderMessages({
                   extraClass: styles.mobileMessageList,
+                  messages: displayList,
                 })}
               </div>
               {renderInput(styles.mobileInput)}
@@ -672,7 +772,10 @@ export default function AskBlock({
     );
   }
 
-  if ((isDesktopSlideAskBlock || forceDesktopSlidePanel) && expanded) {
+  if (
+    (isDesktopSlideAskBlock || forceDesktopSlidePanel) &&
+    (expanded || hasStreamingAnswerTypewriterMessage)
+  ) {
     return (
       <div
         className={cn(
@@ -681,6 +784,7 @@ export default function AskBlock({
           styles.desktopSlidePanel,
           !hasAskAnswerMessages && styles.desktopSlidePanelEmpty,
         )}
+        style={expanded ? undefined : { display: 'none' }}
       >
         <div className={styles.desktopSlideHeader}>
           <div className={styles.desktopSlideTitle}>{t('module.chat.ask')}</div>
@@ -702,6 +806,7 @@ export default function AskBlock({
         >
           {renderMessages({
             extraClass: styles.desktopSlideMessageList,
+            messages: displayList,
           })}
         </div>
         {renderInput(styles.desktopSlideInput)}

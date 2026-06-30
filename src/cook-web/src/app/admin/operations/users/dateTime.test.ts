@@ -4,13 +4,13 @@ import {
 } from './dateTime';
 
 jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
+  getBrowserTimeZone: () => 'Asia/Shanghai',
 }));
 
 describe('formatOperatorUtcDateTime', () => {
   test('formats ISO datetimes with timezone', () => {
     expect(formatOperatorUtcDateTime('2026-05-01T00:00:00Z')).toBe(
-      '2026-05-01 00:00:00',
+      '2026-05-01 08:00:00',
     );
   });
 

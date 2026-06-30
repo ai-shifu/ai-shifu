@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.common",
+  "__flat__": {
+    "backgroundNotAllowed": "Arrière-plan non autorisé.",
+    "dataLoadFailed": "Échec du chargement des données, veuillez réessayer plus tard",
+    "nicknameNotAllowed": "Pseudonyme non autorisé.",
+    "operationFailed": "Erreur du service, veuillez réessayer plus tard",
+    "paramsError": "Erreur de paramètres {param_message}",
+    "stateInvalid": "Cette action n'est pas disponible dans l'état actuel",
+    "systemError": "Erreur système",
+    "unknownError": "Erreur inconnue"
+  }
+}

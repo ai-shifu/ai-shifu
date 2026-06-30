@@ -14,8 +14,10 @@ import {
 interface AlertOptions {
   title: string;
   description: React.ReactNode;
+  descriptionAsChild?: boolean;
   confirmText?: string;
   cancelText?: string;
+  showConfirm?: boolean;
   onConfirm?: () => void;
   onCancel?: () => void;
 }
@@ -69,23 +71,41 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{options.title}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {options.description}
-            </AlertDialogDescription>
+            {options.descriptionAsChild &&
+            React.isValidElement(options.description) ? (
+              <AlertDialogDescription asChild>
+                {options.description}
+              </AlertDialogDescription>
+            ) : (
+              <AlertDialogDescription>
+                {options.description}
+              </AlertDialogDescription>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel
-              className='h-8'
-              onClick={handleCancel}
-            >
-              {options.cancelText || 'Cancel'}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className='h-8'
-              onClick={handleConfirm}
-            >
-              {options.confirmText || 'Confirm'}
-            </AlertDialogAction>
+            {options.showConfirm === false ? (
+              <AlertDialogAction
+                className='h-8'
+                onClick={handleConfirm}
+              >
+                {options.confirmText || options.cancelText || 'Close'}
+              </AlertDialogAction>
+            ) : (
+              <>
+                <AlertDialogCancel
+                  className='h-8'
+                  onClick={handleCancel}
+                >
+                  {options.cancelText || 'Cancel'}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  className='h-8'
+                  onClick={handleConfirm}
+                >
+                  {options.confirmText || 'Confirm'}
+                </AlertDialogAction>
+              </>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

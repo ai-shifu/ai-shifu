@@ -47,10 +47,17 @@ class AdminPromotionCouponItemDTO(_DTOBase):
     end_at: str = Field(..., description="Coupon end time", required=False)
     total_count: int = Field(..., description="Total count", required=False)
     used_count: int = Field(..., description="Used count", required=False)
+    ops_states: List[str] = Field(
+        ..., description="Operator-facing operational states", required=False
+    )
     computed_status: str = Field(..., description="Computed status", required=False)
     computed_status_key: str = Field(
         ..., description="Computed status i18n key", required=False
     )
+    created_user_bid: str = Field(
+        ..., description="Creator user identifier", required=False
+    )
+    created_user_name: str = Field(..., description="Creator user name", required=False)
     created_at: str = Field(..., description="Created time", required=False)
     updated_at: str = Field(..., description="Updated time", required=False)
 
@@ -83,6 +90,10 @@ class AdminPromotionCampaignItemDTO(_DTOBase):
     total_discount_amount: str = Field(
         ..., description="Total discount amount", required=False
     )
+    created_user_bid: str = Field(
+        ..., description="Creator user identifier", required=False
+    )
+    created_user_name: str = Field(..., description="Creator user name", required=False)
     created_at: str = Field(..., description="Created time", required=False)
     updated_at: str = Field(..., description="Updated time", required=False)
 

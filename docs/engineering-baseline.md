@@ -18,7 +18,7 @@ details behind those rules.
 | Run backend tests | `pytest` | `cd src/api` |
 | Generate DB migration | `FLASK_APP=app.py flask db migrate -m "message"` | `cd src/api` |
 | Apply DB migration | `FLASK_APP=app.py flask db upgrade` | `cd src/api` |
-| Check code quality | `pre-commit run -a` | Root directory |
+| Check code quality | `lefthook run pre-commit --all-files` | Root directory |
 | Start all services (Docker) | `docker compose -f docker-compose.latest.yml up -d` | `cd docker` |
 | Start Docker dev stack (build local latest) | `./dev_in_docker.sh` | `cd docker` |
 | Build Cook Web dev image | `docker build ../src/cook-web -t ai-shifu-cook-web-dev -f ../src/cook-web/Dockerfile_DEV` | `cd docker` |
@@ -33,22 +33,49 @@ FLASK_APP=app.py
 NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
+### Local Tooling Setup
+
+Code-quality checks run through **lefthook** (a single Go binary that calls the
+tools already installed on your machine). The git hooks only fire after
+`lefthook install` has wired them into `.git/hooks`, and each hook shells out to
+tools that must already be on `PATH`. One-time setup:
+
+```bash
+brew install lefthook
+pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0
+(cd src/cook-web && npm ci)   # provides prettier + eslint
+lefthook install
+```
+
+> **Important:** if you skip `lefthook install` (or never install lefthook), the
+> pre-commit checks are **silently skipped** on commit — nothing warns you, and
+> the gap only surfaces later in CI. Run `lefthook install` once per clone.
+
+Verify your environment any time (and before committing) with the doctor, which
+reports exactly what is missing and how to install it:
+
+```bash
+python scripts/check_dev_tools.py            # core gaps fail; frontend gaps warn
+python scripts/check_dev_tools.py --strict   # also fail on Cook Web tooling gaps
+```
+
 ## Critical Requirements
 
 ### Must Do Before Any Commit
 
-1. Run pre-commit hooks: `pre-commit run`
-2. Generate a migration for DB changes: `flask db migrate -m "description"`
-3. Test the relevant change surface
-4. Use English for code-facing text
-5. Follow Conventional Commits: `type: description`
+1. Confirm the toolchain is installed: `python scripts/check_dev_tools.py`
+2. Run the lefthook checks: `lefthook run pre-commit`
+3. Generate a migration for DB changes: `flask db migrate -m "description"`
+4. Test the relevant change surface
+5. Use English for code-facing text
+6. Follow Conventional Commits: `type: description`
 
 ### Common Pitfalls To Avoid
 
 - Never edit applied migrations. Always create a new one.
 - Do not hardcode user-facing strings. Use i18n keys.
 - Do not create DB foreign key constraints for business-key relationships.
-- Do not skip pre-commit.
+- Do not skip the lefthook checks.
 - Do not commit secrets.
 - Do not use Chinese in code or code-facing docs.
 
@@ -417,11 +444,11 @@ When adding or modifying environment variables:
 - Shared translations live under `src/i18n/<locale>`
 - Do not add primary translations under `public/locales`
 - Backend should reference translation keys via shared helpers
-- Frontend language surface currently stays limited to `en-US` and `zh-CN`
+- Frontend user-facing locales must stay aligned with `src/i18n/locales.json`
 
 When adding a new namespace:
 
-- Update both languages
+- Update every supported locale
 - Run `python scripts/generate_languages.py`
 - Run `python scripts/check_translations.py`
 - Run `python scripts/check_translation_usage.py --fail-on-unused`
@@ -463,7 +490,8 @@ When adding a new namespace:
 | Database connection fails | Verify MySQL and credentials |
 | Migration not detecting changes | Ensure the model is imported |
 | Frontend cannot connect to API | Check CORS and API URL config |
-| Pre-commit fails | Run `pre-commit install` |
+| Lefthook checks fail | Run `lefthook install` |
+| Hooks never run, or a tool reports "command not found" | Run `python scripts/check_dev_tools.py` and install what it lists |
 | Tests fail with import errors | Check `PYTHONPATH` and local env |
 | Docker build fails | Ensure required `.env` files exist |
 | TypeScript errors in Cook Web | Run `npm run type-check` |

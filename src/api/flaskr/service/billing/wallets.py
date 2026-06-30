@@ -419,6 +419,87 @@ def rebuild_credit_wallet_snapshots(
         )
 
 
+def repair_credit_bucket_runtime_statuses(
+    app: Flask,
+    *,
+    creator_bid: str = "",
+    wallet_bucket_bid: str = "",
+) -> dict[str, Any]:
+    """Repair buckets whose runtime status no longer matches their live balance."""
+
+    normalized_creator_bid = str(creator_bid or "").strip()
+    normalized_wallet_bucket_bid = str(wallet_bucket_bid or "").strip()
+    repaired_at = datetime.now()
+    with app.app_context():
+        query = CreditWalletBucket.query.filter(
+            CreditWalletBucket.deleted == 0,
+            CreditWalletBucket.status == CREDIT_BUCKET_STATUS_EXPIRED,
+        )
+        if normalized_creator_bid:
+            query = query.filter(
+                CreditWalletBucket.creator_bid == normalized_creator_bid
+            )
+        if normalized_wallet_bucket_bid:
+            query = query.filter(
+                CreditWalletBucket.wallet_bucket_bid == normalized_wallet_bucket_bid
+            )
+        rows = query.order_by(
+            CreditWalletBucket.created_at.asc(),
+            CreditWalletBucket.id.asc(),
+        ).all()
+
+        buckets = [
+            row
+            for row in rows
+            if (
+                _to_decimal(row.available_credits) > _ZERO
+                or _to_decimal(row.reserved_credits) > _ZERO
+            )
+            and (row.effective_to is None or row.effective_to > repaired_at)
+        ]
+        if not buckets:
+            return {
+                "status": "noop",
+                "creator_bid": normalized_creator_bid or None,
+                "wallet_bucket_bid": normalized_wallet_bucket_bid or None,
+                "repaired_bucket_count": 0,
+                "repaired_bucket_bids": [],
+            }
+
+        wallets: dict[str, CreditWallet] = {}
+        repaired_bucket_bids: list[str] = []
+        for bucket in buckets:
+            bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED
+            sync_credit_bucket_status(bucket)
+            bucket.updated_at = repaired_at
+            db.session.add(bucket)
+            repaired_bucket_bids.append(bucket.wallet_bucket_bid)
+
+            wallet = wallets.get(bucket.wallet_bid)
+            if wallet is None:
+                wallet = _load_credit_wallet_by_wallet_bid(bucket.wallet_bid)
+                if wallet is not None:
+                    wallets[bucket.wallet_bid] = wallet
+
+        for wallet in wallets.values():
+            refresh_credit_wallet_snapshot(wallet)
+            persist_credit_wallet_snapshot(
+                wallet,
+                available_credits=wallet.available_credits,
+                reserved_credits=wallet.reserved_credits,
+                updated_at=repaired_at,
+            )
+
+        db.session.commit()
+        return {
+            "status": "repaired",
+            "creator_bid": normalized_creator_bid or None,
+            "wallet_bucket_bid": normalized_wallet_bucket_bid or None,
+            "repaired_bucket_count": len(repaired_bucket_bids),
+            "repaired_bucket_bids": repaired_bucket_bids,
+        }
+
+
 def grant_refund_return_credits(
     app: Flask,
     *,
@@ -748,6 +829,7 @@ def grant_manual_credit_wallet_balance(
     effective_from: datetime | None = None,
     effective_to: datetime | None = None,
     metadata: dict[str, Any] | None = None,
+    ledger_metadata: dict[str, Any] | None = None,
     idempotency_key: str = "",
 ) -> ManualCreditGrantResult:
     """Create a dedicated manual-grant bucket and matching ledger row."""
@@ -783,6 +865,10 @@ def grant_manual_credit_wallet_balance(
             return existing_result
 
         normalized_metadata = dict(metadata or {})
+        normalized_ledger_metadata = {
+            **normalized_metadata,
+            **dict(ledger_metadata or {}),
+        }
         bucket = CreditWalletBucket(
             wallet_bucket_bid=generate_id(app),
             wallet_bid=wallet.wallet_bid,
@@ -824,7 +910,7 @@ def grant_manual_credit_wallet_balance(
             balance_after=balance_after,
             expires_at=effective_to,
             consumable_from=granted_at,
-            metadata_json=normalized_metadata,
+            metadata_json=normalized_ledger_metadata,
         )
         wallet.available_credits = balance_after
         persist_credit_wallet_snapshot(
@@ -854,7 +940,7 @@ def grant_manual_credit_wallet_balance(
             wallet_bucket_bid=bucket.wallet_bucket_bid,
             ledger_bid=ledger_entry.ledger_bid,
             expires_at=effective_to,
-            metadata_json=normalized_metadata,
+            metadata_json=normalized_ledger_metadata,
         )
 
 

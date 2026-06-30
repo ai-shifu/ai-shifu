@@ -66,19 +66,27 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @with_shifu_context()
     def get_runtime_config():
-        creator_bid = str(get_shifu_creator_bid() or "").strip()
+        # An explicit creator_bid lets surfaces without a shifu in the path
+        # (e.g. the /admin backend) fetch a creator's branding. Falls back to
+        # the shifu-context creator when absent, so existing callers are
+        # unaffected. Branding here is public display data already served to
+        # learners, so no sensitive data is exposed.
+        explicit_creator_bid = str(request.args.get("creator_bid", "") or "").strip()
+        creator_bid = explicit_creator_bid or str(get_shifu_creator_bid() or "").strip()
         request_host = _extract_request_host()
         legal_urls = RuntimeLegalUrlsDTO(
             agreement=RuntimeLocalizedUrlDTO(
                 **{
                     "zh-CN": get_config("LEGAL_AGREEMENT_URL_ZH_CN", "") or "",
                     "en-US": get_config("LEGAL_AGREEMENT_URL_EN_US", "") or "",
+                    "fr-FR": get_config("LEGAL_AGREEMENT_URL_FR_FR", "") or "",
                 }
             ),
             privacy=RuntimeLocalizedUrlDTO(
                 **{
                     "zh-CN": get_config("LEGAL_PRIVACY_URL_ZH_CN", "") or "",
                     "en-US": get_config("LEGAL_PRIVACY_URL_EN_US", "") or "",
+                    "fr-FR": get_config("LEGAL_PRIVACY_URL_FR_FR", "") or "",
                 }
             ),
         )
@@ -113,6 +121,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         favicon_url = branding.favicon_url or get_config("FAVICON_URL", "")
         home_url = branding.home_url or get_config("HOME_URL", "/")
         contact_us_url = branding.contact_us_url or get_config("CONTACT_US_URL", "")
+        official_site_url = get_config("OFFICIAL_SITE_URL", "")
 
         config = RuntimeConfigDTO(
             courseId=get_config("DEFAULT_COURSE_ID", ""),
@@ -158,6 +167,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             googleOauthRedirect=build_google_oauth_callback_url(),
             homeUrl=home_url,
             contactUsUrl=contact_us_url,
+            officialSiteUrl=official_site_url,
             currencySymbol=get_config("CURRENCY_SYMBOL", "¥"),
             legalUrls=legal_urls,
             genMdfApiUrl=get_config("GEN_MDF_API_URL", ""),

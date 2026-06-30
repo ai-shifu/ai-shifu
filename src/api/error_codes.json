@@ -62,6 +62,17 @@
   "server.billing.domainHostConflict": 7105,
   "server.billing.domainBindingNotFound": 7106,
   "server.billing.subscriptionUpgradeOnly": 7107,
+  "server.billing.adminPlanGrantAlreadyActive": 7108,
+  "server.billing.adminPlanGrantProviderManagedConflict": 7109,
+  "server.billing.adminPlanGrantRoleUnsupported": 7110,
+  "server.billing.subscriptionPreorderAlreadyExists": 7111,
+  "server.billing.subscriptionPreorderProviderUnsupported": 7112,
+  "server.billing.subscriptionPreorderTargetInvalid": 7113,
+  "server.billing.subscriptionPreorderUnavailable": 7114,
+  "server.billing.subscriptionUpgradeAmountInvalid": 7115,
+  "server.billing.campaignOverlapActive": 7116,
+  "server.billing.campaignLockedAfterHit": 7117,
+  "server.billing.campaignNotFound": 7118,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,
@@ -85,5 +96,14 @@
 
   "server.openapi.invalidApiKey": 10001,
   "server.openapi.noActiveAuthorization": 10002,
-  "server.openapi.courseOwnershipRequired": 10003
+  "server.openapi.courseOwnershipRequired": 10003,
+
+  "server.creatorAnalytics.noPermission": 11001,
+  "server.creatorAnalytics.invalidDsl": 11002,
+  "server.creatorAnalytics.invalidTable": 11003,
+  "server.creatorAnalytics.invalidColumn": 11004,
+  "server.creatorAnalytics.invalidOperator": 11005,
+  "server.creatorAnalytics.invalidAggregate": 11006,
+  "server.creatorAnalytics.invalidLimit": 11007,
+  "server.creatorAnalytics.queryTimeout": 11008
 }

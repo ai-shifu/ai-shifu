@@ -1,7 +1,7 @@
 import { SSE } from 'sse.js';
 import request from '@/lib/request';
-import { v4 as uuid4 } from 'uuid';
 import { getResolvedBaseURL, getStringEnv } from '@/c-utils/envUtils';
+import { buildTraceHeaders } from '@/lib/request-trace';
 
 export const RunScript = (
   course_id,
@@ -12,9 +12,11 @@ export const RunScript = (
 ) => {
   const token = getStringEnv('token');
   const url = `${getResolvedBaseURL()}/api/study/run`;
-  const request_id = uuid4();
+  const traceHeaders = buildTraceHeaders({
+    'Content-Type': 'application/json',
+  });
   const source = new SSE(url + '?token=' + token, {
-    headers: { 'Content-Type': 'application/json', 'X-Request-ID': request_id },
+    headers: traceHeaders.headers,
     payload: JSON.stringify({
       course_id,
       lesson_id,

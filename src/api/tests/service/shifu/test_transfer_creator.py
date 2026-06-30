@@ -9,14 +9,22 @@ from types import SimpleNamespace
 from flaskr.common import config as config_module
 from flaskr.common.shifu_context import _get_shifu_creator_bid_cached
 from flaskr.dao import db
+from flaskr.service.billing.consts import BILLING_TRIAL_PRODUCT_BID
+from flaskr.service.billing.models import BillingOrder, BillingProduct
 from flaskr.service.shifu.admin import transfer_operator_course_creator
 from flaskr.service.shifu.funcs import shifu_permission_verification
-from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+from flaskr.service.shifu.models import (
+    AiCourseAuth,
+    DraftShifu,
+    LogDraftStruct,
+    PublishedShifu,
+)
 from flaskr.service.shifu.permissions import get_user_shifu_permissions
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+from tests.common.fixtures.bill_products import build_bill_products
 
 
 def _seed_user(
@@ -126,6 +134,24 @@ def _clear_config_caches() -> None:
         pass
 
 
+def _ensure_trial_billing_enabled(app, monkeypatch) -> None:
+    import flaskr.service.billing.auth_hooks  # noqa: F401
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.trials._is_billing_enabled",
+        lambda: True,
+    )
+    existing = BillingProduct.query.filter_by(
+        product_bid=BILLING_TRIAL_PRODUCT_BID,
+        deleted=0,
+    ).first()
+    if existing is None:
+        db.session.add_all(
+            build_bill_products(product_bids=[BILLING_TRIAL_PRODUCT_BID])
+        )
+        db.session.commit()
+
+
 def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
     app, monkeypatch
 ):
@@ -185,10 +211,13 @@ def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
         assert target_entity is not None
         assert target_entity.state == USER_STATE_REGISTERED
         assert target_entity.is_creator == 1
+        assert target_entity.creator_activated_at is not None
         assert target_credential is not None
         assert auth is not None
         assert auth.status == 1
         assert get_shifu_creator_bid(app, shifu_bid) == target_user_bid
+        latest_draft = DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).one()
+        assert latest_draft.updated_user_bid == old_creator_bid
         assert (
             shifu_permission_verification(app, old_creator_bid, shifu_bid, "edit")
             is False
@@ -237,8 +266,73 @@ def test_transfer_creator_promotes_unregistered_existing_user(app, monkeypatch):
         assert target_entity is not None
         assert target_entity.state == USER_STATE_REGISTERED
         assert target_entity.is_creator == 1
+        assert target_entity.creator_activated_at is not None
         assert demo_auth is not None
         assert get_shifu_creator_bid(app, shifu_bid) == target_user_bid
+
+
+def test_transfer_creator_bootstraps_trial_when_target_becomes_creator(
+    app, monkeypatch
+):
+    shifu_bid = uuid.uuid4().hex[:32]
+    old_creator_bid = uuid.uuid4().hex[:32]
+    target_user_bid = uuid.uuid4().hex[:32]
+    target_email = f"{uuid.uuid4().hex[:10]}@example.com"
+
+    with app.app_context():
+        _ensure_trial_billing_enabled(app, monkeypatch)
+        _seed_user(app, user_bid=old_creator_bid, email="trial-old@example.com")
+        _seed_user(app, user_bid=target_user_bid, email=target_email)
+        _seed_course(shifu_bid, old_creator_bid)
+        db.session.commit()
+
+        transfer_operator_course_creator(
+            app,
+            shifu_bid=shifu_bid,
+            contact_type="email",
+            identifier=target_email,
+        )
+
+        target_entity = UserEntity.query.filter_by(user_bid=target_user_bid).one()
+        trial_order = BillingOrder.query.filter_by(
+            creator_bid=target_user_bid,
+            product_bid=BILLING_TRIAL_PRODUCT_BID,
+            deleted=0,
+        ).one()
+
+        assert target_entity.is_creator == 1
+        assert target_entity.creator_activated_at is not None
+        assert trial_order.payment_provider == "manual"
+
+
+def test_transfer_creator_skips_post_auth_when_target_already_creator(app, monkeypatch):
+    shifu_bid = uuid.uuid4().hex[:32]
+    old_creator_bid = uuid.uuid4().hex[:32]
+    target_user_bid = uuid.uuid4().hex[:32]
+    target_email = f"{uuid.uuid4().hex[:10]}@example.com"
+    post_auth_calls: list[dict] = []
+
+    with app.app_context():
+        _seed_user(app, user_bid=old_creator_bid, email="already-old@example.com")
+        _seed_user(app, user_bid=target_user_bid, email=target_email)
+        target_entity = UserEntity.query.filter_by(user_bid=target_user_bid).one()
+        target_entity.is_creator = 1
+        _seed_course(shifu_bid, old_creator_bid)
+        db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.shifu.admin.run_creator_granted_post_auth",
+            lambda *args, **kwargs: post_auth_calls.append(kwargs),
+        )
+
+        transfer_operator_course_creator(
+            app,
+            shifu_bid=shifu_bid,
+            contact_type="email",
+            identifier=target_email,
+        )
+
+        assert post_auth_calls == []
 
 
 def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
@@ -246,11 +340,16 @@ def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
     old_creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
     target_email = f"{uuid.uuid4().hex[:10]}@example.com"
+    old_updated_at = datetime(2026, 1, 1, 0, 0, 0)
 
     with app.app_context():
         _seed_user(app, user_bid=old_creator_bid, email="route-old@example.com")
         _seed_user(app, user_bid=target_user_bid, email=target_email)
         _seed_course(shifu_bid, old_creator_bid)
+        DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).update(
+            {DraftShifu.updated_at: old_updated_at},
+            synchronize_session=False,
+        )
         db.session.commit()
 
     _mock_operator(monkeypatch)
@@ -270,6 +369,43 @@ def test_transfer_creator_route_for_operator(app, test_client, monkeypatch):
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["target_creator_user_bid"] == target_user_bid
+    with app.app_context():
+        latest_draft = DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).one()
+        assert latest_draft.updated_user_bid == "operator-1"
+        assert latest_draft.updated_at > old_updated_at
+
+
+def test_transfer_creator_records_operator_history_entry(app):
+    shifu_bid = uuid.uuid4().hex[:32]
+    old_creator_bid = uuid.uuid4().hex[:32]
+    target_user_bid = uuid.uuid4().hex[:32]
+    target_email = f"{uuid.uuid4().hex[:10]}@example.com"
+
+    with app.app_context():
+        _seed_user(app, user_bid=old_creator_bid, email="history-old@example.com")
+        _seed_user(app, user_bid=target_user_bid, email=target_email)
+        _seed_course(shifu_bid, old_creator_bid)
+        db.session.commit()
+
+        before_count = LogDraftStruct.query.filter_by(
+            created_user_bid="operator-history-1",
+            shifu_bid=shifu_bid,
+        ).count()
+
+        transfer_operator_course_creator(
+            app,
+            shifu_bid=shifu_bid,
+            contact_type="email",
+            identifier=target_email,
+            operator_user_bid="operator-history-1",
+        )
+
+        after_count = LogDraftStruct.query.filter_by(
+            created_user_bid="operator-history-1",
+            shifu_bid=shifu_bid,
+        ).count()
+
+        assert after_count == before_count + 1
 
 
 def test_transfer_creator_promotes_existing_viewer_to_owner_permissions(

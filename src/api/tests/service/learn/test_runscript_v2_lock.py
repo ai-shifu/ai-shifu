@@ -6,6 +6,8 @@ from flask import Flask, has_app_context
 
 from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.learn_dtos import (
+    ElementDTO,
+    ElementType,
     GeneratedType,
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
@@ -404,6 +406,50 @@ def test_run_script_ask_mode_uses_element_protocol(monkeypatch):
         assert events[1]["is_terminal"] is True
 
 
+def test_run_script_ask_mode_ignores_listen_flag(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        observed: dict[str, object] = {}
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+
+        def fake_run_script_inner(**_kwargs):
+            observed["listen"] = _kwargs["listen"]
+            yield RunMarkdownFlowDTO(
+                outline_bid="outline-1",
+                generated_block_bid="generated-ask",
+                type=GeneratedType.CONTENT,
+                content="answer chunk",
+            )
+            yield RunMarkdownFlowDTO(
+                outline_bid="outline-1",
+                generated_block_bid="generated-ask",
+                type=GeneratedType.BREAK,
+                content="",
+            )
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        chunks = list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input="follow-up question",
+                input_type="ask",
+                listen=True,
+            )
+        )
+        events = _parse_sse_events(chunks)
+
+        assert observed["listen"] is False
+        assert [event["type"] for event in events] == ["element", "done"]
+        assert events[-1]["is_terminal"] is True
+
+
 def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeypatch):
     app = Flask(__name__)
 
@@ -716,6 +762,134 @@ def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
     assert FakeRunScriptContext.last_instance is not None
     assert FakeRunScriptContext.last_instance.finalize_calls == 1
     assert commit_calls == ["commit"]
+
+
+def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(monkeypatch):
+    app = Flask(__name__)
+    sequence = []
+
+    monkeypatch.setattr(
+        runscript_v2,
+        "db",
+        SimpleNamespace(
+            session=SimpleNamespace(
+                commit=lambda: sequence.append("commit"),
+                rollback=lambda: None,
+                remove=lambda: None,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "load_user_aggregate",
+        lambda _user_bid: SimpleNamespace(user_id="user-1"),
+    )
+
+    outline_item_info = SimpleNamespace(
+        bid="outline-1",
+        shifu_bid="shifu-1",
+        title="Lesson",
+        __json__=lambda: {"bid": "outline-1"},
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_outline_item_dto",
+        lambda *_args, **_kwargs: outline_item_info,
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_dto",
+        lambda *_args, **_kwargs: SimpleNamespace(bid="shifu-1", price=0),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_struct",
+        lambda *_args, **_kwargs: object(),
+    )
+
+    class FakeRunScriptContext:
+        def __init__(self, **_kwargs):
+            self._has_next = True
+
+        def set_input(self, *_args, **_kwargs):
+            return None
+
+        def reload(self, *_args, **_kwargs):
+            return []
+
+        def has_next(self):
+            if self._has_next:
+                self._has_next = False
+                return True
+            return False
+
+        def run(self, _app):
+            return [
+                RunMarkdownFlowDTO(
+                    outline_bid="outline-1",
+                    generated_block_bid="generated-1",
+                    type=GeneratedType.CONTENT,
+                    content="hello",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="outline-1",
+                    generated_block_bid="generated-1",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+            ]
+
+    monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
+
+    class ElementAdapter:
+        def process(self, events):
+            for event in events:
+                if event.type == GeneratedType.CONTENT:
+                    yield RunElementSSEMessageDTO(
+                        type="element",
+                        event_type="element",
+                        generated_block_bid="generated-1",
+                        content=ElementDTO(
+                            element_bid="element-1",
+                            generated_block_bid="generated-1",
+                            element_index=0,
+                            role="assistant",
+                            element_type=ElementType.TEXT,
+                            element_type_code=1,
+                            is_final=True,
+                            is_speakable=True,
+                            content="hello",
+                        ),
+                    )
+                elif event.type == GeneratedType.BREAK:
+                    yield RunElementSSEMessageDTO(
+                        type=GeneratedType.DONE.value,
+                        event_type=GeneratedType.DONE.value,
+                        content="",
+                        is_terminal=False,
+                    )
+
+    emitted = list(
+        runscript_v2.run_script_inner(
+            app=app,
+            user_bid="user-1",
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            input="hello",
+            input_type="text",
+            element_adapter=ElementAdapter(),
+        )
+    )
+
+    for event in emitted:
+        if getattr(event, "type", "") == GeneratedType.AUDIO_BACKFILL_READY.value:
+            sequence.append("ready")
+
+    assert sequence == ["commit", "ready"]
+    ready_event = emitted[-1]
+    assert ready_event.type == GeneratedType.AUDIO_BACKFILL_READY.value
+    assert ready_event.generated_block_bid == "generated-1"
+    assert ready_event.content.element_bids == ["element-1"]
 
 
 def test_run_script_listen_keeps_interaction_after_block_done(monkeypatch):

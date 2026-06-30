@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import api from '@/api';
 import AdminOperationUserDetailPage from './page';
 
@@ -63,6 +69,7 @@ jest.mock('@/api', () => ({
   default: {
     getAdminOperationUserDetail: jest.fn(),
     getAdminOperationUserCredits: jest.fn(),
+    getAdminOperationUserCreditUsageDetail: jest.fn(),
   },
 }));
 
@@ -182,10 +189,69 @@ jest.mock('@/components/ui/Tabs', () => {
   };
 });
 
+jest.mock('@/components/ui/Select', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const SelectContext = ReactModule.createContext<{
+    value: string;
+    onValueChange: (value: string) => void;
+  }>({
+    value: '',
+    onValueChange: () => undefined,
+  });
+
+  return {
+    __esModule: true,
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange: (value: string) => void;
+    }>) => (
+      <SelectContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </SelectContext.Provider>
+    ),
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectItem: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(SelectContext);
+      return (
+        <button
+          type='button'
+          onClick={() => context.onValueChange(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+  };
+});
+
+jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
+  __esModule: true,
+  default: ({ placeholder }: { placeholder: string }) => (
+    <div>{placeholder}</div>
+  ),
+}));
+
 const mockGetAdminOperationUserDetail =
   api.getAdminOperationUserDetail as jest.Mock;
 const mockGetAdminOperationUserCredits =
   api.getAdminOperationUserCredits as jest.Mock;
+const mockGetAdminOperationUserCreditUsageDetail =
+  api.getAdminOperationUserCreditUsageDetail as jest.Mock;
 
 const detailResponse = {
   user_bid: 'user-1',
@@ -250,6 +316,13 @@ const creditsResponse = {
       consumable_from: '2026-04-18T10:00:00Z',
       note: 'ops reward',
       note_code: '',
+      usage_bid: '',
+      course_bid: '',
+      course_name: '',
+      chapter_title: '',
+      lesson_title: '',
+      usage_scene: '',
+      usage_mode: '',
     },
   ],
   page: 1,
@@ -276,12 +349,37 @@ describe('AdminOperationUserDetailPage', () => {
     mockBrowserTimeZone.mockReturnValue('UTC');
     mockGetAdminOperationUserDetail.mockReset();
     mockGetAdminOperationUserCredits.mockReset();
+    mockGetAdminOperationUserCreditUsageDetail.mockReset();
     mockUserState.isInitialized = true;
     mockUserState.isGuest = false;
     mockUserState.userInfo = { is_operator: true };
     window.history.pushState({}, '', '/admin/operations/users/user-1');
     mockGetAdminOperationUserDetail.mockResolvedValue(detailResponse);
     mockGetAdminOperationUserCredits.mockResolvedValue(creditsResponse);
+    mockGetAdminOperationUserCreditUsageDetail.mockResolvedValue({
+      usage_bid: 'usage-1',
+      course_bid: 'course-usage-1',
+      course_name: 'Usage Course',
+      chapter_title: 'Chapter A',
+      lesson_title: 'Lesson B',
+      usage_scene: 'learning',
+      usage_mode: 'ask',
+      total_consumed_credits: '6',
+      items: [
+        {
+          usage_bid: 'usage-1',
+          created_at: '2026-04-18T10:00:00Z',
+          content: 'Generated answer content',
+          consumed_credits: '6',
+          usage_units: 120,
+          input_tokens: 100,
+          output_tokens: 20,
+          word_count: 0,
+          duration_ms: 0,
+          segment_count: 0,
+        },
+      ],
+    });
   });
 
   test('loads and renders user detail with credits overview and ledger', async () => {
@@ -295,19 +393,42 @@ describe('AdminOperationUserDetailPage', () => {
         user_bid: 'user-1',
         page_index: 1,
         page_size: 10,
+        credit_type: '',
+        grant_source: '',
+        course_query: '',
+        usage_scene: '',
+        usage_mode: '',
+        start_time: '',
+        end_time: '',
       });
     });
+    expect(mockGetAdminOperationUserCredits).toHaveBeenCalledTimes(1);
 
     expect(
-      await screen.findByText('module.operationsUser.detail.title'),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'module.operationsUser.detail.title',
+      }),
     ).toBeInTheDocument();
     expect(screen.getAllByText('Nick').length).toBeGreaterThan(0);
     expect(screen.getByText('user-1@example.com')).toBeInTheDocument();
     expect(
       screen.getByText('module.operationsUser.roleLabels.operator'),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.userId'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.status'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.loginMethods'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsUser.table.updatedAt'),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('¥88.50')).toBeInTheDocument();
-    expect(screen.getAllByText('35.5').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('35.5').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('27.5')).toBeInTheDocument();
     expect(screen.getByText('8')).toBeInTheDocument();
     expect(screen.getByText('2026-05-01 00:00:00')).toBeInTheDocument();
@@ -326,8 +447,12 @@ describe('AdminOperationUserDetailPage', () => {
       'admin-operation-user-detail-page',
     );
     expect(pageContainer).toHaveClass('h-full');
+    expect(pageContainer).toHaveClass('overscroll-none');
     expect(pageContainer).toHaveClass('overflow-hidden');
     expect(pageContainer).not.toHaveClass('overflow-auto');
+    expect(
+      screen.getByTestId('admin-operation-user-detail-scroll'),
+    ).toHaveClass('overflow-y-auto');
     expect(
       screen.getByTestId('admin-operation-user-credit-ledger-scroll'),
     ).toHaveClass('overflow-auto');
@@ -347,13 +472,13 @@ describe('AdminOperationUserDetailPage', () => {
 
   test('formats credits without grouping in Chinese locale', async () => {
     mockLanguage = 'zh-CN';
-    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+    mockGetAdminOperationUserDetail.mockResolvedValue({
       ...detailResponse,
       available_credits: '10000',
       subscription_credits: '10000',
       topup_credits: '5000',
     });
-    mockGetAdminOperationUserCredits.mockResolvedValueOnce({
+    mockGetAdminOperationUserCredits.mockResolvedValue({
       ...creditsResponse,
       summary: {
         ...creditsResponse.summary,
@@ -378,16 +503,246 @@ describe('AdminOperationUserDetailPage', () => {
     expect(screen.queryByText('5,000')).not.toBeInTheDocument();
   });
 
-  test('renders detail timestamps in the viewer timezone when UTC crosses local day boundaries', async () => {
+  test('searches consume credit rows with course filters', async () => {
+    render(<AdminOperationUserDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserCredits).toHaveBeenCalledWith({
+        user_bid: 'user-1',
+        page_index: 1,
+        page_size: 10,
+        credit_type: '',
+        grant_source: '',
+        course_query: '',
+        usage_scene: '',
+        usage_mode: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.typeOptions.consume',
+      }),
+    );
+
+    fireEvent.change(
+      await screen.findByPlaceholderText(
+        'module.operationsUser.detail.creditLedgerFilters.coursePlaceholder',
+      ),
+      { target: { value: 'course-42' } },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.usageSceneOptions.preview',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.usageModeOptions.ask',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.order.filters.search' }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserCredits).toHaveBeenLastCalledWith({
+        user_bid: 'user-1',
+        page_index: 1,
+        page_size: 10,
+        credit_type: 'consume',
+        grant_source: '',
+        course_query: 'course-42',
+        usage_scene: 'preview',
+        usage_mode: 'ask',
+        start_time: '',
+        end_time: '',
+      });
+    });
+  });
+
+  test('refreshes ledger table immediately when credit type changes', async () => {
+    render(<AdminOperationUserDetailPage />);
+
+    await screen.findByText(
+      'module.operationsUser.detail.creditLedgerTypeLabels.manual_grant',
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.typeOptions.consume',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsUser.detail.creditLedgerColumns.user',
+        ),
+      ).toBeInTheDocument();
+      expect(mockGetAdminOperationUserCredits).toHaveBeenLastCalledWith({
+        user_bid: 'user-1',
+        page_index: 1,
+        page_size: 10,
+        credit_type: 'consume',
+        grant_source: '',
+        course_query: '',
+        usage_scene: '',
+        usage_mode: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+    expect(
+      screen.getByText('module.operationsUser.detail.creditLedgerColumns.user'),
+    ).toBeInTheDocument();
+  });
+
+  test('renders consume context columns and opens course credit usage tab', async () => {
+    mockGetAdminOperationUserCredits.mockResolvedValue({
+      ...creditsResponse,
+      items: [
+        {
+          ...creditsResponse.items[0],
+          ledger_bid: 'ledger-consume-1',
+          entry_type: 'consume',
+          source_type: 'usage',
+          display_entry_type: 'learning_consume',
+          display_source_type: 'learning',
+          amount: '-6',
+          balance_after: '29.5',
+          usage_bid: 'usage-1',
+          course_bid: 'course-usage-1',
+          course_name: 'Usage Course',
+          chapter_title: 'Chapter A',
+          lesson_title: 'Lesson B',
+          usage_scene: 'learning',
+          usage_mode: 'ask',
+        },
+      ],
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    await screen.findByText('Usage Course');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.typeOptions.consume',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.order.filters.search' }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'module.operationsUser.detail.creditLedgerColumns.user',
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText('13812345678')).toBeInTheDocument();
+      expect(screen.getAllByText('Nick').length).toBeGreaterThan(0);
+      expect(
+        screen.getByText(
+          'module.operationsUser.detail.creditLedgerUsageSceneLabels.learning',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByText(
+          'module.operationsUser.detail.creditLedgerFilters.usageModeOptions.ask',
+        ).length,
+      ).toBeGreaterThan(0);
+      expect(screen.getByText('Lesson B / Chapter A')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Usage Course' }));
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/admin/operations/course-usage-1?tab=creditUsage',
+    );
+  });
+
+  test('opens user credit usage content detail', async () => {
+    mockGetAdminOperationUserCredits.mockResolvedValue({
+      ...creditsResponse,
+      items: [
+        {
+          ...creditsResponse.items[0],
+          ledger_bid: 'ledger-consume-detail',
+          entry_type: 'consume',
+          source_type: 'usage',
+          display_entry_type: 'learning_consume',
+          display_source_type: 'learning',
+          amount: '-6',
+          balance_after: '29.5',
+          usage_bid: 'usage-1',
+          course_bid: 'course-usage-1',
+          course_name: 'Usage Course',
+          chapter_title: 'Chapter A',
+          lesson_title: 'Lesson B',
+          usage_scene: 'learning',
+          usage_mode: 'ask',
+        },
+      ],
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.typeOptions.consume',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Usage Course')).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditUsageDetail.actions.openAriaLabel',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserCreditUsageDetail).toHaveBeenCalledWith({
+        user_bid: 'user-1',
+        usage_bid: 'usage-1',
+      });
+    });
+    expect(
+      await screen.findByText('Generated answer content'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'component.header.close' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.detail.creditUsageDetail.actions.openAriaLabel',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserCreditUsageDetail).toHaveBeenCalledTimes(
+        1,
+      );
+    });
+  });
+
+  test('renders user detail timestamps with field-specific formatting', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
-    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+    mockGetAdminOperationUserDetail.mockResolvedValue({
       ...detailResponse,
       last_login_at: '2026-04-15T01:30:00Z',
       last_learning_at: '2026-04-15T02:30:00Z',
       created_at: '2026-04-14T01:15:00Z',
       updated_at: '2026-04-14T03:45:00Z',
     });
-    mockGetAdminOperationUserCredits.mockResolvedValueOnce({
+    mockGetAdminOperationUserCredits.mockResolvedValue({
       ...creditsResponse,
       summary: {
         ...creditsResponse.summary,
@@ -404,20 +759,97 @@ describe('AdminOperationUserDetailPage', () => {
 
     render(<AdminOperationUserDetailPage />);
 
-    await screen.findByText('module.operationsUser.detail.title');
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'module.operationsUser.detail.title',
+    });
 
-    expect(screen.getByText('2026-04-14 18:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-14 19:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-13 18:15:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-13 20:45:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-15 01:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-15 02:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-14 01:15:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-14 18:30:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-14 19:30:00')).not.toBeInTheDocument();
     expect(screen.getAllByText('2026-04-30 18:00:00').length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByText('2026-04-17 18:00:00')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-04-18 01:00:00').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText('2026-04-17 18:00:00')).not.toBeInTheDocument();
+  });
+
+  test('keeps user credit usage detail created_at as returned wall-clock time', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+    mockGetAdminOperationUserCredits.mockResolvedValue({
+      ...creditsResponse,
+      items: [
+        {
+          ...creditsResponse.items[0],
+          entry_type: 'consume',
+          source_type: 'usage',
+          display_entry_type: 'preview_consume',
+          display_source_type: 'usage',
+          amount: '-6',
+          created_at: '2026-04-18T01:00:00Z',
+          usage_bid: 'usage-1',
+          course_bid: 'course-usage-1',
+          course_name: 'Usage Course',
+          chapter_title: 'Chapter A',
+          lesson_title: 'Lesson B',
+          usage_scene: 'learning',
+          usage_mode: 'ask',
+        },
+      ],
+    });
+    mockGetAdminOperationUserCreditUsageDetail.mockResolvedValue({
+      usage_bid: 'usage-1',
+      course_bid: 'course-usage-1',
+      course_name: 'Usage Course',
+      chapter_title: 'Chapter A',
+      lesson_title: 'Lesson B',
+      usage_scene: 'learning',
+      usage_mode: 'ask',
+      total_consumed_credits: '6',
+      items: [
+        {
+          usage_bid: 'usage-1',
+          created_at: '2026-04-18T10:00:00Z',
+          content: 'Generated answer content',
+          consumed_credits: '6',
+          usage_units: 120,
+          input_tokens: 100,
+          output_tokens: 20,
+          word_count: 0,
+          duration_ms: 0,
+          segment_count: 0,
+        },
+      ],
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.typeOptions.consume',
+      }),
+    );
+
+    const openDetailButton = await screen.findByRole('button', {
+      name: 'module.operationsUser.detail.creditUsageDetail.actions.openAriaLabel',
+    });
+    fireEvent.click(openDetailButton);
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      await within(dialog).findByText('2026-04-18 10:00:00'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText('2026-04-18 03:00:00'),
+    ).not.toBeInTheDocument();
   });
 
   test('keeps note column empty for system ledger rows without manual note', async () => {
-    mockGetAdminOperationUserCredits.mockResolvedValueOnce({
+    mockGetAdminOperationUserCredits.mockResolvedValue({
       ...creditsResponse,
       items: [
         {
@@ -454,21 +886,30 @@ describe('AdminOperationUserDetailPage', () => {
         'module.operationsUser.detail.creditLedgerNoteLabels.subscription_purchase',
       ),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('--')).toBeInTheDocument();
+    expect(screen.getAllByText('--').length).toBeGreaterThan(0);
   });
 
-  test('back button returns to user list', async () => {
+  test('renders user detail with breadcrumb navigation', async () => {
     render(<AdminOperationUserDetailPage />);
 
     await waitFor(() => {
       expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'module.operationsUser.detail.back' }),
-    );
-
-    expect(mockPush).toHaveBeenCalledWith('/admin/operations/users');
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsUser.title',
+      }),
+    ).toHaveAttribute('href', '/admin/operations/users');
+    expect(
+      screen.getAllByText('module.operationsUser.detail.title').length,
+    ).toBeGreaterThan(0);
+    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
+    expect(
+      within(breadcrumb)
+        .getByText('module.operationsUser.detail.title')
+        .closest('a'),
+    ).toBeNull();
   });
 
   test('does not request detail or credits when the route param cannot be decoded', async () => {
@@ -500,6 +941,160 @@ describe('AdminOperationUserDetailPage', () => {
         name: 'module.operationsUser.detail.tabs.credits',
       }),
     ).toHaveAttribute('data-state', 'active');
+  });
+
+  test('activates the learning courses tab when the learning hash is present', async () => {
+    window.location.hash = '#learning-courses';
+
+    render(<AdminOperationUserDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('tab', {
+          name: 'module.operationsUser.detail.tabs.learningCourses',
+        }),
+      ).toHaveAttribute('data-state', 'active');
+    });
+  });
+
+  test('activates the created courses tab when the created hash is present', async () => {
+    window.location.hash = '#created-courses';
+
+    render(<AdminOperationUserDetailPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationUserDetail).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('tab', {
+          name: 'module.operationsUser.detail.tabs.createdCourses',
+        }),
+      ).toHaveAttribute('data-state', 'active');
+    });
+  });
+
+  test('jumps to the learning courses tab from the overview card', async () => {
+    render(<AdminOperationUserDetailPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.table.learningCourses: 1',
+      }),
+    );
+
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.operationsUser.detail.tabs.learningCourses',
+      }),
+    ).toHaveAttribute('data-state', 'active');
+    expect(mockScrollIntoView).toHaveBeenCalled();
+  });
+
+  test('jumps to the created courses tab from the overview card', async () => {
+    render(<AdminOperationUserDetailPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.table.createdCourses: 1',
+      }),
+    );
+
+    expect(
+      screen.getByRole('tab', {
+        name: 'module.operationsUser.detail.tabs.createdCourses',
+      }),
+    ).toHaveAttribute('data-state', 'active');
+    expect(mockScrollIntoView).toHaveBeenCalled();
+  });
+
+  test('resets the detail tab hash when switching to another user', async () => {
+    const originalReplaceState = window.history.replaceState.bind(
+      window.history,
+    );
+    const replaceStateSpy = jest
+      .spyOn(window.history, 'replaceState')
+      .mockImplementation((data, unused, url) => {
+        originalReplaceState(data, unused, url);
+        if (typeof url === 'string') {
+          window.location.hash = new URL(url, 'http://localhost').hash;
+        }
+      });
+    try {
+      const { rerender } = render(<AdminOperationUserDetailPage />);
+
+      await waitFor(() => {
+        expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
+          user_bid: 'user-1',
+        });
+      });
+
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'module.operationsUser.table.learningCourses: 1',
+        }),
+      );
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenCalled();
+        expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? '')).toContain(
+          '#learning-courses',
+        );
+      });
+
+      currentUserBid = 'user-2';
+      window.location.hash = '#learning-courses';
+      mockGetAdminOperationUserDetail.mockResolvedValue({
+        ...detailResponse,
+        user_bid: 'user-2',
+        email: 'user-2@example.com',
+      });
+      rerender(<AdminOperationUserDetailPage />);
+
+      await waitFor(() => {
+        expect(mockGetAdminOperationUserDetail).toHaveBeenCalledWith({
+          user_bid: 'user-2',
+        });
+      });
+
+      await waitFor(() => {
+        expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? '')).toContain(
+          '#credits',
+        );
+        expect(
+          screen.getByRole('tab', {
+            name: 'module.operationsUser.detail.tabs.credits',
+          }),
+        ).toHaveAttribute('data-state', 'active');
+      });
+    } finally {
+      replaceStateSpy.mockRestore();
+    }
+  });
+
+  test('uses course summary counts when they differ from preview list length', async () => {
+    mockGetAdminOperationUserDetail.mockResolvedValueOnce({
+      ...detailResponse,
+      learning_course_count: 12,
+      created_course_count: 8,
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.table.learningCourses: 12',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'module.operationsUser.table.createdCourses: 8',
+      }),
+    ).toBeInTheDocument();
   });
 
   test('uses course status translations for unknown course states', async () => {

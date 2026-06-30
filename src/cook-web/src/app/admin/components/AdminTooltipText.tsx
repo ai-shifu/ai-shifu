@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import {
   Tooltip,
@@ -10,14 +11,20 @@ import { cn } from '@/lib/utils';
 
 type AdminTooltipTextProps = {
   text?: string | null;
+  displayText?: ReactNode;
   className?: string;
   emptyValue: string;
+  alwaysShowTooltip?: boolean;
+  forceTooltip?: boolean;
 };
 
 export default function AdminTooltipText({
   text,
+  displayText,
   className,
   emptyValue,
+  alwaysShowTooltip = false,
+  forceTooltip = false,
 }: AdminTooltipTextProps) {
   const triggerRef = useRef<HTMLSpanElement | null>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -40,17 +47,33 @@ export default function AdminTooltipText({
 
     updateOverflowState();
 
+    let resizeObserver: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(() => {
+      resizeObserver = new ResizeObserver(() => {
         updateOverflowState();
       });
-      observer.observe(element);
-      return () => observer.disconnect();
+      resizeObserver.observe(element);
+    }
+
+    let mutationObserver: MutationObserver | null = null;
+    if (typeof MutationObserver !== 'undefined') {
+      mutationObserver = new MutationObserver(() => {
+        updateOverflowState();
+      });
+      mutationObserver.observe(element, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
     }
 
     window.addEventListener('resize', updateOverflowState);
-    return () => window.removeEventListener('resize', updateOverflowState);
-  }, [isOverflowing, value]);
+    return () => {
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+      window.removeEventListener('resize', updateOverflowState);
+    };
+  }, [value]);
 
   const content = (
     <span
@@ -60,11 +83,15 @@ export default function AdminTooltipText({
         className,
       )}
     >
-      {value}
+      {displayText ?? value}
     </span>
   );
 
-  if (!isOverflowing) {
+  const shouldShowTooltip =
+    isOverflowing ||
+    ((alwaysShowTooltip || forceTooltip) && trimmedText.length > 0);
+
+  if (!shouldShowTooltip) {
     return content;
   }
 

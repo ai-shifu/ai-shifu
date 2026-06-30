@@ -27,11 +27,15 @@ from flaskr.service.billing.models import (
     BillingRenewalEvent,
     BillingSubscription,
     CreditUsageRate,
+    CreditLedgerEntry,
     CreditWallet,
+    CreditWalletBucket,
 )
 from flaskr.service.billing.queries import calculate_self_managed_billing_cycle_end
 from flaskr.service.config.models import Config
+from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.user.consts import USER_STATE_REGISTERED
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     create_user_entity,
     load_user_aggregate_by_identifier,
@@ -127,6 +131,24 @@ def _seed_billing_cli_user(
         )
 
 
+def _seed_billing_cli_course_auth(
+    *,
+    auth_bid: str,
+    user_bid: str,
+    course_bid: str,
+    auth_types: list[str],
+) -> None:
+    dao.db.session.add(
+        AiCourseAuth(
+            course_auth_id=auth_bid,
+            course_id=course_bid,
+            user_id=user_bid,
+            auth_type=json.dumps(auth_types),
+            status=1,
+        )
+    )
+
+
 def test_billing_backfill_settlement_cli_requires_explicit_scope(
     billing_cli_runner,
 ) -> None:
@@ -214,6 +236,50 @@ def test_billing_backfill_trial_plans_cli_prints_helper_payload(
     assert payload["kwargs"]["limit"] == 3
 
 
+def test_billing_backfill_authoring_permission_creators_cli_requires_explicit_scope(
+    billing_cli_runner,
+) -> None:
+    result = billing_cli_runner.invoke(
+        args=["console", "billing", "backfill-authoring-permission-creators"]
+    )
+
+    assert result.exit_code != 0
+    assert "Pass --user-bid, --course-bid, or --all" in result.output
+
+
+def test_billing_backfill_authoring_permission_creators_cli_prints_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.backfill_authoring_permission_creators",
+        lambda app, **kwargs: {
+            "status": "completed",
+            "role_granted_count": 1,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "backfill-authoring-permission-creators",
+            "--all",
+            "--limit",
+            "4",
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "completed"
+    assert payload["role_granted_count"] == 1
+    assert payload["kwargs"]["limit"] == 4
+    assert payload["kwargs"]["dry_run"] is True
+
+
 def test_billing_rebuild_wallets_cli_prints_helper_payload(
     billing_cli_runner,
     monkeypatch: pytest.MonkeyPatch,
@@ -282,6 +348,49 @@ def test_billing_repair_topup_expiry_cli_prints_helper_payload(
     assert result.exit_code == 0
     assert payload["status"] == "repaired"
     assert payload["kwargs"]["creator_bid"] == "creator-cli-1"
+
+
+def test_billing_repair_bucket_status_cli_requires_explicit_scope(
+    billing_cli_runner,
+) -> None:
+    result = billing_cli_runner.invoke(
+        args=["console", "billing", "repair-bucket-status"]
+    )
+
+    assert result.exit_code != 0
+    assert (
+        "Pass --creator-bid or --wallet-bucket-bid for bucket status repair."
+        in result.output
+    )
+
+
+def test_billing_repair_bucket_status_cli_prints_helper_payload(
+    billing_cli_runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.repair_credit_bucket_runtime_statuses",
+        lambda app, **kwargs: {
+            "status": "repaired",
+            "repaired_bucket_count": 1,
+            "kwargs": kwargs,
+        },
+    )
+
+    result = billing_cli_runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "repair-bucket-status",
+            "--wallet-bucket-bid",
+            "bucket-cli-1",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "repaired"
+    assert payload["kwargs"]["wallet_bucket_bid"] == "bucket-cli-1"
 
 
 def test_billing_repair_subscription_cycle_cli_requires_explicit_scope(
@@ -571,6 +680,155 @@ def test_billing_grant_plan_cli_grants_manual_plan_by_phone_identify(
         assert pending_events[0].scheduled_at == expected_period_end_at
 
 
+def test_billing_grant_credits_cli_grants_visible_manual_credits(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    with billing_cli_db_app.app_context():
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-credit",
+            identify="creator-cli-credit",
+            phone="13800138001",
+            is_creator=True,
+        )
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-cli-credit-active",
+                creator_bid="creator-cli-credit",
+                product_bid="bill-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="manual",
+                provider_subscription_id="",
+                provider_customer_id="",
+                current_period_start_at=datetime.now() - timedelta(days=1),
+                current_period_end_at=datetime.now() + timedelta(days=30),
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+            )
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "grant-credits",
+            "--identify",
+            "13800138001",
+            "--amount",
+            "12.5",
+            "--grant-source",
+            "compensation",
+            "--name",
+            "模型扣费补偿",
+            "--note",
+            "DeepSeek 费率补偿",
+            "--operator-user-bid",
+            "operator-cli-1",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["status"] == "granted"
+    assert payload["creator_bid"] == "creator-cli-credit"
+    assert payload["mobile"] == "13800138001"
+    assert payload["amount"] == 12.5
+    assert payload["grant_source"] == "compensation"
+    assert payload["validity_preset"] == "align_subscription"
+    assert payload["display_name"] == "模型扣费补偿"
+    assert payload["note"] == "DeepSeek 费率补偿"
+    assert payload["operator_user_bid"] == "operator-cli-1"
+    assert payload["request_id"].startswith("cli:")
+
+    with billing_cli_db_app.app_context():
+        wallet = CreditWallet.query.filter_by(creator_bid="creator-cli-credit").one()
+        bucket = CreditWalletBucket.query.filter_by(
+            creator_bid="creator-cli-credit"
+        ).one()
+        ledger = CreditLedgerEntry.query.filter_by(
+            creator_bid="creator-cli-credit"
+        ).one()
+
+        assert wallet.available_credits == Decimal("12.5000000000")
+        assert bucket.available_credits == Decimal("12.5000000000")
+        assert bucket.metadata_json["grant_source"] == "compensation"
+        assert bucket.metadata_json["validity_preset"] == "align_subscription"
+        assert "display_name" not in bucket.metadata_json
+        assert "note" not in bucket.metadata_json
+        assert ledger.wallet_bucket_bid == bucket.wallet_bucket_bid
+        assert ledger.amount == Decimal("12.5000000000")
+        assert ledger.metadata_json["grant_source"] == "compensation"
+        assert ledger.metadata_json["display_name"] == "模型扣费补偿"
+        assert ledger.metadata_json["name"] == "模型扣费补偿"
+        assert ledger.metadata_json["note"] == "DeepSeek 费率补偿"
+        assert ledger.metadata_json["operator_user_bid"] == "operator-cli-1"
+        assert ledger.metadata_json["grant_channel"] == "operator_cli"
+        assert (
+            ledger.idempotency_key == f"operator_manual_grant:{payload['request_id']}"
+        )
+
+
+def test_billing_grant_credits_cli_reuses_request_id(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    with billing_cli_db_app.app_context():
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-credit-idempotent",
+            identify="creator-cli-credit-idempotent@example.com",
+            email="creator-cli-credit-idempotent@example.com",
+            is_creator=True,
+        )
+        dao.db.session.commit()
+
+    args = [
+        "console",
+        "billing",
+        "grant-credits",
+        "--user-bid",
+        "creator-cli-credit-idempotent",
+        "--amount",
+        "3",
+        "--grant-source",
+        "reward",
+        "--validity-preset",
+        "1d",
+        "--name",
+        "运营奖励",
+        "--note",
+        "活动奖励",
+    ]
+    first = runner.invoke(args=args)
+    second = runner.invoke(args=args)
+
+    assert first.exit_code == 0, first.output
+    assert second.exit_code == 0, second.output
+    first_payload = json.loads(first.output)
+    second_payload = json.loads(second.output)
+    assert first_payload["status"] == "granted"
+    assert second_payload["status"] == "noop_existing"
+    assert second_payload["request_id"] == first_payload["request_id"]
+    assert second_payload["ledger_bid"] == first_payload["ledger_bid"]
+
+    with billing_cli_db_app.app_context():
+        wallet = CreditWallet.query.filter_by(
+            creator_bid="creator-cli-credit-idempotent"
+        ).one()
+        assert wallet.available_credits == Decimal("3.0000000000")
+        assert (
+            CreditLedgerEntry.query.filter_by(
+                creator_bid="creator-cli-credit-idempotent"
+            ).count()
+            == 1
+        )
+
+
 def test_billing_backfill_trial_plans_cli_grants_missing_trials_for_creators(
     billing_cli_db_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -691,6 +949,154 @@ def test_billing_backfill_trial_plans_cli_grants_missing_trials_for_creators(
                 creator_bid="creator-cli-non-creator"
             ).count()
             == 0
+        )
+
+
+def test_billing_backfill_authoring_permission_creators_dry_run_does_not_mutate(
+    billing_cli_db_app: Flask,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(product_bids=[BILLING_TRIAL_PRODUCT_BID])
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="authoring-cli-dry-run",
+            identify="authoring-cli-dry-run@example.com",
+            email="authoring-cli-dry-run@example.com",
+            is_creator=False,
+        )
+        _seed_billing_cli_course_auth(
+            auth_bid="auth-authoring-cli-dry-run",
+            user_bid="authoring-cli-dry-run",
+            course_bid="course-authoring-cli-dry-run",
+            auth_types=["edit"],
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "backfill-authoring-permission-creators",
+            "--all",
+            "--dry-run",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "completed"
+    assert payload["role_would_grant_count"] == 1
+    assert payload["role_granted_count"] == 0
+    assert payload["trial_granted_count"] == 0
+
+    with billing_cli_db_app.app_context():
+        user = UserEntity.query.filter_by(user_bid="authoring-cli-dry-run").one()
+        assert user.is_creator == 0
+        assert (
+            BillingOrder.query.filter_by(creator_bid="authoring-cli-dry-run").count()
+            == 0
+        )
+
+
+def test_billing_backfill_authoring_permission_creators_grants_roles_and_trials(
+    billing_cli_db_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+    monkeypatch.setattr(
+        "flaskr.service.billing.trials._is_billing_enabled",
+        lambda: True,
+    )
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(product_bids=[BILLING_TRIAL_PRODUCT_BID])
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="authoring-cli-edit",
+            identify="authoring-cli-edit@example.com",
+            email="authoring-cli-edit@example.com",
+            is_creator=False,
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="authoring-cli-publish",
+            identify="authoring-cli-publish@example.com",
+            email="authoring-cli-publish@example.com",
+            is_creator=False,
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="authoring-cli-view",
+            identify="authoring-cli-view@example.com",
+            email="authoring-cli-view@example.com",
+            is_creator=False,
+        )
+        _seed_billing_cli_course_auth(
+            auth_bid="auth-authoring-cli-edit",
+            user_bid="authoring-cli-edit",
+            course_bid="course-authoring-cli",
+            auth_types=["edit"],
+        )
+        _seed_billing_cli_course_auth(
+            auth_bid="auth-authoring-cli-publish",
+            user_bid="authoring-cli-publish",
+            course_bid="course-authoring-cli",
+            auth_types=["edit", "publish"],
+        )
+        _seed_billing_cli_course_auth(
+            auth_bid="auth-authoring-cli-view",
+            user_bid="authoring-cli-view",
+            course_bid="course-authoring-cli",
+            auth_types=["view"],
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "backfill-authoring-permission-creators",
+            "--all",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "completed"
+    assert payload["role_granted_count"] == 2
+    assert payload["role_skipped_count"] == 1
+    assert payload["trial_granted_count"] == 2
+    assert payload["trial_skipped_count"] == 1
+
+    records_by_bid = {item["creator_bid"]: item for item in payload["records"]}
+    assert records_by_bid["authoring-cli-view"]["role_reason"] == (
+        "non_authoring_permission"
+    )
+
+    with billing_cli_db_app.app_context():
+        edit_user = UserEntity.query.filter_by(user_bid="authoring-cli-edit").one()
+        publish_user = UserEntity.query.filter_by(
+            user_bid="authoring-cli-publish"
+        ).one()
+        view_user = UserEntity.query.filter_by(user_bid="authoring-cli-view").one()
+        assert edit_user.is_creator == 1
+        assert publish_user.is_creator == 1
+        assert view_user.is_creator == 0
+        assert (
+            BillingOrder.query.filter_by(creator_bid="authoring-cli-edit").count() == 1
+        )
+        assert (
+            BillingOrder.query.filter_by(creator_bid="authoring-cli-publish").count()
+            == 1
+        )
+        assert (
+            BillingOrder.query.filter_by(creator_bid="authoring-cli-view").count() == 0
         )
 
 
@@ -1008,6 +1414,86 @@ def test_billing_grant_plan_cli_rejects_when_provider_managed_subscription_exist
         assert (
             BillingOrder.query.filter_by(creator_bid="creator-cli-email").count() == 0
         )
+
+
+def test_billing_grant_plan_cli_upgrades_active_pingxx_subscription(
+    billing_cli_db_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = billing_cli_db_app.test_cli_runner()
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.cli.enqueue_subscription_purchase_sms",
+        lambda app, *, bill_order_bid: {
+            "status": "enqueued",
+            "bill_order_bid": bill_order_bid,
+            "enqueued": True,
+        },
+    )
+
+    with billing_cli_db_app.app_context():
+        dao.db.session.add_all(
+            build_bill_products(
+                product_bids=[
+                    "bill-product-plan-monthly",
+                    "bill-product-plan-yearly",
+                ]
+            )
+        )
+        _seed_billing_cli_user(
+            billing_cli_db_app,
+            user_bid="creator-cli-pingxx-upgrade",
+            identify="creator-cli-pingxx-upgrade@example.com",
+            email="creator-cli-pingxx-upgrade@example.com",
+            is_creator=True,
+        )
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-cli-pingxx-upgrade",
+                creator_bid="creator-cli-pingxx-upgrade",
+                product_bid="bill-product-plan-monthly",
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="Pingxx",
+                provider_subscription_id="",
+                provider_customer_id="pingxx-customer-cli-upgrade",
+                current_period_start_at=datetime.now() - timedelta(days=1),
+                current_period_end_at=datetime.now() + timedelta(days=30),
+                cancel_at_period_end=0,
+                next_product_bid="",
+                metadata_json={},
+            )
+        )
+        dao.db.session.commit()
+
+    result = runner.invoke(
+        args=[
+            "console",
+            "billing",
+            "grant-plan",
+            "--identify",
+            "creator-cli-pingxx-upgrade@example.com",
+            "--product-bid",
+            "bill-product-plan-yearly",
+        ]
+    )
+
+    payload = json.loads(result.output)
+    assert result.exit_code == 0
+    assert payload["status"] == "granted"
+    assert payload["product_bid"] == "bill-product-plan-yearly"
+
+    with billing_cli_db_app.app_context():
+        order = BillingOrder.query.filter_by(
+            creator_bid="creator-cli-pingxx-upgrade"
+        ).one()
+        subscription = BillingSubscription.query.filter_by(
+            creator_bid="creator-cli-pingxx-upgrade"
+        ).one()
+
+        assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+        assert order.payment_provider == "manual"
+        assert subscription.product_bid == "bill-product-plan-yearly"
+        assert subscription.billing_provider == "Pingxx"
 
 
 def test_billing_seed_bootstrap_data_cli_is_idempotent(

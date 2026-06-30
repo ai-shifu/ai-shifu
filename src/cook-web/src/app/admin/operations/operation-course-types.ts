@@ -40,6 +40,15 @@ export type AdminOperationCoursePromptResponse = {
   course_prompt: string;
 };
 
+export type AdminOperationCourseCopyResponse = {
+  source_shifu_bid: string;
+  new_shifu_bid: string;
+  new_course_name: string;
+  target_creator_user_bid: string;
+  created_new_user: boolean;
+  granted_demo_permissions: boolean;
+};
+
 export type AdminOperationCourseDetailBasicInfo = {
   shifu_bid: string;
   course_name: string;
@@ -59,6 +68,11 @@ export type AdminOperationCourseDetailMetrics = {
   order_amount: string;
   follow_up_count: number;
   rating_score: string;
+  credit_consumed_total: number;
+  credit_usage_count: number;
+  credit_user_count: number;
+  completed_credit_user_count: number;
+  completed_user_avg_credits: number | null;
 };
 
 export type AdminOperationCourseDetailChapter = {
@@ -132,6 +146,93 @@ export type AdminOperationCourseUsersResponse = {
   total: number;
 };
 
+export type AdminOperationCourseCreditUsageMode =
+  | 'learn'
+  | 'listen'
+  | 'ask'
+  | 'mixed'
+  | LooseString;
+
+export type AdminOperationCourseCreditUsageView = 'grouped' | 'raw';
+
+export type AdminOperationCourseCreditUsageScene =
+  | 'learning'
+  | 'preview'
+  | 'debug'
+  | LooseString;
+
+export type AdminOperationCourseCreditUsageSceneFilter =
+  | 'all'
+  | 'learning'
+  | 'preview'
+  | 'debug';
+
+export type AdminOperationCourseCreditUsageModeFilter =
+  | 'all'
+  | 'learn'
+  | 'listen'
+  | 'ask';
+
+export type AdminOperationCourseCreditUsageFilters = {
+  keyword: string;
+  usageScene: AdminOperationCourseCreditUsageSceneFilter;
+  mode: AdminOperationCourseCreditUsageModeFilter;
+  startTime: string;
+  endTime: string;
+};
+
+export type AdminOperationCourseCreditUsageItem = {
+  group_key: string;
+  usage_bid: string;
+  progress_record_bid: string;
+  generated_block_bid: string;
+  user_bid: string;
+  mobile: string;
+  email: string;
+  nickname: string;
+  chapter_outline_item_bid: string;
+  chapter_title: string;
+  lesson_outline_item_bid: string;
+  lesson_title: string;
+  usage_scene: AdminOperationCourseCreditUsageScene;
+  usage_mode: AdminOperationCourseCreditUsageMode;
+  provider: string;
+  model: string;
+  usage_count: number;
+  model_variant_count: number;
+  consumed_credits: number;
+  created_at: string;
+};
+
+export type AdminOperationCourseCreditUsageListResponse = {
+  view: AdminOperationCourseCreditUsageView;
+  items: AdminOperationCourseCreditUsageItem[];
+  page: number;
+  page_count: number;
+  page_size: number;
+  total: number;
+};
+
+export type AdminOperationCourseCreditUsageDetailItem = {
+  usage_bid: string;
+  consumed_credits: number;
+  input_tokens: number;
+  output_tokens: number;
+  word_count: number;
+  duration_ms: number;
+  segment_count: number;
+  output_summary: string;
+  created_at: string;
+};
+
+export type AdminOperationCourseCreditUsageDetailListResponse = {
+  items: AdminOperationCourseCreditUsageDetailItem[];
+  page: number;
+  page_count: number;
+  page_size: number;
+  total: number;
+};
+
 export type AdminOperationCourseFollowUpSummary = {
   follow_up_count: number;
   user_count: number;
@@ -151,6 +252,7 @@ export type AdminOperationCourseFollowUpItem = {
   lesson_outline_item_bid: string;
   lesson_title: string;
   follow_up_content: string;
+  has_source_output: boolean;
   turn_index: number;
   created_at: string;
 };

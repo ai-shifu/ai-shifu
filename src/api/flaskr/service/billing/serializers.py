@@ -25,6 +25,8 @@ from .consts import (
     BILLING_DOMAIN_VERIFICATION_METHOD_LABELS,
     BILLING_INTERVAL_LABELS,
     BILLING_METRIC_LABELS,
+    BILLING_CAMPAIGN_BENEFIT_TYPE_LABELS,
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_LABELS,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_LABELS,
     BILLING_ORDER_STATUS_PENDING,
@@ -53,6 +55,8 @@ from .bucket_categories import (
     resolve_wallet_bucket_runtime_category,
 )
 from .models import (
+    BillingCampaign,
+    BillingCampaignProduct,
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
     BillingDomainBinding,
@@ -65,6 +69,9 @@ from .models import (
     CreditWalletBucket,
 )
 from .dtos import (
+    AdminBillingCampaignDTO,
+    AdminBillingCampaignDetailDTO,
+    AdminBillingCampaignProductOptionDTO,
     AdminBillingDailyLedgerSummaryDTO,
     AdminBillingDailyUsageMetricDTO,
     AdminBillingDomainBindingDTO,
@@ -72,6 +79,7 @@ from .dtos import (
     AdminBillingOrderDTO,
     AdminBillingSubscriptionDTO,
     BillingAlertDTO,
+    BillingCatalogCampaignDTO,
     BillingDailyLedgerSummaryDTO,
     BillingDailyUsageMetricDTO,
     BillingLedgerItemDTO,
@@ -124,7 +132,145 @@ def _serialize_ledger_dt(
     return value.replace(tzinfo=source_tz).astimezone(target_tz).isoformat()
 
 
-def serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProductDTO:
+def serialize_catalog_campaign(
+    payload: dict[str, Any],
+) -> BillingCatalogCampaignDTO | None:
+    if not payload:
+        return None
+    return BillingCatalogCampaignDTO(
+        campaign_bid=str(payload.get("campaign_bid") or ""),
+        benefit_type=str(payload.get("benefit_type") or ""),
+        discount_type=(str(payload.get("discount_type") or "") or None),
+        discount_amount=int(payload.get("discount_amount") or 0),
+        discount_percent=credit_decimal_to_number(payload.get("discount_percent") or 0),
+        campaign_price_amount=int(payload.get("campaign_price_amount") or 0),
+        bonus_credit_amount=credit_decimal_to_number(
+            payload.get("bonus_credit_amount") or 0
+        ),
+    )
+
+
+def serialize_admin_campaign_product_option(
+    row: BillingProduct,
+    *,
+    binding: BillingCampaignProduct | None = None,
+) -> AdminBillingCampaignProductOptionDTO:
+    payload = serialize_product(row)
+    return AdminBillingCampaignProductOptionDTO(
+        product_bid=row.product_bid,
+        product_code=row.product_code,
+        product_type=BILLING_PRODUCT_TYPE_LABELS.get(row.product_type, ""),
+        display_name=row.display_name_i18n_key,
+        description=row.description_i18n_key,
+        currency=row.currency,
+        price_amount=int(row.price_amount or 0),
+        credit_amount=credit_decimal_to_number(row.credit_amount),
+        billing_interval=getattr(payload, "billing_interval", "none") or "none",
+        billing_interval_count=int(getattr(payload, "billing_interval_count", 0) or 0),
+        campaign_discount_type=(
+            BILLING_CAMPAIGN_DISCOUNT_TYPE_LABELS.get(binding.discount_type, "") or None
+        )
+        if binding is not None
+        else None,
+        campaign_discount_amount=int(getattr(binding, "discount_amount", 0) or 0),
+        campaign_discount_percent=credit_decimal_to_number(
+            getattr(binding, "discount_percent", 0) or 0
+        ),
+        campaign_price_amount=int(getattr(binding, "campaign_price_amount", 0) or 0),
+        campaign_bonus_credit_amount=credit_decimal_to_number(
+            getattr(binding, "bonus_credit_amount", 0) or 0
+        ),
+    )
+
+
+def serialize_admin_campaign(
+    app: Flask,
+    row: BillingCampaign,
+    *,
+    product_names: list[str],
+    product_types: list[str],
+    hit_order_count: int,
+    has_custom_product_rules: bool = False,
+    discount_type_code: int | None = None,
+    discount_amount: int | None = None,
+    discount_percent: Any | None = None,
+    bonus_credit_amount: Any | None = None,
+    timezone_name: str | None = None,
+) -> AdminBillingCampaignDTO:
+    now = datetime.now()
+    if not bool(row.enabled):
+        computed_status = "inactive"
+    elif row.start_at and row.start_at > now:
+        computed_status = "upcoming"
+    elif row.end_at and row.end_at <= now:
+        computed_status = "ended"
+    else:
+        computed_status = "active"
+    resolved_discount_type_code = (
+        int(row.discount_type or 0)
+        if discount_type_code is None
+        else int(discount_type_code or 0)
+    )
+    resolved_discount_amount = (
+        int(row.discount_amount or 0)
+        if discount_amount is None
+        else int(discount_amount or 0)
+    )
+    resolved_discount_percent = (
+        row.discount_percent if discount_percent is None else discount_percent
+    )
+    resolved_bonus_credit_amount = (
+        row.bonus_credit_amount if bonus_credit_amount is None else bonus_credit_amount
+    )
+    return AdminBillingCampaignDTO(
+        campaign_bid=row.campaign_bid,
+        name=str(row.name or ""),
+        note=str(row.note or ""),
+        benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_LABELS.get(row.benefit_type, ""),
+        discount_type=(
+            BILLING_CAMPAIGN_DISCOUNT_TYPE_LABELS.get(
+                resolved_discount_type_code,
+                "",
+            )
+            or None
+        ),
+        discount_amount=resolved_discount_amount,
+        discount_percent=credit_decimal_to_number(resolved_discount_percent),
+        bonus_credit_amount=credit_decimal_to_number(resolved_bonus_credit_amount),
+        product_count=len(product_names),
+        product_types=product_types,
+        product_names=product_names,
+        has_custom_product_rules=has_custom_product_rules,
+        computed_status=computed_status,
+        hit_order_count=hit_order_count,
+        start_at=serialize_dt(app, row.start_at, timezone_name=timezone_name) or "",
+        end_at=serialize_dt(app, row.end_at, timezone_name=timezone_name) or "",
+        enabled=bool(row.enabled),
+        created_at=serialize_dt(app, row.created_at, timezone_name=timezone_name) or "",
+        updated_at=serialize_dt(app, row.updated_at, timezone_name=timezone_name) or "",
+    )
+
+
+def serialize_admin_campaign_detail(
+    campaign: AdminBillingCampaignDTO,
+    *,
+    products: list[AdminBillingCampaignProductOptionDTO],
+    created_user_bid: str,
+    updated_user_bid: str,
+) -> AdminBillingCampaignDetailDTO:
+    return AdminBillingCampaignDetailDTO(
+        campaign=campaign,
+        products=products,
+        created_user_bid=created_user_bid,
+        updated_user_bid=updated_user_bid,
+    )
+
+
+def serialize_product(
+    row: BillingProduct,
+    *,
+    campaign_payload: dict[str, Any] | None = None,
+) -> BillingPlanDTO | BillingTopupProductDTO:
     metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
     badge = metadata.get("badge")
     highlights = metadata.get("highlights")
@@ -142,6 +288,17 @@ def serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProdu
         payload["highlights"] = [
             str(item) for item in highlights if str(item or "").strip()
         ]
+    resolved_campaign_payload = serialize_catalog_campaign(
+        campaign_payload
+        if isinstance(campaign_payload, dict)
+        else (
+            metadata.get("campaign")
+            if isinstance(metadata.get("campaign"), dict)
+            else {}
+        )
+    )
+    if resolved_campaign_payload is not None:
+        payload["campaign"] = resolved_campaign_payload
     if badge:
         badge_key = str(badge).strip()
         if "_" in badge_key:
@@ -158,6 +315,10 @@ def serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProdu
         )
         payload["billing_interval_count"] = int(row.billing_interval_count or 0)
         payload["auto_renew_enabled"] = bool(row.auto_renew_enabled)
+        try:
+            payload["plan_tier"] = int(metadata.get("plan_tier"))
+        except (TypeError, ValueError):
+            payload["plan_tier"] = None
         return BillingPlanDTO(**payload)
     return BillingTopupProductDTO(**payload)
 

@@ -12,3 +12,7 @@
 - `module-augmentation-guardrails`
 - `hook-contract-refactor-safety`
 - `chat-system-interaction-button-overrides`
+- `app-error-boundary-display`
+- `admin-breadcrumbs`
+- `admin-filter-layout`
+- `admin-table-visual-system`

@@ -1,0 +1,389 @@
+{
+  "__namespace__": "module.operationsCreditNotifications",
+  "actions": {
+    "applyConfig": "Enregistrer",
+    "applyTemplate": "Appliquer le modèle",
+    "changeTemplate": "Changer le modèle",
+    "detail": "Détails",
+    "dryRun": "Estimer l’envoi",
+    "more": "Plus",
+    "refresh": "Actualiser",
+    "requeue": "Relancer",
+    "reset": "Réinitialiser",
+    "search": "Rechercher",
+    "syncTemplate": "Interroger le modèle",
+    "syncingTemplate": "Interrogation"
+  },
+  "config": {
+    "description": "Gérez au même endroit les interrupteurs, modèles, règles d’envoi, heures calmes et listes sans envoi des SMS de crédits.",
+    "emptyBlockedCreators": "Aucun enseignant bloqué.",
+    "emptyOptedOutCreators": "Aucun enseignant désinscrit.",
+    "fieldTips": {
+      "blockedCreatorList": "Affiche les créateurs actuellement bloqués. Les modifications saisies prennent effet après enregistrement.",
+      "creatorIdentifierList": "Saisissez des numéros mobiles ou ID de créateur séparés par des virgules.",
+      "creatorIdentifierListEmail": "Saisissez des e-mails ou ID de créateur séparés par des virgules.",
+      "creatorIdentifierListPhone": "Saisissez des numéros mobiles ou ID de créateur séparés par des virgules.",
+      "creatorList": "Saisissez des ID de créateur séparés par des virgules.",
+      "dailySmsLimit": "Après ce plafond quotidien, aucun nouveau SMS ne sera envoyé ce jour-là.",
+      "enabled": "Contrôle l’activation des SMS de crédits. S’applique uniquement aux notifications futures.",
+      "estimatedDays": "Déclenche le rappel de solde bas lorsque les jours utilisables estimés atteignent cette valeur.",
+      "fallbackFixedValue": "Revient à un seuil de solde fixe si les données de consommation sont insuffisantes.",
+      "lookbackDays": "Nombre de jours récents utilisés pour calculer la consommation quotidienne moyenne.",
+      "minConsumedDays": "Si les jours de consommation valides sont insuffisants, la règle par jours estimés n’est pas utilisée.",
+      "mobileList": "Saisissez des mobiles séparés par des virgules.",
+      "optedOutCreators": "Les listes de désinscription viennent du parcours de désinscription et sont en lecture seule.",
+      "perCreatorPerTypePerDay": "Nombre maximal généré par jour pour le même enseignant et type.",
+      "perMobilePerDay": "Nombre maximal de SMS de crédits envoyés au même mobile par jour.",
+      "quietEnd": "Fin des heures calmes, par exemple 08:00.",
+      "quietStart": "Début des heures calmes, par exemple 22:00.",
+      "smsUnitCost": "Utilisé pour estimer le coût SMS. La facturation réelle dépend du fournisseur SMS.",
+      "softlimitThreshold": "Un solde sous cette valeur déclenche alertes, SMS ou blocage du debug.",
+      "templateCode": "Sélectionnez le modèle SMS utilisé par ce type de notification. Appliquez le modèle après modification pour terminer la validation.",
+      "templateSelect": "Sélectionnez le modèle SMS utilisé par ce type de notification. Appliquez le modèle après modification pour terminer la validation.",
+      "thresholds": "Par exemple 100,50,10 ; le rappel se déclenche quand le solde passe sous un seuil.",
+      "timezone": "Fuseau horaire des heures calmes, par exemple Asia/Shanghai.",
+      "windows": "Par exemple 7d,3d,1d,0d signifie 7 jours avant, 3 jours avant, 1 jour avant et le jour même."
+    },
+    "fields": {
+      "blacklistCreatorBids": "ID des créateurs à bloquer",
+      "blacklistMobiles": "Mobiles à bloquer",
+      "blockedCreatorList": "Enseignants bloqués",
+      "blockedCreators": "Enseignants bloqués",
+      "dailySmsLimit": "Plafond quotidien d’envoi",
+      "disableDebug": "Bloquer le debug si solde bas",
+      "dryRunRequired": "Exiger une estimation avant envoi",
+      "enabled": "Activer les SMS de crédits",
+      "estimatedDays": "Jours restants utilisables",
+      "estimatedDaysEnabled": "Rappel selon jours utilisables",
+      "fallbackFixedValue": "Seuil de solde de secours",
+      "lookbackDays": "Période d’analyse de consommation (jours)",
+      "mergeSameCreator": "Fusionner le même créateur",
+      "minConsumedDays": "Nombre minimal de jours de consommation valide",
+      "optOutCreatorBids": "ID des créateurs désinscrits",
+      "optOutMobiles": "Mobiles désinscrits",
+      "optedOutCreators": "Créateurs désinscrits",
+      "perCreatorPerTypePerDay": "Plafond quotidien par créateur/type",
+      "perMobilePerDay": "Plafond quotidien par mobile",
+      "quietEnd": "Fin heures calmes",
+      "quietHoursEnabled": "Activer les heures calmes",
+      "quietStart": "Début heures calmes",
+      "smsUnitCost": "Coût unitaire SMS",
+      "softlimitEnabled": "Activer la protection du solde",
+      "softlimitSms": "Envoyer le SMS de protection",
+      "softlimitThreshold": "Seuil de protection du solde",
+      "teacherPageAlert": "Alerte page admin",
+      "templateCode": "Modèle SMS",
+      "templateSelect": "Sélectionner un modèle SMS",
+      "thresholds": "Seuils de rappel de solde",
+      "timezone": "Fuseau horaire",
+      "windows": "Délais de rappel d’expiration"
+    },
+    "inputPlaceholders": {
+      "blockedCreatorsEmail": "Saisir des e-mails ou ID de créateur, séparés par des virgules",
+      "blockedCreatorsPhone": "Saisir des numéros mobiles ou ID de créateur, séparés par des virgules"
+    },
+    "invalidConfig": "Impossible d’enregistrer la configuration. Vérifiez les valeurs du formulaire.",
+    "listDialog": {
+      "add": "Ajouter",
+      "addedBlockedCreators": "{count} enseignants ajoutés.",
+      "blockedCreatorLimit": "Ajoutez au maximum {count} enseignants à la fois.",
+      "blockedDescription": "Recherchez, consultez et supprimez les enseignants bloqués. Les changements prennent effet après enregistrement.",
+      "blockedSummary": "{count} enseignants bloqués",
+      "delete": "Supprimer",
+      "duplicateBlockedCreators": "La saisie existe déjà dans la liste de blocage.",
+      "emptyNickname": "Aucun pseudo",
+      "emptyPreview": "Aucun détail",
+      "emptyResult": "Aucun résultat.",
+      "invalidBlockedCreators": "Contenu non reconnu : {values}",
+      "manage": "Gérer",
+      "optedOutDescription": "Les enseignants désinscrits sont en lecture seule. Recherchez par contact ou pseudo.",
+      "optedOutSummary": "{count} enseignants désinscrits",
+      "searchPlaceholderEmail": "Rechercher e-mail ou pseudo",
+      "searchPlaceholderPhone": "Rechercher mobile ou pseudo",
+      "view": "Voir"
+    },
+    "loadFailed": "Impossible de charger la stratégie de notification. Actualisez puis réessayez.",
+    "loadRequired": "La stratégie de notification n’a pas été chargée correctement. La configuration ne peut pas être enregistrée.",
+    "masterSwitchDescription": "Une fois désactivé, aucun nouveau SMS de crédits ne sera généré. Les historiques ne sont pas affectés.",
+    "placeholders": {
+      "available": "Variables disponibles",
+      "available_credits": "Crédits disponibles",
+      "avg_daily_consumption": "Consommation moyenne quotidienne",
+      "collapse": "Réduire",
+      "credits": "Montant de crédits",
+      "estimated_remaining_days": "Jours restants estimés",
+      "expand": "Développer",
+      "expires_at": "Date d’expiration",
+      "groups": {
+        "creditExpiring": "Variables de rappel d’expiration",
+        "creditGranted": "Variables de rappel d’attribution",
+        "lowBalanceEstimated": "Variables par jours restants",
+        "lowBalanceFixed": "Variables de solde fixe / secours"
+      },
+      "guideHint": "À consulter lors du changement de modèle",
+      "guideTitle": {
+        "credit_expiring": "Guide des variables d’expiration des crédits",
+        "credit_granted": "Guide des variables d’attribution de crédits",
+        "low_balance": "Guide des variables de solde de crédits"
+      },
+      "lookback_days": "Jours d’historique consommation",
+      "notes": {
+        "emptyVariables": "Dans un même type de notification, les variables sans valeur pour le chemin déclencheur réel sont envoyées comme chaînes vides.",
+        "estimatedLowBalance": "Les alertes par jours restants estiment les jours utilisables à partir de la consommation moyenne quotidienne ; les variables de seuil fixe sont vides.",
+        "expiresAtOptional": "Si les crédits attribués n’ont pas de date d’expiration, la variable d’expiration est vide.",
+        "fallbackLowBalance": "Quand l’historique de consommation est insuffisant et qu’un seuil de secours est configuré, le chemin de solde fixe est utilisé ; les variables fixes sont renseignées et les variables estimées sont vides.",
+        "fixedLowBalance": "Les alertes de solde fixe renseignent uniquement le solde, le seuil et le type de seuil.",
+        "unsupportedValidation": "Les modèles qui utilisent des variables non prises en charge par le système sont bloqués lors de la synchronisation du modèle ou de l’enregistrement activé.",
+        "windowSource": "La variable de fenêtre de rappel vient de la configuration des fenêtres d’expiration, par exemple 7d, 3d, 1d ou 0d."
+      },
+      "source": "Source d’attribution",
+      "threshold": "Seuil fixe de solde",
+      "threshold_kind": "Type de seuil",
+      "tolerance": "Les modèles SMS peuvent n’utiliser qu’une partie des variables ; les variables inutilisées manquantes ne bloquent ni l’enregistrement ni l’envoi.",
+      "trigger_days": "Jours restants déclencheurs",
+      "window": "Fenêtre de rappel"
+    },
+    "saveStickyHint": "Enregistrez les modifications pour les appliquer aux prochaines notifications.",
+    "saved": "Configuration enregistrée.",
+    "sectionDescriptions": {
+      "budget": "Contrôle le plafond quotidien d’envoi SMS et estime le coût prévu.",
+      "frequency": "Limite le nombre de SMS reçus par le même mobile ou enseignant dans une journée.",
+      "lists": "Les enseignants dans ces listes ne recevront plus de SMS de crédits. Les désinscriptions viennent du parcours de désinscription et sont en lecture seule.",
+      "quietHours": "Pendant les heures calmes, les SMS seront retardés ou ignorés selon la stratégie.",
+      "softlimit": "Quand le solde est sous le seuil de protection, rappeler les enseignants et limiter le debug pour éviter de continuer à consommer."
+    },
+    "sections": {
+      "budget": "Budget SMS",
+      "deliveryPolicy": "Règles d’envoi",
+      "frequency": "Fréquence d’envoi",
+      "lists": "Listes sans envoi",
+      "masterSwitch": "Interrupteur général",
+      "quietHours": "Heures calmes",
+      "softlimit": "Protection du solde",
+      "types": "Types de notification"
+    },
+    "templateList": {
+      "editPlaceholder": "Sélectionner ou saisir un modèle pour ce type",
+      "error": "La liste fournisseur n’a pas pu être chargée. Affichage du cache local ou saisie manuelle uniquement.",
+      "fallbackManual": "Le chargement des modèles du fournisseur SMS a échoué. Saisissez un code de modèle manuellement.",
+      "fallbackWithCache": "Le chargement des modèles du fournisseur SMS a échoué. Affichage des modèles en cache local.",
+      "itemSource": {
+        "local": "Modèle en cache local",
+        "provider": "Modèle fournisseur"
+      },
+      "placeholder": "Sélectionner un modèle ou saisir un code",
+      "source": {
+        "empty": "Aucun modèle sélectionnable. Saisissez un code manuellement.",
+        "local": "La liste des modèles vient du cache local.",
+        "provider": "La liste des modèles vient du fournisseur SMS."
+      }
+    },
+    "templateSync": {
+      "compatible": "Variables du modèle prises en charge",
+      "content": "Contenu du modèle",
+      "error": "Erreur de synchronisation",
+      "incompatible": "Le modèle contient des variables non prises en charge",
+      "status": "Statut d’audit",
+      "syncFailed": "Échec de la requête du modèle. Réessayez plus tard.",
+      "templateCodeRequired": "Saisissez d’abord le code du modèle SMS.",
+      "unsupported": "Variables du modèle non prises en charge",
+      "unused": "Variables système inutilisées",
+      "variables": "Variables du modèle"
+    },
+    "title": "Configuration SMS",
+    "typeDescriptions": {
+      "credit_expiring": "Rappelle aux enseignants d’utiliser les crédits avant leur expiration.",
+      "credit_granted": "Rappelle aux enseignants de vérifier le résultat après l’arrivée de crédits.",
+      "low_balance": "Rappelle les enseignants lorsque le solde est sous un seuil ou que les jours utilisables estimés sont faibles."
+    },
+    "unsavedDialog": {
+      "cancel": "Continuer la modification",
+      "description": "Quitter cette page abandonnera les modifications et restaurera la dernière configuration enregistrée.",
+      "discard": "Quitter sans enregistrer",
+      "save": "Enregistrer et quitter",
+      "title": "Modifications non enregistrées"
+    }
+  },
+  "deliveryStatus": {
+    "failed": "Échec d’envoi",
+    "not_sent": "Non envoyé",
+    "pending": "En attente",
+    "sent": "Envoyé"
+  },
+  "detail": {
+    "description": "Consulter le parcours d’envoi, les dates et la réponse du fournisseur de cet enregistrement.",
+    "fallback": "Aucun enregistrement sélectionné",
+    "fields": {
+      "attemptedAt": "Dernière tentative",
+      "createdAt": "Créé le",
+      "dedupeKey": "Marqueur de déduplication",
+      "errorCode": "Code erreur",
+      "errorMessage": "Raison d’échec",
+      "metadata": "Métadonnées",
+      "notificationBid": "ID de notification",
+      "policySnapshot": "Instantané de stratégie",
+      "providerResponse": "Réponse du fournisseur",
+      "requestedAt": "Demandé le",
+      "sentAt": "Envoyé le",
+      "skipReason": "Raison de non-envoi",
+      "sourceBid": "ID de l’objet déclencheur",
+      "sourceObject": "Objet déclencheur",
+      "template": "Modèle SMS",
+      "templateCode": "Code du modèle",
+      "templateName": "Nom du modèle",
+      "templateParams": "Paramètres du modèle",
+      "updatedAt": "Mis à jour le"
+    },
+    "params": {
+      "available_credits": "Crédits disponibles",
+      "avg_daily_consumption": "Consommation moyenne quotidienne",
+      "credits": "Crédits",
+      "estimated_remaining_days": "Jours restants estimés",
+      "expires_at": "Date d’expiration",
+      "lookback_days": "Jours d’historique consommation",
+      "source": "Source d’attribution",
+      "threshold": "Seuil d’alerte",
+      "threshold_kind": "Type de seuil",
+      "trigger_days": "Jours restants déclencheurs",
+      "window": "Fenêtre de rappel"
+    },
+    "sections": {
+      "business": "Données associées",
+      "delivery": "Parcours d’envoi",
+      "diagnostics": "Diagnostic",
+      "message": "Contenu SMS",
+      "provider": "Fournisseur",
+      "snapshots": "Instantanés",
+      "summary": "Résumé",
+      "time": "Temps",
+      "trigger": "Informations de déclenchement"
+    },
+    "sourceObject": {
+      "ledger": "Journal de crédits",
+      "wallet": "Compte de solde",
+      "wallet_bucket": "Lot de crédits"
+    },
+    "summary": {
+      "creator": "Enseignant",
+      "notification": "Type de notification",
+      "status": "Statut d’envoi"
+    },
+    "title": "Détails de notification"
+  },
+  "dryRun": {
+    "candidateCount": "{count} correspondances estimées",
+    "description": "Estime combien de notifications correspondent à la configuration actuelle. Aucun SMS n’est envoyé.",
+    "empty": "Aucun résultat d’estimation.",
+    "metrics": {
+      "candidate": "Correspondances",
+      "cost": "Coût estimé",
+      "created": "Créations estimées"
+    },
+    "rawResult": "Résultat brut",
+    "title": "Estimation d’envoi"
+  },
+  "empty": "Aucun enregistrement de notification de crédits.",
+  "errorReason": {
+    "blacklisted": "L’enseignant est dans la liste de non-envoi, non envoyé.",
+    "budget_daily_sms_limit": "Le budget SMS quotidien est atteint.",
+    "expiry_extended": "L’expiration des crédits a été prolongée avant l’envoi.",
+    "frequency_creator_type_daily": "La limite quotidienne de cet enseignant et de ce type est atteinte.",
+    "frequency_mobile_daily": "La limite quotidienne de ce téléphone est atteinte.",
+    "invalid_mobile": "Le numéro de téléphone du créateur est invalide ; notification non envoyée.",
+    "missing_mobile": "Le numéro de téléphone du créateur est manquant ; notification non envoyée.",
+    "missing_template_code": "Le modèle SMS n’est pas configuré.",
+    "missing_template_params": "Les paramètres du modèle SMS sont incomplets.",
+    "opt_out": "L’enseignant s’est désinscrit, non envoyé.",
+    "policy_disabled": "La stratégie de notification est désactivée, non envoyé.",
+    "provider_exception": "L’appel au fournisseur SMS a échoué.",
+    "provider_failed": "Le fournisseur SMS n’a pas renvoyé de réponse acceptée.",
+    "quiet_hours": "La période de silence est active, non envoyé.",
+    "zero_balance_missing_estimated_remaining_days": "Le rappel de solde nul manque les jours restants estimés, non envoyé."
+  },
+  "filters": {
+    "all": "Tous",
+    "createdTime": "Date de création",
+    "creator": "Créateur",
+    "creatorBid": "ID de créateur",
+    "creatorPlaceholder": "E-mail / pseudonyme",
+    "mobile": "Mobile",
+    "notificationType": "Type de notification",
+    "skipReason": "Raison de non-envoi",
+    "sourceBid": "ID métier du déclencheur",
+    "sourceType": "Type de déclencheur",
+    "status": "Statut d’envoi",
+    "time": "Période",
+    "timeRangePlaceholder": "Date de début ~ Date de fin"
+  },
+  "loadError": "Impossible de charger les notifications de crédits. Actualisez puis réessayez.",
+  "messages": {
+    "requeueDone": "Tâche de relance envoyée.",
+    "requeueFailed": "Échec de la tâche de relance."
+  },
+  "overview": {
+    "activeFilter": "Filtre actif",
+    "failed": "Échecs d’envoi",
+    "failedTooltip": "Notifications échouées côté fournisseur SMS et pouvant être relancées depuis la liste.",
+    "pending": "En attente",
+    "pendingTooltip": "Notifications créées et en attente d’envoi ou de traitement.",
+    "sent": "Envoyée",
+    "sentTooltip": "Notifications soumises avec succès au fournisseur SMS et marquées comme envoyées.",
+    "skipped": "Non envoyées",
+    "skippedTooltip": "Notifications non envoyées à cause de coordonnées invalides, limites de stratégie, doublons ou conditions de déclenchement modifiées.",
+    "total": "Tous les enregistrements de notification",
+    "totalTooltip": "Tous les enregistrements de notification SMS de crédits générés par le système."
+  },
+  "records": {
+    "totalCount": "{count} enregistrements de notification"
+  },
+  "skipReason": {
+    "contact": "Coordonnées invalides",
+    "duplicate": "Notification en double",
+    "policy": "Limite de stratégie",
+    "stale": "Condition de déclenchement modifiée",
+    "template_params": "Paramètres du modèle incomplets"
+  },
+  "sourceType": {
+    "ledger": "Rappel d’attribution de crédits",
+    "wallet": "Rappel de solde de crédits",
+    "wallet_bucket": "Rappel d’expiration des crédits"
+  },
+  "status": {
+    "failed_provider": "Échec d’envoi",
+    "pending": "En attente",
+    "sent": "Envoyé",
+    "skipped": "Non envoyé",
+    "skipped_no_mobile": "Coordonnées invalides",
+    "skipped_opt_out": "Limite de stratégie",
+    "suppressed_duplicate": "Notification en double"
+  },
+  "subtitle": "Consultez la livraison des notifications de crédits attribués, expirants ou bas, et configurez la politique SMS.",
+  "table": {
+    "action": "Plus",
+    "createdAt": "Créé le",
+    "creator": "Enseignant",
+    "dedupeKey": "Clé d’idempotence",
+    "error": "Raison / détails de l’erreur",
+    "mobile": "Téléphone",
+    "notification": "Type de notification",
+    "source": "Type de déclencheur",
+    "status": "Statut d’envoi",
+    "template": "Modèle",
+    "templateParams": "Paramètres"
+  },
+  "tabs": {
+    "config": "Configuration SMS",
+    "records": "Notifications"
+  },
+  "templateName": {
+    "credit_expiring": "Modèle de rappel d’expiration",
+    "credit_granted": "Modèle de rappel d’attribution de crédits",
+    "low_balance": "Modèle de rappel de solde de crédits"
+  },
+  "title": "Notifications de crédits",
+  "type": {
+    "credit_expiring": "Expiration des crédits",
+    "credit_granted": "Attribution de crédits",
+    "low_balance": "Solde bas"
+  }
+}

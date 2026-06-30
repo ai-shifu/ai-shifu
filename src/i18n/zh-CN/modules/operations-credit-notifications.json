@@ -1,0 +1,389 @@
+{
+  "__namespace__": "module.operationsCreditNotifications",
+  "actions": {
+    "applyConfig": "保存配置",
+    "applyTemplate": "应用模板",
+    "changeTemplate": "更换模板",
+    "detail": "详情",
+    "dryRun": "试算通知",
+    "more": "更多",
+    "refresh": "刷新",
+    "requeue": "重发",
+    "reset": "重置",
+    "search": "搜索",
+    "syncTemplate": "查询模板",
+    "syncingTemplate": "查询中"
+  },
+  "config": {
+    "description": "统一维护积分短信通知的开关、模板、发送规则、免打扰时段和不发送名单。",
+    "emptyBlockedCreators": "暂无已屏蔽老师。",
+    "emptyOptedOutCreators": "暂无已退订老师。",
+    "fieldTips": {
+      "blockedCreatorList": "展示当前屏蔽名单中的老师，修改左侧输入后需保存配置才会生效。",
+      "creatorIdentifierList": "支持填写手机号或老师ID，多个值用逗号分隔。",
+      "creatorIdentifierListEmail": "支持填写邮箱或老师ID，多个值用逗号分隔。",
+      "creatorIdentifierListPhone": "支持填写手机号或老师ID，多个值用逗号分隔。",
+      "creatorList": "填写老师ID，多个值用逗号分隔。",
+      "dailySmsLimit": "超过每日上限后，当天不再继续发送新短信。",
+      "enabled": "控制积分短信通知的启用状态，仅对后续通知生效。",
+      "estimatedDays": "预计还能使用多少天时触发低余额提醒。",
+      "fallbackFixedValue": "日消耗数据不足时，回退到固定余额阈值。",
+      "lookbackDays": "用最近多少天的消耗计算日均消耗。",
+      "minConsumedDays": "消耗天数不足时，不使用预计可用天数规则。",
+      "mobileList": "填写手机号，多个值用逗号分隔。",
+      "optedOutCreators": "已退订名单由用户退订行为生成，仅支持查看。",
+      "perCreatorPerTypePerDay": "同一老师、同一通知类型一天内最多生成的短信数量。",
+      "perMobilePerDay": "同一个手机号一天内最多收到的积分短信数量。",
+      "quietEnd": "免打扰结束时间，格式如 08:00。",
+      "quietStart": "免打扰开始时间，格式如 22:00。",
+      "smsUnitCost": "用于试算预计短信费用，实际扣费以短信供应商为准。",
+      "softlimitThreshold": "低于该余额后触发页面提醒、短信提醒或调试限制。",
+      "templateCode": "选择当前通知类型使用的短信模板；更换后需应用模板完成校验。",
+      "templateSelect": "选择当前通知类型使用的短信模板；更换后需应用模板完成校验。",
+      "thresholds": "例如 100,50,10，余额低于任一阈值时会触发提醒。",
+      "timezone": "免打扰时间使用的时区，例如 Asia/Shanghai。",
+      "windows": "例如 7d,3d,1d,0d，表示提前 7 天、3 天、1 天和当天提醒。"
+    },
+    "fields": {
+      "blacklistCreatorBids": "屏蔽老师ID",
+      "blacklistMobiles": "屏蔽手机号",
+      "blockedCreatorList": "已屏蔽老师",
+      "blockedCreators": "屏蔽老师",
+      "dailySmsLimit": "每日最大发送量",
+      "disableDebug": "余额不足时禁止调试",
+      "dryRunRequired": "发送前要求试算",
+      "enabled": "启用积分短信通知",
+      "estimatedDays": "剩余可用天数",
+      "estimatedDaysEnabled": "按可用天数提醒",
+      "fallbackFixedValue": "数据不足时按余额提醒",
+      "lookbackDays": "计算日消耗天数",
+      "mergeSameCreator": "同一老师合并",
+      "minConsumedDays": "最少有效消耗天数",
+      "optOutCreatorBids": "已退订老师ID",
+      "optOutMobiles": "已退订手机号",
+      "optedOutCreators": "已退订老师",
+      "perCreatorPerTypePerDay": "同一老师同类型每日上限",
+      "perMobilePerDay": "同手机号每日上限",
+      "quietEnd": "免打扰结束",
+      "quietHoursEnabled": "启用免打扰",
+      "quietStart": "免打扰开始",
+      "smsUnitCost": "短信单价",
+      "softlimitEnabled": "启用余额保护",
+      "softlimitSms": "发送余额保护短信",
+      "softlimitThreshold": "保护触发余额",
+      "teacherPageAlert": "后台页面提醒",
+      "templateCode": "短信模板",
+      "templateSelect": "选择短信模板",
+      "thresholds": "余额提醒阈值",
+      "timezone": "时区",
+      "windows": "到期提醒窗口"
+    },
+    "inputPlaceholders": {
+      "blockedCreatorsEmail": "输入老师邮箱或ID，多个值用逗号分隔",
+      "blockedCreatorsPhone": "输入老师手机号或ID，多个值用逗号分隔"
+    },
+    "invalidConfig": "配置保存失败，请检查表单内容。",
+    "listDialog": {
+      "add": "添加",
+      "addedBlockedCreators": "已添加 {count} 位老师",
+      "blockedCreatorLimit": "单次最多添加 {count} 位老师。",
+      "blockedDescription": "可搜索、查看和删除已屏蔽老师；删除后需保存配置才会生效。",
+      "blockedSummary": "已屏蔽 {count} 位老师",
+      "delete": "删除",
+      "duplicateBlockedCreators": "输入内容已在屏蔽名单中。",
+      "emptyNickname": "暂无昵称",
+      "emptyPreview": "暂无明细",
+      "emptyResult": "暂无匹配结果。",
+      "invalidBlockedCreators": "以下内容未识别：{values}",
+      "manage": "管理",
+      "optedOutDescription": "已退订老师仅支持查看，可按手机号或昵称搜索。",
+      "optedOutSummary": "已退订 {count} 位老师",
+      "searchPlaceholderEmail": "搜索邮箱或昵称",
+      "searchPlaceholderPhone": "搜索手机号或昵称",
+      "view": "查看"
+    },
+    "loadFailed": "通知策略读取失败，请刷新后重试。",
+    "loadRequired": "通知策略尚未成功读取，不能保存配置。",
+    "masterSwitchDescription": "关闭后将停止生成新的积分短信通知，历史通知记录不受影响。",
+    "placeholders": {
+      "available": "可用占位符",
+      "available_credits": "当前可用积分",
+      "avg_daily_consumption": "平均日消耗",
+      "collapse": "收起",
+      "credits": "积分数",
+      "estimated_remaining_days": "预计剩余可用天数",
+      "expand": "展开查看",
+      "expires_at": "过期时间",
+      "groups": {
+        "creditExpiring": "到期提醒变量",
+        "creditGranted": "发放提醒变量",
+        "lowBalanceEstimated": "按可用天数变量",
+        "lowBalanceFixed": "固定余额/兜底变量"
+      },
+      "guideHint": "更换模板时查看",
+      "guideTitle": {
+        "credit_expiring": "积分到期提醒变量说明",
+        "credit_granted": "积分到账提醒变量说明",
+        "low_balance": "积分余额提醒变量说明"
+      },
+      "lookback_days": "日消耗回看天数",
+      "notes": {
+        "emptyVariables": "同一通知类型下，不同触发路径没有值的变量会以空字符串发送。",
+        "estimatedLowBalance": "按可用天数提醒会根据日均消耗估算剩余天数；固定余额阈值变量为空。",
+        "expiresAtOptional": "如果发放积分没有过期时间，过期时间变量会为空。",
+        "fallbackLowBalance": "当日消耗数据不足且配置兜底阈值时，会退回固定余额路径；固定余额变量有值，按天数估算变量为空。",
+        "fixedLowBalance": "固定余额阈值触发时只有余额、阈值和阈值类型有值。",
+        "unsupportedValidation": "模板使用系统不支持的变量时，查询模板或启用保存会拦截。",
+        "windowSource": "提醒窗口变量来自到期提醒窗口配置，例如 7d、3d、1d、0d。"
+      },
+      "source": "发放来源",
+      "threshold": "固定余额阈值",
+      "threshold_kind": "阈值类型",
+      "tolerance": "短信模板可只使用部分占位符；系统不会因模板少用变量而拦截保存或发送。",
+      "trigger_days": "触发可用天数",
+      "window": "提醒窗口"
+    },
+    "saveStickyHint": "修改配置后需保存，保存后对后续通知生效。",
+    "saved": "配置已保存。",
+    "sectionDescriptions": {
+      "budget": "控制每日短信发送上限，并用于试算预计费用。",
+      "frequency": "限制同一手机号或同一老师一天内收到的短信数量。",
+      "lists": "名单中的老师将不再接收积分短信。已退订名单由用户退订行为生成，仅支持查看。",
+      "quietHours": "在免打扰时段内，短信将按策略延后或跳过发送。",
+      "softlimit": "余额低于保护线时，可提醒老师并限制继续调试，避免继续消耗。"
+    },
+    "sections": {
+      "budget": "短信预算",
+      "deliveryPolicy": "发送规则",
+      "frequency": "发送频率",
+      "lists": "不发送名单",
+      "masterSwitch": "总开关",
+      "quietHours": "免打扰时段",
+      "softlimit": "余额保护",
+      "types": "通知类型"
+    },
+    "templateList": {
+      "editPlaceholder": "选择或填写该类型模板",
+      "error": "供应商模板列表读取失败，当前展示本地已查询模板或仅支持手动输入。",
+      "fallbackManual": "短信供应商模板读取失败，请手动填写模板 Code。",
+      "fallbackWithCache": "短信供应商模板读取失败，当前展示本地缓存模板。",
+      "itemSource": {
+        "local": "本地缓存模板",
+        "provider": "供应商模板"
+      },
+      "placeholder": "选择模板或填写模板 Code",
+      "source": {
+        "empty": "暂无可选模板，请手动填写模板 Code。",
+        "local": "模板列表来自本地缓存。",
+        "provider": "模板列表来自短信供应商。"
+      }
+    },
+    "templateSync": {
+      "compatible": "模板变量可用",
+      "content": "模板内容",
+      "error": "同步错误",
+      "incompatible": "模板含不支持变量",
+      "status": "审核状态",
+      "syncFailed": "模板查询失败，请稍后重试。",
+      "templateCodeRequired": "请先填写短信模板 Code。",
+      "unsupported": "不支持的模板变量",
+      "unused": "未使用的系统变量",
+      "variables": "模板实际变量"
+    },
+    "title": "短信配置",
+    "typeDescriptions": {
+      "credit_expiring": "积分即将到期时提醒老师及时使用。",
+      "credit_granted": "积分到账后提醒老师查看到账结果。",
+      "low_balance": "积分余额低于阈值，或预计可用天数不足时提醒老师。"
+    },
+    "unsavedDialog": {
+      "cancel": "继续编辑",
+      "description": "离开当前页面会放弃本次修改，未保存的内容将恢复为上次保存的配置。",
+      "discard": "不保存退出",
+      "save": "保存并退出",
+      "title": "配置尚未保存"
+    }
+  },
+  "deliveryStatus": {
+    "failed": "发送失败",
+    "not_sent": "未发送",
+    "pending": "待发送",
+    "sent": "已发送"
+  },
+  "detail": {
+    "description": "查看通知记录的发送链路、时间和供应商返回信息。",
+    "fallback": "未选择记录",
+    "fields": {
+      "attemptedAt": "最近尝试时间",
+      "createdAt": "创建时间",
+      "dedupeKey": "去重标识",
+      "errorCode": "错误码",
+      "errorMessage": "失败原因",
+      "metadata": "扩展信息",
+      "notificationBid": "通知记录ID",
+      "policySnapshot": "发送策略快照",
+      "providerResponse": "供应商返回",
+      "requestedAt": "请求发送时间",
+      "sentAt": "发送成功时间",
+      "skipReason": "未发送原因",
+      "sourceBid": "触发对象ID",
+      "sourceObject": "触发对象",
+      "template": "短信模板",
+      "templateCode": "模板 Code",
+      "templateName": "模板名称",
+      "templateParams": "模板参数",
+      "updatedAt": "更新时间"
+    },
+    "params": {
+      "available_credits": "当前可用积分",
+      "avg_daily_consumption": "平均日消耗",
+      "credits": "积分数",
+      "estimated_remaining_days": "预计剩余可用天数",
+      "expires_at": "到期时间",
+      "lookback_days": "日消耗回看天数",
+      "source": "发放来源",
+      "threshold": "提醒阈值",
+      "threshold_kind": "阈值类型",
+      "trigger_days": "触发可用天数",
+      "window": "提醒窗口"
+    },
+    "sections": {
+      "business": "关联信息",
+      "delivery": "发送链路",
+      "diagnostics": "排查信息",
+      "message": "短信内容",
+      "provider": "供应商信息",
+      "snapshots": "参数快照",
+      "summary": "基础信息",
+      "time": "时间信息",
+      "trigger": "触发信息"
+    },
+    "sourceObject": {
+      "ledger": "积分流水",
+      "wallet": "余额账户",
+      "wallet_bucket": "积分批次"
+    },
+    "summary": {
+      "creator": "老师",
+      "notification": "通知类型",
+      "status": "投递状态"
+    },
+    "title": "通知详情"
+  },
+  "dryRun": {
+    "candidateCount": "预计命中 {count} 条",
+    "description": "按当前配置预估会命中多少通知，不会真实发送短信。",
+    "empty": "暂无试算结果。",
+    "metrics": {
+      "candidate": "预计命中",
+      "cost": "预计费用",
+      "created": "预计生成"
+    },
+    "rawResult": "原始结果",
+    "title": "试算通知"
+  },
+  "empty": "暂无积分通知记录。",
+  "errorReason": {
+    "blacklisted": "老师在不发送名单中，未发送。",
+    "budget_daily_sms_limit": "当日短信发送量已达上限，未发送。",
+    "expiry_extended": "积分到期时间已顺延，未发送。",
+    "frequency_creator_type_daily": "同一老师同类型当日发送次数已达上限，未发送。",
+    "frequency_mobile_daily": "同手机号当日发送次数已达上限，未发送。",
+    "invalid_mobile": "老师手机号格式无效，未发送。",
+    "missing_mobile": "老师手机号为空，未发送。",
+    "missing_template_code": "短信模板未配置。",
+    "missing_template_params": "短信模板参数不完整。",
+    "opt_out": "老师已退订，未发送。",
+    "policy_disabled": "通知策略已关闭，未发送。",
+    "provider_exception": "短信供应商调用异常。",
+    "provider_failed": "短信供应商未返回成功结果。",
+    "quiet_hours": "命中免打扰时段，未发送。",
+    "zero_balance_missing_estimated_remaining_days": "零余额提醒缺少预计剩余天数，未发送。"
+  },
+  "filters": {
+    "all": "全部",
+    "createdTime": "创建时间",
+    "creator": "老师",
+    "creatorBid": "老师ID",
+    "creatorPlaceholder": "手机号/昵称",
+    "mobile": "手机号",
+    "notificationType": "通知类型",
+    "skipReason": "未发送原因",
+    "sourceBid": "触发业务ID",
+    "sourceType": "触发场景",
+    "status": "投递状态",
+    "time": "时间",
+    "timeRangePlaceholder": "开始时间 ~ 结束时间"
+  },
+  "loadError": "积分通知数据读取失败，请刷新后重试。",
+  "messages": {
+    "requeueDone": "已提交重发任务。",
+    "requeueFailed": "重发任务提交失败。"
+  },
+  "overview": {
+    "activeFilter": "当前筛选",
+    "failed": "发送失败",
+    "failedTooltip": "短信供应商发送失败，可在明细中重发的通知数。",
+    "pending": "待发送",
+    "pendingTooltip": "已生成通知记录，等待发送或处理的通知数。",
+    "sent": "已发送",
+    "sentTooltip": "已成功提交给短信供应商并标记为已发送的通知数。",
+    "skipped": "未发送",
+    "skippedTooltip": "因联系方式异常、策略限制、重复通知或触发条件变化等原因未发送的通知数。",
+    "total": "全部通知记录",
+    "totalTooltip": "系统生成的全部积分短信通知记录。"
+  },
+  "records": {
+    "totalCount": "共 {count} 条通知记录"
+  },
+  "skipReason": {
+    "contact": "联系方式异常",
+    "duplicate": "重复通知",
+    "policy": "策略限制",
+    "stale": "触发条件已变化",
+    "template_params": "模板参数不完整"
+  },
+  "sourceType": {
+    "ledger": "积分到账提醒",
+    "wallet": "积分余额提醒",
+    "wallet_bucket": "积分到期提醒"
+  },
+  "status": {
+    "failed_provider": "发送失败",
+    "pending": "待发送",
+    "sent": "已发送",
+    "skipped": "未发送",
+    "skipped_no_mobile": "联系方式异常",
+    "skipped_opt_out": "策略限制",
+    "suppressed_duplicate": "重复通知"
+  },
+  "subtitle": "查看积分到账、到期和低余额提醒的投递状态，并配置短信策略。",
+  "table": {
+    "action": "更多",
+    "createdAt": "创建时间",
+    "creator": "老师",
+    "dedupeKey": "幂等键",
+    "error": "原因/错误说明",
+    "mobile": "手机号",
+    "notification": "通知类型",
+    "source": "触发场景",
+    "status": "投递状态",
+    "template": "模板",
+    "templateParams": "参数快照"
+  },
+  "tabs": {
+    "config": "短信配置",
+    "records": "通知记录"
+  },
+  "templateName": {
+    "credit_expiring": "积分到期提醒通知模板",
+    "credit_granted": "积分到账提醒模板",
+    "low_balance": "积分余额提醒模板"
+  },
+  "title": "积分通知",
+  "type": {
+    "credit_expiring": "积分到期",
+    "credit_granted": "积分到账",
+    "low_balance": "余额提醒"
+  }
+}

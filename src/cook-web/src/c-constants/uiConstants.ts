@@ -35,6 +35,10 @@ const isMobileUserAgent = () => {
 };
 
 export const calcFrameLayout = selector => {
+  if (typeof document === 'undefined') {
+    return FRAME_LAYOUT_PC;
+  }
+
   const elem = document.querySelector(selector);
   if (!elem) {
     return FRAME_LAYOUT_PC;
@@ -60,6 +64,8 @@ export const calcFrameLayout = selector => {
  */
 export const THEME_LIGHT = 'light';
 export const THEME_DARK = 'dark';
+
+export const CHAT_TYPEWRITER_SPEED_MS = 30;
 
 export const inWechat = () => {
   const ua = navigator.userAgent.toLowerCase();

@@ -169,6 +169,12 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Cook Web floating contact CTA URL (default: empty string to hide the CTA)",
         group="frontend",
     ),
+    "OFFICIAL_SITE_URL": EnvVar(
+        name="OFFICIAL_SITE_URL",
+        default="",
+        description="Official AI Shifu public website URL used by referral landing pages.",
+        group="frontend",
+    ),
     "HOST_URL": EnvVar(
         name="HOST_URL",
         default="",
@@ -247,6 +253,37 @@ ENV_VARS: Dict[str, EnvVar] = {
         default=10,
         type=int,
         description="Timeout in seconds for backend Umami API requests",
+        group="analytics",
+    ),
+    "ANALYTICS_DATABASE_URI": EnvVar(
+        name="ANALYTICS_DATABASE_URI",
+        default="",
+        description=(
+            "Read-only replica DSN for creator-analytics DSL queries. "
+            "Leave empty to fall back to the primary database (logs a warning)."
+        ),
+        secret=True,
+        group="analytics",
+    ),
+    "ANALYTICS_DATABASE_POOL_SIZE": EnvVar(
+        name="ANALYTICS_DATABASE_POOL_SIZE",
+        default=5,
+        type=int,
+        description="Connection pool size for the creator-analytics read-only engine",
+        group="analytics",
+    ),
+    "ANALYTICS_QUERY_TIMEOUT_SECONDS": EnvVar(
+        name="ANALYTICS_QUERY_TIMEOUT_SECONDS",
+        default=15,
+        type=int,
+        description="Per-query timeout in seconds for creator-analytics DSL execution",
+        group="analytics",
+    ),
+    "ANALYTICS_QUERY_LIMIT_MAX": EnvVar(
+        name="ANALYTICS_QUERY_LIMIT_MAX",
+        default=1000,
+        type=int,
+        description="Upper bound for the DSL `limit` field accepted by creator-analytics",
         group="analytics",
     ),
     "DEFAULT_COURSE_ID": EnvVar(
@@ -341,6 +378,12 @@ Default: "phone".""",
         description="Service agreement URL for English (en-US) users. Leave empty to disable the link.",
         group="legal",
     ),
+    "LEGAL_AGREEMENT_URL_FR_FR": EnvVar(
+        name="LEGAL_AGREEMENT_URL_FR_FR",
+        default="",
+        description="Service agreement URL for French (fr-FR) users. Leave empty to disable the link.",
+        group="legal",
+    ),
     "LEGAL_PRIVACY_URL_ZH_CN": EnvVar(
         name="LEGAL_PRIVACY_URL_ZH_CN",
         default="",
@@ -351,6 +394,12 @@ Default: "phone".""",
         name="LEGAL_PRIVACY_URL_EN_US",
         default="",
         description="Privacy policy URL for English (en-US) users. Leave empty to disable the link.",
+        group="legal",
+    ),
+    "LEGAL_PRIVACY_URL_FR_FR": EnvVar(
+        name="LEGAL_PRIVACY_URL_FR_FR",
+        default="",
+        description="Privacy policy URL for French (fr-FR) users. Leave empty to disable the link.",
         group="legal",
     ),
     # LLM Configuration
@@ -620,6 +669,12 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Cron expression for dispatching due billing renewal events.",
         group="celery",
     ),
+    "BILLING_PENDING_ORDER_EXPIRE_CRON": EnvVar(
+        name="BILLING_PENDING_ORDER_EXPIRE_CRON",
+        default="* * * * *",
+        description="Cron expression for expiring pending billing package orders.",
+        group="celery",
+    ),
     "BILLING_BUCKET_EXPIRE_CRON": EnvVar(
         name="BILLING_BUCKET_EXPIRE_CRON",
         default="* * * * *",
@@ -630,6 +685,20 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         name="BILLING_LOW_BALANCE_CRON",
         default="0 * * * *",
         description="Cron expression for scanning billing low-balance alerts.",
+        group="celery",
+    ),
+    "BILLING_CREDIT_EXPIRING_CRON": EnvVar(
+        name="BILLING_CREDIT_EXPIRING_CRON",
+        default="0 * * * *",
+        description="Cron expression for scanning expiring credit notifications.",
+        group="celery",
+    ),
+    "BILLING_DAILY_LEDGER_SUMMARY_CRON": EnvVar(
+        name="BILLING_DAILY_LEDGER_SUMMARY_CRON",
+        default="30 1 * * *",
+        description=(
+            "Cron expression for finalizing the previous day's billing ledger summary."
+        ),
         group="celery",
     ),
     # Authentication Configuration
@@ -1407,6 +1476,27 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Aliyun TTS sample rate (8000, 16000, 24000)",
         group="tts",
     ),
+    # Tencent TTS Configuration
+    "TENCENT_TTS_APP_ID": EnvVar(
+        name="TENCENT_TTS_APP_ID",
+        default="",
+        description="Tencent Cloud TTS AppId",
+        group="tts",
+    ),
+    "TENCENT_TTS_SECRET_ID": EnvVar(
+        name="TENCENT_TTS_SECRET_ID",
+        default="",
+        description="Tencent Cloud TTS SecretId",
+        secret=True,
+        group="tts",
+    ),
+    "TENCENT_TTS_SECRET_KEY": EnvVar(
+        name="TENCENT_TTS_SECRET_KEY",
+        default="",
+        description="Tencent Cloud TTS SecretKey",
+        secret=True,
+        group="tts",
+    ),
 }
 
 # Derived Redis prefixes built from REDIS_KEY_PREFIX
@@ -1894,3 +1984,36 @@ def get_config(key: str, default: Any = None) -> Any:
         # For unknown keys, check environment directly
         return os.environ.get(key, default)
     return __INSTANCE__.get(key, default)
+
+
+def has_explicit_env_override(key: str) -> bool:
+    """Return whether a config key is explicitly present in the environment."""
+    return key in os.environ
+
+
+def get_redis_key_prefix(app: Flask | None = None) -> str:
+    """Return the base Redis prefix as a normalized string."""
+    if app is not None:
+        configured = app.config.get("REDIS_KEY_PREFIX")
+        if configured is not None:
+            return str(configured)
+    return str(get_config("REDIS_KEY_PREFIX", "") or "")
+
+
+def get_redis_derived_prefix(
+    config_key: str,
+    *,
+    app: Flask | None = None,
+    suffix: str | None = None,
+) -> str:
+    """Resolve a derived Redis prefix even when app config is only partially set."""
+    if app is not None:
+        configured = app.config.get(config_key)
+        if configured is not None:
+            return str(configured)
+    resolved_suffix = suffix
+    if resolved_suffix is None:
+        resolved_suffix = REDIS_KEY_SUFFIXES.get(config_key, "")
+    if not resolved_suffix:
+        return ""
+    return get_redis_key_prefix(app) + resolved_suffix

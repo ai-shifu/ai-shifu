@@ -2,12 +2,12 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/Table';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
+  formatAdminCount,
   formatAdminCredits,
   formatAdminPrice,
 } from '@/app/admin/lib/numberFormat';
@@ -56,11 +57,12 @@ import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
 import type {
   AdminOperationCreditOrderItem,
   AdminOperationCreditOrderListResponse,
+  AdminOperationCreditOrderOverview,
 } from '../operation-credit-order-types';
+import OrderOverviewSection from './OrderOverviewSection';
 import CreditOrderDetailDialog from './CreditOrderDetailDialog';
 import {
   ALL_OPTION_VALUE,
-  ClearableTextInput,
   EMPTY_STATE_LABEL,
   renderTooltipText,
 } from './orderUiShared';
@@ -70,12 +72,20 @@ type CreditOrderFilters = {
   product_keyword: string;
   credit_order_kind: string;
   status: string;
+  has_available_credits: boolean;
   payment_provider: string;
   start_time: string;
   end_time: string;
 };
 
 type ErrorState = { message: string; code?: number };
+type OverviewCard = {
+  key: string;
+  label: string;
+  value: string;
+  tooltip: string;
+  quickFilters?: Partial<CreditOrderFilters>;
+};
 
 const PAGE_SIZE = 20;
 const COLUMN_MIN_WIDTH = 90;
@@ -95,6 +105,19 @@ const DEFAULT_COLUMN_WIDTHS = {
   action: 120,
 } as const;
 
+const EMPTY_CREDIT_ORDER_OVERVIEW: AdminOperationCreditOrderOverview = {
+  total_order_count: 0,
+  paid_order_count: 0,
+  pending_order_count: 0,
+  refunded_order_count: 0,
+  closed_order_count: 0,
+  canceled_order_count: 0,
+  available_credit_total: 0,
+  paid_amount_total: 0,
+  currency: 'CNY',
+  paid_amount_totals_by_currency: {},
+};
+
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 
 const createDefaultFilters = (): CreditOrderFilters => ({
@@ -102,10 +125,24 @@ const createDefaultFilters = (): CreditOrderFilters => ({
   product_keyword: '',
   credit_order_kind: '',
   status: 'paid',
+  has_available_credits: false,
   payment_provider: '',
   start_time: '',
   end_time: '',
 });
+
+const areCreditOrderFiltersEqual = (
+  left: CreditOrderFilters,
+  right: CreditOrderFilters,
+): boolean =>
+  left.creator_keyword === right.creator_keyword &&
+  left.product_keyword === right.product_keyword &&
+  left.credit_order_kind === right.credit_order_kind &&
+  left.status === right.status &&
+  left.has_available_credits === right.has_available_credits &&
+  left.payment_provider === right.payment_provider &&
+  left.start_time === right.start_time &&
+  left.end_time === right.end_time;
 
 /**
  * t('module.operationsOrder.creditOrders.emptyList')
@@ -148,6 +185,11 @@ export default function CreditOrdersTab() {
   const [expanded, setExpanded] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<ErrorState | null>(null);
+  const [overview, setOverview] =
+    React.useState<AdminOperationCreditOrderOverview>(
+      EMPTY_CREDIT_ORDER_OVERVIEW,
+    );
+  const [overviewError, setOverviewError] = React.useState(false);
   const [orders, setOrders] = React.useState<AdminOperationCreditOrderItem[]>(
     [],
   );
@@ -161,6 +203,11 @@ export default function CreditOrdersTab() {
   );
   const [appliedFilters, setAppliedFilters] =
     React.useState<CreditOrderFilters>(() => createDefaultFilters());
+  const [activeOverviewCardKey, setActiveOverviewCardKey] = React.useState<
+    string | null
+  >(null);
+  const [overviewFiltersBeforeApply, setOverviewFiltersBeforeApply] =
+    React.useState<CreditOrderFilters | null>(null);
   const requestIdRef = React.useRef(0);
   const lastRequestedPageRef = React.useRef(1);
   const { getColumnStyle, getResizeHandleProps } =
@@ -172,10 +219,10 @@ export default function CreditOrdersTab() {
     });
 
   const locale = i18n?.language || 'en-US';
-  const isEnglish = locale.startsWith('en');
+  const usesLatinLabels = !locale.startsWith('zh');
   const filterControlClassName = cn(
     'min-w-0 flex-1',
-    isEnglish && 'xl:max-w-[220px]',
+    usesLatinLabels && 'xl:max-w-[220px]',
   );
   const creatorKeywordPlaceholder = React.useMemo(() => {
     if (contactType === 'email') {
@@ -187,6 +234,21 @@ export default function CreditOrdersTab() {
       'creditOrders.filters.creatorKeywordPlaceholderPhone',
     );
   }, [contactType, tOperationsOrder]);
+
+  const fetchOverview = React.useCallback(async () => {
+    try {
+      const response = (await api.getAdminOperationCreditOrdersOverview(
+        {},
+      )) as AdminOperationCreditOrderOverview;
+      setOverview({
+        ...EMPTY_CREDIT_ORDER_OVERVIEW,
+        ...response,
+      });
+      setOverviewError(false);
+    } catch {
+      setOverviewError(true);
+    }
+  }, []);
 
   const fetchOrders = React.useCallback(
     async (targetPage: number, filters: CreditOrderFilters) => {
@@ -204,6 +266,9 @@ export default function CreditOrdersTab() {
           product_keyword: filters.product_keyword.trim(),
           credit_order_kind: filters.credit_order_kind,
           status: filters.status,
+          ...(filters.has_available_credits
+            ? { has_available_credits: true }
+            : {}),
           payment_provider: filters.payment_provider,
           start_time: filters.start_time,
           end_time: filters.end_time,
@@ -239,17 +304,164 @@ export default function CreditOrdersTab() {
   );
 
   React.useEffect(() => {
+    void fetchOverview();
+  }, [fetchOverview]);
+
+  React.useEffect(() => {
     void fetchOrders(1, appliedFilters);
   }, [appliedFilters, fetchOrders]);
 
+  const resetOverviewQuickFilterState = React.useCallback(() => {
+    setActiveOverviewCardKey(null);
+    setOverviewFiltersBeforeApply(null);
+  }, []);
+
+  const applyOverviewQuickFilter = React.useCallback(
+    (cardKey: string, quickFilters: Partial<CreditOrderFilters>) => {
+      if (activeOverviewCardKey === cardKey) {
+        return;
+      }
+      const baselineFilters =
+        activeOverviewCardKey === null
+          ? appliedFilters
+          : overviewFiltersBeforeApply || appliedFilters;
+      if (activeOverviewCardKey === null) {
+        setOverviewFiltersBeforeApply(appliedFilters);
+      }
+      const nextFilters: CreditOrderFilters = {
+        ...baselineFilters,
+        ...quickFilters,
+      };
+      setActiveOverviewCardKey(cardKey);
+      setDraftFilters(current =>
+        areCreditOrderFiltersEqual(current, nextFilters)
+          ? current
+          : nextFilters,
+      );
+      if (areCreditOrderFiltersEqual(appliedFilters, nextFilters)) {
+        return;
+      }
+      setAppliedFilters(nextFilters);
+      setPageIndex(1);
+    },
+    [activeOverviewCardKey, appliedFilters, overviewFiltersBeforeApply],
+  );
+
+  const clearOverviewQuickFilter = React.useCallback(() => {
+    if (activeOverviewCardKey === null) {
+      return;
+    }
+    const restoredFilters =
+      overviewFiltersBeforeApply || createDefaultFilters();
+    resetOverviewQuickFilterState();
+    setDraftFilters(current =>
+      areCreditOrderFiltersEqual(current, restoredFilters)
+        ? current
+        : restoredFilters,
+    );
+    if (areCreditOrderFiltersEqual(appliedFilters, restoredFilters)) {
+      return;
+    }
+    setAppliedFilters(restoredFilters);
+    setPageIndex(1);
+  }, [
+    activeOverviewCardKey,
+    appliedFilters,
+    overviewFiltersBeforeApply,
+    resetOverviewQuickFilterState,
+  ]);
+
+  const overviewCards = React.useMemo<OverviewCard[]>(
+    () => [
+      {
+        key: 'total',
+        label: tOperationsOrder('creditOrders.overview.metrics.totalOrders'),
+        value: formatAdminCount(overview.total_order_count, locale),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.totalOrders'),
+        quickFilters: {
+          status: '',
+          has_available_credits: false,
+        },
+      },
+      {
+        key: 'paid',
+        label: tOperationsOrder('creditOrders.overview.metrics.paidOrders'),
+        value: formatAdminCount(overview.paid_order_count, locale),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.paidOrders'),
+        quickFilters: {
+          status: 'paid',
+          has_available_credits: false,
+        },
+      },
+      {
+        key: 'credit-amount',
+        label: tOperationsOrder('creditOrders.overview.metrics.creditAmount'),
+        value: tOperationsOrder('creditOrders.creditAmountValue', {
+          credits: formatAdminCredits(overview.available_credit_total, locale),
+        }),
+        tooltip: tOperationsOrder(
+          'creditOrders.overview.tooltips.creditAmount',
+        ),
+        quickFilters: {
+          status: 'paid',
+          has_available_credits: true,
+        },
+      },
+      {
+        key: 'paid-amount',
+        label: tOperationsOrder('creditOrders.overview.metrics.paidAmount'),
+        value: (() => {
+          const paidAmountEntries = Object.entries(
+            overview.paid_amount_totals_by_currency || {},
+          );
+          if (paidAmountEntries.length > 1) {
+            return paidAmountEntries
+              .map(([currency, amount]) =>
+                formatAdminPrice(amount, currency, locale),
+              )
+              .join(' / ');
+          }
+          if (paidAmountEntries.length === 1) {
+            const [currency, amount] = paidAmountEntries[0];
+            return formatAdminPrice(amount, currency, locale);
+          }
+          return formatAdminPrice(
+            overview.paid_amount_total,
+            overview.currency,
+            locale,
+          );
+        })(),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.paidAmount'),
+      },
+    ],
+    [locale, overview, tOperationsOrder],
+  );
+
+  const activeOverviewCard = React.useMemo(
+    () =>
+      activeOverviewCardKey !== null
+        ? (overviewCards.find(card => card.key === activeOverviewCardKey) ??
+          null)
+        : null,
+    [activeOverviewCardKey, overviewCards],
+  );
+
   const handleSearch = () => {
-    const nextFilters = { ...draftFilters };
+    const nextFilters = draftFilters;
+    const shouldPreserveOverviewQuickFilter =
+      activeOverviewCardKey === 'credit-amount' &&
+      nextFilters.has_available_credits;
+    if (!shouldPreserveOverviewQuickFilter) {
+      resetOverviewQuickFilterState();
+    }
+    setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
   };
 
   const handleReset = () => {
     const nextFilters = createDefaultFilters();
+    resetOverviewQuickFilterState();
     setDraftFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setPageIndex(1);
@@ -314,7 +526,7 @@ export default function CreditOrdersTab() {
       key: 'creator_keyword',
       label: tOperationsOrder('creditOrders.filters.creatorKeyword'),
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           value={draftFilters.creator_keyword}
           placeholder={creatorKeywordPlaceholder}
           clearLabel={t('common.core.close')}
@@ -395,7 +607,7 @@ export default function CreditOrdersTab() {
       key: 'product_keyword',
       label: tOperationsOrder('creditOrders.filters.productKeyword'),
       component: (
-        <ClearableTextInput
+        <AdminClearableInput
           value={draftFilters.product_keyword}
           placeholder={tOperationsOrder(
             'creditOrders.filters.productKeywordPlaceholder',
@@ -483,116 +695,47 @@ export default function CreditOrdersTab() {
     <div className='h-full p-0'>
       <TooltipProvider delayDuration={150}>
         <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden'>
+          <OrderOverviewSection
+            title={tOperationsOrder('overview.title')}
+            cards={overviewCards.map(card => ({
+              key: card.key,
+              label: card.label,
+              value: card.value,
+              tooltip: card.tooltip,
+              onClick: card.quickFilters
+                ? () =>
+                    applyOverviewQuickFilter(card.key, card.quickFilters || {})
+                : undefined,
+            }))}
+            activeCardLabel={activeOverviewCard?.label ?? null}
+            activeFilterLabel={tOperationsOrder('overview.activeFilter')}
+            clearLabel={t('common.core.close')}
+            staleMessage={
+              overviewError ? tOperationsOrder('overview.staleData') : null
+            }
+            onClearActive={clearOverviewQuickFilter}
+            gridClassName='min-[1680px]:grid-cols-4'
+          />
+
           <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm transition-all'>
-            <div className='space-y-4'>
-              <div
-                className={cn(
-                  'grid gap-4',
-                  expanded
-                    ? 'grid-cols-1 xl:grid-cols-3'
-                    : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
-                )}
-              >
-                {(expanded
-                  ? expandedFilterItems.slice(0, 3)
-                  : primaryFilterItems
-                ).map(item => (
-                  <div
-                    key={item.key}
-                    className='flex items-center'
-                  >
-                    <span
-                      className={cn(
-                        "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']",
-                        'w-24',
-                      )}
-                    >
-                      {item.label}
-                    </span>
-                    <div className={filterControlClassName}>
-                      {item.component}
-                    </div>
-                  </div>
-                ))}
-
-                {!expanded ? (
-                  <div className='flex items-center justify-end gap-2'>
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={handleReset}
-                    >
-                      {tOperationsOrder('filters.reset')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      onClick={handleSearch}
-                    >
-                      {tOperationsOrder('filters.search')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      variant='ghost'
-                      className='px-2 text-primary'
-                      onClick={() => setExpanded(true)}
-                    >
-                      {t('common.core.expand')}
-                      <ChevronDown className='ml-1 h-4 w-4' />
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-
-              {expanded ? (
-                <div className='space-y-4'>
-                  <div className='grid gap-4 xl:grid-cols-3'>
-                    {expandedFilterItems.slice(3).map(item => (
-                      <div
-                        key={item.key}
-                        className='flex items-center'
-                      >
-                        <span
-                          className={cn(
-                            "mr-2 shrink-0 whitespace-nowrap text-right text-sm font-medium text-foreground after:ml-0.5 after:content-[':']",
-                            'w-24',
-                          )}
-                        >
-                          {item.label}
-                        </span>
-                        <div className={filterControlClassName}>
-                          {item.component}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className='flex items-center justify-end gap-2'>
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={handleReset}
-                    >
-                      {tOperationsOrder('filters.reset')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      onClick={handleSearch}
-                    >
-                      {tOperationsOrder('filters.search')}
-                    </Button>
-                    <Button
-                      size='sm'
-                      variant='ghost'
-                      className='px-2 text-primary'
-                      onClick={() => setExpanded(false)}
-                    >
-                      {t('common.core.collapse')}
-                      <ChevronUp className='ml-1 h-4 w-4' />
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <AdminFilter
+              items={expandedFilterItems}
+              expanded={expanded}
+              onExpandedChange={setExpanded}
+              onReset={handleReset}
+              onSearch={handleSearch}
+              resetLabel={tOperationsOrder('filters.reset')}
+              searchLabel={tOperationsOrder('filters.search')}
+              expandLabel={t('common.core.expand')}
+              collapseLabel={t('common.core.collapse')}
+              collapsedCount={3}
+              className='bg-transparent'
+              contentClassName={filterControlClassName}
+              labelClassName='w-24 text-right'
+              collapsedGridClassName='gap-x-5 xl:grid-cols-3'
+              expandedGridClassName='gap-x-5 xl:grid-cols-3'
+              labelColon
+            />
           </div>
 
           <div className='mb-3 text-sm text-muted-foreground'>
@@ -603,7 +746,7 @@ export default function CreditOrdersTab() {
             loading={loading}
             isEmpty={orders.length === 0}
             emptyContent={tOperationsOrder('creditOrders.emptyList')}
-            emptyColSpan={11}
+            emptyColSpan={Object.keys(DEFAULT_COLUMN_WIDTHS).length}
             withTooltipProvider
             tableWrapperClassName='max-h-[calc(100vh-21rem)] overflow-auto'
             table={emptyRow => (
@@ -853,21 +996,16 @@ export default function CreditOrdersTab() {
                 </TableBody>
               </Table>
             )}
-            footer={
-              pageCount > 1 ? (
-                <AdminPagination
-                  pageIndex={pageIndex}
-                  pageCount={pageCount}
-                  onPageChange={handlePageChange}
-                  prevLabel={t('module.order.paginationPrev')}
-                  nextLabel={t('module.order.paginationNext')}
-                  prevAriaLabel={t('module.order.paginationPrevAriaLabel')}
-                  nextAriaLabel={t('module.order.paginationNextAriaLabel')}
-                  className='mx-0 w-auto justify-end'
-                  hideWhenSinglePage
-                />
-              ) : null
-            }
+            pagination={{
+              pageIndex,
+              pageCount,
+              onPageChange: handlePageChange,
+              prevLabel: t('module.order.paginationPrev'),
+              nextLabel: t('module.order.paginationNext'),
+              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+              hideWhenSinglePage: true,
+            }}
             footerClassName='mt-3'
           />
         </div>
