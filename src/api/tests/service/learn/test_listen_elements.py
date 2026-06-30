@@ -242,6 +242,81 @@ def test_get_listen_element_record_returns_latest_elements_and_events(app):
         assert result_with_events.events[2].content.variable_name == "sys_user_nickname"
 
 
+def test_get_listen_element_record_serializes_progress_time_with_app_timezone(app):
+    _require_app(app)
+
+    from datetime import datetime
+
+    from flaskr.dao import db
+    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-progress-timezone"
+    shifu_bid = "shifu-listen-progress-timezone"
+    outline_bid = "outline-listen-progress-timezone"
+    progress_bid = "progress-listen-progress-timezone"
+    generated_block_bid = "generated-listen-progress-timezone"
+
+    original_tz = app.config.get("TZ")
+    app.config["TZ"] = "Asia/Shanghai"
+
+    try:
+        with app.app_context():
+            LearnGeneratedElement.query.delete()
+            LearnProgressRecord.query.delete()
+            db.session.commit()
+
+            progress = LearnProgressRecord(
+                progress_record_bid=progress_bid,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                user_bid=user_bid,
+                status=LEARN_STATUS_IN_PROGRESS,
+                block_position=0,
+                updated_at=datetime(2026, 6, 30, 11, 57, 3),
+            )
+            element = LearnGeneratedElement(
+                element_bid="element-listen-progress-timezone",
+                progress_record_bid=progress_bid,
+                user_bid=user_bid,
+                generated_block_bid=generated_block_bid,
+                outline_item_bid=outline_bid,
+                shifu_bid=shifu_bid,
+                run_session_bid="run-listen-progress-timezone",
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=213,
+                change_type="render",
+                target_element_bid="",
+                is_navigable=1,
+                is_final=1,
+                content_text="timezone check",
+                payload=json.dumps({"audio": None, "previous_visuals": []}),
+                status=1,
+            )
+            db.session.add_all([progress, element])
+            db.session.commit()
+
+            result = get_listen_element_record(
+                app,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+            )
+    finally:
+        if original_tz is None:
+            app.config.pop("TZ", None)
+        else:
+            app.config["TZ"] = original_tz
+
+    assert result.last_progress_updated_at == "2026-06-30T11:57:03+08:00"
+
+
 def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapshot(app):
     _require_app(app)
 
