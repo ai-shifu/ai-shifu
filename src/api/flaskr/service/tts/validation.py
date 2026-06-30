@@ -14,6 +14,7 @@ SUPPORTED_TTS_PROVIDERS = {
     "volcengine_http",
     "baidu",
     "aliyun",
+    "tencent",
 }
 PROVIDERS_REQUIRING_MODEL = {"minimax", "volcengine"}
 
