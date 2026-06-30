@@ -926,13 +926,22 @@ class LearnElementRecordDTO(BaseModel):
     events: Optional[List[RunElementSSEMessageDTO]] = Field(
         default=None, description="Optional listen-mode event stream replay"
     )
+    last_progress_updated_at: Optional[str] = Field(
+        default=None,
+        description="Latest update time for the learner's progress on this lesson",
+    )
 
     def __init__(
         self,
         elements: Optional[List[ElementDTO]] = None,
         events: Optional[List[RunElementSSEMessageDTO]] = None,
+        last_progress_updated_at: Optional[str] = None,
     ):
-        super().__init__(elements=elements or [], events=events)
+        super().__init__(
+            elements=elements or [],
+            events=events,
+            last_progress_updated_at=last_progress_updated_at,
+        )
 
     def __json__(self):
         ret = {
@@ -946,6 +955,8 @@ class LearnElementRecordDTO(BaseModel):
                 item.__json__() if isinstance(item, BaseModel) else item
                 for item in self.events
             ]
+        if self.last_progress_updated_at is not None:
+            ret["last_progress_updated_at"] = self.last_progress_updated_at
         return ret
 
 

@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from decimal import Decimal
 
 import pytest
@@ -55,6 +56,22 @@ def _mock_shifu_permissions(monkeypatch):
         lambda key: 0.5 if key == "MIN_SHIFU_PRICE" else None,
         raising=False,
     )
+
+
+def _mock_route_user(monkeypatch, user_id: str):
+    from types import SimpleNamespace
+
+    dummy_user = SimpleNamespace(
+        user_id=user_id,
+        is_creator=True,
+        language="en-US",
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: dummy_user,
+        raising=False,
+    )
+    return dummy_user
 
 
 def test_save_shifu_draft_info_keeps_existing_price_when_input_is_none(
@@ -166,3 +183,45 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(app, monkey
     assert detail.ask_temperature == pytest.approx(0.8)
     assert detail.ask_system_prompt == "ask prompt"
     assert detail.ask_provider_config == ask_provider_config
+
+
+def test_get_draft_meta_route_serializes_requested_timezone(
+    app, test_client, monkeypatch
+):
+    from flaskr.service.shifu.models import DraftOutlineItem
+
+    shifu_bid = "test-draft-meta-timezone"
+    owner_bid = "owner-draft-meta-timezone"
+    outline_bid = "lesson-draft-meta-timezone"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.00"))
+    _mock_route_user(monkeypatch, owner_bid)
+
+    with app.app_context():
+        DraftOutlineItem.query.filter_by(
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+        ).delete()
+        dao.db.session.add(
+            DraftOutlineItem(
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                title="Lesson",
+                content="content",
+                updated_user_bid=owner_bid,
+                created_user_bid=owner_bid,
+                updated_at=datetime(2026, 6, 30, 5, 37, 42),
+                created_at=datetime(2026, 6, 30, 5, 37, 42),
+            )
+        )
+        dao.db.session.commit()
+
+    response = test_client.get(
+        f"/api/shifu/shifus/{shifu_bid}/draft-meta"
+        f"?outline_bid={outline_bid}&timezone=Asia/Shanghai",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["updated_at"] == "2026-06-30T13:37:42+08:00"

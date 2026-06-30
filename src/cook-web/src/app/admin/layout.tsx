@@ -173,17 +173,20 @@ const MainInterface = ({
       }),
     [billingEnabled, courseCreatorUrl, tOnboarding],
   );
-  const shouldShowAdminHomeOnboarding =
+  const canRunAdminHomeOnboarding =
     pathname === '/admin' &&
     menuReady &&
-    adminHomeSceneStatus?.eligible === true &&
-    (adminHomeSceneStatus?.status ?? null) === null &&
     (!billingEnabled || !billingOverviewLoading);
+  const shouldShowAdminHomeOnboarding =
+    canRunAdminHomeOnboarding &&
+    adminHomeSceneStatus?.eligible === true &&
+    (adminHomeSceneStatus?.status ?? null) === null;
   const replayScenes = useOnboardingReplayStore(state => state.replayScenes);
   const clearReplay = useOnboardingReplayStore(state => state.clearReplay);
   const isAdminHomeReplay = replayScenes.admin_home_onboarding;
   const adminHomeOnboardingEnabled =
-    shouldShowAdminHomeOnboarding || isAdminHomeReplay;
+    canRunAdminHomeOnboarding &&
+    (shouldShowAdminHomeOnboarding || isAdminHomeReplay);
 
   const persistAdminHomeOnboarding = useCallback(
     async (status: 'completed' | 'skipped') => {

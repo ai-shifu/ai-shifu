@@ -1471,6 +1471,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               in: query
               type: string
               required: false
+            - name: timezone
+              in: query
+              type: string
+              required: false
+              description: IANA timezone, e.g. Asia/Shanghai
         responses:
             200:
                 description: get draft meta success
@@ -1492,7 +1497,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                             description: latest draft revision (course-level or outline content-level when outline_bid is provided)
                                         updated_at:
                                             type: string
-                                            description: last update timestamp
+                                            description: last update timestamp in requested timezone (or app timezone if not specified)
                                         updated_user:
                                             type: object
                                             properties:
@@ -1504,7 +1509,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                                     description: masked phone or email
         """
         outline_bid = request.args.get("outline_bid")
-        return make_common_response(get_shifu_draft_meta(app, shifu_bid, outline_bid))
+        timezone_name = request.args.get("timezone")
+        return make_common_response(
+            get_shifu_draft_meta(app, shifu_bid, outline_bid, timezone_name)
+        )
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",

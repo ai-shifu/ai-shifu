@@ -15,7 +15,6 @@ import { useTranslation } from 'react-i18next';
 import {
   ChevronLeft,
   Columns2,
-  History,
   Info,
   ListCollapse,
   Loader2,
@@ -34,11 +33,8 @@ import {
 import { toast } from '@/hooks/useToast';
 import i18n, { normalizeLanguage } from '@/i18n';
 import { cn } from '@/lib/utils';
-import {
-  useOnboardingReplayStore,
-  useShifu,
-  useUserStore,
-} from '@/store';
+import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
+import { useOnboardingReplayStore, useShifu, useUserStore } from '@/store';
 import {
   DraftMeta,
   LessonCreationSettings,
@@ -208,6 +204,7 @@ const ScriptEditor = ({
     currentNode,
     baseRevision,
     latestDraftMeta,
+    lastSaveTime,
     hasDraftConflict,
     autosavePaused,
   } = useShifu();
@@ -335,7 +332,8 @@ const ScriptEditor = ({
   const clearReplay = useOnboardingReplayStore(state => state.clearReplay);
   const isCourseEditorReplay = replayScenes.course_editor_onboarding;
   const courseEditorOnboardingEnabled =
-    shouldShowCourseEditorOnboarding || isCourseEditorReplay;
+    !isHistoryPage &&
+    (shouldShowCourseEditorOnboarding || isCourseEditorReplay);
   const actionsRef = useRef(actions);
   const baseRevisionRef = useRef<number | null>(null);
   const conflictStateRef = useRef({
@@ -1418,6 +1416,13 @@ const ScriptEditor = ({
   const historyPageUrl = useMemo(() => {
     return buildUrlWithLessonId(`/shifu/${id}/history`, currentNode?.bid || '');
   }, [currentNode?.bid, id]);
+  const currentLessonHistoryUrl = isLessonNode ? historyPageUrl : null;
+  const currentLessonHistoryUpdatedAt = useMemo(() => {
+    return (
+      parseLessonHistoryDate(latestDraftMeta?.updated_at) ??
+      (isLessonNode ? lastSaveTime : null)
+    );
+  }, [isLessonNode, lastSaveTime, latestDraftMeta?.updated_at]);
   const documentPageUrl = useMemo(() => {
     return buildUrlWithLessonId(
       `/shifu/${id}`,
@@ -1688,6 +1693,9 @@ const ScriptEditor = ({
           courseEditorOnboardingStep?.panel === 'shifu_settings'
         }
         publishTargetId={ONBOARDING_TARGET_IDS.editorPublish}
+        lessonHistoryUrl={currentLessonHistoryUrl}
+        lessonHistoryUpdatedAt={currentLessonHistoryUpdatedAt}
+        onLessonHistoryClick={handleHistoryEntryClick}
       />
       <div className='flex flex-1 overflow-hidden'>
         <Rnd
@@ -1818,37 +1826,6 @@ const ScriptEditor = ({
                           ))}
                         </TabsList>
                       </Tabs>
-                      {currentNode?.bid ? (
-                        <Button
-                          asChild
-                          variant='ghost'
-                          size='icon'
-                          className='h-8 w-8 rounded-full text-[rgba(0,0,0,0.65)] hover:bg-muted/50 hover:text-foreground shrink-0'
-                        >
-                          <Link
-                            href={historyPageUrl}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                            onClick={handleHistoryEntryClick}
-                            aria-label={t('module.shifu.history.title')}
-                            title={t('module.shifu.history.title')}
-                          >
-                            <History className='h-4 w-4' />
-                          </Link>
-                        </Button>
-                      ) : (
-                        <Button
-                          type='button'
-                          variant='ghost'
-                          size='icon'
-                          className='h-8 w-8 rounded-full text-[rgba(0,0,0,0.65)] hover:bg-muted/50 hover:text-foreground shrink-0'
-                          aria-label={t('module.shifu.history.title')}
-                          title={t('module.shifu.history.title')}
-                          disabled
-                        >
-                          <History className='h-4 w-4' />
-                        </Button>
-                      )}
                       <Button
                         type='button'
                         size='sm'

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from datetime import timezone
 from typing import Any, Callable
 
 from sqlalchemy import and_, or_
@@ -713,6 +714,25 @@ def get_listen_element_record(
         .order_by(LearnProgressRecord.id.asc())
         .all()
     )
+    latest_progress_updated_at_dt = None
+    for progress_record in progress_records:
+        updated_at = getattr(progress_record, "updated_at", None)
+        if updated_at is None:
+            continue
+        if (
+            latest_progress_updated_at_dt is None
+            or updated_at > latest_progress_updated_at_dt
+        ):
+            latest_progress_updated_at_dt = updated_at
+    latest_progress_updated_at = None
+    if latest_progress_updated_at_dt is not None:
+        if latest_progress_updated_at_dt.tzinfo is not None:
+            latest_progress_updated_at_dt = latest_progress_updated_at_dt.astimezone(
+                timezone.utc
+            )
+        latest_progress_updated_at = latest_progress_updated_at_dt.strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
     progress_records = _dedupe_progress_records_by_block_position(progress_records)
     progress_record_bids = [
         pr.progress_record_bid for pr in progress_records if pr.progress_record_bid
@@ -741,6 +761,7 @@ def get_listen_element_record(
             return LearnElementRecordDTO(
                 elements=collected_elements,
                 events=collected_events,
+                last_progress_updated_at=latest_progress_updated_at,
             )
 
     built_record = build_record_from_legacy(load_fallback_record())
@@ -749,4 +770,5 @@ def get_listen_element_record(
             _normalize_record_element(element) for element in built_record.elements
         ],
         events=built_record.events,
+        last_progress_updated_at=latest_progress_updated_at,
     )
