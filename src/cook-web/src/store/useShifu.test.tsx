@@ -51,6 +51,10 @@ describe('useShifu draft meta timezone handling', () => {
     const { result } = renderHook(() => useShifu(), { wrapper });
 
     await act(async () => {
+      result.current.actions.setCurrentNode({
+        bid: 'lesson-1',
+        depth: 1,
+      } as any);
       await result.current.actions.loadDraftMeta('shifu-1', 'lesson-1');
     });
 
@@ -75,6 +79,10 @@ describe('useShifu draft meta timezone handling', () => {
     const { result } = renderHook(() => useShifu(), { wrapper });
 
     await act(async () => {
+      result.current.actions.setCurrentNode({
+        bid: 'lesson-1',
+        depth: 1,
+      } as any);
       await result.current.actions.saveMdflow({
         shifu_bid: 'shifu-1',
         outline_bid: 'lesson-1',

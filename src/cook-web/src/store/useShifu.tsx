@@ -597,7 +597,9 @@ export const ShifuProvider = ({
           payload.timezone = timezone;
         }
         const meta = await api.getShifuDraftMeta(payload);
-        setLatestDraftMeta(meta as DraftMeta);
+        if (!outlineId || currentOutlineRef.current === outlineId) {
+          setLatestDraftMeta(meta as DraftMeta);
+        }
         return meta as DraftMeta;
       } catch (error) {
         console.error('Failed to load draft meta', error);

@@ -1416,13 +1416,13 @@ const ScriptEditor = ({
   const historyPageUrl = useMemo(() => {
     return buildUrlWithLessonId(`/shifu/${id}/history`, currentNode?.bid || '');
   }, [currentNode?.bid, id]);
-  const currentLessonHistoryUrl = currentNode?.bid ? historyPageUrl : null;
+  const currentLessonHistoryUrl = isLessonNode ? historyPageUrl : null;
   const currentLessonHistoryUpdatedAt = useMemo(() => {
     return (
       parseLessonHistoryDate(latestDraftMeta?.updated_at) ??
-      (currentNode?.bid ? lastSaveTime : null)
+      (isLessonNode ? lastSaveTime : null)
     );
-  }, [currentNode?.bid, lastSaveTime, latestDraftMeta?.updated_at]);
+  }, [isLessonNode, lastSaveTime, latestDraftMeta?.updated_at]);
   const documentPageUrl = useMemo(() => {
     return buildUrlWithLessonId(
       `/shifu/${id}`,

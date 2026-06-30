@@ -2611,6 +2611,7 @@ function useChatLogicHook({
     setIsLoading(true);
     hasScrolledToBottomRef.current = false;
     isInitHistoryRef.current = true;
+    setShowPreviewUpdateNotice(false);
 
     try {
       const recordResp = await getLessonStudyRecord({

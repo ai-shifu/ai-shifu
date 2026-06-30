@@ -222,7 +222,7 @@ describe('useChatLogicHook stream cleanup', () => {
     });
     mockSubmitLessonFeedback.mockResolvedValue({});
     mockGetShifuDraftMeta.mockResolvedValue({
-      updated_at: '2026-06-30 12:00:00',
+      updated_at: '2026-06-30T12:00:00+08:00',
     });
 
     mockGetRunMessage.mockImplementation(
