@@ -141,6 +141,7 @@
   "minimaxCloneSubmitReasonSourceTooShort": "Source audio must be at least {minSeconds}s. Current length is {currentSeconds}s. Continue recording past 10s before stopping.",
   "minimaxCloneSubmitReasonSubmitting": "Submitting. Please wait.",
   "minimaxCloneVoiceId": "Voice ID",
+  "minimaxCloneVoiceOptionLabel": "{name} voice clone",
   "minimaxCloneVoiceIdPlaceholder": "Optional custom MiniMax voice_id",
   "minimaxManualVoiceApply": "Use",
   "minimaxManualVoiceBadge": "Custom",

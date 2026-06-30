@@ -19,6 +19,7 @@ from typing import Optional
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
 from flaskr.i18n import get_current_language
+from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
 from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
 
 # Re-export base classes for backward compatibility
@@ -277,6 +278,7 @@ def _resolve_credit_multiplier_label(provider_name: str, model: str) -> str | No
             usage_type=BILL_USAGE_TYPE_TTS,
             provider=provider_name,
             model=model,
+            billing_metrics=(BILLING_METRIC_TTS_OUTPUT_CHARS,),
         )
     except Exception as exc:
         logger.debug("Skipping TTS credit multiplier label: %s", exc)

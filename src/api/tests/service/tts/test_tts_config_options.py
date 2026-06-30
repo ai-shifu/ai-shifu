@@ -91,3 +91,28 @@ def test_tts_config_model_options_follow_allowlist_and_localized_names(
         "provider": "baidu",
         "model": "",
     }
+
+
+def test_tts_credit_multiplier_uses_output_chars_metric(monkeypatch):
+    import flaskr.api.tts as tts_api
+    from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
+    from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
+
+    captured = {}
+
+    def fake_resolve_credit_multiplier_label(**kwargs):
+        captured.update(kwargs)
+        return "4x"
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.charges.resolve_credit_multiplier_label",
+        fake_resolve_credit_multiplier_label,
+    )
+
+    assert tts_api._resolve_credit_multiplier_label("tencent", "") == "4x"
+    assert captured == {
+        "usage_type": BILL_USAGE_TYPE_TTS,
+        "provider": "tencent",
+        "model": "",
+        "billing_metrics": (BILLING_METRIC_TTS_OUTPUT_CHARS,),
+    }

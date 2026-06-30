@@ -640,6 +640,11 @@ export default function ShifuSettingDialog({
     }),
     [t],
   );
+  const formatMiniMaxClonedVoiceLabel = useCallback(
+    (name: string) =>
+      t('module.shifuSetting.minimaxCloneVoiceOptionLabel', { name }),
+    [t],
+  );
   const mergedTtsVoiceOptions = useMemo(() => {
     if (!isMiniMaxTtsProvider) {
       return ttsVoiceOptions.map(option => ({
@@ -652,10 +657,12 @@ export default function ShifuSettingDialog({
       builtInVoices: ttsVoiceOptions,
       clonedVoices: minimaxClonedVoices,
       currentVoiceId: ttsVoiceId,
+      clonedVoiceLabelFormatter: formatMiniMaxClonedVoiceLabel,
       manualLabel: t('module.shifuSetting.minimaxManualVoiceLabel'),
       statusLabels: minimaxStatusLabels,
     });
   }, [
+    formatMiniMaxClonedVoiceLabel,
     isMiniMaxTtsProvider,
     minimaxClonedVoices,
     minimaxStatusLabels,
@@ -2215,7 +2222,10 @@ export default function ShifuSettingDialog({
                                     >
                                       <div className='min-w-0'>
                                         <p className='truncate'>
-                                          {voice.display_name || voice.voice_id}
+                                          {formatMiniMaxClonedVoiceLabel(
+                                            voice.display_name ||
+                                              voice.voice_id,
+                                          )}
                                         </p>
                                         <p className='truncate text-xs text-muted-foreground'>
                                           {voice.voice_id}

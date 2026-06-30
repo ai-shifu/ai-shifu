@@ -45,18 +45,19 @@ describe('minimax voice clone helpers', () => {
         {
           voice_bid: 'voice-1',
           voice_id: 'AiShifu_ready_voice',
-          display_name: 'Ready Voice',
+          display_name: 'Teacher',
           status: 'ready',
           minimax_demo_audio_url: 'https://cdn.example.com/ready.mp3',
         },
         {
           voice_bid: 'voice-2',
           voice_id: 'AiShifu_processing_voice',
-          display_name: 'Processing Voice',
+          display_name: 'Assistant',
           status: 'processing',
         },
       ],
       currentVoiceId: 'AiShifu_manual_voice',
+      clonedVoiceLabelFormatter: name => `${name} 语音clone 音色`,
       manualLabel: 'Manual custom voice',
       statusLabels: {
         processing: 'Processing',
@@ -70,13 +71,14 @@ describe('minimax voice clone helpers', () => {
       'AiShifu_manual_voice',
     ]);
     expect(options[1]).toMatchObject({
-      label: 'Ready Voice',
+      label: 'Teacher 语音clone 音色',
       source: 'cloned',
       disabled: false,
       voice_bid: 'voice-1',
       minimax_demo_audio_url: 'https://cdn.example.com/ready.mp3',
     });
     expect(options[2]).toMatchObject({
+      label: 'Assistant 语音clone 音色 · Processing',
       source: 'cloned',
       disabled: true,
       status: 'processing',
