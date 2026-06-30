@@ -173,7 +173,8 @@ export default function ShifuSettingDialog({
   const [internalOpen, setInternalOpen] = useState(false);
   const lastAppliedOpenSignalRef = useRef<string | null>(null);
   const openedByOnboardingRef = useRef(false);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const currentLanguage = i18n.resolvedLanguage || i18n.language;
   const { currentShifu, models } = useShifu();
   const { toast } = useToast();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
@@ -470,9 +471,10 @@ export default function ShifuSettingDialog({
   useEffect(() => {
     const fetchConfig = async () => {
       try {
+        const requestLanguage = currentLanguage || undefined;
         const [ttsConfigResponse, askConfigResponse] = await Promise.all([
-          api.ttsConfig({}),
-          api.askConfig({}),
+          api.ttsConfig({ language: requestLanguage }),
+          api.askConfig({ language: requestLanguage }),
         ]);
         setTtsConfig({
           providers: normalizeTtsProviders(ttsConfigResponse?.providers),
@@ -489,7 +491,7 @@ export default function ShifuSettingDialog({
       }
     };
     fetchConfig();
-  }, [normalizeAskProviders, normalizeTtsProviders]);
+  }, [currentLanguage, normalizeAskProviders, normalizeTtsProviders]);
 
   const refreshMinimaxVoiceData = useCallback(async () => {
     if (!shifuId) return;
