@@ -922,7 +922,6 @@ export default function ShifuSettingDialog({
         setTtsVoiceId('');
       }
     }
-
   }, [
     ttsConfig,
     resolvedProvider,

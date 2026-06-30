@@ -1351,7 +1351,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description=(
             "Optional JSON object for localized TTS model display names. "
             "Keys must match TTS_ALLOWED_MODELS provider/model values; values "
-            "may be locale maps like {\"zh-CN\":\"名称\",\"en-US\":\"Name\"}."
+            'may be locale maps like {"zh-CN":"名称","en-US":"Name"}.'
         ),
         group="tts",
         required=False,

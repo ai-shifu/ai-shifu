@@ -141,9 +141,7 @@ describe('ModelList', () => {
     expect(screen.getAllByText('2x')).toHaveLength(2);
     expect(screen.queryByText('common.core.default')).not.toBeInTheDocument();
     expect(
-      screen
-        .getByRole('listbox')
-        .querySelector('[data-value="__empty__"]'),
+      screen.getByRole('listbox').querySelector('[data-value="__empty__"]'),
     ).toBeNull();
   });
 });

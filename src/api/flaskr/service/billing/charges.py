@@ -318,9 +318,7 @@ def resolve_credit_multiplier_label(
     settlement_at: datetime | None = None,
     billing_metrics: tuple[int, ...] | None = None,
 ) -> str | None:
-    metrics = billing_metrics or _USAGE_TYPE_RATE_METRICS.get(
-        int(usage_type or 0), ()
-    )
+    metrics = billing_metrics or _USAGE_TYPE_RATE_METRICS.get(int(usage_type or 0), ())
     if not metrics:
         return None
 
