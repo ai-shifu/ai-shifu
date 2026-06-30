@@ -153,8 +153,8 @@ ROOT_SPEC = DocSpec(
         "`SKILL.md` for repeatable workflows that need step-by-step guidance.",
     ),
     commands=(
-        "`pre-commit run -a` from the repository root is the shared quality gate "
-        "before any commit-sized change lands.",
+        "`lefthook run pre-commit --all-files` from the repository root is the "
+        "shared quality gate before any commit-sized change lands.",
         "`cd src/api && pytest -q` is the broad backend verification baseline "
         "when a change touches shared backend contracts or multiple services.",
         "`cd src/cook-web && npm run type-check && npm run lint` is the broad "

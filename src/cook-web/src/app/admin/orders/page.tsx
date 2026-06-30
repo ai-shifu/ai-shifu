@@ -8,10 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
-import { Button } from '@/components/ui/Button';
 import OrderDetailSheet from '@/components/order/OrderDetailSheet';
-import ImportActivationDialog from '@/components/order/ImportActivationDialog';
-import CreatorRedemptionCodeDialog from './CreatorRedemptionCodeDialog';
 import CreatorRedemptionCodesTab from './CreatorRedemptionCodesTab';
 import OrdersFilterPanel from './OrdersFilterPanel';
 import OrdersTable from './OrdersTable';
@@ -36,7 +33,6 @@ import {
   type OrdersPageTab,
 } from './ordersPageShared';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { ArchiveRestore, Ticket } from 'lucide-react';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
@@ -48,7 +44,6 @@ import {
   ORDER_TABS_LIST_CLASSNAME,
   ORDER_TABS_TRIGGER_CLASSNAME,
 } from '@/app/admin/operations/orders/orderUiShared';
-import { useCreatorRedemptionEntry } from './useCreatorRedemptionEntry';
 
 const OrdersPage = () => {
   const { t } = useTranslation();
@@ -96,7 +91,6 @@ const OrdersPage = () => {
   const [total, setTotal] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<OrderSummary | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [courses, setCourses] = useState<Shifu[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesError, setCoursesError] = useState<string | null>(null);
@@ -212,16 +206,6 @@ const OrdersPage = () => {
     },
     [pathname, router, searchParamsString],
   );
-  const {
-    handleRedemptionOpenChange,
-    handleRedemptionSuccess,
-    openRedemptionDialog,
-    redemptionOpen,
-    redemptionReloadKey,
-  } = useCreatorRedemptionEntry({
-    onSuccess: () => updateTab('redemptionCodes'),
-  });
-
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
@@ -598,26 +582,6 @@ const OrdersPage = () => {
                 </TabsTrigger>
               </TabsList>
             }
-            actions={
-              <div className='flex items-center gap-3 lg:justify-end'>
-                <Button
-                  variant='ghost'
-                  className='h-9 gap-1.5 px-0 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] hover:bg-transparent hover:text-[var(--base-foreground,#0A0A0A)]'
-                  onClick={openRedemptionDialog}
-                >
-                  <Ticket className='h-4 w-4' />
-                  {t('module.order.redemptionCodes.action')}
-                </Button>
-                <Button
-                  variant='ghost'
-                  className='h-9 gap-1.5 px-0 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] hover:bg-transparent hover:text-[var(--base-foreground,#0A0A0A)]'
-                  onClick={() => setImportOpen(true)}
-                >
-                  <ArchiveRestore className='h-4 w-4' />
-                  {t('module.order.importActivation.action')}
-                </Button>
-              </div>
-            }
           />
 
           <div className='min-h-0 flex-1 overflow-hidden pr-1'>
@@ -658,7 +622,7 @@ const OrdersPage = () => {
                 />
               </div>
             ) : (
-              <CreatorRedemptionCodesTab reloadKey={redemptionReloadKey} />
+              <CreatorRedemptionCodesTab reloadKey={0} />
             )}
           </div>
         </Tabs>
@@ -671,17 +635,6 @@ const OrdersPage = () => {
               setSelectedOrder(null);
             }
           }}
-        />
-
-        <ImportActivationDialog
-          open={importOpen}
-          onOpenChange={setImportOpen}
-          onSuccess={() => fetchOrders(1)}
-        />
-        <CreatorRedemptionCodeDialog
-          open={redemptionOpen}
-          onOpenChange={handleRedemptionOpenChange}
-          onSuccess={handleRedemptionSuccess}
         />
       </div>
     </div>
