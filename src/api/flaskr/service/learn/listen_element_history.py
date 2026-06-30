@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from datetime import timezone
 from typing import Any, Callable
 
+from flask import Flask
 from sqlalchemy import and_, or_
 
 from flaskr.service.learn.learn_dtos import (
@@ -32,6 +32,7 @@ from flaskr.service.learn.models import (
 from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
+from flaskr.util.timezone import serialize_with_app_timezone
 
 
 def _load_interaction_user_input_by_block_bid(
@@ -693,6 +694,7 @@ def _merge_progress_elements(
 
 def get_listen_element_record(
     *,
+    app: Flask,
     shifu_bid: str,
     outline_bid: str,
     user_bid: str,
@@ -726,12 +728,8 @@ def get_listen_element_record(
             latest_progress_updated_at_dt = updated_at
     latest_progress_updated_at = None
     if latest_progress_updated_at_dt is not None:
-        if latest_progress_updated_at_dt.tzinfo is not None:
-            latest_progress_updated_at_dt = latest_progress_updated_at_dt.astimezone(
-                timezone.utc
-            )
-        latest_progress_updated_at = latest_progress_updated_at_dt.strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
+        latest_progress_updated_at = serialize_with_app_timezone(
+            app, latest_progress_updated_at_dt
         )
     progress_records = _dedupe_progress_records_by_block_position(progress_records)
     progress_record_bids = [
