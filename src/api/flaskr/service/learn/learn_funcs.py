@@ -318,17 +318,20 @@ def get_outline_item_tree(
                 latest_progress_record_map[progress_record.outline_item_bid] = (
                     progress_record
                 )
-                continue
-            if (
-                progress_record.updated_at is not None
-                and latest_progress_record.updated_at is not None
-                and progress_record.updated_at > latest_progress_record.updated_at
-            ) or (
-                latest_progress_record.updated_at is None
-                and progress_record.updated_at is not None
-            ) or (
-                progress_record.updated_at == latest_progress_record.updated_at
-                and progress_record.id > latest_progress_record.id
+            elif (
+                (
+                    progress_record.updated_at is not None
+                    and latest_progress_record.updated_at is not None
+                    and progress_record.updated_at > latest_progress_record.updated_at
+                )
+                or (
+                    latest_progress_record.updated_at is None
+                    and progress_record.updated_at is not None
+                )
+                or (
+                    progress_record.updated_at == latest_progress_record.updated_at
+                    and progress_record.id > latest_progress_record.id
+                )
             ):
                 latest_progress_record_map[progress_record.outline_item_bid] = (
                     progress_record
@@ -362,7 +365,10 @@ def get_outline_item_tree(
                     else None
                 )
                 has_content_update_for_current_user = bool(
-                    published_updated_at
+                    latest_progress_record is not None
+                    and latest_progress_record.status
+                    in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
+                    and published_updated_at
                     and latest_progress_updated_at
                     and published_updated_at > latest_progress_updated_at
                 )
