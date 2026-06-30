@@ -156,12 +156,9 @@ const Header = ({
       lessonHistoryDate,
       {
         justNow: t('component.header.justNow'),
-        minutesAgo: count =>
-          t('component.header.minutesAgo', { count }),
-        hoursAgo: count =>
-          t('component.header.hoursAgo', { count }),
-        daysAgo: count =>
-          t('component.header.daysAgo', { count }),
+        minutesAgo: count => t('component.header.minutesAgo', { count }),
+        hoursAgo: count => t('component.header.hoursAgo', { count }),
+        daysAgo: count => t('component.header.daysAgo', { count }),
       },
       new Date(relativeTimeNow),
     );

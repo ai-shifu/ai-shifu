@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from datetime import timezone
 from typing import Any, Callable
 
 from sqlalchemy import and_, or_
@@ -713,17 +714,25 @@ def get_listen_element_record(
         .order_by(LearnProgressRecord.id.asc())
         .all()
     )
-    latest_progress_updated_at = None
+    latest_progress_updated_at_dt = None
     for progress_record in progress_records:
         updated_at = getattr(progress_record, "updated_at", None)
         if updated_at is None:
             continue
-        updated_at_text = updated_at.isoformat(sep=" ", timespec="seconds")
         if (
-            latest_progress_updated_at is None
-            or updated_at_text > latest_progress_updated_at
+            latest_progress_updated_at_dt is None
+            or updated_at > latest_progress_updated_at_dt
         ):
-            latest_progress_updated_at = updated_at_text
+            latest_progress_updated_at_dt = updated_at
+    latest_progress_updated_at = None
+    if latest_progress_updated_at_dt is not None:
+        if latest_progress_updated_at_dt.tzinfo is not None:
+            latest_progress_updated_at_dt = latest_progress_updated_at_dt.astimezone(
+                timezone.utc
+            )
+        latest_progress_updated_at = latest_progress_updated_at_dt.strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
     progress_records = _dedupe_progress_records_by_block_position(progress_records)
     progress_record_bids = [
         pr.progress_record_bid for pr in progress_records if pr.progress_record_bid

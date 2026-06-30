@@ -3,10 +3,10 @@ const normalizeDateString = (value: string) => {
   if (!trimmed) {
     return '';
   }
-  if (trimmed.includes('T') || /[zZ]|[+-]\d{2}:\d{2}$/.test(trimmed)) {
-    return trimmed;
+  if (!trimmed.includes('T')) {
+    return trimmed.replace(' ', 'T');
   }
-  return trimmed.replace(' ', 'T');
+  return trimmed;
 };
 
 export const parseLessonHistoryDate = (

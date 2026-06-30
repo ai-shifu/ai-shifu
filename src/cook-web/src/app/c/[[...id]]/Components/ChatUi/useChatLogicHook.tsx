@@ -2636,8 +2636,8 @@ function useChatLogicHook({
         );
         shouldShowPreviewUpdate = Boolean(
           latestDraftUpdatedAt &&
-            latestStudyUpdatedAt &&
-            latestDraftUpdatedAt.getTime() > latestStudyUpdatedAt.getTime(),
+          latestStudyUpdatedAt &&
+          latestDraftUpdatedAt.getTime() > latestStudyUpdatedAt.getTime(),
         );
       }
       setShowPreviewUpdateNotice(shouldShowPreviewUpdate);
