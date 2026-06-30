@@ -1,29 +1,27 @@
 'use client';
 
-import { X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminFilter, {
+  type AdminFilterItem,
+} from '@/app/admin/components/AdminFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import {
+  createDateRangeFilterItem,
+  createSelectFilterItem,
+  createTextFilterItem,
+} from '@/app/admin/components/adminFilterFieldBuilders';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select';
 import {
   Table,
   TableBody,
@@ -42,6 +40,10 @@ import type {
   DashboardCourseFollowUpItem,
   DashboardCourseFollowUpListResponse,
 } from '@/types/dashboard';
+import {
+  DASHBOARD_FILTER_CONTENT_CLASS,
+  DASHBOARD_FILTER_LABEL_CLASS,
+} from '../../dashboardFilterUiShared';
 import { buildAdminDashboardCourseDetailUrl } from '../../admin-dashboard-routes';
 import FollowUpDetailSheet from './FollowUpDetailSheet';
 
@@ -60,6 +62,9 @@ type FollowUpFilters = {
 const PAGE_SIZE = 20;
 const ALL_SOURCE_STATUS = 'all';
 const DETAIL_CACHE_LIMIT = 20;
+const FOLLOW_UP_FILTER_GRID_CLASS =
+  'gap-x-5 md:grid-cols-2 xl:grid-cols-[minmax(0,300px)_minmax(0,300px)_minmax(0,200px)_minmax(0,280px)]';
+const FOLLOW_UP_FILTER_LABEL_CLASS = 'w-[68px]';
 
 const EMPTY_FOLLOW_UPS_RESPONSE: DashboardCourseFollowUpListResponse = {
   summary: {
@@ -173,50 +178,6 @@ const splitTimestampValue = (value: string) => {
 
   return [datePart, timePart];
 };
-
-function ClearableTextInput({
-  value,
-  placeholder,
-  clearLabel,
-  onChange,
-  onSubmit,
-}: {
-  value: string;
-  placeholder: string;
-  clearLabel: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
-}) {
-  const hasValue = value.trim().length > 0;
-
-  return (
-    <div className='relative'>
-      <Input
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        onKeyDown={event => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            onSubmit();
-          }
-        }}
-        placeholder={placeholder}
-        className={cn('h-9', hasValue && 'pr-9')}
-      />
-      {hasValue ? (
-        <button
-          type='button'
-          aria-label={clearLabel}
-          className='absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground'
-          onMouseDown={event => event.preventDefault()}
-          onClick={() => onChange('')}
-        >
-          <X className='h-3.5 w-3.5' />
-        </button>
-      ) : null}
-    </div>
-  );
-}
 
 export default function AdminDashboardCourseFollowUpsPage() {
   const { t } = useTranslation();
@@ -475,7 +436,6 @@ export default function AdminDashboardCourseFollowUpsPage() {
   const outlineColumnLabel = hasChapterHierarchy
     ? t('module.dashboard.detail.followUps.table.chapter')
     : t('module.dashboard.detail.followUps.table.lesson');
-  const sourceStatusSelectId = 'dashboard-follow-up-source-status-filter';
   const summaryCards = useMemo(
     () => [
       {
@@ -580,6 +540,99 @@ export default function AdminDashboardCourseFollowUpsPage() {
       setDetailLoading(false);
     }
   }, []);
+  const sourceStatusOptions = useMemo(
+    () => [
+      {
+        value: ALL_SOURCE_STATUS,
+        label: t('module.dashboard.detail.followUps.filters.sourceStatusAll'),
+      },
+      {
+        value: 'resolved',
+        label: t(
+          'module.dashboard.detail.followUps.filters.sourceStatusResolved',
+        ),
+      },
+      {
+        value: 'missing',
+        label: t(
+          'module.dashboard.detail.followUps.filters.sourceStatusMissing',
+        ),
+      },
+    ],
+    [t],
+  );
+  const userFilterDisplayValue = filtersDraft.userBid || filtersDraft.keyword;
+  const filterItems: AdminFilterItem[] = [
+    createTextFilterItem({
+      key: 'user_bid',
+      label: t('module.dashboard.detail.followUps.filters.userKeyword'),
+      value: userFilterDisplayValue,
+      onChange: value =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          keyword: value,
+          userBid:
+            previous.userBid && value.trim() === previous.userBid.trim()
+              ? previous.userBid
+              : '',
+        })),
+      onSubmit: handleSearch,
+      placeholder: userKeywordPlaceholder,
+      clearLabel,
+      labelClassName: FOLLOW_UP_FILTER_LABEL_CLASS,
+      contentClassName: 'min-w-0 flex-[1.35]',
+      inputClassName: 'min-w-0',
+    }),
+    createTextFilterItem({
+      key: 'chapter_keyword',
+      label: outlineFilterLabel,
+      value: filtersDraft.chapterKeyword,
+      onChange: value =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          chapterKeyword: value,
+        })),
+      onSubmit: handleSearch,
+      placeholder: outlineFilterPlaceholder,
+      clearLabel,
+      labelClassName: FOLLOW_UP_FILTER_LABEL_CLASS,
+      contentClassName: 'min-w-0 flex-[1.15]',
+      inputClassName: 'min-w-0',
+    }),
+    createSelectFilterItem({
+      key: 'source_status',
+      label: t('module.dashboard.detail.followUps.filters.sourceStatus'),
+      value: filtersDraft.sourceStatus,
+      onChange: value =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          sourceStatus: value,
+        })),
+      placeholder: t(
+        'module.dashboard.detail.followUps.filters.sourceStatusAll',
+      ),
+      options: sourceStatusOptions,
+      contentClassName: 'min-w-0 flex-[1.1]',
+      triggerClassName: 'min-w-[140px]',
+    }),
+    createDateRangeFilterItem({
+      key: 'date_range',
+      label: t('module.dashboard.detail.followUps.filters.followUpTime'),
+      startValue: filtersDraft.startTime,
+      endValue: filtersDraft.endTime,
+      onChange: ({ start, end }) =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          startTime: start,
+          endTime: end,
+        })),
+      placeholder: t(
+        'module.dashboard.detail.followUps.filters.timePlaceholder',
+      ),
+      resetLabel: t('module.dashboard.detail.followUps.filters.reset'),
+      clearLabel,
+    }),
+  ];
 
   if (!isInitialized || isGuest) {
     return (
@@ -655,134 +708,32 @@ export default function AdminDashboardCourseFollowUpsPage() {
               </div>
             </CardHeader>
             <CardContent className='space-y-5 pt-0'>
-              <form
-                className='rounded-xl border border-border bg-muted/20 p-3'
-                onSubmit={event => {
-                  event.preventDefault();
-                  handleSearch();
-                }}
-              >
-                <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
-                      {t(
-                        'module.dashboard.detail.followUps.filters.userKeyword',
-                      )}
-                    </label>
-                    <ClearableTextInput
-                      value={filtersDraft.keyword}
-                      placeholder={userKeywordPlaceholder}
-                      clearLabel={clearLabel}
-                      onChange={value =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          keyword: value,
-                          userBid:
-                            previous.userBid &&
-                            value.trim() !== previous.keyword.trim()
-                              ? ''
-                              : previous.userBid,
-                        }))
-                      }
-                      onSubmit={handleSearch}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
-                      {outlineFilterLabel}
-                    </label>
-                    <ClearableTextInput
-                      value={filtersDraft.chapterKeyword}
-                      placeholder={outlineFilterPlaceholder}
-                      clearLabel={clearLabel}
-                      onChange={value =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          chapterKeyword: value,
-                        }))
-                      }
-                      onSubmit={handleSearch}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-2'>
-                    <label
-                      htmlFor={sourceStatusSelectId}
-                      className='text-xs font-medium text-muted-foreground'
-                    >
-                      {t(
-                        'module.dashboard.detail.followUps.filters.sourceStatus',
-                      )}
-                    </label>
-                    <Select
-                      value={filtersDraft.sourceStatus}
-                      onValueChange={value =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          sourceStatus: value,
-                        }))
-                      }
-                    >
-                      <SelectTrigger
-                        id={sourceStatusSelectId}
-                        className='h-9'
-                      >
-                        <SelectValue
-                          placeholder={t(
-                            'module.dashboard.detail.followUps.filters.sourceStatusAll',
-                          )}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={ALL_SOURCE_STATUS}>
-                          {t(
-                            'module.dashboard.detail.followUps.filters.sourceStatusAll',
-                          )}
-                        </SelectItem>
-                        <SelectItem value='resolved'>
-                          {t(
-                            'module.dashboard.detail.followUps.filters.sourceStatusResolved',
-                          )}
-                        </SelectItem>
-                        <SelectItem value='missing'>
-                          {t(
-                            'module.dashboard.detail.followUps.filters.sourceStatusMissing',
-                          )}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
-                      {t(
-                        'module.dashboard.detail.followUps.filters.followUpTime',
-                      )}
-                    </label>
-                    <AdminDateRangeFilter
-                      startValue={filtersDraft.startTime}
-                      endValue={filtersDraft.endTime}
-                      triggerAriaLabel={t(
-                        'module.dashboard.detail.followUps.filters.followUpTime',
-                      )}
-                      placeholder={t(
-                        'module.dashboard.detail.followUps.filters.timePlaceholder',
-                      )}
-                      resetLabel={t(
-                        'module.dashboard.detail.followUps.filters.reset',
-                      )}
-                      clearLabel={clearLabel}
-                      onChange={({ start, end }) =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          startTime: start,
-                          endTime: end,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className='mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end'>
-                  <div className='pl-3 text-sm text-muted-foreground xl:self-center'>
+              <div className='rounded-xl border border-border bg-muted/20 p-3'>
+                <AdminFilter
+                  items={filterItems}
+                  expanded={false}
+                  onExpandedChange={() => undefined}
+                  onReset={handleReset}
+                  onSearch={handleSearch}
+                  actionsDisabled={loading}
+                  showActions={false}
+                  resetLabel={t(
+                    'module.dashboard.detail.followUps.filters.reset',
+                  )}
+                  searchLabel={t(
+                    'module.dashboard.detail.followUps.filters.search',
+                  )}
+                  expandLabel={t('common.core.expand')}
+                  collapseLabel={t('common.core.collapse')}
+                  collapsedCount={4}
+                  showToggle={false}
+                  labelClassName={DASHBOARD_FILTER_LABEL_CLASS}
+                  contentClassName={DASHBOARD_FILTER_CONTENT_CLASS}
+                  collapsedGridClassName={FOLLOW_UP_FILTER_GRID_CLASS}
+                  expandedGridClassName={FOLLOW_UP_FILTER_GRID_CLASS}
+                />
+                <div className='mt-3 flex flex-col gap-3 pl-3 sm:flex-row sm:items-center sm:justify-between'>
+                  <div className='text-sm text-muted-foreground'>
                     {t(
                       'module.dashboard.detail.followUps.filters.resultCount',
                       {
@@ -790,9 +741,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
                       },
                     )}
                   </div>
-                  <div className='hidden xl:block' />
-                  <div className='hidden xl:block' />
-                  <div className='flex min-h-9 items-center justify-start gap-2 md:justify-end'>
+                  <div className='flex items-center justify-end gap-2'>
                     <Button
                       type='button'
                       size='sm'
@@ -804,16 +753,17 @@ export default function AdminDashboardCourseFollowUpsPage() {
                       {t('module.dashboard.detail.followUps.filters.reset')}
                     </Button>
                     <Button
-                      type='submit'
+                      type='button'
                       size='sm'
                       className='h-9 px-4'
+                      onClick={handleSearch}
                       disabled={loading}
                     >
                       {t('module.dashboard.detail.followUps.filters.search')}
                     </Button>
                   </div>
                 </div>
-              </form>
+              </div>
 
               {error ? (
                 <ErrorDisplay

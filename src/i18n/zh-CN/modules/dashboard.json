@@ -40,7 +40,7 @@
       },
       "filters": {
         "chapterKeyword": "章节",
-        "chapterKeywordPlaceholder": "输入章节 / 小节名称",
+        "chapterKeywordPlaceholder": "输入章/节名称",
         "followUpTime": "追问时间",
         "lessonKeyword": "小节",
         "lessonKeywordPlaceholder": "输入小节名称",
@@ -126,7 +126,7 @@
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "章节",
-        "chapterKeywordPlaceholder": "输入章节 / 小节名称",
+        "chapterKeywordPlaceholder": "输入章/节名称",
         "commentStatus": "评价内容",
         "commentStatusAll": "全部",
         "commentStatusCommented": "仅看有评价",
