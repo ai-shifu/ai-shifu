@@ -33,15 +33,42 @@ FLASK_APP=app.py
 NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
+### Local Tooling Setup
+
+Code-quality checks run through **lefthook** (a single Go binary that calls the
+tools already installed on your machine). The git hooks only fire after
+`lefthook install` has wired them into `.git/hooks`, and each hook shells out to
+tools that must already be on `PATH`. One-time setup:
+
+```bash
+brew install lefthook
+pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0
+(cd src/cook-web && npm ci)   # provides prettier + eslint
+lefthook install
+```
+
+> **Important:** if you skip `lefthook install` (or never install lefthook), the
+> pre-commit checks are **silently skipped** on commit — nothing warns you, and
+> the gap only surfaces later in CI. Run `lefthook install` once per clone.
+
+Verify your environment any time (and before committing) with the doctor, which
+reports exactly what is missing and how to install it:
+
+```bash
+python scripts/check_dev_tools.py            # core gaps fail; frontend gaps warn
+python scripts/check_dev_tools.py --strict   # also fail on Cook Web tooling gaps
+```
+
 ## Critical Requirements
 
 ### Must Do Before Any Commit
 
-1. Run the lefthook checks: `lefthook run pre-commit`
-2. Generate a migration for DB changes: `flask db migrate -m "description"`
-3. Test the relevant change surface
-4. Use English for code-facing text
-5. Follow Conventional Commits: `type: description`
+1. Confirm the toolchain is installed: `python scripts/check_dev_tools.py`
+2. Run the lefthook checks: `lefthook run pre-commit`
+3. Generate a migration for DB changes: `flask db migrate -m "description"`
+4. Test the relevant change surface
+5. Use English for code-facing text
+6. Follow Conventional Commits: `type: description`
 
 ### Common Pitfalls To Avoid
 
@@ -464,6 +491,7 @@ When adding a new namespace:
 | Migration not detecting changes | Ensure the model is imported |
 | Frontend cannot connect to API | Check CORS and API URL config |
 | Lefthook checks fail | Run `lefthook install` |
+| Hooks never run, or a tool reports "command not found" | Run `python scripts/check_dev_tools.py` and install what it lists |
 | Tests fail with import errors | Check `PYTHONPATH` and local env |
 | Docker build fails | Ensure required `.env` files exist |
 | TypeScript errors in Cook Web | Run `npm run type-check` |
