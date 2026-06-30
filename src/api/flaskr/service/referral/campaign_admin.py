@@ -41,6 +41,8 @@ from .consts import (
 from .models import (
     ReferralCampaign,
     ReferralCampaignRewardRule,
+    ReferralInviteCode,
+    ReferralInviteEvent,
     ReferralInviteRelation,
     ReferralInviteReward,
 )
@@ -113,12 +115,23 @@ def list_operator_referral_campaigns(
         rules = _latest_rule_map(campaign_bids)
         relation_counts = _count_by_campaign(ReferralInviteRelation, campaign_bids)
         reward_counts = _count_by_campaign(ReferralInviteReward, campaign_bids)
+        invite_code_counts = _count_by_campaign(ReferralInviteCode, campaign_bids)
+        invite_event_stats = _invite_event_stats_by_campaign(campaign_bids)
         items = [
             _serialize_campaign(
                 row,
                 rule=rules.get(row.campaign_bid),
                 relation_count=relation_counts.get(row.campaign_bid, 0),
                 reward_count=reward_counts.get(row.campaign_bid, 0),
+                invite_code_count=invite_code_counts.get(row.campaign_bid, 0),
+                invite_event_count=invite_event_stats.get(row.campaign_bid, {}).get(
+                    "count",
+                    0,
+                ),
+                latest_invite_event_at=invite_event_stats.get(
+                    row.campaign_bid,
+                    {},
+                ).get("latest_at"),
                 now=now,
             )
             for row in rows
@@ -136,6 +149,10 @@ def list_operator_referral_campaigns(
                 ),
                 "relation_count": sum(relation_counts.values()),
                 "reward_count": sum(reward_counts.values()),
+                "invite_code_count": sum(invite_code_counts.values()),
+                "invite_event_count": sum(
+                    int(stats.get("count", 0)) for stats in invite_event_stats.values()
+                ),
             },
         }
 
@@ -148,6 +165,8 @@ def get_operator_referral_campaign_detail(
     with app.app_context():
         campaign = _load_campaign_or_404(campaign_bid)
         rule = _load_latest_rule(campaign.campaign_bid)
+        invite_event_stats = _invite_event_stats_by_campaign([campaign.campaign_bid])
+        stats = invite_event_stats.get(campaign.campaign_bid, {})
         return {
             "campaign": _serialize_campaign(
                 campaign,
@@ -157,6 +176,12 @@ def get_operator_referral_campaign_detail(
                     campaign.campaign_bid,
                 ),
                 reward_count=_count_rows(ReferralInviteReward, campaign.campaign_bid),
+                invite_code_count=_count_rows(
+                    ReferralInviteCode,
+                    campaign.campaign_bid,
+                ),
+                invite_event_count=int(stats.get("count", 0)),
+                latest_invite_event_at=stats.get("latest_at"),
                 now=datetime.now(),
             )
         }
@@ -597,6 +622,27 @@ def _count_by_campaign(model, campaign_bids: list[str]) -> dict[str, int]:
     return {campaign_bid: int(count or 0) for campaign_bid, count in rows}
 
 
+def _invite_event_stats_by_campaign(
+    campaign_bids: list[str],
+) -> dict[str, dict[str, Any]]:
+    if not campaign_bids:
+        return {}
+    rows = (
+        db.session.query(
+            ReferralInviteEvent.campaign_bid,
+            db.func.count(ReferralInviteEvent.id),
+            db.func.max(ReferralInviteEvent.created_at),
+        )
+        .filter(ReferralInviteEvent.campaign_bid.in_(campaign_bids))
+        .group_by(ReferralInviteEvent.campaign_bid)
+        .all()
+    )
+    return {
+        campaign_bid: {"count": int(count or 0), "latest_at": latest_at}
+        for campaign_bid, count, latest_at in rows
+    }
+
+
 def _count_rows(model, campaign_bid: str) -> int:
     return int(
         model.query.filter(
@@ -698,6 +744,9 @@ def _serialize_campaign(
     rule: ReferralCampaignRewardRule | None,
     relation_count: int,
     reward_count: int,
+    invite_code_count: int,
+    invite_event_count: int,
+    latest_invite_event_at: datetime | None,
     now: datetime,
 ) -> dict[str, Any]:
     return {
@@ -720,9 +769,9 @@ def _serialize_campaign(
         "rule_code": rule.rule_code if rule is not None else "",
         "rule_status": int(rule.rule_status or 0) if rule is not None else 0,
         "reward_product_code": rule.reward_product_code if rule is not None else "",
-        "reward_cycle_count": int(rule.reward_cycle_count or 0)
-        if rule is not None
-        else 0,
+        "reward_cycle_count": (
+            int(rule.reward_cycle_count or 0) if rule is not None else 0
+        ),
         "reward_credit_amount": _serialize_decimal(
             rule.reward_credit_amount if rule is not None else None
         ),
@@ -743,6 +792,9 @@ def _serialize_campaign(
         "priority": int(rule.priority or 0) if rule is not None else 0,
         "relation_count": relation_count,
         "reward_count": reward_count,
+        "invite_code_count": invite_code_count,
+        "invite_event_count": invite_event_count,
+        "latest_invite_event_at": _serialize_dt(latest_invite_event_at),
         "created_at": _serialize_dt(campaign.created_at),
         "updated_at": _serialize_dt(campaign.updated_at),
     }

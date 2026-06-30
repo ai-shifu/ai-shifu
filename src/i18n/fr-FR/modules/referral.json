@@ -115,6 +115,7 @@
     "filters": {
       "abnormalStatus": "Statut d’anomalie",
       "all": "Tous",
+      "boundAt": "Date de liaison",
       "campaignBid": "BID de campagne",
       "inviteCode": "Code d’invitation",
       "inviteeUserBid": "BID de l’utilisateur invité",

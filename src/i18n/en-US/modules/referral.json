@@ -115,6 +115,7 @@
     "filters": {
       "abnormalStatus": "Abnormal status",
       "all": "All",
+      "boundAt": "Bound time",
       "campaignBid": "Campaign BID",
       "inviteCode": "Invite code",
       "inviteeUserBid": "Invitee user BID",

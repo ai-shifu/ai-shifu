@@ -115,6 +115,7 @@
     "filters": {
       "abnormalStatus": "异常状态",
       "all": "全部",
+      "boundAt": "绑定时间",
       "campaignBid": "活动 BID",
       "inviteCode": "邀请码",
       "inviteeUserBid": "被邀请用户 BID",
