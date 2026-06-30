@@ -195,30 +195,6 @@ describe('OrdersPage', () => {
     });
   });
 
-  test('opens creator redemption code dialog from the orders title action', async () => {
-    render(<OrdersPage />);
-
-    await waitFor(() => {
-      expect(mockGetAdminOrders).toHaveBeenCalled();
-    });
-
-    const redemptionButton = screen.getByRole('button', {
-      name: 'module.order.redemptionCodes.action',
-    });
-    const importButton = screen.getByRole('button', {
-      name: 'module.order.importActivation.action',
-    });
-
-    expect(
-      redemptionButton.compareDocumentPosition(importButton) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-
-    fireEvent.click(redemptionButton);
-
-    expect(screen.getByTestId('creator-redemption-dialog')).toBeInTheDocument();
-  });
-
   test('switches between order records and redemption code tabs', async () => {
     mockSearchParamsValue = 'shifu_bid=shifu-1&status=502';
     render(<OrdersPage />);

@@ -6,6 +6,7 @@ This module provides integration with multiple Text-to-Speech providers:
 - Volcengine (bidirectional WebSocket API)
 - Baidu (Short Text Online Synthesis API)
 - Aliyun (NLS RESTful TTS API)
+- Tencent (TRTC conversational SSE API)
 
 The provider can be selected per-Shifu configuration.
 """
@@ -31,6 +32,7 @@ from flaskr.api.tts.volcengine_http_provider import VolcengineHttpTTSProvider
 from flaskr.api.tts.baidu_provider import BaiduTTSProvider
 from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
 from flaskr.api.tts.aliyun_nls_token import is_aliyun_nls_token_configured
+from flaskr.api.tts.tencent_provider import TencentTTSProvider
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
@@ -42,8 +44,17 @@ _PROVIDER_REGISTRY = {
     "volcengine_http": VolcengineHttpTTSProvider,
     "baidu": BaiduTTSProvider,
     "aliyun": AliyunTTSProvider,
+    "tencent": TencentTTSProvider,
 }
 _PROVIDER_PRIORITY = (
+    "minimax",
+    "volcengine",
+    "volcengine_http",
+    "baidu",
+    "aliyun",
+    "tencent",
+)
+_AUTO_DETECT_PROVIDER_PRIORITY = (
     "minimax",
     "volcengine",
     "volcengine_http",
@@ -89,8 +100,11 @@ def _resolve_provider_name(provider_name: str = "") -> str:
     return normalized or _auto_detect_provider_name()
 
 
-def _iter_provider_classes():
-    for name in _PROVIDER_PRIORITY:
+def _iter_provider_classes(*, include_explicit_only: bool = True):
+    provider_priority = (
+        _PROVIDER_PRIORITY if include_explicit_only else _AUTO_DETECT_PROVIDER_PRIORITY
+    )
+    for name in provider_priority:
         provider_cls = _PROVIDER_REGISTRY.get(name)
         if provider_cls:
             yield name, provider_cls
@@ -101,7 +115,7 @@ def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
     Get a TTS provider instance.
 
     Args:
-        provider_name: Provider name ("minimax", "volcengine", "volcengine_http", "baidu", "aliyun").
+        provider_name: Provider name ("minimax", "volcengine", "volcengine_http", "baidu", "aliyun", "tencent").
                       If empty, auto-detects.
 
     Returns:
@@ -186,7 +200,7 @@ def is_tts_configured(provider_name: str = "") -> bool:
             return False
     else:
         # Check if any provider is configured
-        for _name, provider_cls in _iter_provider_classes():
+        for _name, provider_cls in _iter_provider_classes(include_explicit_only=False):
             try:
                 if provider_cls().is_configured():
                     return True

@@ -1,0 +1,145 @@
+name: Bump markdown-flow
+
+# Manually update the markdown-flow dependency pin in src/api/requirements.txt
+# on a feature branch, then commit & push the bump back to that branch.
+#
+# Use this after publishing a new markdown-flow build from
+# https://github.com/ai-shifu/markdown-flow-agent-py so this project picks it up.
+#
+# How to run:
+#   Actions -> Bump markdown-flow -> Run workflow
+#     - "Use workflow from": pick the feature branch to update (NOT main)
+#     - version: the markdown-flow version to pin, e.g. 0.2.83 or 0.2.83.dev1
+#
+# The workflow refuses to run on the default branch (main).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "markdown-flow version to pin, e.g. 0.2.83 or 0.2.83.dev1"
+        required: true
+        type: string
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # allow pushing the bump commit back to the branch
+
+    steps:
+      # Never bump the pin directly on the protected default branch.
+      - name: Guard against running on main
+        if: github.ref_name == 'main'
+        run: |
+          echo "::error::Do not bump markdown-flow on 'main'. Run this workflow from a feature branch, then PR the change in."
+          exit 1
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install tooling
+        run: pip install --upgrade packaging
+
+      - name: Validate version exists on PyPI
+        env:
+          MF_VERSION: ${{ inputs.version }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.request
+
+          from packaging.version import InvalidVersion, Version
+
+          version = os.environ["MF_VERSION"].strip()
+
+          try:
+              Version(version)
+          except InvalidVersion:
+              print(f"::error::Invalid version '{version}': not a valid PEP 440 version.")
+              sys.exit(1)
+
+          url = "https://pypi.org/pypi/markdown-flow/json"
+          try:
+              with urllib.request.urlopen(url, timeout=30) as resp:
+                  data = json.load(resp)
+          except Exception as exc:  # noqa: BLE001 - network/parse errors are all fatal here
+              print(f"::error::Failed to query PyPI: {exc}")
+              sys.exit(1)
+
+          if version not in data.get("releases", {}):
+              print(
+                  f"::error::markdown-flow=={version} was not found on PyPI. "
+                  "Publish it first from markdown-flow-agent-py (run its Publish action), then retry."
+              )
+              sys.exit(1)
+
+          print(f"OK: markdown-flow=={version} exists on PyPI.")
+          PY
+
+      - name: Update requirements pin
+        env:
+          MF_VERSION: ${{ inputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import sys
+
+          path = "src/api/requirements.txt"
+          version = os.environ["MF_VERSION"].strip()
+
+          with open(path, encoding="utf-8") as f:
+              content = f.read()
+
+          new_content, count = re.subn(
+              r"(?m)^markdown-flow==.*$",
+              f"markdown-flow=={version}",
+              content,
+          )
+          if count != 1:
+              print(f"::error::Expected exactly 1 'markdown-flow==' pin in {path}, found {count}.")
+              sys.exit(1)
+
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(new_content)
+          print(f"Pinned markdown-flow=={version} in {path}")
+          PY
+
+      - name: Commit and push
+        env:
+          MF_VERSION: ${{ inputs.version }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          if git diff --quiet -- src/api/requirements.txt; then
+            echo "No change: requirements already pin markdown-flow==${MF_VERSION}."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/api/requirements.txt
+          git commit -m "chore: bump markdown-flow to ${MF_VERSION}"
+          git push origin "HEAD:${BRANCH_NAME}"
+
+      - name: Summary
+        env:
+          MF_VERSION: ${{ inputs.version }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          {
+            echo "## Pinned \`markdown-flow==${MF_VERSION}\`"
+            echo ""
+            echo "- Branch: \`${BRANCH_NAME}\`"
+            echo "- File: \`src/api/requirements.txt\`"
+          } >> "$GITHUB_STEP_SUMMARY"

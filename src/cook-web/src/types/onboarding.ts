@@ -7,15 +7,11 @@ export type CreatorOnboardingUserSegment =
   | 'existing_creator_rollout'
   | 'ineligible';
 
-export type CreatorOnboardingBillingVariant =
-  | 'trial_credit'
-  | 'generic_billing';
-
 export type CreatorOnboardingSceneStatus = {
   completed: boolean;
   completed_at: string | null;
   eligible: boolean;
-  variant: CreatorOnboardingBillingVariant | null;
+  status: 'completed' | 'skipped' | null;
 };
 
 export type CreatorOnboardingStatus = {

@@ -19,9 +19,11 @@ type OnboardingOverlayProps = {
   continueLabel: React.ReactNode;
   actionLabel?: React.ReactNode;
   actionHref?: string;
+  skipLabel?: React.ReactNode;
   targetRect: RectLike | null;
   highlightPadding?: number;
   onAdvance: () => void;
+  onSkip?: () => void;
 };
 
 const PADDING = 10;
@@ -112,9 +114,11 @@ export function OnboardingOverlay({
   continueLabel,
   actionLabel,
   actionHref,
+  skipLabel,
   targetRect,
   highlightPadding = PADDING,
   onAdvance,
+  onSkip,
 }: OnboardingOverlayProps) {
   const cardRef = React.useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = React.useState(false);
@@ -227,6 +231,8 @@ export function OnboardingOverlay({
           continueLabel={continueLabel}
           actionLabel={actionLabel}
           actionHref={actionHref}
+          skipLabel={skipLabel}
+          onSkip={onSkip}
         />
       </div>
     </div>,

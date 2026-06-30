@@ -64,8 +64,8 @@ AI compatibility instruction files.
 - `git diff -- .github/workflows .github/instructions .github/copilot-instructions.md`
   shows the affected automation and compatibility surfaces together.
 
-- `pre-commit run --files .github/workflows/*.yml .github/copilot-instructions.md .github/instructions/*.instructions.md`
-  is the focused hygiene pass for workflow and GitHub-side instruction changes.
+- `lefthook run pre-commit` is the focused hygiene pass for workflow and
+  GitHub-side instruction changes (runs the hooks on your staged files).
 
 - `python scripts/check_repo_harness.py` is required when `.github/`
   instruction mirrors or manual AI-doc entry points change.
