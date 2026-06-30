@@ -150,6 +150,7 @@ def _resolve_progress_effective_updated_at(
         source_timezone_name=_LEARN_PROGRESS_SOURCE_TIMEZONE,
     )
 
+
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
     LEARN_STATUS_NOT_STARTED: LearnStatus.NOT_STARTED,
