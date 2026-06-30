@@ -31,7 +31,10 @@ jobs:
       - name: Check out PR branch
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.head_ref }}
+          # Same-repo PRs: check out the head branch so auto-fixes can be pushed
+          # back. Fork PRs: head_ref does not exist in this repo, so fall back to
+          # the default PR merge ref (read-only; fork fixes are never pushed).
+          ref: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || '' }}
           fetch-depth: 0
           # Do not leave the write-capable token in .git/config while
           # PR-controlled tooling (npm ci, linters) runs. The push step
