@@ -1,5 +1,5 @@
 from decimal import Decimal
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from flaskr.dao import db
 from flaskr.service.learn.learn_funcs import get_outline_item_tree, get_shifu_info
@@ -252,3 +252,65 @@ def test_get_outline_item_tree_keeps_update_notice_hidden_for_not_started_lesson
     assert result.outline_items
     assert result.outline_items[0].status.value == "not_started"
     assert result.outline_items[0].has_content_update_for_current_user is False
+
+
+def test_get_outline_item_tree_uses_normalized_published_effective_time(app):
+    with app.app_context():
+        lesson = PublishedOutlineItem(
+            outline_item_bid="lesson-learn-published-timezone-1",
+            shifu_bid="shifu-learn-published-timezone-1",
+            title="Lesson",
+            position="1",
+            type=401,
+            hidden=0,
+            created_at=datetime(2026, 6, 30, 10, 14, 32),
+            updated_at=datetime(2026, 6, 30, 18, 17, 29),
+        )
+        db.session.add(lesson)
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid="progress-learn-published-timezone-1",
+            shifu_bid="shifu-learn-published-timezone-1",
+            outline_item_bid="lesson-learn-published-timezone-1",
+            user_bid="user-1",
+            status=602,
+            updated_at=datetime(2026, 6, 30, 18, 11, 46),
+        )
+        db.session.add(progress)
+        db.session.commit()
+
+        struct = HistoryItem(
+            bid="shifu-learn-published-timezone-1",
+            id=0,
+            type="shifu",
+            children=[
+                HistoryItem(
+                    bid="lesson-learn-published-timezone-1",
+                    id=lesson.id,
+                    type="outline",
+                    children=[],
+                )
+            ],
+        ).to_json()
+        log = LogPublishedStruct(
+            struct_bid="struct-learn-published-timezone-1",
+            shifu_bid="shifu-learn-published-timezone-1",
+            struct=struct,
+        )
+        published = PublishedShifu(
+            shifu_bid="shifu-learn-published-timezone-1",
+            title="Published Shifu",
+            description="Desc",
+            price=Decimal("9.99"),
+            keywords="a,b",
+        )
+        db.session.add_all([log, published])
+        db.session.commit()
+
+    result = get_outline_item_tree(
+        app, "shifu-learn-published-timezone-1", "user-1", preview_mode=False
+    )
+
+    assert result.outline_items
+    assert result.outline_items[0].has_content_update_for_current_user is True
