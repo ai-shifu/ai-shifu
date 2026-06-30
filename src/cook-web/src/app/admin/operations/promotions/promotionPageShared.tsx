@@ -239,6 +239,9 @@ export const REFERRAL_CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
   campaignTime: 280,
   relationCount: 110,
   rewardCount: 110,
+  inviteCodeCount: 110,
+  inviteEventCount: 120,
+  latestInviteEventAt: 170,
   updatedAt: 170,
   action: 120,
 } as const;

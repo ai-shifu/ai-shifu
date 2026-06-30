@@ -16,12 +16,23 @@ from .consts import (
     REFERRAL_ABNORMAL_STATUS_CONFIRMED_ABNORMAL,
     REFERRAL_ABNORMAL_STATUS_NORMAL,
     REFERRAL_ABNORMAL_STATUS_REVIEWING,
+    REFERRAL_INVITE_EVENT_CODE_ENTERED,
+    REFERRAL_INVITE_EVENT_LINK_CLICKED,
+    REFERRAL_INVITE_EVENT_REGISTRATION_PAGE_VIEWED,
+    REFERRAL_INVITE_EVENT_REGISTRATION_SUBMITTED,
+    REFERRAL_INVITE_EVENT_TYPES,
     REFERRAL_RELATION_STATUS_ABNORMAL_REVIEWING,
     REFERRAL_RELATION_STATUS_CANCELED,
     REFERRAL_REWARD_STATUS_CANCELED,
     REFERRAL_REWARD_STATUS_FROZEN,
 )
-from .models import ReferralCampaign, ReferralInviteRelation, ReferralInviteReward
+from .models import (
+    ReferralCampaign,
+    ReferralInviteCode,
+    ReferralInviteEvent,
+    ReferralInviteRelation,
+    ReferralInviteReward,
+)
 from .reward_queue import build_referral_reward_queue
 
 DEFAULT_PAGE_INDEX = 1
@@ -242,6 +253,79 @@ def list_operator_referrals(
             "page_index": safe_page_index,
             "page_size": safe_page_size,
             "total": total,
+            "page_count": _page_count(total, safe_page_size),
+        }
+
+
+def list_operator_referral_campaign_invitations(
+    app: Flask,
+    *,
+    campaign_bid: str,
+    page_index: int,
+    page_size: int,
+    filters: dict[str, Any],
+) -> dict[str, Any]:
+    with app.app_context():
+        normalized_campaign_bid = _normalize_text(campaign_bid)
+        _load_campaign_or_404(normalized_campaign_bid)
+        safe_page_index, safe_page_size = _normalize_page(page_index, page_size)
+        query = ReferralInviteCode.query.filter(
+            ReferralInviteCode.deleted == 0,
+            ReferralInviteCode.campaign_bid == normalized_campaign_bid,
+        )
+        for field in ("inviter_user_bid", "invite_code"):
+            value = _normalize_text(filters.get(field))
+            if value:
+                query = query.filter(getattr(ReferralInviteCode, field) == value)
+        status = _normalize_text(filters.get("status"))
+        if status:
+            try:
+                query = query.filter(ReferralInviteCode.status == int(status))
+            except ValueError:
+                raise_param_error("status")
+        start_time = filters.get("start_time")
+        end_time = filters.get("end_time")
+        if start_time is not None:
+            query = query.filter(ReferralInviteCode.generated_at >= start_time)
+        if end_time is not None:
+            query = query.filter(ReferralInviteCode.generated_at <= end_time)
+
+        total = query.count()
+        rows = (
+            query.order_by(
+                ReferralInviteCode.generated_at.desc(),
+                ReferralInviteCode.id.desc(),
+            )
+            .offset((safe_page_index - 1) * safe_page_size)
+            .limit(safe_page_size)
+            .all()
+        )
+        invite_codes = [row.invite_code for row in rows if row.invite_code]
+        event_stats = _invite_event_stats_by_code(
+            campaign_bid=normalized_campaign_bid,
+            invite_codes=invite_codes,
+        )
+        relation_counts = _relation_counts_by_code(
+            campaign_bid=normalized_campaign_bid,
+            invite_codes=invite_codes,
+        )
+        users = _user_contact_map(
+            {row.inviter_user_bid for row in rows if row.inviter_user_bid}
+        )
+        return {
+            "items": [
+                _serialize_invitation(
+                    row,
+                    users=users,
+                    event_stats=event_stats.get(row.invite_code, {}),
+                    relation_count=relation_counts.get(row.invite_code, 0),
+                )
+                for row in rows
+            ],
+            "page_index": safe_page_index,
+            "page_size": safe_page_size,
+            "total": total,
+            "page_count": _page_count(total, safe_page_size),
         }
 
 
@@ -355,3 +439,127 @@ def update_operator_referral_status(
             db.session.add(reward)
         db.session.commit()
         return get_operator_referral_detail(app, relation_bid=relation.relation_bid)
+
+
+def _page_count(total: int, page_size: int) -> int:
+    return ((total + page_size - 1) // page_size) if total else 0
+
+
+def _load_campaign_or_404(campaign_bid: str) -> ReferralCampaign:
+    campaign = (
+        ReferralCampaign.query.filter(
+            ReferralCampaign.deleted == 0,
+            ReferralCampaign.campaign_bid == _normalize_text(campaign_bid),
+        )
+        .order_by(ReferralCampaign.id.desc())
+        .first()
+    )
+    if campaign is None:
+        raise_error("server.referral.campaignNotFound")
+    return campaign
+
+
+def _invite_event_stats_by_code(
+    *,
+    campaign_bid: str,
+    invite_codes: list[str],
+) -> dict[str, dict[str, Any]]:
+    if not invite_codes:
+        return {}
+    rows = (
+        db.session.query(
+            ReferralInviteEvent.invite_code,
+            ReferralInviteEvent.event_type,
+            db.func.count(ReferralInviteEvent.id),
+            db.func.max(ReferralInviteEvent.created_at),
+        )
+        .filter(
+            ReferralInviteEvent.campaign_bid == campaign_bid,
+            ReferralInviteEvent.invite_code.in_(invite_codes),
+        )
+        .group_by(ReferralInviteEvent.invite_code, ReferralInviteEvent.event_type)
+        .all()
+    )
+    result: dict[str, dict[str, Any]] = {}
+    for invite_code, event_type, count, latest_at in rows:
+        stats = result.setdefault(
+            invite_code,
+            {
+                "event_counts": {
+                    event_type: 0 for event_type in REFERRAL_INVITE_EVENT_TYPES
+                },
+                "total_event_count": 0,
+                "latest_event_at": None,
+            },
+        )
+        stats["event_counts"][event_type] = int(count or 0)
+        stats["total_event_count"] = int(stats["total_event_count"]) + int(count or 0)
+        current_latest = stats.get("latest_event_at")
+        if current_latest is None or (
+            latest_at is not None and latest_at > current_latest
+        ):
+            stats["latest_event_at"] = latest_at
+    return result
+
+
+def _relation_counts_by_code(
+    *,
+    campaign_bid: str,
+    invite_codes: list[str],
+) -> dict[str, int]:
+    if not invite_codes:
+        return {}
+    rows = (
+        db.session.query(
+            ReferralInviteRelation.invite_code,
+            db.func.count(ReferralInviteRelation.id),
+        )
+        .filter(
+            ReferralInviteRelation.deleted == 0,
+            ReferralInviteRelation.campaign_bid == campaign_bid,
+            ReferralInviteRelation.invite_code.in_(invite_codes),
+        )
+        .group_by(ReferralInviteRelation.invite_code)
+        .all()
+    )
+    return {invite_code: int(count or 0) for invite_code, count in rows}
+
+
+def _serialize_invitation(
+    invitation: ReferralInviteCode,
+    *,
+    users: dict[str, dict[str, str]],
+    event_stats: dict[str, Any],
+    relation_count: int,
+) -> dict[str, Any]:
+    event_counts = {
+        event_type: 0
+        for event_type in (
+            REFERRAL_INVITE_EVENT_LINK_CLICKED,
+            REFERRAL_INVITE_EVENT_REGISTRATION_PAGE_VIEWED,
+            REFERRAL_INVITE_EVENT_CODE_ENTERED,
+            REFERRAL_INVITE_EVENT_REGISTRATION_SUBMITTED,
+        )
+    }
+    event_counts.update(event_stats.get("event_counts") or {})
+    return {
+        "invite_code_bid": invitation.invite_code_bid,
+        "campaign_bid": invitation.campaign_bid,
+        "invite_code": invitation.invite_code,
+        "inviter_user_bid": invitation.inviter_user_bid,
+        "inviter": users.get(invitation.inviter_user_bid, {}),
+        "status": int(invitation.status or 0),
+        "generated_at": _serialize_dt(invitation.generated_at),
+        "event_counts": event_counts,
+        "link_clicked_count": event_counts[REFERRAL_INVITE_EVENT_LINK_CLICKED],
+        "registration_page_viewed_count": event_counts[
+            REFERRAL_INVITE_EVENT_REGISTRATION_PAGE_VIEWED
+        ],
+        "code_entered_count": event_counts[REFERRAL_INVITE_EVENT_CODE_ENTERED],
+        "registration_submitted_count": event_counts[
+            REFERRAL_INVITE_EVENT_REGISTRATION_SUBMITTED
+        ],
+        "total_event_count": int(event_stats.get("total_event_count") or 0),
+        "successful_relation_count": relation_count,
+        "latest_event_at": _serialize_dt(event_stats.get("latest_event_at")),
+    }

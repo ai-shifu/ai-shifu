@@ -64,6 +64,7 @@ type ReferralCampaignsTabProps = {
   renderResizeHandle: (key: ReferralCampaignColumnKey) => React.ReactNode;
   onEdit: (item: AdminReferralCampaignItem) => void | Promise<void>;
   onToggleStatus: (item: AdminReferralCampaignItem) => void | Promise<void>;
+  onOpenRecords: (item: AdminReferralCampaignItem) => void | Promise<void>;
 };
 
 const resolveRewardProductName = (
@@ -118,6 +119,7 @@ export default function ReferralCampaignsTab({
   renderResizeHandle,
   onEdit,
   onToggleStatus,
+  onOpenRecords,
 }: ReferralCampaignsTabProps) {
   return (
     <>
@@ -247,6 +249,27 @@ export default function ReferralCampaignsTab({
                 </TableHead>
                 <TableHead
                   className={TABLE_HEAD_CLASS}
+                  style={getColumnStyle('inviteCodeCount')}
+                >
+                  {tPromotion('referralCampaign.inviteCodeCount')}
+                  {renderResizeHandle('inviteCodeCount')}
+                </TableHead>
+                <TableHead
+                  className={TABLE_HEAD_CLASS}
+                  style={getColumnStyle('inviteEventCount')}
+                >
+                  {tPromotion('referralCampaign.inviteEventCount')}
+                  {renderResizeHandle('inviteEventCount')}
+                </TableHead>
+                <TableHead
+                  className={TABLE_HEAD_CLASS}
+                  style={getColumnStyle('latestInviteEventAt')}
+                >
+                  {tPromotion('referralCampaign.latestInviteEventAt')}
+                  {renderResizeHandle('latestInviteEventAt')}
+                </TableHead>
+                <TableHead
+                  className={TABLE_HEAD_CLASS}
                   style={getColumnStyle('updatedAt')}
                 >
                   {tPromotion('table.updatedAt')}
@@ -348,6 +371,26 @@ export default function ReferralCampaignsTab({
                   </TableCell>
                   <TableCell
                     className={TABLE_CELL_CLASS}
+                    style={getColumnStyle('inviteCodeCount')}
+                  >
+                    {renderTooltipText(String(item.invite_code_count || 0))}
+                  </TableCell>
+                  <TableCell
+                    className={TABLE_CELL_CLASS}
+                    style={getColumnStyle('inviteEventCount')}
+                  >
+                    {renderTooltipText(String(item.invite_event_count || 0))}
+                  </TableCell>
+                  <TableCell
+                    className={TABLE_CELL_CLASS}
+                    style={getColumnStyle('latestInviteEventAt')}
+                  >
+                    {renderTooltipText(
+                      formatAdminUtcDateTime(item.latest_invite_event_at),
+                    )}
+                  </TableCell>
+                  <TableCell
+                    className={TABLE_CELL_CLASS}
                     style={getColumnStyle('updatedAt')}
                   >
                     {renderTooltipText(formatAdminUtcDateTime(item.updated_at))}
@@ -360,6 +403,11 @@ export default function ReferralCampaignsTab({
                       <AdminRowActions
                         label={t('common.core.more')}
                         actions={[
+                          {
+                            key: 'records',
+                            label: tPromotion('actions.viewData'),
+                            onClick: () => void onOpenRecords(item),
+                          },
                           {
                             key: 'edit',
                             label: tPromotion('actions.edit'),
