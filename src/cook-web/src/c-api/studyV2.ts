@@ -473,9 +473,15 @@ export const getLessonStudyRecord = async ({
   outline_bid,
   preview_mode = false,
 }: GetLessonStudyRecordParams): Promise<LessonStudyRecords> => {
+  const timezone =
+    typeof Intl !== 'undefined'
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : '';
   return request
     .get(
-      `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`,
+      `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}${
+        timezone ? `&timezone=${encodeURIComponent(timezone)}` : ''
+      }`,
     )
     .catch(() => {
       // when error, return empty records, go run api
