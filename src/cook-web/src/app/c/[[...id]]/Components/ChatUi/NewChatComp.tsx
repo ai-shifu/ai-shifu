@@ -87,6 +87,7 @@ interface NewChatComponentsProps {
   lessonId?: string;
   lessonTitle?: string;
   lessonStatus?: string;
+  lessonHasContentUpdate?: boolean;
   onPurchased: () => void;
   chapterUpdate: any;
   updateSelectedLesson: any;
@@ -111,6 +112,7 @@ export const NewChatComponents = ({
   lessonId,
   lessonTitle = '',
   lessonStatus = '',
+  lessonHasContentUpdate = false,
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
@@ -407,7 +409,7 @@ export const NewChatComponents = ({
     reGenerateConfirm,
     requestAudioForBlock,
     lessonFeedbackPopup,
-    showPreviewUpdateNotice,
+    showLessonUpdateNotice,
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
@@ -415,6 +417,7 @@ export const NewChatComponents = ({
     lessonId: resolvedLessonId,
     chapterId,
     previewMode,
+    lessonHasContentUpdate,
     isListenMode: isListenModeActive,
     trackEvent,
     chatBoxBottomRef,
@@ -1199,9 +1202,11 @@ export const NewChatComponents = ({
         </div>
       </div>
     ) : null;
-  const previewUpdateNotice = showPreviewUpdateNotice ? (
-    <div className='mx-auto mb-4 max-w-[1000px] rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900'>
-      {t('module.chat.lessonUpdateReturnToCatalog')}
+  const lessonUpdateNotice = showLessonUpdateNotice ? (
+    <div className='mx-auto mb-3 mt-2 max-w-[1000px] px-4 md:px-5'>
+      <div className='inline-flex max-w-full items-center rounded-full border border-amber-200/80 bg-amber-50/90 px-4 py-2 text-sm leading-6 text-amber-900 shadow-sm shadow-amber-100/40'>
+        {t('module.chat.lessonUpdateReturnToCatalog')}
+      </div>
     </div>
   ) : null;
 
@@ -1213,7 +1218,7 @@ export const NewChatComponents = ({
       {isSlideMode ? (
         isClassroomMode || isListenModeAvailable ? (
           <>
-            {previewUpdateNotice}
+            {lessonUpdateNotice}
             <ListenModeSlideRenderer
               items={slideModeItems}
               mobileStyle={mobileStyle}
@@ -1265,7 +1270,7 @@ export const NewChatComponents = ({
               <></>
             ) : (
               <>
-                {previewUpdateNotice}
+                {lessonUpdateNotice}
                 {visibleReadModeItems.map((item, idx) => {
                   const isLongPressed =
                     longPressedBlockBid === item.element_bid;

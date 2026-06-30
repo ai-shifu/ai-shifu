@@ -23,7 +23,7 @@
   "lessonFeedbackPrompt": "Veuillez noter cette section du cours (1 à 5)",
   "lessonFeedbackScoreRequired": "Veuillez choisir une note de 1 à 5.",
   "lessonFeedbackSubmitted": "Merci pour votre retour !",
-  "lessonUpdateReturnToCatalog": "Cette leçon a été mise à jour. Veuillez revenir à la liste des cours pour la reprendre.",
+  "lessonUpdateReturnToCatalog": "Cette leçon a été mise à jour. Pour étudier la dernière version, veuillez revenir à la liste des cours et réinitialiser cette leçon.",
   "listenAudioBackfillFailed": "La génération audio a échoué. Veuillez réessayer ou continuer la lecture.",
   "listenInteractionHint": "Envoyez ce qui suit pour continuer l’apprentissage",
   "listenModeTtsDisabled": "Le mode écoute n’est pas activé pour ce cours.",
