@@ -15,6 +15,7 @@ import {
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
+import api from '@/api';
 import {
   StudyRecordItem,
   LikeStatus,
@@ -77,6 +78,8 @@ import {
   EMPTY_LESSON_RUN_ITEMS,
   useLessonRunContentStore,
 } from '@/c-store/useLessonRunContentStore';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
+import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
 
 interface LessonFeedbackPopupState {
   open: boolean;
@@ -322,6 +325,7 @@ export interface UseChatSessionResult {
     onClose: () => void;
     onSubmit: (score: number, comment: string) => void;
   };
+  showPreviewUpdateNotice: boolean;
 }
 
 /**
@@ -407,6 +411,7 @@ function useChatLogicHook({
   const isTypeFinishedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const isInitHistoryRef = useRef(true);
+  const [showPreviewUpdateNotice, setShowPreviewUpdateNotice] = useState(false);
   // const [lastInteractionBlock, setLastInteractionBlock] =
   //   useState<ChatContentItem | null>(null);
   const [loadedChapterId, setLoadedChapterId] = useState('');
@@ -2613,6 +2618,29 @@ function useChatLogicHook({
         outline_bid: outlineBid,
         preview_mode: effectivePreviewMode,
       });
+      let shouldShowPreviewUpdate = false;
+      if (effectivePreviewMode && recordResp?.elements?.length > 0) {
+        const timezone = getBrowserTimeZone();
+        const draftMeta = await api
+          .getShifuDraftMeta({
+            shifu_bid: shifuBid,
+            outline_bid: outlineBid,
+            ...(timezone ? { timezone } : {}),
+          })
+          .catch(() => null);
+        const latestDraftUpdatedAt = parseLessonHistoryDate(
+          draftMeta?.updated_at,
+        );
+        const latestStudyUpdatedAt = parseLessonHistoryDate(
+          recordResp.last_progress_updated_at,
+        );
+        shouldShowPreviewUpdate = Boolean(
+          latestDraftUpdatedAt &&
+            latestStudyUpdatedAt &&
+            latestDraftUpdatedAt.getTime() > latestStudyUpdatedAt.getTime(),
+        );
+      }
+      setShowPreviewUpdateNotice(shouldShowPreviewUpdate);
 
       if (recordResp?.elements?.length > 0) {
         const contentRecords = mapRecordsToContent(recordResp.elements);
@@ -2655,6 +2683,7 @@ function useChatLogicHook({
           });
         }
       } else {
+        setShowPreviewUpdateNotice(false);
         runRef.current?.({
           input: '',
           input_type: SSE_INPUT_TYPE.NORMAL,
@@ -2667,6 +2696,7 @@ function useChatLogicHook({
         }
       }
     } catch (error) {
+      setShowPreviewUpdateNotice(false);
       console.warn('refreshData error:', error);
     } finally {
       setIsLoading(false);
@@ -3737,6 +3767,7 @@ function useChatLogicHook({
       onClose: handleLessonFeedbackPopupClose,
       onSubmit: handleLessonFeedbackPopupSubmit,
     },
+    showPreviewUpdateNotice,
   };
 }
 

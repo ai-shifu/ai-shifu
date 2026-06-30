@@ -42,6 +42,7 @@ from pydantic import BaseModel
 from .models import DraftOutlineItem, LogDraftStruct
 from flaskr.dao import db
 from flaskr.util import generate_id
+from flaskr.util.timezone import serialize_with_app_timezone
 import queue
 from datetime import datetime
 import re
@@ -159,7 +160,9 @@ def _mask_contact_identifier(identifier: Optional[str]) -> str:
     return _mask_phone_identifier(identifier)
 
 
-def _build_draft_meta(latest) -> dict:
+def _build_draft_meta(
+    app: Flask, latest, timezone_name: str | None = None
+) -> dict:
     if not latest:
         return {
             "revision": 0,
@@ -185,7 +188,9 @@ def _build_draft_meta(latest) -> dict:
     )
     return {
         "revision": int(latest.id),
-        "updated_at": latest.updated_at,
+        "updated_at": serialize_with_app_timezone(
+            app, latest.updated_at, timezone_name
+        ),
         "updated_user": updated_user,
         "deleted": int(getattr(latest, "deleted", 0) or 0),
     }
@@ -208,14 +213,17 @@ def mask_contact_identifier(identifier: Optional[str]) -> str:
 
 
 def get_shifu_draft_meta(
-    app: Flask, shifu_bid: str, outline_bid: str | None = None
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str | None = None,
+    timezone_name: str | None = None,
 ) -> dict:
     with app.app_context():
         if outline_bid:
             latest = _get_latest_outline_content_log(shifu_bid, outline_bid)
         else:
             latest = _get_latest_draft_log(shifu_bid)
-        return _build_draft_meta(latest)
+        return _build_draft_meta(app, latest, timezone_name)
 
 
 def get_shifu_history(app, shifu_bid: str) -> HistoryItem:

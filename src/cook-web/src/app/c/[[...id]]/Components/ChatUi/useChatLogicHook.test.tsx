@@ -97,6 +97,18 @@ const mockGetRunMessage = jest.fn();
 const mockCheckIsRunning = jest.fn();
 const mockStreamGeneratedBlockAudio = jest.fn();
 const mockSubmitLessonFeedback = jest.fn();
+const mockGetShifuDraftMeta = jest.fn();
+
+jest.mock('@/api', () => ({
+  __esModule: true,
+  default: {
+    getShifuDraftMeta: (...args: unknown[]) => mockGetShifuDraftMeta(...args),
+  },
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: jest.fn(() => 'Asia/Shanghai'),
+}));
 
 jest.mock('@/c-api/studyV2', () => {
   return {
@@ -194,6 +206,7 @@ describe('useChatLogicHook stream cleanup', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockStreamGeneratedBlockAudio.mockReset();
+    mockGetShifuDraftMeta.mockReset();
     useLessonRunContentStore.getState().clearAll();
     activeRun = undefined;
 
@@ -208,6 +221,9 @@ describe('useChatLogicHook stream cleanup', () => {
       running_time: 0,
     });
     mockSubmitLessonFeedback.mockResolvedValue({});
+    mockGetShifuDraftMeta.mockResolvedValue({
+      updated_at: '2026-06-30 12:00:00',
+    });
 
     mockGetRunMessage.mockImplementation(
       (
@@ -3099,6 +3115,69 @@ describe('useChatLogicHook stream cleanup', () => {
       expect(initialSource?.close).not.toHaveBeenCalled();
       expect(mockGetRunMessage).toHaveBeenCalledTimes(runCallCountBeforeCancel);
       expect(result.current.reGenerateConfirm.open).toBe(false);
+    });
+  });
+
+  describe('preview update notice', () => {
+    it('shows the notice when draft content is newer than learner history', async () => {
+      mockGetLessonStudyRecord.mockResolvedValue({
+        elements: [
+          {
+            element_type: 'content',
+            element_bid: 'history-1',
+            generated_block_bid: 'history-1',
+            content: 'history content',
+            like_status: 'none',
+            user_input: '',
+            is_marker: false,
+            is_new: false,
+            is_renderable: true,
+            is_speakable: false,
+          },
+        ],
+        last_progress_updated_at: '2026-06-30 10:00:00',
+      });
+      mockGetShifuDraftMeta.mockResolvedValue({
+        updated_at: '2026-06-30 12:00:00',
+      });
+
+      const { result } = renderHook(
+        () =>
+          useChatLogicHook({
+            ...buildBaseParams(),
+            previewMode: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.showPreviewUpdateNotice).toBe(true);
+      });
+      expect(mockGetShifuDraftMeta).toHaveBeenCalledWith({
+        shifu_bid: 'shifu-1',
+        outline_bid: 'lesson-1',
+        timezone: 'Asia/Shanghai',
+      });
+    });
+
+    it('keeps the notice hidden when there is no learner history', async () => {
+      mockGetLessonStudyRecord.mockResolvedValue({
+        elements: [],
+        last_progress_updated_at: null,
+      });
+
+      const { result } = renderHook(
+        () =>
+          useChatLogicHook({
+            ...buildBaseParams(),
+            previewMode: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.showPreviewUpdateNotice).toBe(false);
+      });
     });
   });
 });

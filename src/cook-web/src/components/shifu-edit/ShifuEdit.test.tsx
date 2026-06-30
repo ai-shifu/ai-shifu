@@ -66,7 +66,27 @@ jest.mock('@/components/outline-tree', () => {
 });
 jest.mock('@/components/chapter-setting', () => () => null);
 jest.mock('@/components/mdf-convert', () => ({ MdfConvertDialog: () => null }));
-jest.mock('../header', () => () => null);
+jest.mock('../header', () => ({
+  __esModule: true,
+  default: ({
+    lessonHistoryUrl,
+    onLessonHistoryClick,
+  }: {
+    lessonHistoryUrl?: string | null;
+    onLessonHistoryClick?: () => void;
+  }) =>
+    lessonHistoryUrl ? (
+      <a
+        href={lessonHistoryUrl}
+        target='_blank'
+        rel='noopener noreferrer'
+        title='module.shifu.history.title'
+        onClick={onLessonHistoryClick}
+      >
+        history
+      </a>
+    ) : null,
+}));
 jest.mock('../loading', () => {
   const MockLoading = () => <div data-testid='loading' />;
   MockLoading.displayName = 'MockLoading';
