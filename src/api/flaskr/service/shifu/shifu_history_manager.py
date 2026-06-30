@@ -160,9 +160,7 @@ def _mask_contact_identifier(identifier: Optional[str]) -> str:
     return _mask_phone_identifier(identifier)
 
 
-def _build_draft_meta(
-    app: Flask, latest, timezone_name: str | None = None
-) -> dict:
+def _build_draft_meta(app: Flask, latest, timezone_name: str | None = None) -> dict:
     if not latest:
         return {
             "revision": 0,
