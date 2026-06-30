@@ -1,5 +1,7 @@
 import json
 
+from flask import Flask
+
 from flaskr.api.tts import base
 
 
@@ -116,3 +118,34 @@ def test_tts_credit_multiplier_uses_output_chars_metric(monkeypatch):
         "model": "",
         "billing_metrics": (BILLING_METRIC_TTS_OUTPUT_CHARS,),
     }
+
+
+def test_tts_display_name_prefers_request_language(monkeypatch):
+    import flaskr.api.tts as tts_api
+    from flaskr.i18n import clear_language
+
+    monkeypatch.setenv(
+        "TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON",
+        json.dumps(
+            {
+                "tencent/default": {
+                    "zh-CN": "基础语音",
+                    "en-US": "Basic Voice",
+                }
+            }
+        ),
+    )
+
+    app = Flask(__name__)
+    try:
+        with app.test_request_context(headers={"Accept-Language": "zh-CN,zh;q=0.9"}):
+            assert (
+                tts_api._resolve_localized_tts_label(
+                    tts_api._parse_tts_display_names(),
+                    "tencent/default",
+                    "Tencent",
+                )
+                == "基础语音"
+            )
+    finally:
+        clear_language()

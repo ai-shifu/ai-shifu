@@ -16,6 +16,8 @@ import os
 import json
 from typing import Optional
 
+from flask import has_request_context, request
+
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
 from flaskr.i18n import get_current_language
@@ -253,6 +255,48 @@ def _parse_tts_display_names() -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
+def _iter_tts_display_language_candidates():
+    if has_request_context():
+        for value in (
+            request.args.get("language"),
+            request.headers.get("X-Language"),
+            request.headers.get("X-Locale"),
+        ):
+            normalized = str(value or "").strip()
+            if normalized:
+                yield normalized
+
+        accept_language = request.headers.get("Accept-Language", "")
+        for part in accept_language.split(","):
+            normalized = part.split(";", 1)[0].strip()
+            if normalized:
+                yield normalized
+
+    language = str(get_current_language() or "").strip()
+    if language:
+        yield language
+    yield "en-US"
+
+
+def _resolve_locale_entry(entry: dict, language: str) -> str:
+    normalized_language = str(language or "").replace("_", "-").lower()
+    if not normalized_language:
+        return ""
+
+    normalized_primary = normalized_language.split("-", 1)[0]
+    for key, value in entry.items():
+        normalized_key = str(key or "").replace("_", "-").lower()
+        if normalized_key == normalized_language:
+            return str(value or "").strip()
+
+    for key, value in entry.items():
+        normalized_key = str(key or "").replace("_", "-").lower()
+        if normalized_key.split("-", 1)[0] == normalized_primary:
+            return str(value or "").strip()
+
+    return ""
+
+
 def _resolve_localized_tts_label(
     display_names: dict,
     key: str,
@@ -262,9 +306,8 @@ def _resolve_localized_tts_label(
     if isinstance(entry, str) and entry.strip():
         return entry.strip()
     if isinstance(entry, dict):
-        language = get_current_language()
-        for locale in (language, "en-US"):
-            value = str(entry.get(locale) or "").strip()
+        for locale in _iter_tts_display_language_candidates():
+            value = _resolve_locale_entry(entry, locale)
             if value:
                 return value
     return fallback
