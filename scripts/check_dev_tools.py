@@ -77,7 +77,8 @@ def _hooks_dir() -> Path | None:
             text=True,
         )
         if configured.returncode == 0 and configured.stdout.strip():
-            path = Path(configured.stdout.strip())
+            # git config values may use ~ / ~user; Path() does not expand it.
+            path = Path(configured.stdout.strip()).expanduser()
             return path if path.is_absolute() else (ROOT / path)
 
         resolved = subprocess.run(
@@ -87,10 +88,10 @@ def _hooks_dir() -> Path | None:
             text=True,
             check=True,
         )
+        path = Path(resolved.stdout.strip())
+        return path if path.is_absolute() else (ROOT / path)
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
-    path = Path(resolved.stdout.strip())
-    return path if path.is_absolute() else (ROOT / path)
 
 
 def _lefthook_hook_installed() -> bool:
