@@ -23,7 +23,7 @@
   "lessonFeedbackPrompt": "Please rate this course section (1-5)",
   "lessonFeedbackScoreRequired": "Please choose a score from 1 to 5.",
   "lessonFeedbackSubmitted": "Thanks for your feedback!",
-  "lessonUpdateReturnToCatalog": "This lesson has updates. Please return to the course list and study it again.",
+  "lessonUpdateReturnToCatalog": "This lesson has been updated. To study the latest version, please return to the course list and reset this lesson.",
   "listenAudioBackfillFailed": "Audio generation failed. Please retry or keep reading.",
   "listenInteractionHint": "Submit the following to continue learning",
   "listenModeTtsDisabled": "Listen mode is not enabled for this course.",

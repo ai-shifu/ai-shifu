@@ -278,6 +278,7 @@ describe('useChatLogicHook stream cleanup', () => {
     shifuBid: 'shifu-1',
     outlineBid: 'lesson-1',
     lessonId: 'lesson-1',
+    lessonHasContentUpdate: false,
     trackEvent: jest.fn(),
     trackTrailProgress: jest.fn(),
     lessonUpdate: jest.fn(),
@@ -3118,7 +3119,7 @@ describe('useChatLogicHook stream cleanup', () => {
     });
   });
 
-  describe('preview update notice', () => {
+  describe('lesson update notice', () => {
     it('shows the notice when draft content is newer than learner history', async () => {
       mockGetLessonStudyRecord.mockResolvedValue({
         elements: [
@@ -3151,7 +3152,7 @@ describe('useChatLogicHook stream cleanup', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.showPreviewUpdateNotice).toBe(true);
+        expect(result.current.showLessonUpdateNotice).toBe(true);
       });
       expect(mockGetShifuDraftMeta).toHaveBeenCalledWith({
         shifu_bid: 'shifu-1',
@@ -3176,8 +3177,43 @@ describe('useChatLogicHook stream cleanup', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.showPreviewUpdateNotice).toBe(false);
+        expect(result.current.showLessonUpdateNotice).toBe(false);
       });
+    });
+
+    it('shows the notice in published mode when the current lesson has a published update', async () => {
+      mockGetLessonStudyRecord.mockResolvedValue({
+        elements: [
+          {
+            element_type: 'content',
+            element_bid: 'history-1',
+            generated_block_bid: 'history-1',
+            content: 'history content',
+            like_status: 'none',
+            user_input: '',
+            is_marker: false,
+            is_new: false,
+            is_renderable: true,
+            is_speakable: false,
+          },
+        ],
+        last_progress_updated_at: '2026-06-30T10:00:00+08:00',
+      });
+
+      const { result } = renderHook(
+        () =>
+          useChatLogicHook({
+            ...buildBaseParams(),
+            previewMode: false,
+            lessonHasContentUpdate: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.showLessonUpdateNotice).toBe(true);
+      });
+      expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
     });
   });
 });

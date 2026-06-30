@@ -300,9 +300,42 @@ def get_outline_item_tree(
             LearnProgressRecord.status != LEARN_STATUS_RESET,
             LearnProgressRecord.deleted == 0,
         ).all()
-        progress_records_map: dict[str, LearnProgressRecord] = {
-            i.outline_item_bid: i for i in progress_records
-        }
+        progress_records_map: dict[str, LearnProgressRecord] = {}
+        latest_progress_record_map: dict[str, LearnProgressRecord] = {}
+        for progress_record in progress_records:
+            current_status_record = progress_records_map.get(
+                progress_record.outline_item_bid
+            )
+            if (
+                current_status_record is None
+                or progress_record.id > current_status_record.id
+            ):
+                progress_records_map[progress_record.outline_item_bid] = progress_record
+            latest_progress_record = latest_progress_record_map.get(
+                progress_record.outline_item_bid
+            )
+            if latest_progress_record is None:
+                latest_progress_record_map[progress_record.outline_item_bid] = (
+                    progress_record
+                )
+            elif (
+                (
+                    progress_record.updated_at is not None
+                    and latest_progress_record.updated_at is not None
+                    and progress_record.updated_at > latest_progress_record.updated_at
+                )
+                or (
+                    latest_progress_record.updated_at is None
+                    and progress_record.updated_at is not None
+                )
+                or (
+                    progress_record.updated_at == latest_progress_record.updated_at
+                    and progress_record.id > latest_progress_record.id
+                )
+            ):
+                latest_progress_record_map[progress_record.outline_item_bid] = (
+                    progress_record
+                )
 
         def build_outline_item_tree(item: HistoryItem):
             outline_item: DraftOutlineItem | PublishedOutlineItem = next(
@@ -319,6 +352,26 @@ def get_outline_item_tree(
                 status = progress_record.status
                 if status == LEARN_STATUS_LOCKED:
                     status = LEARN_STATUS_NOT_STARTED
+            is_lesson_node = not bool(item.children)
+            has_content_update_for_current_user = False
+            if not preview_mode and is_lesson_node:
+                latest_progress_record = latest_progress_record_map.get(
+                    outline_item.outline_item_bid
+                )
+                published_updated_at = getattr(outline_item, "updated_at", None)
+                latest_progress_updated_at = (
+                    getattr(latest_progress_record, "updated_at", None)
+                    if latest_progress_record is not None
+                    else None
+                )
+                has_content_update_for_current_user = bool(
+                    latest_progress_record is not None
+                    and latest_progress_record.status
+                    in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
+                    and published_updated_at
+                    and latest_progress_updated_at
+                    and published_updated_at > latest_progress_updated_at
+                )
             outline_item_info = LearnOutlineItemInfoDTO(
                 bid=outline_item.outline_item_bid,
                 position=outline_item.position,
@@ -326,6 +379,7 @@ def get_outline_item_tree(
                 status=STATUS_MAP.get(status, LearnStatus.NOT_STARTED),
                 type=outline_type_map.get(outline_item.type, OutlineType.NORMAL),
                 is_paid=is_paid,
+                has_content_update_for_current_user=has_content_update_for_current_user,
                 children=[],
             )
             if item.children:
