@@ -14,6 +14,8 @@ The provider can be selected per-Shifu configuration.
 import logging
 import os
 import json
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 from flask import has_request_context, request
@@ -21,8 +23,15 @@ from flask import has_request_context, request
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
 from flaskr.i18n import get_current_language
-from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
-from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
+from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    BILLING_METRIC_TTS_OUTPUT_CHARS,
+)
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
 
 # Re-export base classes for backward compatibility
 from flaskr.api.tts.base import (
@@ -315,17 +324,95 @@ def _resolve_localized_tts_label(
 
 def _resolve_credit_multiplier_label(provider_name: str, model: str) -> str | None:
     try:
-        from flaskr.service.billing.charges import resolve_credit_multiplier_label
-
-        return resolve_credit_multiplier_label(
-            usage_type=BILL_USAGE_TYPE_TTS,
-            provider=provider_name,
-            model=model,
-            billing_metrics=(BILLING_METRIC_TTS_OUTPUT_CHARS,),
+        baseline_cost = _load_default_llm_unit_cost()
+        if baseline_cost is None or baseline_cost <= 0:
+            return None
+        actual_cost = (
+            _load_usage_rate_unit_cost(
+                usage_type=BILL_USAGE_TYPE_TTS,
+                provider=provider_name,
+                model_candidates=[model],
+                billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
+                ignore_global_wildcard=True,
+            )
+            or baseline_cost
         )
+        if actual_cost <= 0:
+            return None
+        return _format_credit_multiplier_label(actual_cost / baseline_cost)
     except Exception as exc:
         logger.debug("Skipping TTS credit multiplier label: %s", exc)
         return None
+
+
+def _resolve_default_llm_rate_identity() -> tuple[str, list[str]]:
+    default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
+    if not default_model:
+        return "", [""]
+    try:
+        from flaskr.api.llm import _resolve_billing_rate_identity
+
+        return _resolve_billing_rate_identity(default_model)
+    except Exception:
+        return "", [default_model]
+
+
+def _load_default_llm_unit_cost() -> Decimal | None:
+    provider, model_candidates = _resolve_default_llm_rate_identity()
+    return _load_usage_rate_unit_cost(
+        usage_type=BILL_USAGE_TYPE_LLM,
+        provider=provider,
+        model_candidates=model_candidates or [""],
+        billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    )
+
+
+def _load_usage_rate_unit_cost(
+    *,
+    usage_type: int,
+    provider: str,
+    model_candidates: list[str],
+    billing_metric: int,
+    ignore_global_wildcard: bool = False,
+) -> Decimal | None:
+    from flaskr.service.billing.charges import load_usage_rate
+    from flaskr.service.metering.models import BillUsageRecord
+
+    normalized_models = [str(model or "").strip() for model in model_candidates]
+    if not normalized_models:
+        normalized_models = [""]
+    settlement_at = datetime.now()
+    for model in normalized_models:
+        rate = load_usage_rate(
+            usage=BillUsageRecord(
+                usage_type=int(usage_type),
+                provider=str(provider or "").strip(),
+                model=model,
+                usage_scene=BILL_USAGE_SCENE_PROD,
+            ),
+            billing_metric=billing_metric,
+            settlement_at=settlement_at,
+        )
+        if rate is None:
+            continue
+        if (
+            ignore_global_wildcard
+            and str(rate.provider or "").strip() == "*"
+            and str(rate.model or "").strip() == "*"
+        ):
+            continue
+        try:
+            unit_size = max(int(rate.unit_size or 1), 1)
+            return Decimal(str(rate.credits_per_unit or 0)) / Decimal(str(unit_size))
+        except (InvalidOperation, TypeError, ValueError, ZeroDivisionError):
+            continue
+    return None
+
+
+def _format_credit_multiplier_label(value: Decimal) -> str:
+    rounded = value.quantize(Decimal("0.01"))
+    text = format(rounded.normalize(), "f").rstrip("0").rstrip(".")
+    return f"{text or '0'}x"
 
 
 def _build_tts_model_options(provider_payloads: list[tuple[str, dict]]) -> list[dict]:
