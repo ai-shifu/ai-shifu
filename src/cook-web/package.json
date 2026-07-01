@@ -70,7 +70,7 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
     "markdown-flow-ui": "^0.1.127",
-    "next": "15.5.7",
+    "next": "15.5.18",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-day-picker": "^9.13.0",
