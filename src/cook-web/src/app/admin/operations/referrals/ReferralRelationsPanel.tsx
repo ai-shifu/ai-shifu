@@ -370,7 +370,7 @@ export default function ReferralRelationsPanel({
         isEmpty={!items.length}
         emptyContent={t('operator.empty')}
         emptyColSpan={
-          5 + (includeCampaignFilter ? 1 : 0) + (showDetailAction ? 1 : 0)
+          6 + (includeCampaignFilter ? 1 : 0) + (showDetailAction ? 1 : 0)
         }
         withTooltipProvider
         tableWrapperClassName={tableWrapperClassName}

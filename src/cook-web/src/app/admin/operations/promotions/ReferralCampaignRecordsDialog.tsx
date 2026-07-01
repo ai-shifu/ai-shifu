@@ -203,8 +203,8 @@ function ReferralCampaignInvitationsPanel({
   const [loading, setLoading] = React.useState(false);
   const inviterPlaceholder =
     contactMode === 'email'
-      ? tPromotion('referralCampaign.records.inviterEmail')
-      : tPromotion('referralCampaign.records.inviterMobile');
+      ? tPromotion('referralCampaign.records.inviterEmailPlaceholder')
+      : tPromotion('referralCampaign.records.inviterMobilePlaceholder');
 
   const fetchInvitations = React.useCallback(
     async (nextPageIndex = pageIndex) => {
