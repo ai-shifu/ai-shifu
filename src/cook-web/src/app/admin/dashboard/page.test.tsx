@@ -114,7 +114,6 @@ describe('AdminDashboardEntryPage', () => {
           keyword: '',
           start_date: '',
           end_date: '',
-          timezone: 'Asia/Shanghai',
         }),
       );
     });
@@ -205,7 +204,6 @@ describe('AdminDashboardEntryPage', () => {
           keyword: '',
           start_date: '',
           end_date: '',
-          timezone: 'Asia/Shanghai',
         }),
       );
     });

@@ -47,7 +47,6 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { cn } from '@/lib/utils';
 import {
   PackageCampaignDialog,
@@ -64,7 +63,9 @@ import {
 import PromotionCampaignsTab from './PromotionCampaignsTab';
 import PromotionCouponsTab from './PromotionCouponsTab';
 import ReferralCampaignsTab from './ReferralCampaignsTab';
-import ReferralCampaignRecordsDialog from './ReferralCampaignRecordsDialog';
+import ReferralCampaignRecordsDialog, {
+  type ReferralCampaignRecordsTab,
+} from './ReferralCampaignRecordsDialog';
 import PromotionStatusConfirmDialog from './PromotionStatusConfirmDialog';
 import {
   ALL_OPTION_VALUE,
@@ -223,6 +224,10 @@ export default function AdminOperationPromotionsPage() {
     useState('');
   const [selectedReferralCampaign, setSelectedReferralCampaign] =
     useState<AdminReferralCampaignItem | null>(null);
+  const [
+    selectedReferralCampaignRecordsTab,
+    setSelectedReferralCampaignRecordsTab,
+  ] = useState<ReferralCampaignRecordsTab>('relations');
   const [pendingStatusChange, setPendingStatusChange] =
     useState<PromotionStatusChangeTarget | null>(null);
   const [statusChangeSubmitting, setStatusChangeSubmitting] = useState(false);
@@ -424,7 +429,6 @@ export default function AdminOperationPromotionsPage() {
           status: filters.status,
           start_time: filters.start_time,
           end_time: filters.end_time,
-          timezone: getBrowserTimeZone(),
         };
         let response = (await api.getAdminBillingCampaigns(requestPayload)) as {
           items: AdminBillingCampaignItem[];
@@ -841,7 +845,11 @@ export default function AdminOperationPromotionsPage() {
   };
 
   const handleOpenReferralCampaignRecords = useCallback(
-    (item: AdminReferralCampaignItem) => {
+    (
+      item: AdminReferralCampaignItem,
+      tab: ReferralCampaignRecordsTab = 'relations',
+    ) => {
+      setSelectedReferralCampaignRecordsTab(tab);
       setSelectedReferralCampaign(item);
     },
     [],
@@ -2275,10 +2283,12 @@ export default function AdminOperationPromotionsPage() {
         onOpenChange={open => {
           if (!open) {
             setSelectedReferralCampaign(null);
+            setSelectedReferralCampaignRecordsTab('relations');
           }
         }}
         campaignBid={selectedReferralCampaign?.campaign_bid || ''}
         campaignName={selectedReferralCampaign?.campaign_name || ''}
+        defaultTab={selectedReferralCampaignRecordsTab}
       />
       <PromotionStatusConfirmDialog
         changeTarget={pendingStatusChange}

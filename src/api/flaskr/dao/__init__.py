@@ -21,7 +21,10 @@ def init_db(app: Flask):
     # the standalone SQLALCHEMY_POOL_SIZE/TIMEOUT/RECYCLE/MAX_OVERFLOW keys are ignored.
     # QueuePool-only keys are skipped for SQLite (SingletonThreadPool / StaticPool
     # reject max_overflow / pool_timeout).
-    existing_options = dict(app.config.get("SQLALCHEMY_ENGINE_OPTIONS") or {})
+    _raw_engine_opts = app.config.get("SQLALCHEMY_ENGINE_OPTIONS")
+    existing_options = (
+        dict(_raw_engine_opts) if isinstance(_raw_engine_opts, dict) else {}
+    )
     db_uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
     is_sqlite = str(db_uri).startswith("sqlite")
 
@@ -50,6 +53,17 @@ def init_db(app: Flask):
     # pool_pre_ping is default-on; callers can opt out by pre-setting
     # SQLALCHEMY_ENGINE_OPTIONS["pool_pre_ping"] = False.
     existing_options.setdefault("pool_pre_ping", True)
+
+    # Force every MySQL connection to use the UTC session time zone so that
+    # DB-side time evaluation (func.now()/CURRENT_TIMESTAMP/NOW()) stores UTC,
+    # matching the UTC application process. Without this the session inherits
+    # the server time zone (e.g. +08:00) and func.now() defaults would persist
+    # local wall-clock values. SQLite (tests) has no session time zone.
+    if not is_sqlite:
+        connect_args = dict(existing_options.get("connect_args") or {})
+        connect_args.setdefault("init_command", "SET time_zone = '+00:00'")
+        existing_options["connect_args"] = connect_args
+
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = existing_options
 
     if db is None:

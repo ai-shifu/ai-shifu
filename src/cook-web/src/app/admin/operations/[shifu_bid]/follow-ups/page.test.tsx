@@ -775,7 +775,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('keeps follow-up timestamps as returned wall-clock time when browser timezone changes', async () => {
+  test('converts follow-up timestamps to the browser timezone', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseFollowUps.mockResolvedValueOnce({
       summary: {
@@ -812,13 +812,13 @@ describe('AdminOperationCourseFollowUpsPage', () => {
 
     await screen.findByText('Cross-day follow-up question');
 
-    expect(document.body.textContent).toContain('2026-04-05');
-    expect(document.body.textContent).toContain('01:30:00');
-    expect(document.body.textContent).not.toContain('2026-04-04');
-    expect(document.body.textContent).not.toContain('18:30:00');
+    expect(document.body.textContent).toContain('2026-04-04');
+    expect(document.body.textContent).toContain('18:30:00');
+    expect(document.body.textContent).not.toContain('2026-04-05');
+    expect(document.body.textContent).not.toContain('01:30:00');
   });
 
-  test('keeps follow-up detail drawer timestamps as returned wall-clock time', async () => {
+  test('converts follow-up detail drawer timestamps to the browser timezone', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
 
     render(<AdminOperationCourseFollowUpsPage />);
@@ -836,17 +836,17 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         'module.operationsCourse.detail.followUps.drawer.title',
       ),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('2026-04-05 11:02:00').length).toBeGreaterThan(
+    expect(screen.getAllByText('2026-04-05 04:02:00').length).toBeGreaterThan(
       0,
     );
-    expect(screen.getAllByText('2026-04-05 11:01:00').length).toBeGreaterThan(
+    expect(screen.getAllByText('2026-04-05 04:01:00').length).toBeGreaterThan(
       0,
     );
-    expect(screen.getAllByText('2026-04-05 11:02:02').length).toBeGreaterThan(
+    expect(screen.getAllByText('2026-04-05 04:02:02').length).toBeGreaterThan(
       0,
     );
-    expect(screen.queryByText('2026-04-05 04:02:00')).not.toBeInTheDocument();
-    expect(screen.queryByText('2026-04-05 04:01:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-05 11:02:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-05 11:01:00')).not.toBeInTheDocument();
   });
 
   test('ignores a late detail response after the drawer is closed', async () => {

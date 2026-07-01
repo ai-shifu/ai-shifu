@@ -15,6 +15,10 @@ const baseTranslation = (namespace?: string | string[]) => {
   return translationCache.get(cacheKey)!;
 };
 
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => 'UTC',
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -145,9 +149,9 @@ describe('OperatorOrderDetailSheet', () => {
       await screen.findByText('module.operationsOrder.detail.title'),
     ).toBeInTheDocument();
     expect(screen.getByText('order-1')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-23 10:00:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-23 11:00:00')).toBeInTheDocument();
-    expect(screen.queryByText('2026-04-23 02:00:00')).not.toBeInTheDocument();
+    expect(screen.getByText('2026-04-23 02:00:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-23 03:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-23 10:00:00')).not.toBeInTheDocument();
     expect(
       screen.getByText('module.operationsOrder.source.importActivation'),
     ).toBeInTheDocument();

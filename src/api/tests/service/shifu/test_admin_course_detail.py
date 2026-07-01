@@ -2899,7 +2899,7 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
         "follow_up_count": 1,
         "user_count": 0,
         "lesson_count": 0,
-        "latest_follow_up_at": "",
+        "latest_follow_up_at": None,
     }
     assert lightweight_filtered_payload["data"]["total"] == 1
     assert (
@@ -3297,7 +3297,7 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
         "average_score": "",
         "rating_count": 0,
         "user_count": 0,
-        "latest_rated_at": "",
+        "latest_rated_at": None,
     }
     assert lightweight_filtered_payload["data"]["total"] == 1
     assert (

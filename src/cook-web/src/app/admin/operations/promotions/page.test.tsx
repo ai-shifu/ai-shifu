@@ -3241,7 +3241,6 @@ describe('AdminOperationPromotionsPage', () => {
         status: '',
         start_time: '',
         end_time: '',
-        timezone: 'Asia/Shanghai',
       });
     });
     expect(mockGetPackageCampaignProductOptions).toHaveBeenCalledWith({});
@@ -3304,37 +3303,13 @@ describe('AdminOperationPromotionsPage', () => {
 
     await screen.findByText('Domestic Creator Invite');
 
-    const moreButtons = screen.getAllByRole('button', {
-      name: 'common.core.more',
-    });
-    fireEvent.click(moreButtons[moreButtons.length - 1]);
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.operationsPromotion.actions.viewData',
-      }),
-    );
+    fireEvent.click(await screen.findByRole('button', { name: '8' }));
 
     expect(
       await screen.findByText(
         'module.operationsPromotion.referralCampaign.records.title',
       ),
     ).toBeInTheDocument();
-    await waitFor(() => {
-      expect(mockGetReferralCampaignRelations).toHaveBeenCalledWith(
-        expect.objectContaining({
-          campaign_bid: 'ref-campaign-1',
-          page_index: 1,
-          page_size: 20,
-        }),
-      );
-    });
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsPromotion.referralCampaign.records.invitationsTab',
-      }),
-    );
-
     await waitFor(() => {
       expect(mockGetReferralCampaignInvitations).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -3345,7 +3320,57 @@ describe('AdminOperationPromotionsPage', () => {
       );
     });
     expect(await screen.findByText('ABC12345')).toBeInTheDocument();
-    expect(screen.getByText('inviter-1')).toBeInTheDocument();
+    expect(screen.getByText('13800000000')).toBeInTheDocument();
+
+    const closeButtons = screen.getAllByRole('button', {
+      name: MOCK_DIALOG_CLOSE_LABEL,
+    });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
+
+    fireEvent.click(await screen.findByRole('button', { name: '14' }));
+
+    await waitFor(() => {
+      expect(mockGetReferralCampaignRelations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          campaign_bid: 'ref-campaign-1',
+          page_index: 1,
+          page_size: 20,
+        }),
+      );
+    });
+  });
+
+  test('normalizes referral reward credits when opening the edit dialog', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await screen.findByText('Domestic Creator Invite');
+
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsPromotion.actions.edit',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetReferralCampaignDetail).toHaveBeenCalledWith({
+        campaign_bid: 'ref-campaign-1',
+      });
+    });
+
+    const rewardCreditsInput = await screen.findByDisplayValue('1000');
+    expect(rewardCreditsInput).toBeInTheDocument();
   });
 
   test('creates a referral campaign with full configuration payload', async () => {
@@ -3431,8 +3456,8 @@ describe('AdminOperationPromotionsPage', () => {
         campaign_code: 'july_referral',
         campaign_name: 'July Referral Campaign',
         enabled: true,
-        starts_at: '2026-04-24 00:00:00',
-        ends_at: '2026-04-24 23:59:00',
+        starts_at: new Date('2026-04-24T00:00:00').toISOString(),
+        ends_at: new Date('2026-04-24T23:59:00').toISOString(),
         reward_product_code: 'creator-plan-monthly',
         reward_cycle_count: 1,
         reward_credit_amount: '1000',
@@ -3638,8 +3663,8 @@ describe('AdminOperationPromotionsPage', () => {
             bonus_credit_amount: '88',
           },
         ],
-        start_at: '2026-04-24 00:00:00',
-        end_at: '2026-04-24 23:59:00',
+        start_at: new Date('2026-04-24T00:00:00').toISOString(),
+        end_at: new Date('2026-04-24T23:59:00').toISOString(),
       });
     });
   });

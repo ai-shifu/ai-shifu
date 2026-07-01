@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/Table';
 import { formatBillingCreditAmount } from '@/lib/billing';
 import { cn } from '@/lib/utils';
+import type { ReferralCampaignRecordsTab } from './ReferralCampaignRecordsDialog';
 import {
   EMPTY_VALUE,
   type ErrorState,
@@ -64,7 +65,10 @@ type ReferralCampaignsTabProps = {
   renderResizeHandle: (key: ReferralCampaignColumnKey) => React.ReactNode;
   onEdit: (item: AdminReferralCampaignItem) => void | Promise<void>;
   onToggleStatus: (item: AdminReferralCampaignItem) => void | Promise<void>;
-  onOpenRecords: (item: AdminReferralCampaignItem) => void | Promise<void>;
+  onOpenRecords: (
+    item: AdminReferralCampaignItem,
+    tab: ReferralCampaignRecordsTab,
+  ) => void | Promise<void>;
 };
 
 const resolveRewardProductName = (
@@ -361,7 +365,17 @@ export default function ReferralCampaignsTab({
                     className={TABLE_CELL_CLASS}
                     style={getColumnStyle('relationCount')}
                   >
-                    {renderTooltipText(String(item.relation_count || 0))}
+                    {Number(item.relation_count || 0) > 0 ? (
+                      <button
+                        type='button'
+                        className='text-primary underline-offset-4 hover:underline'
+                        onClick={() => void onOpenRecords(item, 'relations')}
+                      >
+                        {String(item.relation_count || 0)}
+                      </button>
+                    ) : (
+                      renderTooltipText(String(item.relation_count || 0))
+                    )}
                   </TableCell>
                   <TableCell
                     className={TABLE_CELL_CLASS}
@@ -373,7 +387,17 @@ export default function ReferralCampaignsTab({
                     className={TABLE_CELL_CLASS}
                     style={getColumnStyle('inviteCodeCount')}
                   >
-                    {renderTooltipText(String(item.invite_code_count || 0))}
+                    {Number(item.invite_code_count || 0) > 0 ? (
+                      <button
+                        type='button'
+                        className='text-primary underline-offset-4 hover:underline'
+                        onClick={() => void onOpenRecords(item, 'invitations')}
+                      >
+                        {String(item.invite_code_count || 0)}
+                      </button>
+                    ) : (
+                      renderTooltipText(String(item.invite_code_count || 0))
+                    )}
                   </TableCell>
                   <TableCell
                     className={TABLE_CELL_CLASS}
@@ -403,11 +427,6 @@ export default function ReferralCampaignsTab({
                       <AdminRowActions
                         label={t('common.core.more')}
                         actions={[
-                          {
-                            key: 'records',
-                            label: tPromotion('actions.viewData'),
-                            onClick: () => void onOpenRecords(item),
-                          },
                           {
                             key: 'edit',
                             label: tPromotion('actions.edit'),

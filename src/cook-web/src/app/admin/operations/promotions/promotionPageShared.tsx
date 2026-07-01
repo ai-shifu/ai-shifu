@@ -528,6 +528,22 @@ export const stringifyReferralCampaignJson = (value: unknown) => {
   return JSON.stringify(value, null, 2);
 };
 
+export const normalizeReferralCampaignDecimalInput = (
+  value: string | null | undefined,
+) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return '';
+  }
+  if (!normalized.includes('.')) {
+    return normalized;
+  }
+  return normalized
+    .replace(/(\.\d*?[1-9])0+$/, '$1')
+    .replace(/\.0+$/, '')
+    .replace(/\.$/, '');
+};
+
 export const createReferralCampaignFormFromDetail = (
   detail: AdminReferralCampaignDetail,
 ): ReferralCampaignFormState => {
@@ -540,7 +556,9 @@ export const createReferralCampaignFormFromDetail = (
     ends_at: normalizePromotionFormDateTimeValue(campaign.ends_at),
     reward_product_code: campaign.reward_product_code || '',
     reward_cycle_count: String(campaign.reward_cycle_count || ''),
-    reward_credit_amount: campaign.reward_credit_amount || '',
+    reward_credit_amount: normalizeReferralCampaignDecimalInput(
+      campaign.reward_credit_amount,
+    ),
     reward_credit_validity_days: String(
       campaign.reward_credit_validity_days || '',
     ),

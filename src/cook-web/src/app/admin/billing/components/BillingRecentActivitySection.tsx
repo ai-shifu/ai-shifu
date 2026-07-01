@@ -2,7 +2,6 @@ import React from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Skeleton } from '@/components/ui/Skeleton';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import {
@@ -22,7 +21,6 @@ import {
   formatBillingDateTime,
   registerBillingTranslationUsage,
   resolveBillingLedgerReasonLabel,
-  withBillingTimezone,
 } from '@/lib/billing';
 
 const RECENT_ITEMS_LIMIT = 10;
@@ -86,7 +84,6 @@ export function BillingRecentActivitySection({
 }: BillingRecentActivitySectionProps) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
-  const timezone = getBrowserTimeZone();
   const [pageIndex, setPageIndex] = React.useState(1);
 
   const {
@@ -94,21 +91,11 @@ export function BillingRecentActivitySection({
     error: ledgerError,
     isLoading: ledgerLoading,
   } = useSWR<BillingPagedResponse<BillingLedgerItem>>(
-    buildBillingSwrKey(
-      'billing-ledger-recent',
-      timezone,
-      pageIndex,
-      RECENT_ITEMS_LIMIT,
-    ),
+    buildBillingSwrKey('billing-ledger-recent', pageIndex, RECENT_ITEMS_LIMIT),
     async () =>
       (await api.getBillingLedger({
-        ...withBillingTimezone(
-          {
-            page_index: pageIndex,
-            page_size: RECENT_ITEMS_LIMIT,
-          },
-          timezone,
-        ),
+        page_index: pageIndex,
+        page_size: RECENT_ITEMS_LIMIT,
       })) as BillingPagedResponse<BillingLedgerItem>,
     {
       revalidateOnFocus: false,

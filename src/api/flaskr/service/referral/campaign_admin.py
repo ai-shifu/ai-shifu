@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from math import ceil
 from typing import Any
@@ -18,6 +18,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import BillingProduct
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -98,7 +99,7 @@ def list_operator_referral_campaigns(
             )
 
         status_filter = _normalize_text(filters.get("status"))
-        now = datetime.now()
+        now = now_utc()
         if status_filter:
             query = _apply_status_filter(query, status_filter, now=now)
 
@@ -182,7 +183,7 @@ def get_operator_referral_campaign_detail(
                 ),
                 invite_event_count=int(stats.get("count", 0)),
                 latest_invite_event_at=stats.get("latest_at"),
-                now=datetime.now(),
+                now=now_utc(),
             )
         }
 
@@ -308,7 +309,7 @@ def update_operator_referral_campaign_status(
     with app.app_context():
         campaign = _load_campaign_or_404(campaign_bid)
         enabled_value = _parse_bool(enabled, "enabled")
-        now = datetime.now()
+        now = now_utc()
         if enabled_value and campaign.ends_at is not None and campaign.ends_at <= now:
             raise_param_error("enabled")
         rule = _load_latest_rule(campaign.campaign_bid)
@@ -351,7 +352,13 @@ def _normalize_page(page_index: int, page_size: int) -> tuple[int, int]:
 
 
 def _serialize_dt(value: datetime | None) -> str:
-    return value.isoformat() if value is not None else ""
+    # Match the API fmt sink: stored values are UTC; treat naive as UTC and emit
+    # ISO 8601 with a 'Z' suffix so the frontend can convert to the viewer's tz.
+    if value is None:
+        return ""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _serialize_decimal(value: Decimal | None) -> str | None:
@@ -374,6 +381,8 @@ def _parse_datetime(value: object, field_name: str) -> datetime | None:
         parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
     except ValueError:
         raise_param_error(field_name)
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc)
     return parsed.replace(tzinfo=None)
 
 
@@ -480,7 +489,7 @@ def _normalize_payload(
     if "enabled" in payload:
         enabled = _parse_bool(payload.get("enabled"), "enabled")
     resolved_enabled = enabled if enabled is not None else (True if is_create else None)
-    if resolved_enabled and ends_at is not None and ends_at <= datetime.now():
+    if resolved_enabled and ends_at is not None and ends_at <= now_utc():
         raise_param_error("enabled")
 
     rule_code = (

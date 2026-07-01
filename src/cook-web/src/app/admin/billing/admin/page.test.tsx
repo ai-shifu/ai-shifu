@@ -353,7 +353,6 @@ describe('AdminBillingConsolePage', () => {
     expect(mockGetAdminBillingSubscriptions).toHaveBeenCalledWith({
       page_index: 1,
       page_size: 10,
-      timezone: 'Asia/Shanghai',
     });
     expect(await screen.findByText('sub-past-due')).toBeInTheDocument();
     expect(
@@ -430,7 +429,6 @@ describe('AdminBillingConsolePage', () => {
     expect(mockGetAdminBillingDailyUsageMetrics).toHaveBeenCalledWith({
       page_index: 1,
       page_size: 6,
-      timezone: 'Asia/Shanghai',
     });
     expect(
       screen.getByText('module.billing.admin.reports.sections.usage.title'),
