@@ -108,7 +108,7 @@ export default function AdminOperationReferralsPage() {
       />
 
       <ReferralRelationsPanel
-        key={refreshToken}
+        refreshToken={refreshToken}
         className='mt-5 space-y-5'
         onStatusUpdated={fetchOverview}
       />

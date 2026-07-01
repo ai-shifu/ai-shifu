@@ -86,6 +86,7 @@ type ReferralRelationsPanelProps = {
   includeCampaignFilter?: boolean;
   enabled?: boolean;
   onStatusUpdated?: () => void | Promise<void>;
+  refreshToken?: number;
   className?: string;
   filterSurface?: 'plain' | 'card';
   tableWrapperClassName?: string;
@@ -170,6 +171,7 @@ export default function ReferralRelationsPanel({
   includeCampaignFilter = true,
   enabled = true,
   onStatusUpdated,
+  refreshToken = 0,
   className,
   filterSurface = 'card',
   tableWrapperClassName = 'max-h-[calc(100vh-23rem)] overflow-auto',
@@ -283,7 +285,7 @@ export default function ReferralRelationsPanel({
 
   React.useEffect(() => {
     void fetchList(pageIndex);
-  }, [fetchList, pageIndex]);
+  }, [fetchList, pageIndex, refreshToken]);
 
   const applySearch = () => {
     setPageIndex(1);
