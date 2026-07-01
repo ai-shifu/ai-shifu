@@ -1286,6 +1286,7 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
                     bid="outline-1",
                     shifu_bid="shifu-1",
                     title="Lesson",
+                    children=[],
                 ),
                 user_info=types.SimpleNamespace(user_id="user-1"),
                 is_paid=True,
@@ -1294,6 +1295,56 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
 
         self.assertIs(captured["client"], sentinel_client)
         self.assertEqual(captured["trace_payload"]["id"], "req-trace-1")
+
+    def test_runtime_context_falls_back_to_request_outline_when_struct_misses_it(self):
+        app = Flask("runtime-outline-fallback")
+        struct = HistoryItem(
+            bid="shifu-1",
+            id=1,
+            type="shifu",
+            children=[
+                HistoryItem(
+                    bid="other-outline",
+                    id=2,
+                    type="outline",
+                    children=[],
+                    child_count=0,
+                )
+            ],
+        )
+        outline_item_info = types.SimpleNamespace(
+            bid="outline-1",
+            shifu_bid="shifu-1",
+            title="Lesson",
+            children=[],
+        )
+
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.get_langfuse_client",
+                return_value=object(),
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.get_request_trace_id",
+                return_value="req-trace-1",
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.create_trace_with_root_span",
+                return_value=(_FakeLangfuseTrace(), _FakeLangfuseSpan()),
+            ),
+        ):
+            ctx = RunScriptContextV2(
+                app=app,
+                shifu_info=types.SimpleNamespace(),
+                struct=struct,
+                outline_item_info=outline_item_info,
+                user_info=types.SimpleNamespace(user_id="user-1"),
+                is_paid=True,
+                preview_mode=False,
+            )
+
+        self.assertIs(ctx._current_outline_item, outline_item_info)
+        self.assertEqual(ctx._get_current_outline_block_count(), 0)
 
     def test_set_input_normalizes_structured_value_for_trace(self):
         ctx = _make_context()

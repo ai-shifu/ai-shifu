@@ -1384,7 +1384,10 @@ class RunScriptContextV2:
         self._shifu_info = shifu_info
         self.shifu_ids = []
         self.outline_item_ids = []
-        self.current_outline_item = None
+        # Default to the request outline dto so helper methods can still
+        # operate when the cached history tree does not contain this outline
+        # yet (for example, a stale/partial history snapshot during runtime).
+        self._current_outline_item = outline_item_info
         self._run_type = RunType.INPUT
         self._can_continue = True
         self._stop_event = stop_event
@@ -1744,14 +1747,15 @@ class RunScriptContextV2:
     # outline is a node when has outline item as children
     # outline is a leaf when has no children
     def _is_leaf_outline_item(self, outline_item_info: ShifuOutlineItemDto) -> bool:
-        if outline_item_info.children:
-            if outline_item_info.children[0].type == "block":
+        children = getattr(outline_item_info, "children", []) or []
+        if children:
+            if children[0].type == "block":
                 return True
-            if outline_item_info.children[0].type == "outline":
+            if children[0].type == "outline":
                 return False
-        if outline_item_info.type == "outline":
+        if getattr(outline_item_info, "type", "") == "outline":
             return True
-        return False
+        return not children
 
     def _get_current_outline_block_count(self) -> int:
         """
@@ -1766,8 +1770,8 @@ class RunScriptContextV2:
             return 0
 
         history_block_count = max(
-            len(self._current_outline_item.children),
-            self._current_outline_item.child_count,
+            len(getattr(self._current_outline_item, "children", []) or []),
+            int(getattr(self._current_outline_item, "child_count", 0) or 0),
         )
         if not self._is_leaf_outline_item(self._current_outline_item):
             return history_block_count
@@ -1785,7 +1789,7 @@ class RunScriptContextV2:
                 self.app,
                 outline_bid,
                 self._preview_mode,
-                outline_item_id=int(self._current_outline_item.id or 0),
+                outline_item_id=int(getattr(self._current_outline_item, "id", 0) or 0),
             )
             block_count = len(
                 MdflowContextV2(document=outline_item_info.mdflow).get_all_blocks()
