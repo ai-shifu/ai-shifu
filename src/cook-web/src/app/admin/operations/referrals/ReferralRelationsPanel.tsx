@@ -300,6 +300,7 @@ export default function ReferralRelationsPanel({
   };
 
   const openDetail = async (relationBid: string) => {
+    setDetail(null);
     setDetailOpen(true);
     setDetailLoading(true);
     setOperatorNote('');
@@ -308,6 +309,10 @@ export default function ReferralRelationsPanel({
         relation_bid: relationBid,
       })) as AdminReferralRelation;
       setDetail(response);
+    } catch (nextError) {
+      const typedError = nextError as ErrorWithCode;
+      toast({ title: typedError.message || t('operator.loadFailed') });
+      setDetailOpen(false);
     } finally {
       setDetailLoading(false);
     }
@@ -332,6 +337,11 @@ export default function ReferralRelationsPanel({
       );
       await onStatusUpdated?.();
       toast({ title: t('operator.statusUpdated') });
+    } catch (nextError) {
+      const typedError = nextError as ErrorWithCode;
+      toast({
+        title: typedError.message || tCommon('common.core.submitFailed'),
+      });
     } finally {
       setStatusLoading(false);
     }

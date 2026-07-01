@@ -16,7 +16,10 @@ from flaskr.service.referral.campaign_admin import (
     update_operator_referral_campaign,
     update_operator_referral_campaign_status,
 )
-from flaskr.service.referral.admin import list_operator_referral_campaign_invitations
+from flaskr.service.referral.admin import (
+    list_operator_referral_campaign_invitations,
+    list_operator_referrals,
+)
 from flaskr.service.referral.consts import (
     REFERRAL_CAMPAIGN_STATUS_ACTIVE,
     REFERRAL_INVITE_CODE_STATUS_ACTIVE,
@@ -25,12 +28,14 @@ from flaskr.service.referral.consts import (
     REFERRAL_INVITE_EVENT_REGISTRATION_PAGE_VIEWED,
     REFERRAL_INVITE_EVENT_REGISTRATION_SUBMITTED,
     REFERRAL_CAMPAIGN_STATUS_PAUSED,
+    REFERRAL_RELATION_STATUS_CANCELED,
     REFERRAL_RELATION_STATUS_REWARD_GENERATED,
     REFERRAL_REWARD_CAP_SCOPE_PER_INVITER,
     REFERRAL_REWARD_STATUS_GENERATED,
     REFERRAL_RULE_STATUS_ACTIVE,
     REFERRAL_RULE_STATUS_PAUSED,
 )
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.referral.models import (
     ReferralCampaign,
     ReferralCampaignRewardRule,
@@ -355,6 +360,21 @@ def test_operator_referral_campaign_invitations_aggregate_events(referral_app):
             abnormal_status=0,
             metadata_json={},
         )
+        canceled_relation = ReferralInviteRelation(
+            relation_bid="relation-funnel-canceled",
+            campaign_bid=campaign_bid,
+            reward_rule_bid=rule.reward_rule_bid,
+            invite_code=invite_code.invite_code,
+            inviter_user_bid=invite_code.inviter_user_bid,
+            invitee_user_bid="invitee-funnel-canceled",
+            invitee_mobile_snapshot="15500000003",
+            bound_at=datetime(2026, 6, 10, 9, 6, 0),
+            registration_source="phone",
+            reward_eligible=1,
+            relation_status=REFERRAL_RELATION_STATUS_CANCELED,
+            abnormal_status=0,
+            metadata_json={},
+        )
         events = [
             ReferralInviteEvent(
                 event_bid=f"event-funnel-{index}",
@@ -379,7 +399,9 @@ def test_operator_referral_campaign_invitations_aggregate_events(referral_app):
                 start=1,
             )
         ]
-        db.session.add_all([invite_code, other_code, relation, *events])
+        db.session.add_all(
+            [invite_code, other_code, relation, canceled_relation, *events]
+        )
         db.session.commit()
 
         result = list_operator_referral_campaign_invitations(
@@ -400,6 +422,81 @@ def test_operator_referral_campaign_invitations_aggregate_events(referral_app):
         assert item["registration_submitted_count"] == 1
         assert item["successful_relation_count"] == 1
         assert item["latest_event_at"] == "2026-06-10T09:04:00Z"
+
+
+def test_operator_referral_filters_accept_user_identifier(referral_app):
+    with referral_app.app_context():
+        _seed_plan_product()
+        result = create_operator_referral_campaign(
+            referral_app,
+            operator_user_bid="operator-1",
+            payload=_payload(),
+        )
+        campaign_bid = result["campaign_bid"]
+        rule = ReferralCampaignRewardRule.query.filter_by(
+            campaign_bid=campaign_bid
+        ).one()
+        db.session.add_all(
+            [
+                UserEntity(
+                    user_bid="inviter-filter-1",
+                    user_identify="15500009999",
+                    nickname="Inviter Filter",
+                ),
+                UserEntity(
+                    user_bid="invitee-filter-1",
+                    user_identify="invitee-filter@example.com",
+                    nickname="Invitee Filter",
+                ),
+                ReferralInviteCode(
+                    invite_code_bid="invite-code-filter-1",
+                    campaign_bid=campaign_bid,
+                    inviter_user_bid="inviter-filter-1",
+                    invite_code="FILTER01",
+                    status=REFERRAL_INVITE_CODE_STATUS_ACTIVE,
+                    generated_at=datetime(2026, 6, 10, 9, 0, 0),
+                ),
+                ReferralInviteRelation(
+                    relation_bid="relation-filter-1",
+                    campaign_bid=campaign_bid,
+                    reward_rule_bid=rule.reward_rule_bid,
+                    invite_code="FILTER01",
+                    inviter_user_bid="inviter-filter-1",
+                    invitee_user_bid="invitee-filter-1",
+                    invitee_mobile_snapshot="15500009998",
+                    bound_at=datetime(2026, 6, 10, 9, 5, 0),
+                    registration_source="phone",
+                    reward_eligible=1,
+                    relation_status=REFERRAL_RELATION_STATUS_REWARD_GENERATED,
+                    abnormal_status=0,
+                    metadata_json={},
+                ),
+            ]
+        )
+        db.session.commit()
+
+        relations = list_operator_referrals(
+            referral_app,
+            page_index=1,
+            page_size=20,
+            filters={
+                "campaign_bid": campaign_bid,
+                "inviter_user_bid": "15500009999",
+                "invitee_user_bid": "invitee-filter@example.com",
+            },
+        )
+        invitations = list_operator_referral_campaign_invitations(
+            referral_app,
+            campaign_bid=campaign_bid,
+            page_index=1,
+            page_size=20,
+            filters={"inviter_user_bid": "15500009999"},
+        )
+
+        assert relations["total"] == 1
+        assert relations["items"][0]["relation_bid"] == "relation-filter-1"
+        assert invitations["total"] == 1
+        assert invitations["items"][0]["invite_code"] == "FILTER01"
 
 
 @pytest.mark.parametrize(

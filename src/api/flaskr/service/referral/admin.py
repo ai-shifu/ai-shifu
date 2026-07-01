@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any
 
 from flask import Flask
+from sqlalchemy import or_
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -34,6 +35,7 @@ from .models import (
     ReferralInviteRelation,
     ReferralInviteReward,
 )
+from .campaign_admin import _load_campaign_or_404
 from .reward_queue import build_referral_reward_queue
 
 DEFAULT_PAGE_INDEX = 1
@@ -86,6 +88,15 @@ def _serialize_dt(value: datetime | None) -> str | None:
 
 def _serialize_decimal(value: Decimal | None) -> str | None:
     return str(value) if value is not None else None
+
+
+def _user_bid_or_identifier_filter(column: Any, value: str) -> Any:
+    normalized = _normalize_text(value)
+    matching_user_bids = db.session.query(UserEntity.user_bid).filter(
+        UserEntity.deleted == 0,
+        UserEntity.user_identify == normalized,
+    )
+    return or_(column == normalized, column.in_(matching_user_bids))
 
 
 def _user_contact_map(user_bids: set[str]) -> dict[str, dict[str, str]]:
@@ -201,15 +212,19 @@ def list_operator_referrals(
     with app.app_context():
         safe_page_index, safe_page_size = _normalize_page(page_index, page_size)
         query = ReferralInviteRelation.query.filter(ReferralInviteRelation.deleted == 0)
-        for field in (
-            "campaign_bid",
-            "inviter_user_bid",
-            "invitee_user_bid",
-            "invite_code",
-        ):
+        for field in ("campaign_bid", "invite_code"):
             value = _normalize_text(filters.get(field))
             if value:
                 query = query.filter(getattr(ReferralInviteRelation, field) == value)
+        for field in ("inviter_user_bid", "invitee_user_bid"):
+            value = _normalize_text(filters.get(field))
+            if value:
+                query = query.filter(
+                    _user_bid_or_identifier_filter(
+                        getattr(ReferralInviteRelation, field),
+                        value,
+                    )
+                )
         for field in ("relation_status", "abnormal_status"):
             value = _normalize_text(filters.get(field))
             if value:
@@ -281,10 +296,17 @@ def list_operator_referral_campaign_invitations(
             ReferralInviteCode.deleted == 0,
             ReferralInviteCode.campaign_bid == normalized_campaign_bid,
         )
-        for field in ("inviter_user_bid", "invite_code"):
-            value = _normalize_text(filters.get(field))
-            if value:
-                query = query.filter(getattr(ReferralInviteCode, field) == value)
+        inviter_value = _normalize_text(filters.get("inviter_user_bid"))
+        if inviter_value:
+            query = query.filter(
+                _user_bid_or_identifier_filter(
+                    ReferralInviteCode.inviter_user_bid,
+                    inviter_value,
+                )
+            )
+        invite_code = _normalize_text(filters.get("invite_code"))
+        if invite_code:
+            query = query.filter(ReferralInviteCode.invite_code == invite_code)
         status = _normalize_text(filters.get("status"))
         if status:
             try:
@@ -453,20 +475,6 @@ def _page_count(total: int, page_size: int) -> int:
     return ((total + page_size - 1) // page_size) if total else 0
 
 
-def _load_campaign_or_404(campaign_bid: str) -> ReferralCampaign:
-    campaign = (
-        ReferralCampaign.query.filter(
-            ReferralCampaign.deleted == 0,
-            ReferralCampaign.campaign_bid == _normalize_text(campaign_bid),
-        )
-        .order_by(ReferralCampaign.id.desc())
-        .first()
-    )
-    if campaign is None:
-        raise_error("server.referral.campaignNotFound")
-    return campaign
-
-
 def _invite_event_stats_by_code(
     *,
     campaign_bid: str,
@@ -526,6 +534,12 @@ def _relation_counts_by_code(
             ReferralInviteRelation.deleted == 0,
             ReferralInviteRelation.campaign_bid == campaign_bid,
             ReferralInviteRelation.invite_code.in_(invite_codes),
+            ReferralInviteRelation.relation_status.notin_(
+                [
+                    REFERRAL_RELATION_STATUS_ABNORMAL_REVIEWING,
+                    REFERRAL_RELATION_STATUS_CANCELED,
+                ]
+            ),
         )
         .group_by(ReferralInviteRelation.invite_code)
         .all()
