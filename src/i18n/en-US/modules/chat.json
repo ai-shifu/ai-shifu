@@ -24,7 +24,7 @@
   "lessonFeedbackScoreRequired": "Please choose a score from 1 to 5.",
   "lessonFeedbackSubmitted": "Thanks for your feedback!",
   "listenAudioBackfillFailed": "Audio generation failed. Please retry or keep reading.",
-  "listenInteractionHint": "Submit the following to continue learning",
+  "listenInteractionHint": "Complete this step to continue the lesson",
   "listenModeTtsDisabled": "Listen mode is not enabled for this course.",
   "listenPlaybackSpeedAriaLabel": "Playback speed: {speed}",
   "listenPlaybackSpeedLabel": "Playback speed",
