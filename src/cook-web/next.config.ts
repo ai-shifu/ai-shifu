@@ -89,9 +89,9 @@ const nextConfig: NextConfig = {
     return [{ source: '/main', destination: '/admin', permanent: true }];
   },
 
-  // 本地开发：代理 /api/* 到后端，解决远程访问时跨域问题。
-  // 仅在 `next dev`（npm run dev）下生效；生产构建/启动（next build / next start）
-  // 的 NODE_ENV 为 'production'，不注入该代理。
+  // Local development: proxy /api/* to the backend to resolve CORS issues during remote access.
+  // Only active under `next dev` (npm run dev); production builds/starts (next build / next start)
+  // have NODE_ENV set to 'production' and will not inject this proxy.
   async rewrites() {
     if (process.env.NODE_ENV !== 'development') {
       return [];
