@@ -280,7 +280,7 @@ def test_admin_operations_referral_campaign_record_routes_are_campaign_scoped(
     assert invitation["link_clicked_count"] == 1
     assert invitation["registration_submitted_count"] == 1
     assert invitation["successful_relation_count"] == 1
-    assert invitation["latest_event_at"] == "2026-06-12T10:04:00"
+    assert invitation["latest_event_at"] == "2026-06-12T10:04:00Z"
 
 
 def test_admin_operations_promotions_referral_campaign_rejects_invalid_status_filter(

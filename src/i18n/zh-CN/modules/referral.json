@@ -109,7 +109,9 @@
       "rewardStatus": "奖励状态",
       "subscription": "订阅 BID",
       "title": "邀请关系详情",
-      "walletBucket": "积分桶 BID"
+      "walletBucket": "积分桶 BID",
+      "system": "系统信息",
+      "relationBid": "关系 ID"
     },
     "empty": "暂无邀请关系。",
     "filters": {
@@ -120,7 +122,17 @@
       "inviteCode": "邀请码",
       "inviteeUserBid": "被邀请用户 BID",
       "inviterUserBid": "邀请人 BID",
-      "relationStatus": "关系状态"
+      "relationStatus": "关系状态",
+      "inviterContact": "邀请人手机号/邮箱",
+      "inviterContactPlaceholder": "请输入邀请人手机号/邮箱",
+      "inviteeContact": "被邀请人手机号/邮箱",
+      "inviteeContactPlaceholder": "请输入被邀请人手机号/邮箱",
+      "inviter": "邀请人",
+      "invitee": "被邀请人",
+      "inviterMobilePlaceholder": "请输入邀请人手机号",
+      "inviterEmailPlaceholder": "请输入邀请人邮箱",
+      "inviteeMobilePlaceholder": "请输入被邀请人手机号",
+      "inviteeEmailPlaceholder": "请输入被邀请人邮箱"
     },
     "loadFailed": "邀请关系读取失败，请刷新后重试。",
     "metrics": {
@@ -145,7 +157,13 @@
       "invitee": "被邀请人",
       "inviter": "邀请人",
       "relationStatus": "关系状态",
-      "rewardStatus": "奖励状态"
+      "rewardStatus": "奖励状态",
+      "inviterContact": "邀请人手机号/邮箱",
+      "inviteeContact": "被邀请人手机号/邮箱",
+      "inviterMobile": "邀请人手机号",
+      "inviterEmail": "邀请人邮箱",
+      "inviteeMobile": "被邀请人手机号",
+      "inviteeEmail": "被邀请人邮箱"
     },
     "title": "邀请奖励",
     "tooltips": {

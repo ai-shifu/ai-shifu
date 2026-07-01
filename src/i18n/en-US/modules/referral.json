@@ -109,7 +109,9 @@
       "rewardStatus": "Reward status",
       "subscription": "Subscription BID",
       "title": "Invite relation detail",
-      "walletBucket": "Credit bucket BID"
+      "walletBucket": "Credit bucket BID",
+      "system": "System Info",
+      "relationBid": "Relation ID"
     },
     "empty": "No invite relations.",
     "filters": {
@@ -120,7 +122,17 @@
       "inviteCode": "Invite code",
       "inviteeUserBid": "Invitee user BID",
       "inviterUserBid": "Inviter user BID",
-      "relationStatus": "Relation status"
+      "relationStatus": "Relation status",
+      "inviterContact": "Inviter mobile/email",
+      "inviterContactPlaceholder": "Enter inviter mobile or email",
+      "inviteeContact": "Invitee mobile/email",
+      "inviteeContactPlaceholder": "Enter invitee mobile or email",
+      "inviter": "Inviter",
+      "invitee": "Invitee",
+      "inviterMobilePlaceholder": "Enter inviter mobile",
+      "inviterEmailPlaceholder": "Enter inviter email",
+      "inviteeMobilePlaceholder": "Enter invitee mobile",
+      "inviteeEmailPlaceholder": "Enter invitee email"
     },
     "loadFailed": "Failed to load invite relations. Refresh and try again.",
     "metrics": {
@@ -145,7 +157,13 @@
       "invitee": "Invitee",
       "inviter": "Inviter",
       "relationStatus": "Relation status",
-      "rewardStatus": "Reward status"
+      "rewardStatus": "Reward status",
+      "inviterContact": "Inviter mobile/email",
+      "inviteeContact": "Invitee mobile/email",
+      "inviterMobile": "Inviter mobile",
+      "inviterEmail": "Inviter email",
+      "inviteeMobile": "Invitee mobile",
+      "inviteeEmail": "Invitee email"
     },
     "title": "Invite Rewards",
     "tooltips": {

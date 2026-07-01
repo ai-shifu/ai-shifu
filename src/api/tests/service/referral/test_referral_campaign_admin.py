@@ -309,7 +309,7 @@ def test_operator_referral_campaign_list_includes_invite_funnel_counts(
         assert item["reward_count"] == 1
         assert item["invite_code_count"] == 1
         assert item["invite_event_count"] == 2
-        assert item["latest_invite_event_at"] == "2026-06-09T10:04:00"
+        assert item["latest_invite_event_at"] == "2026-06-09T10:04:00Z"
 
 
 def test_operator_referral_campaign_invitations_aggregate_events(referral_app):
@@ -399,7 +399,7 @@ def test_operator_referral_campaign_invitations_aggregate_events(referral_app):
         assert item["code_entered_count"] == 1
         assert item["registration_submitted_count"] == 1
         assert item["successful_relation_count"] == 1
-        assert item["latest_event_at"] == "2026-06-10T09:04:00"
+        assert item["latest_event_at"] == "2026-06-10T09:04:00Z"
 
 
 @pytest.mark.parametrize(

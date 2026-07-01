@@ -109,7 +109,9 @@
       "rewardStatus": "Statut de la récompense",
       "subscription": "BID d’abonnement",
       "title": "Détail de la relation d’invitation",
-      "walletBucket": "BID de la réserve de crédits"
+      "walletBucket": "BID de la réserve de crédits",
+      "system": "Informations système",
+      "relationBid": "ID de relation"
     },
     "empty": "Aucune relation d’invitation.",
     "filters": {
@@ -120,7 +122,17 @@
       "inviteCode": "Code d’invitation",
       "inviteeUserBid": "BID de l’utilisateur invité",
       "inviterUserBid": "BID de l’utilisateur invitant",
-      "relationStatus": "Statut de la relation"
+      "relationStatus": "Statut de la relation",
+      "inviterContact": "Mobile/e-mail de l'invitant",
+      "inviterContactPlaceholder": "Saisir le mobile ou l'e-mail de l'invitant",
+      "inviteeContact": "Mobile/e-mail de l'invité",
+      "inviteeContactPlaceholder": "Saisir le mobile ou l'e-mail de l'invité",
+      "inviter": "Invitant",
+      "invitee": "Invité",
+      "inviterMobilePlaceholder": "Saisir le mobile de l'invitant",
+      "inviterEmailPlaceholder": "Saisir l'e-mail de l'invitant",
+      "inviteeMobilePlaceholder": "Saisir le mobile de l'invité",
+      "inviteeEmailPlaceholder": "Saisir l'e-mail de l'invité"
     },
     "loadFailed": "Échec du chargement des relations. Actualisez puis réessayez.",
     "metrics": {
@@ -145,7 +157,13 @@
       "invitee": "Invité",
       "inviter": "Invitant",
       "relationStatus": "Statut de la relation",
-      "rewardStatus": "Statut de la récompense"
+      "rewardStatus": "Statut de la récompense",
+      "inviterContact": "Mobile/e-mail de l'invitant",
+      "inviteeContact": "Mobile/e-mail de l'invité",
+      "inviterMobile": "Mobile de l'invitant",
+      "inviterEmail": "E-mail de l'invitant",
+      "inviteeMobile": "Mobile de l'invité",
+      "inviteeEmail": "E-mail de l'invité"
     },
     "title": "Récompenses d’invitation",
     "tooltips": {

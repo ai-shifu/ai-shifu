@@ -3303,37 +3303,13 @@ describe('AdminOperationPromotionsPage', () => {
 
     await screen.findByText('Domestic Creator Invite');
 
-    const moreButtons = screen.getAllByRole('button', {
-      name: 'common.core.more',
-    });
-    fireEvent.click(moreButtons[moreButtons.length - 1]);
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.operationsPromotion.actions.viewData',
-      }),
-    );
+    fireEvent.click(await screen.findByRole('button', { name: '8' }));
 
     expect(
       await screen.findByText(
         'module.operationsPromotion.referralCampaign.records.title',
       ),
     ).toBeInTheDocument();
-    await waitFor(() => {
-      expect(mockGetReferralCampaignRelations).toHaveBeenCalledWith(
-        expect.objectContaining({
-          campaign_bid: 'ref-campaign-1',
-          page_index: 1,
-          page_size: 20,
-        }),
-      );
-    });
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsPromotion.referralCampaign.records.invitationsTab',
-      }),
-    );
-
     await waitFor(() => {
       expect(mockGetReferralCampaignInvitations).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -3344,7 +3320,57 @@ describe('AdminOperationPromotionsPage', () => {
       );
     });
     expect(await screen.findByText('ABC12345')).toBeInTheDocument();
-    expect(screen.getByText('inviter-1')).toBeInTheDocument();
+    expect(screen.getByText('13800000000')).toBeInTheDocument();
+
+    const closeButtons = screen.getAllByRole('button', {
+      name: MOCK_DIALOG_CLOSE_LABEL,
+    });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
+
+    fireEvent.click(await screen.findByRole('button', { name: '14' }));
+
+    await waitFor(() => {
+      expect(mockGetReferralCampaignRelations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          campaign_bid: 'ref-campaign-1',
+          page_index: 1,
+          page_size: 20,
+        }),
+      );
+    });
+  });
+
+  test('normalizes referral reward credits when opening the edit dialog', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await screen.findByText('Domestic Creator Invite');
+
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsPromotion.actions.edit',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetReferralCampaignDetail).toHaveBeenCalledWith({
+        campaign_bid: 'ref-campaign-1',
+      });
+    });
+
+    const rewardCreditsInput = await screen.findByDisplayValue('1000');
+    expect(rewardCreditsInput).toBeInTheDocument();
   });
 
   test('creates a referral campaign with full configuration payload', async () => {

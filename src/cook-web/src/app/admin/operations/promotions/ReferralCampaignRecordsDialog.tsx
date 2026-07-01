@@ -13,6 +13,8 @@ import ReferralRelationsPanel, {
   REFERRAL_PAGE_SIZE,
   ReferralUserSummary,
 } from '@/app/admin/operations/referrals/ReferralRelationsPanel';
+import { useEnvStore } from '@/c-store/envStore';
+import type { EnvStoreState } from '@/c-types/store';
 import {
   Dialog,
   DialogContent,
@@ -20,13 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   Table,
@@ -44,7 +40,6 @@ import type {
 } from '@/types/referral';
 import {
   EMPTY_VALUE,
-  SINGLE_SELECT_ITEM_CLASS,
   TABLE_CELL_CLASS,
   TABLE_HEAD_CLASS,
   TABLE_LAST_CELL_CLASS,
@@ -53,20 +48,17 @@ import {
 type InvitationFilters = {
   inviter_user_bid: string;
   invite_code: string;
-  status: string;
   start_time: string;
   end_time: string;
 };
 
-const ALL_OPTION_VALUE = '__all__';
-const INVITE_CODE_STATUS_ACTIVE = 7821;
-const INVITE_CODE_STATUS_DISABLED = 7822;
-const INVITATION_COLUMN_COUNT = 10;
+export type ReferralCampaignRecordsTab = 'relations' | 'invitations';
+
+const INVITATION_COLUMN_COUNT = 9;
 
 const createEmptyInvitationFilters = (): InvitationFilters => ({
   inviter_user_bid: '',
   invite_code: '',
-  status: '',
   start_time: '',
   end_time: '',
 });
@@ -79,14 +71,26 @@ export default function ReferralCampaignRecordsDialog({
   onOpenChange,
   campaignBid,
   campaignName,
+  defaultTab = 'relations',
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   campaignBid: string;
   campaignName: string;
+  defaultTab?: ReferralCampaignRecordsTab;
 }) {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
+  const loginMethodsEnabled = useEnvStore(
+    (state: EnvStoreState) => state.loginMethodsEnabled,
+  );
+  const defaultLoginMethod = useEnvStore(
+    (state: EnvStoreState) => state.defaultLoginMethod,
+  );
+  const contactMode = React.useMemo(
+    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+    [defaultLoginMethod, loginMethodsEnabled],
+  );
   const fetchCampaignRelations = React.useCallback(
     async (params: Record<string, string | number>) =>
       (await api.getAdminOperationPromotionReferralCampaignRelations({
@@ -101,51 +105,64 @@ export default function ReferralCampaignRecordsDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className='sm:max-w-6xl'>
-        <DialogHeader>
+      <DialogContent className='overflow-hidden p-0 sm:max-w-6xl'>
+        <DialogHeader className='border-b border-[var(--base-border,#E5E5E5)] bg-[linear-gradient(180deg,rgba(249,250,251,0.92)_0%,rgba(255,255,255,1)_100%)] px-6 py-3'>
           <DialogTitle>
             {tPromotion('referralCampaign.records.title')}
           </DialogTitle>
+          <div className='text-sm text-[var(--base-muted-foreground,#737373)]'>
+            {campaignName || campaignBid}
+          </div>
           <DialogDescription className='sr-only'>
             {campaignName || campaignBid}
           </DialogDescription>
         </DialogHeader>
-        <div className='flex max-h-[76vh] min-h-0 flex-col overflow-hidden'>
-          <div className='mb-4 text-sm text-muted-foreground'>
-            {campaignName || campaignBid}
-          </div>
+        <div className='flex max-h-[78vh] min-h-0 flex-col overflow-hidden px-6 py-2'>
           <Tabs
-            defaultValue='relations'
-            className='flex min-h-0 flex-1 flex-col'
+            key={`${campaignBid}:${defaultTab}`}
+            defaultValue={defaultTab}
+            className='flex min-h-0 flex-1 flex-col gap-1.5'
           >
-            <TabsList className='h-9 w-fit'>
-              <TabsTrigger value='relations'>
+            <TabsList className='h-auto w-fit gap-1 rounded-xl bg-[var(--base-muted,#F5F5F5)] p-1'>
+              <TabsTrigger
+                value='relations'
+                className='rounded-lg px-4 py-2 text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm'
+              >
                 {tPromotion('referralCampaign.records.relationsTab')}
               </TabsTrigger>
-              <TabsTrigger value='invitations'>
+              <TabsTrigger
+                value='invitations'
+                className='rounded-lg px-4 py-2 text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm'
+              >
                 {tPromotion('referralCampaign.records.invitationsTab')}
               </TabsTrigger>
             </TabsList>
             <TabsContent
               value='relations'
-              className='mt-4 min-h-0 flex-1 space-y-4 overflow-hidden'
+              className='mt-0 min-h-0 flex-1 overflow-hidden rounded-2xl border border-[var(--base-border,#E5E5E5)] bg-white p-4 shadow-sm'
             >
               <ReferralRelationsPanel
                 key={campaignBid}
                 enabled={open && Boolean(campaignBid)}
                 fetchListApi={fetchCampaignRelations}
                 includeCampaignFilter={false}
-                filterSurface='plain'
-                tableWrapperClassName='min-h-0 max-h-[44vh] overflow-auto'
+                className='flex min-h-0 h-full flex-col gap-4'
+                filterSurface='card'
+                tableWrapperClassName='min-h-0 flex-1 overflow-auto'
+                showFooterWhenLoading
+                expandedGridClassName='gap-x-5 xl:grid-cols-4'
+                showDetailAction={false}
+                showUserBidSecondary={false}
               />
             </TabsContent>
             <TabsContent
               value='invitations'
-              className='mt-4 min-h-0 flex-1 overflow-hidden'
+              className='mt-0 min-h-0 flex-1 overflow-hidden rounded-2xl border border-[var(--base-border,#E5E5E5)] bg-white p-4 shadow-sm'
             >
               <ReferralCampaignInvitationsPanel
                 campaignBid={campaignBid}
                 enabled={open && Boolean(campaignBid)}
+                contactMode={contactMode}
                 t={t}
                 tPromotion={tPromotion}
               />
@@ -160,11 +177,13 @@ export default function ReferralCampaignRecordsDialog({
 function ReferralCampaignInvitationsPanel({
   campaignBid,
   enabled,
+  contactMode,
   t,
   tPromotion,
 }: {
   campaignBid: string;
   enabled: boolean;
+  contactMode: 'email' | 'phone';
   t: (key: string, values?: Record<string, unknown>) => string;
   tPromotion: (key: string, values?: Record<string, unknown>) => string;
 }) {
@@ -182,6 +201,10 @@ function ReferralCampaignInvitationsPanel({
   const [pageCount, setPageCount] = React.useState(1);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
+  const inviterPlaceholder =
+    contactMode === 'email'
+      ? tPromotion('referralCampaign.records.inviterEmail')
+      : tPromotion('referralCampaign.records.inviterMobile');
 
   const fetchInvitations = React.useCallback(
     async (nextPageIndex = pageIndex) => {
@@ -242,11 +265,11 @@ function ReferralCampaignInvitationsPanel({
   const filterItems = [
     {
       key: 'inviter_user_bid',
-      label: tPromotion('referralCampaign.records.inviterUserBid'),
+      label: tPromotion('referralCampaign.records.inviter'),
       component: (
         <AdminClearableInput
           value={filters.inviter_user_bid}
-          placeholder={tPromotion('referralCampaign.records.inviterUserBid')}
+          placeholder={inviterPlaceholder}
           onChange={value =>
             setFilters(current => ({ ...current, inviter_user_bid: value }))
           }
@@ -266,45 +289,6 @@ function ReferralCampaignInvitationsPanel({
           }
           clearLabel={t('common.core.close')}
         />
-      ),
-    },
-    {
-      key: 'status',
-      label: tPromotion('referralCampaign.records.inviteCodeStatus'),
-      component: (
-        <Select
-          value={filters.status || ALL_OPTION_VALUE}
-          onValueChange={value =>
-            setFilters(current => ({
-              ...current,
-              status: value === ALL_OPTION_VALUE ? '' : value,
-            }))
-          }
-        >
-          <SelectTrigger className='h-9'>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem
-              value={ALL_OPTION_VALUE}
-              className={SINGLE_SELECT_ITEM_CLASS}
-            >
-              {t('common.core.all')}
-            </SelectItem>
-            <SelectItem
-              value={String(INVITE_CODE_STATUS_ACTIVE)}
-              className={SINGLE_SELECT_ITEM_CLASS}
-            >
-              {tPromotion('referralCampaign.records.inviteCodeStatusActive')}
-            </SelectItem>
-            <SelectItem
-              value={String(INVITE_CODE_STATUS_DISABLED)}
-              className={SINGLE_SELECT_ITEM_CLASS}
-            >
-              {tPromotion('referralCampaign.records.inviteCodeStatusDisabled')}
-            </SelectItem>
-          </SelectContent>
-        </Select>
       ),
     },
     {
@@ -330,7 +314,7 @@ function ReferralCampaignInvitationsPanel({
   ];
 
   return (
-    <div className='flex min-h-0 flex-col space-y-4'>
+    <div className='flex min-h-0 h-full flex-col gap-4'>
       <AdminFilter
         items={filterItems}
         expanded={filtersExpanded}
@@ -342,8 +326,14 @@ function ReferralCampaignInvitationsPanel({
         expandLabel={t('common.core.expand')}
         collapseLabel={t('common.core.collapse')}
         collapsedCount={3}
-        surface='plain'
+        showToggle={false}
+        surface='card'
         layoutPreset='operations'
+        className='rounded-2xl'
+        contentClassName='max-w-[260px]'
+        labelClassName='w-16 text-right'
+        collapsedGridClassName='gap-x-5 xl:grid-cols-[repeat(3,minmax(0,240px))]'
+        expandedGridClassName='gap-x-5 xl:grid-cols-[repeat(3,minmax(0,240px))]'
       />
       <AdminTableShell
         loading={loading}
@@ -351,7 +341,9 @@ function ReferralCampaignInvitationsPanel({
         emptyContent={tPromotion('messages.emptyReferralCampaignRecords')}
         emptyColSpan={INVITATION_COLUMN_COUNT}
         withTooltipProvider
-        tableWrapperClassName='min-h-0 max-h-[44vh] overflow-auto'
+        containerClassName='min-h-0 flex-1'
+        tableWrapperClassName='min-h-0 flex-1 overflow-auto'
+        showFooterWhenLoading
         table={emptyRow => (
           <Table containerClassName='overflow-visible max-h-none'>
             <TableHeader>
@@ -366,6 +358,12 @@ function ReferralCampaignInvitationsPanel({
                   {tPromotion('referralCampaign.records.generatedAt')}
                 </TableHead>
                 <TableHead className={TABLE_HEAD_CLASS}>
+                  {tPromotion('referralCampaign.records.latestEventAt')}
+                </TableHead>
+                <TableHead className={TABLE_HEAD_CLASS}>
+                  {tPromotion('referralCampaign.records.successfulRelations')}
+                </TableHead>
+                <TableHead className={TABLE_HEAD_CLASS}>
                   {tPromotion('referralCampaign.records.linkClicked')}
                 </TableHead>
                 <TableHead className={TABLE_HEAD_CLASS}>
@@ -376,15 +374,6 @@ function ReferralCampaignInvitationsPanel({
                 </TableHead>
                 <TableHead className={TABLE_HEAD_CLASS}>
                   {tPromotion('referralCampaign.records.submitted')}
-                </TableHead>
-                <TableHead className={TABLE_HEAD_CLASS}>
-                  {tPromotion('referralCampaign.records.successfulRelations')}
-                </TableHead>
-                <TableHead className={TABLE_HEAD_CLASS}>
-                  {tPromotion('referralCampaign.records.totalEvents')}
-                </TableHead>
-                <TableHead className={TABLE_HEAD_CLASS}>
-                  {tPromotion('referralCampaign.records.latestEventAt')}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -397,13 +386,20 @@ function ReferralCampaignInvitationsPanel({
                   </TableCell>
                   <TableCell className={TABLE_CELL_CLASS}>
                     <ReferralUserSummary
-                      userBid={item.inviter_user_bid}
-                      identifier={item.inviter?.identifier}
+                      primaryText={item.inviter?.identifier}
+                      fallbackText={item.inviter_user_bid}
                     />
                   </TableCell>
                   <TableCell className={TABLE_CELL_CLASS}>
                     {formatAdminUtcDateTime(item.generated_at || '') ||
                       EMPTY_VALUE}
+                  </TableCell>
+                  <TableCell className={TABLE_CELL_CLASS}>
+                    {formatAdminUtcDateTime(item.latest_event_at || '') ||
+                      EMPTY_VALUE}
+                  </TableCell>
+                  <TableCell className={TABLE_CELL_CLASS}>
+                    {item.successful_relation_count}
                   </TableCell>
                   <TableCell className={TABLE_CELL_CLASS}>
                     {item.link_clicked_count}
@@ -414,18 +410,8 @@ function ReferralCampaignInvitationsPanel({
                   <TableCell className={TABLE_CELL_CLASS}>
                     {item.code_entered_count}
                   </TableCell>
-                  <TableCell className={TABLE_CELL_CLASS}>
-                    {item.registration_submitted_count}
-                  </TableCell>
-                  <TableCell className={TABLE_CELL_CLASS}>
-                    {item.successful_relation_count}
-                  </TableCell>
-                  <TableCell className={TABLE_CELL_CLASS}>
-                    {item.total_event_count}
-                  </TableCell>
                   <TableCell className={TABLE_LAST_CELL_CLASS}>
-                    {formatAdminUtcDateTime(item.latest_event_at || '') ||
-                      EMPTY_VALUE}
+                    {item.registration_submitted_count}
                   </TableCell>
                 </TableRow>
               ))}

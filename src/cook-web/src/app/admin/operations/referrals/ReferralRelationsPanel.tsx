@@ -23,6 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
+import { useEnvStore } from '@/c-store/envStore';
+import type { EnvStoreState } from '@/c-types/store';
 import {
   Sheet,
   SheetContent,
@@ -40,6 +42,7 @@ import {
 } from '@/components/ui/Table';
 import { Textarea } from '@/components/ui/Textarea';
 import { toast } from '@/hooks/useToast';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import type {
   AdminReferralListResponse,
@@ -87,6 +90,9 @@ type ReferralRelationsPanelProps = {
   filterSurface?: 'plain' | 'card';
   tableWrapperClassName?: string;
   showFooterWhenLoading?: boolean;
+  expandedGridClassName?: string;
+  showDetailAction?: boolean;
+  showUserBidSecondary?: boolean;
 };
 
 const RELATION_STATUS_KEY_BY_VALUE: Record<number, string> = {
@@ -136,18 +142,25 @@ const normalizeCount = (value: unknown) =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0;
 
 export function ReferralUserSummary({
-  userBid,
-  identifier,
+  primaryText,
+  fallbackText,
+  secondaryText,
 }: {
-  userBid: string;
-  identifier?: string;
+  primaryText?: string | null;
+  fallbackText?: string | null;
+  secondaryText?: string | null;
 }) {
+  const primary = formatReferralText(primaryText || fallbackText);
+  const secondary = secondaryText ? formatReferralText(secondaryText) : '';
+
   return (
     <div className='min-w-0'>
-      <div className='truncate font-medium'>{formatReferralText(userBid)}</div>
-      <div className='truncate text-xs text-muted-foreground'>
-        {formatReferralText(identifier)}
-      </div>
+      <div className='truncate font-medium'>{primary}</div>
+      {secondary ? (
+        <div className='truncate text-xs text-muted-foreground'>
+          {secondary}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -161,9 +174,22 @@ export default function ReferralRelationsPanel({
   filterSurface = 'card',
   tableWrapperClassName = 'max-h-[calc(100vh-23rem)] overflow-auto',
   showFooterWhenLoading = false,
+  expandedGridClassName,
+  showDetailAction = true,
+  showUserBidSecondary = true,
 }: ReferralRelationsPanelProps) {
   const { t } = useTranslation('module.referral');
   const { t: tCommon } = useTranslation();
+  const loginMethodsEnabled = useEnvStore(
+    (state: EnvStoreState) => state.loginMethodsEnabled,
+  );
+  const defaultLoginMethod = useEnvStore(
+    (state: EnvStoreState) => state.defaultLoginMethod,
+  );
+  const contactMode = React.useMemo(
+    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+    [defaultLoginMethod, loginMethodsEnabled],
+  );
   const [filters, setFilters] = React.useState<ReferralFilters>(
     createEmptyReferralFilters,
   );
@@ -317,6 +343,7 @@ export default function ReferralRelationsPanel({
     includeCampaignFilter,
     relationStatusLabel,
     abnormalStatusLabel,
+    contactMode,
   });
 
   return (
@@ -331,15 +358,18 @@ export default function ReferralRelationsPanel({
         searchLabel={t('operator.actions.search')}
         expandLabel={tCommon('common.core.expand')}
         collapseLabel={tCommon('common.core.collapse')}
-        collapsedCount={includeCampaignFilter ? 3 : 2}
+        collapsedCount={includeCampaignFilter ? 3 : 3}
         surface={filterSurface}
         layoutPreset='operations'
+        expandedGridClassName={expandedGridClassName}
       />
       <AdminTableShell
         loading={loading}
         isEmpty={!items.length}
         emptyContent={t('operator.empty')}
-        emptyColSpan={8}
+        emptyColSpan={
+          5 + (includeCampaignFilter ? 1 : 0) + (showDetailAction ? 1 : 0)
+        }
         withTooltipProvider
         tableWrapperClassName={tableWrapperClassName}
         showFooterWhenLoading={showFooterWhenLoading}
@@ -347,9 +377,11 @@ export default function ReferralRelationsPanel({
           <Table containerClassName='overflow-visible max-h-none'>
             <TableHeader>
               <TableRow>
-                <TableHead className={TABLE_HEAD_CLASS}>
-                  {t('operator.table.campaign')}
-                </TableHead>
+                {includeCampaignFilter ? (
+                  <TableHead className={TABLE_HEAD_CLASS}>
+                    {t('operator.table.campaign')}
+                  </TableHead>
+                ) : null}
                 <TableHead className={TABLE_HEAD_CLASS}>
                   {t('operator.table.inviter')}
                 </TableHead>
@@ -360,42 +392,62 @@ export default function ReferralRelationsPanel({
                   {t('operator.table.inviteCode')}
                 </TableHead>
                 <TableHead className={TABLE_HEAD_CLASS}>
+                  {t('operator.table.boundAt')}
+                </TableHead>
+                <TableHead className={TABLE_HEAD_CLASS}>
                   {t('operator.table.relationStatus')}
                 </TableHead>
                 <TableHead className={TABLE_HEAD_CLASS}>
                   {t('operator.table.rewardStatus')}
                 </TableHead>
-                <TableHead className={TABLE_HEAD_CLASS}>
-                  {t('operator.table.boundAt')}
-                </TableHead>
-                <TableHead className={TABLE_ACTION_HEAD_CLASS}>
-                  {t('operator.table.action')}
-                </TableHead>
+                {showDetailAction ? (
+                  <TableHead className={TABLE_ACTION_HEAD_CLASS}>
+                    {t('operator.table.action')}
+                  </TableHead>
+                ) : null}
               </TableRow>
             </TableHeader>
             <TableBody>
               {emptyRow}
               {items.map(item => (
                 <TableRow key={item.relation_bid}>
-                  <TableCell className={TABLE_CELL_CLASS}>
-                    {formatReferralText(item.campaign_code)}
-                  </TableCell>
+                  {includeCampaignFilter ? (
+                    <TableCell className={TABLE_CELL_CLASS}>
+                      {formatReferralText(item.campaign_code)}
+                    </TableCell>
+                  ) : null}
                   <TableCell className={TABLE_CELL_CLASS}>
                     <ReferralUserSummary
-                      userBid={item.inviter_user_bid}
-                      identifier={item.inviter?.identifier}
+                      primaryText={item.inviter?.identifier}
+                      fallbackText={item.inviter_user_bid}
+                      secondaryText={
+                        showUserBidSecondary && item.inviter?.identifier
+                          ? item.inviter_user_bid
+                          : undefined
+                      }
                     />
                   </TableCell>
                   <TableCell className={TABLE_CELL_CLASS}>
                     <ReferralUserSummary
-                      userBid={item.invitee_user_bid}
-                      identifier={
+                      primaryText={
                         item.invitee_mobile_snapshot || item.invitee?.identifier
+                      }
+                      fallbackText={item.invitee_user_bid}
+                      secondaryText={
+                        showUserBidSecondary &&
+                        (item.invitee_mobile_snapshot ||
+                          item.invitee?.identifier)
+                          ? item.invitee_user_bid
+                          : undefined
                       }
                     />
                   </TableCell>
                   <TableCell className={`${TABLE_CELL_CLASS} font-mono`}>
                     {formatReferralText(item.invite_code)}
+                  </TableCell>
+                  <TableCell className={TABLE_CELL_CLASS}>
+                    {formatAdminUtcDateTime(item.bound_at || '') ||
+                      formatReferralText(item.bound_at)}
                   </TableCell>
                   <TableCell className={TABLE_CELL_CLASS}>
                     {relationStatusLabel(item.relation_status)}
@@ -405,23 +457,21 @@ export default function ReferralRelationsPanel({
                       ? rewardStatusLabel(item.reward.reward_status)
                       : '-'}
                   </TableCell>
-                  <TableCell className={TABLE_CELL_CLASS}>
-                    {formatAdminUtcDateTime(item.bound_at || '') ||
-                      formatReferralText(item.bound_at)}
-                  </TableCell>
-                  <TableCell className={TABLE_ACTION_CELL_CLASS}>
-                    <Button
-                      type='button'
-                      variant='ghost'
-                      size='sm'
-                      className='h-auto justify-start gap-1 p-0 text-left font-normal text-primary hover:bg-transparent'
-                      data-testid={`referral-detail-${item.relation_bid}`}
-                      onClick={() => void openDetail(item.relation_bid)}
-                    >
-                      <Eye className='h-4 w-4' />
-                      {t('operator.actions.detail')}
-                    </Button>
-                  </TableCell>
+                  {showDetailAction ? (
+                    <TableCell className={TABLE_ACTION_CELL_CLASS}>
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='sm'
+                        className='h-auto justify-start gap-1 p-0 text-left font-normal text-primary hover:bg-transparent'
+                        data-testid={`referral-detail-${item.relation_bid}`}
+                        onClick={() => void openDetail(item.relation_bid)}
+                      >
+                        <Eye className='h-4 w-4' />
+                        {t('operator.actions.detail')}
+                      </Button>
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               ))}
             </TableBody>
@@ -444,19 +494,21 @@ export default function ReferralRelationsPanel({
       {error ? (
         <div className='mt-3 text-sm text-destructive'>{error}</div>
       ) : null}
-      <ReferralDetailSheet
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        detail={detail}
-        loading={detailLoading}
-        statusLoading={statusLoading}
-        operatorNote={operatorNote}
-        onOperatorNoteChange={setOperatorNote}
-        onUpdateStatus={updateStatus}
-        relationStatusLabel={relationStatusLabel}
-        abnormalStatusLabel={abnormalStatusLabel}
-        rewardStatusLabel={rewardStatusLabel}
-      />
+      {showDetailAction ? (
+        <ReferralDetailSheet
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+          detail={detail}
+          loading={detailLoading}
+          statusLoading={statusLoading}
+          operatorNote={operatorNote}
+          onOperatorNoteChange={setOperatorNote}
+          onUpdateStatus={updateStatus}
+          relationStatusLabel={relationStatusLabel}
+          abnormalStatusLabel={abnormalStatusLabel}
+          rewardStatusLabel={rewardStatusLabel}
+        />
+      ) : null}
     </div>
   );
 }
@@ -469,6 +521,7 @@ function buildFilterItems({
   includeCampaignFilter,
   relationStatusLabel,
   abnormalStatusLabel,
+  contactMode,
 }: {
   t: (key: string, values?: Record<string, unknown>) => string;
   tCommon: (key: string, values?: Record<string, unknown>) => string;
@@ -477,7 +530,16 @@ function buildFilterItems({
   includeCampaignFilter: boolean;
   relationStatusLabel: (status: number) => string;
   abnormalStatusLabel: (status: number) => string;
+  contactMode: 'email' | 'phone';
 }) {
+  const inviterPlaceholder =
+    contactMode === 'email'
+      ? t('operator.filters.inviterEmailPlaceholder')
+      : t('operator.filters.inviterMobilePlaceholder');
+  const inviteePlaceholder =
+    contactMode === 'email'
+      ? t('operator.filters.inviteeEmailPlaceholder')
+      : t('operator.filters.inviteeMobilePlaceholder');
   const items = [
     includeCampaignFilter
       ? {
@@ -497,11 +559,11 @@ function buildFilterItems({
       : null,
     {
       key: 'inviter_user_bid',
-      label: t('operator.filters.inviterUserBid'),
+      label: t('operator.filters.inviter'),
       component: (
         <AdminClearableInput
           value={filters.inviter_user_bid}
-          placeholder={t('operator.filters.inviterUserBid')}
+          placeholder={inviterPlaceholder}
           onChange={value =>
             setFilters(current => ({ ...current, inviter_user_bid: value }))
           }
@@ -511,11 +573,11 @@ function buildFilterItems({
     },
     {
       key: 'invitee_user_bid',
-      label: t('operator.filters.inviteeUserBid'),
+      label: t('operator.filters.invitee'),
       component: (
         <AdminClearableInput
           value={filters.invitee_user_bid}
-          placeholder={t('operator.filters.inviteeUserBid')}
+          placeholder={inviteePlaceholder}
           onChange={value =>
             setFilters(current => ({ ...current, invitee_user_bid: value }))
           }
@@ -718,7 +780,7 @@ function ReferralDetailSheet({
                 [
                   t('operator.detail.boundAt'),
                   formatAdminUtcDateTime(detail.bound_at || '') ||
-                    formatReferralText(detail.bound_at),
+                    detail.bound_at,
                 ],
               ]}
             />
@@ -882,12 +944,14 @@ function RewardQueueTable({
                   <TableCell>{item.queue_index}</TableCell>
                   <TableCell>{rewardStatusLabel(item.reward_status)}</TableCell>
                   <TableCell>
-                    {formatReferralText(item.reward_credit_amount)}
+                    {formatReferralText(
+                      String(item.reward_credit_amount || ''),
+                    )}
                   </TableCell>
                   <TableCell>
                     <ReferralUserSummary
-                      userBid={item.invitee_user_bid}
-                      identifier={item.invitee_mobile_snapshot}
+                      primaryText={item.invitee_mobile_snapshot}
+                      fallbackText={item.invitee_user_bid}
                     />
                   </TableCell>
                   <TableCell>
@@ -940,7 +1004,13 @@ function RewardQueueTable({
   );
 }
 
-function ArtifactLine({ label, value }: { label: string; value: string }) {
+function ArtifactLine({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
   return (
     <div className='min-w-[160px]'>
       <span className='mr-1 text-muted-foreground'>{label}</span>
@@ -956,7 +1026,7 @@ function DetailGrid({
   rows,
 }: {
   title?: string;
-  rows: Array<[string, string]>;
+  rows: Array<[string, string | null | undefined]>;
 }) {
   return (
     <section className='rounded-lg border border-border p-3'>
