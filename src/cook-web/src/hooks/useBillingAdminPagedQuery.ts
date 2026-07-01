@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import useSWR from 'swr';
-import { buildBillingSwrKey, withBillingTimezone } from '@/lib/billing';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
+import { buildBillingSwrKey } from '@/lib/billing';
 import type { BillingPagedResponse } from '@/types/billing';
 
 type BillingAdminPagedQueryParams<T> = {
   fetchPage: (params: {
     page_index: number;
     page_size: number;
-    timezone?: string;
   }) => Promise<BillingPagedResponse<T>>;
   pageSize: number;
   queryKey: string;
@@ -19,20 +17,14 @@ export function useBillingAdminPagedQuery<T>({
   pageSize,
   queryKey,
 }: BillingAdminPagedQueryParams<T>) {
-  const timezone = getBrowserTimeZone();
   const [pageIndex, setPageIndex] = useState(1);
   const { data, error, isLoading } = useSWR<BillingPagedResponse<T>>(
-    buildBillingSwrKey(queryKey, timezone, pageIndex),
+    buildBillingSwrKey(queryKey, pageIndex),
     async () =>
-      fetchPage(
-        withBillingTimezone(
-          {
-            page_index: pageIndex,
-            page_size: pageSize,
-          },
-          timezone,
-        ),
-      ),
+      fetchPage({
+        page_index: pageIndex,
+        page_size: pageSize,
+      }),
     {
       revalidateOnFocus: false,
     },

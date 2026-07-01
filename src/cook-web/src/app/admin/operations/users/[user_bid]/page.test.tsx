@@ -764,21 +764,21 @@ describe('AdminOperationUserDetailPage', () => {
       name: 'module.operationsUser.detail.title',
     });
 
-    expect(screen.getByText('2026-04-15 01:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-15 02:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-14 01:15:00')).toBeInTheDocument();
-    expect(screen.queryByText('2026-04-14 18:30:00')).not.toBeInTheDocument();
-    expect(screen.queryByText('2026-04-14 19:30:00')).not.toBeInTheDocument();
+    expect(screen.getByText('2026-04-14 18:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-14 19:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-13 18:15:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-15 01:30:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-15 02:30:00')).not.toBeInTheDocument();
     expect(screen.getAllByText('2026-04-30 18:00:00').length).toBeGreaterThan(
       0,
     );
-    expect(screen.getAllByText('2026-04-18 01:00:00').length).toBeGreaterThan(
+    expect(screen.getAllByText('2026-04-17 18:00:00').length).toBeGreaterThan(
       0,
     );
-    expect(screen.queryByText('2026-04-17 18:00:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-18 01:00:00')).not.toBeInTheDocument();
   });
 
-  test('keeps user credit usage detail created_at as returned wall-clock time', async () => {
+  test('converts user credit usage detail created_at to the browser timezone', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationUserCredits.mockResolvedValue({
       ...creditsResponse,
@@ -841,10 +841,10 @@ describe('AdminOperationUserDetailPage', () => {
 
     const dialog = await screen.findByRole('dialog');
     expect(
-      await within(dialog).findByText('2026-04-18 10:00:00'),
+      await within(dialog).findByText('2026-04-18 03:00:00'),
     ).toBeInTheDocument();
     expect(
-      within(dialog).queryByText('2026-04-18 03:00:00'),
+      within(dialog).queryByText('2026-04-18 10:00:00'),
     ).not.toBeInTheDocument();
   });
 

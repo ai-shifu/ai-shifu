@@ -20,7 +20,7 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
-from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 from ...dao import db
 from .consts import ASK_MODE_DEFAULT
 from flaskr.util.compare import compare_decimal
@@ -45,13 +45,13 @@ class FavoriteScenario(db.Model):
     user_id = Column(String(36), nullable=False, default="", comment="User UUID")
     status = Column(Integer, nullable=False, default=0, comment="Status")
     created_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"
     )
     updated_at = Column(
         TIMESTAMP,
         nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
+        default=now_utc,
+        onupdate=now_utc,
         comment="Update time",
     )
 
@@ -78,7 +78,7 @@ class ScenarioResource(db.Model):
     )
     is_deleted = Column(Integer, nullable=False, default=0, comment="Is deleted")
     created_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"
     )
 
 
@@ -102,13 +102,13 @@ class AiCourseAuth(db.Model):
     auth_type = Column(String(255), nullable=False, default="[]", comment="auth_info")
     status = Column(Integer, nullable=False, default=0, comment="Status")
     created_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"
     )
     updated_at = Column(
         TIMESTAMP,
         nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
+        default=now_utc,
+        onupdate=now_utc,
         comment="Update time",
     )
 
@@ -155,14 +155,14 @@ class ShifuUserArchive(db.Model):
         comment="Archived timestamp",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime, nullable=False, default=now_utc, comment="Creation timestamp"
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Last update timestamp",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
 
 
@@ -298,7 +298,7 @@ class DraftShifu(db.Model):
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime, nullable=False, default=now_utc, comment="Creation timestamp"
     )
     created_user_bid = Column(
         String(32),
@@ -310,9 +310,9 @@ class DraftShifu(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Last update timestamp",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
     updated_user_bid = Column(
         String(32),
@@ -484,7 +484,7 @@ class DraftOutlineItem(db.Model):
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime, nullable=False, default=now_utc, comment="Creation timestamp"
     )
     created_user_bid = Column(
         String(32),
@@ -495,9 +495,9 @@ class DraftOutlineItem(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Last update timestamp",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
     updated_user_bid = Column(
         String(32),
@@ -583,7 +583,7 @@ class LogDraftStruct(db.Model):
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime, nullable=False, default=now_utc, comment="Creation timestamp"
     )
     created_user_bid = Column(
         String(32),
@@ -594,9 +594,9 @@ class LogDraftStruct(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Last update timestamp",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
     updated_user_bid = Column(
         String(32),
@@ -719,7 +719,7 @@ class PublishedShifu(db.Model):
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime, nullable=False, default=now_utc, comment="Creation timestamp"
     )
     created_user_bid = Column(
         String(32),
@@ -731,9 +731,9 @@ class PublishedShifu(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Last update timestamp",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
     updated_user_bid = Column(
         String(32),
@@ -826,7 +826,7 @@ class PublishedOutlineItem(db.Model):
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime, nullable=False, default=now_utc, comment="Creation timestamp"
     )
     created_user_bid = Column(
         String(32),
@@ -838,9 +838,9 @@ class PublishedOutlineItem(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Last update timestamp",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
     updated_user_bid = Column(
         String(32),
@@ -881,7 +881,7 @@ class LogPublishedStruct(db.Model):
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime, nullable=False, default=now_utc, comment="Creation timestamp"
     )
     created_user_bid = Column(
         String(32),
@@ -892,9 +892,9 @@ class LogPublishedStruct(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Last update timestamp",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
     updated_user_bid = Column(
         String(32),

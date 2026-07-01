@@ -75,13 +75,6 @@ def _get_creator_bid() -> str:
     return str(getattr(request.user, "user_id", "") or "").strip()
 
 
-def _get_timezone_name() -> str | None:
-    timezone_name = (request.args.get("timezone", "") or "").strip()
-    if timezone_name and len(timezone_name) > 100:
-        raise_param_error("timezone")
-    return timezone_name or None
-
-
 def _get_page_args() -> tuple[str, str]:
     return (
         request.args.get("page_index", "1"),
@@ -120,7 +113,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             build_billing_overview(
                 app,
                 _get_creator_bid(),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -131,7 +123,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             acknowledge_trial_welcome_dialog(
                 app,
                 _get_creator_bid(),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -142,7 +133,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             build_billing_wallet_buckets(
                 app,
                 _get_creator_bid(),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -156,7 +146,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 _get_creator_bid(),
                 page_index=page_index,
                 page_size=page_size,
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -251,7 +240,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 status=_get_optional_query_arg("status"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -266,7 +254,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 status=_get_optional_query_arg("status"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -280,7 +267,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_index=page_index,
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -295,7 +281,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 status=_get_optional_query_arg("status"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -311,7 +296,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 stat_date_from=_get_optional_query_arg("date_from"),
                 stat_date_to=_get_optional_query_arg("date_to"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -327,7 +311,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 stat_date_from=_get_optional_query_arg("date_from"),
                 stat_date_to=_get_optional_query_arg("date_to"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -362,7 +345,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 status=_get_optional_query_arg("status"),
                 start_time=_get_optional_query_arg("start_time", max_length=64),
                 end_time=_get_optional_query_arg("end_time", max_length=64),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -384,7 +366,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             build_admin_billing_campaign_detail(
                 app,
                 campaign_bid,
-                timezone_name=_get_timezone_name(),
             )
         )
 

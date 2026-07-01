@@ -14,7 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 
 from flaskr.dao import db
 
@@ -47,14 +47,14 @@ class ReferralTableMixin:
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
+        default=now_utc,
+        onupdate=now_utc,
         comment="Last update timestamp",
     )
 
@@ -204,7 +204,7 @@ class ReferralInviteCode(ReferralTableMixin, db.Model):
         default=REFERRAL_INVITE_CODE_STATUS_ACTIVE,
         index=True,
     )
-    generated_at = Column(DateTime, nullable=False, default=func.now())
+    generated_at = Column(DateTime, nullable=False, default=now_utc)
 
 
 class ReferralInviteEvent(db.Model):
@@ -232,7 +232,7 @@ class ReferralInviteEvent(db.Model):
     user_agent_hash = Column(String(128), nullable=False, default="")
     landing_path = Column(String(512), nullable=False, default="")
     metadata_json = Column("metadata", JSON, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    created_at = Column(DateTime, nullable=False, default=now_utc, index=True)
 
 
 class ReferralInviteRelation(ReferralTableMixin, db.Model):
@@ -265,7 +265,7 @@ class ReferralInviteRelation(ReferralTableMixin, db.Model):
     inviter_user_bid = Column(String(36), nullable=False, default="", index=True)
     invitee_user_bid = Column(String(36), nullable=False, default="", index=True)
     invitee_mobile_snapshot = Column(String(32), nullable=False, default="")
-    bound_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    bound_at = Column(DateTime, nullable=False, default=now_utc, index=True)
     registration_source = Column(String(32), nullable=False, default="phone")
     reward_eligible = Column(SmallInteger, nullable=False, default=0)
     relation_status = Column(

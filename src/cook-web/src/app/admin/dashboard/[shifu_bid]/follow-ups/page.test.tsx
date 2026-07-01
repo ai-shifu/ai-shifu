@@ -241,8 +241,8 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
       summary: {
         follow_up_count: 2,
         user_count: 1,
-        lesson_count: 2,
-        latest_follow_up_at: '2026-04-05 19:05:00',
+        lesson_count: 1,
+        latest_follow_up_at: '2026-04-05T11:02:00Z',
       },
       items: [
         {
@@ -257,7 +257,7 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
           follow_up_content: 'Second follow-up question',
           has_source_output: true,
           turn_index: 2,
-          created_at: '2026-04-05 19:02:00',
+          created_at: '2026-04-05T11:02:00Z',
         },
         {
           generated_block_bid: 'ask-3',
@@ -292,7 +292,7 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
               nickname: 'Bob',
               chapter_title: 'Chapter 1',
               lesson_title: 'Lesson 2',
-              created_at: '2026-04-05 19:05:00',
+              created_at: '2026-04-05T11:05:00Z',
               turn_index: 3,
             },
             current_record: {
@@ -303,13 +303,13 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
               {
                 role: 'student',
                 content: 'Third follow-up question',
-                created_at: '2026-04-05 19:05:00',
+                created_at: '2026-04-05T11:05:00Z',
                 is_current: true,
               },
               {
                 role: 'teacher',
                 content: 'Third follow-up answer',
-                created_at: '2026-04-05 19:05:08',
+                created_at: '2026-04-05T11:05:08Z',
                 is_current: true,
               },
             ],
@@ -325,7 +325,7 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
             nickname: 'Bob',
             chapter_title: 'Chapter 1',
             lesson_title: 'Lesson 1',
-            created_at: '2026-04-05 19:02:00',
+            created_at: '2026-04-05T11:02:00Z',
             turn_index: 2,
           },
           current_record: {
@@ -336,13 +336,13 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
             {
               role: 'student',
               content: 'Second follow-up question',
-              created_at: '2026-04-05 19:02:00',
+              created_at: '2026-04-05T11:02:00Z',
               is_current: true,
             },
             {
               role: 'teacher',
               content: 'Second follow-up answer',
-              created_at: '2026-04-05 19:02:10',
+              created_at: '2026-04-05T11:02:10Z',
               is_current: true,
             },
           ],
@@ -376,7 +376,6 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
         source_status: '',
         start_time: '',
         end_time: '',
-        timezone: 'Asia/Shanghai',
       });
     });
 
@@ -444,7 +443,6 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
         source_status: 'missing',
         start_time: '2026-04-05',
         end_time: '2026-04-06',
-        timezone: 'Asia/Shanghai',
       });
     });
 
@@ -460,7 +458,6 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
     expect(mockGetDashboardCourseFollowUpDetail).toHaveBeenCalledWith({
       shifu_bid: 'course-1',
       generated_block_bid: 'ask-2',
-      timezone: 'Asia/Shanghai',
     });
     expect(
       screen.getByText(
@@ -512,7 +509,7 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
           nickname: 'Bob',
           chapter_title: 'Chapter 1',
           lesson_title: 'Lesson 1',
-          created_at: '2026-04-05 19:02:00',
+          created_at: '2026-04-05T11:02:00Z',
           turn_index: 2,
         },
         current_record: {
@@ -616,7 +613,6 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
         source_status: '',
         start_time: '',
         end_time: '',
-        timezone: 'Asia/Shanghai',
       });
     });
 

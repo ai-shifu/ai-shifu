@@ -315,6 +315,8 @@ def billing_write_client(monkeypatch):
     monkeypatch.setenv("PATH_PREFIX", "/api")
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
 
+    monkeypatch.setattr(billing_checkout_module, "now_utc", datetime.now)
+
     app = Flask(__name__)
     app.testing = True
     app.config.update(

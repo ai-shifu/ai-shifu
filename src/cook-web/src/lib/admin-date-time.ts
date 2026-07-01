@@ -133,6 +133,13 @@ export const parseAdminNaiveDateTime = (
   return parsedValue;
 };
 
+/**
+ * @deprecated The backend now serializes every admin datetime to UTC ISO 8601
+ * with a 'Z' suffix at the fmt sink. Use {@link formatAdminUtcDateTime} so the
+ * value is converted to the viewer's browser timezone. This naive (no-timezone,
+ * verbatim wall-clock) formatter is retained only for any non-admin legacy
+ * payloads that still emit offsetless strings.
+ */
 export const formatAdminNaiveDateTime = (
   value: string | null | undefined,
 ): string => {

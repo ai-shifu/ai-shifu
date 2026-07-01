@@ -89,6 +89,23 @@ const nextConfig: NextConfig = {
     return [{ source: '/main', destination: '/admin', permanent: true }];
   },
 
+  // Local development: proxy /api/* to the backend to resolve CORS issues during remote access.
+  // Only active under `next dev` (npm run dev); production builds/starts (next build / next start)
+  // have NODE_ENV set to 'production' and will not inject this proxy.
+  async rewrites() {
+    if (process.env.NODE_ENV !== 'development') {
+      return [];
+    }
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5800';
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
+      },
+    ];
+  },
+
   // Disable image optimization to avoid Sharp dependency
   images: {
     unoptimized: true,

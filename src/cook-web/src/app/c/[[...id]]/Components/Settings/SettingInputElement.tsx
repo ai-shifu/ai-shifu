@@ -34,7 +34,7 @@ export const SettingInputElement = ({
         <input
           className={styles.inputElement}
           placeholder={placeholder}
-          value={_value}
+          value={_value ?? ''}
           onChange={onInputChanged}
           // @ts-expect-error EXPECTED
           maxLength={maxLength}

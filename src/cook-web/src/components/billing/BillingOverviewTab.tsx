@@ -7,7 +7,6 @@ import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { toast } from '@/hooks/useToast';
 import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import {
   BILLING_WALLET_BUCKETS_SWR_KEY,
@@ -38,7 +37,6 @@ import {
   resolveBillingPingxxChannelLabel,
   resolveBillingProductTitle,
   resolveBillingProviderLabel,
-  withBillingTimezone,
 } from '@/lib/billing';
 import { BillingAlertsBanner } from './BillingAlertsBanner';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
@@ -173,7 +171,6 @@ export function BillingOverviewTab({
 }: BillingOverviewTabProps = {}) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
-  const timezone = getBrowserTimeZone();
 
   const {
     data: overview,
@@ -186,11 +183,8 @@ export function BillingOverviewTab({
     error: catalogError,
     isLoading: catalogLoading,
   } = useSWR<BillingCatalogResponse>(
-    buildBillingSwrKey('billing-catalog', timezone),
-    async () =>
-      (await api.getBillingCatalog(
-        withBillingTimezone({}, timezone),
-      )) as BillingCatalogResponse,
+    buildBillingSwrKey('billing-catalog'),
+    async () => (await api.getBillingCatalog({})) as BillingCatalogResponse,
     {
       revalidateOnFocus: false,
     },
@@ -277,9 +271,7 @@ export function BillingOverviewTab({
   async function refreshBillingData() {
     await Promise.all([
       mutateOverview(),
-      mutateSWRCache(
-        buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY, timezone),
-      ),
+      mutateSWRCache(buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY)),
     ]);
   }
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 import json
 import re
@@ -32,7 +32,7 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.util.timezone import format_with_app_timezone, serialize_with_app_timezone
+from flaskr.util.timezone import format_with_app_timezone
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -726,10 +726,14 @@ def _serialize_template_option(
 
 
 def _format_operator_datetime(app: Flask, value: datetime | None) -> str:
+    # Operator-facing strings (response dicts and persisted metadata) are always
+    # UTC ISO 8601 with a 'Z' suffix; naive values are treated as UTC to match
+    # the repo-wide stored-time contract. ``app`` is kept for signature stability.
     if not value:
         return ""
-    serialized_value = serialize_with_app_timezone(app, value, tz_name="UTC")
-    return str(serialized_value or "").replace("+00:00", "Z")
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _load_notification_template(template_code: str) -> NotificationTemplate | None:
