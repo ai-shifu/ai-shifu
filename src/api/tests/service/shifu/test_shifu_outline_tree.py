@@ -53,6 +53,32 @@ def test_build_outline_tree_lifts_orphan_to_root(app):
         assert [c.outline_id for c in orphan_node.children] == ["orphan_child"]
 
 
+def test_build_outline_tree_handles_empty_position_without_cycle(app):
+    """A degenerate empty position must not become its own child (which would
+    later blow up get_outline_tree_dto with RecursionError). It is lifted to
+    the root level like any other orphan."""
+    shifu_bid = "shifu_empty_pos_1"
+    with app.app_context():
+        _mk_item(shifu_bid, "root1", "01")
+        # Empty position is the column default; treat it as an orphan, not a
+        # self-parent.
+        _mk_item(shifu_bid, "broken", "")
+        db.session.commit()
+
+        tree = build_outline_tree(app, shifu_bid)
+
+        broken_node = next(n for n in tree if n.outline_id == "broken")
+        # The node is at the root and is NOT a child of itself.
+        assert broken_node in tree
+        assert broken_node not in broken_node.children
+
+        # Rendering the tree must terminate (no self-cycle -> no RecursionError).
+        from flaskr.service.shifu.shifu_outline_funcs import get_outline_tree_dto
+
+        dtos = get_outline_tree_dto(tree)
+        assert {d.bid for d in dtos} == {"root1", "broken"}
+
+
 def test_assert_publishable_passes_when_no_collision(app):
     """Orphans alone are tolerated (self-healed); publish is not blocked."""
     shifu_bid = "shifu_orphan_2"

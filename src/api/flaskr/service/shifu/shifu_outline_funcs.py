@@ -105,31 +105,38 @@ def build_outline_tree(app, shifu_bid: str) -> list[ShifuOutlineTreeNode]:
 
     # build tree structure
     for position, node in nodes_map.items():
+        # Only positions two chars deeper than a root have a real parent to
+        # look up. Requiring len > 2 (rather than the previous "!= 2") is what
+        # keeps a malformed position such as "" or a single char from ever
+        # looking up itself as its own parent: "".removesuffix path,
+        # ""[:-2] == "" would be found in nodes_map and the node would be
+        # add_child()'d onto itself, producing a self-cycle that later blows up
+        # get_outline_tree_dto with RecursionError. Such degenerate positions
+        # now fall through to the orphan branch and are lifted to the root.
+        parent_position = position[:-2]
         if len(position) == 2:
             # root node
             outline_tree.append(node)
+        elif len(position) > 2 and parent_position in nodes_map:
+            parent_node = nodes_map[parent_position]
+            if node not in parent_node.children:
+                parent_node.add_child(node)
         else:
-            # find parent node
-            parent_position = position[:-2]
-            if parent_position in nodes_map:
-                parent_node = nodes_map[parent_position]
-                if node not in parent_node.children:
-                    parent_node.add_child(node)
-            else:
-                # Orphan node: its parent position is missing (e.g. the parent
-                # unit was deleted without cascading to this child). Instead of
-                # silently dropping the node and its whole subtree from the
-                # tree, self-heal by attaching it at the root level and log it.
-                # This keeps the node visible in the editor (so a creator can
-                # delete or re-parent it) and prevents publish from losing data.
-                # Iteration order is by position length, so this orphan is
-                # already in nodes_map before its own children are processed;
-                # they will still attach to it normally.
-                app.logger.warning(
-                    f"Parent node not found for position: {position}, "
-                    f"attaching orphan '{node.outline_id}' at root level"
-                )
-                outline_tree.append(node)
+            # Orphan / malformed node: either its parent position is missing
+            # (e.g. the parent unit was deleted without cascading to this child)
+            # or the position itself is degenerate (empty / odd length). Instead
+            # of silently dropping the node and its whole subtree, self-heal by
+            # attaching it at the root level and log it. This keeps the node
+            # visible in the editor (so a creator can delete or re-parent it)
+            # and prevents publish from losing data. Iteration order is by
+            # position length, so a well-formed orphan is already in nodes_map
+            # before its own children are processed; they will still attach to
+            # it normally.
+            app.logger.warning(
+                f"Parent node not found for position: {position}, "
+                f"attaching orphan '{node.outline_id}' at root level"
+            )
+            outline_tree.append(node)
 
     return outline_tree
 
