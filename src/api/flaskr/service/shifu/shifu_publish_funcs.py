@@ -18,6 +18,7 @@ from flaskr.service.shifu.models import (
 )
 from flaskr.service.shifu.shifu_outline_funcs import (
     build_outline_tree,
+    assert_outline_tree_publishable,
     ShifuOutlineTreeNode,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
@@ -144,6 +145,9 @@ def publish_shifu_draft(
         )
         db.session.add(shifu_published)
         db.session.flush()
+        # Block publishing a structurally broken outline instead of silently
+        # dropping orphaned/colliding nodes from the published result.
+        assert_outline_tree_publishable(app, shifu_id)
         outline_tree = build_outline_tree(app, shifu_id)
 
         def publish_outline_item(node: ShifuOutlineTreeNode, history_item: HistoryItem):
