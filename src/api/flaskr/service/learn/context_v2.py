@@ -1719,6 +1719,8 @@ class RunScriptContextV2:
                 ):
                     raise UserNotLoginException()
             parent_path = find_node_with_parents(self._struct, outline_bid)
+            if not parent_path:
+                raise_error("server.shifu.lessonNotFoundInCourse")
             attend_info = None
             for item in parent_path:
                 if item.type == "outline":
