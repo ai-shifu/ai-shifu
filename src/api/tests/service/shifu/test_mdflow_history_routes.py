@@ -1,8 +1,13 @@
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
+
 import flaskr.dao as dao
-from flaskr.service.common.models import ERROR_CODE
+from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.shifu.shifu_outline_funcs import (
+    convert_outline_to_reorder_outline_item_dto,
+)
 
 
 def _get_models():
@@ -173,3 +178,19 @@ def test_restore_mdflow_history_route_returns_deleted_flag(
     assert payload["code"] == 0
     assert payload["data"]["lesson_deleted"] is True
     assert payload["data"]["restored"] is False
+
+
+def test_convert_reorder_outline_rejects_none_payload():
+    with pytest.raises(AppException) as exc_info:
+        convert_outline_to_reorder_outline_item_dto(None)
+
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+
+
+def test_convert_reorder_outline_rejects_non_list_children():
+    with pytest.raises(AppException) as exc_info:
+        convert_outline_to_reorder_outline_item_dto(
+            [{"bid": "outline-a", "children": {"bid": "outline-b"}}]
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]

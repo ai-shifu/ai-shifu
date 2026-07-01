@@ -1170,7 +1170,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                         $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
-        outlines = request.get_json().get("outlines")
+        json_data = request.get_json(silent=True) or {}
+        if not isinstance(json_data, dict):
+            raise_param_error("body")
+        outlines = json_data.get("outlines")
+        if not isinstance(outlines, list):
+            raise_param_error("outlines")
         app.logger.info(type(outlines))
         app.logger.info(
             f"reorder outline tree, user_id: {user_id}, shifu_bid: {shifu_bid}, outlines: {outlines}"
