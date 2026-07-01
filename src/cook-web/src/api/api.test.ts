@@ -83,6 +83,12 @@ describe('referral api definitions', () => {
     expect(api.updateAdminOperationPromotionReferralCampaignStatus).toBe(
       'POST /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/status',
     );
+    expect(api.getAdminOperationPromotionReferralCampaignRelations).toBe(
+      'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/relations',
+    );
+    expect(api.getAdminOperationPromotionReferralCampaignInvitations).toBe(
+      'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/invitations',
+    );
   });
 });
 
