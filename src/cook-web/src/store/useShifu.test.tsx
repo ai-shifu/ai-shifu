@@ -35,16 +35,16 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
   <ShifuProvider>{children}</ShifuProvider>
 );
 
-describe('useShifu draft meta timezone handling', () => {
+describe('useShifu draft meta handling', () => {
   beforeEach(() => {
     mockSaveMdflow.mockReset();
     mockGetShifuDraftMeta.mockReset();
   });
 
-  it('passes browser timezone when loading draft meta', async () => {
+  it('loads draft meta without browser timezone', async () => {
     mockGetShifuDraftMeta.mockResolvedValue({
       revision: 2,
-      updated_at: '2026-06-30T13:37:42+08:00',
+      updated_at: '2026-06-30T05:37:42Z',
       updated_user: null,
     });
 
@@ -61,10 +61,9 @@ describe('useShifu draft meta timezone handling', () => {
     expect(mockGetShifuDraftMeta).toHaveBeenCalledWith({
       shifu_bid: 'shifu-1',
       outline_bid: 'lesson-1',
-      timezone: 'Asia/Shanghai',
     });
     expect(result.current.latestDraftMeta?.updated_at).toBe(
-      '2026-06-30T13:37:42+08:00',
+      '2026-06-30T05:37:42Z',
     );
   });
 
@@ -72,7 +71,7 @@ describe('useShifu draft meta timezone handling', () => {
     mockSaveMdflow.mockResolvedValue({ new_revision: 9 });
     mockGetShifuDraftMeta.mockResolvedValue({
       revision: 9,
-      updated_at: '2026-06-30T13:37:42+08:00',
+      updated_at: '2026-06-30T05:37:42Z',
       updated_user: null,
     });
 
@@ -100,7 +99,6 @@ describe('useShifu draft meta timezone handling', () => {
       expect(mockGetShifuDraftMeta).toHaveBeenCalledWith({
         shifu_bid: 'shifu-1',
         outline_bid: 'lesson-1',
-        timezone: 'Asia/Shanghai',
       });
       expect(result.current.latestDraftMeta?.revision).toBe(9);
     });

@@ -8,6 +8,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 from ...dao import db
 from .consts import (
     COUPON_TYPE_FIXED,
@@ -62,11 +63,9 @@ class Coupon(db.Model):
         comment="Coupon value: would be calculated to amount by coupon type",
     )
     start = Column(
-        DateTime, nullable=False, default=func.now(), comment="Coupon start time"
+        DateTime, nullable=False, default=now_utc, comment="Coupon start time"
     )
-    end = Column(
-        DateTime, nullable=False, default=func.now(), comment="Coupon end time"
-    )
+    end = Column(DateTime, nullable=False, default=now_utc, comment="Coupon end time")
     channel = Column(String(36), nullable=False, default="", comment="Coupon channel")
     filter = Column(
         Text,
@@ -92,7 +91,7 @@ class Coupon(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
         comment="Creation timestamp",
     )
@@ -105,9 +104,9 @@ class Coupon(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
-        onupdate=func.now(),
+        onupdate=now_utc,
         comment="Update timestamp",
     )
     updated_user_bid = Column(
@@ -194,16 +193,16 @@ class CouponUsage(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
-        onupdate=func.now(),
+        onupdate=now_utc,
         comment="Update timestamp",
     )
 
@@ -260,14 +259,14 @@ class PromoCampaign(db.Model):
         DateTime,
         nullable=False,
         index=True,
-        default=func.now(),
+        default=now_utc,
         comment="Promotion start time(inclusive)",
     )
     end_at = Column(
         DateTime,
         nullable=False,
         index=True,
-        default=func.now(),
+        default=now_utc,
         comment="Promotion end time(recommended exclusive): start_at <= now < end_at",
     )
     discount_type = Column(
@@ -306,7 +305,7 @@ class PromoCampaign(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
         comment="Creation timestamp",
     )
@@ -320,9 +319,9 @@ class PromoCampaign(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
-        onupdate=func.now(),
+        onupdate=now_utc,
         comment="Last update timestamp",
     )
     updated_user_bid = Column(
@@ -423,15 +422,15 @@ class PromoRedemption(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
-        onupdate=func.now(),
+        onupdate=now_utc,
         comment="Last update timestamp",
     )

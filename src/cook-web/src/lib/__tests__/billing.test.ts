@@ -405,9 +405,9 @@ describe('resolveBillingLedgerUsageType', () => {
 });
 
 describe('parseBillingDateValue', () => {
-  test('treats offsetless legacy billing instants as app-local +08:00 values', () => {
+  test('treats offsetless billing instants as UTC', () => {
     expect(parseBillingDateValue('2026-04-14T07:32:00')?.toISOString()).toBe(
-      '2026-04-13T23:32:00.000Z',
+      '2026-04-14T07:32:00.000Z',
     );
   });
 

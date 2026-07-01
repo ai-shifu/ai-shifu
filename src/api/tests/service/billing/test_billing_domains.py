@@ -16,6 +16,7 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_MANUAL,
 )
 from flaskr.service.billing.domains import (
+    build_creator_domain_bindings,
     verify_domain_binding,
 )
 from flaskr.service.billing.models import BillingDomainBinding, BillingEntitlement
@@ -163,6 +164,22 @@ class TestBillingDomains:
         assert audit_payload["data"]["items"][0]["custom_domain_enabled"] is True
         assert audit_payload["data"]["items"][1]["host"] == "disabled.example.com"
         assert audit_payload["data"]["items"][1]["status"] == "disabled"
+
+    def test_creator_domain_bindings_keep_raw_last_verified_at(
+        self, billing_domain_client
+    ) -> None:
+        # The browser timezone thread is gone: the DTO now holds the raw stored
+        # datetime and the fmt sink emits UTC at the HTTP boundary, instead of
+        # localizing last_verified_at to the app default timezone.
+        app = billing_domain_client["app"]
+
+        with app.app_context():
+            bindings = build_creator_domain_bindings(app, "creator-1")
+
+        verified = next(
+            item for item in bindings.items if item.host == "academy.example.com"
+        )
+        assert verified.last_verified_at == datetime(2026, 4, 8, 10, 0, 0)
 
     def test_with_shifu_context_resolves_creator_from_custom_domain_host(
         self, billing_domain_client

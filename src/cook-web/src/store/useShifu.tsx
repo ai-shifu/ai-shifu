@@ -592,10 +592,6 @@ export const ShifuProvider = ({
         if (outlineId) {
           payload.outline_bid = outlineId;
         }
-        const timezone = getBrowserTimeZone();
-        if (timezone) {
-          payload.timezone = timezone;
-        }
         const meta = await api.getShifuDraftMeta(payload);
         if (!outlineId || currentOutlineRef.current === outlineId) {
           setLatestDraftMeta(meta as DraftMeta);
