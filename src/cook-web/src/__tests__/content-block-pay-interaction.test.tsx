@@ -41,7 +41,7 @@ describe('ContentBlock pay interaction overrides', () => {
         item={
           {
             type: 'interaction',
-            content: '先完成这一步，再继续听课\n?[去支付//_sys_pay]',
+            content: 'Pay interaction\n?[Pay//_sys_pay]',
             element_bid: 'pay-block',
             readonly: true,
             user_input: '_sys_pay',
