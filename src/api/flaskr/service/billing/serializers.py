@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from flask import Flask
@@ -111,7 +110,6 @@ _USAGE_TYPE_LABELS = {
     BILL_USAGE_TYPE_LLM: "llm",
     BILL_USAGE_TYPE_TTS: "tts",
 }
-
 
 
 def serialize_catalog_campaign(

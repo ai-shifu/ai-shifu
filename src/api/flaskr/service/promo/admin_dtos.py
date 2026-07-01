@@ -21,7 +21,9 @@ class AdminPromotionSummaryDTO(_DTOBase):
     total: int = Field(..., description="Total item count", required=False)
     active: int = Field(..., description="Active item count", required=False)
     usage_count: int = Field(..., description="Usage count", required=False)
-    latest_usage_at: datetime | None = Field(..., description="Latest usage time", required=False)
+    latest_usage_at: datetime | None = Field(
+        ..., description="Latest usage time", required=False
+    )
     covered_courses: int = Field(
         ..., description="Covered course count", required=False
     )
@@ -45,7 +47,9 @@ class AdminPromotionCouponItemDTO(_DTOBase):
     scope_type: str = Field(..., description="Coupon scope type", required=False)
     shifu_bid: str = Field(..., description="Course identifier", required=False)
     course_name: str = Field(..., description="Course name", required=False)
-    start_at: datetime | None = Field(..., description="Coupon start time", required=False)
+    start_at: datetime | None = Field(
+        ..., description="Coupon start time", required=False
+    )
     end_at: datetime | None = Field(..., description="Coupon end time", required=False)
     total_count: int = Field(..., description="Total count", required=False)
     used_count: int = Field(..., description="Used count", required=False)
@@ -188,7 +192,9 @@ class AdminPromotionCouponDetailDTO(_DTOBase):
     remaining_count: int = Field(
         ..., description="Remaining code count", required=False
     )
-    latest_used_at: datetime | None = Field(..., description="Latest used time", required=False)
+    latest_used_at: datetime | None = Field(
+        ..., description="Latest used time", required=False
+    )
 
 
 @register_schema_to_swagger

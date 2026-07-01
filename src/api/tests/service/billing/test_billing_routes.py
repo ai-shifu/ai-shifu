@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask, jsonify, request
 import pytest
@@ -1071,7 +1070,9 @@ class TestBillingRoutes:
             == 2.5
         )
 
-    def test_ledger_emits_utc_ignoring_request_timezone(self, billing_test_client) -> None:
+    def test_ledger_emits_utc_ignoring_request_timezone(
+        self, billing_test_client
+    ) -> None:
         ledger_response = billing_test_client.get(
             "/api/billing/ledger?page_index=1&page_size=1&timezone=Asia/Shanghai"
         )
@@ -1080,8 +1081,7 @@ class TestBillingRoutes:
 
         assert ledger_payload["code"] == 0
         assert (
-            ledger_payload["data"]["items"][0]["created_at"]
-            == "2026-04-06T10:00:00Z"
+            ledger_payload["data"]["items"][0]["created_at"] == "2026-04-06T10:00:00Z"
         )
 
     def test_build_billing_ledger_page_returns_raw_created_at(

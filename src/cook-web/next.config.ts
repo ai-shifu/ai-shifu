@@ -96,7 +96,8 @@ const nextConfig: NextConfig = {
     if (process.env.NODE_ENV !== 'development') {
       return [];
     }
-    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5800';
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5800';
     return [
       {
         source: '/api/:path*',

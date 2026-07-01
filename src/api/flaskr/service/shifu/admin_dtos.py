@@ -627,7 +627,9 @@ class AdminOperationUserCreditLedgerItemDTO(BaseModel):
     )
     amount: str = Field(..., description="Ledger amount", required=False)
     balance_after: str = Field(..., description="Balance after entry", required=False)
-    expires_at: datetime | None = Field(default=None, description="Entry expires at", required=False)
+    expires_at: datetime | None = Field(
+        default=None, description="Entry expires at", required=False
+    )
     consumable_from: datetime | None = Field(
         default=None,
         description="Entry consumable from",
@@ -1021,7 +1023,9 @@ class AdminOperationCourseFollowUpItemDTO(BaseModel):
     turn_index: int = Field(
         default=0, description="1-based follow-up turn index", required=False
     )
-    created_at: datetime | None = Field(default=None, description="Created at", required=False)
+    created_at: datetime | None = Field(
+        default=None, description="Created at", required=False
+    )
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
@@ -1107,7 +1111,9 @@ class AdminOperationCourseRatingItemDTO(BaseModel):
         default="", description="Lesson rating comment", required=False
     )
     mode: str = Field(default="", description="Rating mode", required=False)
-    rated_at: datetime | None = Field(default=None, description="Rated at", required=False)
+    rated_at: datetime | None = Field(
+        default=None, description="Rated at", required=False
+    )
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
@@ -1206,7 +1212,9 @@ class AdminOperationCourseCreditUsageItemDTO(BaseModel):
         description="Consumed credits",
         required=False,
     )
-    created_at: datetime | None = Field(default=None, description="Created at", required=False)
+    created_at: datetime | None = Field(
+        default=None, description="Created at", required=False
+    )
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
@@ -1238,7 +1246,9 @@ class AdminOperationCourseCreditUsageDetailItemDTO(BaseModel):
     output_summary: str = Field(
         default="", description="Generated output summary", required=False
     )
-    created_at: datetime | None = Field(default=None, description="Created at", required=False)
+    created_at: datetime | None = Field(
+        default=None, description="Created at", required=False
+    )
 
     def __json__(self) -> dict[str, Any]:
         return self.model_dump()
@@ -1318,7 +1328,9 @@ class AdminOperationCourseFollowUpDetailBasicInfoDTO(BaseModel):
     )
     chapter_title: str = Field(default="", description="Chapter title", required=False)
     lesson_title: str = Field(default="", description="Lesson title", required=False)
-    created_at: datetime | None = Field(default=None, description="Created at", required=False)
+    created_at: datetime | None = Field(
+        default=None, description="Created at", required=False
+    )
     turn_index: int = Field(
         default=0, description="1-based follow-up turn index", required=False
     )
@@ -1373,7 +1385,9 @@ class AdminOperationCourseFollowUpTimelineItemDTO(BaseModel):
 
     role: str = Field(..., description="student or teacher", required=False)
     content: str = Field(default="", description="Timeline content", required=False)
-    created_at: datetime | None = Field(default=None, description="Created at", required=False)
+    created_at: datetime | None = Field(
+        default=None, description="Created at", required=False
+    )
     is_current: bool = Field(
         default=False,
         description="Whether the item belongs to the selected turn",

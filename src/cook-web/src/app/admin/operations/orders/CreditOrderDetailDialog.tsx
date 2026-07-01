@@ -3,9 +3,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import {
-  formatAdminUtcDateTime,
-} from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import {
   formatAdminCredits,
   formatAdminPrice,
@@ -257,9 +255,7 @@ export default function CreditOrderDetailDialog({
                 />
                 <DetailRow
                   label={t('module.order.fields.createdAt')}
-                  value={
-                    formatAdminUtcDateTime(order.created_at) || emptyValue
-                  }
+                  value={formatAdminUtcDateTime(order.created_at) || emptyValue}
                 />
                 <DetailRow
                   label={tOperationsOrder('creditOrders.detail.labels.paidAt')}

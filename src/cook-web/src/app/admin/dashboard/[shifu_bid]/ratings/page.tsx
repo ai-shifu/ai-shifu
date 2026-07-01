@@ -405,7 +405,8 @@ export default function AdminDashboardCourseRatingsPage() {
       },
       {
         label: t('module.dashboard.detail.ratings.summary.latestRatedAt'),
-        value: formatAdminUtcDateTime(ratings.summary.latest_rated_at) || emptyValue,
+        value:
+          formatAdminUtcDateTime(ratings.summary.latest_rated_at) || emptyValue,
         tone: 'timestamp' as const,
       },
     ],
@@ -740,7 +741,9 @@ export default function AdminDashboardCourseRatingsPage() {
                                 <TableRow key={item.lesson_feedback_bid}>
                                   <TableCell className='whitespace-nowrap py-3 align-middle text-sm text-foreground/80'>
                                     <AdminTooltipText
-                                      text={formatAdminUtcDateTime(item.rated_at)}
+                                      text={formatAdminUtcDateTime(
+                                        item.rated_at,
+                                      )}
                                       emptyValue={emptyValue}
                                       className='block max-w-[180px]'
                                     />

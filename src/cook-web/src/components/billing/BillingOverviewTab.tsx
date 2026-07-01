@@ -184,8 +184,7 @@ export function BillingOverviewTab({
     isLoading: catalogLoading,
   } = useSWR<BillingCatalogResponse>(
     buildBillingSwrKey('billing-catalog'),
-    async () =>
-      (await api.getBillingCatalog({})) as BillingCatalogResponse,
+    async () => (await api.getBillingCatalog({})) as BillingCatalogResponse,
     {
       revalidateOnFocus: false,
     },

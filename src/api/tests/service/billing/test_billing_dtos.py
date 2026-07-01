@@ -86,9 +86,9 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
     assert payload["billing_alerts"][0]["action_payload"] == {"target": "topup"}
     assert payload["trial_offer"]["status"] == "granted"
     assert payload["trial_offer"]["product_code"] == "creator-plan-trial"
-    assert payload["trial_offer"][
-        "welcome_dialog_acknowledged_at"
-    ] == datetime(2026, 4, 10, 0, 0, tzinfo=timezone.utc)
+    assert payload["trial_offer"]["welcome_dialog_acknowledged_at"] == datetime(
+        2026, 4, 10, 0, 0, tzinfo=timezone.utc
+    )
 
 
 def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> None:

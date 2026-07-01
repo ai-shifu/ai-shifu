@@ -186,18 +186,12 @@ class PingxxOrder(db.Model):
     charge_id = Column(
         String(255), nullable=False, index=True, default="", comment="Charge identifier"
     )
-    paid_at = Column(
-        DateTime, nullable=False, default=now_utc, comment="Payment time"
-    )
+    paid_at = Column(DateTime, nullable=False, default=now_utc, comment="Payment time")
     refunded_at = Column(
         DateTime, nullable=False, default=now_utc, comment="Refund time"
     )
-    closed_at = Column(
-        DateTime, nullable=False, default=now_utc, comment="Close time"
-    )
-    failed_at = Column(
-        DateTime, nullable=False, default=now_utc, comment="Failed time"
-    )
+    closed_at = Column(DateTime, nullable=False, default=now_utc, comment="Close time")
+    failed_at = Column(DateTime, nullable=False, default=now_utc, comment="Failed time")
     refund_id = Column(
         String(255), nullable=False, index=True, default="", comment="Refund identifier"
     )

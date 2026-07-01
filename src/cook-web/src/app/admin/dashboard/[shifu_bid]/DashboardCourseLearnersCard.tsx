@@ -401,10 +401,7 @@ export default function DashboardCourseLearnersCard({
                         </TableCell>
                         <TableCell className='whitespace-nowrap text-xs text-muted-foreground'>
                           <AdminTooltipText
-                            text={formatDateTime(
-                              learner.joined_at,
-                              emptyValue,
-                            )}
+                            text={formatDateTime(learner.joined_at, emptyValue)}
                             emptyValue={emptyValue}
                             className='block max-w-full tabular-nums'
                           />

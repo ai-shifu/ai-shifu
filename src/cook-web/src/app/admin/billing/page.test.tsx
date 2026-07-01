@@ -450,8 +450,7 @@ describe('AdminBillingPage', () => {
     expect(screen.getByTestId('admin-billing-details-panel')).toHaveClass(
       'mt-0',
     );
-    expect(mockGetBillingCatalog).toHaveBeenCalledWith({
-    });
+    expect(mockGetBillingCatalog).toHaveBeenCalledWith({});
   });
 
   test('respects the server-provided initial details tab before search params hydrate', async () => {

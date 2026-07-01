@@ -492,7 +492,10 @@ export default function AdminDashboardCourseFollowUpsPage() {
       },
       {
         label: t('module.dashboard.detail.followUps.summary.latestFollowUpAt'),
-        value: formatValue(formatAdminUtcDateTime(followUps.summary.latest_follow_up_at), emptyValue),
+        value: formatValue(
+          formatAdminUtcDateTime(followUps.summary.latest_follow_up_at),
+          emptyValue,
+        ),
         tone: 'timestamp' as const,
       },
     ],
@@ -897,7 +900,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
                                 <TableRow key={item.generated_block_bid}>
                                   <TableCell className='whitespace-nowrap py-3 align-middle text-sm text-foreground/80'>
                                     <AdminTooltipText
-                                      text={formatAdminUtcDateTime(item.created_at)}
+                                      text={formatAdminUtcDateTime(
+                                        item.created_at,
+                                      )}
                                       emptyValue={emptyValue}
                                       className='block max-w-[180px]'
                                     />

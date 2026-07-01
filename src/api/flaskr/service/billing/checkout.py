@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from flask import Flask, current_app
+from flask import Flask
 
 from flaskr.common import cache_provider
 from flaskr.common.public_urls import build_stripe_billing_result_url

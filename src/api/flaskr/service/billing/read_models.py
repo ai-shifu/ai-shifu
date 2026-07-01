@@ -743,10 +743,7 @@ def build_billing_wallet_buckets(
             )
         )
         return BillingWalletBucketListDTO(
-            items=[
-                _serialize_wallet_bucket(app, row)
-                for row in rows
-            ]
+            items=[_serialize_wallet_bucket(app, row) for row in rows]
         )
 
 

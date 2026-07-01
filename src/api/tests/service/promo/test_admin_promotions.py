@@ -959,9 +959,7 @@ def test_admin_promotions_generic_coupon_requires_code_and_quantity(
     assert missing_quantity_payload["code"] != 0
 
 
-def test_admin_promotions_serializes_coupon_times_as_utc(
-    app, test_client, monkeypatch
-):
+def test_admin_promotions_serializes_coupon_times_as_utc(app, test_client, monkeypatch):
     _mock_operator(monkeypatch)
 
     with app.app_context():

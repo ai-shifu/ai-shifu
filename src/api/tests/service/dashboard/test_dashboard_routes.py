@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from types import SimpleNamespace
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pytest
 
@@ -2207,10 +2206,7 @@ class TestDashboardRoutes:
         assert response.status_code == 200
         assert payload["code"] == 0
         assert payload["data"]["items"][0]["joined_at"] == "2026-03-04T09:15:00Z"
-        assert (
-            payload["data"]["items"][0]["last_learning_at"]
-            == "2026-03-04T10:45:00Z"
-        )
+        assert payload["data"]["items"][0]["last_learning_at"] == "2026-03-04T10:45:00Z"
         assert "joined_at_display" not in payload["data"]["items"][0]
 
     def test_course_detail_counts_restudy_learners_as_completed(

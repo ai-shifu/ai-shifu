@@ -2002,7 +2002,9 @@ describe('BillingOverviewTab', () => {
     });
     await waitFor(() => {
       expect(mockMutateOverview).toHaveBeenCalled();
-      expect(mockMutateSWRCache).toHaveBeenCalledWith(['billing-wallet-buckets']);
+      expect(mockMutateSWRCache).toHaveBeenCalledWith([
+        'billing-wallet-buckets',
+      ]);
       expect(
         screen.queryByTestId('billing-pingxx-qr-code'),
       ).not.toBeInTheDocument();
@@ -2093,7 +2095,9 @@ describe('BillingOverviewTab', () => {
       });
       expect(mockCheckoutBillingOrder).not.toHaveBeenCalled();
       expect(mockMutateOverview).toHaveBeenCalled();
-      expect(mockMutateSWRCache).toHaveBeenCalledWith(['billing-wallet-buckets']);
+      expect(mockMutateSWRCache).toHaveBeenCalledWith([
+        'billing-wallet-buckets',
+      ]);
       expect(
         screen.queryByTestId('billing-pingxx-qr-code'),
       ).not.toBeInTheDocument();

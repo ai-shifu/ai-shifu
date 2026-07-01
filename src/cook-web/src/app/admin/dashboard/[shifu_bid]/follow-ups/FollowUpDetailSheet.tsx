@@ -267,7 +267,10 @@ export default function FollowUpDetailSheet({
                   label={t(
                     'module.dashboard.detail.followUps.drawer.fields.followUpTime',
                   )}
-                  value={formatValue(formatAdminUtcDateTime(basicInfo?.created_at), emptyValue)}
+                  value={formatValue(
+                    formatAdminUtcDateTime(basicInfo?.created_at),
+                    emptyValue,
+                  )}
                 />
                 <DetailRow
                   label={t(
@@ -350,7 +353,10 @@ export default function FollowUpDetailSheet({
                             ) : null}
                           </div>
                           <span className='text-xs text-muted-foreground'>
-                            {formatValue(formatAdminUtcDateTime(item.created_at), emptyValue)}
+                            {formatValue(
+                              formatAdminUtcDateTime(item.created_at),
+                              emptyValue,
+                            )}
                           </span>
                         </div>
                         <ExpandableTextBlock

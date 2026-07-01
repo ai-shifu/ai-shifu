@@ -19,9 +19,10 @@ from flaskr.service.profile.profile_manage import (
     add_profile_item_quick,
 )
 from flaskr.service.user.models import UserInfo
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from flaskr.util.datetime import now_utc
+
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
     """

@@ -65,9 +65,7 @@ class Coupon(db.Model):
     start = Column(
         DateTime, nullable=False, default=now_utc, comment="Coupon start time"
     )
-    end = Column(
-        DateTime, nullable=False, default=now_utc, comment="Coupon end time"
-    )
+    end = Column(DateTime, nullable=False, default=now_utc, comment="Coupon end time")
     channel = Column(String(36), nullable=False, default="", comment="Coupon channel")
     filter = Column(
         Text,
