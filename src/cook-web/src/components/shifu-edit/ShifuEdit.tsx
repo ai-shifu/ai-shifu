@@ -33,7 +33,7 @@ import {
 } from '@/c-utils/urlUtils';
 import { toast } from '@/hooks/useToast';
 import i18n, { normalizeLanguage } from '@/i18n';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
 import { useOnboardingReplayStore, useShifu, useUserStore } from '@/store';
 import {
