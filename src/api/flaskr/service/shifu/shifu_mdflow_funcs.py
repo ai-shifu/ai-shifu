@@ -19,11 +19,9 @@ from flaskr.service.profile.profile_manage import (
     add_profile_item_quick,
 )
 from flaskr.service.user.models import UserInfo
-from datetime import datetime, timedelta
-from flaskr.util.timezone import (
-    format_with_app_timezone,
-    serialize_with_app_timezone,
-)
+from datetime import timedelta
+
+from flaskr.util.datetime import now_utc
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
@@ -99,7 +97,7 @@ def cleanup_outline_history_versions(
         content_anchor_version = version
     protected_ids = {latest_id, int(content_anchor_version.id)}
 
-    cutoff_time = datetime.now() - timedelta(days=max(1, keep_days))
+    cutoff_time = now_utc() - timedelta(days=max(1, keep_days))
     to_mark_deleted_ids: set[int] = set()
 
     # Trim by age.
@@ -194,7 +192,7 @@ def save_shifu_mdflow(
                 app, outline_item.outline_item_bid, user_id, content
             )
             new_outline.updated_user_bid = user_id
-            new_outline.updated_at = datetime.now()
+            new_outline.updated_at = now_utc()
             db.session.add(new_outline)
             db.session.flush()
             markdown_flow = MarkdownFlow(content).set_output_language(
@@ -294,7 +292,6 @@ def get_shifu_mdflow_history(
     shifu_bid: str,
     outline_bid: str,
     limit: int = 100,
-    timezone_name: str | None = None,
 ) -> dict:
     """
     Get lesson content history for a specific outline.
@@ -356,12 +353,7 @@ def get_shifu_mdflow_history(
             items.append(
                 {
                     "version_id": int(item.id),
-                    "updated_at": serialize_with_app_timezone(
-                        app, item.updated_at, timezone_name
-                    ),
-                    "updated_at_display": format_with_app_timezone(
-                        app, item.updated_at, "%m-%d %H:%M:%S", timezone_name
-                    ),
+                    "updated_at": item.updated_at,
                     "updated_user_bid": item.updated_user_bid,
                     "updated_user_name": user_name,
                 }
@@ -375,7 +367,6 @@ def get_shifu_mdflow_history_version_detail(
     shifu_bid: str,
     outline_bid: str,
     version_id: int,
-    timezone_name: str | None = None,
 ) -> dict:
     """
     Get lesson content detail for a specific history version.
@@ -415,12 +406,7 @@ def get_shifu_mdflow_history_version_detail(
         return {
             "version_id": int(version.id),
             "content": version.content or "",
-            "updated_at": serialize_with_app_timezone(
-                app, version.updated_at, timezone_name
-            ),
-            "updated_at_display": format_with_app_timezone(
-                app, version.updated_at, "%m-%d %H:%M:%S", timezone_name
-            ),
+            "updated_at": version.updated_at,
             "updated_user_bid": version.updated_user_bid,
             "updated_user_name": user_name or "",
         }

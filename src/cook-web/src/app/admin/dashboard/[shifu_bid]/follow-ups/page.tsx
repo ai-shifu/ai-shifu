@@ -1,6 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
@@ -32,7 +33,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
@@ -226,7 +226,6 @@ export default function AdminDashboardCourseFollowUpsPage() {
   const isGuest = useUserStore(state => state.isGuest);
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  const timezone = getBrowserTimeZone();
 
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
@@ -322,7 +321,6 @@ export default function AdminDashboardCourseFollowUpsPage() {
               : resolvedFilters.sourceStatus.trim(),
           start_time: resolvedFilters.startTime,
           end_time: resolvedFilters.endTime,
-          ...(timezone ? { timezone } : {}),
         })) as DashboardCourseFollowUpListResponse;
         if (requestId !== listRequestIdRef.current) {
           return;
@@ -346,7 +344,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
         }
       }
     },
-    [filters, shifuBid, timezone, unknownErrorMessage],
+    [filters, shifuBid, unknownErrorMessage],
   );
 
   const fetchFollowUpDetail = useCallback(
@@ -378,7 +376,6 @@ export default function AdminDashboardCourseFollowUpsPage() {
         const response = (await api.getDashboardCourseFollowUpDetail({
           shifu_bid: shifuBid,
           generated_block_bid: selectedGeneratedBlockBid,
-          ...(timezone ? { timezone } : {}),
         })) as DashboardCourseFollowUpDetailResponse;
         if (requestId !== detailRequestIdRef.current) {
           return;
@@ -411,7 +408,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
         }
       }
     },
-    [selectedGeneratedBlockBid, shifuBid, timezone, unknownErrorMessage],
+    [selectedGeneratedBlockBid, shifuBid, unknownErrorMessage],
   );
 
   useEffect(() => {
@@ -495,7 +492,10 @@ export default function AdminDashboardCourseFollowUpsPage() {
       },
       {
         label: t('module.dashboard.detail.followUps.summary.latestFollowUpAt'),
-        value: formatValue(followUps.summary.latest_follow_up_at, emptyValue),
+        value: formatValue(
+          formatAdminUtcDateTime(followUps.summary.latest_follow_up_at),
+          emptyValue,
+        ),
         tone: 'timestamp' as const,
       },
     ],
@@ -900,7 +900,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
                                 <TableRow key={item.generated_block_bid}>
                                   <TableCell className='whitespace-nowrap py-3 align-middle text-sm text-foreground/80'>
                                     <AdminTooltipText
-                                      text={item.created_at}
+                                      text={formatAdminUtcDateTime(
+                                        item.created_at,
+                                      )}
                                       emptyValue={emptyValue}
                                       className='block max-w-[180px]'
                                     />

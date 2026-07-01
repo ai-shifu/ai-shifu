@@ -32,6 +32,7 @@ import {
 } from '@/c-utils/urlUtils';
 import { toast } from '@/hooks/useToast';
 import i18n, { normalizeLanguage } from '@/i18n';
+import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
 import { useOnboardingReplayStore, useShifu, useUserStore } from '@/store';
@@ -1576,7 +1577,7 @@ const ScriptEditor = ({
                         const selected =
                           selectedHistoryVersionId === item.version_id;
                         const timeLabel =
-                          item.updated_at_display || item.updated_at || '--';
+                          formatAdminUtcDateTime(item.updated_at) || '--';
                         const userName =
                           item.updated_user_name ||
                           item.updated_user_bid ||

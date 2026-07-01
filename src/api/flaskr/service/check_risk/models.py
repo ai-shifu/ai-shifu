@@ -7,7 +7,7 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 
 
 class RiskControlResult(db.Model):
@@ -27,13 +27,13 @@ class RiskControlResult(db.Model):
         String(30), nullable=False, default="", comment="Check strategy"
     )
     created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"
     )
     updated = Column(
         TIMESTAMP,
         nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
+        default=now_utc,
+        onupdate=now_utc,
         comment="Update time",
     )
 

@@ -284,8 +284,8 @@ def test_operator_referral_detail_includes_inviter_reward_queue(referral_app):
         ]
         assert [item["queue_index"] for item in queue] == [1, 2]
         assert queue[0]["invitee_mobile_snapshot"] == "13900000001"
-        assert queue[0]["effective_at"] == "2026-07-01T00:00:00"
-        assert queue[0]["expires_at"] == "2026-08-01T00:00:00"
+        assert queue[0]["effective_at"] == "2026-07-01T00:00:00Z"
+        assert queue[0]["expires_at"] == "2026-08-01T00:00:00Z"
         assert queue[0]["ledger_credit_state"] == "reserved"
         assert queue[0]["bill_order_bid"] == "order-queue-first"
         assert queue[0]["wallet_bucket_bid"] == "bucket-order-queue-first"
