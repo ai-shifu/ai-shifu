@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from datetime import timezone
 from typing import Any, Callable
 
 from sqlalchemy import and_, or_
@@ -32,6 +31,7 @@ from flaskr.service.learn.models import (
 from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
+from flaskr.util.datetime import to_utc_iso
 
 
 def _load_interaction_user_input_by_block_bid(
@@ -724,15 +724,7 @@ def get_listen_element_record(
             or updated_at > latest_progress_updated_at_dt
         ):
             latest_progress_updated_at_dt = updated_at
-    latest_progress_updated_at = None
-    if latest_progress_updated_at_dt is not None:
-        if latest_progress_updated_at_dt.tzinfo is not None:
-            latest_progress_updated_at_dt = latest_progress_updated_at_dt.astimezone(
-                timezone.utc
-            )
-        latest_progress_updated_at = latest_progress_updated_at_dt.strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+    latest_progress_updated_at = to_utc_iso(latest_progress_updated_at_dt)
     progress_records = _dedupe_progress_records_by_block_position(progress_records)
     progress_record_bids = [
         pr.progress_record_bid for pr in progress_records if pr.progress_record_bid

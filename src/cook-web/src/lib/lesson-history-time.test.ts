@@ -20,11 +20,13 @@ describe('parseLessonHistoryDate', () => {
     ).toBe('2026-06-30T05:37:42.000Z');
   });
 
-  test('parses legacy space-separated timestamps', () => {
-    const parsed = parseLessonHistoryDate('2026-06-30 13:37:42');
-
-    expect(parsed).not.toBeNull();
-    expect(Number.isNaN(parsed?.getTime())).toBe(false);
+  test('treats legacy offsetless timestamps as UTC', () => {
+    expect(parseLessonHistoryDate('2026-06-30 13:37:42')?.toISOString()).toBe(
+      '2026-06-30T13:37:42.000Z',
+    );
+    expect(parseLessonHistoryDate('2026-06-30T13:37:42')?.toISOString()).toBe(
+      '2026-06-30T13:37:42.000Z',
+    );
   });
 
   test('returns null for empty or invalid values', () => {
