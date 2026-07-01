@@ -627,9 +627,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         include_non_navigable = (
             True if include_non_navigable.lower() == "true" else False
         )
-        timezone_name = (request.args.get("timezone", "") or "").strip() or None
-        if timezone_name and len(timezone_name) > 100:
-            raise_param_error("timezone is too long")
         user_bid = request.user.user_id
         if preview_mode:
             require_shifu_preview_permission(app, user_bid, shifu_bid)
@@ -640,7 +637,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 outline_bid,
                 user_bid,
                 preview_mode,
-                timezone_name=timezone_name,
                 include_non_navigable=include_non_navigable,
             )
         )

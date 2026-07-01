@@ -5,7 +5,7 @@ import queue
 import time
 import uuid
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Flask, has_request_context, request
 from markdown_flow import (
@@ -103,51 +103,30 @@ from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.util import generate_id
-from flaskr.util.timezone import get_app_timezone
-
-_LEARN_PROGRESS_SOURCE_TIMEZONE = "Asia/Shanghai"
-_PUBLISHED_CREATED_SOURCE_TIMEZONE = "UTC"
-_PUBLISHED_UPDATED_SOURCE_TIMEZONE = "Asia/Shanghai"
-
-
-def _normalize_naive_dt_to_utc(
-    app: Flask,
+def _normalize_dt_to_utc(
     value: datetime | None,
-    *,
-    source_timezone_name: str,
 ) -> datetime | None:
     if value is None:
         return None
     if value.tzinfo is not None:
-        return value.astimezone(get_app_timezone(app, "UTC"))
-    source_tz = get_app_timezone(app, source_timezone_name)
-    return value.replace(tzinfo=source_tz).astimezone(get_app_timezone(app, "UTC"))
+        return value.astimezone(timezone.utc)
+    return value.replace(tzinfo=timezone.utc)
 
 
 def _resolve_published_effective_updated_at(
-    app: Flask, outline_item: PublishedOutlineItem
+    outline_item: PublishedOutlineItem,
 ) -> datetime | None:
-    created_at = _normalize_naive_dt_to_utc(
-        app,
-        getattr(outline_item, "created_at", None),
-        source_timezone_name=_PUBLISHED_CREATED_SOURCE_TIMEZONE,
-    )
-    updated_at = _normalize_naive_dt_to_utc(
-        app,
-        getattr(outline_item, "updated_at", None),
-        source_timezone_name=_PUBLISHED_UPDATED_SOURCE_TIMEZONE,
-    )
+    created_at = _normalize_dt_to_utc(getattr(outline_item, "created_at", None))
+    updated_at = _normalize_dt_to_utc(getattr(outline_item, "updated_at", None))
     candidates = [value for value in (created_at, updated_at) if value is not None]
     return max(candidates) if candidates else None
 
 
 def _resolve_progress_effective_updated_at(
-    app: Flask, progress_record: LearnProgressRecord | None
+    progress_record: LearnProgressRecord | None,
 ) -> datetime | None:
-    return _normalize_naive_dt_to_utc(
-        app,
+    return _normalize_dt_to_utc(
         getattr(progress_record, "updated_at", None) if progress_record else None,
-        source_timezone_name=_LEARN_PROGRESS_SOURCE_TIMEZONE,
     )
 
 
@@ -409,10 +388,10 @@ def get_outline_item_tree(
                     outline_item.outline_item_bid
                 )
                 published_updated_at = _resolve_published_effective_updated_at(
-                    app, outline_item
+                    outline_item
                 )
                 latest_progress_updated_at = _resolve_progress_effective_updated_at(
-                    app, latest_progress_record
+                    latest_progress_record
                 )
                 has_content_update_for_current_user = bool(
                     latest_progress_record is not None

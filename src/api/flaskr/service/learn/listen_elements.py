@@ -166,7 +166,6 @@ def get_listen_element_record(
     outline_bid: str,
     user_bid: str,
     preview_mode: bool,
-    timezone_name: str | None = None,
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
     return _get_listen_element_record(
@@ -174,7 +173,6 @@ def get_listen_element_record(
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         user_bid=user_bid,
-        timezone_name=timezone_name,
         include_non_navigable=include_non_navigable,
         build_legacy_record_for_progress_fn=build_legacy_record_for_progress,
         build_record_from_legacy=lambda legacy_record: (
