@@ -1684,10 +1684,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                                         description: outline history version id
                                                     updated_at:
                                                         type: string
-                                                        description: update time in requested timezone (or app timezone if not specified)
-                                                    updated_at_display:
-                                                        type: string
-                                                        description: formatted update time for direct display
+                                                        description: UTC update timestamp (ISO 8601)
                                                     updated_user_bid:
                                                         type: string
                                                         description: updater user bid

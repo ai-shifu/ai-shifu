@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-import re
 
 import pytest
 
@@ -98,10 +97,6 @@ def test_get_shifu_mdflow_history_includes_baseline_and_masks_user(app):
     history = get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit=100)
     assert [item["version_id"] for item in history["items"]] == [id_5, id_3, id_1]
     assert isinstance(history["items"][0]["updated_at"], datetime)
-    assert re.match(
-        r"^\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",
-        history["items"][0]["updated_at_display"],
-    )
 
     latest_user_name = history["items"][0]["updated_user_name"]
     assert latest_user_name != "13812345678"
@@ -142,7 +137,6 @@ def test_get_shifu_mdflow_history_version_detail_returns_content_and_user(app):
     assert detail["updated_user_bid"] == user_bid
     assert detail["updated_user_name"] == "Detail User"
     assert isinstance(detail["updated_at"], datetime)
-    assert re.match(r"^\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", detail["updated_at_display"])
 
 
 def test_get_shifu_mdflow_history_version_detail_raises_not_found(app):

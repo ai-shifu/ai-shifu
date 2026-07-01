@@ -354,9 +354,6 @@ def get_shifu_mdflow_history(
                 {
                     "version_id": int(item.id),
                     "updated_at": item.updated_at,
-                    "updated_at_display": item.updated_at.strftime("%m-%d %H:%M:%S")
-                    if item.updated_at
-                    else "",
                     "updated_user_bid": item.updated_user_bid,
                     "updated_user_name": user_name,
                 }
@@ -410,9 +407,6 @@ def get_shifu_mdflow_history_version_detail(
             "version_id": int(version.id),
             "content": version.content or "",
             "updated_at": version.updated_at,
-            "updated_at_display": version.updated_at.strftime("%m-%d %H:%M:%S")
-            if version.updated_at
-            else "",
             "updated_user_bid": version.updated_user_bid,
             "updated_user_name": user_name or "",
         }
