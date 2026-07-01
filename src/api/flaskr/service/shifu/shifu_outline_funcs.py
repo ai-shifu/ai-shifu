@@ -116,7 +116,13 @@ def build_outline_tree(app, shifu_bid: str) -> list[ShifuOutlineTreeNode]:
                 if node not in parent_node.children:
                     parent_node.add_child(node)
             else:
-                app.logger.error(f"Parent node not found for position: {position}")
+                # Data consistency issue: parent node missing (e.g. partial deletion).
+                # Add orphan node to root level so its content is not silently lost.
+                app.logger.warning(
+                    f"Parent node not found for position: {position} in shifu"
+                    f" {shifu_bid}. Adding as root-level orphan to preserve content."
+                )
+                outline_tree.append(node)
 
     return outline_tree
 
@@ -543,32 +549,27 @@ def delete_unit(app, user_id: str, unit_id: str):
         if not unit_to_delete:
             raise_error("server.shifu.unitNotFound")
 
-        # build outline tree to find all children
-        outline_tree = build_outline_tree(app, unit_to_delete.shifu_bid)
+        # collect all descendant ids using parent_bid DB queries to correctly
+        # handle nodes that may be orphaned (not reachable via the position tree).
+        def collect_all_descendants_bids(parent_bid: str) -> list[str]:
+            """Recursively collect all descendant bids via parent_bid DB field."""
+            children = DraftOutlineItem.query.filter(
+                DraftOutlineItem.shifu_bid == unit_to_delete.shifu_bid,
+                DraftOutlineItem.parent_bid == parent_bid,
+                DraftOutlineItem.deleted == 0,
+            ).all()
+            # de-duplicate by outline_item_bid (latest version only)
+            seen = {}
+            for c in children:
+                if c.outline_item_bid not in seen or c.id > seen[c.outline_item_bid].id:
+                    seen[c.outline_item_bid] = c
+            result = []
+            for child in seen.values():
+                result.append(child.outline_item_bid)
+                result.extend(collect_all_descendants_bids(child.outline_item_bid))
+            return result
 
-        # find the node to delete
-        def find_node_by_id(nodes: list[ShifuOutlineTreeNode], target_id: str):
-            for node in nodes:
-                if node.outline_id == target_id:
-                    return node
-                if node.children:
-                    found = find_node_by_id(node.children, target_id)
-                    if found:
-                        return found
-            return None
-
-        node_to_delete = find_node_by_id(outline_tree, unit_id)
-        if not node_to_delete:
-            raise_error("server.shifu.unitNotFound")
-
-        # collect all node ids to delete (including children)
-        def collect_all_node_ids(node: ShifuOutlineTreeNode):
-            ids = [node.outline_id]
-            for child in node.children:
-                ids.extend(collect_all_node_ids(child))
-            return ids
-
-        ids_to_delete = collect_all_node_ids(node_to_delete)
+        ids_to_delete = [unit_id] + collect_all_descendants_bids(unit_id)
 
         # mark all related outlines as deleted
         for item_id in ids_to_delete:
