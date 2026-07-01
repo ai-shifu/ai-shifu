@@ -155,7 +155,6 @@ describe('BillingRecentActivitySection', () => {
       expect(mockGetBillingLedger).toHaveBeenCalledWith({
         page_index: 1,
         page_size: 10,
-        timezone: 'Asia/Shanghai',
       });
     });
 
@@ -234,7 +233,6 @@ describe('BillingRecentActivitySection', () => {
       expect(mockGetBillingLedger).toHaveBeenCalledWith({
         page_index: 2,
         page_size: 10,
-        timezone: 'Asia/Shanghai',
       });
     });
 

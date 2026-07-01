@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -11,6 +11,7 @@ from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     REFERRAL_ABNORMAL_STATUS_CONFIRMED_ABNORMAL,
@@ -73,7 +74,14 @@ def _normalize_page(page_index: int, page_size: int) -> tuple[int, int]:
 
 
 def _serialize_dt(value: datetime | None) -> str | None:
-    return value.isoformat() if value is not None else None
+    # Match the API fmt sink (flaskr/route/common.py): stored values are UTC;
+    # treat naive as UTC and emit ISO 8601 with a 'Z' suffix so the frontend
+    # can convert to the viewer's timezone via formatAdminUtcDateTime().
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _serialize_decimal(value: Decimal | None) -> str | None:
@@ -429,7 +437,7 @@ def update_operator_referral_status(
             )
             metadata["operator_note"] = note
             metadata["operator_user_bid"] = _normalize_text(operator_user_bid)
-            metadata["operator_updated_at"] = datetime.now().isoformat()
+            metadata["operator_updated_at"] = _serialize_dt(now_utc())
             relation.metadata_json = metadata
             if reward is not None:
                 reward.operator_note = note

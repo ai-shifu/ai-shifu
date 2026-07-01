@@ -3241,7 +3241,6 @@ describe('AdminOperationPromotionsPage', () => {
         status: '',
         start_time: '',
         end_time: '',
-        timezone: 'Asia/Shanghai',
       });
     });
     expect(mockGetPackageCampaignProductOptions).toHaveBeenCalledWith({});
@@ -3431,8 +3430,8 @@ describe('AdminOperationPromotionsPage', () => {
         campaign_code: 'july_referral',
         campaign_name: 'July Referral Campaign',
         enabled: true,
-        starts_at: '2026-04-24 00:00:00',
-        ends_at: '2026-04-24 23:59:00',
+        starts_at: new Date('2026-04-24T00:00:00').toISOString(),
+        ends_at: new Date('2026-04-24T23:59:00').toISOString(),
         reward_product_code: 'creator-plan-monthly',
         reward_cycle_count: 1,
         reward_credit_amount: '1000',
@@ -3638,8 +3637,8 @@ describe('AdminOperationPromotionsPage', () => {
             bonus_credit_amount: '88',
           },
         ],
-        start_at: '2026-04-24 00:00:00',
-        end_at: '2026-04-24 23:59:00',
+        start_at: new Date('2026-04-24T00:00:00').toISOString(),
+        end_at: new Date('2026-04-24T23:59:00').toISOString(),
       });
     });
   });

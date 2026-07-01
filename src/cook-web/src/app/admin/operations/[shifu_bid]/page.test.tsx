@@ -556,7 +556,7 @@ describe('AdminOperationCourseDetailPage', () => {
     ).toHaveAttribute('href', '/admin/operations');
   });
 
-  test('keeps course detail metadata timestamps as returned wall-clock time', async () => {
+  test('converts course detail metadata timestamps to the browser timezone', async () => {
     mockGetAdminOperationCourseDetail.mockResolvedValueOnce({
       basic_info: {
         shifu_bid: 'course-1',
@@ -609,14 +609,14 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await screen.findByText('Timezone Chapter');
 
-    expect(screen.getByText('2026-06-09 12:01:50')).toBeInTheDocument();
-    expect(screen.getAllByText('2026-06-09 13:01:50').length).toBeGreaterThan(
+    expect(screen.getByText('2026-06-09 04:01:50')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-06-09 05:01:50').length).toBeGreaterThan(
       0,
     );
-    expect(screen.queryByText('2026-06-09 04:01:50')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 12:01:50')).not.toBeInTheDocument();
   });
 
-  test('keeps course user activity timestamps as returned wall-clock time', async () => {
+  test('converts course user activity timestamps to the browser timezone', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseUsers.mockResolvedValueOnce({
       items: [
@@ -646,15 +646,15 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await openUsersTab();
 
-    expect(screen.getByText('2026-04-08 11:30:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-08 12:00:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-07 09:00:00')).toBeInTheDocument();
-    expect(screen.queryByText('2026-04-08 04:30:00')).not.toBeInTheDocument();
-    expect(screen.queryByText('2026-04-08 05:00:00')).not.toBeInTheDocument();
-    expect(screen.queryByText('2026-04-07 02:00:00')).not.toBeInTheDocument();
+    expect(screen.getByText('2026-04-08 04:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-08 05:00:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-07 02:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-08 11:30:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-08 12:00:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-07 09:00:00')).not.toBeInTheDocument();
   });
 
-  test('keeps course credit usage created_at values as returned wall-clock time', async () => {
+  test('converts course credit usage created_at values to the browser timezone', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseCreditUsages.mockResolvedValueOnce({
       view: 'grouped',
@@ -711,8 +711,8 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await openCreditUsageTab();
 
-    expect(screen.getByText('2026-04-08 12:30:00')).toBeInTheDocument();
-    expect(screen.queryByText('2026-04-08 05:30:00')).not.toBeInTheDocument();
+    expect(screen.getByText('2026-04-08 05:30:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-08 12:30:00')).not.toBeInTheDocument();
 
     const usageRow = (await screen.findByText('Lesson 1')).closest('tr');
     expect(usageRow).not.toBeNull();
@@ -725,11 +725,11 @@ describe('AdminOperationCourseDetailPage', () => {
     const dialog = await screen.findByRole('dialog');
     await waitFor(() => {
       expect(
-        within(dialog).getByText('2026-04-08 12:20:00'),
+        within(dialog).getByText('2026-04-08 05:20:00'),
       ).toBeInTheDocument();
     });
     expect(
-      within(dialog).queryByText('2026-04-08 05:20:00'),
+      within(dialog).queryByText('2026-04-08 12:20:00'),
     ).not.toBeInTheDocument();
   });
 

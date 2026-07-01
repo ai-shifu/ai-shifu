@@ -34,6 +34,12 @@ to.
   `.github` instructions in the same change.
 - Keep code-facing text in English and keep user-facing text in shared i18n
   JSON under `src/i18n/`.
+- Store and compute all timestamps in UTC. On the backend, use the shared
+  `now_utc()` helper in `src/api/flaskr/util/datetime.py` for any time written
+  to the database, and default new model timestamp columns to
+  `default=now_utc` / `onupdate=now_utc`. The DB session is pinned to UTC in
+  `src/api/flaskr/dao/__init__.py`; treat that as a safety net, not a license
+  to write local time.
 - In Chinese user-facing text and Chinese docs, do not use `创作者` as a
   generic product term. Use `老师` for the general course-building or teacher
   account role; use `课程负责人` or, inside an existing course context,
@@ -53,6 +59,10 @@ to.
   in ExecPlans under `docs/exec-plans/`.
 - Do not let shared guidance drift from generated mirrors or from the current
   repository structure.
+- Do not introduce mixed-timezone timestamps: avoid `func.now()` /
+  `CURRENT_TIMESTAMP` defaults and naked `datetime.now()` / `datetime.utcnow()`
+  for stored times. They depend on the DB session or process time zone and
+  reintroduce the UTC-vs-local drift; use `now_utc()` instead.
 
 ## Commands
 

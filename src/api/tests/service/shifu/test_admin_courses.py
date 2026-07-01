@@ -359,7 +359,7 @@ def test_list_operator_courses_uses_latest_activity_for_updater_and_updated_at()
     assert result.items[0].updater_user_bid == "editor-9"
     assert result.items[0].updater_mobile == "13223532334"
     assert result.items[0].updater_nickname == "Editor Nine"
-    assert result.items[0].updated_at == "2025-04-05T09:00:00Z"
+    assert result.items[0].updated_at == datetime(2025, 4, 5, 9, 0, 0)
 
 
 def test_list_operator_courses_filters_by_latest_activity_updated_range():
@@ -424,7 +424,7 @@ def test_list_operator_courses_filters_by_latest_activity_updated_range():
     assert result.total == 1
     assert len(result.items) == 1
     assert result.items[0].shifu_bid == "course-activity-filter"
-    assert result.items[0].updated_at == "2025-04-05T09:00:00Z"
+    assert result.items[0].updated_at == datetime(2025, 4, 5, 9, 0, 0)
     assert latest_mock.call_args_list[0].kwargs["updated_start_time"] is None
     assert latest_mock.call_args_list[0].kwargs["updated_end_time"] is None
 
@@ -1199,7 +1199,7 @@ def test_list_operator_courses_sql_path_preserves_merge_visibility_and_activity_
     ]
     assert result.items[0].course_name == "Draft Wins Course"
     assert result.items[0].course_status == "published"
-    assert result.items[0].updated_at == "2025-05-01T10:00:00Z"
+    assert result.items[0].updated_at == datetime(2025, 5, 1, 10, 0, 0)
     assert result.items[0].updater_user_bid == "editor-1"
     assert result.items[0].updater_nickname == "Editor One"
     assert result.items[1].course_status == "unpublished"
@@ -1277,7 +1277,7 @@ def test_list_operator_courses_sql_path_uses_current_outline_revisions_only(app)
 
     assert result.total == 1
     assert result.items[0].shifu_bid == shifu_bid
-    assert result.items[0].updated_at == "2025-04-01T10:00:00Z"
+    assert result.items[0].updated_at == datetime(2025, 4, 1, 10, 0, 0)
     assert result.items[0].updater_user_bid == creator_bid
     assert filtered_result.total == 0
     assert filtered_result.items == []

@@ -10,10 +10,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import {
-  formatOperatorNaiveDateTime,
-  formatOperatorUtcDateTime,
-} from '../dateTime';
+import { formatOperatorUtcDateTime } from '../dateTime';
 import type {
   AdminOperationUserCourseItem,
   AdminOperationUserCreditSummary,
@@ -227,12 +224,12 @@ export default function useUserDetailViewModel({
       {
         key: 'lastLoginAt',
         label: tOperationsUsers('table.lastLoginAt'),
-        value: formatOperatorNaiveDateTime(detail.last_login_at),
+        value: formatOperatorUtcDateTime(detail.last_login_at),
       },
       {
         key: 'createdAt',
         label: tOperationsUsers('table.createdAt'),
-        value: formatOperatorNaiveDateTime(detail.created_at),
+        value: formatOperatorUtcDateTime(detail.created_at),
       },
     ],
     [
@@ -285,7 +282,7 @@ export default function useUserDetailViewModel({
       {
         key: 'lastLearningAt',
         label: tOperationsUsers('table.lastLearningAt'),
-        value: formatOperatorNaiveDateTime(detail.last_learning_at),
+        value: formatOperatorUtcDateTime(detail.last_learning_at),
       },
     ],
     [

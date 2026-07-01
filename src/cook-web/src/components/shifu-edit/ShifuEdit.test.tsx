@@ -598,8 +598,7 @@ describe('ShifuEdit draft conflict checks', () => {
     baseActions.loadMdflowHistory.mockResolvedValue([
       {
         version_id: 11,
-        updated_at: '2026-05-19 10:00:00',
-        updated_at_display: '05-19 10:00:00',
+        updated_at: '2026-05-19T10:00:00Z',
         updated_user_name: 'Operator',
         updated_user_bid: 'user-1',
       },
@@ -607,8 +606,7 @@ describe('ShifuEdit draft conflict checks', () => {
     baseActions.loadMdflowHistoryVersionDetail.mockResolvedValue({
       version_id: 11,
       content: 'history body',
-      updated_at: '2026-05-19 10:00:00',
-      updated_at_display: '05-19 10:00:00',
+      updated_at: '2026-05-19T10:00:00Z',
       updated_user_name: 'Operator',
       updated_user_bid: 'user-1',
       restored: false,

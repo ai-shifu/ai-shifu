@@ -47,7 +47,6 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { cn } from '@/lib/utils';
 import {
   PackageCampaignDialog,
@@ -424,7 +423,6 @@ export default function AdminOperationPromotionsPage() {
           status: filters.status,
           start_time: filters.start_time,
           end_time: filters.end_time,
-          timezone: getBrowserTimeZone(),
         };
         let response = (await api.getAdminBillingCampaigns(requestPayload)) as {
           items: AdminBillingCampaignItem[];
