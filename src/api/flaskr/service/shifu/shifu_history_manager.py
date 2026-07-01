@@ -42,8 +42,9 @@ from pydantic import BaseModel
 from .models import DraftOutlineItem, LogDraftStruct
 from flaskr.dao import db
 from flaskr.util import generate_id
+from flaskr.util.datetime import to_utc_iso
 import queue
-from datetime import datetime, timezone
+from datetime import datetime
 import re
 from flaskr.service.user.models import UserInfo
 
@@ -159,14 +160,6 @@ def _mask_contact_identifier(identifier: Optional[str]) -> str:
     return _mask_phone_identifier(identifier)
 
 
-def _serialize_utc_datetime(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
 def _build_draft_meta(latest) -> dict:
     if not latest:
         return {
@@ -193,7 +186,7 @@ def _build_draft_meta(latest) -> dict:
     )
     return {
         "revision": int(latest.id),
-        "updated_at": _serialize_utc_datetime(latest.updated_at),
+        "updated_at": to_utc_iso(latest.updated_at),
         "updated_user": updated_user,
         "deleted": int(getattr(latest, "deleted", 0) or 0),
     }

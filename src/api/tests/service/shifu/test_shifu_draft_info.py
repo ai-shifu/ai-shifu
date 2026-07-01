@@ -214,8 +214,7 @@ def test_get_draft_meta_route_serializes_utc_timestamp(app, test_client, monkeyp
         dao.db.session.commit()
 
     response = test_client.get(
-        f"/api/shifu/shifus/{shifu_bid}/draft-meta"
-        f"?outline_bid={outline_bid}",
+        f"/api/shifu/shifus/{shifu_bid}/draft-meta?outline_bid={outline_bid}",
         headers={"Token": "test-token"},
     )
     payload = response.get_json(force=True)
