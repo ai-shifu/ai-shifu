@@ -24,7 +24,7 @@
   "lessonFeedbackScoreRequired": "请选择1-5分后再提交",
   "lessonFeedbackSubmitted": "感谢你的反馈",
   "listenAudioBackfillFailed": "音频生成失败，请重试或继续阅读",
-  "listenInteractionHint": "提交以下内容后继续学习",
+  "listenInteractionHint": "先完成这一步，再继续听课",
   "listenModeTtsDisabled": "当前课程未开启听课模式，无法使用该模式",
   "listenPlaybackSpeedAriaLabel": "播放倍速：{speed}",
   "listenPlaybackSpeedLabel": "播放倍速",
