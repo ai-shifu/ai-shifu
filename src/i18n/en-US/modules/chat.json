@@ -25,7 +25,7 @@
   "lessonFeedbackSubmitted": "Thanks for your feedback!",
   "lessonUpdateReturnToCatalog": "This lesson has updates. Please return to the course list and study it again.",
   "listenAudioBackfillFailed": "Audio generation failed. Please retry or keep reading.",
-  "listenInteractionHint": "Submit the following to continue learning",
+  "listenInteractionHint": "Complete this step to continue the course",
   "listenModeTtsDisabled": "Listen mode is not enabled for this course.",
   "listenPlaybackSpeedAriaLabel": "Playback speed: {speed}",
   "listenPlaybackSpeedLabel": "Playback speed",

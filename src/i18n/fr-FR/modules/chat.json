@@ -25,7 +25,7 @@
   "lessonFeedbackSubmitted": "Merci pour votre retour !",
   "lessonUpdateReturnToCatalog": "Cette leçon a été mise à jour. Veuillez revenir à la liste des cours pour la reprendre.",
   "listenAudioBackfillFailed": "La génération audio a échoué. Veuillez réessayer ou continuer la lecture.",
-  "listenInteractionHint": "Envoyez ce qui suit pour continuer l’apprentissage",
+  "listenInteractionHint": "Terminez cette étape pour continuer le cours",
   "listenModeTtsDisabled": "Le mode écoute n’est pas activé pour ce cours.",
   "listenPlaybackSpeedAriaLabel": "Vitesse de lecture : {speed}",
   "listenPlaybackSpeedLabel": "Vitesse de lecture",
