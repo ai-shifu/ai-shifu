@@ -99,7 +99,6 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(billing_entitlements_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_queries_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_campaigns_module, "datetime", _FixedDateTime)
-    monkeypatch.setattr(billing_serializers_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_campaigns_module, "now_utc", lambda: _frozen_now)
     monkeypatch.setattr(billing_serializers_module, "now_utc", lambda: _frozen_now)
 
@@ -895,10 +894,6 @@ class TestBillingRoutes:
                     return current.replace(tzinfo=tz)
                 return current
 
-        monkeypatch.setattr(
-            "flaskr.service.billing.serializers.datetime",
-            _FixedDateTime,
-        )
         monkeypatch.setattr(
             "flaskr.service.billing.serializers.now_utc",
             lambda: _FixedDateTime(2026, 5, 1, 12, 0, 0),
