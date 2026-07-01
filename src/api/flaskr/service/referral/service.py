@@ -675,7 +675,7 @@ def _mark_reward_grant_failed(
     reward.billing_artifacts = {
         **artifacts,
         "grant_error": str(error)[:500],
-        "last_failed_at": now_utc().isoformat(),
+        "last_failed_at": now_utc().isoformat() + "Z",
     }
     db.session.add(reward)
     db.session.commit()

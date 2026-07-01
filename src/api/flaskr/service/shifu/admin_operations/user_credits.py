@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
@@ -9,6 +8,7 @@ from sqlalchemy import and_, or_
 from sqlalchemy.orm import aliased
 
 from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from flaskr.service.billing.api import (
     build_billing_catalog,
     grant_manual_credits_to_user,
@@ -211,7 +211,7 @@ def get_operator_user_grant_bootstrap(
         user = _load_operator_user_or_raise(normalized_user_bid)
         _assert_operator_user_grant_target_supported(user)
         catalog = build_billing_catalog(app)
-        server_time = datetime.now()
+        server_time = now_utc()
         current_subscription_product_display_name_i18n_key = (
             _load_active_subscription_product_display_name_i18n_key(
                 normalized_user_bid,

@@ -4531,7 +4531,7 @@ def get_operator_course_follow_ups(
                     follow_up_count=0,
                     user_count=0,
                     lesson_count=0,
-                    latest_follow_up_at="",
+                    latest_follow_up_at=None,
                 ),
                 items=[],
                 page=safe_page_index,
