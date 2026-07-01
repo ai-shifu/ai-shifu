@@ -245,14 +245,14 @@ class UserOnboardingState(db.Model):
         comment="Completion timestamp",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime, nullable=False, default=now_utc, comment="Creation timestamp"
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Last update timestamp",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
 
 
