@@ -5,6 +5,7 @@ import pytest
 from flask import Flask, has_app_context
 
 from flaskr.service.learn import runscript_v2
+from flaskr.service.common.models import AppException
 from flaskr.service.learn.learn_dtos import (
     ElementDTO,
     ElementType,
@@ -564,6 +565,36 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
         GeneratedType.CONTENT,
         GeneratedType.BREAK,
     ]
+
+
+def test_log_run_script_stream_error_does_not_error_for_app_exception():
+    app = Flask(__name__)
+    info_calls = []
+    error_calls = []
+    app.logger.info = lambda *args, **kwargs: info_calls.append(args)
+    app.logger.error = lambda *args, **kwargs: error_calls.append(args)
+
+    runscript_v2._log_run_script_stream_error(
+        app, AppException("大纲单元不存在", status_code=1001)
+    )
+
+    assert error_calls == []
+    assert info_calls[0] == ("run_script handled app exception",)
+    assert info_calls[1][0]["description"] == "大纲单元不存在"
+
+
+def test_log_run_script_stream_error_keeps_error_for_unexpected_exception():
+    app = Flask(__name__)
+    info_calls = []
+    error_calls = []
+    app.logger.info = lambda *args, **kwargs: info_calls.append(args)
+    app.logger.error = lambda *args, **kwargs: error_calls.append(args)
+
+    runscript_v2._log_run_script_stream_error(app, RuntimeError("boom"))
+
+    assert info_calls == []
+    assert error_calls[0] == ("run_script error",)
+    assert error_calls[1][0]["description"] == "boom"
 
 
 def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
