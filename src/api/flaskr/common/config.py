@@ -1452,6 +1452,27 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Aliyun TTS sample rate (8000, 16000, 24000)",
         group="tts",
     ),
+    # Tencent TTS Configuration
+    "TENCENT_TTS_APP_ID": EnvVar(
+        name="TENCENT_TTS_APP_ID",
+        default="",
+        description="Tencent Cloud TTS AppId",
+        group="tts",
+    ),
+    "TENCENT_TTS_SECRET_ID": EnvVar(
+        name="TENCENT_TTS_SECRET_ID",
+        default="",
+        description="Tencent Cloud TTS SecretId",
+        secret=True,
+        group="tts",
+    ),
+    "TENCENT_TTS_SECRET_KEY": EnvVar(
+        name="TENCENT_TTS_SECRET_KEY",
+        default="",
+        description="Tencent Cloud TTS SecretKey",
+        secret=True,
+        group="tts",
+    ),
 }
 
 # Derived Redis prefixes built from REDIS_KEY_PREFIX

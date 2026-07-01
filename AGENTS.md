@@ -23,6 +23,9 @@ to.
   before creating new abstractions.
 - Use ExecPlans for complex work. `PLANS.md` defines the format, and active
   plans live under `docs/exec-plans/active/`.
+- Before committing, run `python scripts/check_dev_tools.py` to confirm
+  lefthook and its underlying tools are installed; the local checks are
+  silently skipped if lefthook was never installed.
 - When a branch already has an open PR, keep the PR title and description in
   sync with the latest code changes so they accurately describe the current
   implementation and verification state.
@@ -71,6 +74,8 @@ to.
   metadata, and generated harness artifacts.
 - `python scripts/check_architecture_boundaries.py` validates the committed
   frontend/backend boundary baseline and blocks new drift.
+- `python scripts/check_dev_tools.py` verifies lefthook and its underlying
+  tools are installed, so the pre-commit hooks are not silently skipped.
 - `lefthook run pre-commit --all-files` is the repository-wide verification
   gate before a commit-sized change lands.
 
