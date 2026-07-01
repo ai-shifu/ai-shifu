@@ -11,6 +11,7 @@
   "hoursAgo": "il y a {count, plural, one {# heure} other {# heures}}",
   "justNow": "À l’instant",
   "lastLessonModified": "Dernière modification",
+  "lastLessonModifiedWithRelativeTime": "Dernière modification : {relativeTime}",
   "learningLink": "Lien d'apprentissage",
   "listenModeRequiresTts": "Activez le mode écoute dans les paramètres du cours pour utiliser cette option",
   "minutesAgo": "il y a {count, plural, one {# minute} other {# minutes}}",

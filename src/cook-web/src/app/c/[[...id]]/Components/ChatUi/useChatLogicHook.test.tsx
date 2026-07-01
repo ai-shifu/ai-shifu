@@ -3135,10 +3135,10 @@ describe('useChatLogicHook stream cleanup', () => {
             is_speakable: false,
           },
         ],
-        last_progress_updated_at: '2026-06-30 10:00:00',
+        last_progress_updated_at: '2026-06-30T10:00:00Z',
       });
       mockGetShifuDraftMeta.mockResolvedValue({
-        updated_at: '2026-06-30 12:00:00',
+        updated_at: '2026-06-30T20:00:00+08:00',
       });
 
       const { result } = renderHook(

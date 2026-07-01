@@ -11,6 +11,7 @@
   "hoursAgo": "{count} 小时前",
   "justNow": "刚刚",
   "lastLessonModified": "本节最后修改",
+  "lastLessonModifiedWithRelativeTime": "本节最后修改：{relativeTime}",
   "learningLink": "学习链接",
   "listenModeRequiresTts": "请先在课程设置中开启听课模式",
   "minutesAgo": "{count} 分钟前",
