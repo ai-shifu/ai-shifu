@@ -469,12 +469,12 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
     expect((await screen.findAllByText('Second follow-up answer')).length).toBe(
       2,
     );
-    expect(screen.getAllByText('2026-04-05 19:02:00').length).toBeGreaterThan(
+    expect(screen.queryAllByText('2026-04-05 19:02:00').length).toBeGreaterThan(
       0,
     );
     expect(screen.getByText('2026-04-05 19:02:10')).toBeInTheDocument();
     expect(
-      screen.getAllByText(
+      screen.queryAllByText(
         'module.dashboard.detail.followUps.drawer.timeline.current',
       ).length,
     ).toBeGreaterThan(0);
