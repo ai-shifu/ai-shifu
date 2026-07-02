@@ -1,8 +1,4 @@
-export const parseUrlParams = (): Record<string, string> => {
-  if (typeof window === 'undefined') {
-    return {};
-  }
-
+export const parseUrlParams = () => {
   return getQueryParams(window.location.href);
 };
 
@@ -77,13 +73,15 @@ export const replaceCurrentUrlWithLessonId = (
   window.history.replaceState(window.history.state, '', nextUrl);
 };
 
-export function getQueryParams(url: string): Record<string, string> {
-  const params: Record<string, string> = {};
-  const urlObj = createUrl(url);
-  urlObj.searchParams.forEach((value, key) => {
-    params[key] = value;
-  });
-
+export function getQueryParams(url) {
+  const params = {};
+  const queryString = url.split('?')[1];
+  if (queryString) {
+    queryString.split('&').forEach(param => {
+      const [key, value] = param.split('=');
+      params[key] = decodeURIComponent(value);
+    });
+  }
   return params;
 }
 

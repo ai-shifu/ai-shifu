@@ -7,25 +7,6 @@ type LearningModeOption = {
   mode: LearningMode;
 };
 
-export const getCourseScopedTtsEnabled = ({
-  courseTtsEnabled,
-  courseTtsStatusCourseId,
-  courseTtsStatusPreviewMode,
-  courseId,
-  previewMode,
-}: {
-  courseTtsEnabled: boolean | null;
-  courseTtsStatusCourseId: string | null;
-  courseTtsStatusPreviewMode: boolean | null;
-  courseId: string;
-  previewMode: boolean;
-}) =>
-  courseId &&
-  courseTtsStatusCourseId === courseId &&
-  courseTtsStatusPreviewMode === previewMode
-    ? courseTtsEnabled
-    : null;
-
 export const LEARNING_MODE_OPTIONS = [
   {
     mode: 'listen',
@@ -108,4 +89,4 @@ export const isListenModeActive = ({
 }: {
   learningMode: LearningMode;
   courseTtsEnabled: boolean | null;
-}) => learningMode === 'listen' && courseTtsEnabled === true;
+}) => learningMode === 'listen' && courseTtsEnabled !== false;

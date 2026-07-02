@@ -275,7 +275,6 @@ export interface UseChatSessionParams {
   previewMode?: boolean;
   lessonHasContentUpdate?: boolean;
   isListenMode?: boolean;
-  isLearningModeReady?: boolean;
   listenRequestEnabled?: boolean;
   shouldPromptLessonFeedback?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
@@ -341,7 +340,6 @@ function useChatLogicHook({
   previewMode,
   lessonHasContentUpdate = false,
   isListenMode = false,
-  isLearningModeReady = true,
   listenRequestEnabled = false,
   shouldPromptLessonFeedback = true,
   trackEvent,
@@ -2605,10 +2603,6 @@ function useChatLogicHook({
    * Loads the persisted lesson records and primes the chat stream.
    */
   const refreshData = useCallback(async () => {
-    if (!isLearningModeReady) {
-      return;
-    }
-
     const refreshSerial = ++refreshDataSerialRef.current;
     const isCurrentRefresh = () =>
       refreshSerial === refreshDataSerialRef.current;
@@ -2735,7 +2729,6 @@ function useChatLogicHook({
   }, [
     chapterId,
     getLessonFeedbackDefaults,
-    isLearningModeReady,
     isLessonFeedbackContent,
     lessonHasContentUpdate,
     mapRecordsToContent,
@@ -2769,9 +2762,6 @@ function useChatLogicHook({
         if (!curr) {
           return;
         }
-        if (!isLearningModeReady) {
-          return;
-        }
         setIsLoading(true);
         if (curr === lessonId) {
           sseRef.current?.close();
@@ -2790,7 +2780,6 @@ function useChatLogicHook({
   }, [
     loadedChapterId,
     refreshData,
-    isLearningModeReady,
     updateResetedLessonId,
     resetedLessonId,
     lessonId,
@@ -2800,7 +2789,7 @@ function useChatLogicHook({
     const unsubscribe = useUserStore.subscribe(
       state => state.isLoggedIn,
       isLoggedIn => {
-        if (!isLoggedIn || !chapterId || !isLearningModeReady) {
+        if (!isLoggedIn || !chapterId) {
           return;
         }
         setLoadedChapterId(chapterId);
@@ -2811,16 +2800,16 @@ function useChatLogicHook({
     return () => {
       unsubscribe();
     };
-  }, [chapterId, isLearningModeReady, refreshData]);
+  }, [chapterId, refreshData]);
 
   useEffect(() => {
     sseRef.current?.close();
-    if (!isLearningModeReady || !lessonId || resetedLessonId === lessonId) {
+    if (!lessonId || resetedLessonId === lessonId) {
       return;
     }
     refreshData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLearningModeReady, lessonId, resetedLessonId]);
+  }, [lessonId, resetedLessonId]);
 
   useEffect(() => {
     const onGoToNavigationNode = (

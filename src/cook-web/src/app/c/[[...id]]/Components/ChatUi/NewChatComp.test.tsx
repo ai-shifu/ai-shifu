@@ -5,7 +5,6 @@ import {
 } from './chatUiModeProjection';
 import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
-import { isListenModeActive } from '../learningModeOptions';
 
 jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
   isLessonFeedbackInteractionContent: (content?: string) =>
@@ -273,22 +272,5 @@ describe('NewChatComp mode projections', () => {
         },
       ]),
     ).toBe('feedback-new');
-  });
-});
-
-describe('NewChatComp listen mode activation', () => {
-  it('requires confirmed course TTS availability before enabling listen requests', () => {
-    expect(
-      isListenModeActive({
-        learningMode: 'listen',
-        courseTtsEnabled: null,
-      }),
-    ).toBe(false);
-    expect(
-      isListenModeActive({
-        learningMode: 'listen',
-        courseTtsEnabled: true,
-      }),
-    ).toBe(true);
   });
 });

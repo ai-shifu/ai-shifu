@@ -1,7 +1,4 @@
-import {
-  resolveCourseLearningMode,
-  resolveCourseLearningModeState,
-} from './learningModePreference';
+import { resolveCourseLearningMode } from './learningModePreference';
 
 describe('resolveCourseLearningMode', () => {
   it('defaults to listen when the course supports listen mode and no storage exists yet', () => {
@@ -179,62 +176,5 @@ describe('resolveCourseLearningMode', () => {
         storedLearningMode: 'classroom',
       }),
     ).toBe('read');
-  });
-});
-
-describe('resolveCourseLearningModeState', () => {
-  it('waits for course TTS before resolving an automatic default', () => {
-    expect(
-      resolveCourseLearningModeState({
-        courseId: 'course-1',
-        currentLearningMode: 'read',
-        courseTtsEnabled: null,
-        canUseClassroomMode: false,
-        hasListenModeOverride: false,
-        listenModeParam: null,
-        storedLearningMode: null,
-      }),
-    ).toEqual({
-      shouldWaitForLearningModeResolution: true,
-      resolvedLearningMode: null,
-      isLearningModeReady: false,
-    });
-  });
-
-  it('keeps chat loading paused until the resolved default is applied', () => {
-    expect(
-      resolveCourseLearningModeState({
-        courseId: 'course-1',
-        currentLearningMode: 'read',
-        courseTtsEnabled: true,
-        canUseClassroomMode: false,
-        hasListenModeOverride: false,
-        listenModeParam: null,
-        storedLearningMode: null,
-      }),
-    ).toEqual({
-      shouldWaitForLearningModeResolution: false,
-      resolvedLearningMode: 'listen',
-      isLearningModeReady: false,
-    });
-  });
-
-  it('does not block rendering while resolution is disabled', () => {
-    expect(
-      resolveCourseLearningModeState({
-        courseId: 'course-1',
-        currentLearningMode: 'read',
-        isResolutionEnabled: false,
-        courseTtsEnabled: null,
-        canUseClassroomMode: false,
-        hasListenModeOverride: false,
-        listenModeParam: null,
-        storedLearningMode: null,
-      }),
-    ).toEqual({
-      shouldWaitForLearningModeResolution: false,
-      resolvedLearningMode: 'read',
-      isLearningModeReady: true,
-    });
   });
 });

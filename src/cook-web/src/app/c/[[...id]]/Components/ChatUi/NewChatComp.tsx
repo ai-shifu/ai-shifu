@@ -1,7 +1,7 @@
 import styles from './ChatComponents.module.scss';
 import { ChevronsDown, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   useContext,
   useRef,
@@ -15,7 +15,6 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
-import { parseUrlParams } from '@/c-utils/urlUtils';
 import { AppContext } from '../AppContext';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
 import { useTracking } from '@/c-common/hooks/useTracking';
@@ -52,10 +51,7 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { buildAskListByAnchorElementBid } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
-import {
-  getCourseScopedTtsEnabled,
-  isListenModeActive as getIsListenModeActive,
-} from '../learningModeOptions';
+import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
 import {
   getMissingListenModeAudioBlockBids,
   hasPlayableListenAudioForItem,
@@ -80,12 +76,6 @@ import {
   projectReadModeItems,
 } from './chatUiModeProjection';
 import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
-import { readLearningModeFromStorage } from '../learningModeStorage';
-import { resolveCourseLearningModeState } from '../learningModePreference';
-import {
-  parseBooleanQueryParam,
-  parseLearningModeQueryParam,
-} from '../learningModeUrl';
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
@@ -136,7 +126,6 @@ export const NewChatComponents = ({
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
   const router = useRouter();
-  const routeParams = useParams<{ id?: string[] }>();
   const confirmButtonText = t('module.renderUi.core.confirm');
   const copyButtonText = t('module.renderUi.core.copyCode');
   const copiedButtonText = t('module.renderUi.core.copied');
@@ -155,10 +144,7 @@ export const NewChatComponents = ({
     router.push(BILLING_PACKAGES_HREF);
   }, [router]);
 
-  const envCourseId = useEnvStore(state => state.courseId);
-  const params = parseUrlParams() as Record<string, string>;
-  const routeCourseId = Array.isArray(routeParams?.id) ? routeParams.id[0] : '';
-  const shifuBid = routeCourseId || params.courseId || envCourseId;
+  const { courseId: shifuBid } = useEnvStore.getState();
   const { refreshUserInfo } = useUserStore(
     useShallow(state => ({
       refreshUserInfo: state.refreshUserInfo,
@@ -296,56 +282,22 @@ export const NewChatComponents = ({
   const shouldShowResetLoading =
     mobileStyle &&
     (resettingLessonId === lessonId || resetedLessonId === lessonId);
-  const { learningMode, updateLearningMode, canUseClassroomMode } =
-    useSystemStore(
-      useShallow(state => ({
-        learningMode: state.learningMode,
-        updateLearningMode: state.updateLearningMode,
-        canUseClassroomMode: state.canUseClassroomMode,
-      })),
-    );
+  const { learningMode, updateLearningMode } = useSystemStore(
+    useShallow(state => ({
+      learningMode: state.learningMode,
+      updateLearningMode: state.updateLearningMode,
+    })),
+  );
   const isListenMode = learningMode === 'listen';
   const isClassroomMode = learningMode === 'classroom';
   const isSlideMode = isListenMode || isClassroomMode;
   const [readModeTypewriterCache, setReadModeTypewriterCache] =
     useState<ReadModeTypewriterCache>({});
-  const {
-    courseTtsEnabled,
-    courseTtsStatusCourseId,
-    courseTtsStatusPreviewMode,
-  } = useCourseStore(
-    useShallow(state => ({
-      courseTtsEnabled: state.courseTtsEnabled,
-      courseTtsStatusCourseId: state.courseTtsStatusCourseId,
-      courseTtsStatusPreviewMode: state.courseTtsStatusPreviewMode,
-    })),
-  );
-  const courseTtsEnabledForCourse = getCourseScopedTtsEnabled({
-    courseTtsEnabled,
-    courseTtsStatusCourseId,
-    courseTtsStatusPreviewMode,
-    courseId: shifuBid,
-    previewMode,
-  });
-  const listenModeParam = parseBooleanQueryParam(params.listen);
-  const urlModeParam = parseLearningModeQueryParam(params.mode);
-  const storedLearningModeForCourse = shifuBid
-    ? readLearningModeFromStorage(shifuBid)
-    : null;
-  const { isLearningModeReady } = resolveCourseLearningModeState({
-    courseId: shifuBid,
-    currentLearningMode: learningMode,
-    courseTtsEnabled: courseTtsEnabledForCourse,
-    canUseClassroomMode,
-    hasListenModeOverride: listenModeParam !== null,
-    listenModeParam,
-    urlModeParam,
-    storedLearningMode: storedLearningModeForCourse,
-  });
-  const isListenModeAvailable = courseTtsEnabledForCourse !== false;
+  const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
+  const isListenModeAvailable = courseTtsEnabled !== false;
   const isListenModeActive = getIsListenModeActive({
     learningMode,
-    courseTtsEnabled: courseTtsEnabledForCourse,
+    courseTtsEnabled,
   });
   const isListenModeActiveRef = useRef(isListenModeActive);
   const previousListenModeActiveRef = useRef(isListenModeActive);
@@ -467,7 +419,6 @@ export const NewChatComponents = ({
     previewMode,
     lessonHasContentUpdate,
     isListenMode: isListenModeActive,
-    isLearningModeReady,
     trackEvent,
     chatBoxBottomRef,
     trackTrailProgress,
