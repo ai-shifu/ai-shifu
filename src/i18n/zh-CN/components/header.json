@@ -25,6 +25,5 @@
   "publishSuccessDescription": "已将草稿的最新版发布",
   "publishSuccessDone": "完成",
   "publishSuccessDraftHelp": "后台会保存草稿的多个版本，可以按需发布",
-  "readonly": "只读",
-  "saved": "已保存"
+  "readonly": "只读"
 }

@@ -25,6 +25,5 @@
   "publishSuccessDescription": "The latest draft version has been published.",
   "publishSuccessDone": "Done",
   "publishSuccessDraftHelp": "The admin view saves multiple draft versions, and you can publish them as needed.",
-  "readonly": "Readonly",
-  "saved": "Saved"
+  "readonly": "Readonly"
 }
