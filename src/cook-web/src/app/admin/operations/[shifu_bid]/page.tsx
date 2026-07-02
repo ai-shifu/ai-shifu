@@ -1323,7 +1323,9 @@ export default function AdminOperationCourseDetailPage() {
         lastLearnedAt: user => [
           formatAdminUtcDateTime(user.last_learning_at) || emptyValue,
         ],
-        joinedAt: user => [formatAdminUtcDateTime(user.joined_at) || emptyValue],
+        joinedAt: user => [
+          formatAdminUtcDateTime(user.joined_at) || emptyValue,
+        ],
         lastLoginAt: user => [
           formatAdminUtcDateTime(user.last_login_at) || emptyValue,
         ],
