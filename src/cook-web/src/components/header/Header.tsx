@@ -164,6 +164,11 @@ const Header = ({
     );
   }, [lessonHistoryDate, relativeTimeNow, t]);
   const lastModifiedLabel = t('component.header.lastLessonModified');
+  const lessonHistoryText = lessonHistoryLabel
+    ? t('component.header.lastLessonModifiedWithRelativeTime', {
+        relativeTime: lessonHistoryLabel,
+      })
+    : lastModifiedLabel;
   const historyTooltip = t('module.shifu.history.title');
   const showHistoryEntry =
     !error && !isSaving && !showSavedFeedback && Boolean(lessonHistoryUrl);
@@ -450,10 +455,7 @@ const Header = ({
                         title={historyTooltip}
                       >
                         <History className='mr-2 h-4 w-4 shrink-0' />
-                        <span>
-                          {lastModifiedLabel}
-                          {lessonHistoryLabel ? `：${lessonHistoryLabel}` : ''}
-                        </span>
+                        <span>{lessonHistoryText}</span>
                       </Link>
                     </TooltipTrigger>
                     <TooltipContent>{historyTooltip}</TooltipContent>

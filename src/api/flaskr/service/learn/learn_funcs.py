@@ -1,56 +1,90 @@
+import base64
+import json
+import logging
+import queue
+import time
+import uuid
+from dataclasses import replace
+from datetime import datetime, timezone
+
+from flask import Flask, has_request_context, request
 from markdown_flow import (
     InteractionParser,
 )
-from datetime import datetime
-from flask import Flask, request, has_request_context
-import base64
-import json
-import time
-import logging
-from dataclasses import replace
-import uuid
+
+from flaskr.dao import db
+from flaskr.i18n import _
+from flaskr.service.common import raise_error, raise_error_with_args
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
-    LearnShifuInfoDTO,
-    LearnOutlineItemInfoDTO,
-    LearnStatus,
-    BlockType,
-    LikeStatus,
-    LearnOutlineItemsWithBannerInfoDTO,
-    LearnBannerInfoDTO,
-    OutlineType,
-    GeneratedInfoDTO,
-    RunMarkdownFlowDTO,
-    GeneratedType,
-    AudioSegmentDTO,
     AudioCompleteDTO,
+    AudioSegmentDTO,
+    BlockType,
+    GeneratedInfoDTO,
+    GeneratedType,
+    LearnBannerInfoDTO,
+    LearnOutlineItemsWithBannerInfoDTO,
+    LearnOutlineItemInfoDTO,
+    LearnShifuInfoDTO,
+    LearnStatus,
+    LikeStatus,
+    OutlineType,
+    RunMarkdownFlowDTO,
 )
-from flaskr.service.shifu.models import (
-    DraftShifu,
-    PublishedShifu,
-    DraftOutlineItem,
-    PublishedOutlineItem,
-    LogDraftStruct,
-    LogPublishedStruct,
+from flaskr.service.learn.lesson_feedback import (
+    build_lesson_feedback_interaction_md,
+    is_lesson_feedback_interaction,
+)
+from flaskr.service.learn.legacy_record_builder import (
+    LegacyGeneratedBlockRecord,
+    LegacyLearnRecord,
+    build_legacy_record_for_progress,
+)
+from flaskr.service.learn.listen_element_matching import (
+    get_speakable_text_elements,
 )
 from flaskr.service.learn.models import (
-    LearnProgressRecord,
     LearnGeneratedBlock,
     LearnLessonFeedback,
+    LearnProgressRecord,
 )
-from flaskr.service.tts.models import LearnGeneratedAudio, AUDIO_STATUS_COMPLETED
 from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
 )
-from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
-from flaskr.service.tts.pipeline import split_text_for_tts
+from flaskr.service.order.consts import (
+    LEARN_STATUS_COMPLETED,
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_LOCKED,
+    LEARN_STATUS_NOT_STARTED,
+    LEARN_STATUS_RESET,
+    ORDER_STATUS_SUCCESS,
+)
+from flaskr.service.order.models import BannerInfo, Order
+from flaskr.service.shifu.consts import (
+    UNIT_TYPE_VALUE_GUEST,
+    UNIT_TYPE_VALUE_NORMAL,
+    UNIT_TYPE_VALUE_TRIAL,
+)
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    LogDraftStruct,
+    LogPublishedStruct,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.struct_utils import find_node_with_parents
+from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.api.tts import (
     get_default_audio_settings,
     get_default_voice_settings,
-    synthesize_text,
     is_tts_configured,
+    synthesize_text,
 )
+from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
 from flaskr.service.tts.api import create_streaming_tts_processor
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
@@ -64,89 +98,39 @@ from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
 )
+from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
+from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
-from flaskr.service.common import raise_error, raise_error_with_args
-from flaskr.service.shifu.utils import get_shifu_res_url
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.shifu.struct_utils import find_node_with_parents
-from flaskr.service.order.models import Order, BannerInfo
-from flaskr.i18n import _
-from flaskr.service.order.consts import (
-    ORDER_STATUS_SUCCESS,
-    LEARN_STATUS_LOCKED,
-    LEARN_STATUS_NOT_STARTED,
-    LEARN_STATUS_IN_PROGRESS,
-    LEARN_STATUS_COMPLETED,
-    LEARN_STATUS_RESET,
-)
-from flaskr.util.timezone import get_app_timezone
-
-_LEARN_PROGRESS_SOURCE_TIMEZONE = "Asia/Shanghai"
-_PUBLISHED_CREATED_SOURCE_TIMEZONE = "UTC"
-_PUBLISHED_UPDATED_SOURCE_TIMEZONE = "Asia/Shanghai"
+from flaskr.util import generate_id
 
 
-def _normalize_naive_dt_to_utc(
-    app: Flask,
+def _normalize_dt_to_utc(
     value: datetime | None,
-    *,
-    source_timezone_name: str,
 ) -> datetime | None:
     if value is None:
         return None
     if value.tzinfo is not None:
-        return value.astimezone(get_app_timezone(app, "UTC"))
-    source_tz = get_app_timezone(app, source_timezone_name)
-    return value.replace(tzinfo=source_tz).astimezone(get_app_timezone(app, "UTC"))
+        return value.astimezone(timezone.utc)
+    return value.replace(tzinfo=timezone.utc)
 
 
 def _resolve_published_effective_updated_at(
-    app: Flask, outline_item: PublishedOutlineItem
+    outline_item: PublishedOutlineItem,
 ) -> datetime | None:
-    created_at = _normalize_naive_dt_to_utc(
-        app,
-        getattr(outline_item, "created_at", None),
-        source_timezone_name=_PUBLISHED_CREATED_SOURCE_TIMEZONE,
-    )
-    updated_at = _normalize_naive_dt_to_utc(
-        app,
-        getattr(outline_item, "updated_at", None),
-        source_timezone_name=_PUBLISHED_UPDATED_SOURCE_TIMEZONE,
-    )
+    created_at = _normalize_dt_to_utc(getattr(outline_item, "created_at", None))
+    updated_at = _normalize_dt_to_utc(getattr(outline_item, "updated_at", None))
     candidates = [value for value in (created_at, updated_at) if value is not None]
     return max(candidates) if candidates else None
 
 
 def _resolve_progress_effective_updated_at(
-    app: Flask, progress_record: LearnProgressRecord | None
+    progress_record: LearnProgressRecord | None,
 ) -> datetime | None:
-    return _normalize_naive_dt_to_utc(
-        app,
+    return _normalize_dt_to_utc(
         getattr(progress_record, "updated_at", None) if progress_record else None,
-        source_timezone_name=_LEARN_PROGRESS_SOURCE_TIMEZONE,
     )
-import queue
-from flaskr.dao import db
-from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
-from flaskr.service.learn.lesson_feedback import (
-    build_lesson_feedback_interaction_md,
-    is_lesson_feedback_interaction,
-)
-from flaskr.service.learn.listen_element_matching import (
-    get_speakable_text_elements,
-)
-from flaskr.service.learn.legacy_record_builder import (
-    LegacyGeneratedBlockRecord,
-    LegacyLearnRecord,
-    build_legacy_record_for_progress,
-)
-from flaskr.service.shifu.consts import (
-    UNIT_TYPE_VALUE_TRIAL,
-    UNIT_TYPE_VALUE_NORMAL,
-    UNIT_TYPE_VALUE_GUEST,
-)
-from flaskr.util import generate_id
+
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
@@ -406,10 +390,10 @@ def get_outline_item_tree(
                     outline_item.outline_item_bid
                 )
                 published_updated_at = _resolve_published_effective_updated_at(
-                    app, outline_item
+                    outline_item
                 )
                 latest_progress_updated_at = _resolve_progress_effective_updated_at(
-                    app, latest_progress_record
+                    latest_progress_record
                 )
                 has_content_update_for_current_user = bool(
                     latest_progress_record is not None

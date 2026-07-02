@@ -9,7 +9,7 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 from ...dao import db
 
 from .consts import (
@@ -74,15 +74,15 @@ class Order(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Creation time",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Update time",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
 
 
@@ -186,18 +186,12 @@ class PingxxOrder(db.Model):
     charge_id = Column(
         String(255), nullable=False, index=True, default="", comment="Charge identifier"
     )
-    paid_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Payment time"
-    )
+    paid_at = Column(DateTime, nullable=False, default=now_utc, comment="Payment time")
     refunded_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Refund time"
+        DateTime, nullable=False, default=now_utc, comment="Refund time"
     )
-    closed_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Close time"
-    )
-    failed_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Failed time"
-    )
+    closed_at = Column(DateTime, nullable=False, default=now_utc, comment="Close time")
+    failed_at = Column(DateTime, nullable=False, default=now_utc, comment="Failed time")
     refund_id = Column(
         String(255), nullable=False, index=True, default="", comment="Refund identifier"
     )
@@ -217,15 +211,15 @@ class PingxxOrder(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Creation time",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Update time",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
 
 
@@ -374,15 +368,15 @@ class StripeOrder(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Creation time",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Update time",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
 
 
@@ -497,15 +491,15 @@ class _NativeProviderOrderBase(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Creation time",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Update time",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
 
 
@@ -588,7 +582,7 @@ class BannerInfo(db.Model):
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=now_utc, comment="Creation time"
     )
     created_user_bid = Column(
         String(32),
@@ -599,9 +593,9 @@ class BannerInfo(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Update time",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
     updated_user_bid = Column(
         String(32),

@@ -242,7 +242,7 @@ def test_get_listen_element_record_returns_latest_elements_and_events(app):
         assert result_with_events.events[2].content.variable_name == "sys_user_nickname"
 
 
-def test_get_listen_element_record_serializes_progress_time_with_app_timezone(app):
+def test_get_listen_element_record_serializes_progress_time_as_utc(app):
     _require_app(app)
 
     from datetime import datetime
@@ -307,7 +307,6 @@ def test_get_listen_element_record_serializes_progress_time_with_app_timezone(ap
                 outline_bid=outline_bid,
                 user_bid=user_bid,
                 preview_mode=False,
-                timezone_name="Asia/Shanghai",
             )
     finally:
         if original_tz is None:
@@ -315,10 +314,10 @@ def test_get_listen_element_record_serializes_progress_time_with_app_timezone(ap
         else:
             app.config["TZ"] = original_tz
 
-    assert result.last_progress_updated_at == "2026-06-30T11:57:03+08:00"
+    assert result.last_progress_updated_at == "2026-06-30T11:57:03Z"
 
 
-def test_get_listen_element_record_normalizes_naive_progress_time_to_true_utc(app):
+def test_get_listen_element_record_treats_naive_progress_time_as_utc(app):
     _require_app(app)
 
     from datetime import datetime
@@ -390,7 +389,7 @@ def test_get_listen_element_record_normalizes_naive_progress_time_to_true_utc(ap
         else:
             app.config["TZ"] = original_tz
 
-    assert result.last_progress_updated_at == "2026-06-30T03:57:03+00:00"
+    assert result.last_progress_updated_at == "2026-06-30T11:57:03Z"
 
 
 def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapshot(app):

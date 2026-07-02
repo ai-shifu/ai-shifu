@@ -106,10 +106,6 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: jest.fn(() => 'Asia/Shanghai'),
-}));
-
 jest.mock('@/c-api/studyV2', () => {
   return {
     BLOCK_TYPE: {
@@ -3136,10 +3132,10 @@ describe('useChatLogicHook stream cleanup', () => {
             is_speakable: false,
           },
         ],
-        last_progress_updated_at: '2026-06-30 10:00:00',
+        last_progress_updated_at: '2026-06-30T10:00:00Z',
       });
       mockGetShifuDraftMeta.mockResolvedValue({
-        updated_at: '2026-06-30 12:00:00',
+        updated_at: '2026-06-30T12:00:00Z',
       });
 
       const { result } = renderHook(
@@ -3157,7 +3153,6 @@ describe('useChatLogicHook stream cleanup', () => {
       expect(mockGetShifuDraftMeta).toHaveBeenCalledWith({
         shifu_bid: 'shifu-1',
         outline_bid: 'lesson-1',
-        timezone: 'Asia/Shanghai',
       });
     });
 

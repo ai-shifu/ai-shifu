@@ -1471,11 +1471,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               in: query
               type: string
               required: false
-            - name: timezone
-              in: query
-              type: string
-              required: false
-              description: IANA timezone, e.g. Asia/Shanghai
         responses:
             200:
                 description: get draft meta success
@@ -1497,7 +1492,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                             description: latest draft revision (course-level or outline content-level when outline_bid is provided)
                                         updated_at:
                                             type: string
-                                            description: last update timestamp in requested timezone (or app timezone if not specified)
+                                            description: last update timestamp as UTC ISO 8601 with Z suffix
                                         updated_user:
                                             type: object
                                             properties:
@@ -1509,10 +1504,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                                     description: masked phone or email
         """
         outline_bid = request.args.get("outline_bid")
-        timezone_name = request.args.get("timezone")
-        return make_common_response(
-            get_shifu_draft_meta(app, shifu_bid, outline_bid, timezone_name)
-        )
+        return make_common_response(get_shifu_draft_meta(app, shifu_bid, outline_bid))
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",
@@ -1692,10 +1684,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                                         description: outline history version id
                                                     updated_at:
                                                         type: string
-                                                        description: update time in requested timezone (or app timezone if not specified)
-                                                    updated_at_display:
-                                                        type: string
-                                                        description: formatted update time for direct display
+                                                        description: UTC update timestamp (ISO 8601)
                                                     updated_user_bid:
                                                         type: string
                                                         description: updater user bid
@@ -1704,9 +1693,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                                         description: updater display name
         """
         limit_raw = request.args.get("limit", 100)
-        timezone_name = (request.args.get("timezone", "") or "").strip() or None
-        if timezone_name and len(timezone_name) > 100:
-            raise_param_error("timezone")
         try:
             limit = int(limit_raw)
         except (TypeError, ValueError):
@@ -1714,7 +1700,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if limit < 1 or limit > 200:
             raise_param_error("limit")
         return make_common_response(
-            get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit, timezone_name)
+            get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit)
         )
 
     @app.route(
@@ -1758,17 +1744,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         except (TypeError, ValueError):
             raise_param_error("version_id")
 
-        timezone_name = (request.args.get("timezone", "") or "").strip() or None
-        if timezone_name and len(timezone_name) > 100:
-            raise_param_error("timezone")
-
         return make_common_response(
             get_shifu_mdflow_history_version_detail(
                 app,
                 shifu_bid,
                 outline_bid,
                 version_id_int,
-                timezone_name,
             )
         )
 

@@ -15,6 +15,7 @@ from .models import (
     PromoRedemption,
 )
 from ...dao import db
+from ...util.datetime import now_utc
 from .consts import (
     COUPON_BATCH_STATUS_ACTIVE,
     COUPON_BATCH_STATUS_INACTIVE,
@@ -118,7 +119,7 @@ def void_promo_campaign_applications(app: Flask, user_bid: str, order_bid: str) 
         ).update(
             {
                 PromoRedemption.status: PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
-                PromoRedemption.updated_at: func.now(),
+                PromoRedemption.updated_at: now_utc(),
             },
             synchronize_session="fetch",
         )

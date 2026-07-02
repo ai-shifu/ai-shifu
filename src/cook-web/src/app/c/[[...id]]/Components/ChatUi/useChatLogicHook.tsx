@@ -78,7 +78,6 @@ import {
   EMPTY_LESSON_RUN_ITEMS,
   useLessonRunContentStore,
 } from '@/c-store/useLessonRunContentStore';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
 
 interface LessonFeedbackPopupState {
@@ -2623,12 +2622,10 @@ function useChatLogicHook({
       });
       let shouldShowLessonUpdateNotice = false;
       if (effectivePreviewMode && recordResp?.elements?.length > 0) {
-        const timezone = getBrowserTimeZone();
         const draftMeta = await api
           .getShifuDraftMeta({
             shifu_bid: shifuBid,
             outline_bid: outlineBid,
-            ...(timezone ? { timezone } : {}),
           })
           .catch(() => null);
         const latestDraftUpdatedAt = parseLessonHistoryDate(

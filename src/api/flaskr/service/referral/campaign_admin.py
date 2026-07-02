@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from math import ceil
 from typing import Any
@@ -326,7 +326,13 @@ def _normalize_page(page_index: int, page_size: int) -> tuple[int, int]:
 
 
 def _serialize_dt(value: datetime | None) -> str:
-    return value.isoformat() if value is not None else ""
+    # Match the API fmt sink: stored values are UTC; treat naive as UTC and emit
+    # ISO 8601 with a 'Z' suffix so the frontend can convert to the viewer's tz.
+    if value is None:
+        return ""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _serialize_decimal(value: Decimal | None) -> str | None:

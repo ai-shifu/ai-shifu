@@ -32,25 +32,7 @@ from flaskr.service.learn.models import (
 from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
-from flaskr.util.timezone import get_app_timezone, serialize_with_app_timezone
-
-_LEARN_PROGRESS_SOURCE_TIMEZONE = "Asia/Shanghai"
-
-
-def _serialize_progress_updated_at(
-    app: Flask,
-    value,
-    *,
-    timezone_name: str | None = None,
-) -> str | None:
-    if value is None:
-        return None
-    if getattr(value, "tzinfo", None) is not None:
-        return serialize_with_app_timezone(app, value, timezone_name)
-
-    source_tz = get_app_timezone(app, _LEARN_PROGRESS_SOURCE_TIMEZONE)
-    localized_value = value.replace(tzinfo=source_tz)
-    return serialize_with_app_timezone(app, localized_value, timezone_name)
+from flaskr.util.datetime import to_utc_iso
 
 
 def _load_interaction_user_input_by_block_bid(
@@ -716,7 +698,6 @@ def get_listen_element_record(
     shifu_bid: str,
     outline_bid: str,
     user_bid: str,
-    timezone_name: str | None = None,
     include_non_navigable: bool = False,
     build_record_from_legacy: Callable[[LegacyLearnRecord], LearnElementRecordDTO],
     load_fallback_record: Callable[[], LegacyLearnRecord],
@@ -745,13 +726,7 @@ def get_listen_element_record(
             or updated_at > latest_progress_updated_at_dt
         ):
             latest_progress_updated_at_dt = updated_at
-    latest_progress_updated_at = None
-    if latest_progress_updated_at_dt is not None:
-        latest_progress_updated_at = _serialize_progress_updated_at(
-            app,
-            latest_progress_updated_at_dt,
-            timezone_name=timezone_name,
-        )
+    latest_progress_updated_at = to_utc_iso(latest_progress_updated_at_dt)
     progress_records = _dedupe_progress_records_by_block_position(progress_records)
     progress_record_bids = [
         pr.progress_record_bid for pr in progress_records if pr.progress_record_bid

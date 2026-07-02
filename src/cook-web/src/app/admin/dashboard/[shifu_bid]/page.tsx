@@ -11,7 +11,6 @@ import Loading from '@/components/loading';
 import { Card, CardContent } from '@/components/ui/Card';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ErrorWithCode } from '@/lib/request';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { useUserStore } from '@/store';
 import type {
@@ -85,7 +84,6 @@ export default function AdminDashboardCourseDetailPage() {
   const currencySymbol = useEnvStore(state => state.currencySymbol || '¥');
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  const timezone = getBrowserTimeZone();
 
   const [detail, setDetail] =
     useState<DashboardCourseDetailResponse>(EMPTY_DETAIL);
@@ -155,7 +153,6 @@ export default function AdminDashboardCourseDetailPage() {
     try {
       const response = (await api.getDashboardCourseDetail({
         shifu_bid: shifuBid,
-        ...(timezone ? { timezone } : {}),
       })) as DashboardCourseDetailResponse;
       if (requestId !== detailRequestIdRef.current) {
         return;
@@ -178,7 +175,7 @@ export default function AdminDashboardCourseDetailPage() {
         setDetailLoading(false);
       }
     }
-  }, [shifuBid, t, timezone]);
+  }, [shifuBid, t]);
 
   const fetchLearners = useCallback(
     async (
@@ -212,7 +209,6 @@ export default function AdminDashboardCourseDetailPage() {
               : nextFilters.learningStatus,
           last_learning_start_time: nextFilters.lastLearningStart,
           last_learning_end_time: nextFilters.lastLearningEnd,
-          ...(timezone ? { timezone } : {}),
         })) as DashboardCourseLearnersResponse;
         if (requestId !== learnersRequestIdRef.current) {
           return;
@@ -236,7 +232,7 @@ export default function AdminDashboardCourseDetailPage() {
         }
       }
     },
-    [shifuBid, t, timezone],
+    [shifuBid, t],
   );
 
   useEffect(() => {

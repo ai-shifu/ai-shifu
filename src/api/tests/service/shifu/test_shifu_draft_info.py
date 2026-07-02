@@ -185,9 +185,7 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(app, monkey
     assert detail.ask_provider_config == ask_provider_config
 
 
-def test_get_draft_meta_route_serializes_requested_timezone(
-    app, test_client, monkeypatch
-):
+def test_get_draft_meta_route_serializes_utc_timestamp(app, test_client, monkeypatch):
     from flaskr.service.shifu.models import DraftOutlineItem
 
     shifu_bid = "test-draft-meta-timezone"
@@ -216,12 +214,11 @@ def test_get_draft_meta_route_serializes_requested_timezone(
         dao.db.session.commit()
 
     response = test_client.get(
-        f"/api/shifu/shifus/{shifu_bid}/draft-meta"
-        f"?outline_bid={outline_bid}&timezone=Asia/Shanghai",
+        f"/api/shifu/shifus/{shifu_bid}/draft-meta?outline_bid={outline_bid}",
         headers={"Token": "test-token"},
     )
     payload = response.get_json(force=True)
 
     assert response.status_code == 200
     assert payload["code"] == 0
-    assert payload["data"]["updated_at"] == "2026-06-30T13:37:42+08:00"
+    assert payload["data"]["updated_at"] == "2026-06-30T05:37:42Z"

@@ -11,6 +11,7 @@
   "hoursAgo": "{count, plural, one {# hour ago} other {# hours ago}}",
   "justNow": "Just now",
   "lastLessonModified": "Last updated",
+  "lastLessonModifiedWithRelativeTime": "Last updated: {relativeTime}",
   "learningLink": "Learning link",
   "listenModeRequiresTts": "Enable Listen mode in course settings to use this option",
   "minutesAgo": "{count, plural, one {# minute ago} other {# minutes ago}}",
