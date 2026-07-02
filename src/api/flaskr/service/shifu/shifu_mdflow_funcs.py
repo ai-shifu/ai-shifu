@@ -3,7 +3,7 @@ from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.common import raise_error
-from flaskr.dao import db
+from flaskr.dao import db, retry_on_deadlock
 from flaskr.service.shifu.dtos import MdflowDTOParseResult
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from typing import TypedDict
@@ -139,6 +139,7 @@ def cleanup_outline_history_versions(
     )
 
 
+@retry_on_deadlock()
 def save_shifu_mdflow(
     app: Flask,
     user_id: str,

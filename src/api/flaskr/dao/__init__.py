@@ -2,14 +2,64 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from redis import Redis
 from sqlalchemy import event
+from sqlalchemy.exc import OperationalError
+import functools
 import sqlparse
 import logging
+import time
 import traceback
 import os
 
 # create a global db object
 db = None
 redis_client = None
+
+# MySQL error codes that indicate a transient locking conflict; the current
+# transaction is already rolled back by the server, so re-running it is the
+# documented remedy.
+MYSQL_DEADLOCK_ERRNO = 1213
+MYSQL_LOCK_WAIT_TIMEOUT_ERRNO = 1205
+
+
+def _is_retryable_operational_error(exc: OperationalError) -> bool:
+    orig = getattr(exc, "orig", None)
+    args = getattr(orig, "args", None)
+    if not args:
+        return False
+    return args[0] in (MYSQL_DEADLOCK_ERRNO, MYSQL_LOCK_WAIT_TIMEOUT_ERRNO)
+
+
+def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
+    """
+    Retry a transactional function when MySQL reports a deadlock (1213) or a
+    lock wait timeout (1205). The failed transaction is rolled back before each
+    retry so the next attempt starts from a clean session. Non-retryable errors
+    and the final attempt propagate unchanged.
+    """
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            attempt = 0
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except OperationalError as exc:
+                    attempt += 1
+                    if attempt >= max_attempts or not _is_retryable_operational_error(
+                        exc
+                    ):
+                        raise
+                    if db is not None:
+                        try:
+                            db.session.rollback()
+                        except Exception:  # noqa: BLE001 - best-effort cleanup
+                            pass
+                    time.sleep(backoff_seconds * attempt)
+
+        return wrapper
+
+    return decorator
 
 
 def init_db(app: Flask):
