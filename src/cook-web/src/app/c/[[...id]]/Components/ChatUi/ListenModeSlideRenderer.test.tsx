@@ -86,6 +86,9 @@ jest.mock('markdown-flow-ui/slide', () => {
   };
 });
 
+const getClassTokens = (className?: string) =>
+  (className ?? '').split(/\s+/).filter(Boolean);
+
 jest.mock('./useChatLogicHook', () => ({
   ChatContentItemType: {
     ASK: 'ask',
@@ -242,10 +245,10 @@ describe('ListenModeSlideRenderer', () => {
       | { playerClassName?: string }
       | undefined;
 
-    expect(slideProps?.playerClassName ?? '').toContain('listen-slide-player');
-    expect(slideProps?.playerClassName ?? '').not.toContain(
-      'classroom-slide-player',
-    );
+    const playerClassTokens = getClassTokens(slideProps?.playerClassName);
+
+    expect(playerClassTokens).toContain('listen-slide-player');
+    expect(playerClassTokens).not.toContain('classroom-slide-player');
   });
 
   it('passes selected interaction user input to the slide during playback', () => {
@@ -512,12 +515,10 @@ describe('ListenModeSlideRenderer', () => {
     expect(slideProps?.playerCustomActions).toBeNull();
     expect(slideProps?.disableLoadingOverlay).toBe(true);
     expect(slideProps?.showPlayer).toBe(true);
-    expect(slideProps?.playerClassName ?? '').toContain(
-      'classroom-slide-player',
-    );
-    expect(slideProps?.playerClassName ?? '').not.toContain(
-      'listen-slide-player',
-    );
+    const playerClassTokens = getClassTokens(slideProps?.playerClassName);
+
+    expect(playerClassTokens).toContain('classroom-slide-player');
+    expect(playerClassTokens).not.toContain('listen-slide-player');
     expect(slideProps?.className ?? '').toContain('listen-slide-root');
     expect(slideProps?.className ?? '').not.toContain('classroom-slide-root');
     expect(
