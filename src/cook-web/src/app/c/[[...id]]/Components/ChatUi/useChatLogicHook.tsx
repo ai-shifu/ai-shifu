@@ -273,6 +273,7 @@ export interface UseChatSessionParams {
   lessonId: string;
   chapterId?: string;
   previewMode?: boolean;
+  lessonHasContentUpdate?: boolean;
   isListenMode?: boolean;
   listenRequestEnabled?: boolean;
   shouldPromptLessonFeedback?: boolean;
@@ -324,7 +325,7 @@ export interface UseChatSessionResult {
     onClose: () => void;
     onSubmit: (score: number, comment: string) => void;
   };
-  showPreviewUpdateNotice: boolean;
+  showLessonUpdateNotice: boolean;
 }
 
 /**
@@ -337,6 +338,7 @@ function useChatLogicHook({
   lessonId,
   chapterId,
   previewMode,
+  lessonHasContentUpdate = false,
   isListenMode = false,
   listenRequestEnabled = false,
   shouldPromptLessonFeedback = true,
@@ -410,7 +412,7 @@ function useChatLogicHook({
   const isTypeFinishedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const isInitHistoryRef = useRef(true);
-  const [showPreviewUpdateNotice, setShowPreviewUpdateNotice] = useState(false);
+  const [showLessonUpdateNotice, setShowLessonUpdateNotice] = useState(false);
   // const [lastInteractionBlock, setLastInteractionBlock] =
   //   useState<ChatContentItem | null>(null);
   const [loadedChapterId, setLoadedChapterId] = useState('');
@@ -2615,7 +2617,7 @@ function useChatLogicHook({
     setIsLoading(true);
     hasScrolledToBottomRef.current = false;
     isInitHistoryRef.current = true;
-    setShowPreviewUpdateNotice(false);
+    setShowLessonUpdateNotice(false);
 
     try {
       const recordResp = await getLessonStudyRecord({
@@ -2626,7 +2628,7 @@ function useChatLogicHook({
       if (!isCurrentRefresh()) {
         return;
       }
-      let shouldShowPreviewUpdate = false;
+      let shouldShowLessonUpdateNotice = false;
       const latestStudyUpdatedAt =
         effectivePreviewMode && recordResp?.elements?.length > 0
           ? parseLessonHistoryDate(recordResp.last_progress_updated_at)
@@ -2648,16 +2650,18 @@ function useChatLogicHook({
         const latestDraftUpdatedAt = parseLessonHistoryDate(
           draftMeta?.updated_at,
         );
-        shouldShowPreviewUpdate = Boolean(
+        shouldShowLessonUpdateNotice = Boolean(
           latestDraftUpdatedAt &&
           latestStudyUpdatedAt &&
           latestDraftUpdatedAt.getTime() > latestStudyUpdatedAt.getTime(),
         );
+      } else if (!effectivePreviewMode && recordResp?.elements?.length > 0) {
+        shouldShowLessonUpdateNotice = Boolean(lessonHasContentUpdate);
       }
       if (!isCurrentRefresh()) {
         return;
       }
-      setShowPreviewUpdateNotice(shouldShowPreviewUpdate);
+      setShowLessonUpdateNotice(shouldShowLessonUpdateNotice);
 
       if (recordResp?.elements?.length > 0) {
         const contentRecords = mapRecordsToContent(recordResp.elements);
@@ -2700,7 +2704,7 @@ function useChatLogicHook({
           });
         }
       } else {
-        setShowPreviewUpdateNotice(false);
+        setShowLessonUpdateNotice(false);
         runRef.current?.({
           input: '',
           input_type: SSE_INPUT_TYPE.NORMAL,
@@ -2714,7 +2718,7 @@ function useChatLogicHook({
       }
     } catch (error) {
       if (isCurrentRefresh()) {
-        setShowPreviewUpdateNotice(false);
+        setShowLessonUpdateNotice(false);
       }
       console.warn('refreshData error:', error);
     } finally {
@@ -2726,6 +2730,7 @@ function useChatLogicHook({
     chapterId,
     getLessonFeedbackDefaults,
     isLessonFeedbackContent,
+    lessonHasContentUpdate,
     mapRecordsToContent,
     openLessonFeedbackPopup,
     outlineBid,
@@ -3788,7 +3793,7 @@ function useChatLogicHook({
       onClose: handleLessonFeedbackPopupClose,
       onSubmit: handleLessonFeedbackPopupSubmit,
     },
-    showPreviewUpdateNotice,
+    showLessonUpdateNotice,
   };
 }
 
