@@ -295,7 +295,7 @@ const BILLING_RENEWAL_EVENT_STATUS_KEYS: Record<
 };
 
 const BILLING_DATETIME_RE =
-  /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2}(?:\.\d+)?)(Z|[+-]\d{2}:\d{2})?$/;
+  /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::(\d{2}(?:\.\d+)?))?(Z|[+-]\d{2}:\d{2})?$/;
 // Billing serializers always emit an offset, so this fallback is effectively
 // unreachable. If an offsetless instant ever appears, interpret it as UTC to
 // match the UTC-canonical database (never assume Beijing time).
@@ -323,7 +323,9 @@ function normalizeBillingDateTimeValue(
     return normalizedValue;
   }
 
-  return `${billingDateTimeMatch[1]}T${billingDateTimeMatch[2]}${billingDateTimeMatch[3] || BILLING_SOURCE_OFFSET}`;
+  const seconds = billingDateTimeMatch[3] || '00';
+  const offset = billingDateTimeMatch[4] || BILLING_SOURCE_OFFSET;
+  return `${billingDateTimeMatch[1]}T${billingDateTimeMatch[2]}:${seconds}${offset}`;
 }
 
 type FormatBillingNumberOptions = {

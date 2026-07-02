@@ -453,6 +453,12 @@ describe('billing datetime display helpers', () => {
     );
   });
 
+  test('normalizes minute-precision timestamps before display formatting', () => {
+    expect(formatBillingDateTime('2026-04-14T07:32Z', 'zh-CN')).toBe(
+      '2026-04-14 15:32:00',
+    );
+  });
+
   test('formats offset-aware billing timestamps with the admin browser-timezone rule', () => {
     expect(formatBillingDateTime('2026-04-14T07:32:00+08:00', 'en-US')).toBe(
       '2026-04-14 07:32:00',
@@ -461,6 +467,9 @@ describe('billing datetime display helpers', () => {
 
   test('keeps compact billing timestamps aligned to the admin formatter', () => {
     expect(formatBillingCompactDateTime('2026-04-14T07:32:00Z', 'zh-CN')).toBe(
+      '2026-04-14 15:32',
+    );
+    expect(formatBillingCompactDateTime('2026-04-14T07:32Z', 'zh-CN')).toBe(
       '2026-04-14 15:32',
     );
   });
