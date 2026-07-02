@@ -156,7 +156,7 @@
   &.mobile {
     width: 100%;
     // padding-top: 80px;
-    // padding-bottom: 40px;
+    // padding-bottom: var(--chat-footer-height);
     overflow: hidden;
     .chatComponents {
       padding-top: 0;
@@ -178,15 +178,13 @@
       calc(var(--app-viewport-block-unit, 1dvh) * 100) - var(
           --mobile-chat-header-height,
           44px
-        ) -
-        40px
+        ) - var(--chat-footer-height)
     );
     max-height: calc(
       calc(var(--app-viewport-block-unit, 1dvh) * 100) - var(
           --mobile-chat-header-height,
           44px
-        ) -
-        40px
+        ) - var(--chat-footer-height)
     );
     min-height: 0;
     flex-direction: column;

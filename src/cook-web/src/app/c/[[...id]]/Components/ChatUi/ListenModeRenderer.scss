@@ -376,7 +376,9 @@
 }
 
 .slide-ask-overlay {
-  --slide-player-bottom-offset: calc(var(--chat-footer-height, 40px) + 24px);
+  --slide-player-bottom-offset: calc(
+    var(--chat-footer-height, 40px) + var(--listen-player-footer-gap, 12px)
+  );
   --slide-player-height: 80px;
   --slide-interaction-gap: 16px;
   position: absolute;
@@ -474,7 +476,7 @@
 }
 
 @media (max-width: 640px) {
-  .slide-ask-overlay {
+  .listen-reveal-wrapper.mobile .slide-ask-overlay {
     --slide-player-bottom-offset: 0px;
   }
 

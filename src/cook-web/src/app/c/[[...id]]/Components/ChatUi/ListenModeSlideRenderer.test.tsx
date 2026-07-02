@@ -73,10 +73,7 @@ jest.mock('markdown-flow-ui/slide', () => {
           | React.ReactNode
           | ((context: typeof slideCustomActionContext) => React.ReactNode);
       }) => (
-        <div
-          data-player-class-name={props.playerClassName ?? ''}
-          data-testid='mock-slide'
-        >
+        <div data-testid='mock-slide'>
           <audio data-testid='slide-audio' />
           <div data-testid='slide-custom-actions'>
             {typeof props.playerCustomActions === 'function'
