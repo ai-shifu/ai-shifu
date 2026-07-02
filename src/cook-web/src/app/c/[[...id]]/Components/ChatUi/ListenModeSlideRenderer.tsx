@@ -1896,6 +1896,7 @@ const ListenModeSlideRenderer = ({
       className={cn(
         'listen-reveal-wrapper',
         previewMode && !mobileStyle && 'listen-reveal-wrapper--preview',
+        variant === 'classroom' && 'listen-reveal-wrapper--classroom',
         mobileStyle ? 'mobile bg-white' : 'bg-[var(--color-slide-desktop-bg)]',
       )}
       ref={chatRef}

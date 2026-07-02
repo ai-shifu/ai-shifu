@@ -523,7 +523,7 @@ describe('ListenModeSlideRenderer', () => {
     expect(slideProps?.className ?? '').not.toContain('classroom-slide-root');
     expect(
       screen.getByTestId('mock-slide').closest('.listen-reveal-wrapper'),
-    ).not.toHaveClass('listen-reveal-wrapper--classroom');
+    ).toHaveClass('listen-reveal-wrapper--classroom');
     expect(
       screen.queryByRole('button', {
         name: 'module.chat.listenPlaybackSpeedAriaLabel',
