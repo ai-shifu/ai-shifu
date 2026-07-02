@@ -127,5 +127,8 @@
     "sass": "^1.89.2",
     "tailwindcss": "^4.1.13",
     "typescript": "^5"
+  },
+  "overrides": {
+    "lodash-es": "4.18.1"
   }
 }
