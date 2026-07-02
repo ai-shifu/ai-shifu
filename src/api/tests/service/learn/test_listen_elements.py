@@ -259,7 +259,7 @@ def test_get_listen_element_record_serializes_progress_time_as_utc(app):
     generated_block_bid = "generated-listen-progress-timezone"
 
     original_tz = app.config.get("TZ")
-    app.config["TZ"] = "UTC"
+    app.config["TZ"] = "Asia/Shanghai"
 
     try:
         with app.app_context():
@@ -334,7 +334,7 @@ def test_get_listen_element_record_treats_naive_progress_time_as_utc(app):
     generated_block_bid = "generated-listen-progress-utc"
 
     original_tz = app.config.get("TZ")
-    app.config["TZ"] = "UTC"
+    app.config["TZ"] = "Asia/Shanghai"
 
     try:
         with app.app_context():

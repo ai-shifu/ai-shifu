@@ -343,22 +343,28 @@ def get_outline_item_tree(
             latest_progress_record = latest_progress_record_map.get(
                 progress_record.outline_item_bid
             )
+            progress_updated_at = _resolve_progress_effective_updated_at(
+                progress_record
+            )
+            latest_progress_updated_at = _resolve_progress_effective_updated_at(
+                latest_progress_record
+            )
             if latest_progress_record is None:
                 latest_progress_record_map[progress_record.outline_item_bid] = (
                     progress_record
                 )
             elif (
                 (
-                    progress_record.updated_at is not None
-                    and latest_progress_record.updated_at is not None
-                    and progress_record.updated_at > latest_progress_record.updated_at
+                    progress_updated_at is not None
+                    and latest_progress_updated_at is not None
+                    and progress_updated_at > latest_progress_updated_at
                 )
                 or (
-                    latest_progress_record.updated_at is None
-                    and progress_record.updated_at is not None
+                    latest_progress_updated_at is None
+                    and progress_updated_at is not None
                 )
                 or (
-                    progress_record.updated_at == latest_progress_record.updated_at
+                    progress_updated_at == latest_progress_updated_at
                     and progress_record.id > latest_progress_record.id
                 )
             ):
