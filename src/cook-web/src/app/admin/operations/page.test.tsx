@@ -20,6 +20,7 @@ const originalFetch = global.fetch;
 const originalWindow = global.window;
 const RETRY_LABEL = 'retry';
 const MOCK_DIALOG_CLOSE_LABEL = 'mock-dialog-close';
+const mockBrowserTimeZone = jest.fn(() => 'UTC');
 const LONG_COURSE_PROMPT =
   'You are a patient course assistant. Help learners build understanding step by step, summarize key ideas clearly, and always connect each answer back to the course context.';
 let mockLanguage = 'en-US';
@@ -180,6 +181,11 @@ jest.mock('@/components/ErrorDisplay', () => ({
 jest.mock('@/components/loading', () => ({
   __esModule: true,
   default: () => <div data-testid='loading-indicator' />,
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('@/components/ui/Select', () => {
@@ -521,6 +527,8 @@ describe('OperationsPage', () => {
     mockToast.mockReset();
     mockErrorDisplay.mockReset();
     mockCopyText.mockReset();
+    mockBrowserTimeZone.mockReset();
+    mockBrowserTimeZone.mockReturnValue('UTC');
     mockGetAdminOperationCoursesOverview.mockReset();
     mockGetAdminOperationCourses.mockReset();
     mockGetAdminOperationCoursePrompt.mockReset();
@@ -682,7 +690,8 @@ describe('OperationsPage', () => {
     expect(screen.queryByText('76,384')).not.toBeInTheDocument();
   });
 
-  test('keeps course metadata timestamps as returned wall-clock time', async () => {
+  test('converts course metadata timestamps to the browser timezone', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourses.mockResolvedValueOnce({
       items: [
         {
@@ -700,8 +709,8 @@ describe('OperationsPage', () => {
           updater_mobile: '',
           updater_email: 'editor@example.com',
           updater_nickname: '',
-          created_at: '2026-06-09T12:01:50+08:00',
-          updated_at: '2026-06-09T13:01:50+08:00',
+          created_at: '2026-06-09T12:01:50Z',
+          updated_at: '2026-06-09T13:01:50Z',
         },
       ],
       page: 1,
@@ -712,9 +721,10 @@ describe('OperationsPage', () => {
 
     await renderAndWaitForLoadedPage();
 
-    expect(screen.getByText('2026-06-09 12:01:50')).toBeInTheDocument();
-    expect(screen.getByText('2026-06-09 13:01:50')).toBeInTheDocument();
-    expect(screen.queryByText('2026-06-09 04:01:50')).not.toBeInTheDocument();
+    expect(screen.getByText('2026-06-09 05:01:50')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-09 06:01:50')).toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 12:01:50')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 13:01:50')).not.toBeInTheDocument();
   });
 
   test('navigates from course name and transfers creator from the action menu', async () => {

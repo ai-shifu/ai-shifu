@@ -15,6 +15,7 @@ import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -1201,8 +1202,12 @@ const OperationsPage = () => {
           resolveActorDisplay(course, 'updater').primary,
           resolveActorDisplay(course, 'updater').secondary,
         ],
-        updatedAt: course => [course.updated_at],
-        createdAt: course => [course.created_at],
+        updatedAt: course => [
+          formatAdminUtcDateTime(course.updated_at) || EMPTY_STATE_LABEL,
+        ],
+        createdAt: course => [
+          formatAdminUtcDateTime(course.created_at) || EMPTY_STATE_LABEL,
+        ],
         action: () => [t('common.core.more')],
       };
 
