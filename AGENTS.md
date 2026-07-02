@@ -40,6 +40,15 @@ to.
   `default=now_utc` / `onupdate=now_utc`. The DB session is pinned to UTC in
   `src/api/flaskr/dao/__init__.py`; treat that as a safety net, not a license
   to write local time.
+- Serialize timestamps as UTC ISO-8601 with a trailing `Z` on the read side.
+  Prefer leaving DTO datetime fields as raw `datetime | None` and letting the
+  single serialization sink `fmt()` in `src/api/flaskr/route/common.py` emit
+  them (it treats naive values as UTC and converts aware values to UTC). When
+  you must serialize by hand, use `to_utc_iso()` in
+  `src/api/flaskr/util/datetime.py`; return `null` for missing times rather
+  than `""` or a pre-formatted string. Display-time timezone conversion is a
+  pure frontend concern: the browser renders UTC via helpers such as
+  `formatAdminUtcDateTime`, so the API must not localize by request timezone.
 - In Chinese user-facing text and Chinese docs, do not use `创作者` as a
   generic product term. Use `老师` for the general course-building or teacher
   account role; use `课程负责人` or, inside an existing course context,
@@ -63,6 +72,13 @@ to.
   `CURRENT_TIMESTAMP` defaults and naked `datetime.now()` / `datetime.utcnow()`
   for stored times. They depend on the DB session or process time zone and
   reintroduce the UTC-vs-local drift; use `now_utc()` instead.
+- Do not bypass the read-side UTC contract: avoid emitting API datetimes with a
+  naive `datetime.isoformat()` / `strftime(...)` (no `Z`), do not localize
+  display times server-side from a request/browser `?timezone=` param, and do
+  not compare timestamps that carry different serialization contracts (naive
+  vs offset-aware, or string vs string) — normalize both to UTC before
+  comparing. These are exactly the drifts that reappear when new code lands in
+  modules the UTC sweep has not yet reached.
 
 ## Commands
 
