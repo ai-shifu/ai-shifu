@@ -22,6 +22,7 @@ import type {
   BillingUsageScene,
   BillingUsageType,
 } from '@/types/billing';
+import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 
 type BillingTranslator = (
   key: string,
@@ -293,8 +294,8 @@ const BILLING_RENEWAL_EVENT_STATUS_KEYS: Record<
   canceled: 'module.billing.renewal.status.canceled',
 };
 
-const BILLING_OFFSETLESS_DATETIME_RE =
-  /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2}(?:\.\d+)?)$/;
+const BILLING_DATETIME_RE =
+  /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2}(?:\.\d+)?)(Z|[+-]\d{2}:\d{2})?$/;
 // Billing serializers always emit an offset, so this fallback is effectively
 // unreachable. If an offsetless instant ever appears, interpret it as UTC to
 // match the UTC-canonical database (never assume Beijing time).
@@ -304,6 +305,26 @@ const BILLING_DISPLAY_RULE = {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
 } as const;
+
+function normalizeBillingDateTimeValue(
+  value: string | null | undefined,
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = String(value).trim();
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const billingDateTimeMatch = normalizedValue.match(BILLING_DATETIME_RE);
+  if (!billingDateTimeMatch) {
+    return normalizedValue;
+  }
+
+  return `${billingDateTimeMatch[1]}T${billingDateTimeMatch[2]}${billingDateTimeMatch[3] || BILLING_SOURCE_OFFSET}`;
+}
 
 type FormatBillingNumberOptions = {
   currency?: string;
@@ -446,21 +467,10 @@ export function buildBillingSwrKey(baseKey: string, ...parts: unknown[]) {
 export function parseBillingDateValue(
   value: string | null | undefined,
 ): Date | null {
-  if (!value) {
+  const candidateValue = normalizeBillingDateTimeValue(value);
+  if (!candidateValue) {
     return null;
   }
-
-  const normalizedValue = String(value).trim();
-  if (!normalizedValue) {
-    return null;
-  }
-
-  const legacyOffsetlessMatch = normalizedValue.match(
-    BILLING_OFFSETLESS_DATETIME_RE,
-  );
-  const candidateValue = legacyOffsetlessMatch
-    ? `${legacyOffsetlessMatch[1]}T${legacyOffsetlessMatch[2]}${BILLING_SOURCE_OFFSET}`
-    : normalizedValue;
 
   const date = new Date(candidateValue);
   if (Number.isNaN(date.getTime())) {
@@ -504,39 +514,19 @@ export function formatBillingDateTime(
   value: string | null | undefined,
   locale: string,
 ): string {
-  const date = parseBillingDateValue(value);
-  if (!date) {
-    return '';
-  }
-  return new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+  void locale;
+  return formatAdminUtcDateTime(normalizeBillingDateTimeValue(value));
 }
 
 export function formatBillingCompactDateTime(
   value: string | null | undefined,
   locale: string,
 ): string {
-  const date = parseBillingDateValue(value);
-  if (!date) {
-    return '';
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
-
-  if (locale.toLowerCase().startsWith('zh')) {
-    return `${year}年${month}月${day}日 ${hour}:${minute}`;
-  }
-
-  return `${year}-${month}-${day} ${hour}:${minute}`;
+  void locale;
+  const formattedValue = formatAdminUtcDateTime(
+    normalizeBillingDateTimeValue(value),
+  );
+  return formattedValue ? formattedValue.slice(0, 16) : '';
 }
 
 export function formatBillingPlanInterval(

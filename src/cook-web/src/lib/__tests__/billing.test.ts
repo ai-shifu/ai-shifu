@@ -9,6 +9,8 @@ import {
   getBillingProductCampaignBonusCredits,
   hasBillingProductBonusCampaign,
   extractBillingPingxxQrCode,
+  formatBillingCompactDateTime,
+  formatBillingDateTime,
   parseBillingDateValue,
   resolveBillingLedgerUsageType,
   resolveBillingLedgerReasonLabel,
@@ -18,6 +20,10 @@ import {
 } from '@/lib/billing';
 import type { BillingLedgerItem, BillingPlan } from '@/types/billing';
 import type { BillingCheckoutResult } from '@/types/billing';
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
 
 const monthlyPlan: BillingPlan = {
   product_bid: 'bill-product-plan-monthly',
@@ -415,6 +421,36 @@ describe('parseBillingDateValue', () => {
     expect(
       parseBillingDateValue('2026-04-14T07:32:00+08:00')?.toISOString(),
     ).toBe('2026-04-13T23:32:00.000Z');
+  });
+
+  test('normalizes space-separated offset-aware instants', () => {
+    expect(
+      parseBillingDateValue('2026-04-14 07:32:00Z')?.toISOString(),
+    ).toBe('2026-04-14T07:32:00.000Z');
+  });
+});
+
+describe('billing datetime display helpers', () => {
+  test('formats UTC billing timestamps with the admin browser-timezone rule', () => {
+    expect(formatBillingDateTime('2026-04-14T07:32:00Z', 'zh-CN')).toBe(
+      '2026-04-14 15:32:00',
+    );
+  });
+
+  test('formats offset-aware billing timestamps with the admin browser-timezone rule', () => {
+    expect(formatBillingDateTime('2026-04-14T07:32:00+08:00', 'en-US')).toBe(
+      '2026-04-14 07:32:00',
+    );
+  });
+
+  test('keeps compact billing timestamps aligned to the admin formatter', () => {
+    expect(formatBillingCompactDateTime('2026-04-14T07:32:00Z', 'zh-CN')).toBe(
+      '2026-04-14 15:32',
+    );
+  });
+
+  test('rejects date-only values for datetime display', () => {
+    expect(formatBillingDateTime('2026-04-14', 'zh-CN')).toBe('');
   });
 });
 
