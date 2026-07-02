@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 import AdminOperationReferralsPage from './page';
 
@@ -7,8 +7,6 @@ jest.mock('@/api', () => ({
   default: {
     getAdminOperationReferrals: jest.fn(),
     getAdminOperationReferralsOverview: jest.fn(),
-    getAdminOperationReferralDetail: jest.fn(),
-    updateAdminOperationReferralStatus: jest.fn(),
   },
 }));
 
@@ -126,13 +124,6 @@ describe('AdminOperationReferralsPage', () => {
       page_size: 20,
       total: 1,
     });
-    (api.getAdminOperationReferralDetail as jest.Mock).mockResolvedValue(
-      relation,
-    );
-    (api.updateAdminOperationReferralStatus as jest.Mock).mockResolvedValue({
-      ...relation,
-      abnormal_status: 7842,
-    });
   });
 
   test('renders referral rows and overview metrics', async () => {
@@ -147,56 +138,13 @@ describe('AdminOperationReferralsPage', () => {
     expect(screen.getByText('AB12CD34')).toBeInTheDocument();
   });
 
-  test('opens relation detail and sends status update', async () => {
+  test('does not render relation detail action', async () => {
     render(<AdminOperationReferralsPage />);
 
     await screen.findByText('domestic_creator_invite_202606');
-    const detailButton = await screen.findByTestId(
-      'referral-detail-relation-1',
-    );
-    fireEvent.click(detailButton);
-
-    await waitFor(() =>
-      expect(api.getAdminOperationReferralDetail).toHaveBeenCalledWith({
-        relation_bid: 'relation-1',
-      }),
-    );
-
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.referral.operator.actions.markReviewing',
-      }),
-    );
-
-    await waitFor(() =>
-      expect(api.updateAdminOperationReferralStatus).toHaveBeenCalledWith(
-        expect.objectContaining({
-          relation_bid: 'relation-1',
-          abnormal_status: 'reviewing',
-        }),
-      ),
-    );
-  });
-
-  test('renders inviter reward queue in relation detail', async () => {
-    render(<AdminOperationReferralsPage />);
-
-    await screen.findByText('domestic_creator_invite_202606');
-    fireEvent.click(await screen.findByTestId('referral-detail-relation-1'));
 
     expect(
-      await screen.findByText(
-        'module.referral.operator.detail.rewardQueue.title',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText('reward-queue-1')).toBeInTheDocument();
-    expect(screen.getByText('reward-queue-2')).toBeInTheDocument();
-    expect(screen.getByText('order-queue-1')).toBeInTheDocument();
-    expect(screen.getByText('ledger-queue-1')).toBeInTheDocument();
-    expect(screen.getByText('13900000001')).toBeInTheDocument();
-    expect(screen.getByText('2026-07-01T00:00:00')).toBeInTheDocument();
-    expect(screen.getAllByText('2026-08-01T00:00:00')).toHaveLength(2);
-    expect(screen.getByText('reserved')).toBeInTheDocument();
-    expect(screen.getByText('available')).toBeInTheDocument();
+      screen.queryByTestId('referral-detail-relation-1'),
+    ).not.toBeInTheDocument();
   });
 });

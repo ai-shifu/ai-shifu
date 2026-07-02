@@ -3303,7 +3303,11 @@ describe('AdminOperationPromotionsPage', () => {
 
     await screen.findByText('Domestic Creator Invite');
 
-    fireEvent.click(await screen.findByRole('button', { name: '8' }));
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsPromotion.actions.viewData: module.operationsPromotion.referralCampaign.inviteCodeCount',
+      }),
+    );
 
     expect(
       await screen.findByText(
@@ -3327,7 +3331,11 @@ describe('AdminOperationPromotionsPage', () => {
     });
     fireEvent.click(closeButtons[closeButtons.length - 1]);
 
-    fireEvent.click(await screen.findByRole('button', { name: '14' }));
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsPromotion.actions.viewData: module.operationsPromotion.referralCampaign.relationCount',
+      }),
+    );
 
     await waitFor(() => {
       expect(mockGetReferralCampaignRelations).toHaveBeenCalledWith(

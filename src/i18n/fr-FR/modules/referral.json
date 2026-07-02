@@ -1,11 +1,5 @@
 {
   "__namespace__": "module.referral",
-  "abnormalStatus": {
-    "confirmedAbnormal": "Anomalie confirmée",
-    "normal": "Normal",
-    "reviewing": "En vérification",
-    "unknown": "Statut d’anomalie inconnu"
-  },
   "creator": {
     "copied": "Copié",
     "copyLink": "Copier le lien",
@@ -61,61 +55,12 @@
   },
   "operator": {
     "actions": {
-      "cancelReward": "Annuler relation et récompense",
-      "detail": "Détail",
-      "freezeReward": "Geler la récompense",
-      "markNormal": "Marquer comme normal",
-      "markReviewing": "Marquer en vérification",
       "reset": "Réinitialiser",
       "search": "Rechercher"
     },
-    "description": "Consultez les relations d’invitation, les statuts de récompense, les comptes invités, les artefacts de facturation et les exceptions manuelles.",
-    "detail": {
-      "abnormalStatus": "Statut d’anomalie",
-      "billOrder": "BID de commande",
-      "boundAt": "Date de liaison",
-      "campaign": "Campagne",
-      "inviteCode": "Code d’invitation",
-      "invitee": "Invité",
-      "inviteeMobile": "Mobile de l’invité",
-      "inviter": "Invitant",
-      "ledger": "BID d’écriture",
-      "loading": "Chargement",
-      "operatorNote": "Note opérateur",
-      "operatorNotePlaceholder": "Indiquer la raison de l’action manuelle",
-      "relationBid": "ID de relation",
-      "relationStatus": "Statut de la relation",
-      "reward": "Récompense et facturation",
-      "rewardBid": "BID de récompense",
-      "rewardProduct": "Produit de récompense",
-      "rewardQueue": {
-        "artifacts": {
-          "ledger": "Écriture",
-          "order": "Commande",
-          "reward": "Récompense"
-        },
-        "columns": {
-          "artifacts": "Commande / écriture comptable",
-          "credits": "Crédits",
-          "effectiveAt": "Début",
-          "expiresAt": "Expiration",
-          "index": "Cycle",
-          "invitee": "Invité",
-          "ledgerState": "État comptable",
-          "status": "Statut"
-        },
-        "empty": "Aucune récompense en file d’attente.",
-        "title": "File d’attente des récompenses"
-      },
-      "rewardStatus": "Statut de la récompense",
-      "subscription": "BID d’abonnement",
-      "system": "Informations système",
-      "title": "Détail de la relation d’invitation",
-      "walletBucket": "BID de la réserve de crédits"
-    },
+    "description": "Consultez les relations d’invitation, les statuts de récompense, les comptes invités et les artefacts de facturation.",
     "empty": "Aucune relation d’invitation.",
     "filters": {
-      "abnormalStatus": "Statut d’anomalie",
       "all": "Tous",
       "boundAt": "Date de liaison",
       "campaignBid": "BID de campagne",

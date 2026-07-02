@@ -151,7 +151,6 @@ export default function ReferralCampaignRecordsDialog({
                 tableWrapperClassName='min-h-0 flex-1 overflow-auto'
                 showFooterWhenLoading
                 expandedGridClassName='gap-x-5 xl:grid-cols-4'
-                showDetailAction={false}
                 showUserBidSecondary={false}
               />
             </TabsContent>

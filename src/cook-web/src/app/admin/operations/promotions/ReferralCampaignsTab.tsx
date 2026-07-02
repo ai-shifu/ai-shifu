@@ -368,6 +368,7 @@ export default function ReferralCampaignsTab({
                     {Number(item.relation_count || 0) > 0 ? (
                       <button
                         type='button'
+                        aria-label={`${tPromotion('actions.viewData')}: ${tPromotion('referralCampaign.relationCount')}`}
                         className='text-primary underline-offset-4 hover:underline'
                         onClick={() => void onOpenRecords(item, 'relations')}
                       >
@@ -390,6 +391,7 @@ export default function ReferralCampaignsTab({
                     {Number(item.invite_code_count || 0) > 0 ? (
                       <button
                         type='button'
+                        aria-label={`${tPromotion('actions.viewData')}: ${tPromotion('referralCampaign.inviteCodeCount')}`}
                         className='text-primary underline-offset-4 hover:underline'
                         onClick={() => void onOpenRecords(item, 'invitations')}
                       >
