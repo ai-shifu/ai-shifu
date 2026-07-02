@@ -39,11 +39,6 @@ jest.mock('@/c-store/useCourseStore', () => ({
   ) => (selector ? selector(mockCourseStoreState) : mockCourseStoreState),
 }));
 
-jest.mock('./HeaderBetaBadge', () => ({
-  __esModule: true,
-  default: () => <span data-testid='header-beta-badge' />,
-}));
-
 describe('LearningModeSwitch', () => {
   const requestFullscreen = jest.fn();
   const setMockLocation = (href: string) => {
@@ -124,6 +119,18 @@ describe('LearningModeSwitch', () => {
         stopListener,
       );
     }
+  });
+
+  it('renders listen mode first without a beta badge', () => {
+    render(<LearningModeSwitch />);
+
+    const radios = screen.getAllByRole('radio');
+
+    expect(radios[0]).toHaveAttribute(
+      'aria-label',
+      'module.chat.learningModeListen',
+    );
+    expect(screen.queryByText(/beta/i)).not.toBeInTheDocument();
   });
 
   it('hides classroom mode until preview access is available', () => {
