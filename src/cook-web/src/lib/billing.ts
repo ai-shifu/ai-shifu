@@ -323,7 +323,6 @@ function normalizeBillingDateTimeValue(
   if (billingDateOnlyMatch) {
     return `${billingDateOnlyMatch[1]}T00:00:00Z`;
   }
-
   const billingDateTimeMatch = normalizedValue.match(BILLING_DATETIME_RE);
   if (!billingDateTimeMatch) {
     return normalizedValue;

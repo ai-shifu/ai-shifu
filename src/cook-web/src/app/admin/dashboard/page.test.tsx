@@ -76,7 +76,7 @@ const DASHBOARD_ENTRY_RESPONSE = {
       order_count: 3,
       order_amount: '99.00',
       last_active_at: '2026-03-06T08:00:00Z',
-      last_active_at_display: '2026-03-06 16:00:00',
+      last_active_at_display: 'legacy-display-should-not-render',
     },
   ],
   page: 1,
@@ -164,6 +164,9 @@ describe('AdminDashboardEntryPage', () => {
 
     expect(courseRow).not.toBeNull();
     expect(screen.getByText('2026-03-06 16:00:00')).toBeInTheDocument();
+    expect(
+      screen.queryByText('legacy-display-should-not-render'),
+    ).not.toBeInTheDocument();
     expect(orderButton).not.toBeInTheDocument();
     expect(courseButton).not.toBeInTheDocument();
     expect(courseName).toHaveClass('text-foreground');
