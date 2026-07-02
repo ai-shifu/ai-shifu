@@ -16,7 +16,7 @@ from flaskr.service.shifu.shifu_history_manager import (
 )
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
-    add_profile_item_quick,
+    add_profile_item_quick_internal,
 )
 from flaskr.service.user.models import UserInfo
 from datetime import timedelta
@@ -215,15 +215,16 @@ def save_shifu_mdflow(
                 variables = markdown_flow.extract_variables()
                 for variable in variables:
                     exist_variable = next(
-                        (
-                            v
-                            for v in variable_definitions
-                            if v.profile_key == variable
-                        ),
+                        (v for v in variable_definitions if v.profile_key == variable),
                         None,
                     )
                     if not exist_variable:
-                        add_profile_item_quick(app, shifu_bid, variable, user_id)
+                        # Use the *_internal variant so this shared helper does
+                        # not commit mid-transaction; the outer save owns the
+                        # commit, keeping the write atomic and retry-safe.
+                        add_profile_item_quick_internal(
+                            app, shifu_bid, variable, user_id
+                        )
                 save_outline_history(
                     app,
                     user_id,
