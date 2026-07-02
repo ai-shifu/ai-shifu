@@ -2602,7 +2602,8 @@ function useChatLogicHook({
    */
   const refreshData = useCallback(async () => {
     const refreshSerial = ++refreshDataSerialRef.current;
-    const isCurrentRefresh = () => refreshSerial === refreshDataSerialRef.current;
+    const isCurrentRefresh = () =>
+      refreshSerial === refreshDataSerialRef.current;
 
     resetLessonRunContent(lessonRunContentCacheKey);
     setTrackedContentList(() => []);
