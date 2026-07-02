@@ -1492,7 +1492,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                             description: latest draft revision (course-level or outline content-level when outline_bid is provided)
                                         updated_at:
                                             type: string
-                                            description: last update timestamp
+                                            description: last update timestamp as UTC ISO 8601 with Z suffix
                                         updated_user:
                                             type: object
                                             properties:
