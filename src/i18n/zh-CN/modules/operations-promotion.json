@@ -232,7 +232,7 @@
     "records": {
       "codeEntered": "输入邀请码",
       "generatedAt": "生成时间",
-      "invitationsTab": "邀请情况",
+      "invitationsTab": "邀请码明细",
       "inviteCode": "邀请码",
       "inviteCodeStatus": "状态",
       "inviteCodeStatusActive": "启用",
@@ -248,7 +248,7 @@
       "latestEventAt": "最近事件",
       "linkClicked": "点击链接",
       "pageViewed": "访问落地页",
-      "relationsTab": "参与用户",
+      "relationsTab": "邀请记录",
       "submitted": "提交邀请码",
       "successfulRelations": "成功参与",
       "title": "邀请活动数据",

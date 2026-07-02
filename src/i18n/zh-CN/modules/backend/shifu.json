@@ -12,6 +12,7 @@
     "noPermission": "没有权限",
     "outlineItemNotFound": "大纲单元不存在",
     "outlineNameTooLong": "大纲名称过长",
+    "outlineStructureBroken": "课程大纲结构存在问题（部分单元位置冲突），请检查后重试",
     "parentOutlineNotFound": "父级大纲不存在",
     "permissionContactLimit": "共享权限最多支持{count}个用户",
     "shifuDescriptionTooLong": "课程描述不能超过500个字符",

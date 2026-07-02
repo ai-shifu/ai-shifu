@@ -11,6 +11,7 @@ from sqlalchemy import or_
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
 
@@ -92,11 +93,16 @@ def _serialize_decimal(value: Decimal | None) -> str | None:
 
 def _user_bid_or_identifier_filter(column: Any, value: str) -> Any:
     normalized = _normalize_text(value)
+    candidates = {normalized}
+    phone_normalized = normalize_phone_identifier(normalized)
+    if phone_normalized:
+        candidates.add(phone_normalized)
+    ordered_candidates = sorted(candidates)
     matching_user_bids = db.session.query(UserEntity.user_bid).filter(
         UserEntity.deleted == 0,
-        UserEntity.user_identify == normalized,
+        UserEntity.user_identify.in_(ordered_candidates),
     )
-    return or_(column == normalized, column.in_(matching_user_bids))
+    return or_(column.in_(ordered_candidates), column.in_(matching_user_bids))
 
 
 def _user_contact_map(user_bids: set[str]) -> dict[str, dict[str, str]]:
