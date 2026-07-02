@@ -781,7 +781,7 @@ class TestUpdateConfig:
     @patch("flaskr.service.config.funcs.Config")
     @patch("flaskr.service.config.funcs._decrypt_config")
     @patch("flaskr.service.config.funcs._encrypt_config")
-    def test_update_config_from_cache_encrypted(
+    def test_update_config_ignores_cache_encrypted(
         self,
         mock_encrypt,
         mock_decrypt,
@@ -791,7 +791,9 @@ class TestUpdateConfig:
         mock_get_config_from_common,
         app,
     ):
-        """Test that update_config uses cached encrypted value if exists."""
+        """update_config must persist the caller's new value, not a stale cached
+        one, even when the cache is warm (regression: a warm cache used to
+        overwrite the new value and re-persist the old one)."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -800,7 +802,6 @@ class TestUpdateConfig:
                 is_encrypted=True, value="cached-encrypted"
             ).model_dump_json()
             mock_redis.get.return_value = cache_data
-            mock_decrypt.return_value = "cached-decrypted"
             mock_encrypt.return_value = "re-encrypted-value"
 
             # Mock database query
@@ -816,10 +817,11 @@ class TestUpdateConfig:
             mock_config_class.query = mock_query
 
             result = update_config(app, "test_key", "new_value", is_secret=True)
-            # Should use cached decrypted value instead of new_value
-            mock_decrypt.assert_called_once_with(app, "cached-encrypted")
-            # Should encrypt the cached value
-            mock_encrypt.assert_called_once_with(app, "cached-decrypted")
+            # The cached value must be ignored entirely.
+            mock_decrypt.assert_not_called()
+            # The new value is what gets encrypted and written.
+            mock_encrypt.assert_called_once_with(app, "new_value")
+            assert mock_config_record.value == "re-encrypted-value"
             assert result is True
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
@@ -827,7 +829,7 @@ class TestUpdateConfig:
     @patch("flaskr.service.config.funcs.db")
     @patch("flaskr.service.config.funcs.Config")
     @patch("flaskr.service.config.funcs._encrypt_config")
-    def test_update_config_from_cache_plain(
+    def test_update_config_ignores_cache_plain(
         self,
         mock_encrypt,
         mock_config_class,
@@ -836,7 +838,8 @@ class TestUpdateConfig:
         mock_get_config_from_common,
         app,
     ):
-        """Test that update_config uses cached plain value if exists."""
+        """update_config must persist the caller's new plain value, not a stale
+        cached one, even when the cache is warm."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             mock_get_config_from_common.return_value = None
@@ -858,8 +861,9 @@ class TestUpdateConfig:
             mock_config_class.query = mock_query
 
             result = update_config(app, "test_key", "new_value", is_secret=False)
-            # Should use cached value instead of new_value
+            # The new value is written verbatim; the cached value is ignored.
             mock_encrypt.assert_not_called()
+            assert mock_config_record.value == "new_value"
             assert result is True
 
     @patch("flaskr.service.config.funcs.get_config_from_common")

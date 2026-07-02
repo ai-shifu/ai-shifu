@@ -26,6 +26,9 @@ to.
 - Before committing, run `python scripts/check_dev_tools.py` to confirm
   lefthook and its underlying tools are installed; the local checks are
   silently skipped if lefthook was never installed.
+- Follow the canonical commit-message policy in
+  `docs/engineering-baseline.md#commit-message-policy`; keep agent-specific
+  rule files pointing there instead of duplicating the policy.
 - When a branch already has an open PR, keep the PR title and description in
   sync with the latest code changes so they accurately describe the current
   implementation and verification state.
