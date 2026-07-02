@@ -39,7 +39,6 @@
     border: 0;
     background: transparent;
     color: var(--base-muted-foreground, #737373);
-    cursor: pointer;
 
     &:focus-visible {
       outline: 2px solid var(--primary, #0f63ee);

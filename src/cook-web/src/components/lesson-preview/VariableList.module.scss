@@ -52,7 +52,6 @@
     gap: 6px;
     font-size: 14px;
     color: #111827;
-    cursor: pointer;
   }
 
   .addButton {
@@ -95,7 +94,6 @@
     gap: 6px;
     font-size: 13px;
     color: #111827;
-    cursor: pointer;
     border: 1px solid #e5e7eb;
     border-radius: var(--border-radius-rounded-md, 8px);
     background: #fff;
@@ -169,7 +167,6 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
     opacity: 0;
     transition: opacity 0.15s ease;
     color: var(--muted-foreground, #9ca3af);

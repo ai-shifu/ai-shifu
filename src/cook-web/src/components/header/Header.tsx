@@ -292,7 +292,7 @@ const Header = ({
               <button
                 type='button'
                 aria-label={t('component.header.copyLearningLink')}
-                className='flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300'
+                className='flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300'
                 onClick={() => {
                   void copyPublishedUrl(publishedUrl, mode);
                 }}
@@ -544,7 +544,7 @@ const Header = ({
                         disabled={modeDisabled}
                         className={cn(
                           'min-w-0 flex-1 bg-transparent px-3 py-2 text-sm focus:bg-transparent',
-                          unavailableLabel
+                          modeDisabled
                             ? 'cursor-not-allowed'
                             : 'cursor-pointer',
                         )}
@@ -555,10 +555,7 @@ const Header = ({
                         <button
                           type='button'
                           disabled={modeDisabled}
-                          className={cn(
-                            'flex min-w-0 items-center gap-2.5 text-left',
-                            unavailableLabel ? 'cursor-not-allowed' : '',
-                          )}
+                          className='flex min-w-0 items-center gap-2.5 text-left'
                         >
                           <ModeIcon className='h-4 w-4 shrink-0 text-muted-foreground/70' />
                           <span className='truncate'>
