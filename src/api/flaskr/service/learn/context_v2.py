@@ -1719,6 +1719,26 @@ class RunScriptContextV2:
                 ):
                     raise UserNotLoginException()
             parent_path = find_node_with_parents(self._struct, outline_bid)
+            if not parent_path:
+                # The requested outline is absent from the cached struct
+                # (e.g. a stale/partial history snapshot). Create a minimal
+                # attend record for the leaf itself so the run can proceed
+                # instead of crashing with "'NoneType' object is not iterable".
+                self.app.logger.warning(
+                    "_get_current_attend: outline_bid %s not found in struct; "
+                    "creating minimal attend record",
+                    outline_bid,
+                )
+                fallback = LearnProgressRecord()
+                fallback.outline_item_bid = outline_item_info_db.outline_item_bid
+                fallback.shifu_bid = outline_item_info_db.shifu_bid
+                fallback.user_bid = self._user_info.user_id
+                fallback.status = LEARN_STATUS_NOT_STARTED
+                fallback.progress_record_bid = generate_id(self.app)
+                fallback.block_position = 0
+                db.session.add(fallback)
+                db.session.flush()
+                return fallback
             attend_info = None
             for item in parent_path:
                 if item.type == "outline":
