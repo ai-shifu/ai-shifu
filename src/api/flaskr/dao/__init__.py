@@ -4,11 +4,14 @@ from redis import Redis
 from sqlalchemy import event
 from sqlalchemy.exc import OperationalError
 import functools
+import random
 import sqlparse
 import logging
 import time
 import traceback
 import os
+
+logger = logging.getLogger(__name__)
 
 # create a global db object
 db = None
@@ -21,20 +24,42 @@ MYSQL_DEADLOCK_ERRNO = 1213
 MYSQL_LOCK_WAIT_TIMEOUT_ERRNO = 1205
 
 
-def _is_retryable_operational_error(exc: OperationalError) -> bool:
+def _operational_errno(exc: OperationalError):
     orig = getattr(exc, "orig", None)
     args = getattr(orig, "args", None)
-    if not args:
-        return False
-    return args[0] in (MYSQL_DEADLOCK_ERRNO, MYSQL_LOCK_WAIT_TIMEOUT_ERRNO)
+    return args[0] if args else None
+
+
+def _is_retryable_operational_error(exc: OperationalError) -> bool:
+    return _operational_errno(exc) in (
+        MYSQL_DEADLOCK_ERRNO,
+        MYSQL_LOCK_WAIT_TIMEOUT_ERRNO,
+    )
+
+
+def _rollback_quietly() -> None:
+    """
+    Roll back the current session after a failed transaction. An OperationalError
+    leaves the session in a broken state, so this must run on every catch -
+    including non-retryable errors and the final attempt - otherwise later
+    operations in the same context raise InvalidRequestError. Best-effort: a
+    rollback failure is logged rather than masking the original error.
+    """
+    if db is None:
+        return
+    try:
+        db.session.rollback()
+    except Exception as rollback_exc:  # noqa: BLE001 - best-effort cleanup
+        logger.warning("retry_on_deadlock rollback failed: %s", rollback_exc)
 
 
 def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
     """
     Retry a transactional function when MySQL reports a deadlock (1213) or a
-    lock wait timeout (1205). The failed transaction is rolled back before each
-    retry so the next attempt starts from a clean session. Non-retryable errors
-    and the final attempt propagate unchanged.
+    lock wait timeout (1205). The failed transaction is rolled back on every
+    caught error so the session is left clean; retryable errors are retried with
+    exponential backoff plus jitter, while non-retryable errors and the final
+    attempt propagate unchanged.
     """
 
     def decorator(func):
@@ -46,16 +71,23 @@ def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
                     return func(*args, **kwargs)
                 except OperationalError as exc:
                     attempt += 1
+                    _rollback_quietly()
                     if attempt >= max_attempts or not _is_retryable_operational_error(
                         exc
                     ):
                         raise
-                    if db is not None:
-                        try:
-                            db.session.rollback()
-                        except Exception:  # noqa: BLE001 - best-effort cleanup
-                            pass
-                    time.sleep(backoff_seconds * attempt)
+                    logger.warning(
+                        "retry_on_deadlock: retrying %s after MySQL errno %s "
+                        "(attempt %d/%d)",
+                        getattr(func, "__qualname__", func),
+                        _operational_errno(exc),
+                        attempt,
+                        max_attempts,
+                    )
+                    # Exponential backoff with jitter to avoid re-colliding with
+                    # the peer transaction under sustained lock contention.
+                    delay = backoff_seconds * (2 ** (attempt - 1))
+                    time.sleep(delay + random.uniform(0, backoff_seconds))
 
         return wrapper
 

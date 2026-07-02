@@ -1,6 +1,9 @@
+from unittest.mock import MagicMock
+
 import pytest
 from sqlalchemy.exc import OperationalError
 
+import flaskr.dao as dao
 from flaskr.dao import retry_on_deadlock
 
 
@@ -66,3 +69,32 @@ def test_does_not_retry_non_retryable_operational_error():
     with pytest.raises(OperationalError):
         other_error()
     assert calls["n"] == 1
+
+
+def test_rolls_back_session_on_every_caught_error(monkeypatch):
+    """Session must be rolled back on each catch, including retries and the
+    final failed attempt, so the broken session is not reused later."""
+    fake_db = MagicMock()
+    monkeypatch.setattr(dao, "db", fake_db)
+
+    @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
+    def always_deadlock():
+        raise _operational_error(1213)
+
+    with pytest.raises(OperationalError):
+        always_deadlock()
+    # 3 attempts -> 3 rollbacks (two retries + the final re-raise).
+    assert fake_db.session.rollback.call_count == 3
+
+
+def test_rolls_back_session_on_non_retryable_error(monkeypatch):
+    fake_db = MagicMock()
+    monkeypatch.setattr(dao, "db", fake_db)
+
+    @retry_on_deadlock(max_attempts=3, backoff_seconds=0)
+    def other_error():
+        raise _operational_error(1146)
+
+    with pytest.raises(OperationalError):
+        other_error()
+    assert fake_db.session.rollback.call_count == 1
