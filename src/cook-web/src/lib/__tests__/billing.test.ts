@@ -447,6 +447,12 @@ describe('parseBillingDateValue', () => {
 });
 
 describe('billing datetime display helpers', () => {
+  test('formats legacy offsetless billing timestamps as UTC before applying the admin browser-timezone rule', () => {
+    expect(formatBillingDateTime('2026-04-14T07:32:00', 'zh-CN')).toBe(
+      '2026-04-14 15:32:00',
+    );
+  });
+
   test('formats UTC billing timestamps with the admin browser-timezone rule', () => {
     expect(formatBillingDateTime('2026-04-14T07:32:00Z', 'zh-CN')).toBe(
       '2026-04-14 15:32:00',
