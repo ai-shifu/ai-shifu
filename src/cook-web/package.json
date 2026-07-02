@@ -122,13 +122,37 @@
     "less": "^4.2.2",
     "lint-staged": "^15.5.1",
     "next-with-less": "^3.0.1",
-    "postcss": "^8.5.6",
+    "postcss": "^8.5.10",
     "prettier": "3.7.4",
     "sass": "^1.89.2",
     "tailwindcss": "^4.1.13",
     "typescript": "^5"
   },
   "overrides": {
-    "lodash-es": "4.18.1"
+    "lodash-es": "4.18.1",
+    "js-cookie": "3.0.7",
+    "mermaid": "11.15.0",
+    "next": {
+      "postcss": "8.5.10"
+    },
+    "diff": "5.2.2",
+    "immutable": "5.1.5",
+    "form-data": "4.0.6",
+    "flatted": "3.4.2",
+    "@babel/core": "7.29.6",
+    "@tootallnate/once": "2.0.1",
+    "mdast-util-to-hast": "13.2.1",
+    "js-yaml": "4.2.0",
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "3.15.0"
+    },
+    "picomatch": "2.3.2",
+    "tinyglobby": {
+      "picomatch": "4.0.4"
+    },
+    "minimatch": "3.1.3",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "9.0.7"
+    }
   }
 }
