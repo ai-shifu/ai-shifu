@@ -12,7 +12,6 @@ import {
   ChevronDown,
   ChevronLeft,
   CircleAlert,
-  CircleCheck,
   CircleHelp,
   Copy,
   Headphones,
@@ -109,7 +108,7 @@ const Header = ({
   const { t } = useTranslation();
   const alert = useAlert();
   const [publishing, setPublishing] = useState(false);
-  const [showSavedFeedback, setShowSavedFeedback] = useState(false);
+  const [, setShowSavedFeedback] = useState(false);
   const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now());
   const { toast } = useToast();
   const { trackEvent } = useTracking();
@@ -170,8 +169,7 @@ const Header = ({
       })
     : lastModifiedLabel;
   const historyTooltip = t('module.shifu.history.title');
-  const showHistoryEntry =
-    !error && !isSaving && !showSavedFeedback && Boolean(lessonHistoryUrl);
+  const showHistoryEntry = !error && !isSaving && Boolean(lessonHistoryUrl);
   const getCourseUrl = () =>
     buildCourseLearningUrl(currentShifu?.bid || '', currentShifu?.url);
   const getLearningModeUrl = (mode: LearningMode) =>
@@ -415,14 +413,6 @@ const Header = ({
 
             <div className='flex items-center'>
               {isSaving && <Loading className='h-4 w-4 mr-1' />}
-              {!error && !isSaving && showSavedFeedback && lastSaveTime && (
-                <span className='flex flex-row items-center'>
-                  <CircleCheck
-                    size={16}
-                    className='mr-2  text-green-500'
-                  />
-                </span>
-              )}
               {error && (
                 <span className='flex flex-row items-center text-red-500'>
                   <CircleAlert
@@ -432,15 +422,6 @@ const Header = ({
                   {error}
                 </span>
               )}
-              {showSavedFeedback && lastSaveTime ? (
-                <div
-                  key={lastSaveTime.getTime()}
-                  style={{ color: 'rgba(0, 0, 0, 0.45)' }}
-                  className='text-sm not-italic font-normal bg-white leading-5 tracking-normal transform transition-all duration-300 ease-in-out translate-x-0 animate-slide-in'
-                >
-                  {t('component.header.saved')} {lastSaveTime?.toLocaleString()}
-                </div>
-              ) : null}
               {showHistoryEntry ? (
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>

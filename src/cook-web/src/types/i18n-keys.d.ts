@@ -752,6 +752,7 @@ export type I18nKey =
   | 'module.chat.lessonFeedbackClearInput'
   | 'module.chat.lessonFeedbackCommentPlaceholder'
   | 'module.chat.lessonFeedbackPrompt'
+  | 'module.chat.lessonUpdateRetakeAction'
   | 'module.chat.lessonUpdateReturnToCatalog'
   | 'module.chat.lessonFeedbackScoreRequired'
   | 'module.chat.lessonFeedbackSubmitted'
