@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import Any, Callable
 
+from flask import Flask
 from sqlalchemy import and_, or_
 
 from flaskr.service.learn.learn_dtos import (
@@ -693,6 +694,7 @@ def _merge_progress_elements(
 
 def get_listen_element_record(
     *,
+    app: Flask,
     shifu_bid: str,
     outline_bid: str,
     user_bid: str,
