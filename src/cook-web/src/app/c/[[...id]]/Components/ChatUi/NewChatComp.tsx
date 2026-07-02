@@ -87,6 +87,7 @@ interface NewChatComponentsProps {
   lessonId?: string;
   lessonTitle?: string;
   lessonStatus?: string;
+  lessonHasContentUpdate?: boolean;
   onPurchased: () => void;
   chapterUpdate: any;
   updateSelectedLesson: any;
@@ -111,6 +112,7 @@ export const NewChatComponents = ({
   lessonId,
   lessonTitle = '',
   lessonStatus = '',
+  lessonHasContentUpdate = false,
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
@@ -407,6 +409,7 @@ export const NewChatComponents = ({
     reGenerateConfirm,
     requestAudioForBlock,
     lessonFeedbackPopup,
+    showLessonUpdateNotice,
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
@@ -414,6 +417,7 @@ export const NewChatComponents = ({
     lessonId: resolvedLessonId,
     chapterId,
     previewMode,
+    lessonHasContentUpdate,
     isListenMode: isListenModeActive,
     trackEvent,
     chatBoxBottomRef,
@@ -1198,6 +1202,13 @@ export const NewChatComponents = ({
         </div>
       </div>
     ) : null;
+  const lessonUpdateNotice = showLessonUpdateNotice ? (
+    <div className='mx-auto mb-3 mt-2 max-w-[1000px] px-4 md:px-5'>
+      <div className='inline-flex max-w-full items-center rounded-full border border-amber-200/80 bg-amber-50/90 px-4 py-2 text-sm leading-6 text-amber-900 shadow-sm shadow-amber-100/40'>
+        {t('module.chat.lessonUpdateReturnToCatalog')}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div
@@ -1206,24 +1217,27 @@ export const NewChatComponents = ({
     >
       {isSlideMode ? (
         isClassroomMode || isListenModeAvailable ? (
-          <ListenModeSlideRenderer
-            items={slideModeItems}
-            mobileStyle={mobileStyle}
-            chatRef={chatRef as React.RefObject<HTMLDivElement>}
-            isLoading={isLoading}
-            courseAvatar={courseAvatar}
-            courseName={courseName}
-            sectionTitle={lessonTitle}
-            lessonId={lessonId}
-            shifuBid={shifuBid}
-            previewMode={previewMode}
-            lessonStatus={lessonStatus}
-            variant={isClassroomMode ? 'classroom' : 'listen'}
-            onMobileViewModeChange={onListenMobileViewModeChange}
-            onSend={memoizedOnSend}
-            onPlayerVisibilityChange={onListenPlayerVisibilityChange}
-            onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
-          />
+          <>
+            {lessonUpdateNotice}
+            <ListenModeSlideRenderer
+              items={slideModeItems}
+              mobileStyle={mobileStyle}
+              chatRef={chatRef as React.RefObject<HTMLDivElement>}
+              isLoading={isLoading}
+              courseAvatar={courseAvatar}
+              courseName={courseName}
+              sectionTitle={lessonTitle}
+              lessonId={lessonId}
+              shifuBid={shifuBid}
+              previewMode={previewMode}
+              lessonStatus={lessonStatus}
+              variant={isClassroomMode ? 'classroom' : 'listen'}
+              onMobileViewModeChange={onListenMobileViewModeChange}
+              onSend={memoizedOnSend}
+              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+              onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
+            />
+          </>
         ) : (
           <div
             className={cn(
@@ -1256,6 +1270,7 @@ export const NewChatComponents = ({
               <></>
             ) : (
               <>
+                {lessonUpdateNotice}
                 {visibleReadModeItems.map((item, idx) => {
                   const isLongPressed =
                     longPressedBlockBid === item.element_bid;
