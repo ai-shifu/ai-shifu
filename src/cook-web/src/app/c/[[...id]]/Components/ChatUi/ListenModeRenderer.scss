@@ -129,14 +129,14 @@
   background: var(--color-slide-desktop-bg);
 }
 
-.listen-reveal-wrapper:not(.mobile) .listen-slide-player.slide-player {
+.listen-reveal-wrapper:not(.mobile) .listen-slide-player {
   bottom: calc(
     var(--chat-footer-height, 40px) + var(--listen-player-footer-gap, 12px)
   );
   z-index: 30;
 }
 
-.listen-reveal-wrapper.mobile .listen-slide-player.slide-player {
+.listen-reveal-wrapper.mobile .listen-slide-player {
   z-index: 30;
 }
 
