@@ -20,7 +20,6 @@ import {
   LEARNING_MODE_OPTIONS,
   type LearningMode,
 } from './learningModeOptions';
-import HeaderBetaBadge from './HeaderBetaBadge';
 import { setLearningModeInUrl } from './learningModeUrl';
 
 interface LearningModeSwitchProps {
@@ -68,15 +67,10 @@ export const LearningModeSwitch = ({
       <div
         role='radiogroup'
         aria-label={t('module.chat.learningModeToggle')}
-        className={cn(
-          styles.learningModeSwitch,
-          size === 'desktop' ? styles.learningModeSwitchDesktop : '',
-          className,
-        )}
+        className={cn(styles.learningModeSwitch, className)}
       >
         {renderedOptions.map(option => {
           const isActive = learningMode === option.mode;
-          const isListenOption = option.mode === 'listen';
 
           return (
             <Tooltip key={option.mode}>
@@ -88,7 +82,6 @@ export const LearningModeSwitch = ({
                   aria-checked={isActive}
                   className={cn(
                     styles.segment,
-                    isListenOption ? styles.listenSegment : '',
                     size === 'desktop' ? styles.segmentDesktop : '',
                     isActive ? styles.segmentActive : '',
                   )}
@@ -97,12 +90,6 @@ export const LearningModeSwitch = ({
                   <span className={styles.segmentLabel}>
                     {getLearningModeShortLabel(t, option.mode)}
                   </span>
-                  {isListenOption ? (
-                    <HeaderBetaBadge
-                      variant='inline'
-                      className={styles.betaBadge}
-                    />
-                  ) : null}
                 </button>
               </TooltipTrigger>
               <TooltipContent>
