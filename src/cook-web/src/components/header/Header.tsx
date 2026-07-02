@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
 
@@ -16,6 +16,7 @@ import {
   CircleHelp,
   Copy,
   Headphones,
+  History,
   Presentation,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -46,6 +47,10 @@ import {
   PUBLISH_LEARNING_MODES,
 } from './publishLearningMode';
 import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
+import {
+  formatLessonRelativeTime,
+  parseLessonHistoryDate,
+} from '@/lib/lesson-history-time';
 
 const publishModeIcons: Record<LearningMode, LucideIcon> = {
   read: BookOpen,
@@ -85,6 +90,9 @@ type HeaderProps = {
   settingsShouldStayOpen?: boolean;
   previewTargetId?: string;
   publishTargetId?: string;
+  lessonHistoryUrl?: string | null;
+  lessonHistoryUpdatedAt?: Date | string | null;
+  onLessonHistoryClick?: () => void;
 };
 
 const Header = ({
@@ -94,10 +102,15 @@ const Header = ({
   settingsShouldStayOpen,
   previewTargetId,
   publishTargetId,
+  lessonHistoryUrl,
+  lessonHistoryUpdatedAt,
+  onLessonHistoryClick,
 }: HeaderProps) => {
   const { t } = useTranslation();
   const alert = useAlert();
   const [publishing, setPublishing] = useState(false);
+  const [showSavedFeedback, setShowSavedFeedback] = useState(false);
+  const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now());
   const { toast } = useToast();
   const { trackEvent } = useTracking();
   const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
@@ -109,6 +122,56 @@ const Header = ({
       await actions.loadShifu(currentShifu.bid, { silent: true });
     }
   };
+  useEffect(() => {
+    if (isSaving || error || !lastSaveTime) {
+      setShowSavedFeedback(false);
+      return;
+    }
+    setShowSavedFeedback(true);
+    const timer = window.setTimeout(() => {
+      setShowSavedFeedback(false);
+    }, 3000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [error, isSaving, lastSaveTime]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setRelativeTimeNow(Date.now());
+    }, 30_000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const lessonHistoryDate = useMemo(() => {
+    return parseLessonHistoryDate(lessonHistoryUpdatedAt);
+  }, [lessonHistoryUpdatedAt]);
+  const lessonHistoryLabel = useMemo(() => {
+    if (!lessonHistoryDate) {
+      return '';
+    }
+    return formatLessonRelativeTime(
+      lessonHistoryDate,
+      {
+        justNow: t('component.header.justNow'),
+        minutesAgo: count => t('component.header.minutesAgo', { count }),
+        hoursAgo: count => t('component.header.hoursAgo', { count }),
+        daysAgo: count => t('component.header.daysAgo', { count }),
+      },
+      new Date(relativeTimeNow),
+    );
+  }, [lessonHistoryDate, relativeTimeNow, t]);
+  const lastModifiedLabel = t('component.header.lastLessonModified');
+  const lessonHistoryText = lessonHistoryLabel
+    ? t('component.header.lastLessonModifiedWithRelativeTime', {
+        relativeTime: lessonHistoryLabel,
+      })
+    : lastModifiedLabel;
+  const historyTooltip = t('module.shifu.history.title');
+  const showHistoryEntry =
+    !error && !isSaving && !showSavedFeedback && Boolean(lessonHistoryUrl);
   const getCourseUrl = () =>
     buildCourseLearningUrl(currentShifu?.bid || '', currentShifu?.url);
   const getLearningModeUrl = (mode: LearningMode) =>
@@ -352,7 +415,7 @@ const Header = ({
 
             <div className='flex items-center'>
               {isSaving && <Loading className='h-4 w-4 mr-1' />}
-              {!error && !isSaving && lastSaveTime && (
+              {!error && !isSaving && showSavedFeedback && lastSaveTime && (
                 <span className='flex flex-row items-center'>
                   <CircleCheck
                     size={16}
@@ -369,7 +432,7 @@ const Header = ({
                   {error}
                 </span>
               )}
-              {lastSaveTime && (
+              {showSavedFeedback && lastSaveTime ? (
                 <div
                   key={lastSaveTime.getTime()}
                   style={{ color: 'rgba(0, 0, 0, 0.45)' }}
@@ -377,7 +440,28 @@ const Header = ({
                 >
                   {t('component.header.saved')} {lastSaveTime?.toLocaleString()}
                 </div>
-              )}
+              ) : null}
+              {showHistoryEntry ? (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={lessonHistoryUrl || '#'}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        onClick={onLessonHistoryClick}
+                        className='inline-flex items-center text-sm font-normal leading-5 text-[rgba(0,0,0,0.45)] transition-colors hover:text-foreground'
+                        aria-label={historyTooltip}
+                        title={historyTooltip}
+                      >
+                        <History className='mr-2 h-4 w-4 shrink-0' />
+                        <span>{lessonHistoryText}</span>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>{historyTooltip}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
             </div>
           </div>
         </div>
