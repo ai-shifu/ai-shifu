@@ -265,6 +265,9 @@ describe('AdminDashboardCourseRatingsPage', () => {
         .length,
     ).toBeGreaterThan(0);
     expect(screen.getByText('Helpful examples')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-04-06 17:05:00').length).toBeGreaterThan(
+      0,
+    );
   });
 
   test('supports rating filters and email placeholder mode', async () => {
