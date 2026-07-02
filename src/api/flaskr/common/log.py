@@ -76,23 +76,37 @@ class RequestFormatter(logging.Formatter):
 
 
 class FeishuLogHandler(logging.Handler):
+    MAX_TEXT_LENGTH = 18000
+
     def __init__(self, webhook_url):
         super().__init__(level=logging.ERROR)
         self.webhook_url = webhook_url
+        self._internal_logger = logging.getLogger("ai_shifu.feishu_log_handler")
+        self._internal_logger.propagate = False
+
+    def _build_message_text(self, log_entry: str) -> str:
+        text = f"师傅出错啦！\n{log_entry}\n"
+        if len(text) <= self.MAX_TEXT_LENGTH:
+            return text
+        omitted = len(text) - self.MAX_TEXT_LENGTH
+        suffix = f"\n...[truncated {omitted} chars to fit Feishu webhook limit]"
+        return text[: self.MAX_TEXT_LENGTH - len(suffix)] + suffix
 
     def emit(self, record):
-        log_entry = self.format(record)
-        payload = {
-            "msg_type": "text",
-            "content": {"text": f"师傅出错啦！\n{log_entry}\n"},
-        }
         try:
-            response = requests.post(self.webhook_url, json=payload)
+            log_entry = self.format(record)
+            payload = {
+                "msg_type": "text",
+                "content": {"text": self._build_message_text(log_entry)},
+            }
+            response = requests.post(self.webhook_url, json=payload, timeout=5)
             response.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            from flask import current_app
-
-            current_app.logger.error(f"Failed to send log to Feishu: {e}")
+        except requests.exceptions.RequestException:
+            self._internal_logger.warning(
+                "Failed to send log to Feishu webhook", exc_info=True
+            )
+        except Exception:
+            self.handleError(record)
 
 
 class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):
