@@ -270,6 +270,14 @@ describe('useChatLogicHook stream cleanup', () => {
     </AppContext.Provider>
   );
 
+  const createDeferred = <T,>() => {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>(next => {
+      resolve = next;
+    });
+    return { promise, resolve };
+  };
+
   const buildBaseParams = () => ({
     shifuBid: 'shifu-1',
     outlineBid: 'lesson-1',
@@ -3209,6 +3217,70 @@ describe('useChatLogicHook stream cleanup', () => {
         expect(result.current.showLessonUpdateNotice).toBe(true);
       });
       expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
+    });
+
+    it('ignores stale preview update responses after lesson navigation', async () => {
+      const staleRecord = createDeferred<{
+        elements: Array<Record<string, unknown>>;
+        last_progress_updated_at: string;
+      }>();
+      mockGetLessonStudyRecord.mockImplementation(({ outline_bid }) => {
+        if (outline_bid === 'lesson-1') {
+          return staleRecord.promise;
+        }
+        return Promise.resolve({
+          elements: [],
+          last_progress_updated_at: null,
+        });
+      });
+      mockGetShifuDraftMeta.mockResolvedValue({
+        updated_at: '2026-06-30T12:00:00Z',
+      });
+
+      const { result, rerender } = renderHook(
+        ({ outlineBid, lessonId }) =>
+          useChatLogicHook({
+            ...buildBaseParams(),
+            outlineBid,
+            lessonId,
+            previewMode: true,
+          }),
+        {
+          wrapper,
+          initialProps: { outlineBid: 'lesson-1', lessonId: 'lesson-1' },
+        },
+      );
+
+      rerender({ outlineBid: 'lesson-2', lessonId: 'lesson-2' });
+
+      await waitFor(() => {
+        expect(mockGetLessonStudyRecord).toHaveBeenCalledWith(
+          expect.objectContaining({ outline_bid: 'lesson-2' }),
+        );
+      });
+
+      await act(async () => {
+        staleRecord.resolve({
+          elements: [
+            {
+              element_type: 'content',
+              element_bid: 'history-1',
+              generated_block_bid: 'history-1',
+              content: 'history content',
+              like_status: 'none',
+              user_input: '',
+              is_marker: false,
+              is_new: false,
+              is_renderable: true,
+              is_speakable: false,
+            },
+          ],
+          last_progress_updated_at: '2026-06-30T10:00:00Z',
+        });
+        await staleRecord.promise;
+      });
+
+      expect(result.current.showLessonUpdateNotice).toBe(false);
     });
   });
 });

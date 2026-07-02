@@ -205,7 +205,6 @@ const ScriptEditor = ({
     currentNode,
     baseRevision,
     latestDraftMeta,
-    lastSaveTime,
     hasDraftConflict,
     autosavePaused,
   } = useShifu();
@@ -1419,11 +1418,11 @@ const ScriptEditor = ({
   }, [currentNode?.bid, id]);
   const currentLessonHistoryUrl = isLessonNode ? historyPageUrl : null;
   const currentLessonHistoryUpdatedAt = useMemo(() => {
-    return (
-      parseLessonHistoryDate(latestDraftMeta?.updated_at) ??
-      (isLessonNode ? lastSaveTime : null)
-    );
-  }, [isLessonNode, lastSaveTime, latestDraftMeta?.updated_at]);
+    if (!isLessonNode) {
+      return null;
+    }
+    return parseLessonHistoryDate(latestDraftMeta?.updated_at);
+  }, [isLessonNode, latestDraftMeta?.updated_at]);
   const documentPageUrl = useMemo(() => {
     return buildUrlWithLessonId(
       `/shifu/${id}`,
