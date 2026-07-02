@@ -227,7 +227,7 @@ export type AdminReferralCampaignItem = {
   reward_count: number;
   invite_code_count: number;
   invite_event_count: number;
-  latest_invite_event_at: string;
+  latest_invite_event_at: string | null;
   created_at: string;
   updated_at: string;
 };
