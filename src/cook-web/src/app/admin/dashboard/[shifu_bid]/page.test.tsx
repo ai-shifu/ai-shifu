@@ -60,9 +60,9 @@ const createLearnersResponse = (overrides?: Record<string, unknown>) => ({
       learning_status: 'learning',
       follow_up_count: 5,
       last_learning_at: '2025-01-02T08:00:00Z',
-      last_learning_at_display: '2025-01-02 16:00:00',
+      last_learning_at_display: 'legacy-display-should-not-render',
       joined_at: '2025-01-01T08:00:00Z',
-      joined_at_display: '2025-01-01 16:00:00',
+      joined_at_display: 'legacy-display-should-not-render',
     },
     {
       user_bid: 'user-2',
@@ -76,7 +76,7 @@ const createLearnersResponse = (overrides?: Record<string, unknown>) => ({
       last_learning_at: '',
       last_learning_at_display: '',
       joined_at: '2025-01-03T08:00:00Z',
-      joined_at_display: '2025-01-03 16:00:00',
+      joined_at_display: 'legacy-display-should-not-render',
     },
   ],
   ...overrides,
@@ -266,6 +266,10 @@ describe('AdminDashboardCourseDetailPage', () => {
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('13800138000')).toBeInTheDocument();
     expect(screen.getByText('2025-01-02 16:00:00')).toBeInTheDocument();
+    expect(screen.getByText('2025-01-01 16:00:00')).toBeInTheDocument();
+    expect(
+      screen.queryByText('legacy-display-should-not-render'),
+    ).not.toBeInTheDocument();
   });
 
   test('navigates to order list from order count and order amount', async () => {
