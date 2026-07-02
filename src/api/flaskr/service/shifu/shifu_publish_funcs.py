@@ -172,7 +172,7 @@ def publish_shifu_draft(
             outline_item.created_user_bid = user_id
             outline_item.created_at = now_time
             outline_item.updated_user_bid = user_id
-            outline_item.updated_at = now_time
+            outline_item.updated_at = draft_outline_item.updated_at or now_time
             outline_item.prerequisite_item_bids = (
                 draft_outline_item.prerequisite_item_bids
             )

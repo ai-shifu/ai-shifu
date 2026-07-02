@@ -118,10 +118,8 @@ def _normalize_dt_to_utc(
 def _resolve_published_effective_updated_at(
     outline_item: PublishedOutlineItem,
 ) -> datetime | None:
-    created_at = _normalize_dt_to_utc(getattr(outline_item, "created_at", None))
     updated_at = _normalize_dt_to_utc(getattr(outline_item, "updated_at", None))
-    candidates = [value for value in (created_at, updated_at) if value is not None]
-    return max(candidates) if candidates else None
+    return updated_at
 
 
 def _resolve_progress_effective_updated_at(
