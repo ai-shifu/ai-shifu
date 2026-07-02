@@ -1,4 +1,7 @@
 .ChatUi {
+  --chat-footer-height: 40px;
+  --listen-player-footer-gap: 12px;
+
   position: relative;
   flex: 1;
   min-width: 0;
@@ -86,7 +89,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    height: 40px;
+    height: var(--chat-footer-height);
     display: flex;
     align-items: center;
     justify-content: center;

@@ -1858,6 +1858,8 @@ const ListenModeSlideRenderer = ({
     showAskOverlays && isMobileAskPanelMounted && !shouldRenderEmptyPpt;
   const shouldRenderManualFullscreenButton =
     showManualFullscreenButton && !isClassroomFullscreenActive;
+  const listenPlayerClassName =
+    variant === 'listen' ? 'listen-slide-player' : '';
 
   const desktopAskOverlay = shouldRenderDesktopAskOverlay ? (
     <div
@@ -1990,6 +1992,7 @@ const ListenModeSlideRenderer = ({
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
           playerClassName={cn(
+            listenPlayerClassName,
             mobileStyle ? 'listen-slide-player-mobile' : '',
             playerClassName,
           )}

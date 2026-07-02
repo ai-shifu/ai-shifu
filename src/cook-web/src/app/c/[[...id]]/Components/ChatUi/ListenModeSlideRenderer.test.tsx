@@ -68,11 +68,15 @@ jest.mock('markdown-flow-ui/slide', () => {
   return {
     Slide: jest.fn(
       (props: {
+        playerClassName?: string;
         playerCustomActions?:
           | React.ReactNode
           | ((context: typeof slideCustomActionContext) => React.ReactNode);
       }) => (
-        <div data-testid='mock-slide'>
+        <div
+          data-player-class-name={props.playerClassName ?? ''}
+          data-testid='mock-slide'
+        >
           <audio data-testid='slide-audio' />
           <div data-testid='slide-custom-actions'>
             {typeof props.playerCustomActions === 'function'
@@ -219,6 +223,32 @@ describe('ListenModeSlideRenderer', () => {
         position: 0,
       }),
     ]);
+  });
+
+  it('passes a stable listen player class for footer-safe positioning', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { playerClassName?: string }
+      | undefined;
+
+    expect(slideProps?.playerClassName ?? '').toContain('listen-slide-player');
+    expect(slideProps?.playerClassName ?? '').not.toContain(
+      'classroom-slide-player',
+    );
   });
 
   it('passes selected interaction user input to the slide during playback', () => {
@@ -487,6 +517,9 @@ describe('ListenModeSlideRenderer', () => {
     expect(slideProps?.showPlayer).toBe(true);
     expect(slideProps?.playerClassName ?? '').toContain(
       'classroom-slide-player',
+    );
+    expect(slideProps?.playerClassName ?? '').not.toContain(
+      'listen-slide-player',
     );
     expect(slideProps?.className ?? '').toContain('listen-slide-root');
     expect(slideProps?.className ?? '').not.toContain('classroom-slide-root');
