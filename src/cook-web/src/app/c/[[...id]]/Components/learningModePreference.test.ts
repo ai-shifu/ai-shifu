@@ -1,7 +1,10 @@
-import { resolveCourseLearningMode } from './learningModePreference';
+import {
+  resolveCourseLearningMode,
+  resolveCourseLearningModeState,
+} from './learningModePreference';
 
 describe('resolveCourseLearningMode', () => {
-  it('keeps read when the course supports listen mode and no storage exists yet', () => {
+  it('defaults to listen when the course supports listen mode and no storage exists yet', () => {
     expect(
       resolveCourseLearningMode({
         courseTtsEnabled: true,
@@ -10,7 +13,7 @@ describe('resolveCourseLearningMode', () => {
         listenModeParam: null,
         storedLearningMode: null,
       }),
-    ).toBe('read');
+    ).toBe('listen');
   });
 
   it('keeps read when the course listen capability is still unknown', () => {
@@ -176,5 +179,62 @@ describe('resolveCourseLearningMode', () => {
         storedLearningMode: 'classroom',
       }),
     ).toBe('read');
+  });
+});
+
+describe('resolveCourseLearningModeState', () => {
+  it('waits for course TTS before resolving an automatic default', () => {
+    expect(
+      resolveCourseLearningModeState({
+        courseId: 'course-1',
+        currentLearningMode: 'read',
+        courseTtsEnabled: null,
+        canUseClassroomMode: false,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        storedLearningMode: null,
+      }),
+    ).toEqual({
+      shouldWaitForLearningModeResolution: true,
+      resolvedLearningMode: null,
+      isLearningModeReady: false,
+    });
+  });
+
+  it('keeps chat loading paused until the resolved default is applied', () => {
+    expect(
+      resolveCourseLearningModeState({
+        courseId: 'course-1',
+        currentLearningMode: 'read',
+        courseTtsEnabled: true,
+        canUseClassroomMode: false,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        storedLearningMode: null,
+      }),
+    ).toEqual({
+      shouldWaitForLearningModeResolution: false,
+      resolvedLearningMode: 'listen',
+      isLearningModeReady: false,
+    });
+  });
+
+  it('does not block rendering while resolution is disabled', () => {
+    expect(
+      resolveCourseLearningModeState({
+        courseId: 'course-1',
+        currentLearningMode: 'read',
+        isResolutionEnabled: false,
+        courseTtsEnabled: null,
+        canUseClassroomMode: false,
+        hasListenModeOverride: false,
+        listenModeParam: null,
+        storedLearningMode: null,
+      }),
+    ).toEqual({
+      shouldWaitForLearningModeResolution: false,
+      resolvedLearningMode: 'read',
+      isLearningModeReady: true,
+    });
   });
 });

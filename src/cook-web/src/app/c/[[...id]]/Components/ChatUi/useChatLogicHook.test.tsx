@@ -296,6 +296,25 @@ describe('useChatLogicHook stream cleanup', () => {
     onGoChapter: jest.fn(),
   });
 
+  it('waits for learning mode readiness before starting the lesson run', async () => {
+    renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          isLearningModeReady: false,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockGetLessonStudyRecord).not.toHaveBeenCalled();
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+  });
+
   it('sends listen=false in the run body when listen requests are disabled', async () => {
     const { result } = renderHook(
       () =>

@@ -2,10 +2,14 @@ import styles from './LearningModeSwitch.module.scss';
 
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useParams } from 'next/navigation';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useCourseStore } from '@/c-store/useCourseStore';
+import { useEnvStore } from '@/c-store/envStore';
+import { parseUrlParams } from '@/c-utils/urlUtils';
+import type { CourseStoreState, EnvStoreState } from '@/c-types/store';
 import {
   Tooltip,
   TooltipContent,
@@ -14,13 +18,13 @@ import {
 } from '@/components/ui/tooltip';
 import {
   getAvailableLearningModeOptions,
+  getCourseScopedTtsEnabled,
   getLearningModeLabel,
   getLearningModeShortLabel,
   getLearningModeTooltip,
   LEARNING_MODE_OPTIONS,
   type LearningMode,
 } from './learningModeOptions';
-import HeaderBetaBadge from './HeaderBetaBadge';
 import { setLearningModeInUrl } from './learningModeUrl';
 
 interface LearningModeSwitchProps {
@@ -33,7 +37,30 @@ export const LearningModeSwitch = ({
   size = 'mobile',
 }: LearningModeSwitchProps) => {
   const { t } = useTranslation();
-  const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
+  const routeParams = useParams<{ id?: string[] }>();
+  const courseId = useEnvStore((state: EnvStoreState) => state.courseId);
+  const params = parseUrlParams() as Record<string, string>;
+  const routeCourseId = Array.isArray(routeParams?.id) ? routeParams.id[0] : '';
+  const storageCourseId = routeCourseId || params.courseId || courseId;
+  const {
+    courseTtsEnabled,
+    courseTtsStatusCourseId,
+    courseTtsStatusPreviewMode,
+  } = useCourseStore(
+    useShallow((state: CourseStoreState) => ({
+      courseTtsEnabled: state.courseTtsEnabled,
+      courseTtsStatusCourseId: state.courseTtsStatusCourseId,
+      courseTtsStatusPreviewMode: state.courseTtsStatusPreviewMode,
+    })),
+  );
+  const previewMode = useSystemStore(state => state.previewMode);
+  const courseTtsEnabledForCourse = getCourseScopedTtsEnabled({
+    courseTtsEnabled,
+    courseTtsStatusCourseId,
+    courseTtsStatusPreviewMode,
+    courseId: storageCourseId,
+    previewMode,
+  });
   const { learningMode, updateLearningMode, canUseClassroomMode } =
     useSystemStore(
       useShallow(state => ({
@@ -43,7 +70,7 @@ export const LearningModeSwitch = ({
       })),
     );
   const availableOptions = getAvailableLearningModeOptions({
-    courseTtsEnabled,
+    courseTtsEnabled: courseTtsEnabledForCourse,
     canUseClassroomMode,
   });
   const availableOptionModes = new Set(
@@ -68,15 +95,10 @@ export const LearningModeSwitch = ({
       <div
         role='radiogroup'
         aria-label={t('module.chat.learningModeToggle')}
-        className={cn(
-          styles.learningModeSwitch,
-          size === 'desktop' ? styles.learningModeSwitchDesktop : '',
-          className,
-        )}
+        className={cn(styles.learningModeSwitch, className)}
       >
         {renderedOptions.map(option => {
           const isActive = learningMode === option.mode;
-          const isListenOption = option.mode === 'listen';
 
           return (
             <Tooltip key={option.mode}>
@@ -88,7 +110,6 @@ export const LearningModeSwitch = ({
                   aria-checked={isActive}
                   className={cn(
                     styles.segment,
-                    isListenOption ? styles.listenSegment : '',
                     size === 'desktop' ? styles.segmentDesktop : '',
                     isActive ? styles.segmentActive : '',
                   )}
@@ -97,12 +118,6 @@ export const LearningModeSwitch = ({
                   <span className={styles.segmentLabel}>
                     {getLearningModeShortLabel(t, option.mode)}
                   </span>
-                  {isListenOption ? (
-                    <HeaderBetaBadge
-                      variant='inline'
-                      className={styles.betaBadge}
-                    />
-                  ) : null}
                 </button>
               </TooltipTrigger>
               <TooltipContent>

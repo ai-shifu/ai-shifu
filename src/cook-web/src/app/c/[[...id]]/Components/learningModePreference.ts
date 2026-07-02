@@ -9,6 +9,12 @@ type ResolveCourseLearningModeArgs = {
   storedLearningMode: LearningMode | null;
 };
 
+type ResolveCourseLearningModeStateArgs = ResolveCourseLearningModeArgs & {
+  courseId: string;
+  currentLearningMode: LearningMode;
+  isResolutionEnabled?: boolean;
+};
+
 export const resolveCourseLearningMode = ({
   courseTtsEnabled,
   canUseClassroomMode,
@@ -51,5 +57,41 @@ export const resolveCourseLearningMode = ({
     return 'read';
   }
 
-  return 'read';
+  return courseTtsEnabled === true ? 'listen' : 'read';
+};
+
+export const resolveCourseLearningModeState = ({
+  courseId,
+  currentLearningMode,
+  isResolutionEnabled = true,
+  ...args
+}: ResolveCourseLearningModeStateArgs) => {
+  const shouldWaitForDefaultLearningMode =
+    isResolutionEnabled &&
+    Boolean(courseId) &&
+    args.storedLearningMode === null &&
+    !args.urlModeParam &&
+    !args.hasListenModeOverride &&
+    args.courseTtsEnabled === null;
+  const shouldWaitForListenModeResolution =
+    isResolutionEnabled &&
+    Boolean(courseId) &&
+    args.courseTtsEnabled === null &&
+    (args.urlModeParam === 'listen' ||
+      args.listenModeParam === true ||
+      args.storedLearningMode === 'listen');
+  const shouldWaitForLearningModeResolution =
+    shouldWaitForDefaultLearningMode || shouldWaitForListenModeResolution;
+  const resolvedLearningMode = shouldWaitForLearningModeResolution
+    ? null
+    : resolveCourseLearningMode(args);
+
+  return {
+    shouldWaitForLearningModeResolution,
+    resolvedLearningMode,
+    isLearningModeReady:
+      !shouldWaitForLearningModeResolution &&
+      (resolvedLearningMode === null ||
+        currentLearningMode === resolvedLearningMode),
+  };
 };

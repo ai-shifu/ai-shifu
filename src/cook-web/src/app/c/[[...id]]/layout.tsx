@@ -33,7 +33,9 @@ import {
   readLearningModeFromStorage,
   writeLearningModeToStorage,
 } from './Components/learningModeStorage';
-import { resolveCourseLearningMode } from './Components/learningModePreference';
+import { resolveCourseLearningModeState } from './Components/learningModePreference';
+import { getCourseScopedTtsEnabled } from './Components/learningModeOptions';
+
 import {
   normalizeLegacyListenModeInUrl,
   parseBooleanQueryParam,
@@ -133,15 +135,23 @@ export default function ChatLayout({
 
   const {
     courseTtsEnabled,
+    courseTtsStatusCourseId,
+    courseTtsStatusPreviewMode,
     updateCourseName,
     updateCourseAvatar,
     updateCourseTtsEnabled,
+    updateCourseTtsStatusCourseId,
+    updateCourseTtsStatusPreviewMode,
   } = useCourseStore(
     useShallow((state: CourseStoreState) => ({
       courseTtsEnabled: state.courseTtsEnabled,
+      courseTtsStatusCourseId: state.courseTtsStatusCourseId,
+      courseTtsStatusPreviewMode: state.courseTtsStatusPreviewMode,
       updateCourseName: state.updateCourseName,
       updateCourseAvatar: state.updateCourseAvatar,
       updateCourseTtsEnabled: state.updateCourseTtsEnabled,
+      updateCourseTtsStatusCourseId: state.updateCourseTtsStatusCourseId,
+      updateCourseTtsStatusPreviewMode: state.updateCourseTtsStatusPreviewMode,
     })),
   );
 
@@ -170,11 +180,35 @@ export default function ChatLayout({
   const hasClassroomModeOverride = urlModeParam === 'classroom';
   const canUseClassroomModeForCourse =
     classroomAccessCourseId === storageCourseId ? canUseClassroomMode : null;
-  const isCourseListenModeAvailable = courseTtsEnabled === true;
+  const courseTtsEnabledForCourse = getCourseScopedTtsEnabled({
+    courseTtsEnabled,
+    courseTtsStatusCourseId,
+    courseTtsStatusPreviewMode,
+    courseId: storageCourseId,
+    previewMode: isPreviewMode,
+  });
+  const storedLearningModeForCourse = storageCourseId
+    ? readLearningModeFromStorage(storageCourseId)
+    : null;
+  const isCourseListenModeAvailable = courseTtsEnabledForCourse === true;
   const hasListenModeUrlOverride = urlModeParam === 'listen';
   const hasClassroomModeUrlOverride = urlModeParam === 'classroom';
+  const {
+    shouldWaitForLearningModeResolution,
+    resolvedLearningMode: resolvedLearningModeForCourse,
+  } = resolveCourseLearningModeState({
+    courseId: storageCourseId,
+    currentLearningMode: learningMode,
+    isResolutionEnabled: envDataInitialized,
+    courseTtsEnabled: courseTtsEnabledForCourse,
+    canUseClassroomMode: canUseClassroomModeForCourse,
+    hasListenModeOverride,
+    listenModeParam,
+    urlModeParam,
+    storedLearningMode: storedLearningModeForCourse,
+  });
   const showLearningModeToggle =
-    courseTtsEnabled === null
+    courseTtsEnabledForCourse === null
       ? listenModeParam === true ||
         hasListenModeUrlOverride ||
         hasClassroomModeUrlOverride ||
@@ -350,6 +384,17 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
+    if (!hasListenModeUrlOverride) {
+      return;
+    }
+
+    if (courseTtsEnabledForCourse === false) {
+      setLearningModeInUrl('read');
+      updateLearningMode('read');
+    }
+  }, [courseTtsEnabledForCourse, hasListenModeUrlOverride, updateLearningMode]);
+
+  useEffect(() => {
     if (!storageCourseId) {
       return;
     }
@@ -390,30 +435,24 @@ export default function ChatLayout({
   ]);
 
   useEffect(() => {
-    const storedLearningMode = readLearningModeFromStorage(storageCourseId);
-    const nextLearningMode = resolveCourseLearningMode({
-      courseTtsEnabled,
-      canUseClassroomMode: canUseClassroomModeForCourse,
-      hasListenModeOverride,
-      listenModeParam,
-      urlModeParam,
-      storedLearningMode,
-    });
-    const currentLearningMode = useSystemStore.getState().learningMode;
-
-    if (currentLearningMode === nextLearningMode) {
+    if (
+      shouldWaitForLearningModeResolution ||
+      resolvedLearningModeForCourse === null
+    ) {
       return;
     }
 
-    updateLearningMode(nextLearningMode);
+    const currentLearningMode = useSystemStore.getState().learningMode;
+
+    if (currentLearningMode === resolvedLearningModeForCourse) {
+      return;
+    }
+
+    updateLearningMode(resolvedLearningModeForCourse);
   }, [
-    courseTtsEnabled,
-    canUseClassroomModeForCourse,
-    hasListenModeOverride,
-    listenModeParam,
-    storageCourseId,
+    resolvedLearningModeForCourse,
+    shouldWaitForLearningModeResolution,
     updateLearningMode,
-    urlModeParam,
   ]);
 
   useEffect(() => {
@@ -421,147 +460,200 @@ export default function ChatLayout({
       return;
     }
 
-    const storedLearningMode = readLearningModeFromStorage(storageCourseId);
+    if (
+      shouldWaitForLearningModeResolution ||
+      resolvedLearningModeForCourse === null
+    ) {
+      return;
+    }
+
+    if (learningMode !== resolvedLearningModeForCourse) {
+      return;
+    }
+
     const hasPendingClassroomResolution =
       canUseClassroomModeForCourse === null &&
       learningMode === 'read' &&
       (urlModeParam === 'classroom' ||
-        (!urlModeParam && storedLearningMode === 'classroom'));
+        (!urlModeParam && storedLearningModeForCourse === 'classroom'));
 
     if (hasPendingClassroomResolution) {
       return;
     }
 
-    if (storedLearningMode === learningMode) {
+    if (storedLearningModeForCourse === learningMode) {
       return;
     }
 
-    // Keep the course-scoped preference synced after auto resolution or manual toggles.
+    if (!urlModeParam && !hasListenModeOverride) {
+      return;
+    }
+
+    // Persist only explicit URL or user selections. Automatic defaults remain ephemeral.
     writeLearningModeToStorage(storageCourseId, learningMode);
   }, [
     canUseClassroomModeForCourse,
+    hasListenModeOverride,
     learningMode,
+    resolvedLearningModeForCourse,
+    shouldWaitForLearningModeResolution,
     storageCourseId,
+    storedLearningModeForCourse,
     urlModeParam,
   ]);
 
   useEffect(() => {
+    let canceled = false;
+
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
-      if (courseId) {
-        debugInfo('[course-info] request start', {
-          courseId,
-          previewMode: isPreviewMode,
-          path:
-            typeof window !== 'undefined'
-              ? `${window.location.pathname}${window.location.search}`
-              : '',
-        });
-        try {
-          const resp = await getCourseInfo(courseId, isPreviewMode);
-          debugInfo('[course-info] request success', {
-            courseId,
-            previewMode: isPreviewMode,
-            courseName: resp.course_name,
-            coursePrice: resp.course_price,
-            ttsEnabled: resp.course_tts_enabled,
-          });
-          setShowVip(resp.course_price > 0);
-          updateCourseName(resp.course_name);
-          updateCourseAvatar(resp.course_avatar);
-          updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
-          if (isPreviewMode) {
-            setClassroomAccessCourseId(courseId);
-            updateCanUseClassroomMode(true);
-          }
-          const titleSuffix = t('common.core.brandName');
-          document.title = `${resp.course_name} - ${titleSuffix}`;
-          const metaDescription = document.querySelector(
-            'meta[name="description"]',
-          );
-          if (metaDescription) {
-            metaDescription.setAttribute('content', resp.course_desc);
-          } else {
-            const newMetaDescription = document.createElement('meta');
-            newMetaDescription.setAttribute('name', 'description');
-            newMetaDescription.setAttribute('content', resp.course_desc);
-            document.head.appendChild(newMetaDescription);
-          }
-          const metaKeywords = document.querySelector('meta[name="keywords"]');
-          if (metaKeywords) {
-            metaKeywords.setAttribute('content', resp.course_keywords);
-          } else {
-            const newMetaKeywords = document.createElement('meta');
-            newMetaKeywords.setAttribute('name', 'keywords');
-            newMetaKeywords.setAttribute('content', resp.course_keywords);
-            document.head.appendChild(newMetaKeywords);
-          }
-        } catch (error) {
-          const isCourseNotFound = Boolean(
-            (error as { isCourseNotFound?: boolean })?.isCourseNotFound,
-          );
-          debugError('[course-info] request failed', {
-            courseId,
-            previewMode: isPreviewMode,
-            isCourseNotFound,
-            errorMessage:
-              error instanceof Error ? error.message : String(error),
-            businessCode: (error as { code?: number | string })?.code ?? '',
-            httpStatus: (error as { status?: number | string })?.status ?? '',
-          });
-          if (isCourseNotFound) {
-            tracking('learner_course_404_redirect', {
-              shifu_bid: courseId,
-              preview_mode: isPreviewMode,
-              reason: 'course_not_found',
-              path: window.location.pathname,
-              ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-              is_wechat:
-                typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
-              has_token: Boolean(useUserStore.getState().getToken()),
-            });
-            window.location.href = '/404';
-            return;
-          }
 
-          // Keep users on page for transient failures instead of forcing 404.
-          tracking('learner_course_info_non_404_error', {
-            shifu_bid: courseId,
+      if (!storageCourseId) {
+        updateCourseTtsStatusCourseId(null);
+        updateCourseTtsStatusPreviewMode(null);
+        updateCourseTtsEnabled(null);
+        return;
+      }
+
+      const requestCourseId = storageCourseId;
+      const currentCourseTtsStatus = useCourseStore.getState();
+      const shouldClearCourseTtsStatus =
+        currentCourseTtsStatus.courseTtsStatusCourseId !== requestCourseId ||
+        currentCourseTtsStatus.courseTtsStatusPreviewMode !== isPreviewMode;
+
+      if (shouldClearCourseTtsStatus) {
+        updateCourseTtsStatusCourseId(null);
+        updateCourseTtsStatusPreviewMode(null);
+        updateCourseTtsEnabled(null);
+      }
+
+      debugInfo('[course-info] request start', {
+        courseId: requestCourseId,
+        previewMode: isPreviewMode,
+        path:
+          typeof window !== 'undefined'
+            ? `${window.location.pathname}${window.location.search}`
+            : '',
+      });
+      try {
+        const resp = await getCourseInfo(requestCourseId, isPreviewMode);
+        if (canceled) {
+          return;
+        }
+
+        debugInfo('[course-info] request success', {
+          courseId: requestCourseId,
+          previewMode: isPreviewMode,
+          courseName: resp.course_name,
+          coursePrice: resp.course_price,
+          ttsEnabled: resp.course_tts_enabled,
+        });
+        setShowVip(resp.course_price > 0);
+        updateCourseName(resp.course_name);
+        updateCourseAvatar(resp.course_avatar);
+        updateCourseTtsStatusCourseId(requestCourseId);
+        updateCourseTtsStatusPreviewMode(isPreviewMode);
+        updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
+        if (isPreviewMode) {
+          setClassroomAccessCourseId(requestCourseId);
+          updateCanUseClassroomMode(true);
+        }
+        const titleSuffix = t('common.core.brandName');
+        document.title = `${resp.course_name} - ${titleSuffix}`;
+        const metaDescription = document.querySelector(
+          'meta[name="description"]',
+        );
+        if (metaDescription) {
+          metaDescription.setAttribute('content', resp.course_desc);
+        } else {
+          const newMetaDescription = document.createElement('meta');
+          newMetaDescription.setAttribute('name', 'description');
+          newMetaDescription.setAttribute('content', resp.course_desc);
+          document.head.appendChild(newMetaDescription);
+        }
+        const metaKeywords = document.querySelector('meta[name="keywords"]');
+        if (metaKeywords) {
+          metaKeywords.setAttribute('content', resp.course_keywords);
+        } else {
+          const newMetaKeywords = document.createElement('meta');
+          newMetaKeywords.setAttribute('name', 'keywords');
+          newMetaKeywords.setAttribute('content', resp.course_keywords);
+          document.head.appendChild(newMetaKeywords);
+        }
+      } catch (error) {
+        if (canceled) {
+          return;
+        }
+
+        const isCourseNotFound = Boolean(
+          (error as { isCourseNotFound?: boolean })?.isCourseNotFound,
+        );
+        debugError('[course-info] request failed', {
+          courseId: requestCourseId,
+          previewMode: isPreviewMode,
+          isCourseNotFound,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          businessCode: (error as { code?: number | string })?.code ?? '',
+          httpStatus: (error as { status?: number | string })?.status ?? '',
+        });
+        if (isCourseNotFound) {
+          tracking('learner_course_404_redirect', {
+            shifu_bid: requestCourseId,
             preview_mode: isPreviewMode,
-            reason: 'transient_or_unknown_error',
+            reason: 'course_not_found',
             path: window.location.pathname,
-            error_code:
-              (error as { code?: number | string })?.code?.toString?.() || '',
-            http_status:
-              (error as { status?: number | string })?.status?.toString?.() ||
-              '',
-            error_type:
-              (error as { status?: number | string })?.status ||
-              (error as { code?: number | string })?.code
-                ? 'http_error'
-                : 'unknown_error',
+            ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
             is_wechat:
               typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
             has_token: Boolean(useUserStore.getState().getToken()),
           });
-          console.warn('Skip 404 redirect for non-notfound course info error', {
-            courseId,
-            error,
-          });
-          // TODO(lesson-mobile-404): sequence OAuth/checkWxcode/user init and course-info
-          // requests to eliminate race windows on weak mobile networks.
+          window.location.href = '/404';
+          return;
         }
+
+        // Keep users on page for transient failures instead of forcing 404.
+        tracking('learner_course_info_non_404_error', {
+          shifu_bid: requestCourseId,
+          preview_mode: isPreviewMode,
+          reason: 'transient_or_unknown_error',
+          path: window.location.pathname,
+          error_code:
+            (error as { code?: number | string })?.code?.toString?.() || '',
+          http_status:
+            (error as { status?: number | string })?.status?.toString?.() || '',
+          error_type:
+            (error as { status?: number | string })?.status ||
+            (error as { code?: number | string })?.code
+              ? 'http_error'
+              : 'unknown_error',
+          is_wechat:
+            typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
+          has_token: Boolean(useUserStore.getState().getToken()),
+        });
+        console.warn('Skip 404 redirect for non-notfound course info error', {
+          courseId: requestCourseId,
+          error,
+        });
+        // TODO(lesson-mobile-404): sequence OAuth/checkWxcode/user init and course-info
+        // requests to eliminate race windows on weak mobile networks.
       }
     };
-    fetchCourseInfo();
+
+    void fetchCourseInfo();
+
+    return () => {
+      canceled = true;
+    };
   }, [
-    courseId,
     envDataInitialized,
+    storageCourseId,
     setShowVip,
     t,
     updateCourseName,
     updateCourseAvatar,
     updateCourseTtsEnabled,
+    updateCourseTtsStatusCourseId,
+    updateCourseTtsStatusPreviewMode,
     updateCanUseClassroomMode,
     isPreviewMode,
   ]);

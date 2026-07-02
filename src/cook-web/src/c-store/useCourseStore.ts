@@ -15,6 +15,22 @@ export const useCourseStore = create<
     courseTtsEnabled: null,
     updateCourseTtsEnabled: courseTtsEnabled =>
       set(() => ({ courseTtsEnabled })),
+    courseTtsStatusCourseId: null,
+    updateCourseTtsStatusCourseId: courseTtsStatusCourseId => {
+      if (get().courseTtsStatusCourseId === courseTtsStatusCourseId) {
+        return;
+      }
+
+      set(() => ({ courseTtsStatusCourseId }));
+    },
+    courseTtsStatusPreviewMode: null,
+    updateCourseTtsStatusPreviewMode: courseTtsStatusPreviewMode => {
+      if (get().courseTtsStatusPreviewMode === courseTtsStatusPreviewMode) {
+        return;
+      }
+
+      set(() => ({ courseTtsStatusPreviewMode }));
+    },
     lessonId: undefined,
     updateLessonId: lessonId => set(() => ({ lessonId })),
     chapterId: '',
