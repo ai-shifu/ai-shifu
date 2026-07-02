@@ -15,6 +15,7 @@ import {
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
+import api from '@/api';
 import {
   StudyRecordItem,
   LikeStatus,
@@ -77,6 +78,7 @@ import {
   EMPTY_LESSON_RUN_ITEMS,
   useLessonRunContentStore,
 } from '@/c-store/useLessonRunContentStore';
+import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
 
 interface LessonFeedbackPopupState {
   open: boolean;
@@ -322,6 +324,7 @@ export interface UseChatSessionResult {
     onClose: () => void;
     onSubmit: (score: number, comment: string) => void;
   };
+  showPreviewUpdateNotice: boolean;
 }
 
 /**
@@ -407,6 +410,7 @@ function useChatLogicHook({
   const isTypeFinishedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const isInitHistoryRef = useRef(true);
+  const [showPreviewUpdateNotice, setShowPreviewUpdateNotice] = useState(false);
   // const [lastInteractionBlock, setLastInteractionBlock] =
   //   useState<ChatContentItem | null>(null);
   const [loadedChapterId, setLoadedChapterId] = useState('');
@@ -417,6 +421,7 @@ function useChatLogicHook({
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
   const sseRef = useRef<any>(null);
   const sseRunSerialRef = useRef(0);
+  const refreshDataSerialRef = useRef(0);
   const runStreamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -2596,6 +2601,10 @@ function useChatLogicHook({
    * Loads the persisted lesson records and primes the chat stream.
    */
   const refreshData = useCallback(async () => {
+    const refreshSerial = ++refreshDataSerialRef.current;
+    const isCurrentRefresh = () =>
+      refreshSerial === refreshDataSerialRef.current;
+
     resetLessonRunContent(lessonRunContentCacheKey);
     setTrackedContentList(() => []);
     resetLessonFeedbackPopup();
@@ -2606,6 +2615,7 @@ function useChatLogicHook({
     setIsLoading(true);
     hasScrolledToBottomRef.current = false;
     isInitHistoryRef.current = true;
+    setShowPreviewUpdateNotice(false);
 
     try {
       const recordResp = await getLessonStudyRecord({
@@ -2613,6 +2623,41 @@ function useChatLogicHook({
         outline_bid: outlineBid,
         preview_mode: effectivePreviewMode,
       });
+      if (!isCurrentRefresh()) {
+        return;
+      }
+      let shouldShowPreviewUpdate = false;
+      const latestStudyUpdatedAt =
+        effectivePreviewMode && recordResp?.elements?.length > 0
+          ? parseLessonHistoryDate(recordResp.last_progress_updated_at)
+          : null;
+      if (
+        effectivePreviewMode &&
+        recordResp?.elements?.length > 0 &&
+        latestStudyUpdatedAt
+      ) {
+        const draftMeta = await api
+          .getShifuDraftMeta({
+            shifu_bid: shifuBid,
+            outline_bid: outlineBid,
+          })
+          .catch(() => null);
+        if (!isCurrentRefresh()) {
+          return;
+        }
+        const latestDraftUpdatedAt = parseLessonHistoryDate(
+          draftMeta?.updated_at,
+        );
+        shouldShowPreviewUpdate = Boolean(
+          latestDraftUpdatedAt &&
+          latestStudyUpdatedAt &&
+          latestDraftUpdatedAt.getTime() > latestStudyUpdatedAt.getTime(),
+        );
+      }
+      if (!isCurrentRefresh()) {
+        return;
+      }
+      setShowPreviewUpdateNotice(shouldShowPreviewUpdate);
 
       if (recordResp?.elements?.length > 0) {
         const contentRecords = mapRecordsToContent(recordResp.elements);
@@ -2655,6 +2700,7 @@ function useChatLogicHook({
           });
         }
       } else {
+        setShowPreviewUpdateNotice(false);
         runRef.current?.({
           input: '',
           input_type: SSE_INPUT_TYPE.NORMAL,
@@ -2667,9 +2713,14 @@ function useChatLogicHook({
         }
       }
     } catch (error) {
+      if (isCurrentRefresh()) {
+        setShowPreviewUpdateNotice(false);
+      }
       console.warn('refreshData error:', error);
     } finally {
-      setIsLoading(false);
+      if (isCurrentRefresh()) {
+        setIsLoading(false);
+      }
     }
   }, [
     chapterId,
@@ -3737,6 +3788,7 @@ function useChatLogicHook({
       onClose: handleLessonFeedbackPopupClose,
       onSubmit: handleLessonFeedbackPopupSubmit,
     },
+    showPreviewUpdateNotice,
   };
 }
 

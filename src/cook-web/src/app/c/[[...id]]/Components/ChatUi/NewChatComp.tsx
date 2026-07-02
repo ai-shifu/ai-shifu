@@ -407,6 +407,7 @@ export const NewChatComponents = ({
     reGenerateConfirm,
     requestAudioForBlock,
     lessonFeedbackPopup,
+    showPreviewUpdateNotice,
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
@@ -1198,6 +1199,11 @@ export const NewChatComponents = ({
         </div>
       </div>
     ) : null;
+  const previewUpdateNotice = showPreviewUpdateNotice ? (
+    <div className='mx-auto mb-4 max-w-[1000px] rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900'>
+      {t('module.chat.lessonUpdateReturnToCatalog')}
+    </div>
+  ) : null;
 
   return (
     <div
@@ -1206,24 +1212,27 @@ export const NewChatComponents = ({
     >
       {isSlideMode ? (
         isClassroomMode || isListenModeAvailable ? (
-          <ListenModeSlideRenderer
-            items={slideModeItems}
-            mobileStyle={mobileStyle}
-            chatRef={chatRef as React.RefObject<HTMLDivElement>}
-            isLoading={isLoading}
-            courseAvatar={courseAvatar}
-            courseName={courseName}
-            sectionTitle={lessonTitle}
-            lessonId={lessonId}
-            shifuBid={shifuBid}
-            previewMode={previewMode}
-            lessonStatus={lessonStatus}
-            variant={isClassroomMode ? 'classroom' : 'listen'}
-            onMobileViewModeChange={onListenMobileViewModeChange}
-            onSend={memoizedOnSend}
-            onPlayerVisibilityChange={onListenPlayerVisibilityChange}
-            onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
-          />
+          <>
+            {previewUpdateNotice}
+            <ListenModeSlideRenderer
+              items={slideModeItems}
+              mobileStyle={mobileStyle}
+              chatRef={chatRef as React.RefObject<HTMLDivElement>}
+              isLoading={isLoading}
+              courseAvatar={courseAvatar}
+              courseName={courseName}
+              sectionTitle={lessonTitle}
+              lessonId={lessonId}
+              shifuBid={shifuBid}
+              previewMode={previewMode}
+              lessonStatus={lessonStatus}
+              variant={isClassroomMode ? 'classroom' : 'listen'}
+              onMobileViewModeChange={onListenMobileViewModeChange}
+              onSend={memoizedOnSend}
+              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+              onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
+            />
+          </>
         ) : (
           <div
             className={cn(
@@ -1256,6 +1265,7 @@ export const NewChatComponents = ({
               <></>
             ) : (
               <>
+                {previewUpdateNotice}
                 {visibleReadModeItems.map((item, idx) => {
                   const isLongPressed =
                     longPressedBlockBid === item.element_bid;
