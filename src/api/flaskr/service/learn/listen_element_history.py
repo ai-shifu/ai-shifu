@@ -35,12 +35,6 @@ from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.util.datetime import to_utc_iso
 
 
-def _serialize_progress_updated_at(
-    value,
-) -> str | None:
-    return to_utc_iso(value)
-
-
 def _load_interaction_user_input_by_block_bid(
     rows: list[LearnGeneratedElement],
 ) -> dict[str, str]:
@@ -732,11 +726,7 @@ def get_listen_element_record(
             or updated_at > latest_progress_updated_at_dt
         ):
             latest_progress_updated_at_dt = updated_at
-    latest_progress_updated_at = None
-    if latest_progress_updated_at_dt is not None:
-        latest_progress_updated_at = _serialize_progress_updated_at(
-            latest_progress_updated_at_dt,
-        )
+    latest_progress_updated_at = to_utc_iso(latest_progress_updated_at_dt)
     progress_records = _dedupe_progress_records_by_block_position(progress_records)
     progress_record_bids = [
         pr.progress_record_bid for pr in progress_records if pr.progress_record_bid

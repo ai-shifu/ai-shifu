@@ -1,12 +1,14 @@
+const OFFSET_OR_ZONE_SUFFIX = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+
 const normalizeDateString = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) {
+  const normalized = value.trim().replace(' ', 'T');
+  if (!normalized) {
     return '';
   }
-  if (!trimmed.includes('T')) {
-    return trimmed.replace(' ', 'T');
+  if (OFFSET_OR_ZONE_SUFFIX.test(normalized)) {
+    return normalized;
   }
-  return trimmed;
+  return `${normalized}Z`;
 };
 
 export const parseLessonHistoryDate = (
