@@ -21,10 +21,3 @@
 .archived {
   @extend .statusBadge;
 }
-
-.lessonHistoryText {
-  text-decoration-line: underline;
-  text-decoration-style: dashed;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
