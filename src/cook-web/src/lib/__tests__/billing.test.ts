@@ -424,9 +424,25 @@ describe('parseBillingDateValue', () => {
   });
 
   test('normalizes space-separated offset-aware instants', () => {
+    expect(parseBillingDateValue('2026-04-14 07:32:00Z')?.toISOString()).toBe(
+      '2026-04-14T07:32:00.000Z',
+    );
+  });
+
+  test('handles comprehensive date/time formats', () => {
+    expect(parseBillingDateValue('2026-04-14')?.toISOString()).toBe(
+      '2026-04-14T00:00:00.000Z',
+    );
+    expect(parseBillingDateValue('2026-04-14Z')?.toISOString()).toBe(
+      '2026-04-14T00:00:00.000Z',
+    );
+    expect(parseBillingDateValue('2026-04-14T07:32Z')?.toISOString()).toBe(
+      '2026-04-14T07:32:00.000Z',
+    );
     expect(
-      parseBillingDateValue('2026-04-14 07:32:00Z')?.toISOString(),
-    ).toBe('2026-04-14T07:32:00.000Z');
+      parseBillingDateValue('2026-04-14T07:32:00+02:00')?.toISOString(),
+    ).toBe('2026-04-14T05:32:00.000Z');
+    expect(parseBillingDateValue('invalid-date')).toBeNull();
   });
 });
 
