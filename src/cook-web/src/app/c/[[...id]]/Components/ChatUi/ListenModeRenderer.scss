@@ -408,7 +408,7 @@
 }
 
 .slide-ask-overlay--standalone {
-  bottom: 24px;
+  bottom: var(--slide-player-bottom-offset);
 }
 
 .slide-player__ask-card {
