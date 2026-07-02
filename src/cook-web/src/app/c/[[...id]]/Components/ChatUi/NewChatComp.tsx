@@ -316,9 +316,10 @@ export const NewChatComponents = ({
   const resolvedLessonId = lessonId || '';
   const isRetakingCurrentLesson =
     Boolean(resolvedLessonId) && resettingLessonId === resolvedLessonId;
+  const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
   const handleRetakeCurrentLesson = useSingleFlight(async () => {
     if (!resolvedLessonId) {
-      return;
+      return false;
     }
 
     try {
@@ -330,12 +331,31 @@ export const NewChatComponents = ({
         lesson_id: resolvedLessonId,
         chapter_name: lessonTitle,
       });
+      return true;
     } catch (error) {
       fail(
         (error as Error).message || t('module.backend.common.operationFailed'),
       );
+      return false;
     }
   });
+  const handleRetakeButtonClick = useCallback(() => {
+    if (!resolvedLessonId || isRetakingCurrentLesson) {
+      return;
+    }
+
+    setShowRetakeConfirm(true);
+  }, [isRetakingCurrentLesson, resolvedLessonId]);
+  const handleRetakeConfirmOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open && isRetakingCurrentLesson) {
+        return;
+      }
+
+      setShowRetakeConfirm(open);
+    },
+    [isRetakingCurrentLesson],
+  );
   const promptContextKey = `${resolvedLessonId}:${
     isClassroomMode ? 'classroom' : isListenModeActive ? 'listen' : 'read'
   }`;
@@ -1238,19 +1258,65 @@ export const NewChatComponents = ({
   const lessonUpdateNotice = showLessonUpdateNotice ? (
     <div className='mx-auto mb-3 mt-2 max-w-[1000px] px-4 md:px-5'>
       <div className='inline-flex max-w-full items-center gap-3 rounded-full border border-amber-200/80 bg-amber-50/90 px-4 py-2 text-sm leading-6 text-amber-900 shadow-sm shadow-amber-100/40'>
-        <span>{t('module.chat.lessonUpdateReturnToCatalog')}</span>
+        <span>{t('module.chat.lessonUpdateRecommendRetake')}</span>
         <Button
           type='button'
           size='sm'
           variant='outline'
           className='h-8 rounded-[15px] border border-amber-300 bg-white/85 px-3 text-[13px] font-medium text-amber-900 shadow-none hover:bg-white'
-          onClick={() => {
-            void handleRetakeCurrentLesson();
-          }}
+          onClick={handleRetakeButtonClick}
           disabled={isRetakingCurrentLesson}
         >
           {t('module.chat.lessonUpdateRetakeAction')}
         </Button>
+        <Dialog
+          open={showRetakeConfirm}
+          onOpenChange={handleRetakeConfirmOpenChange}
+        >
+          <DialogContent
+            showClose={!isRetakingCurrentLesson}
+            onEscapeKeyDown={event => {
+              if (isRetakingCurrentLesson) {
+                event.preventDefault();
+              }
+            }}
+            onPointerDownOutside={event => {
+              if (isRetakingCurrentLesson) {
+                event.preventDefault();
+              }
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>{t('module.lesson.reset.confirmTitle')}</DialogTitle>
+              <DialogDescription>
+                {t('module.lesson.reset.confirmContent')}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => setShowRetakeConfirm(false)}
+                disabled={isRetakingCurrentLesson}
+              >
+                {t('common.core.cancel')}
+              </Button>
+              <Button
+                type='button'
+                onClick={() => {
+                  void handleRetakeCurrentLesson().then(didReset => {
+                    if (didReset) {
+                      setShowRetakeConfirm(false);
+                    }
+                  });
+                }}
+                disabled={isRetakingCurrentLesson}
+              >
+                {t('common.core.ok')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   ) : null;
