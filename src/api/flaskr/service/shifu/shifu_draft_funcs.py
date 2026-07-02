@@ -490,20 +490,8 @@ def save_shifu_draft_info(
                     else 1.0
                 )
             )
-            merged_pitch = (
-                tts_pitch
-                if tts_pitch is not None
-                else (
-                    int(shifu_draft.tts_pitch)
-                    if shifu_draft and shifu_draft.tts_pitch is not None
-                    else 0
-                )
-            )
-            merged_emotion = (
-                tts_emotion
-                if tts_emotion is not None
-                else (shifu_draft.tts_emotion if shifu_draft else "")
-            )
+            merged_pitch = 0
+            merged_emotion = ""
             validated = validate_tts_settings_strict(
                 provider=merged_provider,
                 model=merged_model,

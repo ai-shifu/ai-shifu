@@ -957,8 +957,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         tts_model = json_data.get("tts_model")
         tts_voice_id = json_data.get("tts_voice_id")
         tts_speed = json_data.get("tts_speed")
-        tts_pitch = json_data.get("tts_pitch")
-        tts_emotion = json_data.get("tts_emotion")
+        tts_pitch = 0 if "tts_pitch" in json_data else None
+        tts_emotion = "" if "tts_emotion" in json_data else None
         # Language Output Configuration
         use_learner_language = json_data.get("use_learner_language")
         if isinstance(use_learner_language, str):

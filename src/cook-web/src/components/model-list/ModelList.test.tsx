@@ -120,4 +120,28 @@ describe('ModelList', () => {
       within(defaultOption as HTMLElement).getByText('1x'),
     ).toBeInTheDocument();
   });
+
+  test('renders custom options with string multiplier labels', () => {
+    render(
+      <ModelList
+        value='minimax/speech-01-turbo'
+        onChange={() => undefined}
+        showDefaultOption={false}
+        options={[
+          {
+            value: 'minimax/speech-01-turbo',
+            label: 'MiniMax Turbo',
+            creditMultiplierLabel: '2x',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText('MiniMax Turbo')).toHaveLength(2);
+    expect(screen.getAllByText('2x')).toHaveLength(2);
+    expect(screen.queryByText('common.core.default')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('listbox').querySelector('[data-value="__empty__"]'),
+    ).toBeNull();
+  });
 });
