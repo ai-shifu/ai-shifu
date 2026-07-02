@@ -67,11 +67,7 @@ export const LearningModeSwitch = ({
       <div
         role='radiogroup'
         aria-label={t('module.chat.learningModeToggle')}
-        className={cn(
-          styles.learningModeSwitch,
-          size === 'desktop' ? styles.learningModeSwitchDesktop : '',
-          className,
-        )}
+        className={cn(styles.learningModeSwitch, className)}
       >
         {renderedOptions.map(option => {
           const isActive = learningMode === option.mode;
