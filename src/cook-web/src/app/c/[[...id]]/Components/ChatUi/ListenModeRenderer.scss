@@ -129,10 +129,14 @@
   background: var(--color-slide-desktop-bg);
 }
 
-.listen-reveal-wrapper:not(.mobile) .listen-slide-player {
-  bottom: calc(
+.listen-reveal-wrapper:not(.mobile) {
+  --listen-slide-player-bottom-offset: calc(
     var(--chat-footer-height, 40px) + var(--listen-player-footer-gap, 12px)
   );
+}
+
+.listen-reveal-wrapper:not(.mobile) .listen-slide-player {
+  bottom: var(--listen-slide-player-bottom-offset);
   z-index: 30;
 }
 
@@ -376,8 +380,11 @@
 }
 
 .slide-ask-overlay {
-  --slide-player-bottom-offset: calc(
-    var(--chat-footer-height, 40px) + var(--listen-player-footer-gap, 12px)
+  --slide-player-bottom-offset: var(
+    --listen-slide-player-bottom-offset,
+    calc(
+      var(--chat-footer-height, 40px) + var(--listen-player-footer-gap, 12px)
+    )
   );
   --slide-player-height: 80px;
   --slide-interaction-gap: 16px;
@@ -390,6 +397,12 @@
 
 .listen-reveal-wrapper:not(.mobile) .slide-interaction-overlay {
   --slide-player-notes-arrow-offset: 168px;
+}
+
+.listen-reveal-wrapper:not(.mobile) .slide-interaction-overlay,
+.listen-reveal-wrapper:not(.mobile) .slide-subtitle-overlay {
+  --slide-player-bottom-offset: var(--listen-slide-player-bottom-offset);
+  z-index: 90;
 }
 
 .listen-reveal-wrapper.mobile
