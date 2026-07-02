@@ -393,6 +393,17 @@ class DraftOutlineItem(db.Model):
             "deleted",
             "id",
         ),
+        # Serves "latest version" lookups that order by id without a deleted
+        # filter (e.g. the FOR UPDATE in save_shifu_mdflow). Keeping id directly
+        # after the bid prefix lets InnoDB stop at the first index record for
+        # ORDER BY id DESC LIMIT 1, locking a single row instead of the whole
+        # version range and avoiding deadlocks under concurrent saves.
+        Index(
+            "ix_shifu_draft_outline_items_shifu_outline_id",
+            "shifu_bid",
+            "outline_item_bid",
+            "id",
+        ),
         {"comment": "Draft outline item version records"},
     )
     id = Column(BIGINT, primary_key=True, autoincrement=True)

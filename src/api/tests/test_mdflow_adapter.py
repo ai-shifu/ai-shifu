@@ -263,7 +263,7 @@ def test_save_shifu_mdflow_normalizes_none_content(app, monkeypatch):
         lambda *_args, **_kwargs: [],
     )
     monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick",
+        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
@@ -306,7 +306,7 @@ def test_save_shifu_mdflow_returns_outline_revision_not_history_log(app, monkeyp
         lambda *_args, **_kwargs: [],
     )
     monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick",
+        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
@@ -390,7 +390,7 @@ def test_restore_shifu_mdflow_history_restores_content(app, monkeypatch):
         lambda *_args, **_kwargs: [],
     )
     monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick",
+        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
