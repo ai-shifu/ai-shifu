@@ -481,7 +481,7 @@ def test_operator_referral_filters_accept_user_identifier(referral_app):
             page_size=20,
             filters={
                 "campaign_bid": campaign_bid,
-                "inviter_user_bid": "15500009999",
+                "inviter_user_bid": "+8615500009999",
                 "invitee_user_bid": "invitee-filter@example.com",
             },
         )
@@ -490,7 +490,7 @@ def test_operator_referral_filters_accept_user_identifier(referral_app):
             campaign_bid=campaign_bid,
             page_index=1,
             page_size=20,
-            filters={"inviter_user_bid": "15500009999"},
+            filters={"inviter_user_bid": "+8615500009999"},
         )
 
         assert relations["total"] == 1

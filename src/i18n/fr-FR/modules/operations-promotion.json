@@ -232,7 +232,7 @@
     "records": {
       "codeEntered": "Code saisi",
       "generatedAt": "Date de génération",
-      "invitationsTab": "Parcours d’invitation",
+      "invitationsTab": "Détails des codes d’invitation",
       "inviteCode": "Code d’invitation",
       "inviteCodeStatus": "Statut",
       "inviteCodeStatusActive": "Actif",
@@ -248,7 +248,7 @@
       "latestEventAt": "Dernier événement",
       "linkClicked": "Lien cliqué",
       "pageViewed": "Page consultée",
-      "relationsTab": "Participants",
+      "relationsTab": "Enregistrements d’invitation",
       "submitted": "Code soumis",
       "successfulRelations": "Participants réussis",
       "title": "Données de la campagne d’invitation",

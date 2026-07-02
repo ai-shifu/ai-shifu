@@ -232,7 +232,7 @@
     "records": {
       "codeEntered": "Code Entered",
       "generatedAt": "Generated At",
-      "invitationsTab": "Invitation Funnel",
+      "invitationsTab": "Invite Code Details",
       "inviteCode": "Invite Code",
       "inviteCodeStatus": "Status",
       "inviteCodeStatusActive": "Active",
@@ -248,7 +248,7 @@
       "latestEventAt": "Latest Event",
       "linkClicked": "Link Clicked",
       "pageViewed": "Landing Viewed",
-      "relationsTab": "Participants",
+      "relationsTab": "Invite Records",
       "submitted": "Code Submitted",
       "successfulRelations": "Successful Participants",
       "title": "Referral Campaign Data",
