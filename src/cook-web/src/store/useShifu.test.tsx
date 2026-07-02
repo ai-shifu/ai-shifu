@@ -35,6 +35,16 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
   <ShifuProvider>{children}</ShifuProvider>
 );
 
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+};
+
 describe('useShifu draft meta handling', () => {
   beforeEach(() => {
     mockSaveMdflow.mockReset();
@@ -102,5 +112,58 @@ describe('useShifu draft meta handling', () => {
       });
       expect(result.current.latestDraftMeta?.revision).toBe(9);
     });
+  });
+
+  it('does not clear current draft meta when a stale outline request fails', async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const lessonOneDraftMeta = createDeferred<unknown>();
+    mockGetShifuDraftMeta.mockImplementation(({ outline_bid }) => {
+      if (outline_bid === 'lesson-1') {
+        return lessonOneDraftMeta.promise;
+      }
+      return Promise.resolve({
+        revision: 3,
+        updated_at: '2026-06-30T06:37:42Z',
+        updated_user: null,
+      });
+    });
+
+    const { result } = renderHook(() => useShifu(), { wrapper });
+
+    let lessonOnePromise: Promise<unknown> | null = null;
+    await act(async () => {
+      result.current.actions.setCurrentNode({
+        bid: 'lesson-1',
+        depth: 1,
+      } as any);
+      lessonOnePromise = result.current.actions.loadDraftMeta(
+        'shifu-1',
+        'lesson-1',
+      );
+    });
+
+    await act(async () => {
+      result.current.actions.setCurrentNode({
+        bid: 'lesson-2',
+        depth: 1,
+      } as any);
+      await result.current.actions.loadDraftMeta('shifu-1', 'lesson-2');
+    });
+
+    expect(result.current.latestDraftMeta?.revision).toBe(3);
+
+    await act(async () => {
+      lessonOneDraftMeta.reject(new Error('stale failure'));
+      await lessonOnePromise;
+    });
+
+    expect(result.current.latestDraftMeta?.revision).toBe(3);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to load draft meta',
+      expect.any(Error),
+    );
+    consoleErrorSpy.mockRestore();
   });
 });
