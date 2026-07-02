@@ -261,10 +261,13 @@ describe('AdminDashboardCourseRatingsPage', () => {
     expect(screen.getByText('Lesson 2')).toBeInTheDocument();
     expect(screen.getByText('Chapter 2')).toBeInTheDocument();
     expect(
-      screen.getAllByText('module.dashboard.detail.ratings.scoreValue:4')
+      screen.queryAllByText('module.dashboard.detail.ratings.scoreValue:4')
         .length,
     ).toBeGreaterThan(0);
     expect(screen.getByText('Helpful examples')).toBeInTheDocument();
+    expect(screen.queryAllByText('2026-04-06 17:05:00').length).toBeGreaterThan(
+      0,
+    );
   });
 
   test('supports rating filters and email placeholder mode', async () => {
