@@ -1399,11 +1399,9 @@ export const ReferralCampaignDialog = ({
     createDefaultReferralCampaignForm(),
   );
   const [submitting, setSubmitting] = useState(false);
-  const [advancedExpanded, setAdvancedExpanded] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setAdvancedExpanded(false);
       setForm(
         campaign
           ? createReferralCampaignFormFromDetail(campaign)
@@ -1640,20 +1638,25 @@ export const ReferralCampaignDialog = ({
               />
             </FormField>
             <FormField label={tPromotion('referralCampaign.validityDays')}>
-              <Input
-                className='h-9'
-                inputMode='numeric'
-                value={form.reward_credit_validity_days}
-                placeholder={tPromotion(
-                  'referralCampaign.validityDaysPlaceholder',
-                )}
-                onChange={event =>
-                  setForm(current => ({
-                    ...current,
-                    reward_credit_validity_days: event.target.value,
-                  }))
-                }
-              />
+              <div className='flex items-center gap-2'>
+                <Input
+                  className='h-9 min-w-0 flex-1'
+                  inputMode='numeric'
+                  value={form.reward_credit_validity_days}
+                  placeholder={tPromotion(
+                    'referralCampaign.validityDaysPlaceholder',
+                  )}
+                  onChange={event =>
+                    setForm(current => ({
+                      ...current,
+                      reward_credit_validity_days: event.target.value,
+                    }))
+                  }
+                />
+                <span className='w-8 shrink-0 text-sm text-muted-foreground'>
+                  {tPromotion('referralCampaign.dayUnit')}
+                </span>
+              </div>
             </FormField>
             <FormField label={tPromotion('referralCampaign.capScope')}>
               <Select
@@ -1742,166 +1745,6 @@ export const ReferralCampaignDialog = ({
                 }
               />
             </FormField>
-            <div className='md:col-span-2 xl:col-span-3'>
-              <div className='space-y-2 rounded-lg border border-border/80 p-4'>
-                <div className='flex items-center justify-between gap-3'>
-                  <div>
-                    <Label className='text-sm font-medium text-foreground'>
-                      {tPromotion('referralCampaign.advancedSettings')}
-                    </Label>
-                    <p className='mt-1 text-xs leading-5 text-muted-foreground'>
-                      {tPromotion('referralCampaign.advancedSettingsHelper')}
-                    </p>
-                  </div>
-                  <Button
-                    type='button'
-                    size='icon'
-                    variant='ghost'
-                    className='h-8 w-8 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground'
-                    aria-label={tPromotion('referralCampaign.advancedSettings')}
-                    onClick={() => setAdvancedExpanded(current => !current)}
-                  >
-                    {advancedExpanded ? (
-                      <ChevronUp className='h-4 w-4' />
-                    ) : (
-                      <ChevronDown className='h-4 w-4' />
-                    )}
-                  </Button>
-                </div>
-                <div
-                  className={cn(
-                    'grid gap-x-4 gap-y-5 pt-3 md:grid-cols-2',
-                    advancedExpanded ? 'grid' : 'hidden',
-                  )}
-                >
-                  <FormField label={tPromotion('referralCampaign.featureFlag')}>
-                    <Input
-                      className='h-9'
-                      value={form.feature_flag_key}
-                      placeholder={tPromotion(
-                        'referralCampaign.featureFlagPlaceholder',
-                      )}
-                      onChange={event =>
-                        setForm(current => ({
-                          ...current,
-                          feature_flag_key: event.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField label={tPromotion('referralCampaign.inviteRoute')}>
-                    <Input
-                      className='h-9'
-                      value={form.invite_route_template}
-                      placeholder={tPromotion(
-                        'referralCampaign.inviteRoutePlaceholder',
-                      )}
-                      onChange={event =>
-                        setForm(current => ({
-                          ...current,
-                          invite_route_template: event.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField
-                    label={tPromotion('referralCampaign.inviteeBenefitPolicy')}
-                  >
-                    <Input
-                      className='h-9'
-                      value={form.invitee_benefit_policy}
-                      placeholder={tPromotion(
-                        'referralCampaign.inviteeBenefitPolicyPlaceholder',
-                      )}
-                      onChange={event =>
-                        setForm(current => ({
-                          ...current,
-                          invitee_benefit_policy: event.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField label={tPromotion('referralCampaign.copyKey')}>
-                    <Input
-                      className='h-9'
-                      value={form.rules_copy_i18n_key}
-                      placeholder={tPromotion(
-                        'referralCampaign.copyKeyPlaceholder',
-                      )}
-                      onChange={event =>
-                        setForm(current => ({
-                          ...current,
-                          rules_copy_i18n_key: event.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField label={tPromotion('referralCampaign.ruleCode')}>
-                    <Input
-                      className='h-9'
-                      value={form.rule_code}
-                      placeholder={tPromotion(
-                        'referralCampaign.ruleCodePlaceholder',
-                      )}
-                      onChange={event =>
-                        setForm(current => ({
-                          ...current,
-                          rule_code: event.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField label={tPromotion('referralCampaign.priority')}>
-                    <Input
-                      className='h-9'
-                      inputMode='numeric'
-                      value={form.priority}
-                      placeholder={tPromotion(
-                        'referralCampaign.priorityPlaceholder',
-                      )}
-                      onChange={event =>
-                        setForm(current => ({
-                          ...current,
-                          priority: event.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <div className='md:col-span-2 grid gap-4 md:grid-cols-2'>
-                    <FormField
-                      label={tPromotion('referralCampaign.inviterEligibility')}
-                    >
-                      <Textarea
-                        className='min-h-28 font-mono text-xs'
-                        value={form.inviter_eligibility_json}
-                        placeholder='{ }'
-                        onChange={event =>
-                          setForm(current => ({
-                            ...current,
-                            inviter_eligibility_json: event.target.value,
-                          }))
-                        }
-                      />
-                    </FormField>
-                    <FormField
-                      label={tPromotion('referralCampaign.inviteeEligibility')}
-                    >
-                      <Textarea
-                        className='min-h-28 font-mono text-xs'
-                        value={form.invitee_eligibility_json}
-                        placeholder='{ }'
-                        onChange={event =>
-                          setForm(current => ({
-                            ...current,
-                            invitee_eligibility_json: event.target.value,
-                          }))
-                        }
-                      />
-                    </FormField>
-                  </div>
-                </div>
-              </div>
-            </div>
             {planOptions.length ? (
               <div className='md:col-span-2 xl:col-span-3 text-xs leading-5 text-muted-foreground'>
                 {planOptions.map(option =>
@@ -1913,7 +1756,9 @@ export const ReferralCampaignDialog = ({
                       )} · ${formatBillingPlanInterval(
                         t,
                         option as unknown as BillingPlan,
-                      )} · ${formatBillingCreditAmount(option.credit_amount)}`
+                      )} · ${tPromotion('packageCampaign.productCredits', {
+                        value: formatBillingCreditAmount(option.credit_amount),
+                      })}`
                     : null,
                 )}
               </div>
