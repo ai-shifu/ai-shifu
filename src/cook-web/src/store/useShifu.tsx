@@ -599,7 +599,9 @@ export const ShifuProvider = ({
         return meta as DraftMeta;
       } catch (error) {
         console.error('Failed to load draft meta', error);
-        setLatestDraftMeta(null);
+        if (!outlineId || currentOutlineRef.current === outlineId) {
+          setLatestDraftMeta(null);
+        }
         return null;
       }
     },

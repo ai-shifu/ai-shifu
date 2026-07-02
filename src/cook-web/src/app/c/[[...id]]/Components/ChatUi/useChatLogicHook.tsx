@@ -423,6 +423,7 @@ function useChatLogicHook({
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
   const sseRef = useRef<any>(null);
   const sseRunSerialRef = useRef(0);
+  const refreshDataSerialRef = useRef(0);
   const runStreamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -2602,6 +2603,10 @@ function useChatLogicHook({
    * Loads the persisted lesson records and primes the chat stream.
    */
   const refreshData = useCallback(async () => {
+    const refreshSerial = ++refreshDataSerialRef.current;
+    const isCurrentRefresh = () =>
+      refreshSerial === refreshDataSerialRef.current;
+
     resetLessonRunContent(lessonRunContentCacheKey);
     setTrackedContentList(() => []);
     resetLessonFeedbackPopup();
@@ -2620,19 +2625,30 @@ function useChatLogicHook({
         outline_bid: outlineBid,
         preview_mode: effectivePreviewMode,
       });
+      if (!isCurrentRefresh()) {
+        return;
+      }
       let shouldShowLessonUpdateNotice = false;
-      if (effectivePreviewMode && recordResp?.elements?.length > 0) {
+      const latestStudyUpdatedAt =
+        effectivePreviewMode && recordResp?.elements?.length > 0
+          ? parseLessonHistoryDate(recordResp.last_progress_updated_at)
+          : null;
+      if (
+        effectivePreviewMode &&
+        recordResp?.elements?.length > 0 &&
+        latestStudyUpdatedAt
+      ) {
         const draftMeta = await api
           .getShifuDraftMeta({
             shifu_bid: shifuBid,
             outline_bid: outlineBid,
           })
           .catch(() => null);
+        if (!isCurrentRefresh()) {
+          return;
+        }
         const latestDraftUpdatedAt = parseLessonHistoryDate(
           draftMeta?.updated_at,
-        );
-        const latestStudyUpdatedAt = parseLessonHistoryDate(
-          recordResp.last_progress_updated_at,
         );
         shouldShowLessonUpdateNotice = Boolean(
           latestDraftUpdatedAt &&
@@ -2641,6 +2657,9 @@ function useChatLogicHook({
         );
       } else if (!effectivePreviewMode && recordResp?.elements?.length > 0) {
         shouldShowLessonUpdateNotice = Boolean(lessonHasContentUpdate);
+      }
+      if (!isCurrentRefresh()) {
+        return;
       }
       setShowLessonUpdateNotice(shouldShowLessonUpdateNotice);
 
@@ -2698,10 +2717,14 @@ function useChatLogicHook({
         }
       }
     } catch (error) {
-      setShowLessonUpdateNotice(false);
+      if (isCurrentRefresh()) {
+        setShowLessonUpdateNotice(false);
+      }
       console.warn('refreshData error:', error);
     } finally {
-      setIsLoading(false);
+      if (isCurrentRefresh()) {
+        setIsLoading(false);
+      }
     }
   }, [
     chapterId,
