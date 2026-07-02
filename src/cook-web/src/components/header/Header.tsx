@@ -108,11 +108,10 @@ const Header = ({
   const { t } = useTranslation();
   const alert = useAlert();
   const [publishing, setPublishing] = useState(false);
-  const [, setShowSavedFeedback] = useState(false);
   const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now());
   const { toast } = useToast();
   const { trackEvent } = useTracking();
-  const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
+  const { isSaving, currentShifu, error, actions } = useShifu();
   // Only allow publish when backend grants explicit publish permission.
   const canPublish =
     Boolean(currentShifu?.bid) && currentShifu?.canPublish === true;
@@ -121,20 +120,6 @@ const Header = ({
       await actions.loadShifu(currentShifu.bid, { silent: true });
     }
   };
-  useEffect(() => {
-    if (isSaving || error || !lastSaveTime) {
-      setShowSavedFeedback(false);
-      return;
-    }
-    setShowSavedFeedback(true);
-    const timer = window.setTimeout(() => {
-      setShowSavedFeedback(false);
-    }, 3000);
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [error, isSaving, lastSaveTime]);
-
   useEffect(() => {
     const timer = window.setInterval(() => {
       setRelativeTimeNow(Date.now());

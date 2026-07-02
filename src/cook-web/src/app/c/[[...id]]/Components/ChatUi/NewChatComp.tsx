@@ -314,7 +314,8 @@ export const NewChatComponents = ({
   const previousListenModeActiveRef = useRef(isListenModeActive);
   // Normalize lesson scope for downstream APIs and stores that require a string key.
   const resolvedLessonId = lessonId || '';
-  const isRetakingCurrentLesson = resettingLessonId === resolvedLessonId;
+  const isRetakingCurrentLesson =
+    Boolean(resolvedLessonId) && resettingLessonId === resolvedLessonId;
   const handleRetakeCurrentLesson = useSingleFlight(async () => {
     if (!resolvedLessonId) {
       return;
