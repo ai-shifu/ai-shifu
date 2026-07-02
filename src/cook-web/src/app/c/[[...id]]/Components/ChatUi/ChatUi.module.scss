@@ -1,4 +1,7 @@
 .ChatUi {
+  --chat-footer-height: 40px;
+  --listen-player-footer-gap: 12px;
+
   position: relative;
   flex: 1;
   min-width: 0;
@@ -86,7 +89,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    height: 40px;
+    height: var(--chat-footer-height);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -153,7 +156,7 @@
   &.mobile {
     width: 100%;
     // padding-top: 80px;
-    // padding-bottom: 40px;
+    // padding-bottom: var(--chat-footer-height);
     overflow: hidden;
     .chatComponents {
       padding-top: 0;
@@ -175,15 +178,13 @@
       calc(var(--app-viewport-block-unit, 1dvh) * 100) - var(
           --mobile-chat-header-height,
           44px
-        ) -
-        40px
+        ) - var(--chat-footer-height)
     );
     max-height: calc(
       calc(var(--app-viewport-block-unit, 1dvh) * 100) - var(
           --mobile-chat-header-height,
           44px
-        ) -
-        40px
+        ) - var(--chat-footer-height)
     );
     min-height: 0;
     flex-direction: column;
