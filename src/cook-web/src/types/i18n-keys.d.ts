@@ -107,7 +107,6 @@ export type I18nKey =
   | 'component.header.lastLessonModified'
   | 'component.header.minutesAgo'
   | 'component.header.readonly'
-  | 'component.header.saved'
   | 'component.header.hoursAgo'
   | 'component.header.daysAgo'
   | 'component.mdfConvert.applyButton'
