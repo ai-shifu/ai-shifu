@@ -255,13 +255,6 @@ def update_config(
         if has_explicit_env_override(key):
             return False
         cache_key = _get_config_cache_key(app, key)
-        cache = redis.get(cache_key)
-        if cache:
-            cache_config = ConfigCache.model_validate_json(cache)
-            if cache_config.is_encrypted:
-                value = _decrypt_config(app, cache_config.value)
-            else:
-                value = cache_config.value
         if value:
             if is_secret:
                 value = _encrypt_config(app, value)
