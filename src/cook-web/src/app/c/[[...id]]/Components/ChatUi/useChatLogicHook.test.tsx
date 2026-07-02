@@ -3183,6 +3183,40 @@ describe('useChatLogicHook stream cleanup', () => {
       });
     });
 
+    it('skips draft-meta loading when learner history has no progress timestamp', async () => {
+      mockGetLessonStudyRecord.mockResolvedValue({
+        elements: [
+          {
+            element_type: 'content',
+            element_bid: 'history-1',
+            generated_block_bid: 'history-1',
+            content: 'history content',
+            like_status: 'none',
+            user_input: '',
+            is_marker: false,
+            is_new: false,
+            is_renderable: true,
+            is_speakable: false,
+          },
+        ],
+        last_progress_updated_at: null,
+      });
+
+      const { result } = renderHook(
+        () =>
+          useChatLogicHook({
+            ...buildBaseParams(),
+            previewMode: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.showPreviewUpdateNotice).toBe(false);
+      });
+      expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
+    });
+
     it('ignores stale preview update responses after lesson navigation', async () => {
       const staleRecord = createDeferred<{
         elements: Array<Record<string, unknown>>;

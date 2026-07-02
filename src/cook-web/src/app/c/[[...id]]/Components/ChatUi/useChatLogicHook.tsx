@@ -2627,7 +2627,15 @@ function useChatLogicHook({
         return;
       }
       let shouldShowPreviewUpdate = false;
-      if (effectivePreviewMode && recordResp?.elements?.length > 0) {
+      const latestStudyUpdatedAt =
+        effectivePreviewMode && recordResp?.elements?.length > 0
+          ? parseLessonHistoryDate(recordResp.last_progress_updated_at)
+          : null;
+      if (
+        effectivePreviewMode &&
+        recordResp?.elements?.length > 0 &&
+        latestStudyUpdatedAt
+      ) {
         const draftMeta = await api
           .getShifuDraftMeta({
             shifu_bid: shifuBid,
@@ -2639,9 +2647,6 @@ function useChatLogicHook({
         }
         const latestDraftUpdatedAt = parseLessonHistoryDate(
           draftMeta?.updated_at,
-        );
-        const latestStudyUpdatedAt = parseLessonHistoryDate(
-          recordResp.last_progress_updated_at,
         );
         shouldShowPreviewUpdate = Boolean(
           latestDraftUpdatedAt &&
