@@ -31,7 +31,10 @@ from flaskr.service.billing.read_models import (
     build_operator_credit_orders_page,
     get_operator_credit_order_detail,
 )
-from flaskr.service.billing.domains import resolve_effective_custom_origin
+from flaskr.service.billing.domains import (
+    resolve_creator_bid_by_host,
+    resolve_effective_custom_origin,
+)
 from flaskr.service.billing.operation_credits import (
     OperationCreditCaptureResult,
     OperationCreditEstimate,
@@ -70,6 +73,7 @@ __all__ = [
     "build_billing_catalog",
     "capture_reserved_operation_credits",
     "estimate_voice_clone_operation_credits",
+    "resolve_creator_bid_by_host",
     "resolve_effective_custom_origin",
     "build_operator_credit_orders_overview",
     "build_operator_credit_orders_page",
