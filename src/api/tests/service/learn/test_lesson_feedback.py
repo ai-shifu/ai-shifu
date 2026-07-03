@@ -139,12 +139,8 @@ class LessonFeedbackTests(unittest.TestCase):
         )
 
         self.assertEqual(result["total"], 1)
-        self.assertEqual(
-            result["items"][0]["created_at"], "2026-06-30T11:57:03Z"
-        )
-        self.assertEqual(
-            result["items"][0]["updated_at"], "2026-06-30T12:08:09Z"
-        )
+        self.assertEqual(result["items"][0]["created_at"], "2026-06-30T11:57:03Z")
+        self.assertEqual(result["items"][0]["updated_at"], "2026-06-30T12:08:09Z")
 
 
 if __name__ == "__main__":

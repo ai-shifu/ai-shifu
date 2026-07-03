@@ -121,7 +121,11 @@ def _make_test_app() -> Flask:
 
 def test_sse_chunk_serializes_datetime_as_utc_iso_z():
     chunk = runscript_v2._to_sse_chunk(
-        {"created_at": datetime(2026, 6, 30, 19, 57, 3, tzinfo=timezone(timedelta(hours=8)))}
+        {
+            "created_at": datetime(
+                2026, 6, 30, 19, 57, 3, tzinfo=timezone(timedelta(hours=8))
+            )
+        }
     )
 
     events = _parse_sse_events([chunk])
