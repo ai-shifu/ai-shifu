@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 export type AdminFilterItem = {
   key: string;
   label: ReactNode;
+  labelId?: string;
   component: ReactNode;
   contentClassName?: string;
   itemClassName?: string;
@@ -72,6 +73,7 @@ const AdminFilterField = ({
     )}
   >
     <span
+      id={item.labelId}
       className={cn(
         ADMIN_FILTER_LABEL_CLASS,
         labelColon && "after:ml-0.5 after:content-[':']",

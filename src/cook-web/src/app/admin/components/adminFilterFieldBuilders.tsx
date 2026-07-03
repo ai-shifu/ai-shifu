@@ -33,6 +33,7 @@ type CreateTextFilterItemParams = {
 type CreateSelectFilterItemParams = {
   key: string;
   label: ReactNode;
+  labelId?: string;
   value: string;
   placeholder: string;
   options: AdminFilterSelectOption[];
@@ -40,6 +41,8 @@ type CreateSelectFilterItemParams = {
   contentClassName?: string;
   itemClassName?: string;
   labelClassName?: string;
+  triggerId?: string;
+  triggerAriaLabelledBy?: string;
   triggerClassName?: string;
   selectItemClassName?: string;
   indicatorClassName?: string;
@@ -92,6 +95,7 @@ export const createTextFilterItem = ({
 export const createSelectFilterItem = ({
   key,
   label,
+  labelId,
   value,
   placeholder,
   options,
@@ -99,12 +103,15 @@ export const createSelectFilterItem = ({
   contentClassName,
   itemClassName,
   labelClassName,
+  triggerId,
+  triggerAriaLabelledBy,
   triggerClassName,
   selectItemClassName,
   indicatorClassName,
 }: CreateSelectFilterItemParams): AdminFilterItem => ({
   key,
   label,
+  labelId,
   contentClassName,
   itemClassName,
   labelClassName,
@@ -113,7 +120,11 @@ export const createSelectFilterItem = ({
       value={value}
       onValueChange={onChange}
     >
-      <SelectTrigger className={cn('h-9', triggerClassName)}>
+      <SelectTrigger
+        id={triggerId}
+        aria-labelledby={triggerAriaLabelledBy}
+        className={cn('h-9', triggerClassName)}
+      >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

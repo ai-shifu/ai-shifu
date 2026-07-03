@@ -63,6 +63,8 @@ type FollowUpFilters = {
 const PAGE_SIZE = 20;
 const ALL_SOURCE_STATUS = 'all';
 const DETAIL_CACHE_LIMIT = 20;
+const FOLLOW_UP_SOURCE_STATUS_LABEL_ID = 'follow-ups-source-status-label';
+const FOLLOW_UP_SOURCE_STATUS_TRIGGER_ID = 'follow-ups-source-status-trigger';
 const FOLLOW_UP_FILTER_GRID_CLASS =
   'gap-x-5 md:grid-cols-2 xl:grid-cols-[minmax(0,300px)_minmax(0,300px)_minmax(0,200px)_minmax(0,280px)]';
 const FOLLOW_UP_FILTER_LABEL_CLASS = 'w-[68px]';
@@ -603,12 +605,15 @@ export default function AdminDashboardCourseFollowUpsPage() {
     createSelectFilterItem({
       key: 'source_status',
       label: t('module.dashboard.detail.followUps.filters.sourceStatus'),
+      labelId: FOLLOW_UP_SOURCE_STATUS_LABEL_ID,
       value: filtersDraft.sourceStatus,
       onChange: value =>
         setFiltersDraft(previous => ({
           ...previous,
           sourceStatus: value,
         })),
+      triggerId: FOLLOW_UP_SOURCE_STATUS_TRIGGER_ID,
+      triggerAriaLabelledBy: FOLLOW_UP_SOURCE_STATUS_LABEL_ID,
       placeholder: t(
         'module.dashboard.detail.followUps.filters.sourceStatusAll',
       ),

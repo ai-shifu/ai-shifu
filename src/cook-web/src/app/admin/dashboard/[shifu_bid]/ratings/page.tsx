@@ -61,6 +61,10 @@ type RatingFilters = {
 const PAGE_SIZE = 20;
 const FILTER_ALL_OPTION = 'all';
 const COMMENT_FILTER_COMMENTED_OPTION = 'commented';
+const RATINGS_SCORE_LABEL_ID = 'ratings-score-label';
+const RATINGS_SCORE_TRIGGER_ID = 'ratings-score-trigger';
+const RATINGS_COMMENT_STATUS_LABEL_ID = 'ratings-comment-status-label';
+const RATINGS_COMMENT_STATUS_TRIGGER_ID = 'ratings-comment-status-trigger';
 const RATINGS_FILTER_GRID_CLASS =
   'gap-x-6 md:grid-cols-2 xl:grid-cols-[minmax(0,280px)_minmax(0,280px)_minmax(0,152px)_minmax(0,172px)_minmax(0,286px)]';
 const RATINGS_FILTER_LABEL_SM_CLASS = 'w-[60px]';
@@ -443,12 +447,15 @@ export default function AdminDashboardCourseRatingsPage() {
     createSelectFilterItem({
       key: 'score',
       label: t('module.dashboard.detail.ratings.filters.score'),
+      labelId: RATINGS_SCORE_LABEL_ID,
       value: filtersDraft.score,
       onChange: value =>
         setFiltersDraft(previous => ({
           ...previous,
           score: value,
         })),
+      triggerId: RATINGS_SCORE_TRIGGER_ID,
+      triggerAriaLabelledBy: RATINGS_SCORE_LABEL_ID,
       labelClassName: RATINGS_FILTER_LABEL_SM_CLASS,
       placeholder: t('module.dashboard.detail.ratings.filters.scoreAll'),
       options: scoreOptions,
@@ -457,12 +464,15 @@ export default function AdminDashboardCourseRatingsPage() {
     createSelectFilterItem({
       key: 'comment_filter',
       label: t('module.dashboard.detail.ratings.filters.commentStatus'),
+      labelId: RATINGS_COMMENT_STATUS_LABEL_ID,
       value: filtersDraft.commentFilter,
       onChange: value =>
         setFiltersDraft(previous => ({
           ...previous,
           commentFilter: value as RatingCommentFilter,
         })),
+      triggerId: RATINGS_COMMENT_STATUS_TRIGGER_ID,
+      triggerAriaLabelledBy: RATINGS_COMMENT_STATUS_LABEL_ID,
       labelClassName: RATINGS_FILTER_LABEL_MD_CLASS,
       placeholder: t(
         'module.dashboard.detail.ratings.filters.commentStatusAll',
