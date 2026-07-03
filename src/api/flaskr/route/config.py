@@ -137,6 +137,10 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                     domain_owner_bid,
                     request_host or "-",
                 )
+                runtime_billing = build_default_runtime_billing_context(
+                    creator_bid=domain_owner_bid,
+                    request_host=request_host,
+                )
 
         branding = runtime_billing.branding
         logo_wide_url = branding.logo_wide_url or get_config("LOGO_WIDE_URL", "")

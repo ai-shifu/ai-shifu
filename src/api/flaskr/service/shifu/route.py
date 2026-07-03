@@ -239,7 +239,9 @@ def _resolve_publish_base_url(app: Flask) -> str:
     """
 
     host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()
-    if not host:
+    if host:
+        host = host.split(",", 1)[0].strip()
+    else:
         host = str(getattr(request, "host", "") or "").strip()
     if host:
         try:
@@ -250,9 +252,7 @@ def _resolve_publish_base_url(app: Flask) -> str:
 
             domain_creator_bid = resolve_creator_bid_by_host(app, host)
             if domain_creator_bid:
-                domain_origin = resolve_effective_custom_origin(
-                    app, domain_creator_bid
-                )
+                domain_origin = resolve_effective_custom_origin(app, domain_creator_bid)
                 if domain_origin:
                     return domain_origin
         except Exception:
