@@ -17,7 +17,6 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
 from flaskr.util.datetime import now_utc, to_utc_iso
 
 from flaskr.dao import db
@@ -224,7 +223,6 @@ class LearnGeneratedAudio(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         comment="Creation timestamp",
     )
 
@@ -232,7 +230,6 @@ class LearnGeneratedAudio(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         onupdate=now_utc,
         comment="Last update timestamp",
     )
@@ -321,13 +318,11 @@ class TTSMiniMaxClonedVoice(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         onupdate=now_utc,
     )
     ready_at = Column(DateTime, nullable=True)
