@@ -170,6 +170,9 @@ celerybeat.pid
 dev.sh
 dev.http
 
+# Local dependency-install marker created by external dev launcher (task/start-dev.sh)
+src/api/.deps_installed
+
 # Cook module
 src/cook/test*
 src/cook/codesifu-demo.db

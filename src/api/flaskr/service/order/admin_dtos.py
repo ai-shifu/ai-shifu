@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import List
 
 from pydantic import BaseModel, Field
@@ -82,8 +84,8 @@ class OrderAdminSummaryDTO(BaseModel):
         description="Coupon codes applied to this order",
         required=False,
     )
-    created_at: str = Field(..., description="Created at", required=False)
-    updated_at: str = Field(..., description="Updated at", required=False)
+    created_at: datetime | None = Field(..., description="Created at", required=False)
+    updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
     def __init__(
         self,
@@ -101,8 +103,8 @@ class OrderAdminSummaryDTO(BaseModel):
         status_key: str,
         payment_channel: str,
         payment_channel_key: str,
-        created_at: str,
-        updated_at: str,
+        created_at: datetime | None,
+        updated_at: datetime | None,
         order_source: str = "",
         order_source_key: str = "",
         coupon_codes: List[str] | None = None,
@@ -162,8 +164,8 @@ class OrderAdminActivityDTO(BaseModel):
     price: str = Field(..., description="Active price", required=False)
     status: int = Field(..., description="Active status", required=False)
     status_key: str = Field(..., description="Active status i18n key", required=False)
-    created_at: str = Field(..., description="Created at", required=False)
-    updated_at: str = Field(..., description="Updated at", required=False)
+    created_at: datetime | None = Field(..., description="Created at", required=False)
+    updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
     def __init__(
         self,
@@ -172,8 +174,8 @@ class OrderAdminActivityDTO(BaseModel):
         price: str,
         status: int,
         status_key: str,
-        created_at: str,
-        updated_at: str,
+        created_at: datetime | None,
+        updated_at: datetime | None,
     ):
         super().__init__(
             active_id=active_id,
@@ -211,8 +213,8 @@ class OrderAdminCouponDTO(BaseModel):
     value: str = Field(..., description="Discount value", required=False)
     status: int = Field(..., description="Coupon status", required=False)
     status_key: str = Field(..., description="Coupon status i18n key", required=False)
-    created_at: str = Field(..., description="Created at", required=False)
-    updated_at: str = Field(..., description="Updated at", required=False)
+    created_at: datetime | None = Field(..., description="Created at", required=False)
+    updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
     def __init__(
         self,
@@ -224,8 +226,8 @@ class OrderAdminCouponDTO(BaseModel):
         value: str,
         status: int,
         status_key: str,
-        created_at: str,
-        updated_at: str,
+        created_at: datetime | None,
+        updated_at: datetime | None,
     ):
         super().__init__(
             coupon_bid=coupon_bid,
@@ -285,8 +287,8 @@ class OrderAdminPaymentDTO(BaseModel):
     )
     charge_id: str = Field(..., description="Pingxx charge id", required=False)
     channel: str = Field(..., description="Pingxx channel", required=False)
-    created_at: str = Field(..., description="Created at", required=False)
-    updated_at: str = Field(..., description="Updated at", required=False)
+    created_at: datetime | None = Field(..., description="Created at", required=False)
+    updated_at: datetime | None = Field(..., description="Updated at", required=False)
 
     def __init__(
         self,
@@ -304,8 +306,8 @@ class OrderAdminPaymentDTO(BaseModel):
         transaction_no: str = "",
         charge_id: str = "",
         channel: str = "",
-        created_at: str = "",
-        updated_at: str = "",
+        created_at: datetime | None = None,
+        updated_at: datetime | None = None,
     ):
         super().__init__(
             payment_channel=payment_channel,

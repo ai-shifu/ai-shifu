@@ -26,6 +26,9 @@ to.
 - Before committing, run `python scripts/check_dev_tools.py` to confirm
   lefthook and its underlying tools are installed; the local checks are
   silently skipped if lefthook was never installed.
+- Follow the canonical commit-message policy in
+  `docs/engineering-baseline.md#commit-message-policy`; keep agent-specific
+  rule files pointing there instead of duplicating the policy.
 - When a branch already has an open PR, keep the PR title and description in
   sync with the latest code changes so they accurately describe the current
   implementation and verification state.
@@ -34,6 +37,21 @@ to.
   `.github` instructions in the same change.
 - Keep code-facing text in English and keep user-facing text in shared i18n
   JSON under `src/i18n/`.
+- Store and compute all timestamps in UTC. On the backend, use the shared
+  `now_utc()` helper in `src/api/flaskr/util/datetime.py` for any time written
+  to the database, and default new model timestamp columns to
+  `default=now_utc` / `onupdate=now_utc`. The DB session is pinned to UTC in
+  `src/api/flaskr/dao/__init__.py`; treat that as a safety net, not a license
+  to write local time.
+- Serialize timestamps as UTC ISO-8601 with a trailing `Z` on the read side.
+  Prefer leaving DTO datetime fields as raw `datetime | None` and letting the
+  single serialization sink `fmt()` in `src/api/flaskr/route/common.py` emit
+  them (it treats naive values as UTC and converts aware values to UTC). When
+  you must serialize by hand, use `to_utc_iso()` in
+  `src/api/flaskr/util/datetime.py`; return `null` for missing times rather
+  than `""` or a pre-formatted string. Display-time timezone conversion is a
+  pure frontend concern: the browser renders UTC via helpers such as
+  `formatAdminUtcDateTime`, so the API must not localize by request timezone.
 - In Chinese user-facing text and Chinese docs, do not use `创作者` as a
   generic product term. Use `老师` for the general course-building or teacher
   account role; use `课程负责人` or, inside an existing course context,
@@ -53,6 +71,17 @@ to.
   in ExecPlans under `docs/exec-plans/`.
 - Do not let shared guidance drift from generated mirrors or from the current
   repository structure.
+- Do not introduce mixed-timezone timestamps: avoid `func.now()` /
+  `CURRENT_TIMESTAMP` defaults and naked `datetime.now()` / `datetime.utcnow()`
+  for stored times. They depend on the DB session or process time zone and
+  reintroduce the UTC-vs-local drift; use `now_utc()` instead.
+- Do not bypass the read-side UTC contract: avoid emitting API datetimes with a
+  naive `datetime.isoformat()` / `strftime(...)` (no `Z`), do not localize
+  display times server-side from a request/browser `?timezone=` param, and do
+  not compare timestamps that carry different serialization contracts (naive
+  vs offset-aware, or string vs string) — normalize both to UTC before
+  comparing. These are exactly the drifts that reappear when new code lands in
+  modules the UTC sweep has not yet reached.
 
 ## Commands
 

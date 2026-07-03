@@ -1,6 +1,7 @@
 from sqlalchemy import Column, DateTime, SmallInteger, String, Text
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 
 from ...dao import db
 
@@ -105,7 +106,7 @@ class Variable(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
         comment="Creation timestamp",
     )
@@ -119,9 +120,9 @@ class Variable(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
-        onupdate=func.now(),
+        onupdate=now_utc,
         comment="Last update timestamp",
     )
     updated_user_bid = Column(
@@ -204,15 +205,15 @@ class VariableValue(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
-        onupdate=func.now(),
+        onupdate=now_utc,
         comment="Last update timestamp",
     )

@@ -90,10 +90,13 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
                 return current.replace(tzinfo=tz)
             return current
 
+    _frozen_now = _FixedDateTime(2026, 4, 6, 12, 0, 0)
+
     monkeypatch.setattr(billing_queries_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_wallets_module, "datetime", _FixedDateTime)
     monkeypatch.setattr(billing_campaigns_module, "datetime", _FixedDateTime)
-    monkeypatch.setattr(billing_serializers_module, "datetime", _FixedDateTime)
+    monkeypatch.setattr(billing_campaigns_module, "now_utc", lambda: _frozen_now)
+    monkeypatch.setattr(billing_serializers_module, "now_utc", lambda: _frozen_now)
 
 
 @pytest.fixture
@@ -333,7 +336,7 @@ class TestAdminBillingRoutes:
         assert item["creator_bid"] == "creator-2"
         assert item["status"] == "failed"
         assert item["failure_code"] == "card_declined"
-        assert item["failed_at"] == "2026-04-03T08:00:00+00:00"
+        assert item["failed_at"] == "2026-04-03T08:00:00Z"
         assert item["has_attention"] is True
 
     def test_admin_billing_ledger_adjust_positive_creates_manual_subscription_bucket(

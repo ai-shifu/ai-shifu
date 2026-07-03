@@ -6,7 +6,7 @@ from sqlalchemy import (
     SmallInteger,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 from ...dao import db
 
 
@@ -66,13 +66,13 @@ class Config(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Creation time",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Update time",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )

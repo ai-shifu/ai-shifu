@@ -7,8 +7,14 @@
   "copyLinkSuccess": "Link copied",
   "copyListenModeLink": "Copy Listen mode link",
   "copyReadModeLink": "Copy Read mode link",
+  "daysAgo": "{count, plural, one {# day ago} other {# days ago}}",
+  "hoursAgo": "{count, plural, one {# hour ago} other {# hours ago}}",
+  "justNow": "Just now",
+  "lastLessonModified": "Last updated",
+  "lastLessonModifiedWithRelativeTime": "Last updated: {relativeTime}",
   "learningLink": "Learning link",
   "listenModeRequiresTts": "Enable Listen mode in course settings to use this option",
+  "minutesAgo": "{count, plural, one {# minute ago} other {# minutes ago}}",
   "publish": "Publish",
   "publishAndOpenClassroomMode": "Publish and open Classroom mode",
   "publishAndOpenListenMode": "Publish and open Listen mode",
@@ -19,6 +25,5 @@
   "publishSuccessDescription": "The latest draft version has been published.",
   "publishSuccessDone": "Done",
   "publishSuccessDraftHelp": "The admin view saves multiple draft versions, and you can publish them as needed.",
-  "readonly": "Readonly",
-  "saved": "Saved"
+  "readonly": "Readonly"
 }

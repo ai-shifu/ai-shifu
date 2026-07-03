@@ -191,7 +191,11 @@ export const PromotionCouponDialog = ({
 
     setSubmitting(true);
     try {
-      await onSubmit(form);
+      await onSubmit({
+        ...form,
+        start_at: startAtDate.toISOString(),
+        end_at: endAtDate.toISOString(),
+      });
       onOpenChange(false);
     } catch (error) {
       showErrorToast((error as Error).message || t('common.core.submitFailed'));
@@ -529,7 +533,11 @@ export const PromotionCampaignDialog = ({
 
     setSubmitting(true);
     try {
-      await onSubmit(form);
+      await onSubmit({
+        ...form,
+        start_at: startAtDate.toISOString(),
+        end_at: endAtDate.toISOString(),
+      });
       onOpenChange(false);
     } catch (error) {
       showErrorToast((error as Error).message || t('common.core.submitFailed'));
@@ -901,7 +909,11 @@ export const PackageCampaignDialog = ({
 
     setSubmitting(true);
     try {
-      await onSubmit(form);
+      await onSubmit({
+        ...form,
+        start_at: startAtDate.toISOString(),
+        end_at: endAtDate.toISOString(),
+      });
       onOpenChange(false);
     } catch (error) {
       showErrorToast((error as Error).message || t('common.core.submitFailed'));
@@ -1484,7 +1496,11 @@ export const ReferralCampaignDialog = ({
 
     setSubmitting(true);
     try {
-      await onSubmit(form);
+      await onSubmit({
+        ...form,
+        starts_at: startAtDate.toISOString(),
+        ends_at: endAtDate.toISOString(),
+      });
       onOpenChange(false);
     } catch (error) {
       showErrorToast((error as Error).message || t('common.core.submitFailed'));

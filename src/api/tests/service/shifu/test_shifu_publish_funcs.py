@@ -1,7 +1,15 @@
 import sys
 import types
+from datetime import datetime
 
 from flask import Flask
+
+from flaskr.dao import db
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+)
 
 
 def _install_litellm_stub() -> None:
@@ -153,3 +161,52 @@ def test_get_summary_updates_trace_and_span_output(monkeypatch):
     assert trace.last_span.kwargs["input"] == "Summarize this lesson"
     assert trace.last_span.end_kwargs["output"] == "summary result"
     assert trace.updated["output"] == "summary result"
+
+
+def test_publish_shifu_draft_preserves_outline_updated_at(app, monkeypatch):
+    from flaskr.service.shifu import shifu_publish_funcs as module
+
+    monkeypatch.setattr(module, "_run_summary_with_error_handling", lambda *args: None)
+
+    draft_updated_at = datetime(2026, 6, 30, 10, 0, 0)
+    with app.app_context():
+        draft = DraftShifu(
+            shifu_bid="publish-preserve-outline-updated-at",
+            title="Draft",
+            description="Desc",
+            keywords="a,b",
+        )
+        outline = DraftOutlineItem(
+            outline_item_bid="publish-preserve-outline-lesson",
+            shifu_bid="publish-preserve-outline-updated-at",
+            title="Lesson",
+            position="1",
+            type=401,
+            hidden=0,
+            content="# Lesson",
+            updated_at=draft_updated_at,
+        )
+        db.session.add_all([draft, outline])
+        db.session.commit()
+
+    module.publish_shifu_draft(
+        app,
+        user_id="user-1",
+        shifu_id="publish-preserve-outline-updated-at",
+        base_url="https://example.com",
+        sync_summary=True,
+    )
+
+    with app.app_context():
+        published_outline = (
+            PublishedOutlineItem.query.filter_by(
+                shifu_bid="publish-preserve-outline-updated-at",
+                outline_item_bid="publish-preserve-outline-lesson",
+                deleted=0,
+            )
+            .order_by(PublishedOutlineItem.id.desc())
+            .first()
+        )
+
+    assert published_outline is not None
+    assert published_outline.updated_at == draft_updated_at
