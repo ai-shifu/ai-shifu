@@ -485,6 +485,7 @@ export default function AdminDashboardCourseRatingsPage() {
       label: t('module.dashboard.detail.ratings.filters.ratingTime'),
       startValue: filtersDraft.startTime,
       endValue: filtersDraft.endTime,
+      triggerAriaLabel: t('module.dashboard.detail.ratings.filters.ratingTime'),
       onChange: ({ start, end }) =>
         setFiltersDraft(previous => ({
           ...previous,

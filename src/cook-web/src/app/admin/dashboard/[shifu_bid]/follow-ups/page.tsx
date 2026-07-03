@@ -626,6 +626,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
       label: t('module.dashboard.detail.followUps.filters.followUpTime'),
       startValue: filtersDraft.startTime,
       endValue: filtersDraft.endTime,
+      triggerAriaLabel: t(
+        'module.dashboard.detail.followUps.filters.followUpTime',
+      ),
       onChange: ({ start, end }) =>
         setFiltersDraft(previous => ({
           ...previous,

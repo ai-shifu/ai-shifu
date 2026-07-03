@@ -113,4 +113,23 @@ describe('adminFilterFieldBuilders', () => {
       screen.getByRole('button', { name: 'Start ~ End' }),
     ).toBeInTheDocument();
   });
+
+  test('passes trigger aria label to date range filter', () => {
+    const item = createDateRangeFilterItem({
+      key: 'date_range',
+      label: 'Date',
+      startValue: '',
+      endValue: '',
+      triggerAriaLabel: 'Filter by date range',
+      placeholder: 'Start ~ End',
+      resetLabel: 'Reset',
+      clearLabel: 'Clear',
+      onChange: jest.fn(),
+    });
+
+    render(item.component);
+    expect(
+      screen.getByRole('button', { name: 'Filter by date range' }),
+    ).toBeInTheDocument();
+  });
 });

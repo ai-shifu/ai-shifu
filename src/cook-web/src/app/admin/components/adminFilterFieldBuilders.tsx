@@ -53,6 +53,7 @@ type CreateDateRangeFilterItemParams = {
   label: ReactNode;
   startValue: string;
   endValue: string;
+  triggerAriaLabel?: string;
   placeholder: string;
   resetLabel: string;
   clearLabel: string;
@@ -148,6 +149,7 @@ export const createDateRangeFilterItem = ({
   label,
   startValue,
   endValue,
+  triggerAriaLabel,
   placeholder,
   resetLabel,
   clearLabel,
@@ -166,6 +168,7 @@ export const createDateRangeFilterItem = ({
       startValue={startValue}
       endValue={endValue}
       onChange={onChange}
+      triggerAriaLabel={triggerAriaLabel}
       placeholder={placeholder}
       resetLabel={resetLabel}
       clearLabel={clearLabel}
