@@ -10,6 +10,7 @@ import {
   hasBillingProductBonusCampaign,
   extractBillingPingxxQrCode,
   formatBillingCompactDateTime,
+  formatBillingDate,
   formatBillingDateTime,
   parseBillingDateValue,
   resolveBillingLedgerUsageType,
@@ -495,10 +496,18 @@ describe('billing datetime display helpers', () => {
     );
   });
 
-  test('normalizes date-only fallback values before datetime display', () => {
-    expect(formatBillingDateTime('2026-04-14', 'zh-CN')).toBe(
-      '2026-04-14 08:00:00',
-    );
+  test('rejects date-only values for datetime display', () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+
+    expect(formatBillingDateTime('2026-04-14', 'zh-CN')).toBe('');
+    expect(formatBillingCompactDateTime('2026-04-14Z', 'zh-CN')).toBe('');
+  });
+
+  test('formats date-only values without browser timezone shifting', () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+
+    expect(formatBillingDate('2026-04-14', 'en-US')).toBe('Apr 14, 2026');
+    expect(formatBillingDate('2026-04-14Z', 'en-US')).toBe('Apr 14, 2026');
   });
 });
 
