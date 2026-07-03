@@ -282,5 +282,9 @@ disposition, consuming Phase 2 batch. Summary rows go to
   transactions use `BeginTx`.
 - `markdown-flow-agent-go` supplies MDF parsing/orchestration in Go, subject
   to the alignment harness.
+- Two sibling repos serve as working Go reference implementations for Phase 3
+  (both igo + markdown-flow-agent-go): `mini-mdf-play` (Gin SSE streaming of
+  MDF block processing — `api/sse.go`, `api/handler.go`) and `playground_go`
+  (module `contentflow`; larger app structure with JWT auth and swagger).
 - asynq replaces Celery tasks and the beat schedule.
 - Alembic owns the schema until Flask retirement.
