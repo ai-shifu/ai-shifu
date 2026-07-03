@@ -87,7 +87,7 @@ from flaskr.service.order.payment_providers import (
 )
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
@@ -1014,9 +1014,8 @@ class TestBillingWriteRoutes:
             assert order.status == BILLING_ORDER_STATUS_PENDING
             assert order.metadata_json["checkout_type"] == "subscription_preorder"
             assert order.metadata_json["preorder_state"] == "pending_effective"
-            assert (
-                order.metadata_json["renewal_cycle_start_at"]
-                == current_period_end.isoformat()
+            assert order.metadata_json["renewal_cycle_start_at"] == to_utc_iso(
+                current_period_end
             )
 
     @pytest.mark.parametrize(

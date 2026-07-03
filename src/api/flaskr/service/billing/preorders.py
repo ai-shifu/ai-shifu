@@ -12,7 +12,7 @@ from .consts import (
 from .models import BillingOrder, BillingProduct, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 CHECKOUT_ACTION_PREORDER = "preorder"
 CHECKOUT_ACTION_UPGRADE_IMMEDIATE = "upgrade_immediate"
@@ -111,12 +111,12 @@ def build_preorder_order_metadata(
             "current_product_bid": current_product.product_bid,
             "target_product_bid": target_product.product_bid,
             "preorder_target_product_bid": target_product.product_bid,
-            "preorder_effective_at": effective_at.isoformat(),
+            "preorder_effective_at": to_utc_iso(effective_at),
             "preorder_source_subscription_bid": subscription.subscription_bid,
             "absorbed_by_bill_order_bid": None,
             "absorbed_at": None,
-            "renewal_cycle_start_at": effective_at.isoformat(),
-            "renewal_cycle_end_at": cycle_end_at.isoformat(),
+            "renewal_cycle_start_at": to_utc_iso(effective_at),
+            "renewal_cycle_end_at": to_utc_iso(cycle_end_at),
             "subscription_bid": subscription.subscription_bid,
             "product_bid": target_product.product_bid,
             "provider_reference_type": "charge",
@@ -179,7 +179,7 @@ def mark_preorder_absorbed_by_upgrade(
             {
                 "preorder_state": PREORDER_STATE_ABSORBED_BY_UPGRADE,
                 "absorbed_by_bill_order_bid": upgrade_order_bid,
-                "absorbed_at": now.isoformat(),
+                "absorbed_at": to_utc_iso(now),
             }
         )
     )
@@ -200,7 +200,7 @@ def mark_preorder_effective_applied(order: BillingOrder) -> None:
         _normalize_json_object(
             {
                 "preorder_state": PREORDER_STATE_EFFECTIVE_APPLIED,
-                "effective_applied_at": datetime.now().isoformat(),
+                "effective_applied_at": to_utc_iso(now_utc()),
             }
         )
     )

@@ -14,7 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 from flask import Flask, has_app_context, has_request_context, request
 from sqlalchemy import func
 
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 from sqlalchemy.exc import IntegrityError
 
 from flaskr.common.config import get_config as get_common_config
@@ -675,7 +675,7 @@ def _mark_reward_grant_failed(
     reward.billing_artifacts = {
         **artifacts,
         "grant_error": str(error)[:500],
-        "last_failed_at": now_utc().isoformat() + "Z",
+        "last_failed_at": to_utc_iso(now_utc()),
     }
     db.session.add(reward)
     db.session.commit()
