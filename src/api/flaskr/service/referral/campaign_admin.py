@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from math import ceil
 from typing import Any
@@ -18,6 +18,8 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import BillingProduct
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.pagination import normalize_pagination
+from flaskr.util.datetime import to_utc_iso
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -46,9 +48,6 @@ from .models import (
 )
 
 
-DEFAULT_PAGE_INDEX = 1
-DEFAULT_PAGE_SIZE = 20
-MAX_PAGE_SIZE = 100
 REFERRAL_CAMPAIGN_STATUS_FILTERS = {
     "active",
     "not_started",
@@ -70,7 +69,7 @@ def list_operator_referral_campaigns(
     filters: dict[str, Any],
 ) -> dict[str, Any]:
     with app.app_context():
-        safe_page_index, safe_page_size = _normalize_page(page_index, page_size)
+        safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
         query = ReferralCampaign.query.filter(ReferralCampaign.deleted == 0)
         keyword = _normalize_text(filters.get("keyword"))
         if keyword:
@@ -313,26 +312,11 @@ def _normalize_text(value: object) -> str:
     return str(value or "").strip()
 
 
-def _normalize_page(page_index: int, page_size: int) -> tuple[int, int]:
-    try:
-        safe_page_index = max(int(page_index or DEFAULT_PAGE_INDEX), 1)
-    except (TypeError, ValueError):
-        safe_page_index = DEFAULT_PAGE_INDEX
-    try:
-        safe_page_size = max(int(page_size or DEFAULT_PAGE_SIZE), 1)
-    except (TypeError, ValueError):
-        safe_page_size = DEFAULT_PAGE_SIZE
-    return safe_page_index, min(safe_page_size, MAX_PAGE_SIZE)
-
-
 def _serialize_dt(value: datetime | None) -> str:
-    # Match the API fmt sink: stored values are UTC; treat naive as UTC and emit
-    # ISO 8601 with a 'Z' suffix so the frontend can convert to the viewer's tz.
-    if value is None:
-        return ""
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    # UTC-Z formatting comes from the shared to_utc_iso() helper. This module
+    # historically emits "" (not null) for missing datetimes, so preserve that
+    # exact legacy contract instead of returning None.
+    return to_utc_iso(value) or ""
 
 
 def _serialize_decimal(value: Decimal | None) -> str | None:

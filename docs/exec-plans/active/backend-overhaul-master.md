@@ -52,8 +52,25 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   bootstrap/precedence-constrained sites, each documented in place); Docker
   env examples regenerated. 33-case before/after behavior probe identical;
   pytest 1,873 passed; golden fixtures unchanged.
-- [ ] Phase 2 B3: shared helpers (pagination, serialization base, registry
-  unification).
+- [x] 2026-07-03 14:11 CST: Phase 2 B3 shared helpers: (1) one
+  `normalize_pagination()` in `flaskr/service/common/pagination.py` replaces
+  the three byte-identical copies (referral/admin, referral/campaign_admin,
+  billing/queries); both referral `_serialize_dt` folded into `to_utc_iso()`
+  (campaign_admin keeps a thin wrapper preserving its legacy `""`-for-None
+  contract). (2) Ask-provider constants moved to their canonical home
+  `flaskr/service/learn/ask_provider_adapters/consts.py` (constants module
+  beside the registry to avoid the adapter import cycle);
+  `shifu_draft_funcs.py` re-exports them as the deprecation-window shim;
+  registries NOT merged (complementary halves per inventory §3g). (3) DTO
+  serialization base `AutoJsonMixin` in
+  `flaskr/service/common/dto_base.py` auto-generates `__json__` from pydantic
+  field declarations (declaration-order identity keys, int/bool coercion,
+  `__json_key_overrides__`/`__json_exclude__` knobs); pilot conversion:
+  `dashboard/dtos.py` (18 `__json__` deleted, -183 lines), proven
+  byte-identical via a probe script diffed against a HEAD worktree.
+  Full pytest 1,894 passed (1,873 baseline + 21 new helper tests under
+  `tests/service/common/`); golden 11 passed, fixtures byte-identical; ruff
+  clean.
 - [ ] Phase 2: batches B1–B7 (each its own PR; see Plan of Work).
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 

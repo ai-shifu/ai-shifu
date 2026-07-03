@@ -12,6 +12,11 @@ from flaskr.dao import db
 from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.pagination import (
+    DEFAULT_PAGE_INDEX,
+    DEFAULT_PAGE_SIZE,
+    normalize_pagination,
+)
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
@@ -85,7 +90,6 @@ from .queries import (
     load_latest_renewal_event_map as _load_latest_renewal_event_map,
     load_product_code_map as _load_product_code_map,
     load_wallet_map as _load_wallet_map,
-    normalize_pagination,
     normalize_stat_date_filter as _normalize_stat_date_filter,
     resolve_domain_binding_status_filter as _resolve_domain_binding_status_filter,
     resolve_order_status_filter as _resolve_order_status_filter,
@@ -114,8 +118,6 @@ from .serializers import (
 from .trials import resolve_new_creator_trial_offer as _resolve_new_creator_trial_offer
 from .wallets import adjust_credit_wallet_balance
 
-DEFAULT_PAGE_INDEX = 1
-DEFAULT_PAGE_SIZE = 20
 _OPERATOR_PRODUCT_FILTER_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
 
 
