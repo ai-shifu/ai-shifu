@@ -243,7 +243,7 @@ def _resolve_publish_base_url(app: Flask) -> str:
         host = str(getattr(request, "host", "") or "").strip()
     if host:
         try:
-            from flaskr.service.billing.domains import (
+            from flaskr.service.billing.api import (
                 resolve_creator_bid_by_host,
                 resolve_effective_custom_origin,
             )
