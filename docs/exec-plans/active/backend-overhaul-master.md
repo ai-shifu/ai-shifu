@@ -244,6 +244,27 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   runs + local full-stack smoke), work STOPS for an explicit review of the
   Go repository layout with the owner before any Go scaffolding is
   generated.
+- 2026-07-04 Go layout review CLEARED. Confirmed with the owner:
+  (1) igo scaffold with the agreed layers api / service / dao / library /
+  utils. (2) service is organized as one package per domain
+  (learn/shifu/order/billing/user/...) with domain-private logic under
+  `<domain>/internal/` (compiler-enforced visibility) and ONE cross-domain
+  leaf package `service/base` that may import only dao/models/library/
+  utils; domain packages must never import each other (cross-domain reuse
+  sinks into base, cross-domain orchestration rises into api). A
+  boundary lint enforcing this DAG lands in the Go repo from day one.
+  (3) Config: env vars override config.toml (Viper AutomaticEnv; verify
+  igo passthrough, wrap in library/config if needed); env names map
+  directly to toml keys with no product prefix (MYSQL_DEFAULT_DATA_SOURCE
+  style, consistent with the Python .env); secrets are env-only, static
+  topology (port/swagger/log/pool) stays in toml. (4) Go code comments are
+  written in Chinese; unit tests are mandatory. (5) Working defaults
+  unless objected: DTOs in models/dto; markdown-flow-agent-go via go.mod
+  replace during development, pinned release for production builds; LLM
+  client library chosen by a Wave-1 spike; reverse-proxy config lives in
+  deploy-config. Transaction doctrine carries over from B4: service owns
+  the transaction (BeginTx), dao never commits, external side effects
+  fire post-commit.
 - The Go project lives in a standalone new repository generated with
   `igo new ai-shifu-go --non-interactive --defaults --frontend=none`; the
   Next.js `cook-web` frontend is copied into that repository unchanged and
