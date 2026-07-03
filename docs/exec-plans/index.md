@@ -16,6 +16,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Creator Dashboard Learners SQL Optimization](./active/creator-dashboard-learners-sql-optimization.md)
 - [Creator Dashboard Ratings SQL Optimization](./active/creator-dashboard-ratings-sql-optimization.md)
 - [Creator Dashboard Request Splitting](./active/creator-dashboard-request-splitting.md)
+- [ExecPlan: Learn /run Chain Decomposition (B6)](./active/learn-run-decomposition.md)
 - [Observability Artifacts, Consistency Probes, and Frontend Trace IDs](./active/observability-artifacts-consistency-frontend-trace.md)
 - [Existing Creator Onboarding Rollout](./active/onboarding-existing-creator-rollout.md)
 - [ExecPlan: Operator Credit Grant Package](./active/operator-credit-grant-package.md)
