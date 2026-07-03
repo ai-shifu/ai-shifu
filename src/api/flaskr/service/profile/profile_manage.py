@@ -1,4 +1,3 @@
-from datetime import datetime
 import hashlib
 
 from flask import Flask

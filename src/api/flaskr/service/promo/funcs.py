@@ -3,7 +3,6 @@ Promo functions
 """
 
 from contextlib import nullcontext
-from datetime import datetime
 import decimal
 
 from sqlalchemy import and_, func, or_
