@@ -8,6 +8,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 - [Admin Home Onboarding](./active/admin-home-onboarding.md)
 - [Agent-First Harness Phase 2](./active/agent-first-harness-phase-2.md)
+- [Backend Inventory 2026-07 (Phase 1)](./active/backend-inventory-2026-07.md)
 - [Backend Overhaul Master Plan: Inventory, Optimization, Go Migration](./active/backend-overhaul-master.md)
 - [ExecPlan: Billing Credit Notifications](./active/billing-credit-notifications.md)
 - [Creator Dashboard Course Ownership Optimization](./active/creator-dashboard-course-ownership-optimization.md)

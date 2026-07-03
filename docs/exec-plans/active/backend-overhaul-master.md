@@ -28,8 +28,16 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
 - [x] 2026-07-03 11:31 CST: Master plan created; exploration and design
   completed (three read-only exploration passes over `src/api`, igo/mk_igo
   scaffolds, and the debt surface; phased design reviewed and approved).
-- [ ] Phase 0: golden recording harness (`src/api/tests/golden/`).
-- [ ] Phase 1: inventory doc `backend-inventory-2026-07.md`.
+- [x] 2026-07-03 12:30 CST: Phase 0 golden harness landed
+  (`src/api/tests/golden/`): 4 SSE transcripts + 7 JSON endpoint fixtures,
+  deterministic across fresh processes, verified under markdown-flow 0.2.84.
+  TODO scenarios: mid-stream error, resume after interruption (need
+  fault-injection seams).
+- [x] 2026-07-03 12:45 CST: Phase 1 static inventory landed
+  (`backend-inventory-2026-07.md` + re-runnable scripts under
+  `src/api/scripts/inventory/`). Runtime-coverage step still pending.
+- [ ] Phase 1 step 3: runtime coverage pass (pytest coverage + dev-server
+  smoke) to adjudicate Category B items.
 - [ ] Phase 2: batches B1–B7 (each its own PR; see Plan of Work).
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 
@@ -39,6 +47,13 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   are actively imported by `learn_funcs.py`, `listen_elements.py`, and
   `listen_element_history.py`. They are compatibility paths that Phase 1 must
   adjudicate explicitly; do not delete on sight.
+- The plugin loader (`flaskr/framework/plugin/load_plugin.py`) recursively
+  imports every `*.py` under `flaskr/service/`, so import-graph reachability
+  is a weak dead-code signal inside services; symbol-level and consumer-level
+  evidence must carry the weight (see the inventory doc).
+- The endpoint audit found a frontend/backend drift bug: cook-web's catalog
+  defines `markFavoriteShifu: 'POST /shifu/mark-favorite-shifu'` with no
+  matching backend route; the real favorite route has no frontend caller.
 - A Go implementation of MarkdownFlow already exists
   (`markdown-flow-agent-go`, sibling repo), removing the largest Go-migration
   dependency risk. It still requires a dual-parser diff harness over all
