@@ -1,7 +1,7 @@
 """Run-chain collaborators extracted from ``RunScriptContextV2``.
 
 This package hosts the incremental decomposition of the learn /run SSE
-runtime (ExecPlan: ``docs/exec-plans/active/learn-run-decomposition.md``):
+runtime (ExecPlan: ``docs/exec-plans/completed/learn-run-decomposition.md``):
 
 - PR1: ``emitter.py`` — SSE event construction and yield-sequencing.
 - PR2: ``recorder.py`` — persistence with per-step unit_of_work.

@@ -6,7 +6,7 @@ A pre-existing bug stamped every placeholder with the LEAF's
 ``outline_item_bid`` instead of the current node's own bid, so one call
 created N duplicate leaf rows and no ancestor ever got a record of its own
 (flagged in the B6-PR2 adversarial review; see
-docs/exec-plans/active/learn-run-decomposition.md Decision Log).
+docs/exec-plans/completed/learn-run-decomposition.md Decision Log).
 
 Existing suites monkeypatch ``_get_current_attend`` outright, so these tests
 drive the placeholder loop directly against a real session.

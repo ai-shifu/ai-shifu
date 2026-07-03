@@ -317,10 +317,10 @@ def _generate_ask_prompts(
                         unlearned_summaries.append(outline_summary_map[section_id])
 
             # Build text for learned content
-            learned_text = _build_summary_text(learned_summaries, is_learned=True)
+            learned_text = _build_summary_text(learned_summaries)
 
             # Build text for unlearned content
-            unlearned_text = _build_summary_text(unlearned_summaries, is_learned=False)
+            unlearned_text = _build_summary_text(unlearned_summaries)
 
             ask_prompt = _make_ask_prompt(
                 app, ask_prompt_template, learned_text, unlearned_text
@@ -526,12 +526,11 @@ def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
         )
 
 
-def _build_summary_text(summaries: list[dict], is_learned: bool) -> str:
+def _build_summary_text(summaries: list[dict]) -> str:
     """
-    Build a summary text based on whether it's learned or unlearned
+    Build a summary text from chapter/section summary entries
     Args:
         summaries: List of summary dictionaries
-        is_learned: Boolean indicating whether the summary is for learned or unlearned
     Returns:
         Built summary text
     """

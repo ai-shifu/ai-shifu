@@ -150,7 +150,45 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   entries, plus 7 pre-existing stale learn entries dropped by
   regeneration). pytest 1,918 passed / 6 skipped; golden 11 passed,
   fixtures untouched; ruff clean.
-- [ ] Phase 2: remaining batches B6–B7 (see Plan of Work).
+- [x] 2026-07-03 23:55 CST: Phase 2 B6 complete (three PRs; child plan
+  `learn-run-decomposition.md`): the /run runtime is now four
+  collaborators — `learn/run/emitter.py` (sole SSE constructor),
+  `learn/run/recorder.py` (step-scoped unit-of-work persistence; the
+  flush-then-fail dirty-row class is gone), `learn/run/state.py` (pure
+  read resolver), and a `run_inner` decomposed into 14 named phase
+  generators on the context facade. Golden fixtures byte-identical
+  throughout; every PR adversarially reviewed. This decomposition is the
+  Go port's specification. Note: B6 executed as incremental extractions,
+  not the config-flag parallel path sketched below in Plan of Work — see
+  the child plan's decision log. Also landed: the reviewed leaf-bid
+  placeholder fix (production-data findings in the child plan).
+- [x] 2026-07-03: Phase 2 B7 tail cleanups: (1) the disconnect e2e test
+  deferred from B6-PR3 landed
+  (`tests/service/learn/run/test_run_disconnect_e2e.py`, 2 tests): real
+  generator `.close()` on `run_script_inner` against the golden-seeded
+  shifu proves a mid-stream disconnect discards the staged block row while
+  committed steps survive and a re-run resumes from the last finalized
+  block; mutation-verified (rollback->commit flip fails the test). (2) A5
+  unused parameters removed with all call sites updated: `profile_array_str`
+  (`learn/utils_v2.get_fmt_prompt`), `outline_description`/`outline_index`
+  (`shifu_outline_funcs.create_outline`), `unit_index`
+  (`shifu_outline_funcs.modify_unit`), `is_learned`
+  (`shifu_publish_funcs._build_summary_text`); none was a route-facing
+  kwargs contract (routes pass positionally; JSON body fields are
+  unchanged and now simply unread). (3) `db.session.query(` call-style
+  sites converted to 2.0 `select()` in the Phase-2-touched modules:
+  learn/routes.py (2), billing/read_models.py (3, incl. the EXISTS
+  subquery), billing/daily_aggregates.py (2); order/funs.py and
+  learn/context_v2.py had zero remaining call-style sites (the inventory
+  §3d "5" row was order/admin.py, untouched by Phase 2), and the 551-line
+  `Model.query` attribute style was deliberately left alone. (4)
+  `docs/QUALITY_SCORE.md` api rationale updated for Phase 2 outcomes. (5)
+  `learn-run-decomposition.md` completed (Outcomes & Retrospective filled)
+  and moved to `docs/exec-plans/completed/`. Full suite 1,942 passed / 6
+  skipped; golden 11 passed, fixtures byte-identical; uow ratchet 155
+  unchanged; boundary + harness checks green; ruff clean.
+- [ ] Phase 2 finale: the Python-phase final verification (full-stack local
+  smoke) and the pre-Go review gate.
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 
 ## Surprises & Discoveries

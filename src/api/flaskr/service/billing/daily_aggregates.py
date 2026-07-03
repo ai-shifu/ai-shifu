@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import Any
 
 from flask import Flask
+from sqlalchemy import select
 
 from flaskr.dao import db
 from flaskr.service.metering.models import BillUsageRecord
@@ -505,14 +506,12 @@ def detect_daily_aggregate_rebuild_range(
         usage_query = BillUsageRecord.query.filter(*usage_filters)
 
         if not normalized_creator_bid:
-            usage_min, usage_max = (
-                db.session.query(
+            usage_min, usage_max = db.session.execute(
+                select(
                     db.func.min(BillUsageRecord.created_at),
                     db.func.max(BillUsageRecord.created_at),
-                )
-                .filter(*usage_filters)
-                .one()
-            )
+                ).where(*usage_filters)
+            ).one()
             add_candidate(usage_min)
             add_candidate(usage_max)
         else:
@@ -533,14 +532,12 @@ def detect_daily_aggregate_rebuild_range(
                 CreditLedgerEntry.creator_bid == normalized_creator_bid
             )
         if not normalized_shifu_bid:
-            ledger_min, ledger_max = (
-                db.session.query(
+            ledger_min, ledger_max = db.session.execute(
+                select(
                     db.func.min(CreditLedgerEntry.created_at),
                     db.func.max(CreditLedgerEntry.created_at),
-                )
-                .filter(*ledger_filters)
-                .one()
-            )
+                ).where(*ledger_filters)
+            ).one()
             add_candidate(ledger_min)
             add_candidate(ledger_max)
 

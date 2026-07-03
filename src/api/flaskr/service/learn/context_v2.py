@@ -2596,7 +2596,7 @@ class RunScriptContextV2:
         # this /run generator — outside the recorder's per-step
         # unit_of_work boundaries. Migrating that self-commit rider is
         # check_risk-module work, tracked in the ExecPlan Decision Log
-        # (docs/exec-plans/active/learn-run-decomposition.md).
+        # (docs/exec-plans/completed/learn-run-decomposition.md).
         res = check_text_with_llm_response(
             app,
             user_info=self._user_info,

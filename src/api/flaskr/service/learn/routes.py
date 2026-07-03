@@ -3,6 +3,7 @@ import uuid
 
 from flask import Flask, Response, request, stream_with_context
 from pydantic import ValidationError
+from sqlalchemy import select
 
 from flaskr.dao import db
 from flaskr.framework.plugin.inject import inject
@@ -172,26 +173,22 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     def _ensure_outline_belongs_to_shifu(shifu_bid: str, outline_bid: str) -> None:
         """Validate that outline belongs to the specified shifu."""
-        in_draft = (
-            db.session.query(DraftOutlineItem.id)
-            .filter(
+        in_draft = db.session.execute(
+            select(DraftOutlineItem.id).where(
                 DraftOutlineItem.shifu_bid == shifu_bid,
                 DraftOutlineItem.outline_item_bid == outline_bid,
                 DraftOutlineItem.deleted == 0,
             )
-            .first()
-        )
+        ).first()
         if in_draft:
             return
-        in_published = (
-            db.session.query(PublishedOutlineItem.id)
-            .filter(
+        in_published = db.session.execute(
+            select(PublishedOutlineItem.id).where(
                 PublishedOutlineItem.shifu_bid == shifu_bid,
                 PublishedOutlineItem.outline_item_bid == outline_bid,
                 PublishedOutlineItem.deleted == 0,
             )
-            .first()
-        )
+        ).first()
         if not in_published:
             raise_error("server.shifu.lessonNotFoundInCourse")
 

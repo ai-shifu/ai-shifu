@@ -47,10 +47,21 @@ result doubles as the specification for the Go port (Phase 3 Wave 5 of
   Decision Log) with 4 regression tests. Boundary baseline updated for the
   three relocated pre-existing shifu imports carried by `state.py`. Learn
   suite 310 passed; golden 11 byte-identical; full suite 1,940 passed.
-- [ ] Deferred from PR3 to B7: the end-to-end disconnect test driving real
-  generator `.close()` through `run_script_inner` (the implementing agent
-  was cut off before writing it; the session-level recorder test remains
-  the guard meanwhile). B7 must land it or document a final decision.
+- [x] 2026-07-03 (B7): the end-to-end disconnect test deferred from PR3
+  landed as `tests/service/learn/run/test_run_disconnect_e2e.py` (2 tests).
+  It drives real generator `.close()` on `run_script_inner` (the generator
+  the production wrapper closes at `runscript_v2.py` producer `finally`),
+  reusing the golden harness fixtures (deterministic fake LLM + seeded
+  published shifu). Mid-stream close: the staged streamed-block row is
+  discarded (no durable empty generated block, no partial content), while
+  committed recorder steps (progress placeholders, finalized preserved
+  block) survive; a re-run resumes from the last finalized block and
+  regenerates the interrupted block exactly once. Sensitivity was proven by
+  mutation: flipping the `except GeneratorExit` rollback to a commit makes
+  the test fail. Driving `run_script` itself was rejected because its
+  producer thread free-runs against the fast fake LLM, making a
+  deterministic mid-stream disconnect impossible from outside the
+  generator (see Decision Log).
 
 ## Surprises & Discoveries
 
@@ -214,6 +225,41 @@ returns only `run/recorder.py`.
   existed under the ancestor's own bid); a regression test for this direct
   ancestor-call shape now exists
   (`test_direct_ancestor_call_stamps_own_bids`).
+
+- 2026-07-03 (B7): the disconnect e2e drives `run_script_inner` directly
+  instead of `run_script`. The production `res.close()` in the producer
+  thread's `finally` closes exactly this generator, so the semantics under
+  test are identical; the thread/SimpleQueue wrapper in `run_script` cannot
+  be paused deterministically mid-stream from the consumer side (the
+  producer free-runs against the fast fake LLM), so an outer-level test
+  would race. No production seam was added.
+
+## Outcomes & Retrospective
+
+- Delivered across three extraction PRs plus the B7 tail: the /run runtime
+  is four collaborators under `flaskr/service/learn/run/` — `emitter.py`
+  (sole SSE constructor), `recorder.py` (one `unit_of_work()` per step; the
+  flush-then-fail dirty-row class is gone), `state.py` (pure reads) — and
+  `run_inner` decomposed into 14 named `_phase_*` generators on the
+  `RunScriptContextV2` facade. SSE events stayed byte-identical to the
+  golden fixtures through every PR.
+- Test growth: learn suite 277 -> 312 (emitter payloads, recorder failure
+  paths, leaf-bid placeholder regressions, the B7 disconnect e2e); full
+  suite 1,918 -> 1,942.
+- The incremental-extraction strategy (vs the master plan's config-flag
+  parallel path) held up: every PR was independently revertable, reviewable
+  line-by-line as pure motion, and there was never a second source of truth.
+- What made it hard: tests build contexts via `__new__` and monkeypatch
+  collaborator methods as instance attributes, so the extractions had to
+  preserve context-level dispatch seams; pysqlite's lazy-BEGIN savepoint
+  behavior (discovered in B4c) shaped how failure-path tests are written.
+- Left for later, tracked elsewhere: `RunScriptPreviewContextV2` decompose
+  (evaluate separately), `check_risk/funcs.py:33` raw commit reachable from
+  the /run generator, `retry_on_deadlock` for recorder steps once the
+  recorder owns all /run writes, and backfill/cleanup of historical
+  leaf-bid placeholder rows in production data.
+- This decomposition is the specification for the Go port (Phase 3 Wave 5
+  of `backend-overhaul-master.md`).
 
 ## Context and Orientation
 

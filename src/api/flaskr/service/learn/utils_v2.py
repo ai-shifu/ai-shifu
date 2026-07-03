@@ -119,7 +119,6 @@ def get_fmt_prompt(
     course_id: str,
     profile_tmplate: str,
     input: str = None,
-    profile_array_str: str = None,
 ) -> str:
     """
     Get fmt prompt
@@ -129,7 +128,6 @@ def get_fmt_prompt(
         course_id: Course id
         profile_tmplate: Profile template
         input: Input
-        profile_array_str: Profile array str
     Returns:
         str: Fmt prompt
     """

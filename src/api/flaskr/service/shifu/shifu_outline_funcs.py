@@ -234,8 +234,6 @@ def create_outline(
     shifu_id: str,
     parent_id: str,
     outline_name: str,
-    outline_description: str,
-    outline_index: int = 0,
     outline_type: str = UNIT_TYPE_GUEST,
     system_prompt: str = None,
     is_hidden: bool = False,
@@ -248,8 +246,6 @@ def create_outline(
         shifu_id: Shifu ID
         parent_id: Parent ID
         outline_name: Outline name
-        outline_description: Outline description
-        outline_index: Outline index
         outline_type: Outline type
         system_prompt: System prompt
         is_hidden: Is hidden
@@ -477,7 +473,6 @@ def modify_unit(
     unit_id: str,
     unit_name: str = None,
     unit_description: str = None,
-    unit_index: int = 0,
     unit_system_prompt: str = None,
     unit_is_hidden: bool | None = None,
     unit_type: str | None = None,
@@ -490,7 +485,6 @@ def modify_unit(
         unit_id: Unit ID
         unit_name: Unit name
         unit_description: Unit description
-        unit_index: Unit index
         unit_system_prompt: Unit system prompt
         unit_is_hidden: Unit is hidden
         unit_type: Unit type

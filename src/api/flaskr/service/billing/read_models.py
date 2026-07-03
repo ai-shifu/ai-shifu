@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from flask import Flask
-from sqlalchemy import case, or_
+from sqlalchemy import case, or_, select
 
 from flaskr.dao import db
 from flaskr.i18n import _ as translate
@@ -1014,8 +1014,8 @@ def build_operator_credit_orders_page(
 
         if has_available_credits:
             query = query.filter(
-                db.session.query(CreditWalletBucket.id)
-                .filter(
+                select(CreditWalletBucket.id)
+                .where(
                     CreditWalletBucket.deleted == 0,
                     CreditWalletBucket.source_bid == BillingOrder.bill_order_bid,
                     CreditWalletBucket.available_credits > 0,
@@ -1133,31 +1133,28 @@ def build_operator_credit_orders_overview(
             .filter(BillingOrder.deleted == 0)
             .one()
         )
-        available_credit_total = (
-            db.session.query(
+        available_credit_total = db.session.execute(
+            select(
                 db.func.coalesce(
                     db.func.sum(CreditWallet.available_credits),
                     0,
                 )
-            )
-            .filter(CreditWallet.deleted == 0)
-            .scalar()
-        )
-        paid_amount_rows = (
-            db.session.query(
+            ).where(CreditWallet.deleted == 0)
+        ).scalar()
+        paid_amount_rows = db.session.execute(
+            select(
                 BillingOrder.currency.label("currency"),
                 db.func.coalesce(
                     db.func.sum(BillingOrder.paid_amount),
                     0,
                 ).label("paid_amount_total"),
             )
-            .filter(
+            .where(
                 BillingOrder.deleted == 0,
                 BillingOrder.status == BILLING_ORDER_STATUS_PAID,
             )
             .group_by(BillingOrder.currency)
-            .all()
-        )
+        ).all()
         paid_amount_totals_by_currency = {
             str(row.currency or "CNY"): int(row.paid_amount_total or 0)
             for row in paid_amount_rows

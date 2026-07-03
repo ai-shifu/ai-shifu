@@ -296,8 +296,6 @@ def create_shifu_draft(
                 shifu_id=shifu_id,
                 parent_id="",  # Root level
                 outline_name=chapter_name,
-                outline_description="",
-                outline_index=0,
                 outline_type=UNIT_TYPE_GUEST,
                 system_prompt=None,
                 is_hidden=False,
@@ -310,8 +308,6 @@ def create_shifu_draft(
                 shifu_id=shifu_id,
                 parent_id=chapter.bid,  # Under the chapter
                 outline_name=lesson_name,
-                outline_description="",
-                outline_index=0,
                 outline_type=UNIT_TYPE_GUEST,
                 system_prompt=None,
                 is_hidden=False,
