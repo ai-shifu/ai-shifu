@@ -63,6 +63,9 @@ import {
 import PromotionCampaignsTab from './PromotionCampaignsTab';
 import PromotionCouponsTab from './PromotionCouponsTab';
 import ReferralCampaignsTab from './ReferralCampaignsTab';
+import ReferralCampaignRecordsDialog, {
+  type ReferralCampaignRecordsTab,
+} from './ReferralCampaignRecordsDialog';
 import PromotionStatusConfirmDialog from './PromotionStatusConfirmDialog';
 import {
   ALL_OPTION_VALUE,
@@ -124,6 +127,9 @@ import {
  * t('module.operationsPromotion.referralCampaign.capSummary')
  * t('module.operationsPromotion.referralCampaign.relationCount')
  * t('module.operationsPromotion.referralCampaign.rewardCount')
+ * t('module.operationsPromotion.referralCampaign.inviteCodeCount')
+ * t('module.operationsPromotion.referralCampaign.inviteEventCount')
+ * t('module.operationsPromotion.referralCampaign.latestInviteEventAt')
  * t('module.operationsPromotion.referralCampaign.validityDaysValue')
  */
 export default function AdminOperationPromotionsPage() {
@@ -216,6 +222,12 @@ export default function AdminOperationPromotionsPage() {
     useState('');
   const [selectedPackageCampaignName, setSelectedPackageCampaignName] =
     useState('');
+  const [selectedReferralCampaign, setSelectedReferralCampaign] =
+    useState<AdminReferralCampaignItem | null>(null);
+  const [
+    selectedReferralCampaignRecordsTab,
+    setSelectedReferralCampaignRecordsTab,
+  ] = useState<ReferralCampaignRecordsTab>('relations');
   const [pendingStatusChange, setPendingStatusChange] =
     useState<PromotionStatusChangeTarget | null>(null);
   const [statusChangeSubmitting, setStatusChangeSubmitting] = useState(false);
@@ -831,6 +843,17 @@ export default function AdminOperationPromotionsPage() {
       item,
     });
   };
+
+  const handleOpenReferralCampaignRecords = useCallback(
+    (
+      item: AdminReferralCampaignItem,
+      tab: ReferralCampaignRecordsTab = 'relations',
+    ) => {
+      setSelectedReferralCampaignRecordsTab(tab);
+      setSelectedReferralCampaign(item);
+    },
+    [],
+  );
 
   const handleConfirmStatusToggle = async () => {
     if (!pendingStatusChange) {
@@ -2131,6 +2154,7 @@ export default function AdminOperationPromotionsPage() {
             renderResizeHandle={renderReferralCampaignResizeHandle}
             onEdit={handleStartReferralCampaignEdit}
             onToggleStatus={handleReferralCampaignStatusToggle}
+            onOpenRecords={handleOpenReferralCampaignRecords}
           />
         </TabsContent>
       </Tabs>
@@ -2253,6 +2277,18 @@ export default function AdminOperationPromotionsPage() {
         }}
         campaignBid={selectedPackageCampaignBid}
         campaignName={selectedPackageCampaignName}
+      />
+      <ReferralCampaignRecordsDialog
+        open={Boolean(selectedReferralCampaign)}
+        onOpenChange={open => {
+          if (!open) {
+            setSelectedReferralCampaign(null);
+            setSelectedReferralCampaignRecordsTab('relations');
+          }
+        }}
+        campaignBid={selectedReferralCampaign?.campaign_bid || ''}
+        campaignName={selectedReferralCampaign?.campaign_name || ''}
+        defaultTab={selectedReferralCampaignRecordsTab}
       />
       <PromotionStatusConfirmDialog
         changeTarget={pendingStatusChange}

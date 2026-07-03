@@ -40,6 +40,8 @@ type AdminFilterProps = {
   expandedLabelClassName?: string;
   collapsedGridClassName?: string;
   expandedGridClassName?: string;
+  expandedActionsInline?: boolean;
+  expandedActionsClassName?: string;
   labelColon?: boolean;
   showToggle?: boolean;
   surface?: 'plain' | 'card';
@@ -113,6 +115,8 @@ const AdminFilterActions = ({
   | 'expandedLabelClassName'
   | 'collapsedGridClassName'
   | 'expandedGridClassName'
+  | 'expandedActionsInline'
+  | 'expandedActionsClassName'
   | 'labelColon'
   | 'showActions'
   | 'surface'
@@ -180,6 +184,8 @@ export default function AdminFilter({
   expandedLabelClassName,
   collapsedGridClassName,
   expandedGridClassName,
+  expandedActionsInline,
+  expandedActionsClassName,
   labelColon,
   showToggle,
   surface = 'plain',
@@ -266,6 +272,41 @@ export default function AdminFilter({
               showToggle={canToggle}
             />
           ) : null}
+        </div>
+      ) : expandedActionsInline ? (
+        <div
+          className={cn(
+            'grid min-w-0 grid-cols-1 gap-x-7 gap-y-4 xl:grid-cols-3',
+            resolvedExpandedGridClassName,
+          )}
+        >
+          {items.map(item => (
+            <AdminFilterField
+              key={item.key}
+              item={item}
+              contentClassName={resolvedContentClassName}
+              labelClassName={resolvedExpandedLabelClassName}
+              labelColon={resolvedLabelColon}
+            />
+          ))}
+          <div
+            className={cn(
+              'flex min-w-0 items-center justify-end',
+              expandedActionsClassName,
+            )}
+          >
+            <AdminFilterActions
+              expanded={expanded}
+              onExpandedChange={onExpandedChange}
+              onReset={onReset}
+              onSearch={onSearch}
+              resetLabel={resetLabel}
+              searchLabel={searchLabel}
+              expandLabel={expandLabel}
+              collapseLabel={collapseLabel}
+              showToggle={canToggle}
+            />
+          </div>
         </div>
       ) : (
         <div className='space-y-4'>
