@@ -1014,9 +1014,8 @@ class TestBillingWriteRoutes:
             assert order.status == BILLING_ORDER_STATUS_PENDING
             assert order.metadata_json["checkout_type"] == "subscription_preorder"
             assert order.metadata_json["preorder_state"] == "pending_effective"
-            assert (
-                order.metadata_json["renewal_cycle_start_at"]
-                == to_utc_iso(current_period_end)
+            assert order.metadata_json["renewal_cycle_start_at"] == to_utc_iso(
+                current_period_end
             )
 
     @pytest.mark.parametrize(
