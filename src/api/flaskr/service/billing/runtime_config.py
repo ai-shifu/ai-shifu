@@ -137,6 +137,6 @@ def _build_branding_payload(
         logo_wide_url=pick("logo_wide_url", "logoWideUrl"),
         logo_square_url=pick("logo_square_url", "logoSquareUrl"),
         favicon_url=pick("favicon_url", "faviconUrl"),
-        home_url=pick("home_url", "homeUrl") or home_url_from_feature,
+        home_url=pick("home_url", "homeUrl"),
         contact_us_url=pick("contact_us_url", "contactUsUrl"),
     )
