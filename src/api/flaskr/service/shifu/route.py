@@ -230,13 +230,37 @@ def _get_request_base_url() -> str:
 
 
 def _resolve_publish_base_url(app: Flask) -> str:
-    """Prefer the creator's verified custom domain for published/preview links.
+    """Resolve the publish/preview base URL for a shifu.
 
-    Falls back to the default public origin when the current shifu's creator has
-    no effective custom domain binding or resolution fails.
+    When the request arrives through a verified custom domain that domain takes
+    precedence regardless of who owns the shifu, so every creator on that
+    domain sees the same base URL for publishing and previews. Falls back to
+    the shifu owner's custom domain, then to the default public origin.
     """
-    # Use the thread-local context getter (no args), not the shifu.utils
-    # get_shifu_creator_bid(app, shifu_bid) imported elsewhere in this module.
+
+    host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()
+    if not host:
+        host = str(getattr(request, "host", "") or "").strip()
+    if host:
+        try:
+            from flaskr.service.billing.domains import (
+                resolve_creator_bid_by_host,
+                resolve_effective_custom_origin,
+            )
+
+            domain_creator_bid = resolve_creator_bid_by_host(app, host)
+            if domain_creator_bid:
+                domain_origin = resolve_effective_custom_origin(
+                    app, domain_creator_bid
+                )
+                if domain_origin:
+                    return domain_origin
+        except Exception:
+            app.logger.exception(
+                "Failed to resolve custom domain from request host; host=%s",
+                host,
+            )
+
     from flaskr.common.shifu_context import (
         get_shifu_creator_bid as get_context_creator_bid,
     )

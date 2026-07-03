@@ -115,6 +115,29 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 creator_bid=creator_bid,
                 request_host=request_host,
             )
+
+        domain_owner_bid = str(
+            getattr(runtime_billing.domain, "creator_bid", None) or ""
+        ).strip()
+        if (
+            domain_owner_bid
+            and getattr(runtime_billing.domain, "is_custom_domain", False)
+            and domain_owner_bid != creator_bid
+        ):
+            try:
+                runtime_billing = build_runtime_billing_context(
+                    app,
+                    creator_bid=domain_owner_bid,
+                    request_host=request_host,
+                )
+            except Exception:
+                app.logger.exception(
+                    "Failed to re-resolve billing runtime config for domain "
+                    "owner; domain_owner_bid=%s request_host=%s",
+                    domain_owner_bid,
+                    request_host or "-",
+                )
+
         branding = runtime_billing.branding
         logo_wide_url = branding.logo_wide_url or get_config("LOGO_WIDE_URL", "")
         logo_square_url = branding.logo_square_url or get_config("LOGO_SQUARE_URL", "")
