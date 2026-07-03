@@ -124,7 +124,33 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   from 213 at inventory); any increase fails, any decrease asks for a
   baseline ratchet-down. Wired into lefthook pre-commit. Remaining sites
   migrate opportunistically per the B4 plan.
-- [ ] Phase 2: remaining batches B5–B7 (see Plan of Work).
+- [x] 2026-07-03: Phase 2 B5 giant-file splits — mechanical decomposition
+  (pure moves, AST-identical symbol check against HEAD) of the three giants:
+  `shifu/admin_operations/courses.py` (5,757 lines) into 8 sibling
+  `courses_*` modules (shared / credit_usage / listing / transfer_copy /
+  detail / follow_ups / users / ratings); `shifu/admin.py` (4,495 lines)
+  into 5 sibling `admin_*` modules (shared / user_credits / user_profiles /
+  course_summaries / user_courses; the legacy course-helper duplicates moved
+  verbatim — dedupe is out of scope); `shifu/admin_dtos.py` into
+  `admin_dtos_courses.py` + `admin_dtos_users.py`. Two intra-file cycles
+  were broken by assigning nine cross-domain helpers (outline-context
+  loaders, `_merge_courses`, `_format_average_score`, etc.) to
+  `courses_shared` — allowed leaf-module exception, still pure moves. All
+  three old paths are explicit named re-export shims (retained for one
+  release cycle); external callers were deliberately left on the shim
+  paths. Because tests monkeypatch through `shifu.admin` (e.g. `datetime`,
+  `db`, `_load_user_map`), the admin and courses shims install a module
+  `__setattr__` that forwards attribute sets to every submodule defining
+  the name — a generalization of the pre-existing
+  `_AdminCompatibilityModule` forwarding, verified by a forwarding-chain
+  probe including monkeypatch restore. Commit-site baseline regenerated
+  (courses.py's 2 sites now in `courses_transfer_copy.py`; total unchanged
+  at 155); architecture-boundary baseline regenerated (the moved files
+  carry their grandfathered cross-service imports at new paths, 114 -> 130
+  entries, plus 7 pre-existing stale learn entries dropped by
+  regeneration). pytest 1,918 passed / 6 skipped; golden 11 passed,
+  fixtures untouched; ruff clean.
+- [ ] Phase 2: remaining batches B6–B7 (see Plan of Work).
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 
 ## Surprises & Discoveries

@@ -38,7 +38,7 @@
   "service/referral/admin.py": 1,
   "service/referral/campaign_admin.py": 3,
   "service/referral/service.py": 6,
-  "service/shifu/admin_operations/courses.py": 2,
+  "service/shifu/admin_operations/courses_transfer_copy.py": 2,
   "service/shifu/funcs.py": 6,
   "service/shifu/route.py": 2,
   "service/shifu/shifu_draft_funcs.py": 4,
