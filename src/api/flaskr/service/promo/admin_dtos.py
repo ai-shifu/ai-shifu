@@ -1,15 +1,36 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import List, Union, get_args, get_origin
 
-from typing import List
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from flaskr.common.swagger import register_schema_to_swagger
 
 
+_EMPTY_DATETIME_VALUES = {"", "0000-00-00", "0000-00-00 00:00:00"}
+
+
+def _allows_datetime(annotation) -> bool:
+    if annotation is datetime:
+        return True
+    origin = get_origin(annotation)
+    if origin is Union or getattr(origin, "__name__", "") == "UnionType":
+        return any(_allows_datetime(arg) for arg in get_args(annotation))
+    return False
+
+
 class _DTOBase(BaseModel):
+    @field_validator("*", mode="before")
+    @classmethod
+    def _coerce_empty_datetime(cls, value, info: ValidationInfo):
+        if not isinstance(value, str) or value.strip() not in _EMPTY_DATETIME_VALUES:
+            return value
+        field = cls.model_fields.get(info.field_name or "")
+        if field and _allows_datetime(field.annotation):
+            return None
+        return value
+
     def __json__(self):
         if hasattr(self, "model_dump"):
             return self.model_dump()
