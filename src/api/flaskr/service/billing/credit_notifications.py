@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
@@ -12,7 +11,7 @@ import re
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Flask, has_app_context
+from flask import Flask
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, or_
 
@@ -23,6 +22,8 @@ from flaskr.api.sms.aliyun import (
 )
 from flaskr.common.observability import record_credit_notification_event
 from flaskr.dao import db
+from flaskr.dao import uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
 from flaskr.service.config.funcs import add_config
@@ -107,8 +108,8 @@ CREDIT_NOTIFICATION_TEMPLATE_PLACEHOLDERS: dict[str, tuple[str, ...]] = {
 }
 
 
-def _maybe_app_context(app: Flask):
-    return nullcontext() if has_app_context() else app.app_context()
+# Shared session-scope guard; see flaskr/dao/uow.py for the rationale.
+_maybe_app_context = app_context_scope
 
 
 @dataclass(slots=True, frozen=True)
@@ -598,6 +599,12 @@ def save_credit_notification_policy(
     serialized = json.dumps(
         policy, ensure_ascii=False, separators=(",", ":"), sort_keys=True
     )
+    # NOTE(uow cross-module leak): config.funcs.add_config pushes its own
+    # nested app context (a separate Flask-SQLAlchemy session) and commits it
+    # internally, so it must never run inside a unit of work owned here. This
+    # function holds no ORM instances across the call (only plain dicts), so
+    # no db.session.expire_all() is required afterwards. Migrating
+    # service/config is a later batch; do not "fix" the commit from here.
     ok = add_config(
         app,
         BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
@@ -887,7 +894,12 @@ def sync_credit_notification_template(
     if not normalized_template_code:
         raise_param_error("template_code")
 
-    with _maybe_app_context(app):
+    # One unit of work per sync attempt: the get-or-create of the local
+    # template row and the branch's terminal sync-status outcome commit
+    # atomically. The provider template fetch is a DB-free read-only call, so
+    # keeping it inside the transaction cannot interleave another session; no
+    # retry_on_deadlock because a replay would re-issue the provider call.
+    with _maybe_app_context(app), unit_of_work():
         now = datetime.now()
         template = _get_or_create_notification_template(
             app,
@@ -902,7 +914,6 @@ def sync_credit_notification_template(
                 error_code="missing_credentials",
                 error_message="missing_credentials",
             )
-            db.session.commit()
             return _serialize_notification_template(
                 app,
                 template,
@@ -921,7 +932,6 @@ def sync_credit_notification_template(
                 error_message="provider_exception",
                 provider_response={"message": str(exc)},
             )
-            db.session.commit()
             return _serialize_notification_template(
                 app,
                 template,
@@ -935,7 +945,6 @@ def sync_credit_notification_template(
                 error_code="provider_failed",
                 error_message="provider_failed",
             )
-            db.session.commit()
             return _serialize_notification_template(
                 app,
                 template,
@@ -956,7 +965,6 @@ def sync_credit_notification_template(
                 error_message=response_code,
                 provider_response=provider_response,
             )
-            db.session.commit()
             return _serialize_notification_template(
                 app,
                 template,
@@ -979,7 +987,6 @@ def sync_credit_notification_template(
         template.last_synced_at = now
         template.updated_at = now
         db.session.add(template)
-        db.session.commit()
         return _serialize_notification_template(
             app,
             template,
@@ -988,7 +995,13 @@ def sync_credit_notification_template(
 
 
 def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
-    with _maybe_app_context(app):
+    # One unit of work per listing: the local template upserts mirrored from
+    # the provider response commit atomically (the early returns are
+    # read-only, so their commit on exit is a no-op). The provider list call
+    # is a DB-free read-only call, so keeping it inside the transaction
+    # cannot interleave another session; no retry_on_deadlock because a
+    # replay would re-issue the provider call.
+    with _maybe_app_context(app), unit_of_work():
         if not _aliyun_sms_credentials_configured(app):
             return {
                 "items": _local_notification_template_options(app),
@@ -1082,7 +1095,6 @@ def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
             db.session.add(template)
             templates.append(template)
 
-        db.session.commit()
         return {
             "items": [
                 _serialize_template_option(app, template, source="provider")
@@ -1493,6 +1505,91 @@ def _stage_notification_record(
     )
 
 
+def _stage_scan_notification_isolated(
+    app: Flask,
+    *,
+    notification_type: str,
+    creator_bid: str,
+    source_type: str,
+    source_bid: str,
+    dedupe_key: str,
+    template_params: dict[str, Any],
+    metadata: dict[str, Any] | None,
+    policy: dict[str, Any],
+) -> dict[str, Any]:
+    """Stage one scan candidate in its own transaction.
+
+    Per-item isolation for the batch scans: each candidate commits (or rolls
+    back) independently, so one bad notification can neither roll back rows
+    already staged for other creators nor abort the rest of the scan. A
+    failed item is reported as ``stage_failed`` and the scan moves on.
+    """
+    try:
+        with unit_of_work():
+            result = _stage_notification_record(
+                app,
+                notification_type=notification_type,
+                creator_bid=creator_bid,
+                source_type=source_type,
+                source_bid=source_bid,
+                dedupe_key=dedupe_key,
+                template_params=template_params,
+                metadata=metadata,
+                policy=policy,
+            )
+    except Exception as exc:  # noqa: BLE001 - per-item scan isolation
+        app.logger.error(
+            "credit notification staging failed for notification_type=%s "
+            "creator_bid=%s dedupe_key=%s: %s",
+            notification_type,
+            creator_bid,
+            dedupe_key,
+            exc,
+            exc_info=True,
+        )
+        return {
+            "status": "stage_failed",
+            "notification_type": notification_type,
+            "creator_bid": creator_bid,
+            "source_type": source_type,
+            "source_bid": source_bid,
+            "dedupe_key": dedupe_key,
+            "enqueued": False,
+        }
+    return result.to_payload()
+
+
+def _dispatch_scan_notification_enqueues(
+    app: Flask,
+    notifications: list[dict[str, Any]],
+    *,
+    dry_run: bool,
+) -> None:
+    """Dispatch celery deliveries for a scan's freshly staged rows.
+
+    Every pending item was committed by its own per-item unit of work, so at
+    top level (the celery scan tasks) each dispatch runs immediately against
+    durable rows and records its outcome on the item payload, matching the
+    legacy enqueue-after-commit behavior. If a caller ever wraps the scan in
+    its own unit of work, the dispatches defer to that commit and are dropped
+    on rollback (the payloads then keep ``enqueued=False``).
+    """
+    if dry_run:
+        return
+    for item in notifications:
+        if item.get("status") != CREDIT_NOTIFICATION_STATUS_PENDING:
+            continue
+
+        def _dispatch(item: dict[str, Any] = item) -> None:
+            enqueue_result = enqueue_credit_notification(
+                app,
+                notification_bid=str(item.get("notification_bid") or ""),
+            )
+            item["enqueued"] = bool(enqueue_result.get("enqueued"))
+
+        uow.on_commit(_dispatch)
+
+
 def stage_credit_granted_notification(
     app: Flask,
     *,
@@ -1514,36 +1611,58 @@ def stage_credit_granted_notification(
         )
         if ledger is None:
             return CreditNotificationStageResult(status="not_found").to_payload()
-        result = _stage_notification_record(
-            app,
-            notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
-            creator_bid=ledger.creator_bid,
-            source_type=SOURCE_TYPE_LEDGER,
-            source_bid=ledger.ledger_bid,
-            dedupe_key=build_credit_granted_dedupe_key(ledger.ledger_bid),
-            template_params={
-                "credits": _amount_text(ledger.amount),
-                "source": str(
-                    (ledger.metadata_json or {}).get("grant_source")
-                    or ledger.source_type
-                ),
-                "expires_at": _serialize_dt(app, ledger.expires_at),
-            },
-            metadata={
-                "wallet_bucket_bid": ledger.wallet_bucket_bid,
-                "ledger_bid": ledger.ledger_bid,
-            },
-        )
+
+        def _stage() -> CreditNotificationStageResult:
+            return _stage_notification_record(
+                app,
+                notification_type=CREDIT_NOTIFICATION_TYPE_GRANTED,
+                creator_bid=ledger.creator_bid,
+                source_type=SOURCE_TYPE_LEDGER,
+                source_bid=ledger.ledger_bid,
+                dedupe_key=build_credit_granted_dedupe_key(ledger.ledger_bid),
+                template_params={
+                    "credits": _amount_text(ledger.amount),
+                    "source": str(
+                        (ledger.metadata_json or {}).get("grant_source")
+                        or ledger.source_type
+                    ),
+                    "expires_at": _serialize_dt(app, ledger.expires_at),
+                },
+                metadata={
+                    "wallet_bucket_bid": ledger.wallet_bucket_bid,
+                    "ledger_bid": ledger.ledger_bid,
+                },
+            )
+
         if commit:
-            db.session.commit()
+            # This call owns the transaction for the staged row.
+            with unit_of_work():
+                result = _stage()
+        else:
+            # Legacy contract: with commit=False the CALLER owns the
+            # transaction boundary. The staged row is only flushed here and
+            # commits or rolls back with the caller's flow (renewal, trials,
+            # paid_side_effects, and manual_plan_grants all pass commit=False
+            # and persist it themselves).
+            result = _stage()
         payload = result.to_payload()
     if enqueue:
         if payload.get("status") == CREDIT_NOTIFICATION_STATUS_PENDING:
-            enqueue_result = enqueue_credit_notification(
-                app,
-                notification_bid=str(payload.get("notification_bid") or ""),
-            )
-            payload["enqueued"] = bool(enqueue_result.get("enqueued"))
+            notification_bid = str(payload.get("notification_bid") or "")
+
+            def _dispatch() -> None:
+                enqueue_result = enqueue_credit_notification(
+                    app,
+                    notification_bid=notification_bid,
+                )
+                payload["enqueued"] = bool(enqueue_result.get("enqueued"))
+
+            # External celery dispatch. Outside any unit of work this runs
+            # immediately, so the payload reports the real enqueue outcome
+            # exactly like the legacy code; nested inside a caller's unit of
+            # work it is deferred until the staged row is durable and dropped
+            # on rollback (the payload then still reports enqueued=False).
+            uow.on_commit(_dispatch)
         else:
             payload["enqueued"] = False
     return payload
@@ -1620,7 +1739,12 @@ def suppress_pending_expiring_notifications_for_bucket(
     wallet_bucket_bid: str,
     effective_to: datetime | None = None,
 ) -> int:
-    """Skip stale unsent expiry reminders after a bucket expiry is extended."""
+    """Skip stale unsent expiry reminders after a bucket expiry is extended.
+
+    Flush-only helper: the CALLER owns the transaction boundary (today
+    referral_reward_grants extends the bucket and commits both writes
+    together), so this function must not commit or open its own unit of work.
+    """
 
     normalized_wallet_bucket_bid = _normalize_bid(wallet_bucket_bid)
     if not normalized_wallet_bucket_bid:
@@ -1696,7 +1820,7 @@ def scan_credit_expiring_notifications(
 ) -> dict[str, Any]:
     scan_now = now or datetime.now()
     normalized_creator_bid = _normalize_bid(creator_bid)
-    with app.app_context():
+    with _maybe_app_context(app):
         policy = load_credit_notification_policy()
         if not _notification_type_enabled(policy, CREDIT_NOTIFICATION_TYPE_EXPIRING):
             return {
@@ -1804,32 +1928,33 @@ def scan_credit_expiring_notifications(
                             }
                         )
                         continue
-                    result = _stage_notification_record(
-                        app,
-                        notification_type=CREDIT_NOTIFICATION_TYPE_EXPIRING,
-                        creator_bid=group["creator_bid"],
-                        source_type=SOURCE_TYPE_WALLET_BUCKET,
-                        source_bid=group["source_bid"],
-                        dedupe_key=dedupe_key,
-                        template_params={
-                            "credits": _amount_text(group["available_credits"]),
-                            "expires_at": _serialize_dt(
-                                app,
-                                group.get("effective_to"),
-                            ),
-                            "window": window,
-                        },
-                        metadata={
-                            "wallet_bid": group["wallet_bid"],
-                            "wallet_bids": sorted(group["wallet_bids"]),
-                            "wallet_bucket_bid": group["source_bid"],
-                            "wallet_bucket_bids": group["bucket_bids"],
-                            "merged_bucket_count": len(group["bucket_bids"]),
-                            "window": window,
-                        },
-                        policy=policy,
+                    notifications.append(
+                        _stage_scan_notification_isolated(
+                            app,
+                            notification_type=CREDIT_NOTIFICATION_TYPE_EXPIRING,
+                            creator_bid=group["creator_bid"],
+                            source_type=SOURCE_TYPE_WALLET_BUCKET,
+                            source_bid=group["source_bid"],
+                            dedupe_key=dedupe_key,
+                            template_params={
+                                "credits": _amount_text(group["available_credits"]),
+                                "expires_at": _serialize_dt(
+                                    app,
+                                    group.get("effective_to"),
+                                ),
+                                "window": window,
+                            },
+                            metadata={
+                                "wallet_bid": group["wallet_bid"],
+                                "wallet_bids": sorted(group["wallet_bids"]),
+                                "wallet_bucket_bid": group["source_bid"],
+                                "wallet_bucket_bids": group["bucket_bids"],
+                                "merged_bucket_count": len(group["bucket_bids"]),
+                                "window": window,
+                            },
+                            policy=policy,
+                        )
                     )
-                    notifications.append(result.to_payload())
                 continue
 
             for bucket in buckets:
@@ -1853,39 +1978,29 @@ def scan_credit_expiring_notifications(
                         }
                     )
                     continue
-                result = _stage_notification_record(
-                    app,
-                    notification_type=CREDIT_NOTIFICATION_TYPE_EXPIRING,
-                    creator_bid=bucket.creator_bid,
-                    source_type=SOURCE_TYPE_WALLET_BUCKET,
-                    source_bid=bucket.wallet_bucket_bid,
-                    dedupe_key=dedupe_key,
-                    template_params={
-                        "credits": _amount_text(bucket.available_credits),
-                        "expires_at": _serialize_dt(app, bucket.effective_to),
-                        "window": window,
-                    },
-                    metadata={
-                        "wallet_bid": bucket.wallet_bid,
-                        "wallet_bucket_bid": bucket.wallet_bucket_bid,
-                        "window": window,
-                    },
-                    policy=policy,
+                notifications.append(
+                    _stage_scan_notification_isolated(
+                        app,
+                        notification_type=CREDIT_NOTIFICATION_TYPE_EXPIRING,
+                        creator_bid=bucket.creator_bid,
+                        source_type=SOURCE_TYPE_WALLET_BUCKET,
+                        source_bid=bucket.wallet_bucket_bid,
+                        dedupe_key=dedupe_key,
+                        template_params={
+                            "credits": _amount_text(bucket.available_credits),
+                            "expires_at": _serialize_dt(app, bucket.effective_to),
+                            "window": window,
+                        },
+                        metadata={
+                            "wallet_bid": bucket.wallet_bid,
+                            "wallet_bucket_bid": bucket.wallet_bucket_bid,
+                            "window": window,
+                        },
+                        policy=policy,
+                    )
                 )
-                notifications.append(result.to_payload())
-        if not dry_run:
-            db.session.commit()
-    enqueued_count = 0
-    if not dry_run:
-        for item in notifications:
-            if item.get("status") != "pending":
-                continue
-            enqueue_result = enqueue_credit_notification(
-                app,
-                notification_bid=str(item.get("notification_bid") or ""),
-            )
-            item["enqueued"] = bool(enqueue_result.get("enqueued"))
-            enqueued_count += int(bool(enqueue_result.get("enqueued")))
+    _dispatch_scan_notification_enqueues(app, notifications, dry_run=dry_run)
+    enqueued_count = sum(1 for item in notifications if item.get("enqueued"))
     candidate_count = sum(
         1
         for item in notifications
@@ -2071,7 +2186,7 @@ def scan_low_balance_notifications(
 ) -> dict[str, Any]:
     scan_now = now or datetime.now()
     normalized_creator_bid = _normalize_bid(creator_bid)
-    with app.app_context():
+    with _maybe_app_context(app):
         policy = load_credit_notification_policy()
         if not _notification_type_enabled(policy, CREDIT_NOTIFICATION_TYPE_LOW_BALANCE):
             return {
@@ -2369,31 +2484,21 @@ def scan_low_balance_notifications(
                         )
                     )
                     continue
-                result = _stage_notification_record(
-                    app,
-                    notification_type=CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
-                    creator_bid=wallet.creator_bid,
-                    source_type=SOURCE_TYPE_WALLET,
-                    source_bid=wallet.creator_bid,
-                    dedupe_key=dedupe_key,
-                    template_params=template_params,
-                    metadata=metadata,
-                    policy=policy,
+                notifications.append(
+                    _stage_scan_notification_isolated(
+                        app,
+                        notification_type=CREDIT_NOTIFICATION_TYPE_LOW_BALANCE,
+                        creator_bid=wallet.creator_bid,
+                        source_type=SOURCE_TYPE_WALLET,
+                        source_bid=wallet.creator_bid,
+                        dedupe_key=dedupe_key,
+                        template_params=template_params,
+                        metadata=metadata,
+                        policy=policy,
+                    )
                 )
-                notifications.append(result.to_payload())
-        if not dry_run:
-            db.session.commit()
-    enqueued_count = 0
-    if not dry_run:
-        for item in notifications:
-            if item.get("status") != "pending":
-                continue
-            enqueue_result = enqueue_credit_notification(
-                app,
-                notification_bid=str(item.get("notification_bid") or ""),
-            )
-            item["enqueued"] = bool(enqueue_result.get("enqueued"))
-            enqueued_count += int(bool(enqueue_result.get("enqueued")))
+    _dispatch_scan_notification_enqueues(app, notifications, dry_run=dry_run)
+    enqueued_count = sum(1 for item in notifications if item.get("enqueued"))
     candidate_count = sum(
         1
         for item in notifications
@@ -2597,7 +2702,20 @@ def deliver_credit_notification(
     if not normalized_notification_bid:
         return {"status": "invalid_notification_bid", "notification_bid": None}
 
-    with app.app_context():
+    # One unit of work spans the whole delivery attempt. The SELECT ... FOR
+    # UPDATE row lock must stay held across the provider send so a concurrent
+    # worker cannot load the same processable row and double-send;
+    # send_sms_ali is DB-free, so no other session is involved and no
+    # retry_on_deadlock may wrap this function (a replay would re-send).
+    # Every branch finalizes the record and returns, committing the terminal
+    # status flip as the last write of the transaction. Must-persist: once
+    # the SENT flip commits, the row leaves the processable set, so any crash
+    # in later bookkeeping (task wrappers, serialization) cannot trigger a
+    # second send — a re-run is a noop. A crash between the provider accept
+    # and this commit re-opens the send window; that is the pre-existing
+    # semantics, and closing it would need an interim non-processable status
+    # (schema/consts change, out of scope for the uow migration).
+    with _maybe_app_context(app), unit_of_work():
         notification = (
             NotificationRecord.query.filter(
                 NotificationRecord.deleted == 0,
@@ -2629,7 +2747,6 @@ def deliver_credit_notification(
                 error_code="policy_disabled",
                 error_message="Notification policy is disabled.",
             )
-            db.session.commit()
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
                 "notification_bid": notification.notification_bid,
@@ -2645,7 +2762,6 @@ def deliver_credit_notification(
                 error_code="missing_mobile",
                 error_message="Creator mobile is empty.",
             )
-            db.session.commit()
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE,
                 "notification_bid": notification.notification_bid,
@@ -2660,7 +2776,6 @@ def deliver_credit_notification(
                 error_code="invalid_mobile",
                 error_message="Creator mobile is invalid.",
             )
-            db.session.commit()
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_NO_MOBILE,
                 "notification_bid": notification.notification_bid,
@@ -2682,7 +2797,6 @@ def deliver_credit_notification(
                 error_code=reason,
                 error_message=f"Notification blocked by policy: {reason}.",
             )
-            db.session.commit()
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
                 "notification_bid": notification.notification_bid,
@@ -2706,7 +2820,6 @@ def deliver_credit_notification(
                     "empty estimated remaining days."
                 ),
             )
-            db.session.commit()
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
                 "notification_bid": notification.notification_bid,
@@ -2727,7 +2840,6 @@ def deliver_credit_notification(
                 error_code="missing_template_code",
                 error_message="Notification SMS template code is empty.",
             )
-            db.session.commit()
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
                 "notification_bid": notification.notification_bid,
@@ -2760,7 +2872,6 @@ def deliver_credit_notification(
                         f"{','.join(missing_template_params)}."
                     ),
                 )
-                db.session.commit()
                 return {
                     "status": CREDIT_NOTIFICATION_STATUS_SKIPPED_OPT_OUT,
                     "notification_bid": notification.notification_bid,
@@ -2786,7 +2897,6 @@ def deliver_credit_notification(
                 error_message=str(exc),
                 provider_response={"message": str(exc)},
             )
-            db.session.commit()
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
                 "notification_bid": notification.notification_bid,
@@ -2802,7 +2912,6 @@ def deliver_credit_notification(
                 mobile=mobile,
                 provider_response=_provider_response_payload(response),
             )
-            db.session.commit()
             return {
                 "status": CREDIT_NOTIFICATION_STATUS_SENT,
                 "notification_bid": notification.notification_bid,
@@ -2818,7 +2927,6 @@ def deliver_credit_notification(
             error_code="provider_failed",
             error_message="SMS provider returned no accepted response.",
         )
-        db.session.commit()
         return {
             "status": CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER,
             "notification_bid": notification.notification_bid,
@@ -2879,7 +2987,8 @@ def requeue_credit_notification(
     normalized_operator_user_bid = _normalize_bid(operator_user_bid)
     if not normalized_notification_bid:
         return {"status": "invalid_notification_bid", "enqueued": False}
-    with app.app_context():
+    # Read-only requeue-ability guard; no unit of work is needed here.
+    with _maybe_app_context(app):
         notification = (
             NotificationRecord.query.filter(
                 NotificationRecord.deleted == 0,
@@ -2901,6 +3010,13 @@ def requeue_credit_notification(
                 "notification_status": notification.status,
                 "enqueued": False,
             }
+    # Deliberate legacy ordering kept: the celery dispatch happens BEFORE the
+    # PENDING flip so a broker failure leaves the record failed_provider (and
+    # therefore requeueable again) instead of stranding a PENDING row no task
+    # will ever pick up. NOTE(pre-existing race, not widened here): if the
+    # dispatched task runs before the flip below commits, deliver sees
+    # failed_provider (still processable, so it delivers) and the flip then
+    # marks an already-delivered row PENDING until the next requeue attempt.
     enqueue_result = enqueue_credit_notification(
         app,
         notification_bid=normalized_notification_bid,
@@ -2910,7 +3026,9 @@ def requeue_credit_notification(
             CREDIT_NOTIFICATION_STATUS_FAILED_PROVIDER
         )
         return enqueue_result
-    with app.app_context():
+    # The reset back to PENDING is this flow's only write and owns its unit
+    # of work; record_credit_notification_event is a metrics-only hook.
+    with _maybe_app_context(app), unit_of_work():
         notification = (
             NotificationRecord.query.filter(
                 NotificationRecord.deleted == 0,
@@ -2942,7 +3060,6 @@ def requeue_credit_notification(
             notification.updated_at = datetime.now()
             notification.metadata_json = metadata
             db.session.add(notification)
-            db.session.commit()
             record_credit_notification_event(
                 "requeue",
                 notification_type=notification.notification_type,

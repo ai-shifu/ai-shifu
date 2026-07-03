@@ -103,8 +103,22 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   persistence, on_commit drop/fire) under
   `tests/service/billing/test_renewal_uow_failure_paths.py`; pytest 1,914
   passed; golden fixtures unchanged.
-- [ ] Phase 2 B4 sub-batch (c) `billing/credit_notifications.py`; then the CI
-  lint banning new commits outside `dao/`.
+- [x] 2026-07-03 16:20 CST: Phase 2 B4 sub-batch (c)
+  `billing/credit_notifications.py` — all 20 scattered commits removed.
+  Batch scans stage each candidate in its own per-item transaction
+  (`_stage_scan_notification_isolated`: one bad item reports
+  `stage_failed`, rolls back alone, and never aborts neighbors); delivery
+  is one unit of work whose terminal SENT/FAILED_PROVIDER flip is the
+  send marker (crash after the flip cannot double-send); stage-then-
+  enqueue dispatches through `uow.on_commit`. Test-infra discovery: the
+  pre-existing `db.session.begin_nested()` savepoint auto-commits under
+  pysqlite's lazy-BEGIN mode, silently defeating rollback assertions on
+  SQLite — the failure-path tests neutralize the savepoint (documented;
+  the property under test belongs to `unit_of_work()`); MySQL semantics
+  are unaffected. pytest 1,918 passed (4 new failure-path tests); golden
+  fixtures unchanged.
+- [ ] Phase 2 B4 finale: CI lint banning new `db.session.commit()` outside
+  `dao/`.
 - [ ] Phase 2: remaining batches B5–B7 (see Plan of Work).
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 
