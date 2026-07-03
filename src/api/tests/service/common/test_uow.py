@@ -98,3 +98,45 @@ def test_depth_resets_after_exception(app):
             with uow.unit_of_work():
                 raise RuntimeError("boom")
         assert not uow.in_unit_of_work()
+
+
+def test_on_commit_outside_uow_runs_immediately(app):
+    calls = []
+    with app.app_context():
+        uow.on_commit(lambda: calls.append("now"))
+    assert calls == ["now"]
+
+
+def test_on_commit_nested_defers_to_outermost_commit(app):
+    calls = []
+    with app.app_context():
+        with uow.unit_of_work():
+            with uow.unit_of_work():
+                uow.on_commit(lambda: calls.append("notified"))
+            # Inner block exited: callback must NOT have fired yet.
+            assert calls == []
+        assert calls == ["notified"]
+
+
+def test_on_commit_dropped_on_rollback(app):
+    calls = []
+    with app.app_context():
+        with pytest.raises(RuntimeError):
+            with uow.unit_of_work():
+                uow.on_commit(lambda: calls.append("never"))
+                raise RuntimeError("boom")
+        assert calls == []
+
+
+def test_on_commit_callback_exception_does_not_propagate(app):
+    calls = []
+
+    def boom():
+        raise RuntimeError("callback boom")
+
+    with app.app_context():
+        with uow.unit_of_work():
+            uow.on_commit(boom)
+            uow.on_commit(lambda: calls.append("still-runs"))
+    # Both scheduled callbacks ran; the failing one was logged, not raised.
+    assert calls == ["still-runs"]

@@ -39,11 +39,39 @@ from contextlib import contextmanager
 logger = logging.getLogger(__name__)
 
 _depth: contextvars.ContextVar[int] = contextvars.ContextVar("uow_depth", default=0)
+_post_commit: contextvars.ContextVar[list] = contextvars.ContextVar(
+    "uow_post_commit", default=None
+)
 
 
 def in_unit_of_work() -> bool:
     """Return True when the caller is inside an active unit of work."""
     return _depth.get() > 0
+
+
+def on_commit(callback) -> None:
+    """Run ``callback()`` after the OUTERMOST unit of work commits.
+
+    Use this for external side effects (notifications, webhooks) that must
+    only fire once the transaction they describe is durable. Inside a nested
+    block the callback is deferred to the outermost commit; on rollback it is
+    dropped. Outside any unit of work the callback runs immediately (there is
+    no transaction to wait for). Callback exceptions are logged, not raised —
+    the transaction is already committed.
+    """
+    callbacks = _post_commit.get()
+    if callbacks is None:
+        callback()
+        return
+    callbacks.append(callback)
+
+
+def _run_post_commit(callbacks: list) -> None:
+    for callback in callbacks:
+        try:
+            callback()
+        except Exception as exc:  # noqa: BLE001 - commit already durable
+            logger.exception("unit_of_work post-commit callback failed: %s", exc)
 
 
 @contextmanager
@@ -59,10 +87,15 @@ def unit_of_work():
 
     depth = _depth.get()
     token = _depth.set(depth + 1)
+    callbacks_token = None
+    if depth == 0:
+        callbacks_token = _post_commit.set([])
     try:
         yield
         if depth == 0:
+            callbacks = _post_commit.get()
             dao.db.session.commit()
+            _run_post_commit(callbacks)
     except Exception:
         if depth == 0:
             try:
@@ -72,3 +105,5 @@ def unit_of_work():
         raise
     finally:
         _depth.reset(token)
+        if callbacks_token is not None:
+            _post_commit.reset(callbacks_token)

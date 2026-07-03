@@ -71,7 +71,23 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   Full pytest 1,894 passed (1,873 baseline + 21 new helper tests under
   `tests/service/common/`); golden 11 passed, fixtures byte-identical; ruff
   clean.
-- [ ] Phase 2: batches B1–B7 (each its own PR; see Plan of Work).
+- [x] 2026-07-03 15:05 CST: Phase 2 B4 foundation + sub-batch (a):
+  `flaskr/dao/uow.py` unit-of-work (outermost commits, nested joins,
+  contextvars isolation, `on_commit()` post-commit callbacks for external
+  side effects) and full `order/funs.py` migration — 13 scattered commits
+  removed with a per-commit audit table in the commit message trail; the
+  hidden timeout flip in `is_order_has_timeout` lifted into
+  `init_buy_record`'s transaction (now a pure predicate);
+  `_app_context_scope()` guard added because nested `app.app_context()`
+  switches the Flask-SQLAlchemy 3.1 session. Adversarial money-path review
+  found one regression (Feishu notify before outer commit when nested) —
+  fixed via `uow.on_commit()`. Cross-module commit leaks documented in
+  place (promo helpers, billing webhooks → sub-batches b/c). pytest 1,910
+  passed (16 new tests); golden fixtures unchanged.
+- [ ] Phase 2 B4 sub-batches (b) `billing/renewal.py`, (c)
+  `billing/credit_notifications.py`; then the CI lint banning new commits
+  outside `dao/`.
+- [ ] Phase 2: remaining batches B5–B7 (see Plan of Work).
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 
 ## Surprises & Discoveries
