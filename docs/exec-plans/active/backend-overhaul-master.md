@@ -1,4 +1,4 @@
-# Backend Overhaul Master Plan: Inventory, Optimization, Go Migration
+# Backend Overhaul Master Plan: Inventory and Optimization
 
 ## Purpose / Big Picture
 
@@ -10,15 +10,15 @@ hidden deep inside helpers). The core `/run` SSE lesson-execution chain is the
 most tangled surface (`flaskr/service/learn/context_v2.py`, 3,728 lines, 20
 mid-flow flushes).
 
-This umbrella plan drives three strictly ordered goals:
+This umbrella plan drives two strictly ordered goals:
 
 1. **Inventory** — produce an evidence-backed dead-code and debt inventory.
 2. **Optimization** — batched, aggressive refactoring of the Python backend
    (layering, unit-of-work transaction boundaries, `/run` chain rewrite) while
    keeping the frontend-facing API contract byte-compatible.
-3. **Go migration** — a complete strangler-style migration to a new standalone
-   Go repository built on the igo framework, cutting over module by module
-   behind a reverse proxy, sharing the same MySQL/Redis until Flask retires.
+
+The backend rewrite in another language proceeds as a separate, independent
+project outside this repository and is intentionally not tracked here.
 
 Child ExecPlans and batch PRs reference this document. Detailed findings live
 in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
@@ -26,8 +26,8 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
 ## Progress
 
 - [x] 2026-07-03 11:31 CST: Master plan created; exploration and design
-  completed (three read-only exploration passes over `src/api`, igo/mk_igo
-  scaffolds, and the debt surface; phased design reviewed and approved).
+  completed (read-only exploration passes over `src/api` and the debt
+  surface; phased design reviewed and approved).
 - [x] 2026-07-03 12:30 CST: Phase 0 golden harness landed
   (`src/api/tests/golden/`): 4 SSE transcripts + 7 JSON endpoint fixtures,
   deterministic across fresh processes, verified under markdown-flow 0.2.84.
@@ -157,8 +157,8 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   flush-then-fail dirty-row class is gone), `learn/run/state.py` (pure
   read resolver), and a `run_inner` decomposed into 14 named phase
   generators on the context facade. Golden fixtures byte-identical
-  throughout; every PR adversarially reviewed. This decomposition is the
-  Go port's specification. Note: B6 executed as incremental extractions,
+  throughout; every PR adversarially reviewed. Note: B6 executed as
+  incremental extractions,
   not the config-flag parallel path sketched below in Plan of Work — see
   the child plan's decision log. Also landed: the reviewed leaf-bid
   placeholder fix (production-data findings in the child plan).
@@ -200,9 +200,8 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   status to-be-paid). Environment-only fixes during smoke (not repo
   changes): demo course model repointed to an available provider — the
   .env default deepseek key is dead and the qwen account is overdue;
-  silicon works. Phase 2 is COMPLETE; the pre-Go review gate is now
-  active.
-- [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
+  silicon works. Phase 2 is COMPLETE — this plan's scope is fully
+  delivered; move it to completed/ after the tail follow-ups below close.
 
 ## Surprises & Discoveries
 
@@ -217,84 +216,18 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
 - The endpoint audit found a frontend/backend drift bug: cook-web's catalog
   defines `markFavoriteShifu: 'POST /shifu/mark-favorite-shifu'` with no
   matching backend route; the real favorite route has no frontend caller.
-- A Go implementation of MarkdownFlow already exists
-  (`markdown-flow-agent-go`, sibling repo), removing the largest Go-migration
-  dependency risk. It still requires a dual-parser diff harness over all
-  published shifu documents before Wave 4/5 rely on it.
-- Auth is directly shareable between Python and Go: HS256 JWT
-  (`flaskr/service/user/utils.py:132`) + `UserToken` DB table as source of
-  truth + Redis `ai-shifu:user:<token>` sliding TTL
-  (`flaskr/service/user/token_store.py`). Same secret + same table + same
-  Redis keys = zero-impact dual-stack operation.
 - Celery is much bigger than TTS: `billing/tasks.py` has ~18 `shared_task`s
   plus a beat schedule (`flaskr/common/celery_app.py:85`) covering renewals,
   wallet expiry, order expiry, reconciliation, notifications, aggregation.
 - The response envelope is `{"code": ..., "message": ..., "data": ...}`
-  (`flaskr/route/common.py:123`, always HTTP 200); igo's stock `res` package
-  uses `msg`, so the Go side needs a customized envelope writer.
+  (`flaskr/route/common.py:123`, always HTTP 200) — a frozen frontend
+  contract.
 
 ## Decision Log
 
 - Optimization risk level: aggressive; rewriting the `/run` chain structure is
   in scope. API behavior toward the frontend stays compatible; SSE event
   names/payloads are frozen (see `flaskr/service/learn/AGENTS.md`).
-- Go migration ships as a complete plan but executes strictly after Phases
-  0–2. Strangler behind a reverse proxy, not big-bang.
-- 2026-07-03 hard gate: after Phase 2 completes (all batches + full test
-  runs + local full-stack smoke), work STOPS for an explicit review of the
-  Go repository layout with the owner before any Go scaffolding is
-  generated.
-- 2026-07-04 Go layout review CLEARED. Confirmed with the owner:
-  (1) igo scaffold with the agreed layers api / service / dao / library /
-  utils. (2) service is organized as one package per domain
-  (learn/shifu/order/billing/user/...) with domain-private logic under
-  `<domain>/internal/` (compiler-enforced visibility) and ONE cross-domain
-  leaf package `service/base` that may import only dao/models/library/
-  utils; domain packages must never import each other (cross-domain reuse
-  sinks into base, cross-domain orchestration rises into api). A
-  boundary lint enforcing this DAG lands in the Go repo from day one.
-  (3) Config: env vars override config.toml (Viper AutomaticEnv; verify
-  igo passthrough, wrap in library/config if needed); env names map
-  directly to toml keys with no product prefix (MYSQL_DEFAULT_DATA_SOURCE
-  style, consistent with the Python .env); secrets are env-only, static
-  topology (port/swagger/log/pool) stays in toml. (4) Go code comments are
-  written in Chinese; unit tests are mandatory. (5) Working defaults
-  unless objected: DTOs in models/dto; markdown-flow-agent-go via go.mod
-  replace during development, pinned release for production builds; LLM
-  client library chosen by a Wave-1 spike; reverse-proxy config lives in
-  deploy-config. Transaction doctrine carries over from B4: service owns
-  the transaction (BeginTx), dao never commits, external side effects
-  fire post-commit.
-- 2026-07-04 owner updates: (a) NO dual-stack production period — the
-  strangler proxy / shadow traffic / percentage rollout machinery is
-  dropped from Phase 3; the deliverable is a fully locally-developed and
-  locally-verified Go backend (golden-corpus dual-replay against the
-  local Python stack, byte-aligned /run SSE), and production cutover is
-  handled by the owner separately. Wave order survives as a development
-  order only. (b) markdown-flow-agent-go is referenced via local go.mod
-  replace (no published module exists). (c) DTOs confirmed at
-  models/dto. (d) LLM access: NO framework (eino/langchaingo rejected);
-  port the Python ProviderConfig registry (prefix -> base_url/key/param
-  overrides; the Python side already ran everything as OpenAI-compatible
-  through LiteLLM) over an OpenAI-compatible Go client, matching
-  whichever client markdown-flow-agent-go already embeds so the repo
-  carries one LLM stack; Langfuse tracing hooks at the registry layer.
-- The Go project lives in a standalone new repository generated with
-  `igo new ai-shifu-go --non-interactive --defaults --frontend=none`; the
-  Next.js `cook-web` frontend is copied into that repository unchanged and
-  pointed at the proxy via its API base URL.
-- MarkdownFlow in Go: use the existing `markdown-flow-agent-go` library (no
-  Python sidecar), gated on a dual-parser alignment harness.
-- LLM access from Go: adopt a mature multi-provider open-source Go library
-  (candidates: cloudwego/eino, langchaingo, OpenAI-compatible clients); a
-  one-time selection spike happens before Wave 1.
-- Async jobs in Go: asynq (Redis-backed, includes cron scheduler) replaces
-  Celery tasks and the beat schedule; task names kept 1:1; per-task exclusive
-  switchover, never double-running.
-- Schema ownership: alembic keeps exclusive ownership for the entire
-  migration. The Go service never runs XORM `Sync2`; structs are generated
-  read-only via `xorm reverse` and hand-tuned. Handover to golang-migrate only
-  after the last Flask module retires.
 - No schema migrations in any Phase 2 batch, so every batch reverts cleanly.
 
 ## Outcomes & Retrospective
@@ -414,40 +347,11 @@ disposition, consuming Phase 2 batch. Summary rows go to
   flush-then-fail dirty-row class), `learn/run/emitter.py` (sole constructor
   of SSE DTOs; events frozen), and `learn/run/orchestrator.py`. The
   thread/queue/Redis-lock mechanics in `runscript_v2.py` stay untouched in
-  this phase (they are rewritten once, in Go). Strategy: new path behind a
+  this phase. Strategy: new path behind a
   config flag, golden transcripts diffed across both paths, flip default,
-  delete `RunScriptContextV2` in a follow-up PR. B6's design doubles as the
-  Go port's specification.
+  delete `RunScriptContextV2` in a follow-up PR.
 - **B7 Tail cleanups**: `.query()` modernization in touched modules, update
   `docs/QUALITY_SCORE.md`, archive completed child plans.
-
-### Phase 3 — Go migration (standalone repo, strangler cutover)
-
-- Bootstrap: generate the repo with mk_igo (`--frontend=none`); copy
-  `cook-web` in unchanged; customized envelope writer emitting
-  `{code, message, data}`; auth middleware sharing SECRET_KEY, `user_token`
-  table, and Redis token keys (cross-stack contract tests both directions);
-  LLM library selection spike; Langfuse Go SDK; dual-parser MDF alignment
-  harness over all published shifu documents.
-- Reverse proxy routes by path prefix: unmigrated -> Flask, migrated -> Go.
-- Waves (each: models port -> service port -> contract tests -> proxy cutover
-  -> 1–2 weeks shadow -> Flask freeze for that module):
-  1. health/config/dict, feedback, check_risk, dashboard, creator_analytics
-  2. user/auth flows, profile (except MDF variable extraction)
-  3. order, billing, promo, referral, metering + Celery->asynq (18 tasks +
-     beat, names 1:1, per-task exclusive switch; WeChat pay verified in
-     sandbox; mutating endpoints verified by DB-state diff, not just
-     response diff)
-  4. shifu authoring + tts + gen_mdf (gated on MDF alignment)
-  5. learn `/run` SSE: Gin flusher (`X-Accel-Buffering: no`), producer
-     goroutine + buffered channel replacing thread + SimpleQueue, identical
-     Redis Lua scripts via go-redis (same keys, so Python and Go instances
-     mutually exclude during shadow), one transaction per step via `BeginTx`
-     mirroring the B6 recorder. Shadow first, then percentage rollout,
-     rollback = routing flip.
-- Long tail: alembic migrations, `scripts/` tooling, and possibly `gen_mdf`
-  stay in Python until the end. Flask retires after 30 days of zero proxied
-  traffic; then schema ownership handover.
 
 ## Concrete Steps
 
@@ -459,7 +363,6 @@ disposition, consuming Phase 2 batch. Summary rows go to
 3. Execute Phase 1; land the inventory doc.
 4. Execute Phase 2 batches B1–B7 in order, one PR each (B4 and B6 split into
    sub-PRs as described).
-5. Execute Phase 3 bootstrap, then waves 1–5.
 
 ## Validation and Acceptance
 
@@ -471,10 +374,6 @@ disposition, consuming Phase 2 batch. Summary rows go to
 - Doc-only batches: `python scripts/check_repo_harness.py`.
 - Before any commit: `python scripts/check_dev_tools.py`; lefthook must be
   active.
-- Phase 3 acceptance per wave: contract-test corpus replayed against both
-  stacks with structural diff clean; for mutating endpoints, DB-state
-  snapshots diffed; `/run` accepted only on byte-identical normalized SSE
-  transcripts.
 
 ## Idempotence and Recovery
 
@@ -482,9 +381,6 @@ disposition, consuming Phase 2 batch. Summary rows go to
   restores the previous state completely.
 - B6 ships behind a config flag; rollback is a flag flip before it is a
   revert.
-- Phase 3 cutovers are proxy routing changes; rollback is flipping a route
-  back to Flask. Both stacks share one DB, so no data migration is involved
-  in a rollback.
 - The recorder and inventory scripts are re-runnable and produce
   deterministic output; re-running them after an interruption is safe.
 
@@ -493,15 +389,4 @@ disposition, consuming Phase 2 batch. Summary rows go to
 - Frontend contract: response envelope `{code, message, data}` (always HTTP
   200) and the `RunElementSSEMessageDTO` SSE event set — both frozen.
 - Auth: HS256 JWT + `user_token` table + Redis `ai-shifu:user:<token>`
-  sliding TTL, shared verbatim by the Go stack.
-- igo framework (Gin + XORM + Viper + Zap + go-redis) and the mk_igo
-  generator produce the Go skeleton; `res` envelope is customized;
-  transactions use `BeginTx`.
-- `markdown-flow-agent-go` supplies MDF parsing/orchestration in Go, subject
-  to the alignment harness.
-- Two sibling repos serve as working Go reference implementations for Phase 3
-  (both igo + markdown-flow-agent-go): `mini-mdf-play` (Gin SSE streaming of
-  MDF block processing — `api/sse.go`, `api/handler.go`) and `playground_go`
-  (module `contentflow`; larger app structure with JWT auth and swagger).
-- asynq replaces Celery tasks and the beat schedule.
-- Alembic owns the schema until Flask retirement.
+  sliding TTL.

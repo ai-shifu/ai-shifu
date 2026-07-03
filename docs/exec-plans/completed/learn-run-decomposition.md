@@ -8,8 +8,8 @@ is 1,056 lines mixing outline-state resolution, DB persistence (20 mid-flow
 flushes), SSE event construction, MDF/LLM streaming, and TTS lifecycle. This
 plan decomposes it into four collaborators under `flaskr/service/learn/run/`
 while keeping the SSE contract byte-identical (golden harness) — and the
-result doubles as the specification for the Go port (Phase 3 Wave 5 of
-`backend-overhaul-master.md`).
+result also serves as a clean specification of the /run runtime for any
+future reimplementation.
 
 ## Progress
 
@@ -193,8 +193,8 @@ returns only `run/recorder.py`.
   observe the advanced state slightly before the same client's SSE stream
   shows it. Pre-PR2 had the inverse anomaly (event visible while the row
   was still non-durable and could vanish on rollback); durable-then-notify
-  matches the `uow.on_commit` doctrine adopted in B4 and is the semantics
-  the Go port will implement. Event payload bytes are unchanged
+  matches the `uow.on_commit` doctrine adopted in B4. Event payload bytes
+  are unchanged
   (golden-verified).
 - 2026-07-03 (PR2 review): the mid-stream-disconnect recorder test models
   the producer's add/flush/rollback sequence at session level; an
@@ -258,8 +258,8 @@ returns only `run/recorder.py`.
   the /run generator, `retry_on_deadlock` for recorder steps once the
   recorder owns all /run writes, and backfill/cleanup of historical
   leaf-bid placeholder rows in production data.
-- This decomposition is the specification for the Go port (Phase 3 Wave 5
-  of `backend-overhaul-master.md`).
+- This decomposition doubles as a standalone specification of the /run
+  runtime.
 
 ## Context and Orientation
 
@@ -292,7 +292,7 @@ returns only `run/recorder.py`.
   `_finalize_stream_tts_processor`, `_teardown_stream_tts_state`),
   `_iter_stream_result_with_idle_callback` (1617), langfuse helpers.
 - NOT in scope: `runscript_v2.py` thread/queue/Redis-lock mechanics (they
-  are rewritten once, in Go); `RunScriptPreviewContextV2` (625 lines,
+  stay as-is); `RunScriptPreviewContextV2` (625 lines,
   separate surface — evaluate after PR3); `RUNLLMProvider`;
   `MdflowContextV2`.
 
