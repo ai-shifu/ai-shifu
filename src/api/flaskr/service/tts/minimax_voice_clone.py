@@ -63,7 +63,7 @@ from flaskr.util.uuid import generate_id
 
 MINIMAX_FILE_UPLOAD_URL = "https://api.minimaxi.com/v1/files/upload"
 MINIMAX_VOICE_CLONE_URL = "https://api.minimaxi.com/v1/voice_clone"
-MINIMAX_CLONE_PREVIEW_TEXT = "你好，这是音色复制后的试听效果。"
+MINIMAX_CLONE_PREVIEW_TEXT = "你好，这是音色克隆后的试听效果。"
 MINIMAX_CLONE_PREVIEW_MODEL = "speech-2.8-turbo"
 
 _ALLOWED_INPUT_EXTENSIONS = {"mp3", "m4a", "wav", "webm", "ogg", "mp4"}

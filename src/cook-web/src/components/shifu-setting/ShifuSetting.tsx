@@ -6,17 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { SSE } from 'sse.js';
-import {
-  Plus,
-  Minus,
-  Settings,
-  Volume2,
-  Loader2,
-  Square,
-  Mic,
-  RotateCw,
-  Trash2,
-} from 'lucide-react';
+import { Plus, Minus, Settings, Volume2, Loader2, Square } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -89,6 +79,7 @@ import {
   isMiniMaxProvider,
   loadMiniMaxVoiceRefreshData,
   shouldPreserveCustomMiniMaxVoice,
+  MINIMAX_CLONE_NEW_VALUE,
   type MiniMaxCloneCost,
   type MiniMaxClonedVoice,
 } from '@/components/shifu-setting/minimax-voice-clone';
@@ -1237,8 +1228,26 @@ export default function ShifuSettingDialog({
   const handleTtsPreview = useCallback(
     async (options: TtsPreviewOptions = {}) => {
       const targetKey = options.targetKey || TTS_PREVIEW_CURRENT_TARGET;
-      const demoAudioUrl = (options.demoAudioUrl || '').trim();
       const previewVoiceId = (options.voiceId ?? ttsVoiceId ?? '').trim();
+      // For a ready cloned voice, prefer its pre-generated demo audio so that
+      // previewing never triggers a real t2a synthesis (which would charge the
+      // one-time clone fee and permanently activate the temporary voice). An
+      // explicit demoAudioUrl from the caller still takes precedence.
+      const clonedDemoAudioUrl =
+        options.demoAudioUrl === undefined
+          ? (
+              minimaxClonedVoices.find(
+                voice =>
+                  (voice.voice_id || '').trim() === previewVoiceId &&
+                  voice.status === 'ready',
+              )?.minimax_demo_audio_url || ''
+            ).trim()
+          : '';
+      const demoAudioUrl = (
+        options.demoAudioUrl ||
+        clonedDemoAudioUrl ||
+        ''
+      ).trim();
       const sameTargetActive =
         (ttsPreviewPlaying || ttsPreviewLoading) &&
         ttsPreviewTarget === targetKey;
@@ -1404,6 +1413,7 @@ export default function ShifuSettingDialog({
       resolvedProvider,
       ttsModel,
       ttsVoiceId,
+      minimaxClonedVoices,
       speedValue,
       pitchValue,
       ttsEmotion,
@@ -2062,6 +2072,10 @@ export default function ShifuSettingDialog({
                         <Select
                           value={ttsVoiceId}
                           onValueChange={value => {
+                            if (value === MINIMAX_CLONE_NEW_VALUE) {
+                              setMinimaxCloneDialogOpen(true);
+                              return;
+                            }
                             setTtsVoiceId(value);
                             if (resolvedProvider === 'volcengine') {
                               const selectedVoice = ttsVoiceOptions.find(
@@ -2089,14 +2103,29 @@ export default function ShifuSettingDialog({
                           <SelectContent>
                             {isMiniMaxTtsProvider ? (
                               <>
-                                {builtInTtsVoiceOptions.length > 0 ? (
+                                {supportsMiniMaxVoiceCloning ||
+                                clonedTtsVoiceOptions.length > 0 ||
+                                legacyTtsVoiceOptions.length > 0 ? (
                                   <SelectGroup>
                                     <SelectLabel>
                                       {t(
-                                        'module.shifuSetting.minimaxVoiceGroupBuiltIn',
+                                        'module.shifuSetting.minimaxVoiceGroupCustom',
                                       )}
                                     </SelectLabel>
-                                    {builtInTtsVoiceOptions.map(option => (
+                                    {supportsMiniMaxVoiceCloning ? (
+                                      <SelectItem
+                                        value={MINIMAX_CLONE_NEW_VALUE}
+                                        disabled={currentShifu?.readonly}
+                                      >
+                                        <span className='flex items-center gap-2'>
+                                          <Plus className='h-4 w-4' />
+                                          {t(
+                                            'module.shifuSetting.minimaxCloneNewEntry',
+                                          )}
+                                        </span>
+                                      </SelectItem>
+                                    ) : null}
+                                    {clonedTtsVoiceOptions.map(option => (
                                       <SelectItem
                                         key={option.value}
                                         value={option.value}
@@ -2107,20 +2136,43 @@ export default function ShifuSettingDialog({
                                         </span>
                                       </SelectItem>
                                     ))}
+                                    {legacyTtsVoiceOptions.map(option => (
+                                      <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                        disabled={option.disabled}
+                                      >
+                                        <span className='flex min-w-0 items-center justify-between gap-2'>
+                                          <span className='truncate'>
+                                            {option.label}
+                                          </span>
+                                          <Badge
+                                            variant='secondary'
+                                            className='shrink-0'
+                                          >
+                                            {t(
+                                              'module.shifuSetting.minimaxLegacyVoiceBadge',
+                                            )}
+                                          </Badge>
+                                        </span>
+                                      </SelectItem>
+                                    ))}
                                   </SelectGroup>
                                 ) : null}
-                                {clonedTtsVoiceOptions.length > 0 ? (
+                                {builtInTtsVoiceOptions.length > 0 ? (
                                   <>
-                                    {builtInTtsVoiceOptions.length > 0 ? (
+                                    {supportsMiniMaxVoiceCloning ||
+                                    clonedTtsVoiceOptions.length > 0 ||
+                                    legacyTtsVoiceOptions.length > 0 ? (
                                       <SelectSeparator />
                                     ) : null}
                                     <SelectGroup>
                                       <SelectLabel>
                                         {t(
-                                          'module.shifuSetting.minimaxVoiceGroupCloned',
+                                          'module.shifuSetting.minimaxVoiceGroupBuiltIn',
                                         )}
                                       </SelectLabel>
-                                      {clonedTtsVoiceOptions.map(option => (
+                                      {builtInTtsVoiceOptions.map(option => (
                                         <SelectItem
                                           key={option.value}
                                           value={option.value}
@@ -2128,42 +2180,6 @@ export default function ShifuSettingDialog({
                                         >
                                           <span className='truncate'>
                                             {option.label}
-                                          </span>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectGroup>
-                                  </>
-                                ) : null}
-                                {legacyTtsVoiceOptions.length > 0 ? (
-                                  <>
-                                    {builtInTtsVoiceOptions.length > 0 ||
-                                    clonedTtsVoiceOptions.length > 0 ? (
-                                      <SelectSeparator />
-                                    ) : null}
-                                    <SelectGroup>
-                                      <SelectLabel>
-                                        {t(
-                                          'module.shifuSetting.minimaxVoiceGroupLegacy',
-                                        )}
-                                      </SelectLabel>
-                                      {legacyTtsVoiceOptions.map(option => (
-                                        <SelectItem
-                                          key={option.value}
-                                          value={option.value}
-                                          disabled={option.disabled}
-                                        >
-                                          <span className='flex min-w-0 items-center justify-between gap-2'>
-                                            <span className='truncate'>
-                                              {option.label}
-                                            </span>
-                                            <Badge
-                                              variant='secondary'
-                                              className='shrink-0'
-                                            >
-                                              {t(
-                                                'module.shifuSetting.minimaxLegacyVoiceBadge',
-                                              )}
-                                            </Badge>
                                           </span>
                                         </SelectItem>
                                       ))}
@@ -2186,159 +2202,6 @@ export default function ShifuSettingDialog({
                             )}
                           </SelectContent>
                         </Select>
-
-                        {supportsMiniMaxVoiceCloning && (
-                          <div className='space-y-2 rounded-md border p-3'>
-                            <div className='flex items-center justify-between gap-2'>
-                              <div className='min-w-0'>
-                                <p className='text-sm font-medium'>
-                                  {t(
-                                    'module.shifuSetting.minimaxCloneSectionTitle',
-                                  )}
-                                </p>
-                                <p className='truncate text-xs text-muted-foreground'>
-                                  {minimaxCloneCost?.estimated_credits &&
-                                  minimaxCloneCost.estimated_credits !== '0'
-                                    ? t(
-                                        'module.shifuSetting.minimaxCloneCostCredits',
-                                        {
-                                          credits:
-                                            minimaxCloneCost.estimated_credits,
-                                        },
-                                      )
-                                    : t(
-                                        'module.shifuSetting.minimaxCloneCostFree',
-                                      )}
-                                </p>
-                              </div>
-                              <Button
-                                type='button'
-                                variant='outline'
-                                size='sm'
-                                onClick={() => setMinimaxCloneDialogOpen(true)}
-                                disabled={currentShifu?.readonly}
-                              >
-                                <Mic className='mr-2 h-4 w-4' />
-                                {t('module.shifuSetting.minimaxCloneCreate')}
-                              </Button>
-                            </div>
-
-                            <p className='text-xs leading-5 text-muted-foreground'>
-                              {t(
-                                'module.shifuSetting.minimaxCloneRetentionNotice',
-                              )}
-                            </p>
-
-                            {minimaxClonedVoices.length === 0 ? (
-                              <p className='text-xs text-muted-foreground'>
-                                {t('module.shifuSetting.minimaxCloneEmpty')}
-                              </p>
-                            ) : (
-                              <div className='space-y-2'>
-                                {minimaxClonedVoices.map(voice => {
-                                  const previewTarget = `clone:${voice.voice_bid}`;
-                                  const previewLoading =
-                                    ttsPreviewTarget === previewTarget &&
-                                    ttsPreviewLoading;
-                                  const previewPlaying =
-                                    ttsPreviewTarget === previewTarget &&
-                                    ttsPreviewPlaying;
-                                  const ready = voice.status === 'ready';
-                                  const canPreview =
-                                    ready &&
-                                    (debugAllowed ||
-                                      Boolean(
-                                        (
-                                          voice.minimax_demo_audio_url || ''
-                                        ).trim(),
-                                      ));
-
-                                  return (
-                                    <div
-                                      key={voice.voice_bid}
-                                      className='flex items-center justify-between gap-2 text-sm'
-                                    >
-                                      <div className='min-w-0'>
-                                        <p className='truncate'>
-                                          {voice.display_name || voice.voice_id}
-                                        </p>
-                                        <p className='truncate text-xs text-muted-foreground'>
-                                          {voice.voice_id}
-                                        </p>
-                                      </div>
-                                      <div className='flex shrink-0 items-center gap-1'>
-                                        <Badge variant='secondary'>
-                                          {t(
-                                            `module.shifuSetting.minimaxCloneStatus.${voice.status}`,
-                                          )}
-                                        </Badge>
-                                        <Button
-                                          type='button'
-                                          variant='ghost'
-                                          size='icon'
-                                          className='h-7 w-7'
-                                          onClick={() =>
-                                            handleTtsPreview({
-                                              voiceId: voice.voice_id,
-                                              targetKey: previewTarget,
-                                              demoAudioUrl:
-                                                voice.minimax_demo_audio_url ||
-                                                '',
-                                            })
-                                          }
-                                          disabled={!canPreview}
-                                          title={
-                                            canPreview
-                                              ? t(
-                                                  'module.shifuSetting.minimaxClonePreview',
-                                                )
-                                              : t(
-                                                  'module.shifuSetting.minimaxClonePreviewUnavailable',
-                                                )
-                                          }
-                                        >
-                                          {previewLoading ? (
-                                            <Loader2 className='h-4 w-4 animate-spin' />
-                                          ) : previewPlaying ? (
-                                            <Square className='h-4 w-4' />
-                                          ) : (
-                                            <Volume2 className='h-4 w-4' />
-                                          )}
-                                        </Button>
-                                        {voice.status === 'failed' && (
-                                          <Button
-                                            type='button'
-                                            variant='ghost'
-                                            size='icon'
-                                            className='h-7 w-7'
-                                            onClick={() =>
-                                              retryMiniMaxVoice(voice.voice_bid)
-                                            }
-                                            disabled={currentShifu?.readonly}
-                                          >
-                                            <RotateCw className='h-4 w-4' />
-                                          </Button>
-                                        )}
-                                        <Button
-                                          type='button'
-                                          variant='ghost'
-                                          size='icon'
-                                          className='h-7 w-7'
-                                          onClick={() =>
-                                            deleteMiniMaxVoice(voice)
-                                          }
-                                          disabled={currentShifu?.readonly}
-                                        >
-                                          <Trash2 className='h-4 w-4' />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
 
                       {/* Speed Adjustment */}
@@ -2663,15 +2526,8 @@ export default function ShifuSettingDialog({
             return [voice, ...next];
           });
         }}
-        onVoiceReady={voice => {
-          setTtsVoiceId(voice.voice_id);
-          setMinimaxClonedVoices(prev => {
-            const next = prev.filter(
-              item => item.voice_bid !== voice.voice_bid,
-            );
-            return [voice, ...next];
-          });
-        }}
+        onRetryVoice={retryMiniMaxVoice}
+        onDeleteVoice={deleteMiniMaxVoice}
       />
     </>
   );

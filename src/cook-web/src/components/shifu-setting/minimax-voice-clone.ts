@@ -1,5 +1,10 @@
 export const MINIMAX_PROVIDER = 'minimax';
 
+// Sentinel value for the "clone a new voice" entry rendered inside the voice
+// <Select>. It is intercepted in onValueChange to open the clone dialog and is
+// never written as ttsVoiceId nor included in the built voice options.
+export const MINIMAX_CLONE_NEW_VALUE = '__minimax_clone_new__';
+
 export type MiniMaxVoiceCloneStatus =
   | 'queued'
   | 'processing'

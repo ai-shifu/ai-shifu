@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Loader2, Mic, Square } from 'lucide-react';
+import { Loader2, Mic, RotateCw, Square, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import api from '@/api';
@@ -44,7 +44,8 @@ interface MiniMaxVoiceCloneDialogProps {
   cloneCost: MiniMaxCloneCost | null;
   onRefreshCost: () => Promise<void>;
   onVoiceChange: (voice: MiniMaxClonedVoice) => void;
-  onVoiceReady: (voice: MiniMaxClonedVoice) => void;
+  onRetryVoice: (voiceBid: string) => Promise<void>;
+  onDeleteVoice: (voice: MiniMaxClonedVoice) => Promise<void>;
   clonedVoices?: MiniMaxClonedVoice[];
 }
 
@@ -55,7 +56,8 @@ export default function MiniMaxVoiceCloneDialog({
   cloneCost,
   onRefreshCost,
   onVoiceChange,
-  onVoiceReady,
+  onRetryVoice,
+  onDeleteVoice,
   clonedVoices = [],
 }: MiniMaxVoiceCloneDialogProps) {
   const { t } = useTranslation();
@@ -64,16 +66,12 @@ export default function MiniMaxVoiceCloneDialog({
   const [recordingKind, setRecordingKind] = useState<'source' | null>(null);
   const [sourceElapsed, setSourceElapsed] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [pollingVoice, setPollingVoice] = useState<MiniMaxClonedVoice | null>(
-    null,
-  );
   const [errorMessage, setErrorMessage] = useState('');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const recordingStartedAtRef = useRef<number>(0);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const submitBlockReason = useMemo(
     () =>
@@ -82,12 +80,14 @@ export default function MiniMaxVoiceCloneDialog({
         sourceElapsed,
         recordingKind,
         submitting,
-        cloneInProgress: Boolean(pollingVoice),
+        cloneInProgress: (clonedVoices || []).some(voice =>
+          ['queued', 'processing'].includes(String(voice.status || '')),
+        ),
         canSubmitByCredits: cloneCost?.can_submit !== false,
       }),
     [
       cloneCost?.can_submit,
-      pollingVoice,
+      clonedVoices,
       recordingKind,
       sourceElapsed,
       sourceFile,
@@ -120,7 +120,6 @@ export default function MiniMaxVoiceCloneDialog({
     setSourceFile(null);
     setSourceElapsed(0);
     setSubmitting(false);
-    setPollingVoice(null);
     setErrorMessage('');
   }, []);
 
@@ -201,38 +200,6 @@ export default function MiniMaxVoiceCloneDialog({
     }, 500);
   }, [stopRecording, t]);
 
-  const pollVoice = useCallback(
-    (voice: MiniMaxClonedVoice) => {
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-      }
-      setPollingVoice(voice);
-      pollTimerRef.current = setInterval(async () => {
-        try {
-          const detail = (await api.getMinimaxTtsVoice({
-            voice_bid: voice.voice_bid,
-          })) as MiniMaxClonedVoice;
-          setPollingVoice(detail);
-          onVoiceChange(detail);
-          if (detail.status === 'ready' || detail.status === 'failed') {
-            if (pollTimerRef.current) {
-              clearInterval(pollTimerRef.current);
-              pollTimerRef.current = null;
-            }
-            if (detail.status === 'ready') {
-              onVoiceReady(detail);
-              onOpenChange(false);
-              reset();
-            }
-          }
-        } catch {
-          // Keep polling; transient route failures are expected while workers run.
-        }
-      }, 3000);
-    },
-    [onOpenChange, onVoiceChange, onVoiceReady, reset],
-  );
-
   const submitClone = useCallback(async () => {
     if (!sourceFile || !canSubmit) return;
     const normalizedDisplayName = displayName.trim();
@@ -270,7 +237,16 @@ export default function MiniMaxVoiceCloneDialog({
         skipErrorToast: true,
       })) as MiniMaxClonedVoice;
       onVoiceChange(created);
-      pollVoice(created);
+      // Clone runs asynchronously on the backend. Surface the new voice in the
+      // manage list (its status refreshes via the parent's polling) and reset
+      // the form so the creator can clone again; keep the dialog open.
+      setSourceFile(null);
+      setSourceElapsed(0);
+      setDisplayName(
+        buildDefaultCloneDisplayName(
+          t('module.shifuSetting.minimaxCloneDefaultDisplayName'),
+        ),
+      );
       await onRefreshCost();
     } catch (error) {
       setErrorMessage(
@@ -287,7 +263,6 @@ export default function MiniMaxVoiceCloneDialog({
     displayName,
     onRefreshCost,
     onVoiceChange,
-    pollVoice,
     shifuId,
     sourceFile,
     t,
@@ -296,10 +271,6 @@ export default function MiniMaxVoiceCloneDialog({
   useEffect(() => {
     if (!open) {
       stopRecording();
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
     } else {
       onRefreshCost();
       setDisplayName(prev =>
@@ -315,9 +286,6 @@ export default function MiniMaxVoiceCloneDialog({
   useEffect(() => {
     return () => {
       stopRecording();
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-      }
     };
   }, [stopRecording]);
 
@@ -337,96 +305,145 @@ export default function MiniMaxVoiceCloneDialog({
         </DialogHeader>
 
         <div className='space-y-4'>
-          <div className='space-y-2'>
-            <label className='text-sm font-medium'>
-              {t('module.shifuSetting.minimaxCloneDisplayName')}
-            </label>
-            <Input
-              value={displayName}
-              maxLength={64}
-              onChange={event => setDisplayName(event.target.value)}
-              placeholder={t(
-                'module.shifuSetting.minimaxCloneDisplayNamePlaceholder',
-              )}
-            />
-            <p className='text-xs leading-5 text-muted-foreground'>
-              {t('module.shifuSetting.minimaxCloneDisplayNameHint')}
-            </p>
-          </div>
-
-          <div className='space-y-2'>
-            <div className='flex items-center justify-between'>
+          {/* Region 1: clone a new voice */}
+          <div className='space-y-4'>
+            <div className='space-y-2'>
               <label className='text-sm font-medium'>
-                {t('module.shifuSetting.minimaxCloneSourceAudio')}
+                {t('module.shifuSetting.minimaxCloneDisplayName')}
               </label>
-              <div className='flex items-center gap-2'>
-                <Badge variant='secondary'>
-                  {t('module.shifuSetting.minimaxCloneRequired')}
-                </Badge>
-                <Badge variant='secondary'>{sourceStatusText}</Badge>
-              </div>
+              <Input
+                value={displayName}
+                maxLength={64}
+                onChange={event => setDisplayName(event.target.value)}
+                placeholder={t(
+                  'module.shifuSetting.minimaxCloneDisplayNamePlaceholder',
+                )}
+              />
+              <p className='text-xs leading-5 text-muted-foreground'>
+                {t('module.shifuSetting.minimaxCloneDisplayNameHint')}
+              </p>
             </div>
-            <p className='text-xs leading-5 text-muted-foreground'>
-              {t('module.shifuSetting.minimaxCloneSourceAudioDescription', {
-                maxMinutes: sourceMaxMinutes,
-                minSeconds: MINIMAX_SOURCE_MIN_SECONDS,
-              })}
-            </p>
-            <Button
-              type='button'
-              variant='outline'
-              className='w-full'
-              onClick={() =>
-                recordingKind === 'source' ? stopRecording() : startRecording()
-              }
-            >
-              {recordingKind === 'source' ? (
-                <Square className='mr-2 h-4 w-4' />
-              ) : (
-                <Mic className='mr-2 h-4 w-4' />
-              )}
-              {recordingKind === 'source'
-                ? t('module.shifuSetting.minimaxCloneStopRecording')
-                : t('module.shifuSetting.minimaxCloneRecord')}
-            </Button>
-            {sourceFile ? (
-              <p className='truncate text-xs text-muted-foreground'>
-                {t('module.shifuSetting.minimaxCloneAudioSelected', {
-                  name: sourceFile.name,
+
+            <div className='space-y-2'>
+              <div className='flex items-center justify-between'>
+                <label className='text-sm font-medium'>
+                  {t('module.shifuSetting.minimaxCloneSourceAudio')}
+                </label>
+                <div className='flex items-center gap-2'>
+                  <Badge variant='secondary'>
+                    {t('module.shifuSetting.minimaxCloneRequired')}
+                  </Badge>
+                  <Badge variant='secondary'>{sourceStatusText}</Badge>
+                </div>
+              </div>
+              <p className='text-xs leading-5 text-muted-foreground'>
+                {t('module.shifuSetting.minimaxCloneSourceAudioDescription', {
+                  maxMinutes: sourceMaxMinutes,
+                  minSeconds: MINIMAX_SOURCE_MIN_SECONDS,
                 })}
+              </p>
+              <Button
+                type='button'
+                variant='outline'
+                className='w-full'
+                onClick={() =>
+                  recordingKind === 'source'
+                    ? stopRecording()
+                    : startRecording()
+                }
+              >
+                {recordingKind === 'source' ? (
+                  <Square className='mr-2 h-4 w-4' />
+                ) : (
+                  <Mic className='mr-2 h-4 w-4' />
+                )}
+                {recordingKind === 'source'
+                  ? t('module.shifuSetting.minimaxCloneStopRecording')
+                  : t('module.shifuSetting.minimaxCloneRecord')}
+              </Button>
+              {sourceFile ? (
+                <p className='truncate text-xs text-muted-foreground'>
+                  {t('module.shifuSetting.minimaxCloneAudioSelected', {
+                    name: sourceFile.name,
+                  })}
+                </p>
+              ) : null}
+            </div>
+
+            <div className='flex items-center justify-between text-sm'>
+              <span className='text-muted-foreground'>{costText}</span>
+              {cloneCost?.can_submit === false ? (
+                <span className='text-destructive'>
+                  {t('module.shifuSetting.minimaxCloneInsufficientCredits')}
+                </span>
+              ) : null}
+            </div>
+
+            {errorMessage ? (
+              <p className='text-sm text-destructive'>{errorMessage}</p>
+            ) : null}
+
+            {submitBlockText ? (
+              <p className='text-xs leading-5 text-muted-foreground'>
+                {submitBlockText}
               </p>
             ) : null}
           </div>
 
-          <div className='flex items-center justify-between text-sm'>
-            <span className='text-muted-foreground'>{costText}</span>
-            {cloneCost?.can_submit === false ? (
-              <span className='text-destructive'>
-                {t('module.shifuSetting.minimaxCloneInsufficientCredits')}
-              </span>
-            ) : null}
-          </div>
-
-          {pollingVoice ? (
-            <div className='flex items-center justify-between rounded-md border px-3 py-2 text-sm'>
-              <span className='truncate'>{pollingVoice.display_name}</span>
-              <Badge variant='secondary'>
-                {t(
-                  `module.shifuSetting.minimaxCloneStatus.${pollingVoice.status}`,
-                )}
-              </Badge>
-            </div>
-          ) : null}
-
-          {errorMessage ? (
-            <p className='text-sm text-destructive'>{errorMessage}</p>
-          ) : null}
-
-          {submitBlockText ? (
-            <p className='text-xs leading-5 text-muted-foreground'>
-              {submitBlockText}
+          {/* Region 2: my voices */}
+          <div className='space-y-2 border-t pt-4'>
+            <p className='text-sm font-medium'>
+              {t('module.shifuSetting.minimaxVoiceGroupCloned')}
             </p>
-          ) : null}
+            <p className='text-xs leading-5 text-muted-foreground'>
+              {t('module.shifuSetting.minimaxCloneRetentionNotice')}
+            </p>
+            {clonedVoices.length === 0 ? (
+              <p className='text-xs text-muted-foreground'>
+                {t('module.shifuSetting.minimaxCloneEmpty')}
+              </p>
+            ) : (
+              <div className='max-h-40 space-y-2 overflow-y-auto'>
+                {clonedVoices.map(voice => (
+                  <div
+                    key={voice.voice_bid}
+                    className='flex items-center justify-between gap-2 text-sm'
+                  >
+                    <p className='min-w-0 flex-1 truncate'>
+                      {voice.display_name || voice.voice_id}
+                    </p>
+                    <div className='flex shrink-0 items-center gap-1'>
+                      <Badge variant='secondary'>
+                        {t(
+                          `module.shifuSetting.minimaxCloneStatus.${voice.status}`,
+                        )}
+                      </Badge>
+                      {voice.status === 'failed' ? (
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='icon'
+                          className='h-7 w-7'
+                          onClick={() => onRetryVoice(voice.voice_bid)}
+                        >
+                          <RotateCw className='h-4 w-4' />
+                        </Button>
+                      ) : null}
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='icon'
+                        className='h-7 w-7'
+                        onClick={() => onDeleteVoice(voice)}
+                      >
+                        <Trash2 className='h-4 w-4' />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <DialogFooter>
