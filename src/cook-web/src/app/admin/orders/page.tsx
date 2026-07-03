@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
@@ -444,8 +448,8 @@ const OrdersPage = () => {
           shifu_bid: shifuBidValue,
           status: resolvedFilters.status,
           payment_channel: resolvedFilters.payment_channel,
-          start_time: resolvedFilters.start_time,
-          end_time: resolvedFilters.end_time,
+          start_time: formatAdminDateRangeStartUtc(resolvedFilters.start_time),
+          end_time: formatAdminDateRangeEndUtc(resolvedFilters.end_time),
         })) as OrderListResponse;
 
         const list = response.items || [];

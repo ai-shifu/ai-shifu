@@ -7,7 +7,11 @@ import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+  formatAdminUtcDateTime,
+} from '@/app/admin/lib/dateTime';
 import ReferralRelationsPanel, {
   formatReferralText,
   REFERRAL_PAGE_SIZE,
@@ -219,6 +223,14 @@ function ReferralCampaignInvitationsPanel({
         };
         Object.entries(appliedFilters).forEach(([key, value]) => {
           if (value) {
+            if (key === 'start_time') {
+              params[key] = formatAdminDateRangeStartUtc(value);
+              return;
+            }
+            if (key === 'end_time') {
+              params[key] = formatAdminDateRangeEndUtc(value);
+              return;
+            }
             params[key] = value;
           }
         });

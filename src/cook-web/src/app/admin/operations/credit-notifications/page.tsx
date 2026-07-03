@@ -5,6 +5,10 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
@@ -274,8 +278,8 @@ export default function AdminOperationCreditNotificationsPage() {
               ? nextFilters.skip_reason.trim()
               : '',
           source_type: nextFilters.source_type.trim(),
-          start_time: nextFilters.start_time.trim(),
-          end_time: nextFilters.end_time.trim(),
+          start_time: formatAdminDateRangeStartUtc(nextFilters.start_time),
+          end_time: formatAdminDateRangeEndUtc(nextFilters.end_time),
         })) as AdminOperationCreditNotificationListResponse;
         if (requestId !== requestIdRef.current) {
           return;

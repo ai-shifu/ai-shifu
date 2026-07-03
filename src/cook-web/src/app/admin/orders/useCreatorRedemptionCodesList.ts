@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
 import type {
   AdminPromotionCouponItem,
   AdminPromotionListResponse,
@@ -60,8 +64,8 @@ export const useCreatorRedemptionCodesList = ({
           ops_state: resolvedFilters.ops_state,
           discount_type: resolvedFilters.discount_type,
           status: resolvedFilters.status,
-          start_time: resolvedFilters.start_time,
-          end_time: resolvedFilters.end_time,
+          start_time: formatAdminDateRangeStartUtc(resolvedFilters.start_time),
+          end_time: formatAdminDateRangeEndUtc(resolvedFilters.end_time),
         })) as AdminPromotionListResponse<AdminPromotionCouponItem>;
 
         if (requestId !== fetchRequestIdRef.current) {

@@ -21,6 +21,8 @@ const originalWindow = global.window;
 const RETRY_LABEL = 'retry';
 const MOCK_DIALOG_CLOSE_LABEL = 'mock-dialog-close';
 const mockBrowserTimeZone = jest.fn(() => 'UTC');
+const formatUtcBoundary = (date: Date) =>
+  date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 const LONG_COURSE_PROMPT =
   'You are a patient course assistant. Help learners build understanding step by step, summarize key ideas clearly, and always connect each answer back to the course context.';
 let mockLanguage = 'en-US';
@@ -1326,6 +1328,12 @@ describe('OperationsPage', () => {
     try {
       await renderAndWaitForLoadedPage();
 
+      const expectedEndDate = new Date();
+      const expectedStartDate = new Date(expectedEndDate);
+      expectedStartDate.setDate(expectedEndDate.getDate() - 6);
+      expectedStartDate.setHours(0, 0, 0, 0);
+      expectedEndDate.setHours(23, 59, 59, 0);
+
       fireEvent.click(
         screen.getByRole('button', {
           name: /module\.operationsCourse\.overview\.metrics\.createdLast7d/i,
@@ -1336,8 +1344,8 @@ describe('OperationsPage', () => {
         expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
           expect.objectContaining({
             quick_filter: 'created_last_7d',
-            start_time: '2026-04-30',
-            end_time: '2026-05-06',
+            start_time: formatUtcBoundary(expectedStartDate),
+            end_time: formatUtcBoundary(expectedEndDate),
           }),
         );
       });
