@@ -356,6 +356,8 @@ def _parse_datetime(value: object, field_name: str) -> datetime | None:
         parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
     except ValueError:
         raise_param_error(field_name)
+    if parsed.tzinfo is not None:
+        return parsed.astimezone(timezone.utc).replace(tzinfo=None)
     return parsed.replace(tzinfo=None)
 
 

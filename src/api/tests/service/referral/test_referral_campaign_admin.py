@@ -125,6 +125,28 @@ def test_operator_referral_campaign_create_list_detail_and_status(referral_app):
         assert rule.rule_status == REFERRAL_RULE_STATUS_PAUSED
 
 
+def test_operator_referral_campaign_normalizes_offset_datetimes_to_utc(
+    referral_app,
+):
+    with referral_app.app_context():
+        _seed_plan_product()
+
+        result = create_operator_referral_campaign(
+            referral_app,
+            operator_user_bid="operator-1",
+            payload=_payload(
+                starts_at="2026-06-01T00:00:00+08:00",
+                ends_at="2026-12-31T23:59:59+08:00",
+            ),
+        )
+
+        campaign = ReferralCampaign.query.filter_by(
+            campaign_bid=result["campaign_bid"]
+        ).one()
+        assert campaign.starts_at == datetime(2026, 5, 31, 16, 0, 0)
+        assert campaign.ends_at == datetime(2026, 12, 31, 15, 59, 59)
+
+
 def test_operator_referral_campaign_update_changes_future_rule_not_snapshot(
     referral_app,
 ):

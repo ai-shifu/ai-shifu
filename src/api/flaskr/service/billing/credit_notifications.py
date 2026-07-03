@@ -1695,7 +1695,7 @@ def scan_credit_expiring_notifications(
     creator_bid: str = "",
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    scan_now = now or now_utc()
+    scan_now = now or datetime.now()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         policy = load_credit_notification_policy()
@@ -2070,7 +2070,7 @@ def scan_low_balance_notifications(
     creator_bid: str = "",
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    scan_now = now or now_utc()
+    scan_now = now or datetime.now()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         policy = load_credit_notification_policy()
