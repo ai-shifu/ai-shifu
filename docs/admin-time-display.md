@@ -95,6 +95,10 @@ operator alias `formatOperatorUtcDateTime`:
 - learn order metadata `created_at`
 - credit order metadata `created_at` / `paid_at` / `failed_at` / `refunded_at`
 - order detail metadata `created_at` / `updated_at`
+- legacy admin order metadata `created_at`
+- legacy redemption-code metadata `created_at` / `updated_at`
+- legacy redemption-code time ranges `start_at` / `end_at`
+- legacy redemption-code usage timestamps `used_at` / `updated_at`
 - promotion coupon/campaign metadata `created_at` / `updated_at`
 - promotion coupon/campaign time ranges `start_at` / `end_at`
 - promotion coupon/campaign record timestamps `applied_at` / `used_at`
@@ -103,6 +107,12 @@ operator alias `formatOperatorUtcDateTime`:
 - referral relation and reward timestamps `bound_at` / `effective_at` / `expires_at`
 - credit notification records `created_at` / `updated_at` / `requested_at` / `attempted_at` / `sent_at`
 - credit notification template sync `last_synced_at`
+- billing subscription period timestamps `current_period_start_at` / `current_period_end_at` / `grace_period_end_at`
+- billing renewal event timestamps `scheduled_at` / `processed_at`
+- billing order metadata `created_at` / `paid_at` / `failed_at` / `refunded_at`
+- billing entitlement time ranges `effective_from` / `effective_to`
+- billing domain verification timestamp `last_verified_at`
+- billing report windows `window_started_at` / `window_ended_at`
 
 Other event timestamps that are already backed by correct timezone-qualified
 payloads should continue to use the browser-timezone rendering flow.
