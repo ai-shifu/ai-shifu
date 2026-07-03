@@ -1139,31 +1139,6 @@ def _resolve_billing_payment_channel(
     )
 
 
-def _validate_plan_checkout_upgrade_only(
-    *,
-    creator_bid: str,
-    target_product: BillingProduct,
-) -> None:
-    current_subscription = _load_primary_active_subscription(
-        creator_bid,
-        as_of=now_utc(),
-    )
-    if current_subscription is None:
-        return
-
-    current_product = _load_billing_product_by_bid(current_subscription.product_bid)
-    if (
-        current_product is None
-        or current_product.product_type != BILLING_PRODUCT_TYPE_PLAN
-    ):
-        return
-
-    current_sort_order = int(current_product.sort_order or 0)
-    target_sort_order = int(target_product.sort_order or 0)
-    if target_sort_order <= current_sort_order:
-        raise_error("server.billing.subscriptionUpgradeOnly")
-
-
 def _lock_subscription_for_checkout(
     subscription: BillingSubscription,
 ) -> BillingSubscription:

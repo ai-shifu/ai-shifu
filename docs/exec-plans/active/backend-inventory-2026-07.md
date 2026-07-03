@@ -474,7 +474,7 @@ Suggested Phase 2 batch ordering signal: (1) learn/context_v2.py,
 | A2 | `tests/run_script.py` | imports non-existent `flaskr.service.study.runscript`; not collected by pytest naming rules |
 | A3 | empty dirs `flaskr/service/{active,lesson,question,rag,scenario,study,tag}` (incl. `active/AGENTS.md`, `active/CLAUDE.md`, `study/{continue,input,ui}`) | `find flaskr/service/<d> -name '*.py'` → 0; only ref is A2 |
 | A4 | cook-web catalog entry `markFavoriteShifu: 'POST /shifu/mark-favorite-shifu'` (`src/cook-web/src/api/api.ts:59`) | no matching backend route (routes-backend.txt); no callers (`grep -rn markFavoriteShifu src/cook-web/src`) |
-| A5 | 4 dead local variables (vulture 100%): `learn/utils_v2.py:122`, `shifu/shifu_outline_funcs.py:237,238,480`, `shifu/shifu_publish_funcs.py:529` | §1.1 (the other 4 hits are callback-signature params — keep) |
+| A5 | RE-ADJUDICATED during B1: these vulture hits (`learn/utils_v2.py:122`, `shifu/shifu_outline_funcs.py:237,238,480`, `shifu/shifu_publish_funcs.py:529`) are unused function PARAMETERS, not dead locals; removing them changes call signatures. Deferred to B7 opportunistic cleanup. | §1.1 + B1 execution notes |
 | A6 | 12 functions with zero static callers AND zero runtime execution: `billing/read_models.py` 7 `build_*` (607,616,670,817,1503,1535,1548), `billing/checkout.py:1142`, `billing/primitives.py:140,154`, `billing/queries.py:483`, `api/tts/volcengine_protocol.py:276` | §7 line-level coverage adjudication |
 
 Estimated direct deletion: small (~150 LOC + dirs); the plan's -5-10K LOC for B1

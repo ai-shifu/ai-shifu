@@ -45,23 +45,15 @@ from .bucket_categories import (
     load_billing_order_type_by_bid,
 )
 from .credit_notifications import resolve_creator_limit_state
-from .domains import build_creator_domain_bindings, manage_creator_domain_binding
 from .dtos import (
     AdminBillingDailyLedgerSummaryPageDTO,
     AdminBillingDailyUsageMetricsPageDTO,
     AdminBillingOrdersPageDTO,
     BillingCatalogDTO,
-    BillingDailyLedgerSummaryPageDTO,
-    BillingDailyUsageMetricsPageDTO,
     BillingDomainAuditsPageDTO,
-    BillingDomainBindResultDTO,
-    BillingDomainBindingsDTO,
-    BillingEntitlementsDTO,
     BillingEntitlementsPageDTO,
     BillingLedgerAdjustResultDTO,
     BillingLedgerPageDTO,
-    BillingOrderDetailDTO,
-    BillingOrdersPageDTO,
     BillingPlanDTO,
     OperatorCreditOrderDetailDTO,
     OperatorCreditOrderOverviewDTO,
@@ -73,7 +65,6 @@ from .dtos import (
 )
 from .entitlements import (
     resolve_creator_entitlement_state,
-    serialize_creator_entitlements,
 )
 from .models import (
     BillingDailyLedgerSummary,
@@ -112,12 +103,9 @@ from .serializers import (
     serialize_admin_entitlement_state as _serialize_admin_entitlement_state,
     serialize_admin_order_summary as _serialize_admin_order_summary,
     serialize_admin_subscription as _serialize_admin_subscription,
-    serialize_daily_ledger_summary as _serialize_daily_ledger_summary,
-    serialize_daily_usage_metric as _serialize_daily_usage_metric,
     serialize_ledger_entry as _serialize_ledger_entry,
     serialize_operator_credit_order as _serialize_operator_credit_order,
     serialize_operator_credit_order_grant as _serialize_operator_credit_order_grant,
-    serialize_order_summary as _serialize_order_summary,
     serialize_product as _serialize_product,
     serialize_subscription as _serialize_subscription,
     serialize_wallet as _serialize_wallet,
@@ -604,122 +592,6 @@ def build_billing_overview(
         )
 
 
-def build_bill_entitlements(app: Flask, creator_bid: str) -> BillingEntitlementsDTO:
-    """Return the creator entitlement snapshot for v1.1 surfaces."""
-
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    with app.app_context():
-        state = resolve_creator_entitlement_state(normalized_creator_bid)
-        return serialize_creator_entitlements(state)
-
-
-def build_bill_daily_usage_metrics_page(
-    app: Flask,
-    creator_bid: str,
-    *,
-    page_index: int = DEFAULT_PAGE_INDEX,
-    page_size: int = DEFAULT_PAGE_SIZE,
-    stat_date_from: str = "",
-    stat_date_to: str = "",
-) -> BillingDailyUsageMetricsPageDTO:
-    """Return paginated creator-scoped daily usage aggregate rows."""
-
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
-    normalized_stat_date_from = _normalize_stat_date_filter(
-        stat_date_from,
-        parameter_name="date_from",
-    )
-    normalized_stat_date_to = _normalize_stat_date_filter(
-        stat_date_to,
-        parameter_name="date_to",
-    )
-
-    with app.app_context():
-        query = BillingDailyUsageMetric.query.filter(
-            BillingDailyUsageMetric.deleted == 0,
-            BillingDailyUsageMetric.creator_bid == normalized_creator_bid,
-        )
-        if normalized_stat_date_from:
-            query = query.filter(
-                BillingDailyUsageMetric.stat_date >= normalized_stat_date_from
-            )
-        if normalized_stat_date_to:
-            query = query.filter(
-                BillingDailyUsageMetric.stat_date <= normalized_stat_date_to
-            )
-
-        query = query.order_by(
-            BillingDailyUsageMetric.stat_date.desc(),
-            BillingDailyUsageMetric.consumed_credits.desc(),
-            BillingDailyUsageMetric.raw_amount.desc(),
-            BillingDailyUsageMetric.id.desc(),
-        )
-        payload = _build_page_payload(
-            query,
-            page_index=safe_page_index,
-            page_size=safe_page_size,
-            serializer=lambda row: _serialize_daily_usage_metric(
-                app,
-                row,
-            ),
-        )
-        return BillingDailyUsageMetricsPageDTO(**payload.to_dto_kwargs())
-
-
-def build_bill_daily_ledger_summary_page(
-    app: Flask,
-    creator_bid: str,
-    *,
-    page_index: int = DEFAULT_PAGE_INDEX,
-    page_size: int = DEFAULT_PAGE_SIZE,
-    stat_date_from: str = "",
-    stat_date_to: str = "",
-) -> BillingDailyLedgerSummaryPageDTO:
-    """Return paginated creator-scoped daily ledger summary rows."""
-
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
-    normalized_stat_date_from = _normalize_stat_date_filter(
-        stat_date_from,
-        parameter_name="date_from",
-    )
-    normalized_stat_date_to = _normalize_stat_date_filter(
-        stat_date_to,
-        parameter_name="date_to",
-    )
-
-    with app.app_context():
-        query = BillingDailyLedgerSummary.query.filter(
-            BillingDailyLedgerSummary.deleted == 0,
-            BillingDailyLedgerSummary.creator_bid == normalized_creator_bid,
-        )
-        if normalized_stat_date_from:
-            query = query.filter(
-                BillingDailyLedgerSummary.stat_date >= normalized_stat_date_from
-            )
-        if normalized_stat_date_to:
-            query = query.filter(
-                BillingDailyLedgerSummary.stat_date <= normalized_stat_date_to
-            )
-
-        query = query.order_by(
-            BillingDailyLedgerSummary.stat_date.desc(),
-            BillingDailyLedgerSummary.entry_count.desc(),
-            BillingDailyLedgerSummary.id.desc(),
-        )
-        payload = _build_page_payload(
-            query,
-            page_index=safe_page_index,
-            page_size=safe_page_size,
-            serializer=lambda row: _serialize_daily_ledger_summary(
-                app,
-                row,
-            ),
-        )
-        return BillingDailyLedgerSummaryPageDTO(**payload.to_dto_kwargs())
-
-
 def build_billing_wallet_buckets(
     app: Flask,
     creator_bid: str,
@@ -812,34 +684,6 @@ def build_billing_ledger_page(
             page_size=safe_page_size,
             total=total,
         )
-
-
-def build_bill_orders_page(
-    app: Flask,
-    creator_bid: str,
-    *,
-    page_index: int = DEFAULT_PAGE_INDEX,
-    page_size: int = DEFAULT_PAGE_SIZE,
-) -> BillingOrdersPageDTO:
-    """Return paginated billing orders for a creator."""
-
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
-    with app.app_context():
-        query = BillingOrder.query.filter(
-            BillingOrder.deleted == 0,
-            BillingOrder.creator_bid == normalized_creator_bid,
-        ).order_by(BillingOrder.created_at.desc(), BillingOrder.id.desc())
-        payload = _build_page_payload(
-            query,
-            page_index=safe_page_index,
-            page_size=safe_page_size,
-            serializer=lambda row: _serialize_order_summary(
-                app,
-                row,
-            ),
-        )
-        return BillingOrdersPageDTO(**payload.to_dto_kwargs())
 
 
 def build_admin_bill_subscriptions_page(
@@ -1498,66 +1342,6 @@ def build_admin_bill_daily_ledger_summary_page(
             ),
         )
         return AdminBillingDailyLedgerSummaryPageDTO(**payload.to_dto_kwargs())
-
-
-def build_billing_order_detail(
-    app: Flask,
-    creator_bid: str,
-    bill_order_bid: str,
-) -> BillingOrderDetailDTO:
-    """Return a single billing order detail for the current creator."""
-
-    normalized_creator_bid = _normalize_bid(creator_bid)
-    normalized_order_bid = _normalize_bid(bill_order_bid)
-    with app.app_context():
-        row = (
-            BillingOrder.query.filter(
-                BillingOrder.deleted == 0,
-                BillingOrder.creator_bid == normalized_creator_bid,
-                BillingOrder.bill_order_bid == normalized_order_bid,
-            )
-            .order_by(BillingOrder.id.desc())
-            .first()
-        )
-        if row is None:
-            raise_error("server.order.orderNotFound")
-
-        payload = _serialize_order_summary(app, row)
-        return BillingOrderDetailDTO(
-            **payload.__json__(),
-            metadata=_normalize_json_object(row.metadata_json).to_metadata_json(),
-            failure_code=str(row.failure_code or ""),
-            refunded_at=row.refunded_at,
-            failed_at=row.failed_at,
-        )
-
-
-def build_admin_bill_domain_bindings(
-    app: Flask,
-    *,
-    creator_bid: str,
-) -> BillingDomainBindingsDTO:
-    """Return creator-scoped custom domain bindings for admin billing pages."""
-
-    return build_creator_domain_bindings(
-        app,
-        creator_bid,
-    )
-
-
-def bind_admin_billing_domain(
-    app: Flask,
-    *,
-    creator_bid: str,
-    payload: dict[str, Any],
-) -> BillingDomainBindResultDTO:
-    """Create, verify, or disable a creator custom domain binding."""
-
-    return manage_creator_domain_binding(
-        app,
-        creator_bid,
-        payload,
-    )
 
 
 def adjust_admin_billing_ledger(

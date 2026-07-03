@@ -40,8 +40,13 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   tests, 76% total): 12 functions promoted to Category A, 6 candidates
   cleared as alive. Remaining open evidence: production access logs for the
   7 NO-KNOWN-CONSUMER endpoints (needs user authorization).
-- [ ] Phase 2 B1: dead code deletion (Category A scope frozen in the
-  inventory doc).
+- [x] 2026-07-03 13:35 CST: Phase 2 B1 dead code deletion executed: ark
+  signer, dead test file, 7 empty service dirs, 12 zero-caller functions
+  (283 lines) + 17 dangling imports, cook-web markFavoriteShifu catalog
+  entry. A5 re-adjudicated as unused parameters and deferred to B7. Full
+  pytest 1,873 passed; golden fixtures byte-identical; cook-web type-check
+  clean.
+- [ ] Phase 2 B2: config consolidation (~14 in-package env reads).
 - [ ] Phase 2: batches B1–B7 (each its own PR; see Plan of Work).
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 

@@ -273,18 +273,6 @@ class VolcengineProtocol:
             payload={},
         )
 
-    def encode_cancel_session(self, session_id: str) -> bytes:
-        """Encode CancelSession frame."""
-        return self._encode_session_frame(
-            message_type=MessageType.FULL_CLIENT_REQUEST,
-            message_flags=MessageFlag.WITH_EVENT,
-            serialization=SerializationMethod.JSON,
-            compression=CompressionMethod.NONE,
-            event=Event.CANCEL_SESSION,
-            session_id=session_id,
-            payload={},
-        )
-
     def decode_frame(self, data: bytes) -> ProtocolFrame:
         """
         Decode a binary frame from server.
