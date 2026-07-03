@@ -407,6 +407,27 @@ describe('ShifuEdit draft conflict checks', () => {
     });
   });
 
+  test('still loads draft meta for readonly lessons without starting draft sync', async () => {
+    setLessonNode();
+    mockShifuState.currentShifu = {
+      bid: 'shifu-1',
+      readonly: true,
+      name: 'Course',
+    };
+    mockLoadDraftMeta.mockResolvedValue({
+      revision: 3,
+      updated_at: '2026-07-02T10:00:00Z',
+      updated_user: null,
+    });
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    await waitFor(() => {
+      expect(mockLoadDraftMeta).toHaveBeenCalledWith('shifu-1', 'lesson-1');
+    });
+    expect(baseActions.loadMdflow).not.toHaveBeenCalled();
+  });
+
   test('auto-syncs latest lesson content without opening conflict dialog when there are no local edits', async () => {
     setLessonNode();
     mockShifuState.baseRevision = 1;

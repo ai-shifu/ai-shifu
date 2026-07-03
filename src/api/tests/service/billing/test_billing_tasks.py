@@ -58,6 +58,7 @@ from flaskr.service.billing.tasks import (
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.util.datetime import now_utc
 
 
 @pytest.fixture
@@ -1085,7 +1086,7 @@ def test_dispatch_due_renewal_events_task_enqueues_due_pending_events_only(
         ),
     )
 
-    now = datetime.now()
+    now = now_utc()
     with billing_task_integration_app.app_context():
         dao.db.session.add_all(
             [
@@ -1247,7 +1248,7 @@ def test_dispatch_due_renewal_events_recovers_stale_processing_events(
         ),
     )
 
-    now = datetime.now()
+    now = now_utc()
     with billing_task_integration_app.app_context():
         dao.db.session.add_all(
             [
@@ -1341,7 +1342,7 @@ def test_dispatch_due_renewal_events_uses_dedicated_queue_when_enabled(
         ),
     )
 
-    now = datetime.now()
+    now = now_utc()
     with billing_task_integration_app.app_context():
         dao.db.session.add(
             BillingRenewalEvent(
