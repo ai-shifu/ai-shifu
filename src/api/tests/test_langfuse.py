@@ -60,9 +60,7 @@ class ResolveLangfuseTraceIdTests(unittest.TestCase):
 
     def test_falls_back_to_observation_string_trace_id(self):
         observation = types.SimpleNamespace(trace_id="observation-trace-id")
-        self.assertEqual(
-            resolve_langfuse_trace_id(observation), "observation-trace-id"
-        )
+        self.assertEqual(resolve_langfuse_trace_id(observation), "observation-trace-id")
 
     def test_ignores_non_string_trace_id_from_mock_client(self):
         # When Langfuse is disabled, observations are MockClient instances whose
@@ -70,14 +68,10 @@ class ResolveLangfuseTraceIdTests(unittest.TestCase):
         # ``trace_id``. That object must never be used as the trace id.
         thread_local.request_id = "request-trace-id"
 
-        self.assertEqual(
-            resolve_langfuse_trace_id(MockClient()), "request-trace-id"
-        )
+        self.assertEqual(resolve_langfuse_trace_id(MockClient()), "request-trace-id")
 
     def test_ignores_empty_string_trace_ids(self):
         thread_local.request_id = "request-trace-id"
         observation = types.SimpleNamespace(trace_id="")
 
-        self.assertEqual(
-            resolve_langfuse_trace_id(observation, ""), "request-trace-id"
-        )
+        self.assertEqual(resolve_langfuse_trace_id(observation, ""), "request-trace-id")
