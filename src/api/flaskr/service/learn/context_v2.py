@@ -4,7 +4,7 @@ import json
 import queue
 import threading
 import contextlib
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Generator, Iterable, Optional, Union
@@ -36,9 +36,10 @@ from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import (
     ShifuOutlineItemDto,
     ShifuInfoDto,
-    OutlineItemDtoWithMdflow,
     get_shifu_struct,
-    get_outline_item_dto_with_mdflow,
+    # Kept as a module attribute: run/state.py resolves it through this
+    # namespace at call time and tests patch it here.
+    get_outline_item_dto_with_mdflow,  # noqa: F401
 )
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -84,7 +85,6 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
     GeneratedType,
     OutlineItemUpdateDTO,
-    LearnStatus,
 )
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.service.learn.handle_input_ask import handle_input_ask
@@ -109,6 +109,7 @@ from flaskr.service.learn.langfuse_naming import (
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.run.emitter import RunEventEmitter
 from flaskr.service.learn.run.recorder import RunRecorder
+from flaskr.service.learn.run.state import RunStateResolver
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
@@ -1329,6 +1330,30 @@ class RunScriptPreviewContextV2:
             return None
 
 
+@dataclass
+class _RunStepState:
+    """Per-step scaffolding threaded through the run_inner phase methods.
+
+    Built once per step by ``RunScriptContextV2._prepare_step_state`` after
+    the run-script info resolves; carries the MDF/LLM collaborators and the
+    resolved block so each ``_phase_*`` method receives its inputs
+    explicitly instead of sharing generator locals (B6 PR3).
+    """
+
+    run_script_info: RunScriptInfo
+    llm_settings: LLMSettings
+    system_prompt: str | None
+    usage_context: UsageContext
+    llm_provider: RUNLLMProvider
+    mdflow_context: MdflowContextV2
+    block_list: list
+    user_profile: dict
+    message_list: list
+    variable_definition_key_id_map: dict[str, str]
+    block: Any = None
+    has_effective_input: bool = False
+
+
 class RunScriptContextV2:
     user_id: str
     attend_id: str
@@ -1742,7 +1767,10 @@ class RunScriptContextV2:
                         attend_info = staged
                         continue
                     attend_info = LearnProgressRecord()
-                    attend_info.outline_item_bid = outline_item_info_db.outline_item_bid
+                    # Each placeholder carries its own node's bid: `item` walks
+                    # the ancestor path, so ancestors must not inherit the
+                    # leaf's bid (outline_item_info_db is the leaf row).
+                    attend_info.outline_item_bid = item.bid
                     attend_info.shifu_bid = outline_item_info_db.shifu_bid
                     attend_info.user_bid = self._user_info.user_id
                     attend_info.status = LEARN_STATUS_NOT_STARTED
@@ -1754,224 +1782,29 @@ class RunScriptContextV2:
             self._recorder.save_new_progress_records(new_records)
         return attend_info
 
-    # outline is a leaf when has block item as children
-    # outline is a node when has outline item as children
-    # outline is a leaf when has no children
+    # The state-read methods below are thin delegation seams kept on the
+    # context so run_inner call sites and test overrides keep working
+    # unchanged; the resolution logic lives in
+    # flaskr/service/learn/run/state.py.
+
     def _is_leaf_outline_item(self, outline_item_info: ShifuOutlineItemDto) -> bool:
-        if outline_item_info.children:
-            if outline_item_info.children[0].type == "block":
-                return True
-            if outline_item_info.children[0].type == "outline":
-                return False
-        if outline_item_info.type == "outline":
-            return True
-        return False
+        return self._state_resolver.is_leaf_outline_item(outline_item_info)
 
     def _get_current_outline_block_count(self) -> int:
-        """
-        Determine the completion threshold for the current outline.
+        return self._state_resolver.get_current_outline_block_count()
 
-        History metadata (`child_count` / block children) can lag behind the
-        latest mdflow document. When that happens, relying on the history tree
-        alone may prematurely mark the outline as completed before runtime
-        reaches a later interaction block.
-        """
-        if not self._current_outline_item:
-            return 0
-
-        history_block_count = max(
-            len(self._current_outline_item.children),
-            self._current_outline_item.child_count,
-        )
-        if not self._is_leaf_outline_item(self._current_outline_item):
-            return history_block_count
-
-        outline_bid = self._current_outline_item.bid
-        block_count_cache = getattr(self, "_outline_block_count_cache", None)
-        if not isinstance(block_count_cache, dict):
-            block_count_cache = {}
-            self._outline_block_count_cache = block_count_cache
-        if outline_bid in block_count_cache:
-            return block_count_cache[outline_bid]
-
-        try:
-            outline_item_info = get_outline_item_dto_with_mdflow(
-                self.app,
-                outline_bid,
-                self._preview_mode,
-                outline_item_id=int(self._current_outline_item.id or 0),
-            )
-            block_count = len(
-                MdflowContextV2(document=outline_item_info.mdflow).get_all_blocks()
-            )
-            block_count_cache[outline_bid] = block_count
-            return block_count
-        except Exception as exc:
-            self.app.logger.warning(
-                "Load runtime block count failed for outline %s: %s",
-                outline_bid,
-                exc,
-                exc_info=True,
-            )
-            return history_block_count
-
-    # get the outline items to start or complete
     def _get_next_outline_item(self) -> list[OutlineItemUpdateDTO]:
-        res = []
-        q = queue.Queue()
-        q.put(self._struct)
-        outline_ids = []
-        while not q.empty():
-            item: HistoryItem = q.get()
-            if item.type == "outline":
-                outline_ids.append(item.bid)
-            if item.children:
-                for child in item.children:
-                    q.put(child)
-        outline_item_info_db: list[tuple[str, bool, str]] = (
-            db.session.query(
-                self._outline_model.outline_item_bid,
-                self._outline_model.hidden,
-                self._outline_model.title,
-            )
-            .filter(
-                self._outline_model.outline_item_bid.in_(outline_ids),
-                self._outline_model.deleted == 0,
-            )
-            .all()
-        )
-        outline_item_hidden_map: dict[str, bool] = {
-            bid: hidden for bid, hidden, _title in outline_item_info_db
-        }
-        outline_item_title_map: dict[str, str] = {
-            bid: title for bid, _hidden, title in outline_item_info_db
-        }
-
-        def _mark_sub_node_completed(
-            outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
-        ):
-            q = queue.Queue()
-            q.put(self._struct)
-            if self._is_leaf_outline_item(outline_item_info):
-                res.append(
-                    OutlineItemUpdateDTO(
-                        outline_bid=outline_item_info.bid,
-                        title=outline_item_title_map.get(outline_item_info.bid, ""),
-                        status=LearnStatus.COMPLETED,
-                        has_children=False,
-                    )
-                )
-            else:
-                res.append(
-                    OutlineItemUpdateDTO(
-                        outline_bid=outline_item_info.bid,
-                        title=outline_item_title_map.get(outline_item_info.bid, ""),
-                        status=LearnStatus.COMPLETED,
-                        has_children=True,
-                    )
-                )
-            while not q.empty():
-                item: HistoryItem = q.get()
-                if item.children and outline_item_info.bid in [
-                    child.bid for child in item.children
-                ]:
-                    index = [child.bid for child in item.children].index(
-                        outline_item_info.bid
-                    )
-                    while index < len(item.children) - 1:
-                        # not sub node
-                        current_node = item.children[index + 1]
-                        if outline_item_hidden_map.get(current_node.bid, True):
-                            index += 1
-                            continue
-                        while (
-                            current_node.children
-                            and current_node.children[0].type == "outline"
-                        ):
-                            res.append(
-                                OutlineItemUpdateDTO(
-                                    outline_bid=current_node.bid,
-                                    title=outline_item_title_map.get(
-                                        current_node.bid, ""
-                                    ),
-                                    status=LearnStatus.IN_PROGRESS,
-                                    has_children=True,
-                                )
-                            )
-                            current_node = current_node.children[0]
-                        res.append(
-                            OutlineItemUpdateDTO(
-                                outline_bid=current_node.bid,
-                                title=outline_item_title_map.get(current_node.bid, ""),
-                                status=LearnStatus.IN_PROGRESS,
-                                has_children=False,
-                            )
-                        )
-                        return
-                    if index == len(item.children) - 1 and item.type == "outline":
-                        _mark_sub_node_completed(item, res)
-                if item.children and item.children[0].type == "outline":
-                    for child in item.children:
-                        q.put(child)
-
-        def _mark_sub_node_start(
-            outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
-        ):
-            path = find_node_with_parents(self._struct, outline_item_info.bid)
-            for item in path:
-                if item.type == "outline":
-                    if item.children and item.children[0].type == "outline":
-                        res.append(
-                            OutlineItemUpdateDTO(
-                                outline_bid=item.bid,
-                                title=outline_item_title_map.get(item.bid, ""),
-                                status=LearnStatus.IN_PROGRESS,
-                                has_children=True,
-                            )
-                        )
-                    else:
-                        res.append(
-                            OutlineItemUpdateDTO(
-                                outline_bid=item.bid,
-                                title=outline_item_title_map.get(item.bid, ""),
-                                status=LearnStatus.IN_PROGRESS,
-                                has_children=False,
-                            )
-                        )
-
-        if (
-            self._current_attend.block_position
-            >= self._get_current_outline_block_count()
-        ):
-            _mark_sub_node_completed(self._current_outline_item, res)
-        if self._current_attend.status == LEARN_STATUS_NOT_STARTED:
-            _mark_sub_node_start(self._current_outline_item, res)
-        return res
+        return self._state_resolver.get_next_outline_item()
 
     def _has_next_outline_item(
         self, outline_updates: list[OutlineItemUpdateDTO]
     ) -> bool:
-        if not outline_updates:
-            return False
-        current_bid = (
-            self._current_outline_item.bid if self._current_outline_item else ""
-        )
-        return any(
-            update.status == LearnStatus.IN_PROGRESS
-            and update.outline_bid != current_bid
-            for update in outline_updates
-        )
+        return self._state_resolver.has_next_outline_item(outline_updates)
 
     def _is_current_outline_completed(
         self, outline_updates: list[OutlineItemUpdateDTO]
     ) -> bool:
-        if not outline_updates or not self._current_outline_item:
-            return False
-        current_bid = self._current_outline_item.bid
-        return any(
-            update.outline_bid == current_bid and update.status == LearnStatus.COMPLETED
-            for update in outline_updates
-        )
+        return self._state_resolver.is_current_outline_completed(outline_updates)
 
     def _get_current_outline_item(self) -> ShifuOutlineItemDto:
         return self._current_outline_item
@@ -1993,6 +1826,15 @@ class RunScriptContextV2:
             recorder = RunRecorder(self.app)
             self.__dict__["_run_recorder"] = recorder
         return recorder
+
+    @property
+    def _state_resolver(self) -> RunStateResolver:
+        # Lazy so contexts built via __new__ (tests) get a resolver too.
+        resolver = self.__dict__.get("_run_state_resolver")
+        if resolver is None:
+            resolver = RunStateResolver(self)
+            self.__dict__["_run_state_resolver"] = resolver
+        return resolver
 
     # The methods below are thin delegation seams kept on the context so
     # run_inner call sites and test overrides keep working unchanged; the
@@ -2107,92 +1949,81 @@ class RunScriptContextV2:
         self._anchor_element_bid = ""
 
     def _get_outline_struct(self, outline_item_id: str) -> HistoryItem:
-        q = queue.Queue()
-        q.put(self._struct)
-        outline_struct = None
-        while not q.empty():
-            item = q.get()
-            if item.bid == outline_item_id:
-                outline_struct = item
-                break
-            if item.children:
-                for child in item.children:
-                    q.put(child)
-        return outline_struct
+        return self._state_resolver.get_outline_struct(outline_item_id)
 
     def _get_outline_row_id(self, outline_item_bid: str) -> int | None:
-        if not outline_item_bid:
-            return None
-        if (
-            self._current_outline_item
-            and self._current_outline_item.bid == outline_item_bid
-            and getattr(self._current_outline_item, "id", None)
-        ):
-            return int(self._current_outline_item.id)
-        outline_struct = self._get_outline_struct(outline_item_bid)
-        if outline_struct and getattr(outline_struct, "id", None):
-            return int(outline_struct.id)
-        return None
+        return self._state_resolver.get_outline_row_id(outline_item_bid)
 
     def _get_run_script_info(
         self, attend: LearnProgressRecord, is_ask: bool = False
     ) -> RunScriptInfo:
-        outline_item_id = attend.outline_item_bid
-        outline_row_id = self._get_outline_row_id(outline_item_id)
-        outline_item_info: OutlineItemDtoWithMdflow = get_outline_item_dto_with_mdflow(
-            self.app,
-            outline_item_id,
-            self._preview_mode,
-            outline_item_id=outline_row_id,
-        )
-
-        mdflow_context = MdflowContextV2(document=outline_item_info.mdflow)
-        block_list = mdflow_context.get_all_blocks()
-        self.app.logger.info(
-            f"attend position: {attend.block_position} blocks:{len(block_list)}"
-        )
-        if attend.block_position >= len(block_list) and not is_ask:
-            return None
-        return RunScriptInfo(
-            attend=attend,
-            outline_bid=outline_item_info.outline_bid,
-            block_position=attend.block_position,
-            mdflow=outline_item_info.mdflow,
-        )
+        return self._state_resolver.get_run_script_info(attend, is_ask=is_ask)
 
     def _get_run_script_info_by_block_id(self, block_id: str) -> RunScriptInfo:
-        generate_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.generated_block_bid == block_id,
-            LearnGeneratedBlock.deleted == 0,
-        ).first()
-        if not generate_block:
-            raise_error("server.shifu.lessonNotFoundInCourse")
-        outline_row_id = self._get_outline_row_id(generate_block.outline_item_bid)
-        outline_item_info: OutlineItemDtoWithMdflow = get_outline_item_dto_with_mdflow(
-            self.app,
-            generate_block.outline_item_bid,
-            self._preview_mode,
-            outline_item_id=outline_row_id,
-        )
-        attend: LearnProgressRecord = LearnProgressRecord.query.filter(
-            LearnProgressRecord.user_bid == self._user_info.user_id,
-            LearnProgressRecord.shifu_bid == outline_item_info.shifu_bid,
-            LearnProgressRecord.outline_item_bid == outline_item_info.bid,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        ).first()
-        return RunScriptInfo(
-            attend=attend,
-            outline_bid=outline_item_info.outline_bid,
-            block_position=generate_block.position,
-            mdflow=outline_item_info.mdflow,
-        )
+        return self._state_resolver.get_run_script_info_by_block_id(block_id)
 
     def run_inner(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Orchestrate one /run step (B6 PR3).
+
+        Thin phase sequencer: every region of the historical ~1,000-line
+        body now lives in a named ``_phase_*`` method below, extracted
+        verbatim. Phases that emit SSE events are generators driven via
+        ``yield from``; their boolean return value tells the orchestrator
+        whether the step finished before the completion tail.
+        """
         self._stop_if_requested()
         self._current_attend = self._get_current_attend(self._outline_item_info.bid)
         app.logger.info(
             f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
         )
+        self._bind_trace_session()
+        proceed = yield from self._phase_sync_outline_progress(app)
+        if not proceed:
+            return
+
+        run_script_info: RunScriptInfo = self._get_run_script_info(
+            self._current_attend, is_ask=self._input_type == "ask"
+        )
+        if run_script_info is None:
+            yield from self._phase_completion_when_script_missing(app)
+            return
+        llm_settings = self.get_llm_settings(run_script_info.outline_bid)
+        system_prompt = self.get_system_prompt(run_script_info.outline_bid)
+
+        if self._input_type == "ask":
+            yield from self._phase_handle_ask_input(app, run_script_info)
+            return
+
+        state = self._prepare_step_state(
+            app, run_script_info, llm_settings, system_prompt
+        )
+
+        if run_script_info.block_position >= len(state.block_list):
+            outline_updates = self._get_next_outline_item()
+            if len(outline_updates) > 0:
+                # Flips inside are committed per recorder step.
+                yield from self._render_outline_updates(
+                    outline_updates, new_chapter=True
+                )
+                self._can_continue = False
+            return
+        state.block = state.block_list[run_script_info.block_position]
+        app.logger.info(f"block: {state.block}")
+        app.logger.info(f"self._run_type: {self._run_type}")
+        state.has_effective_input = self._has_effective_input()
+        if self._run_type == RunType.INPUT:
+            handled = yield from self._phase_process_input(app, state)
+            if handled:
+                return
+        elif self._run_type == RunType.OUTPUT:
+            handled = yield from self._phase_render_output(app, state)
+            if handled:
+                return
+
+        yield from self._phase_completion_tail()
+
+    def _bind_trace_session(self) -> None:
+        """Bind the langfuse runtime trace to the resolved progress record."""
         if not getattr(self, "_trace_id", ""):
             self._trace_id = get_request_trace_id()
         if not isinstance(getattr(self, "_trace_args", None), dict):
@@ -2211,6 +2042,15 @@ class RunScriptContextV2:
             self._outline_item_info.bid,
             self._trace_args["session_id"],
         )
+
+    def _phase_sync_outline_progress(
+        self, app: Flask
+    ) -> Generator[RunMarkdownFlowDTO, None, bool]:
+        """Emit entry outline updates and re-read the attend row.
+
+        Returns False when the refreshed progress status means the step must
+        stop (the historical early return in run_inner).
+        """
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0 and self._input_type != "ask":
             # PR2: the progress flips inside render_outline_updates are now
@@ -2226,116 +2066,121 @@ class RunScriptContextV2:
                     f"current_attend.status != LEARN_STATUS_IN_PROGRESS To False,current_attend.status: {self._current_attend.status}"
                 )
                 self._can_continue = False
-                return
+                return False
+        return True
 
-        run_script_info: RunScriptInfo = self._get_run_script_info(
-            self._current_attend, is_ask=self._input_type == "ask"
+    def _phase_completion_when_script_missing(
+        self, app: Flask
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Completion tail for a step whose run-script info resolved to None."""
+        self.app.logger.warning("run script is none")
+        outline_updates = self._get_next_outline_item()
+        has_next_outline_item = self._has_next_outline_item(outline_updates)
+        current_outline_completed = self._is_current_outline_completed(outline_updates)
+        yield from self._emit_completion_tail_interactions(
+            progress_record=self._current_attend,
+            current_outline_completed=current_outline_completed,
+            has_next_outline_item=has_next_outline_item,
         )
-        if run_script_info is None:
-            self.app.logger.warning("run script is none")
-            outline_updates = self._get_next_outline_item()
-            has_next_outline_item = self._has_next_outline_item(outline_updates)
-            current_outline_completed = self._is_current_outline_completed(
-                outline_updates
-            )
-            yield from self._emit_completion_tail_interactions(
-                progress_record=self._current_attend,
-                current_outline_completed=current_outline_completed,
-                has_next_outline_item=has_next_outline_item,
-            )
+        self._can_continue = False
+        if len(outline_updates) > 0:
+            # Flips/inserts inside are committed per recorder step.
+            yield from self._render_outline_updates(outline_updates, new_chapter=True)
             self._can_continue = False
-            if len(outline_updates) > 0:
-                # Flips/inserts inside are committed per recorder step.
-                yield from self._render_outline_updates(
-                    outline_updates, new_chapter=True
-                )
-                self._can_continue = False
+
+    def _persist_generated_block_for_events(
+        self, generated_block: LearnGeneratedBlock | None
+    ) -> None:
+        # One recorder step per interaction-block persist. Only called
+        # after any LLM COMPLETE call for the block has returned; never
+        # while a stream is in flight.
+        if generated_block is None:
             return
-        llm_settings = self.get_llm_settings(run_script_info.outline_bid)
-        system_prompt = self.get_system_prompt(run_script_info.outline_bid)
+        self._recorder.save_generated_block(generated_block)
 
-        def _persist_generated_block_for_events(
-            generated_block: LearnGeneratedBlock | None,
-        ) -> None:
-            # One recorder step per interaction-block persist. Only called
-            # after any LLM COMPLETE call for the block has returned; never
-            # while a stream is in flight.
-            if generated_block is None:
-                return
-            self._recorder.save_generated_block(generated_block)
+    def _phase_handle_ask_input(
+        self, app: Flask, run_script_info: RunScriptInfo
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Delegate an ask-type input to handle_input_ask (with optional TTS)."""
+        if self._last_position == -1:
+            self._last_position = run_script_info.block_position
+        ask_input = self._input
+        app.logger.info(f"ask_input: {ask_input}")
+        if isinstance(ask_input, dict):
+            ask_input = ask_input.get("input", "")
+        else:
+            ask_input = ask_input
+        if isinstance(ask_input, list):
+            ask_input = ",".join(ask_input)
+        app.logger.info(f"ask_input: {ask_input}")
+        res = handle_input_ask(
+            app,
+            self,
+            self._user_info,
+            self._current_attend.progress_record_bid,
+            ask_input,
+            self._outline_item_info,
+            self._trace_args,
+            self._trace,
+            self._preview_mode,
+            self._last_position,
+            anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
+            parent_observation=self._trace_root_span,
+        )
 
-        if self._input_type == "ask":
-            if self._last_position == -1:
-                self._last_position = run_script_info.block_position
-            ask_input = self._input
-            app.logger.info(f"ask_input: {ask_input}")
-            if isinstance(ask_input, dict):
-                ask_input = ask_input.get("input", "")
-            else:
-                ask_input = ask_input
-            if isinstance(ask_input, list):
-                ask_input = ",".join(ask_input)
-            app.logger.info(f"ask_input: {ask_input}")
-            res = handle_input_ask(
-                app,
-                self,
-                self._user_info,
-                self._current_attend.progress_record_bid,
-                ask_input,
-                self._outline_item_info,
-                self._trace_args,
-                self._trace,
-                self._preview_mode,
-                self._last_position,
-                anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
-                parent_observation=self._trace_root_span,
-            )
+        if self._should_stream_tts():
+            tts_processor = None
+            ask_stream_exc: BaseException | None = None
+            try:
+                for event in self._iter_until_active(res):
+                    if event.type == GeneratedType.CONTENT and isinstance(
+                        event.content, str
+                    ):
+                        if tts_processor is None:
+                            tts_processor = self._try_create_tts_processor(
+                                event.generated_block_bid,
+                            )
+                        yield event
+                        if tts_processor:
+                            yield from tts_processor.process_chunk(event.content)
+                    elif event.type == GeneratedType.BREAK:
+                        if tts_processor:
+                            yield from self._finalize_stream_tts_processor(
+                                tts_processor,
+                                log_prefix="Ask TTS finalize failed",
+                            )
+                            tts_processor = None
+                        yield event
+                    else:
+                        yield event
+            except BaseException as exc:
+                ask_stream_exc = exc
+                raise
+            finally:
+                if tts_processor:
+                    yield from self._teardown_stream_tts_state(
+                        tts_processor=tts_processor,
+                        log_prefix="Ask TTS finalize failed",
+                        skip_emit=isinstance(ask_stream_exc, GeneratorExit),
+                    )
+        else:
+            yield from self._iter_until_active(res)
 
-            if self._should_stream_tts():
-                tts_processor = None
-                ask_stream_exc: BaseException | None = None
-                try:
-                    for event in self._iter_until_active(res):
-                        if event.type == GeneratedType.CONTENT and isinstance(
-                            event.content, str
-                        ):
-                            if tts_processor is None:
-                                tts_processor = self._try_create_tts_processor(
-                                    event.generated_block_bid,
-                                )
-                            yield event
-                            if tts_processor:
-                                yield from tts_processor.process_chunk(event.content)
-                        elif event.type == GeneratedType.BREAK:
-                            if tts_processor:
-                                yield from self._finalize_stream_tts_processor(
-                                    tts_processor,
-                                    log_prefix="Ask TTS finalize failed",
-                                )
-                                tts_processor = None
-                            yield event
-                        else:
-                            yield event
-                except BaseException as exc:
-                    ask_stream_exc = exc
-                    raise
-                finally:
-                    if tts_processor:
-                        yield from self._teardown_stream_tts_state(
-                            tts_processor=tts_processor,
-                            log_prefix="Ask TTS finalize failed",
-                            skip_emit=isinstance(ask_stream_exc, GeneratorExit),
-                        )
-            else:
-                yield from self._iter_until_active(res)
+        self._can_continue = False
+        # Ask-history rows are written by handle_input_ask with plain
+        # flushes; commit them as one step now that the ask stream has
+        # fully completed (durability moves from the producer's outer
+        # commit to here — same post-stream point of the request).
+        self._recorder.commit_pending_step()
 
-            self._can_continue = False
-            # Ask-history rows are written by handle_input_ask with plain
-            # flushes; commit them as one step now that the ask stream has
-            # fully completed (durability moves from the producer's outer
-            # commit to here — same post-stream point of the request).
-            self._recorder.commit_pending_step()
-            return
+    def _prepare_step_state(
+        self,
+        app: Flask,
+        run_script_info: RunScriptInfo,
+        llm_settings: LLMSettings,
+        system_prompt: str | None,
+    ) -> _RunStepState:
+        """Build the per-step collaborators (LLM provider, MDF context, ...)."""
         generated_blocks: list[LearnGeneratedBlock] = (
             LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.user_bid == self._user_info.user_id,
@@ -2393,896 +2238,1041 @@ class RunScriptContextV2:
         variable_definition_key_id_map: dict[str, str] = {
             p.profile_key: p.profile_id for p in variable_definition
         }
+        return _RunStepState(
+            run_script_info=run_script_info,
+            llm_settings=llm_settings,
+            system_prompt=system_prompt,
+            usage_context=usage_context,
+            llm_provider=llm_provider,
+            mdflow_context=mdflow_context,
+            block_list=block_list,
+            user_profile=user_profile,
+            message_list=message_list,
+            variable_definition_key_id_map=variable_definition_key_id_map,
+        )
 
-        if run_script_info.block_position >= len(block_list):
-            outline_updates = self._get_next_outline_item()
-            if len(outline_updates) > 0:
-                # Flips inside are committed per recorder step.
-                yield from self._render_outline_updates(
-                    outline_updates, new_chapter=True
-                )
-                self._can_continue = False
-            return
-        block = block_list[run_script_info.block_position]
-        app.logger.info(f"block: {block}")
-        app.logger.info(f"self._run_type: {self._run_type}")
-        has_effective_input = self._has_effective_input()
-        if self._run_type == RunType.INPUT:
-            if block.block_type != BlockType.INTERACTION:
-                if has_effective_input:
-                    pending_interaction_block: LearnGeneratedBlock | None = (
-                        LearnGeneratedBlock.query.filter(
-                            LearnGeneratedBlock.progress_record_bid
-                            == run_script_info.attend.progress_record_bid,
-                            LearnGeneratedBlock.outline_item_bid
-                            == run_script_info.outline_bid,
-                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                            LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
-                            LearnGeneratedBlock.status == 1,
-                            LearnGeneratedBlock.deleted == 0,
-                            LearnGeneratedBlock.position
-                            >= run_script_info.block_position,
-                            LearnGeneratedBlock.generated_content == "",
-                        )
-                        .order_by(
-                            LearnGeneratedBlock.position.asc(),
-                            LearnGeneratedBlock.id.asc(),
-                        )
-                        .first()
-                    )
-                    if pending_interaction_block:
-                        app.logger.warning(
-                            "Input received on non-interaction block. Realign index to pending interaction: progress=%s outline=%s from=%s to=%s generated_block=%s",
-                            run_script_info.attend.progress_record_bid,
-                            run_script_info.outline_bid,
-                            run_script_info.block_position,
-                            pending_interaction_block.position,
-                            pending_interaction_block.generated_block_bid,
-                        )
-                        self._recorder.update_progress_pointer(
-                            self._current_attend,
-                            status=LEARN_STATUS_IN_PROGRESS,
-                            block_position=pending_interaction_block.position,
-                        )
-                        self._run_type = RunType.INPUT
-                        self._can_continue = True
-                        return
-                self._can_continue = True
-                self._run_type = RunType.OUTPUT
-                self._recorder.update_progress_pointer(
-                    self._current_attend, status=LEARN_STATUS_IN_PROGRESS
-                )
-                return
-            interaction_parser: InteractionParser = InteractionParser()
-            parsed_interaction = interaction_parser.parse(block.content)
-            generated_block: LearnGeneratedBlock = (
+    def _phase_process_input(
+        self, app: Flask, state: _RunStepState
+    ) -> Generator[RunMarkdownFlowDTO, None, bool]:
+        """INPUT-mode step: realign, access gates, pause, record, validate.
+
+        Returns True when run_inner must stop after this phase; False when
+        the step falls through to the completion tail (validation-error
+        replay).
+        """
+        run_script_info = state.run_script_info
+        block = state.block
+        if block.block_type != BlockType.INTERACTION:
+            self._phase_resolve_noninteraction_input(app, state)
+            return True
+        interaction_parser: InteractionParser = InteractionParser()
+        parsed_interaction = interaction_parser.parse(block.content)
+        generated_block: LearnGeneratedBlock = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid
+                == run_script_info.attend.progress_record_bid,
+                LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
+                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                LearnGeneratedBlock.position == run_script_info.block_position,
+                LearnGeneratedBlock.status == 1,
+            )
+            .order_by(LearnGeneratedBlock.id.desc())
+            .first()
+        )
+        handled = yield from self._phase_reemit_access_gate_interaction(
+            app, state, parsed_interaction, generated_block
+        )
+        if handled:
+            return True
+        if not generated_block:
+            yield from self._phase_emit_interaction_pause(app, state)
+            return True
+        handled, user_input_param = yield from self._phase_record_input_and_moderate(
+            app, state, generated_block, parsed_interaction
+        )
+        if handled:
+            return True
+        handled = yield from self._phase_validate_input_and_advance(
+            app, state, generated_block, parsed_interaction, user_input_param
+        )
+        return handled
+
+    def _phase_resolve_noninteraction_input(
+        self, app: Flask, state: _RunStepState
+    ) -> None:
+        """Input arrived while the cursor sits on a non-interaction block.
+
+        Realigns the cursor to a pending interaction (stale-position guard)
+        or flips the run to OUTPUT mode. Pure pointer work — never emits.
+        """
+        run_script_info = state.run_script_info
+        if state.has_effective_input:
+            pending_interaction_block: LearnGeneratedBlock | None = (
                 LearnGeneratedBlock.query.filter(
                     LearnGeneratedBlock.progress_record_bid
                     == run_script_info.attend.progress_record_bid,
                     LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
                     LearnGeneratedBlock.user_bid == self._user_info.user_id,
                     LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
-                    LearnGeneratedBlock.position == run_script_info.block_position,
                     LearnGeneratedBlock.status == 1,
+                    LearnGeneratedBlock.deleted == 0,
+                    LearnGeneratedBlock.position >= run_script_info.block_position,
+                    LearnGeneratedBlock.generated_content == "",
                 )
-                .order_by(LearnGeneratedBlock.id.desc())
+                .order_by(
+                    LearnGeneratedBlock.position.asc(),
+                    LearnGeneratedBlock.id.asc(),
+                )
                 .first()
             )
-            if (
-                parsed_interaction.get("buttons")
-                and len(parsed_interaction.get("buttons")) > 0
-            ):
-                for button in parsed_interaction.get("buttons"):
-                    if button.get("value") == "_sys_pay":
-                        if not self._is_paid:
-                            # Use translated content from database if available
-                            interaction_content = (
-                                generated_block.block_content_conf
-                                if generated_block
-                                and generated_block.block_content_conf
-                                else block.content
-                            )
-                            if not generated_block:
-                                generated_block = init_generated_block(
-                                    app,
-                                    shifu_bid=run_script_info.attend.shifu_bid,
-                                    outline_item_bid=run_script_info.outline_bid,
-                                    progress_record_bid=run_script_info.attend.progress_record_bid,
-                                    user_bid=self._user_info.user_id,
-                                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-                                    mdflow=block.content,
-                                    block_index=run_script_info.block_position,
-                                )
-                                generated_block.role = ROLE_TEACHER
-                            generated_block.block_content_conf = interaction_content
-                            generated_block.generated_content = ""
-                            _persist_generated_block_for_events(generated_block)
-                            self.append_langfuse_output(interaction_content)
-                            yield RunMarkdownFlowDTO(
-                                outline_bid=run_script_info.outline_bid,
-                                generated_block_bid=generated_block.generated_block_bid,
-                                type=GeneratedType.INTERACTION,
-                                content=interaction_content,
-                            )
-                            yield from self._maybe_emit_feedback_after_access_gate(
-                                parsed_interaction=parsed_interaction,
-                                progress_record=run_script_info.attend,
-                                is_tail_gate=run_script_info.block_position
-                                >= len(block_list) - 1,
-                            )
-                            self._can_continue = False
-                            return
-                        else:
-                            self._can_continue = True
-                            self._recorder.update_progress_pointer(
-                                self._current_attend,
-                                block_position=self._current_attend.block_position + 1,
-                            )
-                            self._run_type = RunType.OUTPUT
-                            return
-                    if button.get("value") == "_sys_login":
-                        if bool(self._user_info.mobile):
-                            self._can_continue = True
-                            self._recorder.update_progress_pointer(
-                                self._current_attend,
-                                block_position=self._current_attend.block_position + 1,
-                            )
-                            self._run_type = RunType.OUTPUT
-                            return
-                        else:
-                            # Use translated content from database if available
-                            interaction_content = (
-                                generated_block.block_content_conf
-                                if generated_block
-                                and generated_block.block_content_conf
-                                else block.content
-                            )
-                            if not generated_block:
-                                generated_block = init_generated_block(
-                                    app,
-                                    shifu_bid=run_script_info.attend.shifu_bid,
-                                    outline_item_bid=run_script_info.outline_bid,
-                                    progress_record_bid=run_script_info.attend.progress_record_bid,
-                                    user_bid=self._user_info.user_id,
-                                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-                                    mdflow=block.content,
-                                    block_index=run_script_info.block_position,
-                                )
-                                generated_block.role = ROLE_TEACHER
-                            generated_block.block_content_conf = interaction_content
-                            generated_block.generated_content = ""
-                            _persist_generated_block_for_events(generated_block)
-                            self.append_langfuse_output(interaction_content)
-                            yield RunMarkdownFlowDTO(
-                                outline_bid=run_script_info.outline_bid,
-                                generated_block_bid=generated_block.generated_block_bid,
-                                type=GeneratedType.INTERACTION,
-                                content=interaction_content,
-                            )
-                            yield from self._maybe_emit_feedback_after_access_gate(
-                                parsed_interaction=parsed_interaction,
-                                progress_record=run_script_info.attend,
-                                is_tail_gate=run_script_info.block_position
-                                >= len(block_list) - 1,
-                            )
-                            self._can_continue = False
-                            return
-            if not generated_block:
-                generated_block = init_generated_block(
-                    app,
-                    shifu_bid=run_script_info.attend.shifu_bid,
-                    outline_item_bid=run_script_info.outline_bid,
-                    progress_record_bid=run_script_info.attend.progress_record_bid,
-                    user_bid=self._user_info.user_id,
-                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-                    mdflow=block.content,
-                    block_index=run_script_info.block_position,
+            if pending_interaction_block:
+                app.logger.warning(
+                    "Input received on non-interaction block. Realign index to pending interaction: progress=%s outline=%s from=%s to=%s generated_block=%s",
+                    run_script_info.attend.progress_record_bid,
+                    run_script_info.outline_bid,
+                    run_script_info.block_position,
+                    pending_interaction_block.position,
+                    pending_interaction_block.generated_block_bid,
                 )
-                app.logger.info(
-                    f"generated_block not found, init new one: {generated_block.generated_block_bid}"
-                )
-
-                # Render interaction content with translation (INPUT mode, no cached block)
-                # Note: Do NOT pass variables here - we only want translation, not variable replacement
-                llm_provider.set_usage_generated_block_bid(
-                    generated_block.generated_block_bid
-                )
-                interaction_result = mdflow_context.process(
-                    block_index=run_script_info.block_position,
-                    mode=ProcessMode.COMPLETE,
-                    context=message_list,
-                    variables=user_profile,
-                )
-                rendered_content = (
-                    interaction_result.content if interaction_result else block.content
-                )
-
-                # Store translated interaction block for future retrieval
-                generated_block.block_content_conf = rendered_content
-                # Keep generated_content empty, will be filled with user input later
-                generated_block.generated_content = ""
-                generated_block.role = ROLE_TEACHER
-                _persist_generated_block_for_events(generated_block)
-                self.append_langfuse_output(rendered_content)
-                yield RunMarkdownFlowDTO(
-                    outline_bid=run_script_info.outline_bid,
-                    generated_block_bid=generated_block.generated_block_bid,
-                    type=GeneratedType.INTERACTION,
-                    content=rendered_content,
-                )
-                self._can_continue = False
-                return
-            expected_variable = (parsed_interaction.get("variable") or "input").strip()
-            if not expected_variable:
-                expected_variable = "input"
-
-            user_input_param = MdflowContextV2.normalize_user_input_map(
-                self._input, expected_variable
-            )
-            # Backward compatible: some clients may still send `{input: [...]}` or a single
-            # unnamed key even when the interaction expects a specific variable.
-            if expected_variable and expected_variable not in user_input_param:
-                if "input" in user_input_param and len(user_input_param) == 1:
-                    app.logger.warning(
-                        "Remap interaction input key 'input' -> '%s'", expected_variable
-                    )
-                    user_input_param = {expected_variable: user_input_param["input"]}
-                elif len(user_input_param) == 1:
-                    only_key, only_values = next(iter(user_input_param.items()))
-                    if only_values:
-                        app.logger.warning(
-                            "Remap interaction input key '%s' -> '%s'",
-                            only_key,
-                            expected_variable,
-                        )
-                        user_input_param = {expected_variable: only_values}
-
-            generated_block.generated_content = MdflowContextV2.flatten_user_input_map(
-                user_input_param
-            )
-            generated_block.role = ROLE_STUDENT
-            generated_block.position = run_script_info.block_position
-            # For STUDENT records, also store translated interaction block
-            # (in case this record is returned instead of TEACHER record)
-            llm_provider.set_usage_generated_block_bid(
-                generated_block.generated_block_bid
-            )
-            interaction_result = mdflow_context.process(
-                block_index=run_script_info.block_position,
-                mode=ProcessMode.COMPLETE,
-                context=message_list,
-                variables=user_profile,
-            )
-            generated_block.block_content_conf = (
-                interaction_result.content if interaction_result else block.content
-            )
-            generated_block.status = 1
-            # Commit the accumulated student-record mutations as one step,
-            # after the COMPLETE render above has returned.
-            self._recorder.save_generated_block(generated_block)
-            trace_metadata = self._trace_args.get("metadata") or {}
-            if not isinstance(trace_metadata, dict):
-                trace_metadata = {}
-            chapter_title = trace_metadata.get(
-                "chapter_title",
-                self._outline_item_info.title,
-            )
-            trace_scene = trace_metadata.get("scene", "lesson_runtime")
-            res = check_text_with_llm_response(
-                app,
-                user_info=self._user_info,
-                log_script=generated_block,
-                input=generated_block.generated_content,  # Use converted string value
-                span=self._trace_root_span,
-                outline_item_bid=self._outline_item_info.bid,
-                shifu_bid=self._outline_item_info.shifu_bid,
-                block_position=run_script_info.block_position,
-                llm_settings=llm_settings,
-                attend_id=self._current_attend.progress_record_bid,
-                fmt_prompt="",
-                usage_context=replace(
-                    usage_context,
-                    generated_block_bid=generated_block.generated_block_bid,
-                ),
-                chapter_title=chapter_title,
-                scene=f"{trace_scene}_interaction",
-            )
-            # Check if the generator yields any content (not None)
-            has_content = False
-            for i in res:
-                if i is not None and i != "":
-                    self.app.logger.info(f"check_text_with_llm_response: {i}")
-                    has_content = True
-                    self.append_langfuse_output(i)
-                    yield RunMarkdownFlowDTO(
-                        outline_bid=run_script_info.outline_bid,
-                        generated_block_bid=generated_block.generated_block_bid,
-                        type=GeneratedType.CONTENT,
-                        content=i,
-                    )
-
-            if has_content:
-                self._can_continue = False
-                yield RunMarkdownFlowDTO(
-                    outline_bid=run_script_info.outline_bid,
-                    generated_block_bid=generated_block.generated_block_bid,
-                    type=GeneratedType.BREAK,
-                    content="",
-                )
-
-                # Render interaction content with translation after risk check
-                # Note: Do NOT pass variables here - we only want translation, not variable replacement
-                interaction_result = mdflow_context.process(
-                    block_index=run_script_info.block_position,
-                    mode=ProcessMode.COMPLETE,
-                    context=message_list,
-                    variables=user_profile,
-                )
-                rendered_content = (
-                    interaction_result.content if interaction_result else block.content
-                )
-
-                # Store translated interaction block for future retrieval
-                generated_block.block_content_conf = rendered_content
-                # Keep generated_content empty, will be filled with user input later
-                generated_block.generated_content = ""
-                generated_block.generated_block_bid = generate_id(app)
-                _persist_generated_block_for_events(generated_block)
-                self.append_langfuse_output(rendered_content)
-                yield RunMarkdownFlowDTO(
-                    outline_bid=run_script_info.outline_bid,
-                    generated_block_bid=generated_block.generated_block_bid,
-                    type=GeneratedType.INTERACTION,
-                    content=rendered_content,
-                )
-                return
-            if not parsed_interaction.get("variable"):
-                self._can_continue = True
-                self._run_type = RunType.OUTPUT
                 self._recorder.update_progress_pointer(
                     self._current_attend,
                     status=LEARN_STATUS_IN_PROGRESS,
-                    block_position=run_script_info.block_position + 1,
+                    block_position=pending_interaction_block.position,
                 )
+                self._run_type = RunType.INPUT
+                self._can_continue = True
                 return
-            validate_result = mdflow_context.process(
-                block_index=run_script_info.block_position,
-                mode=ProcessMode.COMPLETE,
-                user_input=user_input_param,
-                context=message_list,
-                variables=user_profile,
-            )
+        self._can_continue = True
+        self._run_type = RunType.OUTPUT
+        self._recorder.update_progress_pointer(
+            self._current_attend, status=LEARN_STATUS_IN_PROGRESS
+        )
 
-            if (
-                validate_result.variables is not None
-                and len(validate_result.variables) > 0
-            ):
-                profile_to_save: list[ProfileToSave] = []
-                for key, value in validate_result.variables.items():
-                    profile_id = variable_definition_key_id_map.get(key, "")
-                    # Convert list to string (markdown-flow 0.2.27+ returns list[str] for multi-select)
-                    if isinstance(value, list):
-                        # Filter out None and convert to string
-                        value_str = ",".join(
-                            [str(item) for item in value if item is not None]
+    def _phase_reemit_access_gate_interaction(
+        self,
+        app: Flask,
+        state: _RunStepState,
+        parsed_interaction: dict,
+        generated_block: LearnGeneratedBlock | None,
+    ) -> Generator[RunMarkdownFlowDTO, None, bool]:
+        """Pay/login gate handling for an interaction that received input.
+
+        Re-emits the gate interaction when access is still blocked, or
+        advances the cursor when the gate is satisfied. Returns True when
+        the gate consumed the step.
+        """
+        run_script_info = state.run_script_info
+        block = state.block
+        block_list = state.block_list
+        if (
+            parsed_interaction.get("buttons")
+            and len(parsed_interaction.get("buttons")) > 0
+        ):
+            for button in parsed_interaction.get("buttons"):
+                if button.get("value") == "_sys_pay":
+                    if not self._is_paid:
+                        # Use translated content from database if available
+                        interaction_content = (
+                            generated_block.block_content_conf
+                            if generated_block and generated_block.block_content_conf
+                            else block.content
                         )
+                        if not generated_block:
+                            generated_block = init_generated_block(
+                                app,
+                                shifu_bid=run_script_info.attend.shifu_bid,
+                                outline_item_bid=run_script_info.outline_bid,
+                                progress_record_bid=run_script_info.attend.progress_record_bid,
+                                user_bid=self._user_info.user_id,
+                                block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                                mdflow=block.content,
+                                block_index=run_script_info.block_position,
+                            )
+                            generated_block.role = ROLE_TEACHER
+                        generated_block.block_content_conf = interaction_content
+                        generated_block.generated_content = ""
+                        self._persist_generated_block_for_events(generated_block)
+                        self.append_langfuse_output(interaction_content)
+                        yield RunMarkdownFlowDTO(
+                            outline_bid=run_script_info.outline_bid,
+                            generated_block_bid=generated_block.generated_block_bid,
+                            type=GeneratedType.INTERACTION,
+                            content=interaction_content,
+                        )
+                        yield from self._maybe_emit_feedback_after_access_gate(
+                            parsed_interaction=parsed_interaction,
+                            progress_record=run_script_info.attend,
+                            is_tail_gate=run_script_info.block_position
+                            >= len(block_list) - 1,
+                        )
+                        self._can_continue = False
+                        return True
                     else:
-                        value_str = str(value) if value is not None else ""
-                    profile_to_save.append(ProfileToSave(key, value_str, profile_id))
-
-                save_user_profiles(
-                    app,
-                    self._user_info.user_id,
-                    self._outline_item_info.shifu_bid,
-                    profile_to_save,
-                )
-                for profile in profile_to_save:
-                    yield RunMarkdownFlowDTO(
-                        outline_bid=run_script_info.outline_bid,
-                        generated_block_bid=generated_block.generated_block_bid,
-                        type=GeneratedType.VARIABLE_UPDATE,
-                        content=VariableUpdateDTO(
-                            variable_name=profile.key,
-                            variable_value=profile.value,
-                        ),
-                    )
-                self._can_continue = True
-                # This step also makes the profile rows saved above durable
-                # (save_user_profiles only flushes; the rows ride into this
-                # step's commit, previously the producer's outer commit).
-                self._recorder.update_progress_pointer(
-                    self._current_attend,
-                    status=LEARN_STATUS_IN_PROGRESS,
-                    block_position=run_script_info.block_position + 1,
-                )
-                self._run_type = RunType.OUTPUT
-                self.app.logger.warning(
-                    f"passed and position: {self._current_attend.block_position}"
-                )
-                return
-            else:
-                generated_block: LearnGeneratedBlock = init_generated_block(
-                    app,
-                    shifu_bid=run_script_info.attend.shifu_bid,
-                    outline_item_bid=run_script_info.outline_bid,
-                    progress_record_bid=run_script_info.attend.progress_record_bid,
-                    user_bid=self._user_info.user_id,
-                    block_type=BLOCK_TYPE_MDERRORMESSAGE_VALUE,
-                    mdflow=block.content,
-                    block_index=block.index,
-                )
-                generated_block.type = BLOCK_TYPE_MDERRORMESSAGE_VALUE
-                generated_block.block_content_conf = block.content
-                generated_block.role = ROLE_TEACHER
-                # Stage only (no unit_of_work): the error content below may
-                # stream from the LLM, and the row must not become durable
-                # until the post-stream save so a disconnect mid-stream still
-                # discards it via the producer rollback.
-                db.session.add(generated_block)
-                db.session.flush()
-                content = ""
-                error_content = getattr(validate_result, "content", "")
-                if isinstance(error_content, str):
-                    error_chunks = [error_content] if error_content else []
-                elif inspect.isgenerator(error_content):
-                    error_chunks = error_content
-                elif isinstance(error_content, (list, tuple)):
-                    error_chunks = [
-                        str(item) for item in error_content if item is not None
-                    ]
-                elif error_content:
-                    error_chunks = [str(error_content)]
-                else:
-                    error_chunks = []
-
-                for chunk in error_chunks:
-                    if chunk is None:
-                        continue
-                    chunk_str = str(chunk)
-                    if not chunk_str:
-                        continue
-                    content += chunk_str
-                    self.append_langfuse_output(chunk_str)
-                    yield RunMarkdownFlowDTO(
-                        outline_bid=run_script_info.outline_bid,
-                        generated_block_bid=generated_block.generated_block_bid,
-                        type=GeneratedType.CONTENT,
-                        content=chunk_str,
-                    )
-                yield RunMarkdownFlowDTO(
-                    outline_bid=run_script_info.outline_bid,
-                    generated_block_bid=generated_block.generated_block_bid,
-                    type=GeneratedType.BREAK,
-                    content="",
-                )
-                generated_block.generated_content = content
-                generated_block.type = BLOCK_TYPE_MDERRORMESSAGE_VALUE
-                generated_block.block_content_conf = block.content
-                # Post-stream finalize step: commits the staged error block
-                # together with its streamed content.
-                self._recorder.save_generated_block(generated_block)
-                generated_block: LearnGeneratedBlock = init_generated_block(
-                    app,
-                    shifu_bid=run_script_info.attend.shifu_bid,
-                    outline_item_bid=run_script_info.outline_bid,
-                    progress_record_bid=run_script_info.attend.progress_record_bid,
-                    user_bid=self._user_info.user_id,
-                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-                    mdflow=block.content,
-                    block_index=block.index,
-                )
-                generated_block.role = ROLE_TEACHER
-                # Stage only (no unit_of_work): the COMPLETE render below can
-                # fail; a durable half-initialized interaction row would
-                # otherwise survive it. The persist step after the render
-                # commits the finished row.
-                db.session.add(generated_block)
-                db.session.flush()
-
-                # Render interaction content with translation after validation error
-                # Note: Do NOT pass variables here - we only want translation, not variable replacement
-                llm_provider.set_usage_generated_block_bid(
-                    generated_block.generated_block_bid
-                )
-                interaction_result = mdflow_context.process(
-                    block_index=run_script_info.block_position,
-                    mode=ProcessMode.COMPLETE,
-                    context=message_list,
-                    variables=user_profile,
-                )
-                rendered_content = (
-                    interaction_result.content if interaction_result else block.content
-                )
-
-                # Store translated interaction block for future retrieval
-                generated_block.block_content_conf = rendered_content
-                # Keep generated_content empty, will be filled with user input later
-                generated_block.generated_content = ""
-                _persist_generated_block_for_events(generated_block)
-                self.append_langfuse_output(rendered_content)
-                yield RunMarkdownFlowDTO(
-                    outline_bid=run_script_info.outline_bid,
-                    generated_block_bid=generated_block.generated_block_bid,
-                    type=GeneratedType.INTERACTION,
-                    content=rendered_content,
-                )
-                self._can_continue = False
-                self._recorder.update_progress_pointer(
-                    self._current_attend, status=LEARN_STATUS_IN_PROGRESS
-                )
-        elif self._run_type == RunType.OUTPUT:
-            generated_block: LearnGeneratedBlock = init_generated_block(
-                app,
-                shifu_bid=run_script_info.attend.shifu_bid,
-                outline_item_bid=run_script_info.outline_bid,
-                progress_record_bid=run_script_info.attend.progress_record_bid,
-                user_bid=self._user_info.user_id,
-                block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-                mdflow=block.content,
-                block_index=block.index,
-            )
-            if block.block_type == BlockType.INTERACTION:
-                interaction_parser: InteractionParser = InteractionParser()
-                parsed_interaction = interaction_parser.parse(block.content)
-                if (
-                    parsed_interaction.get("buttons")
-                    and len(parsed_interaction.get("buttons")) > 0
-                ):
-                    for button in parsed_interaction.get("buttons"):
-                        if button.get("value") == "_sys_pay":
-                            if self._is_paid:
-                                self._can_continue = True
-                                self._recorder.update_progress_pointer(
-                                    self._current_attend,
-                                    block_position=(
-                                        self._current_attend.block_position + 1
-                                    ),
-                                )
-                                self._run_type = RunType.OUTPUT
-                                return
-                        if button.get("value") == "_sys_login":
-                            self.app.logger.warning(
-                                f"_sys_login :{self._user_info.mobile}"
-                            )
-                            if bool(self._user_info.mobile):
-                                self._can_continue = True
-                                self._recorder.update_progress_pointer(
-                                    self._current_attend,
-                                    block_position=(
-                                        self._current_attend.block_position + 1
-                                    ),
-                                )
-                                self._run_type = RunType.OUTPUT
-                                return
-
-                # Render interaction content with translation (markdown-flow 0.2.34+)
-                # Call process() without user_input to trigger interaction rendering
-                # Note: Do NOT pass variables here - we only want translation, not variable replacement
-                app.logger.info(f"render_interaction: {run_script_info.block_position}")
-                llm_provider.set_usage_generated_block_bid(
-                    generated_block.generated_block_bid
-                )
-
-                interaction_result = mdflow_context.process(
-                    block_index=run_script_info.block_position,
-                    mode=ProcessMode.COMPLETE,
-                    context=message_list,
-                    variables=user_profile,
-                )
-
-                # Get rendered interaction content
-                rendered_content = (
-                    interaction_result.content if interaction_result else block.content
-                )
-
-                generated_block.type = BLOCK_TYPE_MDINTERACTION_VALUE
-                # Store translated interaction block for future retrieval
-                generated_block.block_content_conf = rendered_content
-                # Keep generated_content empty, will be filled with user input later
-                generated_block.generated_content = ""
-                _persist_generated_block_for_events(generated_block)
-                self.append_langfuse_output(rendered_content)
-                yield RunMarkdownFlowDTO(
-                    outline_bid=run_script_info.outline_bid,
-                    generated_block_bid=generated_block.generated_block_bid,
-                    type=GeneratedType.INTERACTION,
-                    content=rendered_content,
-                )
-                yield from self._maybe_emit_feedback_after_access_gate(
-                    parsed_interaction=parsed_interaction,
-                    progress_record=run_script_info.attend,
-                    is_tail_gate=run_script_info.block_position >= len(block_list) - 1,
-                )
-                self._can_continue = False
-                self._recorder.update_progress_pointer(
-                    self._current_attend, status=LEARN_STATUS_IN_PROGRESS
-                )
-                # For interaction blocks we should stop here and wait for explicit user action.
-                # Continuing into outline completion fallback may incorrectly append
-                # `_sys_next_chapter` after access-gate interactions such as pay/login.
-                return
-            else:
-                # Guard against replaying the same fixed-output block right after
-                # processing an interaction input in the same request.
-                if has_effective_input:
-                    existing_content_block: LearnGeneratedBlock | None = (
-                        LearnGeneratedBlock.query.filter(
-                            LearnGeneratedBlock.progress_record_bid
-                            == run_script_info.attend.progress_record_bid,
-                            LearnGeneratedBlock.outline_item_bid
-                            == run_script_info.outline_bid,
-                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                            LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
-                            LearnGeneratedBlock.position
-                            == run_script_info.block_position,
-                            LearnGeneratedBlock.status == 1,
-                            LearnGeneratedBlock.deleted == 0,
-                        )
-                        .order_by(LearnGeneratedBlock.id.desc())
-                        .first()
-                    )
-                    if existing_content_block:
-                        app.logger.warning(
-                            "Skip duplicated fixed output block: progress=%s outline=%s position=%s generated_block=%s",
-                            run_script_info.attend.progress_record_bid,
-                            run_script_info.outline_bid,
-                            run_script_info.block_position,
-                            existing_content_block.generated_block_bid,
-                        )
                         self._can_continue = True
-                        self._run_type = RunType.OUTPUT
                         self._recorder.update_progress_pointer(
                             self._current_attend,
-                            status=LEARN_STATUS_IN_PROGRESS,
                             block_position=self._current_attend.block_position + 1,
                         )
-                        return
-                generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
-                # Stage only (no unit_of_work): the LLM stream for this block
-                # is about to run and the row must not become durable until
-                # finalize_streamed_block below. A disconnect mid-stream
-                # discards the staged row via the producer rollback, so the
-                # re-run regenerates the block exactly as before PR2.
-                if not getattr(generated_block, "id", None):
-                    db.session.add(generated_block)
-                db.session.flush()
-                llm_provider.set_usage_generated_block_bid(
-                    generated_block.generated_block_bid
-                )
-                generated_content = ""
-                tts_processor = None
-                tts_enabled = bool(self._should_stream_tts())
-                current_tts_stream_key: tuple[str, int] | None = None
-                next_tts_position = 0
-                tts_finalize_drainer = StreamTTSFinalizeDrainer(
-                    self,
-                    log_prefix="Finalize streaming TTS failed",
-                )
-
-                # Direct synchronous stream processing (markdown-flow 0.2.27+)
-                app.logger.info(f"process_stream: {run_script_info.block_position}")
-                app.logger.info(f"variables: {user_profile}")
-
-                def _build_content_event(
-                    chunk_text: str,
-                    stream_element_type: str | None = None,
-                    stream_element_number: int | None = None,
-                ) -> RunMarkdownFlowDTO:
-                    event = RunMarkdownFlowDTO(
-                        outline_bid=run_script_info.outline_bid,
-                        generated_block_bid=generated_block.generated_block_bid,
-                        type=GeneratedType.CONTENT,
-                        content=chunk_text,
-                    )
-                    if stream_element_type and stream_element_number is not None:
-                        event.set_mdflow_stream_parts(
-                            [(chunk_text, stream_element_type, stream_element_number)]
+                        self._run_type = RunType.OUTPUT
+                        return True
+                if button.get("value") == "_sys_login":
+                    if bool(self._user_info.mobile):
+                        self._can_continue = True
+                        self._recorder.update_progress_pointer(
+                            self._current_attend,
+                            block_position=self._current_attend.block_position + 1,
                         )
-                    return event
-
-                def _normalize_tts_stream_key(
-                    stream_element_type: str | None = None,
-                    stream_element_number: int | None = None,
-                ) -> tuple[str, int] | None:
-                    normalized_type = (stream_element_type or "").strip().lower()
-                    if normalized_type != "text" or stream_element_number is None:
-                        return None
-                    return normalized_type, int(stream_element_number)
-
-                def _switch_tts_processor(
-                    stream_element_type: str | None = None,
-                    stream_element_number: int | None = None,
-                ):
-                    nonlocal \
-                        tts_processor, \
-                        tts_enabled, \
-                        current_tts_stream_key, \
-                        next_tts_position
-                    next_key = _normalize_tts_stream_key(
-                        stream_element_type=stream_element_type,
-                        stream_element_number=stream_element_number,
-                    )
-                    if current_tts_stream_key == next_key:
-                        return
-                    if tts_processor:
-                        tts_finalize_drainer.submit(tts_processor)
-                        tts_processor = None
-                        current_tts_stream_key = None
-                    if not tts_enabled or next_key is None:
-                        return
-                    tts_processor = self._try_create_tts_processor(
-                        generated_block.generated_block_bid,
-                        shifu_bid=run_script_info.attend.shifu_bid,
-                        position=next_tts_position,
-                        stream_element_number=stream_element_number,
-                        stream_element_type=stream_element_type,
-                    )
-                    if not tts_processor:
-                        return
-                    current_tts_stream_key = next_key
-                    next_tts_position += 1
-
-                def _process_stream_chunk(
-                    chunk_content: str,
-                    stream_element_type: str | None = None,
-                    stream_element_number: int | None = None,
-                ):
-                    nonlocal \
-                        generated_content, \
-                        tts_processor, \
-                        tts_enabled, \
-                        current_tts_stream_key
-                    if not chunk_content:
-                        return
-                    generated_content += chunk_content
-                    self.append_langfuse_output(chunk_content)
-                    yield _build_content_event(
-                        chunk_content,
-                        stream_element_type=stream_element_type,
-                        stream_element_number=stream_element_number,
-                    )
-                    _switch_tts_processor(
-                        stream_element_type=stream_element_type,
-                        stream_element_number=stream_element_number,
-                    )
-                    if not tts_processor or current_tts_stream_key is None:
-                        yield from _drain_tts_ready_events()
-                        return
-                    try:
-                        yield from tts_processor.process_chunk(chunk_content)
-                        yield from _drain_tts_ready_events()
-                    except Exception as exc:
-                        app.logger.warning(
-                            "Streaming TTS failed; disable for this block: %s",
-                            exc,
-                            exc_info=True,
-                        )
-                        tts_processor = None
-                        current_tts_stream_key = None
-                        tts_enabled = False
-
-                def _disable_current_tts_processor() -> None:
-                    nonlocal tts_processor, current_tts_stream_key
-                    tts_processor = None
-                    current_tts_stream_key = None
-
-                def _disable_all_tts() -> None:
-                    nonlocal tts_enabled
-                    _disable_current_tts_processor()
-                    tts_enabled = False
-
-                def _handle_current_tts_drain_error(exc: Exception) -> None:
-                    app.logger.warning(
-                        "Idle streaming TTS drain failed; disable for this block: %s",
-                        exc,
-                        exc_info=True,
-                    )
-                    _disable_all_tts()
-
-                def _drain_current_tts_ready_events():
-                    if not tts_processor:
-                        return
-                    if not hasattr(tts_processor, "drain_ready_segments"):
-                        return
-                    try:
-                        yield from tts_processor.drain_ready_segments()
-                    except Exception as exc:
-                        _handle_current_tts_drain_error(exc)
-
-                def _drain_tts_ready_events():
-                    yield from tts_finalize_drainer.drain()
-                    yield from _drain_current_tts_ready_events()
-                    yield from tts_finalize_drainer.drain()
-
-                stream_exc: BaseException | None = None
-                try:
-                    stream_result = mdflow_context.process(
-                        block_index=run_script_info.block_position,
-                        mode=ProcessMode.STREAM,
-                        variables=user_profile,
-                        context=message_list,
-                    )
-
-                    # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
-                    # In some edge cases (e.g., no LLM provider), returns a single LLMResult instead of Generator
-                    if inspect.isgenerator(stream_result):
-                        idle_poll_interval = float(
-                            app.config.get("STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.05)
-                        )
-                        for (
-                            source,
-                            payload,
-                        ) in self._iter_stream_result_with_idle_callback(
-                            stream_result,
-                            idle_callback=_drain_tts_ready_events
-                            if tts_enabled
-                            else None,
-                            idle_poll_interval=idle_poll_interval,
-                        ):
-                            if source == "idle":
-                                yield payload
-                                continue
-                            for (
-                                chunk_content,
-                                stream_element_type,
-                                normalized_number,
-                            ) in _iter_llm_result_content_parts(payload):
-                                yield from _process_stream_chunk(
-                                    chunk_content,
-                                    stream_element_type=stream_element_type or None,
-                                    stream_element_number=normalized_number,
-                                )
+                        self._run_type = RunType.OUTPUT
+                        return True
                     else:
-                        # markdown-flow still returns a single LLMResult for some
-                        # STREAM edge cases, such as preserved content.
-                        for (
-                            chunk_content,
-                            stream_element_type,
-                            normalized_number,
-                        ) in _iter_llm_result_content_parts(stream_result):
-                            yield from _process_stream_chunk(
-                                chunk_content,
-                                stream_element_type=stream_element_type or None,
-                                stream_element_number=normalized_number,
+                        # Use translated content from database if available
+                        interaction_content = (
+                            generated_block.block_content_conf
+                            if generated_block and generated_block.block_content_conf
+                            else block.content
+                        )
+                        if not generated_block:
+                            generated_block = init_generated_block(
+                                app,
+                                shifu_bid=run_script_info.attend.shifu_bid,
+                                outline_item_bid=run_script_info.outline_bid,
+                                progress_record_bid=run_script_info.attend.progress_record_bid,
+                                user_bid=self._user_info.user_id,
+                                block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                                mdflow=block.content,
+                                block_index=run_script_info.block_position,
                             )
-                except BaseException as exc:
-                    stream_exc = exc
-                    raise
-                finally:
-                    if not isinstance(stream_exc, GeneratorExit):
-                        yield from tts_finalize_drainer.drain(wait=True)
-                    else:
-                        tts_finalize_drainer.close()
-                    yield from self._teardown_stream_tts_state(
-                        tts_processor=tts_processor,
-                        flush_content_cache=_drain_current_tts_ready_events,
-                        log_prefix="Finalize streaming TTS failed",
-                        skip_emit=isinstance(stream_exc, GeneratorExit),
-                    )
-                    tts_processor = None
-                    current_tts_stream_key = None
+                            generated_block.role = ROLE_TEACHER
+                        generated_block.block_content_conf = interaction_content
+                        generated_block.generated_content = ""
+                        self._persist_generated_block_for_events(generated_block)
+                        self.append_langfuse_output(interaction_content)
+                        yield RunMarkdownFlowDTO(
+                            outline_bid=run_script_info.outline_bid,
+                            generated_block_bid=generated_block.generated_block_bid,
+                            type=GeneratedType.INTERACTION,
+                            content=interaction_content,
+                        )
+                        yield from self._maybe_emit_feedback_after_access_gate(
+                            parsed_interaction=parsed_interaction,
+                            progress_record=run_script_info.attend,
+                            is_tail_gate=run_script_info.block_position
+                            >= len(block_list) - 1,
+                        )
+                        self._can_continue = False
+                        return True
+        return False
 
+    def _phase_emit_interaction_pause(
+        self, app: Flask, state: _RunStepState
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """First arrival at an interaction with no cached block.
+
+        Renders the interaction (translation only), persists it, emits it,
+        and pauses the run to wait for user input.
+        """
+        run_script_info = state.run_script_info
+        block = state.block
+        generated_block = init_generated_block(
+            app,
+            shifu_bid=run_script_info.attend.shifu_bid,
+            outline_item_bid=run_script_info.outline_bid,
+            progress_record_bid=run_script_info.attend.progress_record_bid,
+            user_bid=self._user_info.user_id,
+            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            mdflow=block.content,
+            block_index=run_script_info.block_position,
+        )
+        app.logger.info(
+            f"generated_block not found, init new one: {generated_block.generated_block_bid}"
+        )
+
+        # Render interaction content with translation (INPUT mode, no cached block)
+        # Note: Do NOT pass variables here - we only want translation, not variable replacement
+        state.llm_provider.set_usage_generated_block_bid(
+            generated_block.generated_block_bid
+        )
+        interaction_result = state.mdflow_context.process(
+            block_index=run_script_info.block_position,
+            mode=ProcessMode.COMPLETE,
+            context=state.message_list,
+            variables=state.user_profile,
+        )
+        rendered_content = (
+            interaction_result.content if interaction_result else block.content
+        )
+
+        # Store translated interaction block for future retrieval
+        generated_block.block_content_conf = rendered_content
+        # Keep generated_content empty, will be filled with user input later
+        generated_block.generated_content = ""
+        generated_block.role = ROLE_TEACHER
+        self._persist_generated_block_for_events(generated_block)
+        self.append_langfuse_output(rendered_content)
+        yield RunMarkdownFlowDTO(
+            outline_bid=run_script_info.outline_bid,
+            generated_block_bid=generated_block.generated_block_bid,
+            type=GeneratedType.INTERACTION,
+            content=rendered_content,
+        )
+        self._can_continue = False
+
+    def _phase_record_input_and_moderate(
+        self,
+        app: Flask,
+        state: _RunStepState,
+        generated_block: LearnGeneratedBlock,
+        parsed_interaction: dict,
+    ) -> Generator[RunMarkdownFlowDTO, None, tuple[bool, dict]]:
+        """Record the student input on the interaction block and moderate it.
+
+        Returns ``(handled, user_input_param)``: handled is True when the
+        moderation result consumed the step (error content replayed and the
+        interaction re-emitted), so run_inner must stop.
+        """
+        run_script_info = state.run_script_info
+        block = state.block
+        expected_variable = (parsed_interaction.get("variable") or "input").strip()
+        if not expected_variable:
+            expected_variable = "input"
+
+        user_input_param = MdflowContextV2.normalize_user_input_map(
+            self._input, expected_variable
+        )
+        # Backward compatible: some clients may still send `{input: [...]}` or a single
+        # unnamed key even when the interaction expects a specific variable.
+        if expected_variable and expected_variable not in user_input_param:
+            if "input" in user_input_param and len(user_input_param) == 1:
+                app.logger.warning(
+                    "Remap interaction input key 'input' -> '%s'", expected_variable
+                )
+                user_input_param = {expected_variable: user_input_param["input"]}
+            elif len(user_input_param) == 1:
+                only_key, only_values = next(iter(user_input_param.items()))
+                if only_values:
+                    app.logger.warning(
+                        "Remap interaction input key '%s' -> '%s'",
+                        only_key,
+                        expected_variable,
+                    )
+                    user_input_param = {expected_variable: only_values}
+
+        generated_block.generated_content = MdflowContextV2.flatten_user_input_map(
+            user_input_param
+        )
+        generated_block.role = ROLE_STUDENT
+        generated_block.position = run_script_info.block_position
+        # For STUDENT records, also store translated interaction block
+        # (in case this record is returned instead of TEACHER record)
+        state.llm_provider.set_usage_generated_block_bid(
+            generated_block.generated_block_bid
+        )
+        interaction_result = state.mdflow_context.process(
+            block_index=run_script_info.block_position,
+            mode=ProcessMode.COMPLETE,
+            context=state.message_list,
+            variables=state.user_profile,
+        )
+        generated_block.block_content_conf = (
+            interaction_result.content if interaction_result else block.content
+        )
+        generated_block.status = 1
+        # Commit the accumulated student-record mutations as one step,
+        # after the COMPLETE render above has returned.
+        self._recorder.save_generated_block(generated_block)
+        trace_metadata = self._trace_args.get("metadata") or {}
+        if not isinstance(trace_metadata, dict):
+            trace_metadata = {}
+        chapter_title = trace_metadata.get(
+            "chapter_title",
+            self._outline_item_info.title,
+        )
+        trace_scene = trace_metadata.get("scene", "lesson_runtime")
+        # NOTE(uow cross-module leak): check_text_with_llm_response logs its
+        # moderation verdict via check_risk.add_risk_control_result
+        # (flaskr/service/check_risk/funcs.py), which opens a nested app
+        # context and issues its own raw db.session.commit() from inside
+        # this /run generator — outside the recorder's per-step
+        # unit_of_work boundaries. Migrating that self-commit rider is
+        # check_risk-module work, tracked in the ExecPlan Decision Log
+        # (docs/exec-plans/active/learn-run-decomposition.md).
+        res = check_text_with_llm_response(
+            app,
+            user_info=self._user_info,
+            log_script=generated_block,
+            input=generated_block.generated_content,  # Use converted string value
+            span=self._trace_root_span,
+            outline_item_bid=self._outline_item_info.bid,
+            shifu_bid=self._outline_item_info.shifu_bid,
+            block_position=run_script_info.block_position,
+            llm_settings=state.llm_settings,
+            attend_id=self._current_attend.progress_record_bid,
+            fmt_prompt="",
+            usage_context=replace(
+                state.usage_context,
+                generated_block_bid=generated_block.generated_block_bid,
+            ),
+            chapter_title=chapter_title,
+            scene=f"{trace_scene}_interaction",
+        )
+        # Check if the generator yields any content (not None)
+        has_content = False
+        for i in res:
+            if i is not None and i != "":
+                self.app.logger.info(f"check_text_with_llm_response: {i}")
+                has_content = True
+                self.append_langfuse_output(i)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
-                    type=GeneratedType.BREAK,
-                    content="",
-                )
-                next_block_position = run_script_info.block_position + 1
-                # Continue the same run across subsequent blocks until we hit
-                # an interaction block or reach outline completion.
-                self._can_continue = next_block_position < len(block_list)
-                # Block-finalize step: streamed content + cursor advance
-                # commit atomically once the stream has fully completed
-                # (pending TTS/listen-element sidecar rows ride along).
-                self._recorder.finalize_streamed_block(
-                    generated_block,
-                    generated_content,
-                    self._current_attend,
-                    status=LEARN_STATUS_IN_PROGRESS,
-                    block_position=next_block_position,
+                    type=GeneratedType.CONTENT,
+                    content=i,
                 )
 
+        if has_content:
+            self._can_continue = False
+            yield RunMarkdownFlowDTO(
+                outline_bid=run_script_info.outline_bid,
+                generated_block_bid=generated_block.generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            )
+
+            # Render interaction content with translation after risk check
+            # Note: Do NOT pass variables here - we only want translation, not variable replacement
+            interaction_result = state.mdflow_context.process(
+                block_index=run_script_info.block_position,
+                mode=ProcessMode.COMPLETE,
+                context=state.message_list,
+                variables=state.user_profile,
+            )
+            rendered_content = (
+                interaction_result.content if interaction_result else block.content
+            )
+
+            # Store translated interaction block for future retrieval
+            generated_block.block_content_conf = rendered_content
+            # Keep generated_content empty, will be filled with user input later
+            generated_block.generated_content = ""
+            generated_block.generated_block_bid = generate_id(app)
+            self._persist_generated_block_for_events(generated_block)
+            self.append_langfuse_output(rendered_content)
+            yield RunMarkdownFlowDTO(
+                outline_bid=run_script_info.outline_bid,
+                generated_block_bid=generated_block.generated_block_bid,
+                type=GeneratedType.INTERACTION,
+                content=rendered_content,
+            )
+            return True, user_input_param
+        return False, user_input_param
+
+    def _phase_validate_input_and_advance(
+        self,
+        app: Flask,
+        state: _RunStepState,
+        generated_block: LearnGeneratedBlock,
+        parsed_interaction: dict,
+        user_input_param: dict,
+    ) -> Generator[RunMarkdownFlowDTO, None, bool]:
+        """Validate the interaction input, save variables, advance the cursor.
+
+        Returns True when the step advanced (or the interaction assigns no
+        variable); False when validation failed and the error replay must
+        fall through to the completion tail.
+        """
+        run_script_info = state.run_script_info
+        if not parsed_interaction.get("variable"):
+            self._can_continue = True
+            self._run_type = RunType.OUTPUT
+            self._recorder.update_progress_pointer(
+                self._current_attend,
+                status=LEARN_STATUS_IN_PROGRESS,
+                block_position=run_script_info.block_position + 1,
+            )
+            return True
+        validate_result = state.mdflow_context.process(
+            block_index=run_script_info.block_position,
+            mode=ProcessMode.COMPLETE,
+            user_input=user_input_param,
+            context=state.message_list,
+            variables=state.user_profile,
+        )
+
+        if validate_result.variables is not None and len(validate_result.variables) > 0:
+            profile_to_save: list[ProfileToSave] = []
+            for key, value in validate_result.variables.items():
+                profile_id = state.variable_definition_key_id_map.get(key, "")
+                # Convert list to string (markdown-flow 0.2.27+ returns list[str] for multi-select)
+                if isinstance(value, list):
+                    # Filter out None and convert to string
+                    value_str = ",".join(
+                        [str(item) for item in value if item is not None]
+                    )
+                else:
+                    value_str = str(value) if value is not None else ""
+                profile_to_save.append(ProfileToSave(key, value_str, profile_id))
+
+            save_user_profiles(
+                app,
+                self._user_info.user_id,
+                self._outline_item_info.shifu_bid,
+                profile_to_save,
+            )
+            for profile in profile_to_save:
+                yield RunMarkdownFlowDTO(
+                    outline_bid=run_script_info.outline_bid,
+                    generated_block_bid=generated_block.generated_block_bid,
+                    type=GeneratedType.VARIABLE_UPDATE,
+                    content=VariableUpdateDTO(
+                        variable_name=profile.key,
+                        variable_value=profile.value,
+                    ),
+                )
+            self._can_continue = True
+            # This step also makes the profile rows saved above durable
+            # (save_user_profiles only flushes; the rows ride into this
+            # step's commit, previously the producer's outer commit).
+            self._recorder.update_progress_pointer(
+                self._current_attend,
+                status=LEARN_STATUS_IN_PROGRESS,
+                block_position=run_script_info.block_position + 1,
+            )
+            self._run_type = RunType.OUTPUT
+            self.app.logger.warning(
+                f"passed and position: {self._current_attend.block_position}"
+            )
+            return True
+        else:
+            yield from self._phase_emit_validation_error(app, state, validate_result)
+            return False
+
+    def _phase_emit_validation_error(
+        self, app: Flask, state: _RunStepState, validate_result
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Stream the validation-error content and re-emit the interaction."""
+        run_script_info = state.run_script_info
+        block = state.block
+        generated_block: LearnGeneratedBlock = init_generated_block(
+            app,
+            shifu_bid=run_script_info.attend.shifu_bid,
+            outline_item_bid=run_script_info.outline_bid,
+            progress_record_bid=run_script_info.attend.progress_record_bid,
+            user_bid=self._user_info.user_id,
+            block_type=BLOCK_TYPE_MDERRORMESSAGE_VALUE,
+            mdflow=block.content,
+            block_index=block.index,
+        )
+        generated_block.type = BLOCK_TYPE_MDERRORMESSAGE_VALUE
+        generated_block.block_content_conf = block.content
+        generated_block.role = ROLE_TEACHER
+        # Stage only (no unit_of_work): the error content below may
+        # stream from the LLM, and the row must not become durable
+        # until the post-stream save so a disconnect mid-stream still
+        # discards it via the producer rollback.
+        db.session.add(generated_block)
+        db.session.flush()
+        content = ""
+        error_content = getattr(validate_result, "content", "")
+        if isinstance(error_content, str):
+            error_chunks = [error_content] if error_content else []
+        elif inspect.isgenerator(error_content):
+            error_chunks = error_content
+        elif isinstance(error_content, (list, tuple)):
+            error_chunks = [str(item) for item in error_content if item is not None]
+        elif error_content:
+            error_chunks = [str(error_content)]
+        else:
+            error_chunks = []
+
+        for chunk in error_chunks:
+            if chunk is None:
+                continue
+            chunk_str = str(chunk)
+            if not chunk_str:
+                continue
+            content += chunk_str
+            self.append_langfuse_output(chunk_str)
+            yield RunMarkdownFlowDTO(
+                outline_bid=run_script_info.outline_bid,
+                generated_block_bid=generated_block.generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content=chunk_str,
+            )
+        yield RunMarkdownFlowDTO(
+            outline_bid=run_script_info.outline_bid,
+            generated_block_bid=generated_block.generated_block_bid,
+            type=GeneratedType.BREAK,
+            content="",
+        )
+        generated_block.generated_content = content
+        generated_block.type = BLOCK_TYPE_MDERRORMESSAGE_VALUE
+        generated_block.block_content_conf = block.content
+        # Post-stream finalize step: commits the staged error block
+        # together with its streamed content.
+        self._recorder.save_generated_block(generated_block)
+        generated_block: LearnGeneratedBlock = init_generated_block(
+            app,
+            shifu_bid=run_script_info.attend.shifu_bid,
+            outline_item_bid=run_script_info.outline_bid,
+            progress_record_bid=run_script_info.attend.progress_record_bid,
+            user_bid=self._user_info.user_id,
+            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            mdflow=block.content,
+            block_index=block.index,
+        )
+        generated_block.role = ROLE_TEACHER
+        # Stage only (no unit_of_work): the COMPLETE render below can
+        # fail; a durable half-initialized interaction row would
+        # otherwise survive it. The persist step after the render
+        # commits the finished row.
+        db.session.add(generated_block)
+        db.session.flush()
+
+        # Render interaction content with translation after validation error
+        # Note: Do NOT pass variables here - we only want translation, not variable replacement
+        state.llm_provider.set_usage_generated_block_bid(
+            generated_block.generated_block_bid
+        )
+        interaction_result = state.mdflow_context.process(
+            block_index=run_script_info.block_position,
+            mode=ProcessMode.COMPLETE,
+            context=state.message_list,
+            variables=state.user_profile,
+        )
+        rendered_content = (
+            interaction_result.content if interaction_result else block.content
+        )
+
+        # Store translated interaction block for future retrieval
+        generated_block.block_content_conf = rendered_content
+        # Keep generated_content empty, will be filled with user input later
+        generated_block.generated_content = ""
+        self._persist_generated_block_for_events(generated_block)
+        self.append_langfuse_output(rendered_content)
+        yield RunMarkdownFlowDTO(
+            outline_bid=run_script_info.outline_bid,
+            generated_block_bid=generated_block.generated_block_bid,
+            type=GeneratedType.INTERACTION,
+            content=rendered_content,
+        )
+        self._can_continue = False
+        self._recorder.update_progress_pointer(
+            self._current_attend, status=LEARN_STATUS_IN_PROGRESS
+        )
+
+    def _phase_render_output(
+        self, app: Flask, state: _RunStepState
+    ) -> Generator[RunMarkdownFlowDTO, None, bool]:
+        """OUTPUT-mode step: render an interaction or stream a content block.
+
+        Returns True when run_inner must stop after this phase; False when
+        a content block finished streaming and the step falls through to
+        the completion tail.
+        """
+        run_script_info = state.run_script_info
+        block = state.block
+        generated_block: LearnGeneratedBlock = init_generated_block(
+            app,
+            shifu_bid=run_script_info.attend.shifu_bid,
+            outline_item_bid=run_script_info.outline_bid,
+            progress_record_bid=run_script_info.attend.progress_record_bid,
+            user_bid=self._user_info.user_id,
+            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            mdflow=block.content,
+            block_index=block.index,
+        )
+        if block.block_type == BlockType.INTERACTION:
+            yield from self._phase_emit_output_interaction(app, state, generated_block)
+            return True
+        else:
+            # Guard against replaying the same fixed-output block right after
+            # processing an interaction input in the same request.
+            if state.has_effective_input:
+                existing_content_block: LearnGeneratedBlock | None = (
+                    LearnGeneratedBlock.query.filter(
+                        LearnGeneratedBlock.progress_record_bid
+                        == run_script_info.attend.progress_record_bid,
+                        LearnGeneratedBlock.outline_item_bid
+                        == run_script_info.outline_bid,
+                        LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                        LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+                        LearnGeneratedBlock.position == run_script_info.block_position,
+                        LearnGeneratedBlock.status == 1,
+                        LearnGeneratedBlock.deleted == 0,
+                    )
+                    .order_by(LearnGeneratedBlock.id.desc())
+                    .first()
+                )
+                if existing_content_block:
+                    app.logger.warning(
+                        "Skip duplicated fixed output block: progress=%s outline=%s position=%s generated_block=%s",
+                        run_script_info.attend.progress_record_bid,
+                        run_script_info.outline_bid,
+                        run_script_info.block_position,
+                        existing_content_block.generated_block_bid,
+                    )
+                    self._can_continue = True
+                    self._run_type = RunType.OUTPUT
+                    self._recorder.update_progress_pointer(
+                        self._current_attend,
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=self._current_attend.block_position + 1,
+                    )
+                    return True
+            yield from self._phase_stream_content_block(app, state, generated_block)
+            return False
+
+    def _phase_emit_output_interaction(
+        self,
+        app: Flask,
+        state: _RunStepState,
+        generated_block: LearnGeneratedBlock,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Render and emit an interaction block in OUTPUT mode.
+
+        Skips satisfied pay/login gates by advancing the cursor; otherwise
+        persists the rendered interaction and pauses for user action.
+        """
+        run_script_info = state.run_script_info
+        block = state.block
+        block_list = state.block_list
+        interaction_parser: InteractionParser = InteractionParser()
+        parsed_interaction = interaction_parser.parse(block.content)
+        if (
+            parsed_interaction.get("buttons")
+            and len(parsed_interaction.get("buttons")) > 0
+        ):
+            for button in parsed_interaction.get("buttons"):
+                if button.get("value") == "_sys_pay":
+                    if self._is_paid:
+                        self._can_continue = True
+                        self._recorder.update_progress_pointer(
+                            self._current_attend,
+                            block_position=(self._current_attend.block_position + 1),
+                        )
+                        self._run_type = RunType.OUTPUT
+                        return
+                if button.get("value") == "_sys_login":
+                    self.app.logger.warning(f"_sys_login :{self._user_info.mobile}")
+                    if bool(self._user_info.mobile):
+                        self._can_continue = True
+                        self._recorder.update_progress_pointer(
+                            self._current_attend,
+                            block_position=(self._current_attend.block_position + 1),
+                        )
+                        self._run_type = RunType.OUTPUT
+                        return
+
+        # Render interaction content with translation (markdown-flow 0.2.34+)
+        # Call process() without user_input to trigger interaction rendering
+        # Note: Do NOT pass variables here - we only want translation, not variable replacement
+        app.logger.info(f"render_interaction: {run_script_info.block_position}")
+        state.llm_provider.set_usage_generated_block_bid(
+            generated_block.generated_block_bid
+        )
+
+        interaction_result = state.mdflow_context.process(
+            block_index=run_script_info.block_position,
+            mode=ProcessMode.COMPLETE,
+            context=state.message_list,
+            variables=state.user_profile,
+        )
+
+        # Get rendered interaction content
+        rendered_content = (
+            interaction_result.content if interaction_result else block.content
+        )
+
+        generated_block.type = BLOCK_TYPE_MDINTERACTION_VALUE
+        # Store translated interaction block for future retrieval
+        generated_block.block_content_conf = rendered_content
+        # Keep generated_content empty, will be filled with user input later
+        generated_block.generated_content = ""
+        self._persist_generated_block_for_events(generated_block)
+        self.append_langfuse_output(rendered_content)
+        yield RunMarkdownFlowDTO(
+            outline_bid=run_script_info.outline_bid,
+            generated_block_bid=generated_block.generated_block_bid,
+            type=GeneratedType.INTERACTION,
+            content=rendered_content,
+        )
+        yield from self._maybe_emit_feedback_after_access_gate(
+            parsed_interaction=parsed_interaction,
+            progress_record=run_script_info.attend,
+            is_tail_gate=run_script_info.block_position >= len(block_list) - 1,
+        )
+        self._can_continue = False
+        self._recorder.update_progress_pointer(
+            self._current_attend, status=LEARN_STATUS_IN_PROGRESS
+        )
+        # For interaction blocks we should stop here and wait for explicit user action.
+        # Continuing into outline completion fallback may incorrectly append
+        # `_sys_next_chapter` after access-gate interactions such as pay/login.
+        return
+
+    def _phase_stream_content_block(
+        self,
+        app: Flask,
+        state: _RunStepState,
+        generated_block: LearnGeneratedBlock,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Stream one LLM content block (with optional streaming TTS).
+
+        Stages the block row, streams the MDF/LLM output chunk by chunk,
+        emits the BREAK, and finalizes block content + cursor advance as
+        one recorder step.
+        """
+        run_script_info = state.run_script_info
+        block_list = state.block_list
+        user_profile = state.user_profile
+        message_list = state.message_list
+        generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
+        # Stage only (no unit_of_work): the LLM stream for this block
+        # is about to run and the row must not become durable until
+        # finalize_streamed_block below. A disconnect mid-stream
+        # discards the staged row via the producer rollback, so the
+        # re-run regenerates the block exactly as before PR2.
+        if not getattr(generated_block, "id", None):
+            db.session.add(generated_block)
+        db.session.flush()
+        state.llm_provider.set_usage_generated_block_bid(
+            generated_block.generated_block_bid
+        )
+        generated_content = ""
+        tts_processor = None
+        tts_enabled = bool(self._should_stream_tts())
+        current_tts_stream_key: tuple[str, int] | None = None
+        next_tts_position = 0
+        tts_finalize_drainer = StreamTTSFinalizeDrainer(
+            self,
+            log_prefix="Finalize streaming TTS failed",
+        )
+
+        # Direct synchronous stream processing (markdown-flow 0.2.27+)
+        app.logger.info(f"process_stream: {run_script_info.block_position}")
+        app.logger.info(f"variables: {user_profile}")
+
+        def _build_content_event(
+            chunk_text: str,
+            stream_element_type: str | None = None,
+            stream_element_number: int | None = None,
+        ) -> RunMarkdownFlowDTO:
+            event = RunMarkdownFlowDTO(
+                outline_bid=run_script_info.outline_bid,
+                generated_block_bid=generated_block.generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content=chunk_text,
+            )
+            if stream_element_type and stream_element_number is not None:
+                event.set_mdflow_stream_parts(
+                    [(chunk_text, stream_element_type, stream_element_number)]
+                )
+            return event
+
+        def _normalize_tts_stream_key(
+            stream_element_type: str | None = None,
+            stream_element_number: int | None = None,
+        ) -> tuple[str, int] | None:
+            normalized_type = (stream_element_type or "").strip().lower()
+            if normalized_type != "text" or stream_element_number is None:
+                return None
+            return normalized_type, int(stream_element_number)
+
+        def _switch_tts_processor(
+            stream_element_type: str | None = None,
+            stream_element_number: int | None = None,
+        ):
+            nonlocal \
+                tts_processor, \
+                tts_enabled, \
+                current_tts_stream_key, \
+                next_tts_position
+            next_key = _normalize_tts_stream_key(
+                stream_element_type=stream_element_type,
+                stream_element_number=stream_element_number,
+            )
+            if current_tts_stream_key == next_key:
+                return
+            if tts_processor:
+                tts_finalize_drainer.submit(tts_processor)
+                tts_processor = None
+                current_tts_stream_key = None
+            if not tts_enabled or next_key is None:
+                return
+            tts_processor = self._try_create_tts_processor(
+                generated_block.generated_block_bid,
+                shifu_bid=run_script_info.attend.shifu_bid,
+                position=next_tts_position,
+                stream_element_number=stream_element_number,
+                stream_element_type=stream_element_type,
+            )
+            if not tts_processor:
+                return
+            current_tts_stream_key = next_key
+            next_tts_position += 1
+
+        def _process_stream_chunk(
+            chunk_content: str,
+            stream_element_type: str | None = None,
+            stream_element_number: int | None = None,
+        ):
+            nonlocal \
+                generated_content, \
+                tts_processor, \
+                tts_enabled, \
+                current_tts_stream_key
+            if not chunk_content:
+                return
+            generated_content += chunk_content
+            self.append_langfuse_output(chunk_content)
+            yield _build_content_event(
+                chunk_content,
+                stream_element_type=stream_element_type,
+                stream_element_number=stream_element_number,
+            )
+            _switch_tts_processor(
+                stream_element_type=stream_element_type,
+                stream_element_number=stream_element_number,
+            )
+            if not tts_processor or current_tts_stream_key is None:
+                yield from _drain_tts_ready_events()
+                return
+            try:
+                yield from tts_processor.process_chunk(chunk_content)
+                yield from _drain_tts_ready_events()
+            except Exception as exc:
+                app.logger.warning(
+                    "Streaming TTS failed; disable for this block: %s",
+                    exc,
+                    exc_info=True,
+                )
+                tts_processor = None
+                current_tts_stream_key = None
+                tts_enabled = False
+
+        def _disable_current_tts_processor() -> None:
+            nonlocal tts_processor, current_tts_stream_key
+            tts_processor = None
+            current_tts_stream_key = None
+
+        def _disable_all_tts() -> None:
+            nonlocal tts_enabled
+            _disable_current_tts_processor()
+            tts_enabled = False
+
+        def _handle_current_tts_drain_error(exc: Exception) -> None:
+            app.logger.warning(
+                "Idle streaming TTS drain failed; disable for this block: %s",
+                exc,
+                exc_info=True,
+            )
+            _disable_all_tts()
+
+        def _drain_current_tts_ready_events():
+            if not tts_processor:
+                return
+            if not hasattr(tts_processor, "drain_ready_segments"):
+                return
+            try:
+                yield from tts_processor.drain_ready_segments()
+            except Exception as exc:
+                _handle_current_tts_drain_error(exc)
+
+        def _drain_tts_ready_events():
+            yield from tts_finalize_drainer.drain()
+            yield from _drain_current_tts_ready_events()
+            yield from tts_finalize_drainer.drain()
+
+        stream_exc: BaseException | None = None
+        try:
+            stream_result = state.mdflow_context.process(
+                block_index=run_script_info.block_position,
+                mode=ProcessMode.STREAM,
+                variables=user_profile,
+                context=message_list,
+            )
+
+            # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
+            # In some edge cases (e.g., no LLM provider), returns a single LLMResult instead of Generator
+            if inspect.isgenerator(stream_result):
+                idle_poll_interval = float(
+                    app.config.get("STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.05)
+                )
+                for (
+                    source,
+                    payload,
+                ) in self._iter_stream_result_with_idle_callback(
+                    stream_result,
+                    idle_callback=_drain_tts_ready_events if tts_enabled else None,
+                    idle_poll_interval=idle_poll_interval,
+                ):
+                    if source == "idle":
+                        yield payload
+                        continue
+                    for (
+                        chunk_content,
+                        stream_element_type,
+                        normalized_number,
+                    ) in _iter_llm_result_content_parts(payload):
+                        yield from _process_stream_chunk(
+                            chunk_content,
+                            stream_element_type=stream_element_type or None,
+                            stream_element_number=normalized_number,
+                        )
+            else:
+                # markdown-flow still returns a single LLMResult for some
+                # STREAM edge cases, such as preserved content.
+                for (
+                    chunk_content,
+                    stream_element_type,
+                    normalized_number,
+                ) in _iter_llm_result_content_parts(stream_result):
+                    yield from _process_stream_chunk(
+                        chunk_content,
+                        stream_element_type=stream_element_type or None,
+                        stream_element_number=normalized_number,
+                    )
+        except BaseException as exc:
+            stream_exc = exc
+            raise
+        finally:
+            if not isinstance(stream_exc, GeneratorExit):
+                yield from tts_finalize_drainer.drain(wait=True)
+            else:
+                tts_finalize_drainer.close()
+            yield from self._teardown_stream_tts_state(
+                tts_processor=tts_processor,
+                flush_content_cache=_drain_current_tts_ready_events,
+                log_prefix="Finalize streaming TTS failed",
+                skip_emit=isinstance(stream_exc, GeneratorExit),
+            )
+            tts_processor = None
+            current_tts_stream_key = None
+
+        yield RunMarkdownFlowDTO(
+            outline_bid=run_script_info.outline_bid,
+            generated_block_bid=generated_block.generated_block_bid,
+            type=GeneratedType.BREAK,
+            content="",
+        )
+        next_block_position = run_script_info.block_position + 1
+        # Continue the same run across subsequent blocks until we hit
+        # an interaction block or reach outline completion.
+        self._can_continue = next_block_position < len(block_list)
+        # Block-finalize step: streamed content + cursor advance
+        # commit atomically once the stream has fully completed
+        # (pending TTS/listen-element sidecar rows ride along).
+        self._recorder.finalize_streamed_block(
+            generated_block,
+            generated_content,
+            self._current_attend,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=next_block_position,
+        )
+
+    def _phase_completion_tail(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Post-step outline completion: outline flips + tail interactions."""
         progress_record = self._current_attend
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:

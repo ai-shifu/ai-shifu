@@ -35,8 +35,22 @@ result doubles as the specification for the Go port (Phase 3 Wave 5 of
   (290 + 5 new), golden 11 passed with fixtures byte-identical, full suite
   1,936 passed (1,931 + 5), uow ratchet 155 unchanged, boundary + harness
   checks green, ruff clean.
-- [ ] PR3: state extraction (`learn/run/state.py`) + `run_inner` phase
-  decomposition into the orchestrator.
+- [x] 2026-07-03 23:40 CST: PR3 state extraction + phase decomposition:
+  `flaskr/service/learn/run/state.py` (`RunStateResolver`, pure reads, lazy
+  cached property, cross-method dispatch through context wrappers preserving
+  the instance-patch seams); `run_inner` decomposed into 14 `_phase_*`
+  generator methods with `_RunStepState` threading the shared locals —
+  adversarial review verified the phase extraction line-by-line as pure
+  motion (yields, loop exits, TTS closures byte-identical). check_risk
+  self-commit NOTE added at the check_text call site. Includes the
+  out-of-scope-but-reviewed leaf-bid placeholder fix (separate session; see
+  Decision Log) with 4 regression tests. Boundary baseline updated for the
+  three relocated pre-existing shifu imports carried by `state.py`. Learn
+  suite 310 passed; golden 11 byte-identical; full suite 1,940 passed.
+- [ ] Deferred from PR3 to B7: the end-to-end disconnect test driving real
+  generator `.close()` through `run_script_inner` (the implementing agent
+  was cut off before writing it; the session-level recorder test remains
+  the guard meanwhile). B7 must land it or document a final decision.
 
 ## Surprises & Discoveries
 
@@ -180,6 +194,26 @@ returns only `run/recorder.py`.
   writes" goal) and the `_get_current_attend` placeholder loop stamps every
   ancestor row with the LEAF's outline bid (`context_v2.py:1745`,
   pre-existing; tracked separately).
+- 2026-07-03 (leaf-bid placeholder fix): the placeholder loop now stamps
+  `item.bid` (each ancestor's own bid) instead of the leaf's;
+  `tests/service/learn/test_get_current_attend_placeholders.py` drives the
+  multi-ancestor loop against a real session (prior suites monkeypatched
+  `_get_current_attend`). Read-side check found no reader depending on the
+  wrong value: the extra rows were NOT_STARTED leaf-bid duplicates that the
+  main query orders last, while missing ancestor rows degrade
+  `get_course_learn_record` aggregation, `reset_learn_record`, and feedback
+  progress-record resolution — all of which expect per-node rows. Prod data
+  (read replica, v2-era `created_at >= 2025-09-30`): duplicate non-reset
+  `(user, leaf)` groups exist and 6,366 leaf rows lack a same-user parent
+  record; backfill/cleanup of historical rows is a separate decision, the
+  code fix only stops new corruption. PR3 review addendum: the widest-blast
+  exposure is the mainline `/run` hot path itself —
+  `RunEventEmitter.render_outline_updates` calls `_get_current_attend` with
+  ANCESTOR bids on nearly every chapter/unit transition, which pre-fix could
+  re-enter the placeholder-creation branch on every transition (no row ever
+  existed under the ancestor's own bid); a regression test for this direct
+  ancestor-call shape now exists
+  (`test_direct_ancestor_call_stamps_own_bids`).
 
 ## Context and Orientation
 

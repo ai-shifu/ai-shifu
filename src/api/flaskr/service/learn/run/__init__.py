@@ -5,7 +5,7 @@ runtime (ExecPlan: ``docs/exec-plans/active/learn-run-decomposition.md``):
 
 - PR1: ``emitter.py`` — SSE event construction and yield-sequencing.
 - PR2: ``recorder.py`` — persistence with per-step unit_of_work.
-- PR3: ``state.py`` — pure outline/progress reads (planned).
+- PR3: ``state.py`` — pure outline/progress reads.
 
 The SSE event names and payload shapes are FROZEN (see ``learn/AGENTS.md``);
 the golden suite under ``tests/golden/`` is the contract gate.
@@ -13,5 +13,6 @@ the golden suite under ``tests/golden/`` is the contract gate.
 
 from flaskr.service.learn.run.emitter import RunEventEmitter
 from flaskr.service.learn.run.recorder import RunRecorder
+from flaskr.service.learn.run.state import RunStateResolver
 
-__all__ = ["RunEventEmitter", "RunRecorder"]
+__all__ = ["RunEventEmitter", "RunRecorder", "RunStateResolver"]

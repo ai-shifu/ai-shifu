@@ -426,6 +426,30 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
+      "key": "backend.cross_service_import|flaskr/service/learn/run/state.py|flaskr.service.shifu.shifu_history_manager",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/learn/run/state.py",
+      "target": "flaskr.service.shifu.shifu_history_manager",
+      "message": "flaskr/service/learn/run/state.py imports cross-service module flaskr.service.shifu.shifu_history_manager outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/learn/run/state.py|flaskr.service.shifu.shifu_struct_manager",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/learn/run/state.py",
+      "target": "flaskr.service.shifu.shifu_struct_manager",
+      "message": "flaskr/service/learn/run/state.py imports cross-service module flaskr.service.shifu.shifu_struct_manager outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/learn/run/state.py|flaskr.service.shifu.struct_utils",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/learn/run/state.py",
+      "target": "flaskr.service.shifu.struct_utils",
+      "message": "flaskr/service/learn/run/state.py imports cross-service module flaskr.service.shifu.struct_utils outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
       "key": "backend.cross_service_import|flaskr/service/learn/runscript_v2.py|flaskr.service.shifu.shifu_history_manager",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/learn/runscript_v2.py",

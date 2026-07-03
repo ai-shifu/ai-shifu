@@ -28,13 +28,25 @@ COMMIT_RE = re.compile(r"\bdb\.session\.commit\(\)")
 ALLOWED_PREFIXES = ("dao/",)
 
 
+def _count_commit_calls(source: str) -> int:
+    # Strip per-line comments so a NOTE mentioning db.session.commit() does
+    # not count as a call site. Crude ('#' inside a string literal on the
+    # same line as a real call would be miscounted) but sufficient: the
+    # pattern never legitimately appears inside strings here.
+    total = 0
+    for line in source.splitlines():
+        code = line.split("#", 1)[0]
+        total += len(COMMIT_RE.findall(code))
+    return total
+
+
 def scan() -> dict[str, int]:
     counts: dict[str, int] = {}
     for path in sorted(BACKEND_ROOT.rglob("*.py")):
         rel = path.relative_to(BACKEND_ROOT).as_posix()
         if rel.startswith(ALLOWED_PREFIXES):
             continue
-        n = len(COMMIT_RE.findall(path.read_text(encoding="utf-8")))
+        n = _count_commit_calls(path.read_text(encoding="utf-8"))
         if n:
             counts[rel] = n
     return counts
