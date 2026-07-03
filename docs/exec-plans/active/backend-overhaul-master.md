@@ -265,6 +265,20 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   deploy-config. Transaction doctrine carries over from B4: service owns
   the transaction (BeginTx), dao never commits, external side effects
   fire post-commit.
+- 2026-07-04 owner updates: (a) NO dual-stack production period — the
+  strangler proxy / shadow traffic / percentage rollout machinery is
+  dropped from Phase 3; the deliverable is a fully locally-developed and
+  locally-verified Go backend (golden-corpus dual-replay against the
+  local Python stack, byte-aligned /run SSE), and production cutover is
+  handled by the owner separately. Wave order survives as a development
+  order only. (b) markdown-flow-agent-go is referenced via local go.mod
+  replace (no published module exists). (c) DTOs confirmed at
+  models/dto. (d) LLM access: NO framework (eino/langchaingo rejected);
+  port the Python ProviderConfig registry (prefix -> base_url/key/param
+  overrides; the Python side already ran everything as OpenAI-compatible
+  through LiteLLM) over an OpenAI-compatible Go client, matching
+  whichever client markdown-flow-agent-go already embeds so the repo
+  carries one LLM stack; Langfuse tracing hooks at the registry layer.
 - The Go project lives in a standalone new repository generated with
   `igo new ai-shifu-go --non-interactive --defaults --frontend=none`; the
   Next.js `cook-web` frontend is copied into that repository unchanged and
