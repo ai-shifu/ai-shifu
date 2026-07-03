@@ -37,6 +37,7 @@ import re
 from pathlib import Path
 
 from flask import (
+    has_request_context,
     Flask,
     request,
     current_app,
@@ -238,11 +239,13 @@ def _resolve_publish_base_url(app: Flask) -> str:
     the shifu owner's custom domain, then to the default public origin.
     """
 
-    host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()
-    if host:
-        host = host.split(",", 1)[0].strip()
-    else:
-        host = str(getattr(request, "host", "") or "").strip()
+    host = None
+    if has_request_context():
+        host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()
+        if host:
+            host = host.split(",", 1)[0].strip()
+        else:
+            host = str(getattr(request, "host", "") or "").strip()
     if host:
         try:
             from flaskr.service.billing.api import (
