@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 export type AdminFilterItem = {
   key: string;
   label: ReactNode;
+  labelId?: string;
   component: ReactNode;
   contentClassName?: string;
   itemClassName?: string;
@@ -25,6 +26,8 @@ type AdminFilterProps = {
   onExpandedChange: (expanded: boolean) => void;
   onReset: () => void;
   onSearch: () => void;
+  actionsDisabled?: boolean;
+  showActions?: boolean;
   resetLabel: string;
   searchLabel: string;
   expandLabel: string;
@@ -72,6 +75,7 @@ const AdminFilterField = ({
     )}
   >
     <span
+      id={item.labelId}
       className={cn(
         ADMIN_FILTER_LABEL_CLASS,
         labelColon && "after:ml-0.5 after:content-[':']",
@@ -94,6 +98,7 @@ const AdminFilterActions = ({
   onExpandedChange,
   onReset,
   onSearch,
+  actionsDisabled,
   resetLabel,
   searchLabel,
   expandLabel,
@@ -113,6 +118,7 @@ const AdminFilterActions = ({
   | 'expandedActionsInline'
   | 'expandedActionsClassName'
   | 'labelColon'
+  | 'showActions'
   | 'surface'
   | 'layoutPreset'
   | 'activeFilter'
@@ -125,6 +131,7 @@ const AdminFilterActions = ({
       variant='outline'
       className='px-4'
       onClick={onReset}
+      disabled={actionsDisabled}
     >
       {resetLabel}
     </Button>
@@ -133,6 +140,7 @@ const AdminFilterActions = ({
       type='button'
       className='ml-2 px-4'
       onClick={onSearch}
+      disabled={actionsDisabled}
     >
       {searchLabel}
     </Button>
@@ -143,6 +151,7 @@ const AdminFilterActions = ({
         variant='ghost'
         className='ml-4 gap-1 px-2 text-[var(--base-foreground,#0A0A0A)] hover:text-[var(--base-foreground,#0A0A0A)]'
         onClick={() => onExpandedChange(!expanded)}
+        disabled={actionsDisabled}
       >
         {expanded ? collapseLabel : expandLabel}
         {expanded ? (
@@ -161,6 +170,8 @@ export default function AdminFilter({
   onExpandedChange,
   onReset,
   onSearch,
+  actionsDisabled,
+  showActions = true,
   resetLabel,
   searchLabel,
   expandLabel,
@@ -247,17 +258,20 @@ export default function AdminFilter({
               />
             ))}
           </div>
-          <AdminFilterActions
-            expanded={expanded}
-            onExpandedChange={onExpandedChange}
-            onReset={onReset}
-            onSearch={onSearch}
-            resetLabel={resetLabel}
-            searchLabel={searchLabel}
-            expandLabel={expandLabel}
-            collapseLabel={collapseLabel}
-            showToggle={canToggle}
-          />
+          {showActions ? (
+            <AdminFilterActions
+              expanded={expanded}
+              onExpandedChange={onExpandedChange}
+              onReset={onReset}
+              onSearch={onSearch}
+              actionsDisabled={actionsDisabled}
+              resetLabel={resetLabel}
+              searchLabel={searchLabel}
+              expandLabel={expandLabel}
+              collapseLabel={collapseLabel}
+              showToggle={canToggle}
+            />
+          ) : null}
         </div>
       ) : expandedActionsInline ? (
         <div
@@ -312,17 +326,20 @@ export default function AdminFilter({
               />
             ))}
           </div>
-          <AdminFilterActions
-            expanded={expanded}
-            onExpandedChange={onExpandedChange}
-            onReset={onReset}
-            onSearch={onSearch}
-            resetLabel={resetLabel}
-            searchLabel={searchLabel}
-            expandLabel={expandLabel}
-            collapseLabel={collapseLabel}
-            showToggle={canToggle}
-          />
+          {showActions ? (
+            <AdminFilterActions
+              expanded={expanded}
+              onExpandedChange={onExpandedChange}
+              onReset={onReset}
+              onSearch={onSearch}
+              actionsDisabled={actionsDisabled}
+              resetLabel={resetLabel}
+              searchLabel={searchLabel}
+              expandLabel={expandLabel}
+              collapseLabel={collapseLabel}
+              showToggle={canToggle}
+            />
+          ) : null}
         </div>
       )}
     </div>
