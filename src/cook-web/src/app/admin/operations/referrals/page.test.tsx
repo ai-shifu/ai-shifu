@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 import AdminOperationReferralsPage from './page';
 
+const mockBrowserTimeZone = jest.fn(() => 'America/Los_Angeles');
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -10,6 +12,10 @@ jest.mock('@/api', () => ({
     getAdminOperationReferralDetail: jest.fn(),
     updateAdminOperationReferralStatus: jest.fn(),
   },
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('@/app/admin/operations/useOperatorGuard', () => ({
@@ -42,7 +48,7 @@ const relation = {
   invitee_user_bid: 'user-invitee',
   invitee: { identifier: '13900000000' },
   invitee_mobile_snapshot: '13900000000',
-  bound_at: '2026-06-09T12:00:00',
+  bound_at: '2026-06-09T12:00:00Z',
   registration_source: 'phone',
   reward_eligible: true,
   relation_status: 7832,
@@ -67,8 +73,8 @@ const relation = {
     operator_note: '',
     effective_at: null,
     expires_at: null,
-    created_at: '2026-06-09T12:00:00',
-    updated_at: '2026-06-09T12:00:00',
+    created_at: '2026-06-09T12:00:00Z',
+    updated_at: '2026-06-09T12:00:00Z',
   },
   reward_queue: [
     {
@@ -85,9 +91,9 @@ const relation = {
       wallet_bucket_bid: 'bucket-queue-1',
       ledger_bid: 'ledger-queue-1',
       ledger_credit_state: 'reserved',
-      effective_at: '2026-07-01T00:00:00',
-      expires_at: '2026-08-01T00:00:00',
-      created_at: '2026-06-09T12:00:00',
+      effective_at: '2026-07-01T00:00:00Z',
+      expires_at: '2026-08-01T00:00:00Z',
+      created_at: '2026-06-09T12:00:00Z',
     },
     {
       queue_index: 2,
@@ -103,18 +109,19 @@ const relation = {
       wallet_bucket_bid: 'bucket-queue-2',
       ledger_bid: 'ledger-queue-2',
       ledger_credit_state: 'available',
-      effective_at: '2026-08-01T00:00:00',
-      expires_at: '2026-09-01T00:00:00',
-      created_at: '2026-06-09T13:00:00',
+      effective_at: '2026-08-01T00:00:00Z',
+      expires_at: '2026-09-01T00:00:00Z',
+      created_at: '2026-06-09T13:00:00Z',
     },
   ],
-  created_at: '2026-06-09T12:00:00',
-  updated_at: '2026-06-09T12:00:00',
+  created_at: '2026-06-09T12:00:00Z',
+  updated_at: '2026-06-09T12:00:00Z',
 };
 
 describe('AdminOperationReferralsPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     (api.getAdminOperationReferralsOverview as jest.Mock).mockResolvedValue({
       total_relations: 1,
       abnormal_relations: 0,
@@ -145,6 +152,8 @@ describe('AdminOperationReferralsPage', () => {
     );
     expect(screen.getByText('13900000000')).toBeInTheDocument();
     expect(screen.getByText('AB12CD34')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-09 05:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09T12:00:00Z')).not.toBeInTheDocument();
   });
 
   test('opens relation detail and sends status update', async () => {
@@ -194,8 +203,9 @@ describe('AdminOperationReferralsPage', () => {
     expect(screen.getByText('order-queue-1')).toBeInTheDocument();
     expect(screen.getByText('ledger-queue-1')).toBeInTheDocument();
     expect(screen.getByText('13900000001')).toBeInTheDocument();
-    expect(screen.getByText('2026-07-01T00:00:00')).toBeInTheDocument();
-    expect(screen.getAllByText('2026-08-01T00:00:00')).toHaveLength(2);
+    expect(screen.getByText('2026-06-30 17:00:00')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-07-31 17:00:00')).toHaveLength(2);
+    expect(screen.queryByText('2026-07-01T00:00:00Z')).not.toBeInTheDocument();
     expect(screen.getByText('reserved')).toBeInTheDocument();
     expect(screen.getByText('available')).toBeInTheDocument();
   });

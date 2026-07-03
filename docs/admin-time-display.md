@@ -95,6 +95,14 @@ operator alias `formatOperatorUtcDateTime`:
 - learn order metadata `created_at`
 - credit order metadata `created_at` / `paid_at` / `failed_at` / `refunded_at`
 - order detail metadata `created_at` / `updated_at`
+- promotion coupon/campaign metadata `created_at` / `updated_at`
+- promotion coupon/campaign time ranges `start_at` / `end_at`
+- promotion coupon/campaign record timestamps `applied_at` / `used_at`
+- referral campaign metadata `created_at` / `updated_at`
+- referral campaign time ranges `starts_at` / `ends_at`
+- referral relation and reward timestamps `bound_at` / `effective_at` / `expires_at`
+- credit notification records `created_at` / `updated_at` / `requested_at` / `attempted_at` / `sent_at`
+- credit notification template sync `last_synced_at`
 
 Other event timestamps that are already backed by correct timezone-qualified
 payloads should continue to use the browser-timezone rendering flow.
