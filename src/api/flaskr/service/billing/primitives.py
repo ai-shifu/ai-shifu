@@ -177,7 +177,10 @@ def coerce_datetime(value: Any) -> datetime | None:
     if not text:
         return None
     if text.isdigit():
-        return datetime.fromtimestamp(int(text), timezone.utc).replace(tzinfo=None)
+        epoch_seconds = int(text)
+        if epoch_seconds <= 0:
+            return None
+        return datetime.fromtimestamp(epoch_seconds, timezone.utc).replace(tzinfo=None)
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:

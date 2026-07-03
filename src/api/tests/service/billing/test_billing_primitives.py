@@ -7,6 +7,7 @@ from flaskr.service.billing.primitives import coerce_datetime
 
 def test_coerce_datetime_normalizes_epoch_to_utc_naive():
     assert coerce_datetime(0) is None
+    assert coerce_datetime("0") is None
     assert coerce_datetime(1772000000) == datetime(2026, 2, 25, 6, 13, 20)
     assert coerce_datetime("1772000000") == datetime(2026, 2, 25, 6, 13, 20)
 
