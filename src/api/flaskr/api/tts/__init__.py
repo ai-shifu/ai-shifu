@@ -12,7 +12,6 @@ The provider can be selected per-Shifu configuration.
 """
 
 import logging
-import os
 from typing import Optional
 
 from flaskr.common.config import get_config
@@ -84,7 +83,7 @@ def _auto_detect_provider_name() -> str:
         and get_config("VOLCENGINE_TTS_ACCESS_KEY")
         and (
             get_config("VOLCENGINE_TTS_CLUSTER_ID")
-            or os.environ.get("VOLCENGINE_TTS_RESOURCE_ID")
+            or get_config("VOLCENGINE_TTS_RESOURCE_ID")
         )
     ):
         return "volcengine_http"

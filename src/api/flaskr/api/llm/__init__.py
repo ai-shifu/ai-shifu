@@ -1,5 +1,4 @@
 import asyncio
-import os
 import time
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
@@ -17,6 +16,7 @@ from flaskr.api.langfuse import (
     get_request_id,
     resolve_langfuse_trace_id,
 )
+from flaskr.common.config import get_explicit_env_override
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.billing.consts import (
@@ -183,7 +183,7 @@ def _normalize_model_config(value: Any) -> list[str]:
 
 
 def _env_has_value(key: str) -> bool:
-    value = os.environ.get(key)
+    value = get_explicit_env_override(key)
     if value is None:
         return False
     return bool(value.strip())
@@ -192,7 +192,9 @@ def _env_has_value(key: str) -> bool:
 def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
     allowed_source = "default"
     if _env_has_value("LLM_ALLOWED_MODELS"):
-        allowed = _normalize_model_config(os.environ.get("LLM_ALLOWED_MODELS", ""))
+        allowed = _normalize_model_config(
+            get_explicit_env_override("LLM_ALLOWED_MODELS") or ""
+        )
         allowed_source = "env"
     else:
         legacy_allowed = _normalize_model_config(get_config("llm-allowed-models", None))
@@ -204,7 +206,7 @@ def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
 
     if _env_has_value("LLM_ALLOWED_MODEL_DISPLAY_NAMES"):
         display_names = _normalize_model_config(
-            os.environ.get("LLM_ALLOWED_MODEL_DISPLAY_NAMES", "")
+            get_explicit_env_override("LLM_ALLOWED_MODEL_DISPLAY_NAMES") or ""
         )
     elif allowed_source == "legacy":
         display_names = _normalize_model_config(

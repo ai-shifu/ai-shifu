@@ -127,6 +127,24 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Timezone setting for the application",
         group="app",
     ),
+    "SHARED_I18N_ROOT": EnvVar(
+        name="SHARED_I18N_ROOT",
+        default="",
+        description=(
+            "Override path of the shared i18n JSON root directory. "
+            "When empty, the backend auto-detects the repository src/i18n layout."
+        ),
+        group="app",
+    ),
+    "SKIP_DEMO_SHIFU_IMPORT": EnvVar(
+        name="SKIP_DEMO_SHIFU_IMPORT",
+        default="",
+        description=(
+            "Skip the demo shifu import during startup migration when set to "
+            "any non-empty value."
+        ),
+        group="app",
+    ),
     # Frontend Configuration
     "PORT": EnvVar(
         name="PORT",
@@ -1381,6 +1399,15 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Volcengine TTS cluster for HTTP v1/tts (e.g., volcano_tts)",
         group="tts",
     ),
+    "VOLCENGINE_TTS_RESOURCE_ID": EnvVar(
+        name="VOLCENGINE_TTS_RESOURCE_ID",
+        default="",
+        description=(
+            "Legacy alias of VOLCENGINE_TTS_CLUSTER_ID. Used only when "
+            "VOLCENGINE_TTS_CLUSTER_ID is not explicitly set in the environment."
+        ),
+        group="tts",
+    ),
     "VOLCENGINE_TTS_SAMPLE_RATE": EnvVar(
         name="VOLCENGINE_TTS_SAMPLE_RATE",
         default=24000,
@@ -1965,6 +1992,18 @@ def get_config(key: str, default: Any = None) -> Any:
 def has_explicit_env_override(key: str) -> bool:
     """Return whether a config key is explicitly present in the environment."""
     return key in os.environ
+
+
+def get_explicit_env_override(key: str) -> Optional[str]:
+    """Return the raw environment value for a config key, or None when unset.
+
+    Unlike ``get_config``, this never substitutes the registry default and
+    keeps empty strings as-is. Use it for explicit-env-wins precedence rules
+    (e.g. a legacy alias that must not be masked by a declared default, or a
+    testing default that must not be preempted by the registry default)
+    instead of reading ``os.environ`` outside this module.
+    """
+    return os.environ.get(key)
 
 
 def get_redis_key_prefix(app: Flask | None = None) -> str:

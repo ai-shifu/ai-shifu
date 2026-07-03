@@ -46,7 +46,14 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   entry. A5 re-adjudicated as unused parameters and deferred to B7. Full
   pytest 1,873 passed; golden fixtures byte-identical; cook-web type-check
   clean.
-- [ ] Phase 2 B2: config consolidation (~14 in-package env reads).
+- [x] 2026-07-03 14:00 CST: Phase 2 B2 config consolidation: in-package env
+  reads now resolve through `flaskr/common/config.py` (3 new declared keys;
+  new `get_explicit_env_override()` as the sanctioned raw-env accessor for
+  bootstrap/precedence-constrained sites, each documented in place); Docker
+  env examples regenerated. 33-case before/after behavior probe identical;
+  pytest 1,873 passed; golden fixtures unchanged.
+- [ ] Phase 2 B3: shared helpers (pagination, serialization base, registry
+  unification).
 - [ ] Phase 2: batches B1–B7 (each its own PR; see Plan of Work).
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 
