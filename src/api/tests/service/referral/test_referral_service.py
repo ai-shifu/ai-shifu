@@ -275,9 +275,9 @@ def test_invite_profile_includes_creator_reward_queue(
                 "reward_credit_amount": "1000.0000000000",
                 "reward_product_code": "creator-plan-monthly-pro",
                 "ledger_credit_state": "",
-                "effective_at": "2026-06-26T13:18:00",
-                "expires_at": "2026-07-26T13:18:00",
-                "created_at": reward.created_at.isoformat(),
+                "effective_at": "2026-06-26T13:18:00Z",
+                "expires_at": "2026-07-26T13:18:00Z",
+                "created_at": reward.created_at.isoformat() + "Z",
             }
         ]
         assert "13521510781" not in str(queue)

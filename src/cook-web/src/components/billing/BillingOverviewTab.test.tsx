@@ -440,7 +440,7 @@ describe('BillingOverviewTab', () => {
     renderOverviewTab();
 
     expect(mockUseSWR).toHaveBeenCalledWith(
-      ['billing-catalog', 'Asia/Shanghai'],
+      ['billing-catalog'],
       expect.any(Function),
       {
         revalidateOnFocus: false,
@@ -2004,7 +2004,6 @@ describe('BillingOverviewTab', () => {
       expect(mockMutateOverview).toHaveBeenCalled();
       expect(mockMutateSWRCache).toHaveBeenCalledWith([
         'billing-wallet-buckets',
-        'Asia/Shanghai',
       ]);
       expect(
         screen.queryByTestId('billing-pingxx-qr-code'),
@@ -2098,7 +2097,6 @@ describe('BillingOverviewTab', () => {
       expect(mockMutateOverview).toHaveBeenCalled();
       expect(mockMutateSWRCache).toHaveBeenCalledWith([
         'billing-wallet-buckets',
-        'Asia/Shanghai',
       ]);
       expect(
         screen.queryByTestId('billing-pingxx-qr-code'),

@@ -18,6 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 from flaskr.dao import db
 
@@ -222,7 +223,7 @@ class LearnGeneratedAudio(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
         comment="Creation timestamp",
     )
@@ -230,9 +231,9 @@ class LearnGeneratedAudio(db.Model):
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
-        onupdate=func.now(),
+        onupdate=now_utc,
         comment="Last update timestamp",
     )
 
@@ -344,5 +345,5 @@ class TTSMiniMaxClonedVoice(db.Model):
             "voice_id": self.voice_id,
             "subtitle_cues": self.subtitle_cues or [],
             "status": self.status,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": to_utc_iso(self.created_at),
         }

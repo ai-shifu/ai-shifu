@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
 import AdminTitle from '@/app/admin/components/AdminTitle';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -281,10 +282,10 @@ export default function AdminReferralPage() {
                         )}
                       </TableCell>
                       <TableCell className='whitespace-nowrap'>
-                        {item.effective_at || '-'}
+                        {formatAdminUtcDateTime(item.effective_at) || '-'}
                       </TableCell>
                       <TableCell className='whitespace-nowrap'>
-                        {item.expires_at || '-'}
+                        {formatAdminUtcDateTime(item.expires_at) || '-'}
                       </TableCell>
                     </TableRow>
                   ))

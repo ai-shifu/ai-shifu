@@ -1,5 +1,7 @@
 'use client';
 
+import { X } from 'lucide-react';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +31,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
@@ -210,7 +211,6 @@ export default function AdminDashboardCourseRatingsPage() {
   const isGuest = useUserStore(state => state.isGuest);
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  const timezone = getBrowserTimeZone();
 
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
@@ -277,7 +277,6 @@ export default function AdminDashboardCourseRatingsPage() {
               : '',
           start_time: nextFilters.startTime,
           end_time: nextFilters.endTime,
-          ...(timezone ? { timezone } : {}),
         })) as DashboardCourseRatingListResponse;
         if (requestId !== requestIdRef.current) {
           return;
@@ -301,7 +300,7 @@ export default function AdminDashboardCourseRatingsPage() {
         }
       }
     },
-    [shifuBid, timezone, unknownErrorMessage],
+    [shifuBid, unknownErrorMessage],
   );
 
   useEffect(() => {
@@ -369,7 +368,8 @@ export default function AdminDashboardCourseRatingsPage() {
       },
       {
         label: t('module.dashboard.detail.ratings.summary.latestRatedAt'),
-        value: ratings.summary.latest_rated_at || emptyValue,
+        value:
+          formatAdminUtcDateTime(ratings.summary.latest_rated_at) || emptyValue,
         tone: 'timestamp' as const,
       },
     ],
@@ -700,7 +700,9 @@ export default function AdminDashboardCourseRatingsPage() {
                                 <TableRow key={item.lesson_feedback_bid}>
                                   <TableCell className='whitespace-nowrap py-3 align-middle text-sm text-foreground/80'>
                                     <AdminTooltipText
-                                      text={item.rated_at}
+                                      text={formatAdminUtcDateTime(
+                                        item.rated_at,
+                                      )}
                                       emptyValue={emptyValue}
                                       className='block max-w-[180px]'
                                     />

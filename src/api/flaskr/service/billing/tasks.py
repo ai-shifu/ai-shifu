@@ -502,7 +502,6 @@ def reconcile_provider_reference_task(
 def send_low_balance_alert_task(
     *,
     creator_bid: str = "",
-    timezone_name: str = "",
 ) -> dict[str, Any]:
     """Scan low-balance notifications while preserving the legacy task name."""
 
@@ -513,7 +512,6 @@ def send_low_balance_alert_task(
         creator_bid=normalized_creator_bid,
     )
     payload["task_name"] = "billing.send_low_balance_alert"
-    payload["timezone_name"] = _normalize_bid(timezone_name) or None
     return payload
 
 

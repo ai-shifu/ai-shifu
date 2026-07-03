@@ -25,6 +25,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 - [Admin Orders Page Slimming](./completed/admin-orders-page-slimming.md)
 - [Agent-First Harness Migration](./completed/agent-first-harness-migration.md)
+- [Billing 时区死管道清理 — 执行计划](./completed/billing-timezone-cleanup.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
 - [Operator Course B Optimization](./completed/operator-course-b-optimization.md)
 - [Operator Course Detail Tab Splitting](./completed/operator-course-detail-tab-splitting.md)

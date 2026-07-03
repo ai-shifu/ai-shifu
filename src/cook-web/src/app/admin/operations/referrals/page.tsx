@@ -9,6 +9,7 @@ import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import useOperatorGuard from '@/app/admin/operations/useOperatorGuard';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -570,7 +571,9 @@ export default function AdminOperationReferralsPage() {
                         ? rewardStatusLabel(item.reward.reward_status)
                         : '-'}
                     </TableCell>
-                    <TableCell>{formatText(item.bound_at)}</TableCell>
+                    <TableCell>
+                      {formatAdminUtcDateTime(item.bound_at) || '-'}
+                    </TableCell>
                     <TableCell className='text-right'>
                       <Button
                         type='button'
@@ -646,7 +649,10 @@ export default function AdminOperationReferralsPage() {
                     t('operator.detail.abnormalStatus'),
                     abnormalStatusLabel(detail.abnormal_status),
                   ],
-                  [t('operator.detail.boundAt'), detail.bound_at || '-'],
+                  [
+                    t('operator.detail.boundAt'),
+                    formatAdminUtcDateTime(detail.bound_at) || '-',
+                  ],
                 ]}
               />
 
@@ -819,8 +825,12 @@ function RewardQueueTable({
                       identifier={item.invitee_mobile_snapshot}
                     />
                   </TableCell>
-                  <TableCell>{formatText(item.effective_at)}</TableCell>
-                  <TableCell>{formatText(item.expires_at)}</TableCell>
+                  <TableCell>
+                    {formatAdminUtcDateTime(item.effective_at) || '-'}
+                  </TableCell>
+                  <TableCell>
+                    {formatAdminUtcDateTime(item.expires_at) || '-'}
+                  </TableCell>
                   <TableCell>{formatText(item.ledger_credit_state)}</TableCell>
                   <TableCell>
                     <div className='space-y-1 text-xs'>

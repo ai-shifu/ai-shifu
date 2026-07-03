@@ -618,6 +618,21 @@ export default function ChatPage() {
     return '';
   }, [resolvedLessonId, tree]);
 
+  const currentLessonHasContentUpdate = useMemo(() => {
+    if (!tree || !resolvedLessonId) {
+      return false;
+    }
+    for (const catalog of tree.catalogs || []) {
+      const lesson = (catalog.lessons || []).find(
+        entry => entry.id === resolvedLessonId,
+      );
+      if (lesson) {
+        return Boolean(lesson.has_content_update_for_current_user);
+      }
+    }
+    return false;
+  }, [resolvedLessonId, tree]);
+
   const onLessonSelect = ({ id }) => {
     const selection = applyLessonSelection({
       lessonId: id,
@@ -911,6 +926,7 @@ export default function ChatPage() {
             chapterId={chapterId}
             lessonTitle={currentLessonTitle}
             lessonStatus={currentLessonStatus}
+            lessonHasContentUpdate={currentLessonHasContentUpdate}
             lessonUpdate={onLessonUpdate}
             onGoChapter={onGoChapter}
             onPurchased={onPurchased}

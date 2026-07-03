@@ -417,7 +417,6 @@ describe('AdminBillingPage', () => {
     expect(mockGetBillingLedger).toHaveBeenCalledWith({
       page_index: 1,
       page_size: 10,
-      timezone: 'Asia/Shanghai',
     });
 
     expect(
@@ -451,9 +450,7 @@ describe('AdminBillingPage', () => {
     expect(screen.getByTestId('admin-billing-details-panel')).toHaveClass(
       'mt-0',
     );
-    expect(mockGetBillingCatalog).toHaveBeenCalledWith({
-      timezone: 'Asia/Shanghai',
-    });
+    expect(mockGetBillingCatalog).toHaveBeenCalledWith({});
   });
 
   test('respects the server-provided initial details tab before search params hydrate', async () => {

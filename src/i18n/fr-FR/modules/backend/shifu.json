@@ -12,6 +12,7 @@
     "noPermission": "Aucune autorisation",
     "outlineItemNotFound": "Élément de plan introuvable",
     "outlineNameTooLong": "Le nom du plan est trop long",
+    "outlineStructureBroken": "La structure du plan de cours est incohérente (des unités partagent la même position). Veuillez la corriger, puis réessayer.",
     "parentOutlineNotFound": "Plan parent introuvable",
     "permissionContactLimit": "Les autorisations partagées dépassent la limite ({count})",
     "shifuDescriptionTooLong": "La description du cours est trop longue (max 500 caractères)",
