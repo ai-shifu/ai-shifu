@@ -16,6 +16,12 @@ import {
   toSelectValue,
   type RedemptionCodeFilters,
 } from './creatorRedemptionCodeShared';
+import {
+  ORDER_FILTER_CONTENT_CLASS,
+  ORDER_FILTER_GRID_CLASS,
+  type OrderFilterLabelWidth,
+  getOrderFilterLabelClassName,
+} from './orderFilterUiShared';
 
 type TranslationFn = (key: string, options?: Record<string, unknown>) => string;
 
@@ -84,6 +90,7 @@ export default function CreatorRedemptionCodesFilterPanel({
     placeholder: string,
     value: string,
     options: Array<{ value: string; label: string }>,
+    labelWidth: OrderFilterLabelWidth = 'default',
   ): AdminFilterItem =>
     createSelectFilterItem({
       key,
@@ -95,27 +102,42 @@ export default function CreatorRedemptionCodesFilterPanel({
         value: toSelectValue(option.value),
         label: option.label,
       })),
+      labelClassName: getOrderFilterLabelClassName(labelWidth),
       selectItemClassName: SINGLE_SELECT_ITEM_CLASS,
       indicatorClassName: SINGLE_SELECT_INDICATOR_CLASS,
     });
 
+  const buildTextItem = (
+    key: keyof RedemptionCodeFilters,
+    label: string,
+    placeholder: string,
+    value: string,
+    labelWidth: OrderFilterLabelWidth = 'default',
+  ): AdminFilterItem =>
+    createTextFilterItem({
+      key,
+      label,
+      value,
+      onChange: nextValue => onFilterChange(key, nextValue),
+      placeholder,
+      clearLabel: t('common.core.close'),
+      labelClassName: getOrderFilterLabelClassName(labelWidth),
+    });
+
   const filterItems: AdminFilterItem[] = [
-    createTextFilterItem({
-      key: 'name',
-      label: tPromotion('filters.name'),
-      value: filters.name,
-      onChange: value => onFilterChange('name', value),
-      placeholder: tPromotion('filters.namePlaceholder'),
-      clearLabel: t('common.core.close'),
-    }),
-    createTextFilterItem({
-      key: 'course_query',
-      label: tPromotion('filters.courseId'),
-      value: filters.course_query,
-      onChange: value => onFilterChange('course_query', value),
-      placeholder: tPromotion('filters.courseIdPlaceholder'),
-      clearLabel: t('common.core.close'),
-    }),
+    buildTextItem(
+      'name',
+      tPromotion('filters.name'),
+      tPromotion('filters.namePlaceholder'),
+      filters.name,
+    ),
+    buildTextItem(
+      'course_query',
+      tPromotion('filters.courseId'),
+      tPromotion('filters.courseIdPlaceholder'),
+      filters.course_query,
+      'compact',
+    ),
     buildSelectItem(
       'usage_type',
       tPromotion('filters.usageType'),
@@ -157,14 +179,12 @@ export default function CreatorRedemptionCodesFilterPanel({
       resetLabel: t('module.order.filters.reset'),
       clearLabel: t('common.core.close'),
     }),
-    createTextFilterItem({
-      key: 'keyword',
-      label: tPromotion('filters.keyword'),
-      value: filters.keyword,
-      onChange: value => onFilterChange('keyword', value),
-      placeholder: tPromotion('filters.keywordPlaceholder'),
-      clearLabel: t('common.core.close'),
-    }),
+    buildTextItem(
+      'keyword',
+      tPromotion('filters.keyword'),
+      tPromotion('filters.keywordPlaceholder'),
+      filters.keyword,
+    ),
   ];
 
   return (
@@ -179,10 +199,10 @@ export default function CreatorRedemptionCodesFilterPanel({
       expandLabel={t('common.core.expand')}
       collapseLabel={t('common.core.collapse')}
       collapsedCount={4}
-      labelClassName='w-24'
-      contentClassName='min-w-0'
-      collapsedGridClassName='gap-x-7 xl:grid-cols-4'
-      expandedGridClassName='gap-x-7 xl:grid-cols-4'
+      labelClassName={getOrderFilterLabelClassName()}
+      contentClassName={ORDER_FILTER_CONTENT_CLASS}
+      collapsedGridClassName={ORDER_FILTER_GRID_CLASS}
+      expandedGridClassName={ORDER_FILTER_GRID_CLASS}
       showToggle
     />
   );
