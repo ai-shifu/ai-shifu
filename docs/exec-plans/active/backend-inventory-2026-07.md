@@ -4,8 +4,8 @@ Child deliverable of
 [`backend-overhaul-master.md`](./backend-overhaul-master.md). Scope:
 `src/api`, dated 2026-07-03. Covers Phase 1 steps 1 (static dead-code pass), 2
 (import-graph reachability), 4 (grep audits + consumer-classified endpoint
-audit), and 5 (hotspot ranking). Step 3 (runtime coverage) is still pending
-and is required before any Category B item is promoted to deletion.
+audit), 5 (hotspot ranking), and 3 (runtime coverage; see §7 — pytest-based
+line-level adjudication done, production access-log check still pending).
 
 Environment: Python 3.10 (conda env `work`), `vulture 2.16`; a hand-written
 ast walker was used for the import graph because the plugin loader semantics
@@ -475,6 +475,7 @@ Suggested Phase 2 batch ordering signal: (1) learn/context_v2.py,
 | A3 | empty dirs `flaskr/service/{active,lesson,question,rag,scenario,study,tag}` (incl. `active/AGENTS.md`, `active/CLAUDE.md`, `study/{continue,input,ui}`) | `find flaskr/service/<d> -name '*.py'` → 0; only ref is A2 |
 | A4 | cook-web catalog entry `markFavoriteShifu: 'POST /shifu/mark-favorite-shifu'` (`src/cook-web/src/api/api.ts:59`) | no matching backend route (routes-backend.txt); no callers (`grep -rn markFavoriteShifu src/cook-web/src`) |
 | A5 | 4 dead local variables (vulture 100%): `learn/utils_v2.py:122`, `shifu/shifu_outline_funcs.py:237,238,480`, `shifu/shifu_publish_funcs.py:529` | §1.1 (the other 4 hits are callback-signature params — keep) |
+| A6 | 12 functions with zero static callers AND zero runtime execution: `billing/read_models.py` 7 `build_*` (607,616,670,817,1503,1535,1548), `billing/checkout.py:1142`, `billing/primitives.py:140,154`, `billing/queries.py:483`, `api/tts/volcengine_protocol.py:276` | §7 line-level coverage adjudication |
 
 Estimated direct deletion: small (~150 LOC + dirs); the plan's -5-10K LOC for B1
 must come mostly from Category B items after runtime confirmation.
@@ -485,7 +486,7 @@ must come mostly from Category B items after runtime confirmation.
 |---|---|---|
 | B1 | 7 NO-KNOWN-CONSUMER endpoints (+ their handler chains): billing refund, dict/dicts, dict/models, learn lesson-feedbacks, metering usage-summary, profiles/get-profile-item, shifu favorite | §4 table; re-run `match_routes.py` |
 | B2 | `POST /api/shifu/shifus/<bid>/favorite` + `mark_or_unmark_favorite_shifu` + `funcs.py:28,57,80` chain (pairs with A4 decision) | §4 drift note |
-| B3 | ~60 kept vulture unused functions/methods/classes after removing CLI + known hook FPs — esp. `billing/read_models.py` 7 build_* fns, `billing/checkout.py:1142`, `billing/primitives.py:140,154`, `billing/queries.py:483`, `common/log.py:115,158`, `common/cache_provider.py:9`, `api/tts/volcengine_protocol.py:88,276` | `vulture-filtered-60-full.txt`; needs the Phase-1 runtime coverage step |
+| B3 | remaining kept vulture unused functions/methods/classes after the §7 adjudication (12 promoted to A6; `common/log.py:115,158`, `common/config.py:1649,1668`, `common/cache_provider.py:9`, `api/tts/volcengine_protocol.py:88` cleared as alive) — the residue is mostly low-value; adjudicate opportunistically | `vulture-filtered-60-full.txt` + §7 |
 | B4 | `learn/listen_element_legacy.py` + `learn/legacy_record_builder.py` — ALIVE compat path (1 + 35 call sites); adjudicate retirement as a migration, not deletion | §2 |
 | B5 | 265 unused-variable + 47 unused-attribute vulture hits — opportunistic cleanup | `vulture-filtered-60-full.txt` |
 
@@ -511,8 +512,48 @@ despite low churn.
 
 ---
 
+## 7. Runtime coverage pass (Phase 1 step 3)
+
+Evidence:
+
+    coverage run --source=flaskr -m pytest -q -x --ignore=tests/golden
+    # 1862 passed, 6 skipped, 72.79s; TOTAL coverage 76%
+    coverage report --sort=cover          # file level
+    coverage json -o cov.json             # line level for B-item adjudication
+
+File-level 0% (5 files, all CLI/ops — NOT dead): `flaskr/command/__init__.py`,
+`import_user.py`, `unified_migration_task.py`, `update_shifu_demo.py`
+(production migration-job commands), `flaskr/framework/plugin/enable_plugin.py`
+(plugin migration helper). CLI surfaces need operational evidence, not test
+coverage.
+
+Line-level adjudication of the §1.2 suspected-dead functions (def line
+imported but function body never executed by any of the 1,862 tests, AND zero
+static callers per vulture):
+
+**Promoted to Category A (dead, delete in B1) — 12 functions:**
+
+- `flaskr/service/billing/read_models.py:607,616,670,817,1503,1535,1548`
+  (7 `build_*` page builders)
+- `flaskr/service/billing/checkout.py:1142`
+  (`_validate_plan_checkout_upgrade_only`)
+- `flaskr/service/billing/primitives.py:140,154`
+- `flaskr/service/billing/queries.py:483` (`subscription_has_attention`)
+- `flaskr/api/tts/volcengine_protocol.py:276` (`encode_cancel_session`)
+
+**Cleared (body covered at runtime — alive, drop from candidates):**
+`flaskr/common/log.py:115,158`, `flaskr/common/config.py:1649,1668`,
+`flaskr/common/cache_provider.py:9`, `flaskr/api/tts/volcengine_protocol.py:88`.
+
+Caveat: "no test executes it" plus "no static caller" is decisive for
+module-internal symbols, but the 7 NO-KNOWN-CONSUMER endpoints (§4) still
+need production access-log evidence — local runs cannot prove external
+non-usage, and production log reads require explicit user authorization.
+
 ## Pending follow-ups
 
-- Runtime coverage (pytest coverage + dev-server smoke) — plan Phase 1
-  step 3; required to promote Category B items to deletion.
+- Production access-log check for the 7 NO-KNOWN-CONSUMER endpoints (needs
+  user authorization for read-only cluster queries).
+- Dev-server smoke coverage overlay (optional; symbol-level adjudication above
+  is already decisive for B1 scope).
 - `deadcode` tool second-opinion pass (this document is vulture-only).

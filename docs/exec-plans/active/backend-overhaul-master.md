@@ -36,8 +36,12 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
 - [x] 2026-07-03 12:45 CST: Phase 1 static inventory landed
   (`backend-inventory-2026-07.md` + re-runnable scripts under
   `src/api/scripts/inventory/`). Runtime-coverage step still pending.
-- [ ] Phase 1 step 3: runtime coverage pass (pytest coverage + dev-server
-  smoke) to adjudicate Category B items.
+- [x] 2026-07-03 13:10 CST: Phase 1 step 3 runtime coverage done (1,862
+  tests, 76% total): 12 functions promoted to Category A, 6 candidates
+  cleared as alive. Remaining open evidence: production access logs for the
+  7 NO-KNOWN-CONSUMER endpoints (needs user authorization).
+- [ ] Phase 2 B1: dead code deletion (Category A scope frozen in the
+  inventory doc).
 - [ ] Phase 2: batches B1–B7 (each its own PR; see Plan of Work).
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 
