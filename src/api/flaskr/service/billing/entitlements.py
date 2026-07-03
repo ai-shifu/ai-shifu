@@ -104,6 +104,7 @@ def grant_creator_manual_entitlement(
     branding_enabled: bool | None = None,
     custom_domain_enabled: bool | None = None,
     branding: dict[str, Any] | None = None,
+    home_url: str | None = None,
     commit: bool = True,
 ) -> CreatorEntitlementState:
     """Upsert a manual entitlement snapshot for a creator (operator action).
@@ -111,8 +112,10 @@ def grant_creator_manual_entitlement(
     Reuses a single open manual snapshot per creator instead of stacking new
     rows, so repeated grants stay idempotent. ``branding`` keys (e.g.
     ``logo_wide_url``) are merged into ``feature_payload.branding`` and only
-    overwrite existing values when not ``None``. Returns the freshly resolved
-    entitlement state for verification.
+    overwrite existing values when not ``None``. ``home_url`` is stored at
+    the top level of ``feature_payload`` (not under branding) so it can drive
+    root-path redirects independently of ``branding_enabled``. Returns the
+    freshly resolved entitlement state for verification.
     """
 
     normalized_creator_bid = _normalize_bid(creator_bid)
@@ -165,6 +168,13 @@ def grant_creator_manual_entitlement(
             {key: value for key, value in branding.items() if value is not None}
         )
         payload["branding"] = merged_branding
+        row.feature_payload = payload
+    if home_url is not None:
+        payload = dict(row.feature_payload or {})
+        if home_url.strip():
+            payload["home_url"] = home_url.strip()
+        else:
+            payload.pop("home_url", None)
         row.feature_payload = payload
 
     if commit:
