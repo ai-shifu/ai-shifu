@@ -317,7 +317,7 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
         order = BillingOrder.query.filter_by(bill_order_bid="billing-sync-sms-1").one()
         notification = order.metadata_json["notifications"]["subscription_purchase_sms"]
         assert notification["status"] == "pending"
-        assert notification["requested_at"] is not None
+        assert notification["requested_at"].endswith("Z")
 
 
 def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
@@ -487,7 +487,7 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
         ).one()
         notification = order.metadata_json["notifications"]["billing_paid_feishu"]
         assert notification["status"] == "pending"
-        assert notification["requested_at"] is not None
+        assert notification["requested_at"].endswith("Z")
 
 
 def test_pingxx_topup_webhook_enqueues_billing_paid_feishu_once(
@@ -719,7 +719,7 @@ def test_send_billing_paid_feishu_task_marks_sent(
         ).one()
         notification = order.metadata_json["notifications"]["billing_paid_feishu"]
         assert notification["status"] == "sent"
-        assert notification["sent_at"] is not None
+        assert notification["sent_at"].endswith("Z")
 
 
 def test_send_billing_paid_feishu_task_raises_retryable_error_on_provider_failure(
@@ -807,7 +807,7 @@ def test_send_billing_paid_feishu_task_retries_failed_provider_notification(
         ).one()
         notification = order.metadata_json["notifications"]["billing_paid_feishu"]
         assert notification["status"] == "sent"
-        assert notification["sent_at"] is not None
+        assert notification["sent_at"].endswith("Z")
 
 
 def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
@@ -870,7 +870,7 @@ def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
         order = BillingOrder.query.filter_by(bill_order_bid="billing-task-sent-1").one()
         notification = order.metadata_json["notifications"]["subscription_purchase_sms"]
         assert notification["status"] == "sent"
-        assert notification["sent_at"] is not None
+        assert notification["sent_at"].endswith("Z")
 
 
 def test_deliver_subscription_purchase_sms_skips_when_creator_has_no_mobile(

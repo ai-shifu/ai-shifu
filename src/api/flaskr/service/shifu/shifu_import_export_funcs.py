@@ -9,6 +9,7 @@ from typing import Dict, Optional
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.service.common.models import raise_error
 from flaskr.service.shifu.models import DraftShifu, DraftOutlineItem
 from flaskr.service.shifu.shifu_draft_funcs import (
@@ -78,7 +79,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
         # Build export data
         export_data = {
             "version": "1.0",
-            "exported_at": datetime.now().isoformat(),
+            "exported_at": to_utc_iso(now_utc()),
             "shifu": {
                 "shifu_bid": shifu_draft.shifu_bid,
                 "title": shifu_draft.title,

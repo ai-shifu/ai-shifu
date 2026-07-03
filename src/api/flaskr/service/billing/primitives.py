@@ -15,6 +15,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
 )
+from flaskr.util.datetime import to_utc_iso
 
 from .consts import BILL_CONFIG_KEY_CREDIT_PRECISION, BILL_CONFIG_KEY_ENABLED
 from .value_objects import JsonObjectMap
@@ -194,7 +195,7 @@ def normalize_json_value(value: Any) -> Any:
     if isinstance(value, Decimal):
         return decimal_to_number(value)
     if isinstance(value, datetime):
-        return value.isoformat()
+        return to_utc_iso(value)
     if isinstance(value, list):
         return [normalize_json_value(item) for item in value]
     if isinstance(value, JsonObjectMap):
