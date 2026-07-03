@@ -2,7 +2,6 @@ import json
 import os
 from flask import Flask
 from werkzeug.datastructures import FileStorage
-from datetime import datetime
 from decimal import Decimal
 from typing import Dict, Optional
 
@@ -180,7 +179,7 @@ def import_shifu(
         structure_data = import_data.get("structure")
         ask_provider_config = _extract_import_ask_provider_config(shifu_data)
 
-        now_time = datetime.now()
+        now_time = now_utc()
 
         # Determine shifu_bid
         shifu_bid = shifu_id
