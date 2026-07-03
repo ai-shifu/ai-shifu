@@ -1,6 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/lib/admin-date-time';
 import LearnOrdersTab from './LearnOrdersTab';
 
 let mockSearchParamsValue = '';
@@ -144,8 +148,20 @@ jest.mock('@/components/ui/Select', () => {
 
 jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
   __esModule: true,
-  default: ({ placeholder }: { placeholder: string }) => (
-    <div>{placeholder}</div>
+  default: ({
+    placeholder,
+    onChange,
+  }: {
+    placeholder: string;
+    onChange: (range: { start: string; end: string }) => void;
+  }) => (
+    <button
+      type='button'
+      data-testid={`date-range-${placeholder}`}
+      onClick={() => onChange({ start: '2026-07-02', end: '2026-07-02' })}
+    >
+      {placeholder}
+    </button>
   ),
 }));
 
@@ -383,6 +399,11 @@ describe('LearnOrdersTab', () => {
         target: { value: 'order-1' },
       },
     );
+    fireEvent.click(
+      screen.getByTestId(
+        'date-range-module.operationsOrder.filters.timeRangePlaceholder',
+      ),
+    );
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -395,6 +416,8 @@ describe('LearnOrdersTab', () => {
         expect.objectContaining({
           user_keyword: '13800138000',
           order_bid: 'order-1',
+          start_time: formatAdminDateRangeStartUtc('2026-07-02'),
+          end_time: formatAdminDateRangeEndUtc('2026-07-02'),
         }),
       );
     });
