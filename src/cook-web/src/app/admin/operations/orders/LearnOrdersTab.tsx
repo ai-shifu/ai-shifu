@@ -11,6 +11,10 @@ import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
+import {
   formatAdminCount,
   formatAdminNumber,
 } from '@/app/admin/lib/numberFormat';
@@ -296,8 +300,8 @@ export default function LearnOrdersTab() {
           status: filters.status,
           order_source: filters.order_source,
           payment_channel: filters.payment_channel,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         })) as AdminOperationOrderListResponse;
         if (requestId !== requestIdRef.current) {
           return;

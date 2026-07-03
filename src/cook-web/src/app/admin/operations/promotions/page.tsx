@@ -11,7 +11,11 @@ import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+  formatAdminUtcDateTime,
+} from '@/app/admin/lib/dateTime';
 import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import type {
@@ -319,8 +323,8 @@ export default function AdminOperationPromotionsPage() {
           ops_state: filters.ops_state,
           discount_type: filters.discount_type,
           status: filters.status,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         };
         let response = (await api.getAdminOperationPromotionCoupons(
           requestPayload,
@@ -370,8 +374,8 @@ export default function AdminOperationPromotionsPage() {
           channel: filters.channel.trim(),
           discount_type: filters.discount_type,
           status: filters.status,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         };
         let response = (await api.getAdminOperationPromotionCampaigns(
           requestPayload,
@@ -427,8 +431,8 @@ export default function AdminOperationPromotionsPage() {
           product_type: filters.product_type,
           benefit_type: filters.benefit_type,
           status: filters.status,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         };
         let response = (await api.getAdminBillingCampaigns(requestPayload)) as {
           items: AdminBillingCampaignItem[];
@@ -476,8 +480,8 @@ export default function AdminOperationPromotionsPage() {
           page_size: PAGE_SIZE,
           keyword: filters.keyword.trim(),
           status: filters.status,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         };
         let response = (await api.getAdminOperationPromotionReferralCampaigns(
           requestPayload,
