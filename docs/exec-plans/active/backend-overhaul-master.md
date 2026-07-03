@@ -117,8 +117,13 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   the property under test belongs to `unit_of_work()`); MySQL semantics
   are unaffected. pytest 1,918 passed (4 new failure-path tests); golden
   fixtures unchanged.
-- [ ] Phase 2 B4 finale: CI lint banning new `db.session.commit()` outside
-  `dao/`.
+- [x] 2026-07-03 16:35 CST: Phase 2 B4 finale — commit-site ratchet:
+  `scripts/check_uow_commit_sites.py` compares `db.session.commit()` call
+  sites outside `flaskr/dao/` against the committed baseline
+  (`docs/generated/uow-commit-baseline.json`, 155 grandfathered sites, down
+  from 213 at inventory); any increase fails, any decrease asks for a
+  baseline ratchet-down. Wired into lefthook pre-commit. Remaining sites
+  migrate opportunistically per the B4 plan.
 - [ ] Phase 2: remaining batches B5–B7 (see Plan of Work).
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 
