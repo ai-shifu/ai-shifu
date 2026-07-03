@@ -12,8 +12,6 @@ from flaskr.service.learn.const import (
     INPUT_TYPE_ASK,
     ROLE_STUDENT,
     ROLE_TEACHER,
-    CONTEXT_INTERACTION_NEXT,
-    CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE,
 )
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDINTERACTION_VALUE,
@@ -68,9 +66,7 @@ from flaskr.service.common import raise_error, raise_error_with_args
 from flaskr.service.order.consts import (
     LEARN_STATUS_RESET,
     LEARN_STATUS_IN_PROGRESS,
-    LEARN_STATUS_COMPLETED,
     LEARN_STATUS_NOT_STARTED,
-    LEARN_STATUS_LOCKED,
 )
 from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_TRIAL,
@@ -111,7 +107,7 @@ from flaskr.service.learn.langfuse_naming import (
     build_langfuse_trace_name,
 )
 from flaskr.service.learn.utils_v2 import init_generated_block
-from flaskr.service.learn.lesson_feedback import build_lesson_feedback_interaction_md
+from flaskr.service.learn.run.emitter import RunEventEmitter
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
@@ -1962,212 +1958,42 @@ class RunScriptContextV2:
     def _get_current_outline_item(self) -> ShifuOutlineItemDto:
         return self._current_outline_item
 
+    @property
+    def _event_emitter(self) -> RunEventEmitter:
+        # Lazy so contexts built via __new__ (tests) get an emitter too.
+        emitter = self.__dict__.get("_run_event_emitter")
+        if emitter is None:
+            emitter = RunEventEmitter(self)
+            self.__dict__["_run_event_emitter"] = emitter
+        return emitter
+
+    # The methods below are thin delegation seams kept on the context so
+    # run_inner call sites and test overrides keep working unchanged; the
+    # event construction lives in flaskr/service/learn/run/emitter.py.
+
     def _render_outline_updates(
         self, outline_updates: list[OutlineItemUpdateDTO], new_chapter: bool = False
     ) -> Generator[str, None, None]:
-        shifu_bids = [o.outline_bid for o in outline_updates]
-        outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
-            self._outline_model.query.filter(
-                self._outline_model.outline_item_bid.in_(shifu_bids),
-                self._outline_model.deleted == 0,
-            ).all()
+        yield from self._event_emitter.render_outline_updates(
+            outline_updates, new_chapter=new_chapter
         )
-        outline_item_info_map: dict[
-            str, Union[DraftOutlineItem, PublishedOutlineItem]
-        ] = {o.outline_item_bid: o for o in outline_item_info_db}
-        for update in outline_updates:
-            outline_item_info = outline_item_info_map.get(update.outline_bid, None)
-            if not outline_item_info:
-                continue
-            if outline_item_info.hidden:
-                continue
-            if (not update.has_children) and update.status == LearnStatus.IN_PROGRESS:
-                self._current_outline_item = self._get_outline_struct(
-                    update.outline_bid
-                )
-                if self._current_attend.outline_item_bid == update.outline_bid:
-                    self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                    self._current_attend.outline_item_updated = 0
-                    self._current_attend.block_position = 0
-                    yield RunMarkdownFlowDTO(
-                        outline_bid=update.outline_bid,
-                        generated_block_bid="",
-                        type=GeneratedType.OUTLINE_ITEM_UPDATE,
-                        content=update,
-                    )
-                    db.session.flush()
-                    continue
-                self._current_attend = self._get_current_attend(update.outline_bid)
-                if (
-                    self._current_attend.status == LEARN_STATUS_NOT_STARTED
-                    or self._current_attend.status == LEARN_STATUS_LOCKED
-                ):
-                    self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                    self._current_attend.block_position = 0
-                    db.session.flush()
-                yield RunMarkdownFlowDTO(
-                    outline_bid=update.outline_bid,
-                    generated_block_bid="",
-                    type=GeneratedType.OUTLINE_ITEM_UPDATE,
-                    content=update,
-                )
-            elif (not update.has_children) and update.status == LearnStatus.COMPLETED:
-                current_attend = self._get_current_attend(update.outline_bid)
-                current_attend.status = LEARN_STATUS_COMPLETED
-                self._current_attend = current_attend
-                db.session.flush()
-                yield RunMarkdownFlowDTO(
-                    outline_bid=update.outline_bid,
-                    generated_block_bid="",
-                    type=GeneratedType.OUTLINE_ITEM_UPDATE,
-                    content=update,
-                )
-            elif update.has_children and update.status == LearnStatus.IN_PROGRESS:
-                if new_chapter:
-                    status = LEARN_STATUS_NOT_STARTED
-                else:
-                    status = LEARN_STATUS_IN_PROGRESS
-                current_attend = self._get_current_attend(update.outline_bid)
-                current_attend.status = status
-                current_attend.block_position = 0
-
-                db.session.flush()
-
-                yield RunMarkdownFlowDTO(
-                    outline_bid=update.outline_bid,
-                    generated_block_bid="",
-                    type=GeneratedType.OUTLINE_ITEM_UPDATE,
-                    content=update,
-                )
-            elif update.has_children and update.status == LearnStatus.COMPLETED:
-                current_attend = self._get_current_attend(update.outline_bid)
-                current_attend.status = LEARN_STATUS_COMPLETED
-                db.session.flush()
-                yield RunMarkdownFlowDTO(
-                    outline_bid=update.outline_bid,
-                    generated_block_bid="",
-                    type=GeneratedType.OUTLINE_ITEM_UPDATE,
-                    content=update,
-                )
 
     def _emit_next_chapter_interaction(
         self,
         progress_record: LearnProgressRecord,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        """
-        Persist and emit the standardized `_sys_next_chapter` interaction when a lesson
-        completes so the frontend can advance automatically.
-        """
-        if not progress_record or not self._outline_item_info:
-            return
-
-        button_label = _("server.learn.nextChapterButton")
-        button_md = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
-        existing_block = (
-            LearnGeneratedBlock.query.filter(
-                LearnGeneratedBlock.progress_record_bid
-                == progress_record.progress_record_bid,
-                LearnGeneratedBlock.outline_item_bid
-                == progress_record.outline_item_bid,
-                LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
-                LearnGeneratedBlock.status == 1,
-                LearnGeneratedBlock.deleted == 0,
-                LearnGeneratedBlock.block_content_conf == button_md,
-            )
-            .order_by(LearnGeneratedBlock.id.desc())
-            .first()
-        )
-        if existing_block:
-            return
-        generated_block: LearnGeneratedBlock = init_generated_block(
-            self.app,
-            shifu_bid=progress_record.shifu_bid,
-            outline_item_bid=progress_record.outline_item_bid,
-            progress_record_bid=progress_record.progress_record_bid,
-            user_bid=self._user_info.user_id,
-            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-            mdflow=button_md,
-            block_index=progress_record.block_position,
-        )
-        generated_block.role = ROLE_TEACHER
-        generated_block.block_content_conf = button_md
-        db.session.add(generated_block)
-        db.session.flush()
-        self.append_langfuse_output(button_md)
-        yield RunMarkdownFlowDTO(
-            outline_bid=progress_record.outline_item_bid,
-            generated_block_bid=generated_block.generated_block_bid,
-            type=GeneratedType.INTERACTION,
-            content=button_md,
-        )
+        yield from self._event_emitter.emit_next_chapter_interaction(progress_record)
 
     def _emit_lesson_feedback_interaction(
         self,
         progress_record: LearnProgressRecord,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        """
-        Persist and emit the lesson-end feedback interaction before next chapter.
-        """
-        if not progress_record or not self._outline_item_info:
-            return
-
-        feedback_md = build_lesson_feedback_interaction_md()
-        marker = f"%{{{{{CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE}}}}}"
-        existing_block = (
-            LearnGeneratedBlock.query.filter(
-                LearnGeneratedBlock.progress_record_bid
-                == progress_record.progress_record_bid,
-                LearnGeneratedBlock.outline_item_bid
-                == progress_record.outline_item_bid,
-                LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
-                LearnGeneratedBlock.status == 1,
-                LearnGeneratedBlock.deleted == 0,
-                LearnGeneratedBlock.block_content_conf.contains(
-                    marker, autoescape=True
-                ),
-            )
-            .order_by(LearnGeneratedBlock.id.desc())
-            .first()
-        )
-        if existing_block:
-            return
-        generated_block: LearnGeneratedBlock = init_generated_block(
-            self.app,
-            shifu_bid=progress_record.shifu_bid,
-            outline_item_bid=progress_record.outline_item_bid,
-            progress_record_bid=progress_record.progress_record_bid,
-            user_bid=self._user_info.user_id,
-            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-            mdflow=feedback_md,
-            block_index=progress_record.block_position,
-        )
-        generated_block.role = ROLE_TEACHER
-        generated_block.block_content_conf = feedback_md
-        db.session.add(generated_block)
-        db.session.flush()
-        self.append_langfuse_output(feedback_md)
-        yield RunMarkdownFlowDTO(
-            outline_bid=progress_record.outline_item_bid,
-            generated_block_bid=generated_block.generated_block_bid,
-            type=GeneratedType.INTERACTION,
-            content=feedback_md,
-        )
+        yield from self._event_emitter.emit_lesson_feedback_interaction(progress_record)
 
     def _is_access_gate_blocking_interaction(self, parsed_interaction: dict) -> bool:
-        is_logged_in = bool(
-            getattr(self._user_info, "mobile", None)
-            or getattr(self._user_info, "email", None)
+        return self._event_emitter.is_access_gate_blocking_interaction(
+            parsed_interaction
         )
-        buttons = parsed_interaction.get("buttons") or []
-        for button in buttons:
-            value = button.get("value")
-            if value == "_sys_pay" and not self._is_paid:
-                return True
-            if value == "_sys_login" and not is_logged_in:
-                return True
-        return False
 
     def _maybe_emit_feedback_after_access_gate(
         self,
@@ -2176,121 +2002,25 @@ class RunScriptContextV2:
         progress_record: LearnProgressRecord,
         is_tail_gate: bool,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        if not self._is_access_gate_blocking_interaction(parsed_interaction):
-            return
-        if not is_tail_gate:
-            return
-        yield from self._emit_lesson_feedback_interaction(progress_record)
+        yield from self._event_emitter.maybe_emit_feedback_after_access_gate(
+            parsed_interaction=parsed_interaction,
+            progress_record=progress_record,
+            is_tail_gate=is_tail_gate,
+        )
 
     def _emit_feedback_after_exception_gate(
         self,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        if not self._outline_item_info:
-            return
-        generated_block_exists = (
-            db.session.query(LearnGeneratedBlock.id)
-            .filter(
-                LearnGeneratedBlock.progress_record_bid
-                == LearnProgressRecord.progress_record_bid,
-                LearnGeneratedBlock.outline_item_bid
-                == LearnProgressRecord.outline_item_bid,
-                LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                LearnGeneratedBlock.status == 1,
-                LearnGeneratedBlock.deleted == 0,
-                LearnGeneratedBlock.type.in_(
-                    [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
-                ),
-            )
-            .exists()
-        )
-        latest_completed_progress = (
-            LearnProgressRecord.query.filter(
-                LearnProgressRecord.user_bid == self._user_info.user_id,
-                LearnProgressRecord.shifu_bid == self._outline_item_info.shifu_bid,
-                LearnProgressRecord.outline_item_bid == self._outline_item_info.bid,
-                LearnProgressRecord.deleted == 0,
-                LearnProgressRecord.status == LEARN_STATUS_COMPLETED,
-                generated_block_exists,
-            )
-            .order_by(
-                LearnProgressRecord.updated_at.desc(), LearnProgressRecord.id.desc()
-            )
-            .first()
-        )
-        if not latest_completed_progress:
-            return
-        yield from self._emit_lesson_feedback_interaction(latest_completed_progress)
+        yield from self._event_emitter.emit_feedback_after_exception_gate()
 
     def _ensure_current_attend_for_gate_interaction(self) -> LearnProgressRecord | None:
-        if self._current_attend:
-            return self._current_attend
-        if not self._outline_item_info:
-            return None
-
-        outline_bid = getattr(self._outline_item_info, "bid", "")
-        shifu_bid = getattr(self._outline_item_info, "shifu_bid", "")
-        user_bid = getattr(self._user_info, "user_id", "")
-        if not outline_bid or not shifu_bid or not user_bid:
-            return None
-
-        current_attend = (
-            LearnProgressRecord.query.filter(
-                LearnProgressRecord.outline_item_bid == outline_bid,
-                LearnProgressRecord.user_bid == user_bid,
-                LearnProgressRecord.status != LEARN_STATUS_RESET,
-            )
-            .order_by(LearnProgressRecord.id.desc())
-            .first()
-        )
-        if current_attend is None:
-            current_attend = LearnProgressRecord(
-                progress_record_bid=generate_id(self.app),
-                shifu_bid=shifu_bid,
-                outline_item_bid=outline_bid,
-                user_bid=user_bid,
-                status=LEARN_STATUS_NOT_STARTED,
-                block_position=0,
-            )
-            db.session.add(current_attend)
-            db.session.flush()
-
-        self._current_attend = current_attend
-        return current_attend
+        return self._event_emitter.ensure_current_attend_for_gate_interaction()
 
     def _emit_current_progress_gate_interaction(
         self,
         content: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        current_attend = self._ensure_current_attend_for_gate_interaction()
-        if not current_attend:
-            return
-        outline_bid = current_attend.outline_item_bid or getattr(
-            self._outline_item_info, "bid", ""
-        )
-        if not outline_bid:
-            return
-        generated_block: LearnGeneratedBlock = init_generated_block(
-            self.app,
-            shifu_bid=current_attend.shifu_bid,
-            outline_item_bid=outline_bid,
-            progress_record_bid=current_attend.progress_record_bid,
-            user_bid=self._user_info.user_id,
-            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-            mdflow=content,
-            block_index=current_attend.block_position,
-        )
-        generated_block.role = ROLE_TEACHER
-        generated_block.block_content_conf = content
-        generated_block.generated_content = ""
-        db.session.add(generated_block)
-        db.session.flush()
-        self.append_langfuse_output(content)
-        yield RunMarkdownFlowDTO(
-            outline_bid=outline_bid,
-            generated_block_bid=generated_block.generated_block_bid,
-            type=GeneratedType.INTERACTION,
-            content=content,
-        )
+        yield from self._event_emitter.emit_current_progress_gate_interaction(content)
 
     def _emit_completion_tail_interactions(
         self,
@@ -2299,10 +2029,11 @@ class RunScriptContextV2:
         current_outline_completed: bool,
         has_next_outline_item: bool,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        if has_next_outline_item:
-            yield from self._emit_next_chapter_interaction(progress_record)
-        if current_outline_completed:
-            yield from self._emit_lesson_feedback_interaction(progress_record)
+        yield from self._event_emitter.emit_completion_tail_interactions(
+            progress_record=progress_record,
+            current_outline_completed=current_outline_completed,
+            has_next_outline_item=has_next_outline_item,
+        )
 
     def _get_default_llm_settings(self) -> LLMSettings:
         return LLMSettings(

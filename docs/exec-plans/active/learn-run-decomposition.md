@@ -16,7 +16,14 @@ result doubles as the specification for the Go port (Phase 3 Wave 5 of
 - [x] 2026-07-03 19:05 CST: Design captured from the class skeleton; batch
   strategy decided (three incremental extraction PRs, no parallel-path flag —
   see Decision Log).
-- [ ] PR1: emitter extraction (`learn/run/emitter.py`).
+- [x] 2026-07-03: PR1 emitter extraction implemented on
+  `aichy/optimization-260703`: `flaskr/service/learn/run/emitter.py`
+  (`RunEventEmitter`) owns the nine emitter-cluster methods; the context
+  keeps same-named thin delegating wrappers (test seams preserved). New
+  delegation/seam/payload tests in
+  `tests/service/learn/run/test_run_emitter.py`. Learn suite 290 passed
+  (277 + 13 new), golden 11 passed with fixtures byte-identical, full suite
+  1,931 passed (1,918 + 13), uow/boundary/harness checks green.
 - [ ] PR2: recorder extraction (`learn/run/recorder.py`) with per-step
   `unit_of_work()`; fixes the flush-then-fail dirty-row class.
 - [ ] PR3: state extraction (`learn/run/state.py`) + `run_inner` phase
@@ -24,7 +31,33 @@ result doubles as the specification for the Go port (Phase 3 Wave 5 of
 
 ## Surprises & Discoveries
 
-(fill as work proceeds)
+- PR1: tests build contexts via `RunScriptContextV2.__new__` (bypassing
+  `__init__`), so the emitter is created lazily through a cached
+  `_event_emitter` property instead of in `__init__`.
+- PR1: tests monkey-patch emitter methods as *instance attributes* on the
+  context (`ctx._emit_lesson_feedback_interaction = ...`), so the emitter
+  dispatches cross-method calls back through the context wrappers
+  (`ctx._emit_*`) rather than calling its own methods directly. PR3 must
+  keep (or deliberately retire) these seams.
+- PR1: methods in the emitter cluster that still carry DB writes (moved
+  intact; PR2 pulls the writes into the recorder):
+  `render_outline_updates` (progress-record status/block_position flips +
+  4 `db.session.flush()` sites), `emit_next_chapter_interaction` and
+  `emit_lesson_feedback_interaction` (generated-block insert + flush),
+  `ensure_current_attend_for_gate_interaction` (creates a
+  `LearnProgressRecord` when missing + flush),
+  `emit_current_progress_gate_interaction` (generated-block insert + flush).
+- PR1: inline `RunMarkdownFlowDTO` construction still inside `run_inner`
+  (inventory for PR3; not moved because each is fused with streaming/
+  persistence logic, at post-PR1 line numbers of `context_v2.py`):
+  interaction re-emit on input-required 2466 and 2518; interaction pause
+  2570; content replay 2658; break 2667; interaction replay 2693;
+  VARIABLE_UPDATE after profile save 2739; streamed content 2796 + break
+  2802; interaction after LLM output 2848; tail-gate interaction 2920;
+  streamed content event (TTS path) 2995; break after stream 3189.
+  Preview-side constructions (`_iter_preview_generated_events` 992/998,
+  `_preview_events_from_result` 1047, `_make_preview_content_event` 1077)
+  belong to `RunScriptPreviewContextV2` and are out of scope.
 
 ## Decision Log
 
