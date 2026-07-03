@@ -187,8 +187,21 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   and moved to `docs/exec-plans/completed/`. Full suite 1,942 passed / 6
   skipped; golden 11 passed, fixtures byte-identical; uow ratchet 155
   unchanged; boundary + harness checks green; ruff clean.
-- [ ] Phase 2 finale: the Python-phase final verification (full-stack local
-  smoke) and the pre-Go review gate.
+- [x] 2026-07-04 00:20 CST: Phase 2 final verification — full-stack local
+  smoke on the task-workspace stack (fresh DB reset, all migrations, demo
+  import): register/login via universal code; course list/info/outline
+  tree; /run SSE fresh start (127 events: 77 streamed elements, heartbeats,
+  audio_backfill, terminal done, zero errors) through the B6-decomposed
+  runtime against a real LLM; interaction input -> variable_update
+  persisted -> 204-event personalized continuation; GET run-status; learn
+  records replay; outline progress flips durable (chapter + lesson
+  in_progress); creator flow (create course, create outline, save MDF
+  revision); order init through the B4a unit-of-work path (order created,
+  status to-be-paid). Environment-only fixes during smoke (not repo
+  changes): demo course model repointed to an available provider — the
+  .env default deepseek key is dead and the qwen account is overdue;
+  silicon works. Phase 2 is COMPLETE; the pre-Go review gate is now
+  active.
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 
 ## Surprises & Discoveries
