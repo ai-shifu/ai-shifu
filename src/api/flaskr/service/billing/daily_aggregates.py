@@ -13,6 +13,7 @@ from flask import Flask
 from flaskr.dao import db
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .consts import CREDIT_LEDGER_ENTRY_TYPE_CONSUME, CREDIT_SOURCE_TYPE_USAGE
 from .models import (
@@ -614,7 +615,7 @@ def _resolve_stat_window(
     finalize: bool = False,
     now: datetime | None = None,
 ) -> tuple[datetime, datetime, str]:
-    anchor = now or datetime.now()
+    anchor = now or now_utc()
     normalized_stat_date = str(stat_date or "").strip() or anchor.strftime("%Y-%m-%d")
     day_start = datetime.strptime(normalized_stat_date, "%Y-%m-%d")
     day_end = day_start + timedelta(days=1)
@@ -629,7 +630,7 @@ def _resolve_stat_date_range(
     date_to: str = "",
     now: datetime | None = None,
 ) -> tuple[datetime, datetime]:
-    anchor = now or datetime.now()
+    anchor = now or now_utc()
     normalized_date_from = str(date_from or "").strip()
     normalized_date_to = str(date_to or "").strip()
     start_value = (

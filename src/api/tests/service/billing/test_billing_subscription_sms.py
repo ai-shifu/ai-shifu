@@ -39,6 +39,7 @@ from flaskr.service.order.payment_providers.base import PaymentNotificationResul
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+from flaskr.util.datetime import now_utc
 from tests.common.fixtures.bill_products import build_bill_products
 
 
@@ -639,7 +640,7 @@ def test_send_billing_paid_feishu_task_marks_sent(
 ) -> None:
     app = billing_subscription_sms_app
     _seed_creator(app)
-    now = datetime.now()
+    now = now_utc()
     paid_at = now - timedelta(days=1)
     captured: list[dict[str, object]] = []
 

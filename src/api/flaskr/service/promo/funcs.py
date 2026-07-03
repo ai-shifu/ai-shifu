@@ -6,7 +6,6 @@ from contextlib import nullcontext
 from datetime import datetime
 import decimal
 
-import pytz
 from sqlalchemy import and_, func, or_
 
 from .models import (
@@ -152,7 +151,7 @@ def apply_promo_campaigns(
 ) -> list[PromoRedemption]:
     """Apply eligible promo campaigns to an order and create application records."""
     with _app_context_scope(app):
-        now = datetime.now(pytz.timezone("Asia/Shanghai"))
+        now = now_utc()
 
         campaigns: list[PromoCampaign] = PromoCampaign.query.filter(
             PromoCampaign.shifu_bid == shifu_bid,
@@ -246,7 +245,7 @@ def query_promo_campaign_applications(
         if not recalc_discount or not records:
             return records
 
-        now = datetime.now(pytz.timezone("Asia/Shanghai"))
+        now = now_utc()
         campaign_bids = [record.promo_bid for record in records]
         campaigns = PromoCampaign.query.filter(
             PromoCampaign.promo_bid.in_(campaign_bids),

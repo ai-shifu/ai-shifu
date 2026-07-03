@@ -34,6 +34,7 @@ from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.timezone import format_with_app_timezone
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     BILL_CONFIG_KEY_CREDIT_NOTIFICATION_SMS_CONFIG,
@@ -888,7 +889,7 @@ def sync_credit_notification_template(
         raise_param_error("template_code")
 
     with _maybe_app_context(app):
-        now = datetime.now()
+        now = now_utc()
         template = _get_or_create_notification_template(
             app,
             template_code=normalized_template_code,
@@ -998,7 +999,7 @@ def list_credit_notification_templates(app: Flask) -> dict[str, Any]:
                 "error_message": "missing_credentials",
             }
 
-        now = datetime.now()
+        now = now_utc()
         response = query_sms_template_list_ali(app, page_index=1, page_size=50)
         body = getattr(response, "body", None)
         response_code = _template_body_value(body, "code") if body is not None else ""
@@ -1407,7 +1408,7 @@ def _stage_notification_record(
             dedupe_key=existing.dedupe_key,
         )
 
-    now = datetime.now()
+    now = now_utc()
     mobile = load_creator_mobile_snapshot(normalized_creator_bid)
     notification_status = CREDIT_NOTIFICATION_STATUS_PENDING
     error_code = ""
@@ -1627,7 +1628,7 @@ def suppress_pending_expiring_notifications_for_bucket(
         return 0
 
     with _maybe_app_context(app):
-        now = datetime.now()
+        now = now_utc()
         rows = (
             NotificationRecord.query.filter(
                 NotificationRecord.deleted == 0,
@@ -1694,7 +1695,7 @@ def scan_credit_expiring_notifications(
     creator_bid: str = "",
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    scan_now = now or datetime.now()
+    scan_now = now or now_utc()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         policy = load_credit_notification_policy()
@@ -2069,7 +2070,7 @@ def scan_low_balance_notifications(
     creator_bid: str = "",
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    scan_now = now or datetime.now()
+    scan_now = now or now_utc()
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         policy = load_credit_notification_policy()
@@ -2438,16 +2439,15 @@ def _is_quiet_hours(policy: dict[str, Any], now: datetime | None = None) -> bool
     timezone_name = str(quiet.get("timezone") or "").strip()
     if timezone_name:
         try:
-            timezone = ZoneInfo(timezone_name)
+            policy_timezone = ZoneInfo(timezone_name)
             if now is None:
-                current = datetime.now(timezone)
+                current = datetime.now(policy_timezone)
             elif current.tzinfo is None or current.utcoffset() is None:
-                # Naive datetimes come from datetime.now() in the process-local
-                # timezone. Convert from that local timezone instead of
-                # relabeling them as the policy timezone.
-                current = current.astimezone(timezone)
+                current = current.replace(tzinfo=timezone.utc).astimezone(
+                    policy_timezone
+                )
             else:
-                current = current.astimezone(timezone)
+                current = current.astimezone(policy_timezone)
         except ZoneInfoNotFoundError:
             current = now or datetime.now()
     try:
@@ -2619,7 +2619,7 @@ def deliver_credit_notification(
                 "notification_status": notification.status,
             }
 
-        now = datetime.now()
+        now = now_utc()
         policy = load_credit_notification_policy()
         if not _notification_type_enabled(policy, notification.notification_type):
             _finalize_notification(
@@ -2931,7 +2931,7 @@ def requeue_credit_notification(
             if normalized_operator_user_bid:
                 metadata["last_requeued_by"] = normalized_operator_user_bid
             metadata["last_requeued_at"] = _format_operator_datetime(
-                app, datetime.now()
+                app, now_utc()
             )
             notification.status = CREDIT_NOTIFICATION_STATUS_PENDING
             notification.error_code = ""
@@ -2939,7 +2939,7 @@ def requeue_credit_notification(
             notification.provider_response_json = {}
             notification.attempted_at = None
             notification.sent_at = None
-            notification.updated_at = datetime.now()
+            notification.updated_at = now_utc()
             notification.metadata_json = metadata
             db.session.add(notification)
             db.session.commit()

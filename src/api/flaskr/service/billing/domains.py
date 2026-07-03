@@ -14,6 +14,7 @@ from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_DISABLED,
@@ -439,7 +440,7 @@ def _verify_creator_domain(
     metadata = _as_dict(binding.metadata_json).to_metadata_json()
     if normalized_token == _normalize_bid(binding.verification_token):
         binding.status = BILLING_DOMAIN_BINDING_STATUS_VERIFIED
-        binding.last_verified_at = datetime.now()
+        binding.last_verified_at = now_utc()
         metadata["verification_error"] = ""
         metadata["verified_by"] = "creator_verify"
     else:

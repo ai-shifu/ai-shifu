@@ -12,6 +12,7 @@ from .consts import (
 from .models import BillingOrder, BillingProduct, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
+from flaskr.util.datetime import now_utc
 
 CHECKOUT_ACTION_PREORDER = "preorder"
 CHECKOUT_ACTION_UPGRADE_IMMEDIATE = "upgrade_immediate"
@@ -143,7 +144,7 @@ def mark_subscription_preorder_pending(
     )
     subscription.next_product_bid = order.product_bid
     subscription.metadata_json = metadata
-    subscription.updated_at = datetime.now()
+    subscription.updated_at = now_utc()
 
 
 def clear_subscription_preorder_metadata(subscription: BillingSubscription) -> None:
@@ -167,7 +168,7 @@ def mark_preorder_absorbed_by_upgrade(
     upgrade_order_bid: str,
     absorbed_at: datetime | None = None,
 ) -> None:
-    now = absorbed_at or datetime.now()
+    now = absorbed_at or now_utc()
     metadata = (
         dict(preorder_order.metadata_json)
         if isinstance(preorder_order.metadata_json, dict)
@@ -183,7 +184,7 @@ def mark_preorder_absorbed_by_upgrade(
         )
     )
     preorder_order.metadata_json = metadata
-    preorder_order.updated_at = datetime.now()
+    preorder_order.updated_at = now_utc()
 
 
 def mark_preorder_effective_applied(order: BillingOrder) -> None:
@@ -204,4 +205,4 @@ def mark_preorder_effective_applied(order: BillingOrder) -> None:
         )
     )
     order.metadata_json = metadata
-    order.updated_at = datetime.now()
+    order.updated_at = now_utc()

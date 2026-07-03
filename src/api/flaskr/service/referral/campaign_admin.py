@@ -18,6 +18,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import BillingProduct
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -96,7 +97,7 @@ def list_operator_referral_campaigns(
             )
 
         status_filter = _normalize_text(filters.get("status"))
-        now = datetime.now()
+        now = now_utc()
         if status_filter:
             query = _apply_status_filter(query, status_filter, now=now)
 
@@ -157,7 +158,7 @@ def get_operator_referral_campaign_detail(
                     campaign.campaign_bid,
                 ),
                 reward_count=_count_rows(ReferralInviteReward, campaign.campaign_bid),
-                now=datetime.now(),
+                now=now_utc(),
             )
         }
 
@@ -283,7 +284,7 @@ def update_operator_referral_campaign_status(
     with app.app_context():
         campaign = _load_campaign_or_404(campaign_bid)
         enabled_value = _parse_bool(enabled, "enabled")
-        now = datetime.now()
+        now = now_utc()
         if enabled_value and campaign.ends_at is not None and campaign.ends_at <= now:
             raise_param_error("enabled")
         rule = _load_latest_rule(campaign.campaign_bid)
@@ -461,7 +462,7 @@ def _normalize_payload(
     if "enabled" in payload:
         enabled = _parse_bool(payload.get("enabled"), "enabled")
     resolved_enabled = enabled if enabled is not None else (True if is_create else None)
-    if resolved_enabled and ends_at is not None and ends_at <= datetime.now():
+    if resolved_enabled and ends_at is not None and ends_at <= now_utc():
         raise_param_error("enabled")
 
     rule_code = (

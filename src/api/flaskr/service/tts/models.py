@@ -320,15 +320,15 @@ class TTSMiniMaxClonedVoice(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         server_default=func.now(),
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
     ready_at = Column(DateTime, nullable=True)
     deleted_at = Column(DateTime, nullable=True)

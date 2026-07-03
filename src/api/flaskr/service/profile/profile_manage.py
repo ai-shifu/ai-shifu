@@ -10,6 +10,7 @@ from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.i18n import _
 from flaskr.service.common import raise_error
 from flaskr.service.shifu.models import DraftOutlineItem
+from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 from .dtos import (
     ColorSetting,
@@ -168,7 +169,7 @@ def update_profile_item_hidden_state(
         if target_items:
             for item in target_items:
                 item.is_hidden = 1 if hidden else 0
-                item.updated_at = datetime.now()
+                item.updated_at = now_utc()
                 item.updated_user_bid = user_id or ""
             db.session.commit()
         return get_profile_item_definition_list(app, parent_id=parent_id)
@@ -506,7 +507,7 @@ def save_profile_item(
                 raise_error("server.profile.keyExist")
 
             definition.key = key
-            definition.updated_at = datetime.now()
+            definition.updated_at = now_utc()
             definition.updated_user_bid = user_id or ""
         else:
             exist_item = Variable.query.filter(
@@ -544,7 +545,7 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str):
             raise_error("server.profile.systemProfileNotAllowDelete")
 
         definition.deleted = 1
-        definition.updated_at = datetime.now()
+        definition.updated_at = now_utc()
         definition.updated_user_bid = user_id or ""
         db.session.commit()
         return True
