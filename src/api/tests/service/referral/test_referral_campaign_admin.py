@@ -317,6 +317,27 @@ def test_operator_referral_campaign_list_includes_invite_funnel_counts(
         assert item["latest_invite_event_at"] == "2026-06-09T10:04:00Z"
 
 
+def test_operator_referral_campaign_list_uses_null_for_missing_latest_invite_event_at(
+    referral_app,
+):
+    with referral_app.app_context():
+        _seed_plan_product()
+        create_operator_referral_campaign(
+            referral_app,
+            operator_user_bid="operator-1",
+            payload=_payload(),
+        )
+
+        listed = list_operator_referral_campaigns(
+            referral_app,
+            page_index=1,
+            page_size=20,
+            filters={"keyword": "domestic", "status": "active"},
+        )
+
+        assert listed["items"][0]["latest_invite_event_at"] is None
+
+
 def test_operator_referral_campaign_invitations_aggregate_events(referral_app):
     with referral_app.app_context():
         _seed_plan_product()

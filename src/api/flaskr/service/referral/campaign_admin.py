@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from math import ceil
 from typing import Any
@@ -18,7 +18,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import BillingProduct
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -351,14 +351,10 @@ def _normalize_page(page_index: int, page_size: int) -> tuple[int, int]:
     return safe_page_index, min(safe_page_size, MAX_PAGE_SIZE)
 
 
-def _serialize_dt(value: datetime | None) -> str:
-    # Match the API fmt sink: stored values are UTC; treat naive as UTC and emit
-    # ISO 8601 with a 'Z' suffix so the frontend can convert to the viewer's tz.
-    if value is None:
-        return ""
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+def _serialize_dt(value: datetime | None) -> str | None:
+    # Match the API fmt sink: stored values are UTC; missing timestamps remain
+    # null so the frontend can distinguish "no event yet" from a real value.
+    return to_utc_iso(value)
 
 
 def _serialize_decimal(value: Decimal | None) -> str | None:
