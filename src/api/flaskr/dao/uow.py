@@ -34,9 +34,24 @@ from __future__ import annotations
 
 import contextvars
 import logging
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
+
+from flask import has_app_context
 
 logger = logging.getLogger(__name__)
+
+
+def app_context_scope(app):
+    """Reuse the caller's app context (and DB session) when one is active.
+
+    Flask-SQLAlchemy 3.1 scopes the session to the innermost app context, so
+    pushing a nested ``app.app_context()`` silently switches to a *different*
+    session and breaks the unit-of-work boundary owned by the caller. Only
+    push a new context when none exists (celery workers, CLI commands,
+    scripts).
+    """
+    return nullcontext() if has_app_context() else app.app_context()
+
 
 _depth: contextvars.ContextVar[int] = contextvars.ContextVar("uow_depth", default=0)
 _post_commit: contextvars.ContextVar[list] = contextvars.ContextVar(

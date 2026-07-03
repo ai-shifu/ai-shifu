@@ -84,9 +84,27 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   fixed via `uow.on_commit()`. Cross-module commit leaks documented in
   place (promo helpers, billing webhooks → sub-batches b/c). pytest 1,910
   passed (16 new tests); golden fixtures unchanged.
-- [ ] Phase 2 B4 sub-batches (b) `billing/renewal.py`, (c)
-  `billing/credit_notifications.py`; then the CI lint banning new commits
-  outside `dao/`.
+- [x] 2026-07-03: Phase 2 B4 sub-batch (b) `billing/renewal.py` — all 25
+  scattered commits removed (worst offender). Entry points own
+  `unit_of_work()`; handlers join. Two deliberate must-persist steps kept as
+  independent transactions, each documented in place: (1) the claim
+  (PENDING -> PROCESSING + attempt_count) commits before execution so a crash
+  cannot cause duplicate execution and the stale-claim recovery in
+  `billing/tasks.py` stays the reset path; (2) in
+  `_execute_subscription_renewal` the renewal order + event payload
+  `bill_order_bid` link commit before the provider sync (double-charge guard;
+  `checkout.sync_billing_order` runs in its own session and only sees
+  committed rows). Provider sync stays outside any uow/retry scope;
+  `retry_on_deadlock` only on `claim_billing_renewal_event` (pure-DB CAS).
+  Preorder credit-release dispatch moved to `uow.on_commit()`. Cross-module
+  self-commit leaks NOTEd at call sites (`checkout.sync_billing_order`,
+  `credit_notifications.enqueue_credit_notification` -> sub-batch c). 4 new
+  failure-path tests (per-event isolation, claim persistence, pre-sync order
+  persistence, on_commit drop/fire) under
+  `tests/service/billing/test_renewal_uow_failure_paths.py`; pytest 1,914
+  passed; golden fixtures unchanged.
+- [ ] Phase 2 B4 sub-batch (c) `billing/credit_notifications.py`; then the CI
+  lint banning new commits outside `dao/`.
 - [ ] Phase 2: remaining batches B5–B7 (see Plan of Work).
 - [ ] Phase 3: Go migration waves 1–5 (starts only after Phase 2 completes).
 

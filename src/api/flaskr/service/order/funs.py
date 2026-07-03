@@ -2,10 +2,10 @@ import datetime
 import decimal
 import json
 import re
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-from flask import Flask, has_app_context
+from flask import Flask
 
 from flaskr.common.public_urls import build_stripe_learner_result_url
 from flaskr.service.config import get_config
@@ -62,7 +62,7 @@ from flaskr.util.uuid import generate_id as get_uuid
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db, retry_on_deadlock
 from flaskr.dao import uow
-from flaskr.dao.uow import unit_of_work
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.models import (
     Order,
@@ -245,15 +245,8 @@ def send_revoke_feishu(app: Flask, order_bid: str, user_identify: str):
     send_notify(app, title, msgs)
 
 
-def _app_context_scope(app: Flask):
-    """Reuse the caller's app context (and DB session) when one is active.
-
-    Flask-SQLAlchemy scopes the session to the innermost app context, so
-    pushing a nested context would silently switch to a *different* session
-    and break the unit-of-work boundary owned by the caller. Only push a new
-    context when none exists (background threads, scripts).
-    """
-    return nullcontext() if has_app_context() else app.app_context()
+# Shared session-scope guard; see flaskr/dao/uow.py for the rationale.
+_app_context_scope = app_context_scope
 
 
 def is_order_has_timeout(app: Flask, origin_record: Order) -> bool:
