@@ -108,6 +108,7 @@ from flaskr.service.learn.langfuse_naming import (
 )
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.run.emitter import RunEventEmitter
+from flaskr.service.learn.run.recorder import RunRecorder
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
@@ -1716,6 +1717,7 @@ class RunScriptContextV2:
                     raise UserNotLoginException()
             parent_path = find_node_with_parents(self._struct, outline_bid)
             attend_info = None
+            new_records: list[LearnProgressRecord] = []
             for item in parent_path:
                 if item.type == "outline":
                     attend_info = LearnProgressRecord.query.filter(
@@ -1725,6 +1727,20 @@ class RunScriptContextV2:
                     ).first()
                     if attend_info:
                         continue
+                    # Rows staged earlier in this loop are not in the session
+                    # yet, so the query above cannot see them; keep the
+                    # pre-PR2 dedupe by checking the staged list too.
+                    staged = next(
+                        (
+                            record
+                            for record in new_records
+                            if record.outline_item_bid == item.bid
+                        ),
+                        None,
+                    )
+                    if staged is not None:
+                        attend_info = staged
+                        continue
                     attend_info = LearnProgressRecord()
                     attend_info.outline_item_bid = outline_item_info_db.outline_item_bid
                     attend_info.shifu_bid = outline_item_info_db.shifu_bid
@@ -1732,8 +1748,10 @@ class RunScriptContextV2:
                     attend_info.status = LEARN_STATUS_NOT_STARTED
                     attend_info.progress_record_bid = generate_id(self.app)
                     attend_info.block_position = 0
-                    db.session.add(attend_info)
-                    db.session.flush()
+                    new_records.append(attend_info)
+            # One recorder step for the whole placeholder batch: a failure
+            # rolls all placeholders back instead of leaving flushed rows.
+            self._recorder.save_new_progress_records(new_records)
         return attend_info
 
     # outline is a leaf when has block item as children
@@ -1967,6 +1985,15 @@ class RunScriptContextV2:
             self.__dict__["_run_event_emitter"] = emitter
         return emitter
 
+    @property
+    def _recorder(self) -> RunRecorder:
+        # Lazy so contexts built via __new__ (tests) get a recorder too.
+        recorder = self.__dict__.get("_run_recorder")
+        if recorder is None:
+            recorder = RunRecorder(self.app)
+            self.__dict__["_run_recorder"] = recorder
+        return recorder
+
     # The methods below are thin delegation seams kept on the context so
     # run_inner call sites and test overrides keep working unchanged; the
     # event construction lives in flaskr/service/learn/run/emitter.py.
@@ -2186,8 +2213,10 @@ class RunScriptContextV2:
         )
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0 and self._input_type != "ask":
+            # PR2: the progress flips inside render_outline_updates are now
+            # committed per-step by the recorder; no pending writes remain to
+            # flush before re-reading the attend row.
             yield from self._render_outline_updates(outline_updates, new_chapter=False)
-            db.session.flush()
             self._current_attend = self._get_current_attend(self._outline_item_info.bid)
             if self._current_attend.status not in [
                 LEARN_STATUS_IN_PROGRESS,
@@ -2216,11 +2245,11 @@ class RunScriptContextV2:
             )
             self._can_continue = False
             if len(outline_updates) > 0:
+                # Flips/inserts inside are committed per recorder step.
                 yield from self._render_outline_updates(
                     outline_updates, new_chapter=True
                 )
                 self._can_continue = False
-                db.session.flush()
             return
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         system_prompt = self.get_system_prompt(run_script_info.outline_bid)
@@ -2228,11 +2257,12 @@ class RunScriptContextV2:
         def _persist_generated_block_for_events(
             generated_block: LearnGeneratedBlock | None,
         ) -> None:
+            # One recorder step per interaction-block persist. Only called
+            # after any LLM COMPLETE call for the block has returned; never
+            # while a stream is in flight.
             if generated_block is None:
                 return
-            if not getattr(generated_block, "id", None):
-                db.session.add(generated_block)
-            db.session.flush()
+            self._recorder.save_generated_block(generated_block)
 
         if self._input_type == "ask":
             if self._last_position == -1:
@@ -2300,7 +2330,11 @@ class RunScriptContextV2:
                 yield from self._iter_until_active(res)
 
             self._can_continue = False
-            db.session.flush()
+            # Ask-history rows are written by handle_input_ask with plain
+            # flushes; commit them as one step now that the ask stream has
+            # fully completed (durability moves from the producer's outer
+            # commit to here — same post-stream point of the request).
+            self._recorder.commit_pending_step()
             return
         generated_blocks: list[LearnGeneratedBlock] = (
             LearnGeneratedBlock.query.filter(
@@ -2363,11 +2397,11 @@ class RunScriptContextV2:
         if run_script_info.block_position >= len(block_list):
             outline_updates = self._get_next_outline_item()
             if len(outline_updates) > 0:
+                # Flips inside are committed per recorder step.
                 yield from self._render_outline_updates(
                     outline_updates, new_chapter=True
                 )
                 self._can_continue = False
-                db.session.flush()
             return
         block = block_list[run_script_info.block_position]
         app.logger.info(f"block: {block}")
@@ -2405,18 +2439,19 @@ class RunScriptContextV2:
                             pending_interaction_block.position,
                             pending_interaction_block.generated_block_bid,
                         )
-                        self._current_attend.block_position = (
-                            pending_interaction_block.position
+                        self._recorder.update_progress_pointer(
+                            self._current_attend,
+                            status=LEARN_STATUS_IN_PROGRESS,
+                            block_position=pending_interaction_block.position,
                         )
-                        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                         self._run_type = RunType.INPUT
                         self._can_continue = True
-                        db.session.flush()
                         return
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
-                self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                db.session.flush()
+                self._recorder.update_progress_pointer(
+                    self._current_attend, status=LEARN_STATUS_IN_PROGRESS
+                )
                 return
             interaction_parser: InteractionParser = InteractionParser()
             parsed_interaction = interaction_parser.parse(block.content)
@@ -2476,20 +2511,23 @@ class RunScriptContextV2:
                                 >= len(block_list) - 1,
                             )
                             self._can_continue = False
-                            db.session.flush()
                             return
                         else:
                             self._can_continue = True
-                            self._current_attend.block_position += 1
+                            self._recorder.update_progress_pointer(
+                                self._current_attend,
+                                block_position=self._current_attend.block_position + 1,
+                            )
                             self._run_type = RunType.OUTPUT
-                            db.session.flush()
                             return
                     if button.get("value") == "_sys_login":
                         if bool(self._user_info.mobile):
                             self._can_continue = True
-                            self._current_attend.block_position += 1
+                            self._recorder.update_progress_pointer(
+                                self._current_attend,
+                                block_position=self._current_attend.block_position + 1,
+                            )
                             self._run_type = RunType.OUTPUT
-                            db.session.flush()
                             return
                         else:
                             # Use translated content from database if available
@@ -2528,7 +2566,6 @@ class RunScriptContextV2:
                                 >= len(block_list) - 1,
                             )
                             self._can_continue = False
-                            db.session.flush()
                             return
             if not generated_block:
                 generated_block = init_generated_block(
@@ -2620,7 +2657,9 @@ class RunScriptContextV2:
                 interaction_result.content if interaction_result else block.content
             )
             generated_block.status = 1
-            db.session.flush()
+            # Commit the accumulated student-record mutations as one step,
+            # after the COMPLETE render above has returned.
+            self._recorder.save_generated_block(generated_block)
             trace_metadata = self._trace_args.get("metadata") or {}
             if not isinstance(trace_metadata, dict):
                 trace_metadata = {}
@@ -2700,9 +2739,11 @@ class RunScriptContextV2:
             if not parsed_interaction.get("variable"):
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
-                self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                self._current_attend.block_position = run_script_info.block_position + 1
-                db.session.flush()
+                self._recorder.update_progress_pointer(
+                    self._current_attend,
+                    status=LEARN_STATUS_IN_PROGRESS,
+                    block_position=run_script_info.block_position + 1,
+                )
                 return
             validate_result = mdflow_context.process(
                 block_index=run_script_info.block_position,
@@ -2746,13 +2787,18 @@ class RunScriptContextV2:
                         ),
                     )
                 self._can_continue = True
-                self._current_attend.block_position = run_script_info.block_position + 1
-                self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                # This step also makes the profile rows saved above durable
+                # (save_user_profiles only flushes; the rows ride into this
+                # step's commit, previously the producer's outer commit).
+                self._recorder.update_progress_pointer(
+                    self._current_attend,
+                    status=LEARN_STATUS_IN_PROGRESS,
+                    block_position=run_script_info.block_position + 1,
+                )
                 self._run_type = RunType.OUTPUT
                 self.app.logger.warning(
                     f"passed and position: {self._current_attend.block_position}"
                 )
-                db.session.flush()
                 return
             else:
                 generated_block: LearnGeneratedBlock = init_generated_block(
@@ -2768,6 +2814,10 @@ class RunScriptContextV2:
                 generated_block.type = BLOCK_TYPE_MDERRORMESSAGE_VALUE
                 generated_block.block_content_conf = block.content
                 generated_block.role = ROLE_TEACHER
+                # Stage only (no unit_of_work): the error content below may
+                # stream from the LLM, and the row must not become durable
+                # until the post-stream save so a disconnect mid-stream still
+                # discards it via the producer rollback.
                 db.session.add(generated_block)
                 db.session.flush()
                 content = ""
@@ -2808,8 +2858,9 @@ class RunScriptContextV2:
                 generated_block.generated_content = content
                 generated_block.type = BLOCK_TYPE_MDERRORMESSAGE_VALUE
                 generated_block.block_content_conf = block.content
-                db.session.add(generated_block)
-                db.session.flush()
+                # Post-stream finalize step: commits the staged error block
+                # together with its streamed content.
+                self._recorder.save_generated_block(generated_block)
                 generated_block: LearnGeneratedBlock = init_generated_block(
                     app,
                     shifu_bid=run_script_info.attend.shifu_bid,
@@ -2821,6 +2872,10 @@ class RunScriptContextV2:
                     block_index=block.index,
                 )
                 generated_block.role = ROLE_TEACHER
+                # Stage only (no unit_of_work): the COMPLETE render below can
+                # fail; a durable half-initialized interaction row would
+                # otherwise survive it. The persist step after the render
+                # commits the finished row.
                 db.session.add(generated_block)
                 db.session.flush()
 
@@ -2852,7 +2907,9 @@ class RunScriptContextV2:
                     content=rendered_content,
                 )
                 self._can_continue = False
-                self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                self._recorder.update_progress_pointer(
+                    self._current_attend, status=LEARN_STATUS_IN_PROGRESS
+                )
         elif self._run_type == RunType.OUTPUT:
             generated_block: LearnGeneratedBlock = init_generated_block(
                 app,
@@ -2875,9 +2932,13 @@ class RunScriptContextV2:
                         if button.get("value") == "_sys_pay":
                             if self._is_paid:
                                 self._can_continue = True
-                                self._current_attend.block_position += 1
+                                self._recorder.update_progress_pointer(
+                                    self._current_attend,
+                                    block_position=(
+                                        self._current_attend.block_position + 1
+                                    ),
+                                )
                                 self._run_type = RunType.OUTPUT
-                                db.session.flush()
                                 return
                         if button.get("value") == "_sys_login":
                             self.app.logger.warning(
@@ -2885,9 +2946,13 @@ class RunScriptContextV2:
                             )
                             if bool(self._user_info.mobile):
                                 self._can_continue = True
-                                self._current_attend.block_position += 1
+                                self._recorder.update_progress_pointer(
+                                    self._current_attend,
+                                    block_position=(
+                                        self._current_attend.block_position + 1
+                                    ),
+                                )
                                 self._run_type = RunType.OUTPUT
-                                db.session.flush()
                                 return
 
                 # Render interaction content with translation (markdown-flow 0.2.34+)
@@ -2929,7 +2994,9 @@ class RunScriptContextV2:
                     is_tail_gate=run_script_info.block_position >= len(block_list) - 1,
                 )
                 self._can_continue = False
-                self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                self._recorder.update_progress_pointer(
+                    self._current_attend, status=LEARN_STATUS_IN_PROGRESS
+                )
                 # For interaction blocks we should stop here and wait for explicit user action.
                 # Continuing into outline completion fallback may incorrectly append
                 # `_sys_next_chapter` after access-gate interactions such as pay/login.
@@ -2964,12 +3031,21 @@ class RunScriptContextV2:
                         )
                         self._can_continue = True
                         self._run_type = RunType.OUTPUT
-                        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                        self._current_attend.block_position += 1
-                        db.session.flush()
+                        self._recorder.update_progress_pointer(
+                            self._current_attend,
+                            status=LEARN_STATUS_IN_PROGRESS,
+                            block_position=self._current_attend.block_position + 1,
+                        )
                         return
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
-                _persist_generated_block_for_events(generated_block)
+                # Stage only (no unit_of_work): the LLM stream for this block
+                # is about to run and the row must not become durable until
+                # finalize_streamed_block below. A disconnect mid-stream
+                # discards the staged row via the producer rollback, so the
+                # re-run regenerates the block exactly as before PR2.
+                if not getattr(generated_block, "id", None):
+                    db.session.add(generated_block)
+                db.session.flush()
                 llm_provider.set_usage_generated_block_bid(
                     generated_block.generated_block_bid
                 )
@@ -3192,15 +3268,20 @@ class RunScriptContextV2:
                     type=GeneratedType.BREAK,
                     content="",
                 )
-                generated_block.generated_content = generated_content
-                db.session.add(generated_block)
                 next_block_position = run_script_info.block_position + 1
                 # Continue the same run across subsequent blocks until we hit
                 # an interaction block or reach outline completion.
                 self._can_continue = next_block_position < len(block_list)
-                self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                self._current_attend.block_position = next_block_position
-                db.session.flush()
+                # Block-finalize step: streamed content + cursor advance
+                # commit atomically once the stream has fully completed
+                # (pending TTS/listen-element sidecar rows ride along).
+                self._recorder.finalize_streamed_block(
+                    generated_block,
+                    generated_content,
+                    self._current_attend,
+                    status=LEARN_STATUS_IN_PROGRESS,
+                    block_position=next_block_position,
+                )
 
         progress_record = self._current_attend
         outline_updates = self._get_next_outline_item()
@@ -3209,6 +3290,7 @@ class RunScriptContextV2:
             current_outline_completed = self._is_current_outline_completed(
                 outline_updates
             )
+            # Flips/inserts inside are committed per recorder step.
             yield from self._render_outline_updates(outline_updates, new_chapter=True)
             yield from self._emit_completion_tail_interactions(
                 progress_record=progress_record,
@@ -3216,7 +3298,6 @@ class RunScriptContextV2:
                 has_next_outline_item=has_next_outline_item,
             )
             self._can_continue = False
-            db.session.flush()
 
     def run(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
         try:

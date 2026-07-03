@@ -13,9 +13,11 @@ PR1 scope notes:
 - Cross-method calls are dispatched back through the context wrappers
   (``ctx._emit_lesson_feedback_interaction`` etc.) so instance-level test
   seams and monkey-patches on the context keep working unchanged.
-- Several methods still carry DB writes (generated-block persistence,
-  progress-record status flips). They moved here intact because they are
-  part of the emit flow; PR2 pulls the writes into the recorder.
+- PR2: the DB writes these methods used to perform inline (generated-block
+  inserts, progress-record status flips) now go through the recorder
+  (``ctx._recorder``, a ``RunRecorder``); each recorder call is one
+  committed step. The emitter keeps read-only queries but never writes
+  through ``db.session`` directly.
 
 Event names, payload shapes, and sequencing are FROZEN per
 ``flaskr/service/learn/AGENTS.md``; the golden suite is the contract gate.
@@ -82,6 +84,7 @@ class RunEventEmitter:
         outline_item_info_map: dict[
             str, Union[DraftOutlineItem, PublishedOutlineItem]
         ] = {o.outline_item_bid: o for o in outline_item_info_db}
+        recorder = ctx._recorder
         for update in outline_updates:
             outline_item_info = outline_item_info_map.get(update.outline_bid, None)
             if not outline_item_info:
@@ -91,25 +94,32 @@ class RunEventEmitter:
             if (not update.has_children) and update.status == LearnStatus.IN_PROGRESS:
                 ctx._current_outline_item = ctx._get_outline_struct(update.outline_bid)
                 if ctx._current_attend.outline_item_bid == update.outline_bid:
-                    ctx._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                    ctx._current_attend.outline_item_updated = 0
-                    ctx._current_attend.block_position = 0
+                    # Progress-flip step. The pre-PR2 code flushed after the
+                    # yield; committing before the emit only makes the flip
+                    # visible earlier and keeps the event bytes identical.
+                    recorder.update_progress_pointer(
+                        ctx._current_attend,
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        outline_item_updated=0,
+                    )
                     yield RunMarkdownFlowDTO(
                         outline_bid=update.outline_bid,
                         generated_block_bid="",
                         type=GeneratedType.OUTLINE_ITEM_UPDATE,
                         content=update,
                     )
-                    db.session.flush()
                     continue
                 ctx._current_attend = ctx._get_current_attend(update.outline_bid)
                 if (
                     ctx._current_attend.status == LEARN_STATUS_NOT_STARTED
                     or ctx._current_attend.status == LEARN_STATUS_LOCKED
                 ):
-                    ctx._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                    ctx._current_attend.block_position = 0
-                    db.session.flush()
+                    recorder.update_progress_pointer(
+                        ctx._current_attend,
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                    )
                 yield RunMarkdownFlowDTO(
                     outline_bid=update.outline_bid,
                     generated_block_bid="",
@@ -118,9 +128,10 @@ class RunEventEmitter:
                 )
             elif (not update.has_children) and update.status == LearnStatus.COMPLETED:
                 current_attend = ctx._get_current_attend(update.outline_bid)
-                current_attend.status = LEARN_STATUS_COMPLETED
+                recorder.update_progress_pointer(
+                    current_attend, status=LEARN_STATUS_COMPLETED
+                )
                 ctx._current_attend = current_attend
-                db.session.flush()
                 yield RunMarkdownFlowDTO(
                     outline_bid=update.outline_bid,
                     generated_block_bid="",
@@ -133,11 +144,9 @@ class RunEventEmitter:
                 else:
                     status = LEARN_STATUS_IN_PROGRESS
                 current_attend = ctx._get_current_attend(update.outline_bid)
-                current_attend.status = status
-                current_attend.block_position = 0
-
-                db.session.flush()
-
+                recorder.update_progress_pointer(
+                    current_attend, status=status, block_position=0
+                )
                 yield RunMarkdownFlowDTO(
                     outline_bid=update.outline_bid,
                     generated_block_bid="",
@@ -146,8 +155,9 @@ class RunEventEmitter:
                 )
             elif update.has_children and update.status == LearnStatus.COMPLETED:
                 current_attend = ctx._get_current_attend(update.outline_bid)
-                current_attend.status = LEARN_STATUS_COMPLETED
-                db.session.flush()
+                recorder.update_progress_pointer(
+                    current_attend, status=LEARN_STATUS_COMPLETED
+                )
                 yield RunMarkdownFlowDTO(
                     outline_bid=update.outline_bid,
                     generated_block_bid="",
@@ -198,8 +208,7 @@ class RunEventEmitter:
         )
         generated_block.role = ROLE_TEACHER
         generated_block.block_content_conf = button_md
-        db.session.add(generated_block)
-        db.session.flush()
+        ctx._recorder.save_generated_block(generated_block)
         ctx.append_langfuse_output(button_md)
         yield RunMarkdownFlowDTO(
             outline_bid=progress_record.outline_item_bid,
@@ -252,8 +261,7 @@ class RunEventEmitter:
         )
         generated_block.role = ROLE_TEACHER
         generated_block.block_content_conf = feedback_md
-        db.session.add(generated_block)
-        db.session.flush()
+        ctx._recorder.save_generated_block(generated_block)
         ctx.append_langfuse_output(feedback_md)
         yield RunMarkdownFlowDTO(
             outline_bid=progress_record.outline_item_bid,
@@ -366,8 +374,7 @@ class RunEventEmitter:
                 status=LEARN_STATUS_NOT_STARTED,
                 block_position=0,
             )
-            db.session.add(current_attend)
-            db.session.flush()
+            ctx._recorder.save_new_progress_records([current_attend])
 
         ctx._current_attend = current_attend
         return current_attend
@@ -398,8 +405,7 @@ class RunEventEmitter:
         generated_block.role = ROLE_TEACHER
         generated_block.block_content_conf = content
         generated_block.generated_content = ""
-        db.session.add(generated_block)
-        db.session.flush()
+        ctx._recorder.save_generated_block(generated_block)
         ctx.append_langfuse_output(content)
         yield RunMarkdownFlowDTO(
             outline_bid=outline_bid,

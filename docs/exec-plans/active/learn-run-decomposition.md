@@ -24,8 +24,17 @@ result doubles as the specification for the Go port (Phase 3 Wave 5 of
   `tests/service/learn/run/test_run_emitter.py`. Learn suite 290 passed
   (277 + 13 new), golden 11 passed with fixtures byte-identical, full suite
   1,931 passed (1,918 + 13), uow/boundary/harness checks green.
-- [ ] PR2: recorder extraction (`learn/run/recorder.py`) with per-step
-  `unit_of_work()`; fixes the flush-then-fail dirty-row class.
+- [x] 2026-07-03: PR2 recorder extraction implemented on
+  `aichy/optimization-260703`: `flaskr/service/learn/run/recorder.py`
+  (`RunRecorder`) owns /run persistence with one `unit_of_work()` per step
+  (progress placeholders, pointer flips, generated-block saves, post-stream
+  block finalize, transitional ask-path commit). All ~20 mid-flow
+  `db.session.flush()` sites migrated or converted to documented stage-only
+  sites; full audit table below ("PR2 audit table"). New failure-path tests
+  in `tests/service/learn/run/test_run_recorder.py`. Learn suite 295 passed
+  (290 + 5 new), golden 11 passed with fixtures byte-identical, full suite
+  1,936 passed (1,931 + 5), uow ratchet 155 unchanged, boundary + harness
+  checks green, ruff clean.
 - [ ] PR3: state extraction (`learn/run/state.py`) + `run_inner` phase
   decomposition into the orchestrator.
 
@@ -58,6 +67,90 @@ result doubles as the specification for the Go port (Phase 3 Wave 5 of
   Preview-side constructions (`_iter_preview_generated_events` 992/998,
   `_preview_events_from_result` 1047, `_make_preview_content_event` 1077)
   belong to `RunScriptPreviewContextV2` and are out of scope.
+- PR2: committing the streamed content block *before* streaming (a durable
+  "block-init step") would break resume semantics: the `generated_blocks`
+  context query and the `existing_content_block` duplicate guard in
+  `run_inner` do not filter on `generated_content != ""`, so a durable empty
+  row left by a mid-stream disconnect would be replayed into the LLM context
+  and could make the duplicate guard skip regeneration entirely. The block
+  is therefore *staged* (session add + flush, no uow) and becomes durable
+  only in the post-stream `finalize_streamed_block` step — mid-stream
+  disconnect semantics are byte-identical to pre-PR2.
+- PR2: `BreakException` was the worst instance of the dirty-row class: the
+  producer's `except BreakException: db.session.commit()` in
+  `runscript_v2.py` would commit whatever half-step state the flush sites
+  had accumulated. With per-step boundaries the session between steps holds
+  at most staged stream rows, so that commit can no longer persist a torn
+  step. (The exception is currently never raised — legacy handler.)
+- PR2: `_get_current_attend`'s placeholder loop relied on autoflush to
+  dedupe: a row created for the target outline earlier in the parent-path
+  loop was visible to later same-bid queries. With staging, the loop now
+  checks the staged list explicitly before creating (behavior preserved).
+- PR2: `retry_on_deadlock` is applied to NO recorder step: a step commit
+  also makes rider writes durable (profile saves, TTS sidecar rows,
+  check-text logs are flushed by collaborators between steps), and a
+  deadlock retry re-runs only the recorder method, silently dropping those
+  riders after the rollback. Revisit in PR3 when the recorder owns all /run
+  writes.
+
+## PR2 audit table
+
+Every pre-PR2 write/flush site in the /run chain, its new boundary, and the
+durability/failure-semantics change. "Outer commit" = the producer commits
+in `runscript_v2.run_script_inner` (L383 reload / L402 loop end / L408
+BreakException), which remain in place and now only cover stream-staged
+rows and not-yet-migrated collaborator writes. Pre-PR2, ALL sites below
+were durable only at the outer commit, and any failure rolled back the
+entire run while flushed rows sat dirty in the session (committable by the
+BreakException handler).
+
+| # | Old site (pre-PR2) | New boundary | Durability timing | Failure semantics |
+|---|---|---|---|---|
+| 1 | `_get_current_attend` placeholder loop: add+flush per created row | context stages rows; one `save_new_progress_records` step for the batch | outer commit -> step commit at creation | partial placeholder rows impossible: batch rolls back whole |
+| 2 | `render_outline_updates` leaf/IN_PROGRESS same-attend: mutate, yield, flush | `update_progress_pointer` step, then yield | outer commit -> step commit (now *before* the SSE event instead of after) | failed flip no longer emits the outline event first; step rolls back whole |
+| 3 | `render_outline_updates` leaf NOT_STARTED/LOCKED promote: mutate+flush, yield | `update_progress_pointer` step, then yield | outer commit -> step commit | step rolls back whole |
+| 4 | `render_outline_updates` leaf COMPLETED: mutate+flush, yield | `update_progress_pointer` step, then yield | outer commit -> step commit | step rolls back whole |
+| 5 | `render_outline_updates` node IN_PROGRESS/NOT_STARTED: mutate+flush, yield | `update_progress_pointer` step, then yield | outer commit -> step commit | step rolls back whole |
+| 6 | `render_outline_updates` node COMPLETED: mutate+flush, yield | `update_progress_pointer` step, then yield | outer commit -> step commit | step rolls back whole |
+| 7 | `run_inner` flush after first `_render_outline_updates` | removed (flips already committed per step; re-read follows) | n/a | n/a |
+| 8 | `run_inner` flush after `_render_outline_updates(new_chapter=True)` in the script-None branch | removed | n/a | n/a |
+| 9 | `run_inner` flush after `_render_outline_updates(new_chapter=True)` in the position>=len branch | removed | n/a | n/a |
+| 10 | ask path `db.session.flush()` after ask stream completes | `commit_pending_step` (transitional: ask writes still live in `handle_input_ask`) | outer commit (microseconds later) -> step commit at same post-stream point | unchanged for mid-stream disconnect (flush was already post-stream) |
+| 11 | input realign to pending interaction: attend position/status + flush | `update_progress_pointer` step | outer commit -> step commit | step rolls back whole |
+| 12 | non-interaction input fallthrough: status + flush | `update_progress_pointer` step | outer commit -> step commit | step rolls back whole |
+| 13 | pay-gate unpaid: `_persist_generated_block_for_events` + trailing flush | persist helper delegates to `save_generated_block` step; trailing flush removed | outer commit -> step commit before the INTERACTION event | gate row commit precedes the event; failure emits nothing durable |
+| 14 | pay-gate paid skip: position += 1 + flush | `update_progress_pointer` step | outer commit -> step commit | step rolls back whole |
+| 15 | login-gate logged-in skip: position += 1 + flush | `update_progress_pointer` step | outer commit -> step commit | step rolls back whole |
+| 16 | login-gate not-logged: persist + trailing flush | same as #13 | outer commit -> step commit | same as #13 |
+| 17 | INPUT no-cached-block interaction render: persist (add+flush) | `save_generated_block` step (after the COMPLETE render returns) | outer commit -> step commit | step rolls back whole; no uow spans the LLM call |
+| 18 | student input record: mutations across a COMPLETE render, `status=1`, flush | mutations unchanged; `save_generated_block` step after the render | outer commit -> step commit | accumulated mutations commit or roll back atomically |
+| 19 | post-check-text re-render (has_content): mutations + persist | `save_generated_block` step | outer commit -> step commit | step rolls back whole |
+| 20 | no-variable advance: status+position + flush | `update_progress_pointer` step | outer commit -> step commit | step rolls back whole |
+| 21 | variables-saved advance: status+position + flush | `update_progress_pointer` step (profile rows saved by `save_user_profiles` ride into this commit) | outer commit -> step commit; profile rows durable earlier too | flip + profile rows commit together; failure rolls both back |
+| 22 | validation-error block init: add + flush (before error stream) | STAGE ONLY (kept add+flush, no uow, documented) | unchanged: durable only at the post-stream save (#23) | mid-stream disconnect still discards the row via producer rollback |
+| 23 | validation-error block finalize: content + add + flush | `save_generated_block` step after the error stream | outer commit -> step commit | init+content commit atomically |
+| 24 | error-path interaction re-init: add + flush (before COMPLETE render) | STAGE ONLY (kept add+flush, no uow, documented) | unchanged: durable only at #25 | a failed render leaves no durable half-initialized row |
+| 25 | error-path interaction persist after render | `save_generated_block` step | outer commit -> step commit | step rolls back whole |
+| 26 | error-path tail `attend.status = IN_PROGRESS` (no flush) | `update_progress_pointer` step | outer commit -> step commit | previously dangling pending write; now an explicit step |
+| 27 | OUTPUT interaction pay/login skip: position += 1 + flush (x2) | `update_progress_pointer` steps | outer commit -> step commit | step rolls back whole |
+| 28 | OUTPUT interaction persist after COMPLETE render | `save_generated_block` step (via persist helper) | outer commit -> step commit | step rolls back whole |
+| 29 | OUTPUT interaction tail `attend.status = IN_PROGRESS` (no flush) | `update_progress_pointer` step | outer commit -> step commit | previously dangling pending write; now an explicit step |
+| 30 | duplicated fixed-output skip: status+position + flush | `update_progress_pointer` step | outer commit -> step commit | step rolls back whole |
+| 31 | content block init: `_persist_generated_block_for_events` (add+flush) BEFORE the LLM stream | STAGE ONLY (inline add+flush, no uow, documented) | unchanged: durable only at #32 | mid-stream disconnect discards the staged row (producer rollback) -> re-run regenerates the block, byte-identical to pre-PR2 |
+| 32 | content block finalize: content + add + attend flip + flush AFTER the stream | `finalize_streamed_block` step (content + cursor atomically; pending TTS/listen-element sidecar rows ride along) | outer commit (end of whole run) -> step commit right after BREAK; a multi-block run is now durable block-by-block | no reader can see a streamed block without its cursor flip; disconnect *between* blocks now resumes from the last finalized block instead of regenerating the whole segment |
+| 33 | completion tail: render + tail interactions + trailing flush | flips/inserts are recorder steps inside the emitter; trailing flush removed | outer commit -> per-step commits | each tail insert/flip isolated |
+| 34 | `emit_next_chapter_interaction`: add + flush | `save_generated_block` step | outer commit -> step commit | step rolls back whole |
+| 35 | `emit_lesson_feedback_interaction`: add + flush | `save_generated_block` step | outer commit -> step commit | step rolls back whole |
+| 36 | `ensure_current_attend_for_gate_interaction`: add + flush | `save_new_progress_records` step | outer commit -> step commit | step rolls back whole |
+| 37 | `emit_current_progress_gate_interaction`: add + flush | `save_generated_block` step | outer commit -> step commit | gate rows in the Paid/NotLogin exception path now survive independently of the failed run body |
+
+Streaming-outside-uow proof: every `unit_of_work()` of the /run chain lives
+in `recorder.py`, and every recorder method is a plain (non-generator)
+function that opens and closes its uow within one synchronous call — no
+`yield` can suspend inside a step, and `run_inner` only calls recorder
+methods before a stream starts or after it has fully completed (BREAK
+emitted / COMPLETE returned). `grep -n "unit_of_work" flaskr/service/learn/`
+returns only `run/recorder.py`.
 
 ## Decision Log
 
@@ -69,6 +162,24 @@ result doubles as the specification for the Go port (Phase 3 Wave 5 of
   would also double maintenance for the whole window.
 - SSE events are constructed in exactly one place after PR1 (the emitter);
   event names/payload shapes are FROZEN per `learn/AGENTS.md`.
+- 2026-07-03 (PR2 review): durability-first ordering ACCEPTED for outline
+  progress updates. `update_progress_pointer` commits before the
+  OUTLINE_ITEM_UPDATE event is queued, so a concurrent outline-tree GET can
+  observe the advanced state slightly before the same client's SSE stream
+  shows it. Pre-PR2 had the inverse anomaly (event visible while the row
+  was still non-durable and could vanish on rollback); durable-then-notify
+  matches the `uow.on_commit` doctrine adopted in B4 and is the semantics
+  the Go port will implement. Event payload bytes are unchanged
+  (golden-verified).
+- 2026-07-03 (PR2 review): the mid-stream-disconnect recorder test models
+  the producer's add/flush/rollback sequence at session level; an
+  end-to-end test driving generator `.close()` through `run_script_inner`
+  is a PR3 follow-up. Review also flagged two pre-existing issues out of
+  PR2 scope: `check_risk/funcs.py:33` commits raw (reachable from inside
+  the /run generator; account for it in PR3's "recorder owns all /run
+  writes" goal) and the `_get_current_attend` placeholder loop stamps every
+  ancestor row with the LEAF's outline bid (`context_v2.py:1745`,
+  pre-existing; tracked separately).
 
 ## Context and Orientation
 
