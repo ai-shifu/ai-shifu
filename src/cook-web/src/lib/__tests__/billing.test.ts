@@ -21,8 +21,10 @@ import {
 import type { BillingLedgerItem, BillingPlan } from '@/types/billing';
 import type { BillingCheckoutResult } from '@/types/billing';
 
+const mockBrowserTimeZone = jest.fn(() => 'Asia/Shanghai');
+
 jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'Asia/Shanghai',
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 const monthlyPlan: BillingPlan = {
@@ -411,6 +413,9 @@ describe('resolveBillingLedgerUsageType', () => {
 });
 
 describe('parseBillingDateValue', () => {
+  beforeEach(() => {
+    mockBrowserTimeZone.mockReturnValue('Asia/Shanghai');
+  });
   test('treats offsetless billing instants as UTC', () => {
     expect(parseBillingDateValue('2026-04-14T07:32:00')?.toISOString()).toBe(
       '2026-04-14T07:32:00.000Z',
@@ -447,6 +452,9 @@ describe('parseBillingDateValue', () => {
 });
 
 describe('billing datetime display helpers', () => {
+  beforeEach(() => {
+    mockBrowserTimeZone.mockReturnValue('Asia/Shanghai');
+  });
   test('formats legacy offsetless billing timestamps as UTC before applying the admin browser-timezone rule', () => {
     expect(formatBillingDateTime('2026-04-14T07:32:00', 'zh-CN')).toBe(
       '2026-04-14 15:32:00',
@@ -455,6 +463,14 @@ describe('billing datetime display helpers', () => {
   test('formats UTC billing timestamps with the admin browser-timezone rule', () => {
     expect(formatBillingDateTime('2026-04-14T07:32:00Z', 'zh-CN')).toBe(
       '2026-04-14 15:32:00',
+    );
+  });
+
+  test('uses the browser timezone rather than the locale for billing datetime display', () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+
+    expect(formatBillingDateTime('2026-04-14T07:32:00Z', 'zh-CN')).toBe(
+      '2026-04-14 00:32:00',
     );
   });
 
@@ -479,8 +495,10 @@ describe('billing datetime display helpers', () => {
     );
   });
 
-  test('rejects date-only values for datetime display', () => {
-    expect(formatBillingDateTime('2026-04-14', 'zh-CN')).toBe('');
+  test('normalizes date-only fallback values before datetime display', () => {
+    expect(formatBillingDateTime('2026-04-14', 'zh-CN')).toBe(
+      '2026-04-14 08:00:00',
+    );
   });
 });
 
