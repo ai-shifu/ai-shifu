@@ -14,6 +14,7 @@ from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .charges import (
     UsageBucketBreakdownItem,
@@ -192,7 +193,7 @@ def settle_bill_usage(
                     entry_count=len(existing_entries),
                 )
 
-            settlement_at = usage.created_at or datetime.now()
+            settlement_at = usage.created_at or now_utc()
             metric_charges = build_usage_metric_charges(
                 usage,
                 settlement_at=settlement_at,
@@ -208,7 +209,7 @@ def settle_bill_usage(
                             int(wallet.last_settled_usage_id or 0),
                             int(usage.id or 0),
                         ),
-                        updated_at=datetime.now(),
+                        updated_at=now_utc(),
                     )
                     db.session.commit()
                 return SettlementResult(
@@ -398,7 +399,7 @@ def settle_bill_usage(
                 last_settled_usage_id=max(
                     int(wallet.last_settled_usage_id or 0), int(usage.id or 0)
                 ),
-                updated_at=datetime.now(),
+                updated_at=now_utc(),
             )
             db.session.commit()
             return SettlementResult(

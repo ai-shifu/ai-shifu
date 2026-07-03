@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .bucket_categories import resolve_credit_bucket_priority
 from .consts import (
@@ -128,7 +129,7 @@ def load_referral_reward_summary(
     as_of: datetime | None = None,
 ) -> ReferralRewardSummary:
     with app.app_context():
-        scan_at = as_of or datetime.now()
+        scan_at = as_of or now_utc()
         buckets = _load_active_referral_reward_buckets(
             creator_bid,
             as_of=scan_at,
@@ -208,7 +209,7 @@ def grant_referral_reward_credits_to_user(
             raise_param_error("note")
 
         granted_amount = _normalize_referral_reward_amount(amount)
-        granted_at = datetime.now()
+        granted_at = now_utc()
         ledger_key = f"operator_referral_reward:{normalized_request_id}"
         existing_result = _load_existing_referral_reward_result(
             creator_bid=normalized_user_bid,

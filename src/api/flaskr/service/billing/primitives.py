@@ -172,16 +172,22 @@ def coerce_datetime(value: Any) -> datetime | None:
     if isinstance(value, (int, float)):
         if value <= 0:
             return None
-        return datetime.fromtimestamp(value)
+        return datetime.fromtimestamp(value, timezone.utc).replace(tzinfo=None)
     text = str(value).strip()
     if not text:
         return None
     if text.isdigit():
-        return datetime.fromtimestamp(int(text))
+        epoch_seconds = int(text)
+        if epoch_seconds <= 0:
+            return None
+        return datetime.fromtimestamp(epoch_seconds, timezone.utc).replace(tzinfo=None)
     try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00")).replace(tzinfo=None)
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if parsed.tzinfo is not None:
+        return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
 
 
 def normalize_json_value(value: Any) -> Any:

@@ -28,6 +28,7 @@ from .value_objects import JsonObjectMap
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 
 @dataclass(slots=True, frozen=True)
@@ -69,7 +70,7 @@ def resolve_creator_entitlement_state(
     """Resolve the effective entitlement snapshot for a creator."""
 
     normalized_creator_bid = _normalize_bid(creator_bid)
-    resolved_at = as_of or datetime.now()
+    resolved_at = as_of or now_utc()
 
     snapshot = _load_active_entitlement_snapshot(
         normalized_creator_bid,
@@ -118,7 +119,7 @@ def grant_creator_manual_entitlement(
     if not normalized_creator_bid:
         raise_param_error("creator_bid")
 
-    now = datetime.now()
+    now = now_utc()
     row = (
         BillingEntitlement.query.filter(
             BillingEntitlement.deleted == 0,

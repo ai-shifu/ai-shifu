@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 import types
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from flask import Flask
@@ -39,7 +39,12 @@ from flaskr.service.order.payment_providers.base import PaymentNotificationResul
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+from flaskr.util.datetime import now_utc
 from tests.common.fixtures.bill_products import build_bill_products
+
+
+def _utc_epoch(value: datetime) -> int:
+    return int(value.replace(tzinfo=timezone.utc).timestamp())
 
 
 @pytest.fixture
@@ -256,8 +261,8 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
                         "id": provider_reference,
                         "customer": "cus_sync_sms_1",
                         "status": "active",
-                        "current_period_start": int(cycle_start_at.timestamp()),
-                        "current_period_end": int(cycle_end_at.timestamp()),
+                        "current_period_start": _utc_epoch(cycle_start_at),
+                        "current_period_end": _utc_epoch(cycle_end_at),
                         "cancel_at_period_end": False,
                     }
                 },
@@ -352,14 +357,14 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
         status="customer.subscription.updated",
         provider_payload={
             "type": "customer.subscription.updated",
-            "created": int(cycle_end_at.timestamp()),
+            "created": _utc_epoch(cycle_end_at),
             "data": {
                 "object": {
                     "id": "sub_sub-webhook-sms-1",
                     "customer": "cus_webhook_sms_1",
                     "status": "active",
-                    "current_period_start": int(cycle_start_at.timestamp()),
-                    "current_period_end": int(cycle_end_at.timestamp()),
+                    "current_period_start": _utc_epoch(cycle_start_at),
+                    "current_period_end": _utc_epoch(cycle_end_at),
                     "cancel_at_period_end": False,
                     "metadata": {},
                 }
@@ -408,8 +413,8 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
                         "id": provider_reference,
                         "customer": "cus_sync_feishu_1",
                         "status": "active",
-                        "current_period_start": int(cycle_start_at.timestamp()),
-                        "current_period_end": int(cycle_end_at.timestamp()),
+                        "current_period_start": _utc_epoch(cycle_start_at),
+                        "current_period_end": _utc_epoch(cycle_end_at),
                         "cancel_at_period_end": False,
                     }
                 },
@@ -639,7 +644,7 @@ def test_send_billing_paid_feishu_task_marks_sent(
 ) -> None:
     app = billing_subscription_sms_app
     _seed_creator(app)
-    now = datetime.now()
+    now = now_utc()
     paid_at = now - timedelta(days=1)
     captured: list[dict[str, object]] = []
 

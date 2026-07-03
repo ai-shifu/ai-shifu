@@ -17,6 +17,7 @@ from flaskr.i18n import get_current_language, set_language
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.timezone import format_with_app_timezone
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     BILLING_ORDER_STATUS_PAID,
@@ -528,7 +529,7 @@ def _resolve_user_conversion_source(user_bid: str) -> str:
 
 
 def _append_subscription_user_count_line(msgs: list[str]) -> None:
-    now = datetime.now()
+    now = now_utc()
     subscription_user_count = (
         BillingSubscription.query.with_entities(BillingSubscription.creator_bid)
         .join(
@@ -677,7 +678,7 @@ def deliver_billing_paid_feishu(
             )
 
         if not _supports_billing_paid_feishu(order):
-            now = datetime.now()
+            now = now_utc()
             _finalize_billing_paid_feishu_notification(
                 order,
                 status="skipped_unsupported",
@@ -700,7 +701,7 @@ def deliver_billing_paid_feishu(
                 "billing paid feishu notify skipped: user aggregate missing for %s",
                 order.creator_bid,
             )
-            now = datetime.now()
+            now = now_utc()
             _finalize_billing_paid_feishu_notification(
                 order,
                 status="skipped_missing_user",
@@ -726,7 +727,7 @@ def deliver_billing_paid_feishu(
             product=product,
             product_name=product_name,
         )
-        now = datetime.now()
+        now = now_utc()
         payload["status"] = "processing"
         payload["attempted_at"] = now.isoformat()
         payload["updated_at"] = now.isoformat()
@@ -756,7 +757,7 @@ def deliver_billing_paid_feishu(
                 bill_order_bid=normalized_bill_order_bid,
             )
 
-        now = datetime.now()
+        now = now_utc()
         if response is not None:
             _finalize_billing_paid_feishu_notification(
                 order,
@@ -828,7 +829,7 @@ def deliver_subscription_purchase_sms(
         language = _normalize_bid(getattr(aggregate, "user_language", ""))
         product_name = _resolve_notification_product_name(order, language=language)
         date_text = _resolve_notification_date_text(app, order)
-        now = datetime.now()
+        now = now_utc()
 
         if not mobile:
             _finalize_notification(
@@ -906,7 +907,7 @@ def deliver_subscription_purchase_sms(
                 date=date_text,
             )
 
-        now = datetime.now()
+        now = now_utc()
         if response is not None:
             _finalize_notification(order, status="sent", now=now)
             db.session.add(order)

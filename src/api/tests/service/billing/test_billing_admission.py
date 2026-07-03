@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from flask import Flask
@@ -34,6 +34,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
 )
 from flaskr.service.shifu.models import PublishedShifu
+from flaskr.util.datetime import now_utc
 from tests.common.fixtures.bill_products import build_bill_products
 
 
@@ -112,7 +113,7 @@ def _create_active_subscription(
     current_period_start_at=None,
     current_period_end_at=None,
 ) -> BillingSubscription:
-    now = datetime.now()
+    now = now_utc()
     return BillingSubscription(
         subscription_bid=f"subscription-{creator_bid}",
         creator_bid=creator_bid,
@@ -391,7 +392,7 @@ def test_admit_creator_usage_resolves_priority_class(
                 source_type=CREDIT_SOURCE_TYPE_MANUAL,
                 source_bid="manual-priority-1",
                 priority_class=BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
-                effective_from=datetime.now() - timedelta(minutes=5),
+                effective_from=now_utc() - timedelta(minutes=5),
                 effective_to=None,
             )
         )
@@ -422,8 +423,8 @@ def test_admit_creator_usage_rejects_expired_topup_bucket_even_if_wallet_snapsho
                 "creator-expired-topup-1",
                 category=CREDIT_BUCKET_CATEGORY_TOPUP,
                 available_credits="15.0000000000",
-                effective_from=datetime.now() - timedelta(days=7),
-                effective_to=datetime.now() - timedelta(minutes=1),
+                effective_from=now_utc() - timedelta(days=7),
+                effective_to=now_utc() - timedelta(minutes=1),
             )
         )
         dao.db.session.commit()
@@ -454,7 +455,7 @@ def test_admit_creator_usage_rejects_future_bucket_before_effective_time(
                 "creator-future-bucket-1",
                 category=CREDIT_BUCKET_CATEGORY_TOPUP,
                 available_credits="18.0000000000",
-                effective_from=datetime.now() + timedelta(minutes=30),
+                effective_from=now_utc() + timedelta(minutes=30),
                 effective_to=None,
             )
         )
@@ -473,7 +474,7 @@ def test_admit_creator_usage_rejects_future_bucket_before_effective_time(
 def test_repair_subscription_cycle_mismatches_restores_admission_for_current_bucket(
     billing_admission_app: Flask,
 ) -> None:
-    reference_now = datetime.now().replace(microsecond=0)
+    reference_now = now_utc().replace(microsecond=0)
     paid_at = reference_now - timedelta(days=30)
     cycle_end_at = reference_now + timedelta(days=1)
     corrupted_start_at = reference_now + timedelta(hours=2)
