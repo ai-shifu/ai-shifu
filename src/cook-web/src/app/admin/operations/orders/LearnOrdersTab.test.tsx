@@ -62,8 +62,10 @@ jest.mock('@/c-store', () => ({
     }),
 }));
 
+const mockBrowserTimeZone = jest.fn(() => 'America/Los_Angeles');
+
 jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -156,6 +158,7 @@ describe('LearnOrdersTab', () => {
     mockSearchParamsValue = '';
     mockGetAdminOperationOrdersOverview.mockReset();
     mockGetAdminOperationOrders.mockReset();
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     window.localStorage.clear();
     mockGetAdminOperationOrdersOverview.mockResolvedValue({
       total_order_count: 10,
@@ -185,8 +188,8 @@ describe('LearnOrdersTab', () => {
           order_source: 'user_purchase',
           order_source_key: 'module.operationsOrder.source.userPurchase',
           coupon_codes: ['FREE100'],
-          created_at: '2026-04-23T10:00:00+08:00',
-          updated_at: '2026-04-23T11:00:00+08:00',
+          created_at: '2026-04-23T10:00:00Z',
+          updated_at: '2026-04-23T11:00:00Z',
         },
       ],
       page: 1,
@@ -217,7 +220,7 @@ describe('LearnOrdersTab', () => {
     });
 
     expect(await screen.findByText('order-1')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-23 02:00:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-23 03:00:00')).toBeInTheDocument();
     expect(screen.queryByText('2026-04-23 10:00:00')).not.toBeInTheDocument();
     expect(
       screen.queryByText('module.operationsOrder.overview.activeFilter'),
