@@ -189,6 +189,10 @@ in `docs/exec-plans/active/backend-inventory-2026-07.md` (Phase 1 deliverable).
   names/payloads are frozen (see `flaskr/service/learn/AGENTS.md`).
 - Go migration ships as a complete plan but executes strictly after Phases
   0–2. Strangler behind a reverse proxy, not big-bang.
+- 2026-07-03 hard gate: after Phase 2 completes (all batches + full test
+  runs + local full-stack smoke), work STOPS for an explicit review of the
+  Go repository layout with the owner before any Go scaffolding is
+  generated.
 - The Go project lives in a standalone new repository generated with
   `igo new ai-shifu-go --non-interactive --defaults --frontend=none`; the
   Next.js `cook-web` frontend is copied into that repository unchanged and
