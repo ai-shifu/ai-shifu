@@ -421,7 +421,9 @@ const Header = ({
                         title={historyTooltip}
                       >
                         <History className='mr-2 h-4 w-4 shrink-0' />
-                        <span>{lessonHistoryText}</span>
+                        <span className='underline decoration-dashed decoration-1 underline-offset-[3px]'>
+                          {lessonHistoryText}
+                        </span>
                       </Link>
                     </TooltipTrigger>
                     <TooltipContent>{historyTooltip}</TooltipContent>

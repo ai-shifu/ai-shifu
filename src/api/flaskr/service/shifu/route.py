@@ -1456,7 +1456,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         path_prefix + "/shifus/<shifu_bid>/draft-meta",
         methods=["GET"],
     )
-    @ShifuTokenValidation(ShifuPermission.EDIT)
+    @ShifuTokenValidation(ShifuPermission.VIEW)
     def get_draft_meta_api(shifu_bid: str):
         """
         get draft meta

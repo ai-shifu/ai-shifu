@@ -20,6 +20,11 @@ import {
 import { ScrollArea } from '@/components/ui/ScrollArea';
 import { cn } from '@/lib/utils';
 import type { Shifu } from '@/types/shifu';
+import {
+  ORDER_FILTER_GRID_CLASS,
+  getOrdersTabFilterContentClassName,
+  getOrdersTabFilterLabelClassName,
+} from './orderFilterUiShared';
 import type { OrderFilters } from './ordersPageShared';
 
 const ALL_OPTION_VALUE = '__all__';
@@ -41,8 +46,6 @@ type OrdersFilterPanelProps = {
   userBidPlaceholder: string;
   statusOptions: SelectOption[];
   channelOptions: SelectOption[];
-  contentClassName: string;
-  expandedLabelClassName: string;
   onCourseSearchChange: (value: string) => void;
   onExpandedChange: (expanded: boolean) => void;
   onFilterChange: (
@@ -64,8 +67,6 @@ export default function OrdersFilterPanel({
   userBidPlaceholder,
   statusOptions,
   channelOptions,
-  contentClassName,
-  expandedLabelClassName,
   onCourseSearchChange,
   onExpandedChange,
   onFilterChange,
@@ -73,9 +74,12 @@ export default function OrdersFilterPanel({
   onReset,
   onSearch,
 }: OrdersFilterPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n?.language || 'en-US';
   const displayStatusValue = filters.status || ALL_OPTION_VALUE;
   const displayChannelValue = filters.payment_channel || ALL_OPTION_VALUE;
+  const contentClassName = getOrdersTabFilterContentClassName(locale);
+  const labelClassName = getOrdersTabFilterLabelClassName(locale);
 
   const courseNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -157,8 +161,8 @@ export default function OrdersFilterPanel({
             align='start'
             className='p-3'
             style={{
-              width: 'var(--radix-popover-trigger-width)',
-              maxWidth: 'var(--radix-popover-trigger-width)',
+              width:
+                'min(max(var(--radix-popover-trigger-width), 320px), 90vw)',
             }}
           >
             <AdminClearableInput
@@ -283,7 +287,9 @@ export default function OrdersFilterPanel({
       collapseLabel={t('common.core.collapse')}
       collapsedCount={3}
       contentClassName={contentClassName}
-      expandedLabelClassName={expandedLabelClassName}
+      labelClassName={labelClassName}
+      collapsedGridClassName={ORDER_FILTER_GRID_CLASS}
+      expandedGridClassName={ORDER_FILTER_GRID_CLASS}
     />
   );
 }
