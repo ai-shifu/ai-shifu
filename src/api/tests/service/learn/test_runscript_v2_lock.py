@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -116,6 +117,20 @@ def _make_test_app() -> Flask:
     app.config["REDIS_KEY_PREFIX"] = "test"
     app.config["SSE_HEARTBEAT_INTERVAL"] = 0
     return app
+
+
+def test_sse_chunk_serializes_datetime_as_utc_iso_z():
+    chunk = runscript_v2._to_sse_chunk(
+        {
+            "created_at": datetime(
+                2026, 6, 30, 19, 57, 3, tzinfo=timezone(timedelta(hours=8))
+            )
+        }
+    )
+
+    events = _parse_sse_events([chunk])
+
+    assert events == [{"created_at": "2026-06-30T11:57:03Z"}]
 
 
 def _patch_fake_element_adapter(monkeypatch):
