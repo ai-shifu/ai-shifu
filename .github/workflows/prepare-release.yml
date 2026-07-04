@@ -653,7 +653,7 @@ jobs:
           )
 
 
-          def github_json(api_path: str) -> dict:
+          def github_json(api_path: str):
               request = urllib.request.Request(f"https://api.github.com{api_path}")
               request.add_header("Accept", "application/vnd.github+json")
               request.add_header("X-GitHub-Api-Version", "2022-11-28")
