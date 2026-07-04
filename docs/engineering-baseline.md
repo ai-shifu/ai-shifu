@@ -411,8 +411,9 @@ src/api/tests/
 3. The release draft includes repository commits since the previous `vX.Y.Z`
    tag, plus MarkdownFlow dependency updates when the pinned `markdown-flow` or
    `markdown-flow-ui` versions changed; dependency notes are generated from the
-   corresponding library repository tag range when tags exist, or from registry
-   metadata when they do not.
+   corresponding library repository tag range when tags exist. When matching
+   tags do not exist, registry publish times are used to bound a GitHub commit
+   lookup for the dependency repository.
 4. Publishing the release triggers `build-on-release.yml`, which validates the
    tag, skips drafts or prereleases, and builds the release-tagged images.
 5. `main` continues to drive `build-latest.yml`, so `:latest` images and
