@@ -554,8 +554,8 @@ jobs:
               {
                   "name": "markdown-flow-ui",
                   "repo": "ai-shifu/markdown-flow-ui",
-                  "path": "src/cook-web/package.json",
-                  "type": "package_json",
+                  "path": "src/cook-web/package-lock.json",
+                  "type": "package_lock",
                   "registry": "npm",
               },
           ]
@@ -631,6 +631,18 @@ jobs:
                       raw = (package.get(section) or {}).get(name)
                       if raw:
                           return normalize_version(str(raw))
+
+              if dependency["type"] == "package_lock":
+                  try:
+                      package_lock = json.loads(content)
+                  except json.JSONDecodeError:
+                      return ""
+
+                  locked_package = (package_lock.get("packages") or {}).get(
+                      f"node_modules/{name}",
+                  ) or {}
+                  raw = locked_package.get("version")
+                  return normalize_version(str(raw)) if raw else ""
 
               return ""
 
