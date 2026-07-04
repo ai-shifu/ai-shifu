@@ -418,7 +418,7 @@ src/api/tests/
    tag, skips drafts or prereleases, and builds the release-tagged images.
 5. `main` continues to drive `build-latest.yml`, so `:latest` images and
    release-tagged images must remain semantically aligned.
-6. After image publication, smoke-check the pinned or latest Docker compose
+6. After image publication, smoke-check the pinned or latest Docker Compose
    startup path, backend boot, and the primary frontend entry path before
    treating the release as ready.
 
