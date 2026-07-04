@@ -800,6 +800,18 @@ jobs:
                   page_commits = github_json(f"/repos/{repo}/commits?{query}")
                   if not page_commits:
                       break
+                  if not isinstance(page_commits, list):
+                      message = ""
+                      if isinstance(page_commits, dict):
+                          message = str(page_commits.get("message") or "").strip()
+                      details = f": {message}" if message else ""
+                      print(
+                          "::warning::"
+                          f"Stopped scanning commits for {repo}; GitHub returned "
+                          f"{type(page_commits).__name__}{details}.",
+                          file=sys.stderr,
+                      )
+                      break
 
                   commits.extend(page_commits)
                   if len(page_commits) < per_page:
