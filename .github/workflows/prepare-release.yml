@@ -879,8 +879,9 @@ jobs:
                   if base_tag and head_tag:
                       comparison = compare_tags(repo, base_tag, head_tag)
                       compare_url = comparison.get("html_url") or (
-                          f"https://github.com/{repo}/compare/{urllib.parse.quote(base_tag)}..."
-                          f"{urllib.parse.quote(head_tag)}"
+                          f"https://github.com/{repo}/compare/"
+                          f"{urllib.parse.quote(base_tag, safe='')}..."
+                          f"{urllib.parse.quote(head_tag, safe='')}"
                       )
                       lines.append(f"Compare: [`{base_tag}...{head_tag}`]({compare_url})")
 
