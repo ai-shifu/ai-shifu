@@ -884,6 +884,8 @@ jobs:
                           subject = format_commit_subject(message[0] if message else "")
                           if not subject or subject in seen_subjects:
                               continue
+                          if is_version_only_commit(subject):
+                              continue
                           seen_subjects.add(subject)
                           commits.append(subject)
                       append_commit_subjects(lines, commits, repo)
