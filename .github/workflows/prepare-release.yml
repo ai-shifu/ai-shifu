@@ -760,14 +760,27 @@ jobs:
 
 
           def commits_between_times(repo: str, since: str, until: str) -> list[str]:
-              query = urllib.parse.urlencode(
-                  {
-                      "since": since,
-                      "until": until,
-                      "per_page": "100",
-                  },
-              )
-              commits = github_json(f"/repos/{repo}/commits?{query}")
+              per_page = 100
+              page = 1
+              commits = []
+              while True:
+                  query = urllib.parse.urlencode(
+                      {
+                          "since": since,
+                          "until": until,
+                          "per_page": str(per_page),
+                          "page": str(page),
+                      },
+                  )
+                  page_commits = github_json(f"/repos/{repo}/commits?{query}")
+                  if not page_commits:
+                      break
+
+                  commits.extend(page_commits)
+                  if len(page_commits) < per_page:
+                      break
+                  page += 1
+
               subjects = []
               seen_subjects = set()
               for commit in reversed(commits):
@@ -788,12 +801,16 @@ jobs:
                       subject
                       for _, subject in sorted(enumerate(commits), key=commit_sort_key)
                   ]
-                  for subject in ordered_commits[:MAX_COMMITS_PER_DEPENDENCY]:
-                      lines.append(f"- {link_pr_references(subject, repo)}")
+                  visible_commits = ordered_commits[:MAX_COMMITS_PER_DEPENDENCY]
                   if len(ordered_commits) > MAX_COMMITS_PER_DEPENDENCY:
-                      lines.append(
-                          f"- ...and {len(ordered_commits) - MAX_COMMITS_PER_DEPENDENCY} more commits",
-                      )
+                      hidden_count = len(ordered_commits) - (MAX_COMMITS_PER_DEPENDENCY - 1)
+                      visible_commits = [
+                          *ordered_commits[: MAX_COMMITS_PER_DEPENDENCY - 1],
+                          f"...and {hidden_count} more commits",
+                      ]
+
+                  for subject in visible_commits:
+                      lines.append(f"- {link_pr_references(subject, repo)}")
               else:
                   lines.append("- No non-release commit details were returned for this range.")
 
