@@ -542,6 +542,7 @@ jobs:
 
           PREV_TAG = os.environ.get("PREV_TAG", "")
           MAX_COMMITS_PER_DEPENDENCY = 20
+          MAX_COMMIT_LOOKUP_PAGES = 3
 
           DEPENDENCIES = [
               {
@@ -802,6 +803,14 @@ jobs:
 
                   commits.extend(page_commits)
                   if len(page_commits) < per_page:
+                      break
+                  if page >= MAX_COMMIT_LOOKUP_PAGES:
+                      print(
+                          "::warning::"
+                          f"Stopped scanning commits for {repo} after "
+                          f"{MAX_COMMIT_LOOKUP_PAGES} pages.",
+                          file=sys.stderr,
+                      )
                       break
                   page += 1
 
