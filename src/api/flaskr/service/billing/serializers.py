@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from flask import Flask
-from flaskr.util.timezone import get_app_timezone
+
+from flaskr.util.datetime import now_utc
 
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -25,6 +25,8 @@ from .consts import (
     BILLING_DOMAIN_VERIFICATION_METHOD_LABELS,
     BILLING_INTERVAL_LABELS,
     BILLING_METRIC_LABELS,
+    BILLING_CAMPAIGN_BENEFIT_TYPE_LABELS,
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_LABELS,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_LABELS,
     BILLING_ORDER_STATUS_PENDING,
@@ -53,6 +55,8 @@ from .bucket_categories import (
     resolve_wallet_bucket_runtime_category,
 )
 from .models import (
+    BillingCampaign,
+    BillingCampaignProduct,
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
     BillingDomainBinding,
@@ -65,6 +69,9 @@ from .models import (
     CreditWalletBucket,
 )
 from .dtos import (
+    AdminBillingCampaignDTO,
+    AdminBillingCampaignDetailDTO,
+    AdminBillingCampaignProductOptionDTO,
     AdminBillingDailyLedgerSummaryDTO,
     AdminBillingDailyUsageMetricDTO,
     AdminBillingDomainBindingDTO,
@@ -72,6 +79,7 @@ from .dtos import (
     AdminBillingOrderDTO,
     AdminBillingSubscriptionDTO,
     BillingAlertDTO,
+    BillingCatalogCampaignDTO,
     BillingDailyLedgerSummaryDTO,
     BillingDailyUsageMetricDTO,
     BillingLedgerItemDTO,
@@ -89,7 +97,6 @@ from .primitives import (
     credit_decimal_to_number,
     normalize_bid,
     normalize_json_object,
-    serialize_dt,
 )
 from .queries import load_product_code_map
 
@@ -104,27 +111,145 @@ _USAGE_TYPE_LABELS = {
     BILL_USAGE_TYPE_TTS: "tts",
 }
 
-_LEDGER_SOURCE_TIMEZONE = "Asia/Shanghai"
 
-
-def _serialize_ledger_dt(
-    app: Flask,
-    value,
-    *,
-    timezone_name: str | None = None,
-) -> str | None:
-    if value is None:
+def serialize_catalog_campaign(
+    payload: dict[str, Any],
+) -> BillingCatalogCampaignDTO | None:
+    if not payload:
         return None
+    return BillingCatalogCampaignDTO(
+        campaign_bid=str(payload.get("campaign_bid") or ""),
+        benefit_type=str(payload.get("benefit_type") or ""),
+        discount_type=(str(payload.get("discount_type") or "") or None),
+        discount_amount=int(payload.get("discount_amount") or 0),
+        discount_percent=credit_decimal_to_number(payload.get("discount_percent") or 0),
+        campaign_price_amount=int(payload.get("campaign_price_amount") or 0),
+        bonus_credit_amount=credit_decimal_to_number(
+            payload.get("bonus_credit_amount") or 0
+        ),
+    )
 
-    if getattr(value, "tzinfo", None) is not None:
-        return serialize_dt(app, value, timezone_name=timezone_name)
 
-    source_tz = get_app_timezone(app, _LEDGER_SOURCE_TIMEZONE)
-    target_tz = get_app_timezone(app, timezone_name)
-    return value.replace(tzinfo=source_tz).astimezone(target_tz).isoformat()
+def serialize_admin_campaign_product_option(
+    row: BillingProduct,
+    *,
+    binding: BillingCampaignProduct | None = None,
+) -> AdminBillingCampaignProductOptionDTO:
+    payload = serialize_product(row)
+    return AdminBillingCampaignProductOptionDTO(
+        product_bid=row.product_bid,
+        product_code=row.product_code,
+        product_type=BILLING_PRODUCT_TYPE_LABELS.get(row.product_type, ""),
+        display_name=row.display_name_i18n_key,
+        description=row.description_i18n_key,
+        currency=row.currency,
+        price_amount=int(row.price_amount or 0),
+        credit_amount=credit_decimal_to_number(row.credit_amount),
+        billing_interval=getattr(payload, "billing_interval", "none") or "none",
+        billing_interval_count=int(getattr(payload, "billing_interval_count", 0) or 0),
+        campaign_discount_type=(
+            BILLING_CAMPAIGN_DISCOUNT_TYPE_LABELS.get(binding.discount_type, "") or None
+        )
+        if binding is not None
+        else None,
+        campaign_discount_amount=int(getattr(binding, "discount_amount", 0) or 0),
+        campaign_discount_percent=credit_decimal_to_number(
+            getattr(binding, "discount_percent", 0) or 0
+        ),
+        campaign_price_amount=int(getattr(binding, "campaign_price_amount", 0) or 0),
+        campaign_bonus_credit_amount=credit_decimal_to_number(
+            getattr(binding, "bonus_credit_amount", 0) or 0
+        ),
+    )
 
 
-def serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProductDTO:
+def serialize_admin_campaign(
+    app: Flask,
+    row: BillingCampaign,
+    *,
+    product_names: list[str],
+    product_types: list[str],
+    hit_order_count: int,
+    has_custom_product_rules: bool = False,
+    discount_type_code: int | None = None,
+    discount_amount: int | None = None,
+    discount_percent: Any | None = None,
+    bonus_credit_amount: Any | None = None,
+) -> AdminBillingCampaignDTO:
+    now = now_utc()
+    if not bool(row.enabled):
+        computed_status = "inactive"
+    elif row.start_at and row.start_at > now:
+        computed_status = "upcoming"
+    elif row.end_at and row.end_at <= now:
+        computed_status = "ended"
+    else:
+        computed_status = "active"
+    resolved_discount_type_code = (
+        int(row.discount_type or 0)
+        if discount_type_code is None
+        else int(discount_type_code or 0)
+    )
+    resolved_discount_amount = (
+        int(row.discount_amount or 0)
+        if discount_amount is None
+        else int(discount_amount or 0)
+    )
+    resolved_discount_percent = (
+        row.discount_percent if discount_percent is None else discount_percent
+    )
+    resolved_bonus_credit_amount = (
+        row.bonus_credit_amount if bonus_credit_amount is None else bonus_credit_amount
+    )
+    return AdminBillingCampaignDTO(
+        campaign_bid=row.campaign_bid,
+        name=str(row.name or ""),
+        note=str(row.note or ""),
+        benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_LABELS.get(row.benefit_type, ""),
+        discount_type=(
+            BILLING_CAMPAIGN_DISCOUNT_TYPE_LABELS.get(
+                resolved_discount_type_code,
+                "",
+            )
+            or None
+        ),
+        discount_amount=resolved_discount_amount,
+        discount_percent=credit_decimal_to_number(resolved_discount_percent),
+        bonus_credit_amount=credit_decimal_to_number(resolved_bonus_credit_amount),
+        product_count=len(product_names),
+        product_types=product_types,
+        product_names=product_names,
+        has_custom_product_rules=has_custom_product_rules,
+        computed_status=computed_status,
+        hit_order_count=hit_order_count,
+        start_at=row.start_at,
+        end_at=row.end_at,
+        enabled=bool(row.enabled),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def serialize_admin_campaign_detail(
+    campaign: AdminBillingCampaignDTO,
+    *,
+    products: list[AdminBillingCampaignProductOptionDTO],
+    created_user_bid: str,
+    updated_user_bid: str,
+) -> AdminBillingCampaignDetailDTO:
+    return AdminBillingCampaignDetailDTO(
+        campaign=campaign,
+        products=products,
+        created_user_bid=created_user_bid,
+        updated_user_bid=updated_user_bid,
+    )
+
+
+def serialize_product(
+    row: BillingProduct,
+    *,
+    campaign_payload: dict[str, Any] | None = None,
+) -> BillingPlanDTO | BillingTopupProductDTO:
     metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
     badge = metadata.get("badge")
     highlights = metadata.get("highlights")
@@ -142,6 +267,17 @@ def serialize_product(row: BillingProduct) -> BillingPlanDTO | BillingTopupProdu
         payload["highlights"] = [
             str(item) for item in highlights if str(item or "").strip()
         ]
+    resolved_campaign_payload = serialize_catalog_campaign(
+        campaign_payload
+        if isinstance(campaign_payload, dict)
+        else (
+            metadata.get("campaign")
+            if isinstance(metadata.get("campaign"), dict)
+            else {}
+        )
+    )
+    if resolved_campaign_payload is not None:
+        payload["campaign"] = resolved_campaign_payload
     if badge:
         badge_key = str(badge).strip()
         if "_" in badge_key:
@@ -189,8 +325,6 @@ def serialize_wallet(wallet: CreditWallet | None) -> BillingWalletSnapshotDTO:
 def serialize_subscription(
     app: Flask,
     row: BillingSubscription | None,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingSubscriptionDTO | None:
     if row is None:
         return None
@@ -202,33 +336,13 @@ def serialize_subscription(
         product_code=product_codes.get(row.product_bid, ""),
         status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(row.status, "draft"),
         billing_provider=str(row.billing_provider or ""),
-        current_period_start_at=serialize_dt(
-            app,
-            row.current_period_start_at,
-            timezone_name=timezone_name,
-        ),
-        current_period_end_at=serialize_dt(
-            app,
-            row.current_period_end_at,
-            timezone_name=timezone_name,
-        ),
-        grace_period_end_at=serialize_dt(
-            app,
-            row.grace_period_end_at,
-            timezone_name=timezone_name,
-        ),
+        current_period_start_at=row.current_period_start_at,
+        current_period_end_at=row.current_period_end_at,
+        grace_period_end_at=row.grace_period_end_at,
         cancel_at_period_end=bool(row.cancel_at_period_end),
         next_product_bid=next_product_bid or None,
-        last_renewed_at=serialize_dt(
-            app,
-            row.last_renewed_at,
-            timezone_name=timezone_name,
-        ),
-        last_failed_at=serialize_dt(
-            app,
-            row.last_failed_at,
-            timezone_name=timezone_name,
-        ),
+        last_renewed_at=row.last_renewed_at,
+        last_failed_at=row.last_failed_at,
     )
 
 
@@ -239,7 +353,6 @@ def serialize_admin_subscription(
     product_codes: dict[str, str],
     wallet: CreditWallet | None,
     renewal_event: BillingRenewalEvent | None,
-    timezone_name: str | None = None,
 ) -> AdminBillingSubscriptionDTO:
     next_product_bid = normalize_bid(row.next_product_bid)
     return AdminBillingSubscriptionDTO(
@@ -249,41 +362,20 @@ def serialize_admin_subscription(
         product_code=product_codes.get(row.product_bid, ""),
         status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(row.status, "draft"),
         billing_provider=str(row.billing_provider or ""),
-        current_period_start_at=serialize_dt(
-            app,
-            row.current_period_start_at,
-            timezone_name=timezone_name,
-        ),
-        current_period_end_at=serialize_dt(
-            app,
-            row.current_period_end_at,
-            timezone_name=timezone_name,
-        ),
-        grace_period_end_at=serialize_dt(
-            app,
-            row.grace_period_end_at,
-            timezone_name=timezone_name,
-        ),
+        current_period_start_at=row.current_period_start_at,
+        current_period_end_at=row.current_period_end_at,
+        grace_period_end_at=row.grace_period_end_at,
         cancel_at_period_end=bool(row.cancel_at_period_end),
         next_product_bid=next_product_bid or None,
         next_product_code=product_codes.get(next_product_bid, "")
         if next_product_bid
         else "",
-        last_renewed_at=serialize_dt(
-            app,
-            row.last_renewed_at,
-            timezone_name=timezone_name,
-        ),
-        last_failed_at=serialize_dt(
-            app,
-            row.last_failed_at,
-            timezone_name=timezone_name,
-        ),
+        last_renewed_at=row.last_renewed_at,
+        last_failed_at=row.last_failed_at,
         wallet=serialize_wallet(wallet),
         latest_renewal_event=serialize_renewal_event(
             app,
             renewal_event,
-            timezone_name=timezone_name,
         ),
         has_attention=_subscription_has_attention(
             row,
@@ -295,8 +387,6 @@ def serialize_admin_subscription(
 def serialize_renewal_event(
     app: Flask,
     row: BillingRenewalEvent | None,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingRenewalEventDTO | None:
     if row is None:
         return None
@@ -307,16 +397,8 @@ def serialize_renewal_event(
             "renewal",
         ),
         status=BILLING_RENEWAL_EVENT_STATUS_LABELS.get(row.status, "pending"),
-        scheduled_at=serialize_dt(
-            app,
-            row.scheduled_at,
-            timezone_name=timezone_name,
-        ),
-        processed_at=serialize_dt(
-            app,
-            row.processed_at,
-            timezone_name=timezone_name,
-        ),
+        scheduled_at=row.scheduled_at,
+        processed_at=row.processed_at,
         attempt_count=int(row.attempt_count or 0),
         last_error=str(row.last_error or ""),
         payload=normalize_json_object(row.payload_json).to_metadata_json(),
@@ -379,14 +461,12 @@ def build_billing_alerts(
 def serialize_wallet_bucket(
     app: Flask,
     row: CreditWalletBucket,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingWalletBucketDTO:
     runtime_status = CREDIT_BUCKET_STATUS_LABELS.get(row.status, "active")
     if (
         runtime_status == "active"
         and row.effective_to is not None
-        and row.effective_to <= datetime.now()
+        and row.effective_to <= now_utc()
     ):
         runtime_status = "expired"
 
@@ -400,17 +480,8 @@ def serialize_wallet_bucket(
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         source_bid=row.source_bid,
         available_credits=credit_decimal_to_number(row.available_credits),
-        effective_from=serialize_dt(
-            app,
-            row.effective_from,
-            timezone_name=timezone_name,
-        )
-        or "",
-        effective_to=serialize_dt(
-            app,
-            row.effective_to,
-            timezone_name=timezone_name,
-        ),
+        effective_from=row.effective_from,
+        effective_to=row.effective_to,
         priority=resolve_credit_bucket_priority(category_code),
         status=runtime_status,
     )
@@ -421,7 +492,6 @@ def serialize_ledger_entry(
     row: CreditLedgerEntry,
     *,
     metadata: Any | None = None,
-    timezone_name: str | None = None,
 ) -> BillingLedgerItemDTO:
     return BillingLedgerItemDTO(
         ledger_bid=row.ledger_bid,
@@ -432,33 +502,18 @@ def serialize_ledger_entry(
         idempotency_key=row.idempotency_key,
         amount=credit_decimal_to_number(row.amount),
         balance_after=credit_decimal_to_number(row.balance_after),
-        expires_at=_serialize_ledger_dt(
-            app,
-            row.expires_at,
-            timezone_name=timezone_name,
-        ),
-        consumable_from=_serialize_ledger_dt(
-            app,
-            row.consumable_from,
-            timezone_name=timezone_name,
-        ),
+        expires_at=row.expires_at,
+        consumable_from=row.consumable_from,
         metadata=normalize_json_object(
             row.metadata_json if metadata is None else metadata
         ).to_metadata_json(),
-        created_at=_serialize_ledger_dt(
-            app,
-            row.created_at,
-            timezone_name=timezone_name,
-        )
-        or "",
+        created_at=row.created_at,
     )
 
 
 def serialize_daily_usage_metric(
     app: Flask,
     row: BillingDailyUsageMetric,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingDailyUsageMetricDTO:
     return BillingDailyUsageMetricDTO(
         daily_usage_metric_bid=row.daily_usage_metric_bid,
@@ -475,26 +530,14 @@ def serialize_daily_usage_metric(
         raw_amount=int(row.raw_amount or 0),
         record_count=int(row.record_count or 0),
         consumed_credits=credit_decimal_to_number(row.consumed_credits),
-        window_started_at=serialize_dt(
-            app,
-            row.window_started_at,
-            timezone_name=timezone_name,
-        )
-        or "",
-        window_ended_at=serialize_dt(
-            app,
-            row.window_ended_at,
-            timezone_name=timezone_name,
-        )
-        or "",
+        window_started_at=row.window_started_at,
+        window_ended_at=row.window_ended_at,
     )
 
 
 def serialize_daily_ledger_summary(
     app: Flask,
     row: BillingDailyLedgerSummary,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingDailyLedgerSummaryDTO:
     return BillingDailyLedgerSummaryDTO(
         daily_ledger_summary_bid=row.daily_ledger_summary_bid,
@@ -503,26 +546,14 @@ def serialize_daily_ledger_summary(
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         amount=credit_decimal_to_number(row.amount),
         entry_count=int(row.entry_count or 0),
-        window_started_at=serialize_dt(
-            app,
-            row.window_started_at,
-            timezone_name=timezone_name,
-        )
-        or "",
-        window_ended_at=serialize_dt(
-            app,
-            row.window_ended_at,
-            timezone_name=timezone_name,
-        )
-        or "",
+        window_started_at=row.window_started_at,
+        window_ended_at=row.window_ended_at,
     )
 
 
 def serialize_admin_entitlement_state(
     app: Flask,
     state,
-    *,
-    timezone_name: str | None = None,
 ) -> AdminBillingEntitlementDTO:
     return AdminBillingEntitlementDTO(
         creator_bid=normalize_bid(state.creator_bid),
@@ -535,16 +566,8 @@ def serialize_admin_entitlement_state(
         priority_class=str(state.priority_class or "standard"),
         analytics_tier=str(state.analytics_tier or "basic"),
         support_tier=str(state.support_tier or "self_serve"),
-        effective_from=serialize_dt(
-            app,
-            state.effective_from,
-            timezone_name=timezone_name,
-        ),
-        effective_to=serialize_dt(
-            app,
-            state.effective_to,
-            timezone_name=timezone_name,
-        ),
+        effective_from=state.effective_from,
+        effective_to=state.effective_to,
         feature_payload=state.feature_payload.to_metadata_json(),
     )
 
@@ -554,7 +577,6 @@ def serialize_admin_domain_binding(
     row: BillingDomainBinding,
     *,
     custom_domain_enabled: bool = False,
-    timezone_name: str | None = None,
 ) -> AdminBillingDomainBindingDTO:
     metadata = normalize_json_object(row.metadata_json)
     verification_record_name = str(
@@ -578,11 +600,7 @@ def serialize_admin_domain_binding(
         verification_token=row.verification_token,
         verification_record_name=verification_record_name,
         verification_record_value=verification_record_value,
-        last_verified_at=serialize_dt(
-            app,
-            row.last_verified_at,
-            timezone_name=timezone_name,
-        ),
+        last_verified_at=row.last_verified_at,
         ssl_status=BILLING_DOMAIN_SSL_STATUS_LABELS.get(
             row.ssl_status,
             "not_requested",
@@ -607,13 +625,10 @@ def serialize_admin_domain_binding(
 def serialize_admin_daily_usage_metric(
     app: Flask,
     row: BillingDailyUsageMetric,
-    *,
-    timezone_name: str | None = None,
 ) -> AdminBillingDailyUsageMetricDTO:
     payload = serialize_daily_usage_metric(
         app,
         row,
-        timezone_name=timezone_name,
     )
     return AdminBillingDailyUsageMetricDTO(
         **payload.__json__(), creator_bid=row.creator_bid
@@ -623,13 +638,10 @@ def serialize_admin_daily_usage_metric(
 def serialize_admin_daily_ledger_summary(
     app: Flask,
     row: BillingDailyLedgerSummary,
-    *,
-    timezone_name: str | None = None,
 ) -> AdminBillingDailyLedgerSummaryDTO:
     payload = serialize_daily_ledger_summary(
         app,
         row,
-        timezone_name=timezone_name,
     )
     return AdminBillingDailyLedgerSummaryDTO(
         **payload.__json__(),
@@ -640,8 +652,6 @@ def serialize_admin_daily_ledger_summary(
 def serialize_order_summary(
     app: Flask,
     row: BillingOrder,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingOrderSummaryDTO:
     subscription_bid = normalize_bid(row.subscription_bid)
     payment_mode = _resolve_billing_order_payment_mode(row)
@@ -660,31 +670,21 @@ def serialize_order_summary(
         currency=row.currency,
         provider_reference_id=str(row.provider_reference_id or ""),
         failure_message=str(row.failure_message or ""),
-        created_at=serialize_dt(app, row.created_at, timezone_name=timezone_name) or "",
-        paid_at=serialize_dt(app, row.paid_at, timezone_name=timezone_name),
+        created_at=row.created_at,
+        paid_at=row.paid_at,
     )
 
 
 def serialize_admin_order_summary(
     app: Flask,
     row: BillingOrder,
-    *,
-    timezone_name: str | None = None,
 ) -> AdminBillingOrderDTO:
-    payload = serialize_order_summary(app, row, timezone_name=timezone_name)
+    payload = serialize_order_summary(app, row)
     return AdminBillingOrderDTO(
         **payload.__json__(),
         failure_code=str(row.failure_code or ""),
-        failed_at=serialize_dt(
-            app,
-            row.failed_at,
-            timezone_name=timezone_name,
-        ),
-        refunded_at=serialize_dt(
-            app,
-            row.refunded_at,
-            timezone_name=timezone_name,
-        ),
+        failed_at=row.failed_at,
+        refunded_at=row.refunded_at,
         has_attention=row.status
         in {
             BILLING_ORDER_STATUS_FAILED,
@@ -712,20 +712,11 @@ def serialize_operator_credit_order_grant(
     granted_credits: int | float,
     valid_from,
     valid_to,
-    timezone_name: str | None = None,
 ) -> OperatorCreditOrderGrantDTO:
     return OperatorCreditOrderGrantDTO(
         granted_credits=granted_credits,
-        valid_from=_serialize_ledger_dt(
-            app,
-            valid_from,
-            timezone_name=timezone_name,
-        ),
-        valid_to=_serialize_ledger_dt(
-            app,
-            valid_to,
-            timezone_name=timezone_name,
-        ),
+        valid_from=valid_from,
+        valid_to=valid_to,
         source_type=source_type,
         source_bid=source_bid,
     )
@@ -738,12 +729,10 @@ def serialize_operator_credit_order(
     product: BillingProduct | None,
     creator: dict[str, str],
     grant: OperatorCreditOrderGrantDTO | None,
-    timezone_name: str | None = None,
 ) -> OperatorCreditOrderDTO:
     order_summary = serialize_admin_order_summary(
         app,
         row,
-        timezone_name=timezone_name,
     )
     return OperatorCreditOrderDTO(
         bill_order_bid=row.bill_order_bid,
@@ -790,16 +779,8 @@ def serialize_operator_credit_order(
         failure_message=order_summary.failure_message,
         created_at=order_summary.created_at,
         paid_at=order_summary.paid_at,
-        failed_at=serialize_dt(
-            app,
-            row.failed_at,
-            timezone_name=timezone_name,
-        ),
-        refunded_at=serialize_dt(
-            app,
-            row.refunded_at,
-            timezone_name=timezone_name,
-        ),
+        failed_at=row.failed_at,
+        refunded_at=row.refunded_at,
         has_attention=order_summary.status
         in {
             "failed",

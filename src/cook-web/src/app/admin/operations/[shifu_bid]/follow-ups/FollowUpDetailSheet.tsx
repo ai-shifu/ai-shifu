@@ -38,6 +38,10 @@ type FollowUpDetailSheetProps = {
     chapterTitle?: string;
     emptyValue: string;
   }) => string;
+  resolveOutlineFieldLabel: (values: {
+    lessonTitle?: string;
+    chapterTitle?: string;
+  }) => string;
   onRetry: () => void;
   onOpenChange: (open: boolean) => void;
 };
@@ -198,6 +202,7 @@ export default function FollowUpDetailSheet({
   contactMode,
   defaultUserName,
   resolveLessonDisplay,
+  resolveOutlineFieldLabel,
   onRetry,
   onOpenChange,
 }: FollowUpDetailSheetProps) {
@@ -290,7 +295,10 @@ export default function FollowUpDetailSheet({
                   value={formatValue(basicInfo?.user_bid, emptyValue)}
                 />
                 <DetailRow
-                  label={t('detail.followUps.drawer.fields.chapter')}
+                  label={resolveOutlineFieldLabel({
+                    lessonTitle: basicInfo?.lesson_title,
+                    chapterTitle: basicInfo?.chapter_title,
+                  })}
                   value={resolveLessonDisplay({
                     lessonTitle: basicInfo?.lesson_title,
                     chapterTitle: basicInfo?.chapter_title,

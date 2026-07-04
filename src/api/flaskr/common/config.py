@@ -169,6 +169,12 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Cook Web floating contact CTA URL (default: empty string to hide the CTA)",
         group="frontend",
     ),
+    "OFFICIAL_SITE_URL": EnvVar(
+        name="OFFICIAL_SITE_URL",
+        default="",
+        description="Official AI Shifu public website URL used by referral landing pages.",
+        group="frontend",
+    ),
     "HOST_URL": EnvVar(
         name="HOST_URL",
         default="",
@@ -661,6 +667,12 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         name="BILLING_RENEWAL_CRON",
         default="* * * * *",
         description="Cron expression for dispatching due billing renewal events.",
+        group="celery",
+    ),
+    "BILLING_PENDING_ORDER_EXPIRE_CRON": EnvVar(
+        name="BILLING_PENDING_ORDER_EXPIRE_CRON",
+        default="* * * * *",
+        description="Cron expression for expiring pending billing package orders.",
         group="celery",
     ),
     "BILLING_BUCKET_EXPIRE_CRON": EnvVar(
@@ -1440,6 +1452,27 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Aliyun TTS sample rate (8000, 16000, 24000)",
         group="tts",
     ),
+    # Tencent TTS Configuration
+    "TENCENT_TTS_APP_ID": EnvVar(
+        name="TENCENT_TTS_APP_ID",
+        default="",
+        description="Tencent Cloud TTS AppId",
+        group="tts",
+    ),
+    "TENCENT_TTS_SECRET_ID": EnvVar(
+        name="TENCENT_TTS_SECRET_ID",
+        default="",
+        description="Tencent Cloud TTS SecretId",
+        secret=True,
+        group="tts",
+    ),
+    "TENCENT_TTS_SECRET_KEY": EnvVar(
+        name="TENCENT_TTS_SECRET_KEY",
+        default="",
+        description="Tencent Cloud TTS SecretKey",
+        secret=True,
+        group="tts",
+    ),
 }
 
 # Derived Redis prefixes built from REDIS_KEY_PREFIX
@@ -1927,3 +1960,36 @@ def get_config(key: str, default: Any = None) -> Any:
         # For unknown keys, check environment directly
         return os.environ.get(key, default)
     return __INSTANCE__.get(key, default)
+
+
+def has_explicit_env_override(key: str) -> bool:
+    """Return whether a config key is explicitly present in the environment."""
+    return key in os.environ
+
+
+def get_redis_key_prefix(app: Flask | None = None) -> str:
+    """Return the base Redis prefix as a normalized string."""
+    if app is not None:
+        configured = app.config.get("REDIS_KEY_PREFIX")
+        if configured is not None:
+            return str(configured)
+    return str(get_config("REDIS_KEY_PREFIX", "") or "")
+
+
+def get_redis_derived_prefix(
+    config_key: str,
+    *,
+    app: Flask | None = None,
+    suffix: str | None = None,
+) -> str:
+    """Resolve a derived Redis prefix even when app config is only partially set."""
+    if app is not None:
+        configured = app.config.get(config_key)
+        if configured is not None:
+            return str(configured)
+    resolved_suffix = suffix
+    if resolved_suffix is None:
+        resolved_suffix = REDIS_KEY_SUFFIXES.get(config_key, "")
+    if not resolved_suffix:
+        return ""
+    return get_redis_key_prefix(app) + resolved_suffix

@@ -51,6 +51,7 @@ def test_admin_login_auto_grant_keeps_operator_unchanged(app):
             stored = UserEntity.query.filter_by(user_bid=user_bid).first()
             assert stored is not None
             assert stored.is_creator == 1
+            assert stored.creator_activated_at is not None
             assert stored.is_operator == 0
         finally:
             db.session.rollback()

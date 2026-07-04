@@ -7,7 +7,6 @@ import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { toast } from '@/hooks/useToast';
 import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import {
   BILLING_WALLET_BUCKETS_SWR_KEY,
@@ -30,12 +29,14 @@ import {
   formatBillingCredits,
   formatBillingDateTime,
   formatBillingPrice,
+  getBillingProductCampaignBonusCredits,
+  hasBillingProductBonusCampaign,
   openBillingCheckoutUrl,
+  resolveBillingProductPayableAmount,
   registerBillingTranslationUsage,
   resolveBillingPingxxChannelLabel,
   resolveBillingProductTitle,
   resolveBillingProviderLabel,
-  withBillingTimezone,
 } from '@/lib/billing';
 import { BillingAlertsBanner } from './BillingAlertsBanner';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
@@ -71,6 +72,7 @@ type PingxxCheckoutState = {
   billingOrderBid: string;
   currency: string;
   description: string;
+  expiresInSeconds?: number | null;
   productName: string;
   provider: BillingProvider;
   qrUrl: string;
@@ -169,7 +171,6 @@ export function BillingOverviewTab({
 }: BillingOverviewTabProps = {}) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
-  const timezone = getBrowserTimeZone();
 
   const {
     data: overview,
@@ -182,11 +183,8 @@ export function BillingOverviewTab({
     error: catalogError,
     isLoading: catalogLoading,
   } = useSWR<BillingCatalogResponse>(
-    buildBillingSwrKey('billing-catalog', timezone),
-    async () =>
-      (await api.getBillingCatalog(
-        withBillingTimezone({}, timezone),
-      )) as BillingCatalogResponse,
+    buildBillingSwrKey('billing-catalog'),
+    async () => (await api.getBillingCatalog({})) as BillingCatalogResponse,
     {
       revalidateOnFocus: false,
     },
@@ -273,9 +271,7 @@ export function BillingOverviewTab({
   async function refreshBillingData() {
     await Promise.all([
       mutateOverview(),
-      mutateSWRCache(
-        buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY, timezone),
-      ),
+      mutateSWRCache(buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY)),
     ]);
   }
 
@@ -335,7 +331,8 @@ export function BillingOverviewTab({
         return;
       }
 
-      if (checkoutTarget.provider === 'stripe' && result.redirect_url) {
+      const resolvedProvider = result.provider;
+      if (resolvedProvider === 'stripe' && result.redirect_url) {
         if (result.checkout_session_id) {
           rememberStripeCheckoutSession(
             result.checkout_session_id,
@@ -348,8 +345,13 @@ export function BillingOverviewTab({
         return;
       }
 
-      if (isQrBillingProvider(checkoutTarget.provider) && checkoutChannel) {
-        const qrCode = extractBillingPingxxQrCode(result, checkoutChannel);
+      if (isQrBillingProvider(resolvedProvider)) {
+        const preferredChannel =
+          checkoutChannel ||
+          (resolvedProvider === 'pingxx'
+            ? selectedPingxxChannel
+            : resolveDefaultBillingQrChannel(resolvedProvider));
+        const qrCode = extractBillingPingxxQrCode(result, preferredChannel);
         if (!qrCode) {
           toast({
             title: t('module.billing.checkout.unsupported'),
@@ -360,11 +362,10 @@ export function BillingOverviewTab({
 
         setPingxxCheckout({
           amountInMinor:
-            typeof result.payable_amount === 'number'
-              ? result.payable_amount
-              : checkoutTarget.product.price_amount,
+            result.payable_amount ??
+            resolveBillingProductPayableAmount(checkoutTarget.product),
           billingOrderBid: result.bill_order_bid,
-          currency: checkoutTarget.product.currency,
+          currency: result.currency || checkoutTarget.product.currency,
           description: t(
             checkoutTarget.kind === 'plan'
               ? resolvePlanCheckoutDescriptionKey(
@@ -373,8 +374,9 @@ export function BillingOverviewTab({
                 )
               : 'module.billing.checkout.topupDescription',
           ),
+          expiresInSeconds: result.expires_in_seconds,
           productName: resolveBillingProductTitle(t, checkoutTarget.product),
-          provider: checkoutTarget.provider,
+          provider: resolvedProvider,
           qrUrl: qrCode.url,
           selectedChannel: qrCode.channel,
           prepaidOffsetAmount: result.prepaid_offset_amount || 0,
@@ -420,6 +422,15 @@ export function BillingOverviewTab({
         bill_order_bid: pingxxCheckout.billingOrderBid,
         channel,
       })) as BillingCheckoutResult;
+      if (result.status === 'paid') {
+        await refreshBillingData();
+        toast({
+          title: t('module.billing.checkout.completed'),
+        });
+        setPingxxCheckout(null);
+        setCheckoutAgreed(false);
+        return;
+      }
       const qrCode = extractBillingPingxxQrCode(result, channel);
       if (!qrCode) {
         toast({
@@ -433,6 +444,8 @@ export function BillingOverviewTab({
         current
           ? {
               ...current,
+              expiresInSeconds: result.expires_in_seconds,
+              provider: result.provider,
               qrUrl: qrCode.url,
               selectedChannel: qrCode.channel,
             }
@@ -521,13 +534,27 @@ export function BillingOverviewTab({
 
   const dialogPriceLabel = checkoutTarget
     ? formatBillingPrice(
-        checkoutTarget.product.price_amount,
+        resolveBillingProductPayableAmount(checkoutTarget.product),
         checkoutTarget.product.currency,
         i18n.language,
       )
     : '';
   const dialogCreditsLabel = checkoutTarget
-    ? formatBillingCredits(checkoutTarget.product.credit_amount, i18n.language)
+    ? hasBillingProductBonusCampaign(checkoutTarget.product)
+      ? t('module.billing.checkout.bonusCreditsLabel', {
+          baseCredits: formatBillingCredits(
+            checkoutTarget.product.credit_amount,
+            i18n.language,
+          ),
+          bonusCredits: formatBillingCredits(
+            getBillingProductCampaignBonusCredits(checkoutTarget.product),
+            i18n.language,
+          ),
+        })
+      : formatBillingCredits(
+          checkoutTarget.product.credit_amount,
+          i18n.language,
+        )
     : '';
   const dialogProviderLabel = checkoutTarget
     ? resolveCheckoutChannelLabel(t, checkoutTarget, selectedPingxxChannel)
@@ -673,6 +700,7 @@ export function BillingOverviewTab({
         amountInMinor={pingxxCheckout?.amountInMinor || 0}
         currency={pingxxCheckout?.currency || 'CNY'}
         description={pingxxCheckout?.description || ''}
+        expiresInSeconds={pingxxCheckout?.expiresInSeconds ?? null}
         isLoading={Boolean(checkoutLoadingKey)}
         open={Boolean(pingxxCheckout)}
         productName={pingxxCheckout?.productName || ''}

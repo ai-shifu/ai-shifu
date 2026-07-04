@@ -1,0 +1,39 @@
+{
+  "__namespace__": "module.profileOnboarding",
+  "admin": {
+    "allowedVariables": "Variables autorisées",
+    "allowedVariablesHint": "Ce flux peut uniquement écrire le surnom, le style d’enseignement et le profil. La langue reste détectée automatiquement.",
+    "defaultMarkdownflow": "?[%{{sys_user_nickname}}...Comment le cours doit-il vous appeler ?]\n?[%{{sys_user_style}} Concis et direct | Accompagnement étape par étape | Vivant et imagé]\n?[%{{sys_user_background}}...Quel est votre métier ou votre parcours ?]",
+    "description": "Configurez la fenêtre de profil affichée lors de la première entrée côté apprenant.",
+    "emptyPreview": "Aucune question interactive reconnue pour le moment.",
+    "enabled": "Activer la fenêtre d’initialisation du profil",
+    "enabledHint": "Une fois activée, elle s’affiche une seule fois pour les apprenants qui ne l’ont pas terminée ou ignorée.",
+    "hidePreview": "Masquer l’aperçu",
+    "invalidVariables": "Variables non autorisées : {keys}",
+    "loadFailed": "Échec du chargement de la configuration d’initialisation du profil",
+    "markdownflow": "MarkdownFlow",
+    "preview": "Aperçu",
+    "publishState": "État de publication",
+    "save": "Enregistrer",
+    "saveFailed": "Échec de l’enregistrement de la configuration d’initialisation du profil",
+    "saveSuccess": "Configuration d’initialisation du profil enregistrée",
+    "title": "Initialisation du profil",
+    "updatedAt": "Mis à jour le",
+    "updatedBy": "Mis à jour par",
+    "version": "Version"
+  },
+  "complete": "Terminer",
+  "description": "Répondez à quelques questions pour personnaliser votre apprentissage.",
+  "emptyFlow": "Aucune question de profil n’est configurée.",
+  "inputPlaceholder": "Saisissez votre réponse",
+  "next": "Suivant",
+  "skip": "Ignorer",
+  "submitFailed": "Impossible d’enregistrer votre profil. Vérifiez vos réponses et réessayez.",
+  "title": "Configurer votre profil d’apprentissage",
+  "variableLabels": {
+    "sys_user_background": "métier ou parcours",
+    "sys_user_nickname": "surnom",
+    "sys_user_style": "style d’enseignement"
+  },
+  "variablePrompt": "Veuillez renseigner {variable}"
+}

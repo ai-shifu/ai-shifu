@@ -20,6 +20,9 @@ const originalFetch = global.fetch;
 const originalWindow = global.window;
 const RETRY_LABEL = 'retry';
 const MOCK_DIALOG_CLOSE_LABEL = 'mock-dialog-close';
+const mockBrowserTimeZone = jest.fn(() => 'UTC');
+const formatUtcBoundary = (date: Date) =>
+  date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 const LONG_COURSE_PROMPT =
   'You are a patient course assistant. Help learners build understanding step by step, summarize key ideas clearly, and always connect each answer back to the course context.';
 let mockLanguage = 'en-US';
@@ -180,6 +183,11 @@ jest.mock('@/components/ErrorDisplay', () => ({
 jest.mock('@/components/loading', () => ({
   __esModule: true,
   default: () => <div data-testid='loading-indicator' />,
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('@/components/ui/Select', () => {
@@ -521,6 +529,8 @@ describe('OperationsPage', () => {
     mockToast.mockReset();
     mockErrorDisplay.mockReset();
     mockCopyText.mockReset();
+    mockBrowserTimeZone.mockReset();
+    mockBrowserTimeZone.mockReturnValue('UTC');
     mockGetAdminOperationCoursesOverview.mockReset();
     mockGetAdminOperationCourses.mockReset();
     mockGetAdminOperationCoursePrompt.mockReset();
@@ -680,6 +690,43 @@ describe('OperationsPage', () => {
 
     expect(screen.getByText('76384')).toBeInTheDocument();
     expect(screen.queryByText('76,384')).not.toBeInTheDocument();
+  });
+
+  test('converts course metadata timestamps to the browser timezone', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+    mockGetAdminOperationCourses.mockResolvedValueOnce({
+      items: [
+        {
+          shifu_bid: 'course-timezone',
+          course_name: 'Timezone Course',
+          course_status: 'published',
+          price: '0',
+          course_model: '',
+          has_course_prompt: false,
+          creator_user_bid: 'creator-1',
+          creator_mobile: '',
+          creator_email: 'creator@example.com',
+          creator_nickname: '',
+          updater_user_bid: 'editor-1',
+          updater_mobile: '',
+          updater_email: 'editor@example.com',
+          updater_nickname: '',
+          created_at: '2026-06-09T12:01:50Z',
+          updated_at: '2026-06-09T13:01:50Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    await renderAndWaitForLoadedPage();
+
+    expect(screen.getByText('2026-06-09 05:01:50')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-09 06:01:50')).toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 12:01:50')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 13:01:50')).not.toBeInTheDocument();
   });
 
   test('navigates from course name and transfers creator from the action menu', async () => {
@@ -1281,6 +1328,12 @@ describe('OperationsPage', () => {
     try {
       await renderAndWaitForLoadedPage();
 
+      const expectedEndDate = new Date();
+      const expectedStartDate = new Date(expectedEndDate);
+      expectedStartDate.setDate(expectedEndDate.getDate() - 6);
+      expectedStartDate.setHours(0, 0, 0, 0);
+      expectedEndDate.setHours(23, 59, 59, 0);
+
       fireEvent.click(
         screen.getByRole('button', {
           name: /module\.operationsCourse\.overview\.metrics\.createdLast7d/i,
@@ -1291,8 +1344,8 @@ describe('OperationsPage', () => {
         expect(mockGetAdminOperationCourses).toHaveBeenLastCalledWith(
           expect.objectContaining({
             quick_filter: 'created_last_7d',
-            start_time: '2026-04-30',
-            end_time: '2026-05-06',
+            start_time: formatUtcBoundary(expectedStartDate),
+            end_time: formatUtcBoundary(expectedEndDate),
           }),
         );
       });

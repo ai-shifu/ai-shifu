@@ -12,6 +12,7 @@ from flask import Flask
 
 _DEFAULT_BROKER_URL = "redis://localhost:6379/0"
 _DEFAULT_BILLING_RENEWAL_CRON = "* * * * *"
+_DEFAULT_BILLING_PENDING_ORDER_EXPIRE_CRON = "* * * * *"
 _DEFAULT_BILLING_BUCKET_EXPIRE_CRON = "* * * * *"
 _DEFAULT_BILLING_LOW_BALANCE_CRON = "0 * * * *"
 _DEFAULT_BILLING_CREDIT_EXPIRING_CRON = "0 * * * *"
@@ -35,7 +36,7 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
     celery_app = Celery(
         resolved_flask_app.import_name,
         task_cls=FlaskTask,
-        include=("flaskr.service.billing.tasks",),
+        include=("flaskr.service.billing.tasks", "flaskr.service.tts.tasks"),
     )
     celery_app.conf.update(_build_celery_config(resolved_flask_app))
     celery_app.flask_app = resolved_flask_app  # type: ignore[attr-defined]
@@ -103,6 +104,14 @@ def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, Any]:
                 _DEFAULT_BILLING_BUCKET_EXPIRE_CRON,
             ),
         },
+        "billing.expire_pending_orders.schedule": {
+            "task": "billing.expire_pending_orders",
+            "schedule": _resolve_billing_crontab(
+                flask_app,
+                "BILLING_PENDING_ORDER_EXPIRE_CRON",
+                _DEFAULT_BILLING_PENDING_ORDER_EXPIRE_CRON,
+            ),
+        },
         "billing.send_low_balance_alert.schedule": {
             "task": "billing.send_low_balance_alert",
             "schedule": _resolve_billing_crontab(
@@ -143,10 +152,8 @@ def _resolve_billing_crontab(
         return schedule
 
     flask_app.logger.warning(
-        "Invalid %s=%r; falling back to %s",
+        "Invalid cron expression configured for %s; falling back to default schedule",
         config_key,
-        raw_expression,
-        default_expression,
     )
     fallback_schedule = _parse_crontab_expression(default_expression)
     if fallback_schedule is None:  # pragma: no cover - guarded by constants above

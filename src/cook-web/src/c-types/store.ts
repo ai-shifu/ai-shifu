@@ -2,6 +2,8 @@ import { UserInfo } from './index';
 
 export type SupportedLocale = 'zh-CN' | 'en-US' | 'fr-FR';
 
+export type LearningMode = 'listen' | 'read' | 'classroom';
+
 export interface LegalUrls {
   agreement: Record<SupportedLocale, string>;
   privacy: Record<SupportedLocale, string>;
@@ -24,6 +26,7 @@ export interface EnvStoreState {
   enableWxcode: string;
   homeUrl: string;
   contactUsUrl: string;
+  officialSiteUrl: string;
   currencySymbol: string;
   billingEnabled: string;
   stripePublishableKey: string;
@@ -50,6 +53,7 @@ export interface EnvStoreState {
   updateEnableWxcode: (value: string) => Promise<void>;
   updateHomeUrl: (url: string) => Promise<void>;
   updateContactUsUrl: (url: string) => Promise<void>;
+  updateOfficialSiteUrl: (url: string) => Promise<void>;
   updateCurrencySymbol: (symbol: string) => Promise<void>;
   updateBillingEnabled: (value: string) => Promise<void>;
   updateStripePublishableKey: (key: string) => Promise<void>;
@@ -69,16 +73,18 @@ export interface SystemStoreState {
   showVip: boolean;
   previewMode: boolean;
   skip: boolean;
-  learningMode: 'listen' | 'read';
+  learningMode: LearningMode;
   showLearningModeToggle: boolean;
+  canUseClassroomMode: boolean | null;
   updateLanguage: (language: string) => void;
   updateChannel: (channel: string) => void;
   updateWechatCode: (code: string) => void;
   setShowVip: (show: boolean) => void;
   updatePreviewMode: (mode: boolean) => void;
   updateSkip: (skip: boolean) => void;
-  updateLearningMode: (mode: 'listen' | 'read') => void;
+  updateLearningMode: (mode: LearningMode) => void;
   updateShowLearningModeToggle: (show: boolean) => void;
+  updateCanUseClassroomMode: (canUse: boolean | null) => void;
 }
 
 export interface CourseStoreState {

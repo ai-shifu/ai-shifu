@@ -22,6 +22,10 @@ from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
 )
+from flaskr.service.profile.onboarding import (
+    complete_profile_onboarding,
+    get_profile_onboarding_status,
+)
 from ..service.user.common import validate_user, update_user_info
 from ..service.user.user import (
     generate_temp_user,
@@ -42,6 +46,12 @@ from ..service.feedback.funs import submit_feedback
 from ..service.user.auth import get_provider
 from ..service.user.auth.base import OAuthCallbackRequest, VerificationRequest
 from ..service.user.post_auth import PostAuthContext, run_post_auth_extensions
+from ..service.user.onboarding import (
+    ONBOARDING_VERSION,
+    build_onboarding_status,
+    complete_onboarding_scene,
+)
+from ..service.referral.service import extract_referral_post_auth_fields
 from ..service.common.dtos import OAuthStartDTO
 from .common import make_common_response, bypass_token_validation, by_pass_login_func
 from flaskr.dao import db
@@ -69,6 +79,20 @@ def _apply_request_language(payload: dict | None = None) -> None:
     language = _extract_request_language(payload)
     if language:
         set_language(language)
+
+
+def _request_client_ip() -> str:
+    if "X-Forwarded-For" in request.headers:
+        return request.headers["X-Forwarded-For"].split(",")[0].strip()
+    return str(request.remote_addr or "").strip()
+
+
+def _extract_referral_post_auth_fields(payload: dict) -> dict[str, str]:
+    return extract_referral_post_auth_fields(
+        payload,
+        client_ip=_request_client_ip(),
+        user_agent=request.headers.get("User-Agent"),
+    )
 
 
 def optional_token_validation(f):
@@ -179,6 +203,32 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
         return make_common_response({"granted": True})
 
+    @app.route(path_prefix + "/onboarding/status", methods=["GET"])
+    def onboarding_status():
+        return make_common_response(
+            build_onboarding_status(
+                app,
+                request.user.user_id,
+                getattr(request.user, "language", None),
+            )
+        )
+
+    @app.route(path_prefix + "/onboarding/complete", methods=["POST"])
+    def complete_onboarding():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            payload = {}
+        return make_common_response(
+            complete_onboarding_scene(
+                app,
+                request.user.user_id,
+                scene_key=payload.get("scene_key"),
+                version=payload.get("version") or ONBOARDING_VERSION,
+                trigger_source=payload.get("trigger_source"),
+                status=payload.get("status"),
+            )
+        )
+
     @app.route(path_prefix + "/update_info", methods=["POST"])
     def update_info():
         """
@@ -232,6 +282,44 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(
             update_user_info(app, request.user, name, email, mobile, language, avatar)
         )
+
+    @app.route(path_prefix + "/profile-onboarding", methods=["GET"])
+    def profile_onboarding_status_api():
+        """
+        Get platform-level profile onboarding state for current user.
+        ---
+        tags:
+            - user
+        responses:
+            200:
+                description: onboarding config and current user state
+        """
+        return make_common_response(
+            get_profile_onboarding_status(app, user_id=request.user.user_id)
+        )
+
+    @app.route(path_prefix + "/profile-onboarding/complete", methods=["POST"])
+    def complete_profile_onboarding_api():
+        """
+        Complete or skip platform-level profile onboarding.
+        ---
+        tags:
+            - user
+        responses:
+            200:
+                description: onboarding completion result
+        """
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("profile_onboarding")
+        result = complete_profile_onboarding(
+            app,
+            user_id=request.user.user_id,
+            skipped=bool(payload.get("skipped", False)),
+            variables=payload.get("variables") or {},
+        )
+        db.session.commit()
+        return make_common_response(result)
 
     @app.route(path_prefix + "/require_tmp", methods=["POST"])
     @bypass_token_validation
@@ -458,6 +546,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             course_id = payload.get("course_id", None)
             language = payload.get("language", None)
             login_context = payload.get("login_context", None)
+            referral_fields = _extract_referral_post_auth_fields(payload)
             current_user = getattr(request, "user", None)
             # Only pass an anonymous/guest token through SMS login so temporary
             # learning records can be claimed. If a real authenticated account
@@ -499,6 +588,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                         auth_result.metadata.get("creator_granted_now")
                     ),
                     language=language or getattr(auth_result.user, "language", None),
+                    **referral_fields,
                 ),
             )
             resp = make_response(make_common_response(auth_result.token))

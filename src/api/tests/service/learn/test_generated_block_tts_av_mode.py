@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from types import SimpleNamespace
 
 import pytest
@@ -20,6 +21,21 @@ if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
 
+@dataclass
+class _FakeVoiceSettings:
+    voice_id: str = "voice"
+    speed: float = 1.0
+    pitch: int = 0
+    emotion: str = ""
+    volume: float = 1.0
+
+
+@dataclass
+class _FakeAudioSettings:
+    format: str = "mp3"
+    sample_rate: int = 24000
+
+
 def _patch_run_tts_processor(monkeypatch):
     synthesized_texts = []
 
@@ -28,22 +44,16 @@ def _patch_run_tts_processor(monkeypatch):
         lambda *_args, **_kwargs: (
             "minimax",
             "test-model",
-            type(
-                "Voice",
-                (),
-                {
-                    "voice_id": "voice",
-                    "speed": 1.0,
-                    "pitch": 0,
-                    "emotion": "",
-                    "volume": 1.0,
-                },
-            )(),
-            type("Audio", (), {"format": "mp3", "sample_rate": 24000})(),
+            _FakeVoiceSettings(),
+            _FakeAudioSettings(),
         ),
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.is_tts_configured",
+        lambda _provider: True,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.is_tts_configured",
         lambda _provider: True,
     )
     monkeypatch.setattr(
@@ -64,7 +74,15 @@ def _patch_run_tts_processor(monkeypatch):
         _fake_synthesize_text,
     )
     monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.synthesize_text",
+        _fake_synthesize_text,
+    )
+    monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
+        lambda parts: b"".join(parts),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
         lambda parts: b"".join(parts),
     )
     monkeypatch.setattr(
@@ -72,7 +90,18 @@ def _patch_run_tts_processor(monkeypatch):
         lambda *_args, **_kwargs: 1000,
     )
     monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.get_audio_duration_ms",
+        lambda *_args, **_kwargs: 1000,
+    )
+    monkeypatch.setattr(
         "flaskr.service.tts.tts_handler.upload_audio_to_oss",
+        lambda _app, _audio_bytes, audio_bid: (
+            f"https://example.com/{audio_bid}.mp3",
+            "test-bucket",
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.upload_audio_to_oss",
         lambda _app, _audio_bytes, audio_bid: (
             f"https://example.com/{audio_bid}.mp3",
             "test-bucket",
@@ -85,6 +114,10 @@ def _patch_run_tts_processor(monkeypatch):
     monkeypatch.setattr(
         "flaskr.service.tts.tts_usage_recorder.record_tts_aggregated_usage",
         lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.record_tts_usage",
+        lambda *_args, **_kwargs: None,
     )
 
     return synthesized_texts
@@ -564,6 +597,177 @@ class TestGeneratedBlockListenTtsElementFirst:
             event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
         ]
         assert [event.content.position for event in audio_complete_events] == [0]
+        assert events[-1].type == GeneratedType.DONE
+
+    def test_stream_generated_block_audio_preview_listen_falls_back_to_block_tts_without_final_elements(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "user-preview-listen-fallback-1"
+        shifu_bid = "shifu-preview-listen-fallback-1"
+        generated_block_bid = "gen-preview-listen-fallback-1"
+        generated_content = "Preview listen fallback content."
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-preview-listen-fallback-1",
+                    user_bid=user_bid,
+                    block_bid="block-preview-listen-fallback-1",
+                    outline_item_bid="outline-preview-listen-fallback-1",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content=generated_content,
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=True,
+                listen=True,
+            )
+        )
+
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+
+        assert synthesized_texts == [generated_content]
+        assert len(audio_complete_events) == 1
+        assert audio_complete_events[0].content.audio_url.endswith(".mp3")
+        assert audio_complete_events[0].content.subtitle_cues[0].text == (
+            generated_content
+        )
+        assert events[-1].type == GeneratedType.DONE
+
+        with self.app.app_context():
+            records = (
+                self.LearnGeneratedAudio.query.filter(
+                    self.LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                    self.LearnGeneratedAudio.user_bid == user_bid,
+                    self.LearnGeneratedAudio.shifu_bid == shifu_bid,
+                    self.LearnGeneratedAudio.deleted == 0,
+                )
+                .order_by(self.LearnGeneratedAudio.position.asc())
+                .all()
+            )
+            assert records == []
+
+    def test_stream_generated_block_audio_preview_listen_reuses_cached_block_audio(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+        from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED
+
+        user_bid = "user-preview-listen-cache-1"
+        shifu_bid = "shifu-preview-listen-cache-1"
+        generated_block_bid = "gen-preview-listen-cache-1"
+        generated_content = "Preview listen cached content."
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-preview-listen-cache-1",
+                    user_bid=user_bid,
+                    block_bid="block-preview-listen-cache-1",
+                    outline_item_bid="outline-preview-listen-cache-1",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content=generated_content,
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.add(
+                self.LearnGeneratedAudio(
+                    audio_bid="audio-preview-listen-cache-1",
+                    generated_block_bid=generated_block_bid,
+                    position=0,
+                    progress_record_bid="progress-preview-listen-cache-1",
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    oss_url="https://example.com/preview-listen-cache.mp3",
+                    oss_bucket="test-bucket",
+                    oss_object_key="tts-audio/preview-listen-cache.mp3",
+                    duration_ms=1000,
+                    file_size=10,
+                    audio_format="mp3",
+                    sample_rate=24000,
+                    voice_id="voice",
+                    voice_settings={},
+                    model="test-model",
+                    text_length=len(generated_content),
+                    segment_count=1,
+                    subtitle_cues=[
+                        {
+                            "text": generated_content,
+                            "start_ms": 0,
+                            "end_ms": 1000,
+                            "segment_index": 0,
+                            "position": 0,
+                        }
+                    ],
+                    status=AUDIO_STATUS_COMPLETED,
+                    deleted=0,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=True,
+                listen=True,
+            )
+        )
+
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+
+        assert synthesized_texts == []
+        assert len(audio_complete_events) == 1
+        assert audio_complete_events[0].content.audio_url == (
+            "https://example.com/preview-listen-cache.mp3"
+        )
+        assert audio_complete_events[0].content.subtitle_cues[0].text == (
+            generated_content
+        )
         assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_listen_preserves_position_after_short_text(

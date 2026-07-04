@@ -6,7 +6,12 @@ import {
   formatBillingNumber,
   formatBillingPlanInterval,
   formatBillingPrice,
+  getBillingProductCampaignBonusCredits,
+  hasBillingProductBonusCampaign,
   extractBillingPingxxQrCode,
+  formatBillingCompactDateTime,
+  formatBillingDate,
+  formatBillingDateTime,
   parseBillingDateValue,
   resolveBillingLedgerUsageType,
   resolveBillingLedgerReasonLabel,
@@ -16,6 +21,12 @@ import {
 } from '@/lib/billing';
 import type { BillingLedgerItem, BillingPlan } from '@/types/billing';
 import type { BillingCheckoutResult } from '@/types/billing';
+
+const mockBrowserTimeZone = jest.fn(() => 'Asia/Shanghai');
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
+}));
 
 const monthlyPlan: BillingPlan = {
   product_bid: 'bill-product-plan-monthly',
@@ -169,6 +180,55 @@ describe('formatBillingCreditAmount', () => {
     expect(formatBillingCreditAmount(5)).toBe('5');
     expect(formatBillingCreditAmount(10000)).toBe('10,000');
     expect(formatBillingCreditAmount(3200.88)).toBe('3,200.88');
+  });
+});
+
+describe('billing campaign helpers', () => {
+  test('detects positive bonus-credit campaigns', () => {
+    const bonusPlan = {
+      ...monthlyPlan,
+      campaign: {
+        campaign_bid: 'campaign-bonus-1',
+        benefit_type: 'bonus' as const,
+        discount_amount: 0,
+        discount_percent: 0,
+        campaign_price_amount: 0,
+        bonus_credit_amount: 2,
+      },
+    };
+
+    expect(hasBillingProductBonusCampaign(bonusPlan)).toBe(true);
+    expect(getBillingProductCampaignBonusCredits(bonusPlan)).toBe(2);
+  });
+
+  test('ignores discount campaigns and zero bonus values', () => {
+    expect(
+      hasBillingProductBonusCampaign({
+        ...monthlyPlan,
+        campaign: {
+          campaign_bid: 'campaign-discount-1',
+          benefit_type: 'discount',
+          discount_type: 'percent',
+          discount_amount: 0,
+          discount_percent: 8,
+          campaign_price_amount: 790,
+          bonus_credit_amount: 2,
+        },
+      }),
+    ).toBe(false);
+    expect(
+      hasBillingProductBonusCampaign({
+        ...monthlyPlan,
+        campaign: {
+          campaign_bid: 'campaign-bonus-empty',
+          benefit_type: 'bonus',
+          discount_amount: 0,
+          discount_percent: 0,
+          campaign_price_amount: 0,
+          bonus_credit_amount: 0,
+        },
+      }),
+    ).toBe(false);
   });
 });
 
@@ -354,9 +414,12 @@ describe('resolveBillingLedgerUsageType', () => {
 });
 
 describe('parseBillingDateValue', () => {
-  test('treats offsetless legacy billing instants as app-local +08:00 values', () => {
+  beforeEach(() => {
+    mockBrowserTimeZone.mockReturnValue('Asia/Shanghai');
+  });
+  test('treats offsetless billing instants as UTC', () => {
     expect(parseBillingDateValue('2026-04-14T07:32:00')?.toISOString()).toBe(
-      '2026-04-13T23:32:00.000Z',
+      '2026-04-14T07:32:00.000Z',
     );
   });
 
@@ -364,6 +427,87 @@ describe('parseBillingDateValue', () => {
     expect(
       parseBillingDateValue('2026-04-14T07:32:00+08:00')?.toISOString(),
     ).toBe('2026-04-13T23:32:00.000Z');
+  });
+
+  test('normalizes space-separated offset-aware instants', () => {
+    expect(parseBillingDateValue('2026-04-14 07:32:00Z')?.toISOString()).toBe(
+      '2026-04-14T07:32:00.000Z',
+    );
+  });
+
+  test('handles comprehensive date/time formats', () => {
+    expect(parseBillingDateValue('2026-04-14')?.toISOString()).toBe(
+      '2026-04-14T00:00:00.000Z',
+    );
+    expect(parseBillingDateValue('2026-04-14Z')?.toISOString()).toBe(
+      '2026-04-14T00:00:00.000Z',
+    );
+    expect(parseBillingDateValue('2026-04-14T07:32Z')?.toISOString()).toBe(
+      '2026-04-14T07:32:00.000Z',
+    );
+    expect(
+      parseBillingDateValue('2026-04-14T07:32:00+02:00')?.toISOString(),
+    ).toBe('2026-04-14T05:32:00.000Z');
+    expect(parseBillingDateValue('invalid-date')).toBeNull();
+  });
+});
+
+describe('billing datetime display helpers', () => {
+  beforeEach(() => {
+    mockBrowserTimeZone.mockReturnValue('Asia/Shanghai');
+  });
+  test('formats legacy offsetless billing timestamps as UTC before applying the admin browser-timezone rule', () => {
+    expect(formatBillingDateTime('2026-04-14T07:32:00', 'zh-CN')).toBe(
+      '2026-04-14 15:32:00',
+    );
+  });
+  test('formats UTC billing timestamps with the admin browser-timezone rule', () => {
+    expect(formatBillingDateTime('2026-04-14T07:32:00Z', 'zh-CN')).toBe(
+      '2026-04-14 15:32:00',
+    );
+  });
+
+  test('uses the browser timezone rather than the locale for billing datetime display', () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+
+    expect(formatBillingDateTime('2026-04-14T07:32:00Z', 'zh-CN')).toBe(
+      '2026-04-14 00:32:00',
+    );
+  });
+
+  test('normalizes minute-precision timestamps before display formatting', () => {
+    expect(formatBillingDateTime('2026-04-14T07:32Z', 'zh-CN')).toBe(
+      '2026-04-14 15:32:00',
+    );
+  });
+
+  test('formats offset-aware billing timestamps with the admin browser-timezone rule', () => {
+    expect(formatBillingDateTime('2026-04-14T07:32:00+08:00', 'en-US')).toBe(
+      '2026-04-14 07:32:00',
+    );
+  });
+
+  test('keeps compact billing timestamps aligned to the admin formatter', () => {
+    expect(formatBillingCompactDateTime('2026-04-14T07:32:00Z', 'zh-CN')).toBe(
+      '2026-04-14 15:32',
+    );
+    expect(formatBillingCompactDateTime('2026-04-14T07:32Z', 'zh-CN')).toBe(
+      '2026-04-14 15:32',
+    );
+  });
+
+  test('rejects date-only values for datetime display', () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+
+    expect(formatBillingDateTime('2026-04-14', 'zh-CN')).toBe('');
+    expect(formatBillingCompactDateTime('2026-04-14Z', 'zh-CN')).toBe('');
+  });
+
+  test('formats date-only values without browser timezone shifting', () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+
+    expect(formatBillingDate('2026-04-14', 'en-US')).toBe('Apr 14, 2026');
+    expect(formatBillingDate('2026-04-14Z', 'en-US')).toBe('Apr 14, 2026');
   });
 });
 

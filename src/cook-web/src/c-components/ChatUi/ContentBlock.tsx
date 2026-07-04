@@ -17,13 +17,13 @@ import {
 } from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
-
-const STREAMING_TEXT_TYPING_SPEED = 40;
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 
 interface ContentBlockProps {
   item: ChatContentItem;
   mobileStyle: boolean;
   blockBid: string;
+  contentRenderKey?: string;
   confirmButtonText?: string;
   copyButtonText?: string;
   copiedButtonText?: string;
@@ -43,6 +43,7 @@ const ContentBlock = memo(
     item,
     mobileStyle,
     blockBid,
+    contentRenderKey,
     confirmButtonText,
     copyButtonText,
     copiedButtonText,
@@ -125,8 +126,9 @@ const ContentBlock = memo(
         {...(mobileStyle ? longPressEvent : {})}
       >
         <ContentRender
+          key={contentRenderKey}
           enableTypewriter={shouldEnableTypewriter}
-          typingSpeed={STREAMING_TEXT_TYPING_SPEED}
+          typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
           content={renderedContent}
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}
@@ -188,6 +190,7 @@ const ContentBlock = memo(
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
+      prevProps.contentRenderKey === nextProps.contentRenderKey &&
       prevProps.item.isHistory === nextProps.item.isHistory &&
       prevProps.item.element_type === nextProps.item.element_type &&
       prevProps.confirmButtonText === nextProps.confirmButtonText &&

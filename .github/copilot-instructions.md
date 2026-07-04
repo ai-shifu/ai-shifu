@@ -9,6 +9,12 @@
   code-facing text, no hardcoded user-facing strings or secrets, and
   shared-contract doc updates in the same change.
 
+- For terminology, use `老师` in Chinese and `teacher` / `enseignant` in
+  translations for the generic role; use `课程负责人` or `负责人` for a specific
+  course owner, which may still translate as `creator` / `créateur`; keep
+  technical `creator*` identifiers unchanged unless a contract migration
+  explicitly requires it.
+
 - Use `ARCHITECTURE.md`, `PLANS.md`, and `docs/engineering-baseline.md` as the
   primary repository knowledge entry points instead of duplicating them
   everywhere.
@@ -21,6 +27,14 @@
 
 - For complex design work, create an ExecPlan in `docs/exec-plans/active/` and
   maintain it according to `PLANS.md`.
+
+- When a branch already has an open PR, keep the PR title and description in
+  sync with the latest code changes so they accurately describe the current
+  implementation and verification state.
+
+- Follow the canonical commit-message policy in
+  `docs/engineering-baseline.md#commit-message-policy`; keep agent-specific
+  rule files pointing there instead of duplicating the policy.
 
 - Regenerate repository knowledge indexes with
   `python scripts/build_repo_knowledge_index.py` after moving docs or changing

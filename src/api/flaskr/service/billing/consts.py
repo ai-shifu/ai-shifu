@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -74,6 +74,7 @@ CREDIT_SOURCE_TYPE_GIFT = 7413
 CREDIT_SOURCE_TYPE_USAGE = 7414
 CREDIT_SOURCE_TYPE_REFUND = 7415
 CREDIT_SOURCE_TYPE_MANUAL = 7416
+CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS = 7417
 
 CREDIT_ROUNDING_MODE_CEIL = 7421
 CREDIT_ROUNDING_MODE_FLOOR = 7422
@@ -137,6 +138,12 @@ BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE = 7721
 BILLING_ENTITLEMENT_SUPPORT_TIER_BUSINESS_HOURS = 7722
 BILLING_ENTITLEMENT_SUPPORT_TIER_PRIORITY = 7723
 
+BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT = 7801
+BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS = 7802
+
+BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED = 7811
+BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT = 7812
+
 
 BILLING_PRODUCT_TYPE_LABELS = {
     BILLING_PRODUCT_TYPE_PLAN: "plan",
@@ -181,6 +188,11 @@ BILLING_ORDER_STATUS_LABELS = {
     BILLING_ORDER_STATUS_TIMEOUT: "timeout",
 }
 
+BILLING_PENDING_ORDER_TIMEOUT_MINUTES = 30
+BILLING_PENDING_ORDER_TIMEOUT_DELTA = timedelta(
+    minutes=BILLING_PENDING_ORDER_TIMEOUT_MINUTES
+)
+
 CREDIT_LEDGER_ENTRY_TYPE_LABELS = {
     CREDIT_LEDGER_ENTRY_TYPE_GRANT: "grant",
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME: "consume",
@@ -198,6 +210,17 @@ CREDIT_SOURCE_TYPE_LABELS = {
     CREDIT_SOURCE_TYPE_USAGE: "usage",
     CREDIT_SOURCE_TYPE_REFUND: "refund",
     CREDIT_SOURCE_TYPE_MANUAL: "manual",
+    CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS: "campaign_bonus",
+}
+
+BILLING_CAMPAIGN_BENEFIT_TYPE_LABELS = {
+    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT: "discount",
+    BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS: "bonus",
+}
+
+BILLING_CAMPAIGN_DISCOUNT_TYPE_LABELS = {
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED: "fixed",
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT: "percent",
 }
 
 BILLING_METRIC_LABELS = {
@@ -472,7 +495,9 @@ BILL_SYS_CONFIG_SEEDS = (
                 "enabled": 0,
                 "batch_size": 100,
                 "lookahead_minutes": 60,
-                "queue": "billing-renewal",
+                "processing_timeout_minutes": 30,
+                "queue": "",
+                "use_dedicated_queue": 0,
             },
             separators=(",", ":"),
             sort_keys=True,

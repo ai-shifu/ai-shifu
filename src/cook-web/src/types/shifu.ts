@@ -21,6 +21,8 @@ export interface Shifu {
   name?: string;
   description?: string;
   avatar?: string;
+  preview_url?: string;
+  url?: string;
   state?: number;
   is_favorite?: boolean;
   readonly?: boolean;
@@ -28,6 +30,7 @@ export interface Shifu {
   created_user_bid?: string;
   can_manage_archive?: boolean;
   can_manage_permissions?: boolean;
+  is_guide_course?: boolean;
   canPublish?: boolean;
   ask_enabled_status?: number;
   ask_model?: string;
@@ -108,7 +111,6 @@ export interface DraftMeta {
 export interface MdflowHistoryItem {
   version_id: number;
   updated_at?: string | null;
-  updated_at_display?: string | null;
   updated_user_bid?: string;
   updated_user_name?: string;
 }
@@ -121,7 +123,6 @@ export interface MdflowHistoryVersionDetail {
   version_id: number;
   content: string;
   updated_at?: string | null;
-  updated_at_display?: string | null;
   updated_user_bid?: string;
   updated_user_name?: string;
 }

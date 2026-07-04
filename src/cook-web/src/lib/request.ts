@@ -14,7 +14,11 @@ const AUTH_ERROR_CODES = new Set([1001, 1004, 1005]);
 let isHandlingAuthError = false;
 
 // ===== Type Definitions =====
-export type RequestConfig = RequestInit & { params?: any; data?: any };
+export type RequestConfig = RequestInit & {
+  params?: any;
+  data?: any;
+  skipErrorToast?: boolean;
+};
 
 export type StreamRequestConfig = RequestInit & {
   params?: any;
@@ -40,6 +44,21 @@ type RequestDebugMeta = {
   httpStatus?: number;
   requestId?: string;
   harnessRunId?: string;
+  skipErrorToast?: boolean;
+};
+
+const getBusinessFallbackMessage = () => i18n.t('common.core.actionFailed');
+
+const getRequestFallbackMessage = (error?: Partial<ErrorWithCode>) => {
+  if (
+    typeof navigator !== 'undefined' &&
+    Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
+    navigator.onLine === false
+  ) {
+    return i18n.t('common.core.networkError');
+  }
+
+  return i18n.t('common.core.requestFailed');
 };
 
 // ===== Error Handling =====
@@ -121,7 +140,7 @@ const buildRequestDebugPayload = (
 const handleApiError = (error: ErrorWithCode, showToast = true) => {
   if (showToast) {
     toast({
-      title: error.message || i18n.t('common.core.networkError'),
+      title: error.message || getRequestFallbackMessage(error),
       variant: 'destructive',
     });
   }
@@ -218,7 +237,7 @@ export const handleBusinessCode = async (
   meta: RequestDebugMeta = {},
 ) => {
   const error = new ErrorWithCode(
-    response.message || i18n.t('common.core.unknownError'),
+    response.message || getBusinessFallbackMessage(),
     response.code || -1,
   ) as ErrorWithCode & { status?: number };
 
@@ -271,7 +290,7 @@ export const handleBusinessCode = async (
 
     // Special status codes do not show toast
     if (!isAuthError) {
-      handleApiError(error);
+      handleApiError(error, !meta.skipErrorToast);
     }
 
     // If the token has changed since this request was sent, treat the auth error
@@ -392,10 +411,10 @@ export class Request {
 
   private async prepareConfig(
     url: string,
-    config: RequestInit,
+    config: RequestConfig,
   ): Promise<{
     url: string;
-    config: RequestInit;
+    config: RequestConfig;
     tokenUsed: string;
     requestId: string;
     harnessRunId?: string;
@@ -492,10 +511,9 @@ export class Request {
       harnessRunId = responseTraceHeaders.harnessRunId || harnessRunId;
 
       if (!response.ok) {
-        const isDevelopment = process.env.NODE_ENV === 'development';
-        const errorMessage = isDevelopment
-          ? `Request failed with status ${response.status}`
-          : 'Network request failed';
+        const errorMessage = getRequestFallbackMessage({
+          status: response.status,
+        });
         const httpError = new ErrorWithCode(
           errorMessage,
           response.status,
@@ -534,6 +552,7 @@ export class Request {
           httpStatus: response.status,
           requestId,
           harnessRunId,
+          skipErrorToast: Boolean(mergedConfig.skipErrorToast),
         });
       }
 
@@ -568,7 +587,7 @@ export class Request {
           }),
         );
       }
-      handleApiError(error);
+      handleApiError(error, !config.skipErrorToast);
       throw error;
     }
   }

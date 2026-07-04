@@ -8,6 +8,7 @@ import pytest
 import flaskr.common.config as common_config
 from flaskr.service.order.payment_providers.alipay import AlipayProvider
 from flaskr.service.order.payment_providers.base import PaymentRequest
+from flaskr.service.order.payment_providers.stripe import StripeProvider
 from flaskr.service.order.payment_providers.wechatpay import WechatPayProvider
 
 
@@ -129,3 +130,128 @@ def test_wechatpay_native_uses_host_url_notify_url(monkeypatch):
         "https://pay.example.com/api/callback/wechatpay-notify"
     )
     assert result.extra["raw_request"]["notify_url"] == captured["notify_url"]
+
+
+def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempotency(
+    monkeypatch,
+):
+    captured_coupon: dict[str, object] = {}
+    captured_session: dict[str, object] = {}
+
+    class FakeCoupon:
+        @staticmethod
+        def create(**kwargs):
+            captured_coupon.update(kwargs)
+            return {"id": "coupon-1"}
+
+    class FakeSession:
+        @staticmethod
+        def create(**kwargs):
+            captured_session.update(kwargs)
+            return type(
+                "SessionResponse",
+                (),
+                {
+                    "to_dict": lambda self: {
+                        "id": "cs_1",
+                        "url": "https://stripe.test/checkout",
+                        "payment_intent": "",
+                    }
+                },
+            )()
+
+    class FakeCheckout:
+        Session = FakeSession
+
+    class FakeStripe:
+        Coupon = FakeCoupon
+        checkout = FakeCheckout
+
+    provider = StripeProvider()
+    monkeypatch.setattr(provider, "_ensure_client", lambda _app: FakeStripe)
+
+    result = provider.create_payment(
+        request=PaymentRequest(
+            order_bid="bill-order-1",
+            user_bid="creator-1",
+            shifu_bid="",
+            amount=800,
+            channel="checkout_session",
+            currency="CNY",
+            subject="Creator Plan",
+            body="Creator Plan",
+            client_ip="127.0.0.1",
+            extra={
+                "mode": "checkout_session",
+                "success_url": "https://app.test/success",
+                "cancel_url": "https://app.test/cancel",
+                "session_params": {"mode": "subscription"},
+                "line_items": [{"price_data": {}, "quantity": 1}],
+                "subscription_one_time_discount_amount": 200,
+            },
+        ),
+        app=Flask(__name__),
+    )
+
+    assert result.checkout_session_id == "cs_1"
+    assert captured_coupon["currency"] == "cny"
+    assert captured_coupon["idempotency_key"] == (
+        "bill-order-1:subscription-first-invoice-discount"
+    )
+    assert captured_session["discounts"] == [{"coupon": "coupon-1"}]
+
+
+def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(
+    monkeypatch,
+):
+    deleted: list[str] = []
+
+    class FakeCoupon:
+        @staticmethod
+        def create(**_kwargs):
+            return {"id": "coupon-cleanup-1"}
+
+        @staticmethod
+        def delete(coupon_id):
+            deleted.append(coupon_id)
+
+    class FakeSession:
+        @staticmethod
+        def create(**_kwargs):
+            raise RuntimeError("session failed")
+
+    class FakeCheckout:
+        Session = FakeSession
+
+    class FakeStripe:
+        Coupon = FakeCoupon
+        checkout = FakeCheckout
+
+    provider = StripeProvider()
+    monkeypatch.setattr(provider, "_ensure_client", lambda _app: FakeStripe)
+
+    with pytest.raises(RuntimeError, match="session failed"):
+        provider.create_payment(
+            request=PaymentRequest(
+                order_bid="bill-order-2",
+                user_bid="creator-1",
+                shifu_bid="",
+                amount=800,
+                channel="checkout_session",
+                currency="CNY",
+                subject="Creator Plan",
+                body="Creator Plan",
+                client_ip="127.0.0.1",
+                extra={
+                    "mode": "checkout_session",
+                    "success_url": "https://app.test/success",
+                    "cancel_url": "https://app.test/cancel",
+                    "session_params": {"mode": "subscription"},
+                    "line_items": [{"price_data": {}, "quantity": 1}],
+                    "subscription_one_time_discount_amount": 200,
+                },
+            ),
+            app=Flask(__name__),
+        )
+
+    assert deleted == ["coupon-cleanup-1"]

@@ -5,9 +5,11 @@ import { CreditNotificationConfigSection as ConfigSection } from './CreditNotifi
 
 export function CreditNotificationDryRunPanel({
   dryRunResult,
+  dryRunError,
   dryRun,
 }: {
   dryRunResult: AdminOperationCreditNotificationDryRunResponse | null;
+  dryRunError: string;
   dryRun: () => void;
 }) {
   const { t } = useTranslation();
@@ -71,6 +73,14 @@ export function CreditNotificationDryRunPanel({
           {t('module.operationsCreditNotifications.actions.dryRun')}
         </Button>
       </div>
+      {dryRunError ? (
+        <div
+          role='alert'
+          className='rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive'
+        >
+          {dryRunError}
+        </div>
+      ) : null}
       {dryRunResult ? (
         <details className='rounded-md border border-border bg-white p-3 text-xs text-muted-foreground'>
           <summary className='cursor-pointer text-foreground'>

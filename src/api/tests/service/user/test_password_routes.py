@@ -208,3 +208,25 @@ def test_sms_login_route_normalizes_cn_prefix(test_client, app):
             user_bid=entity.user_bid,
         ).first()
         assert credential is not None
+
+
+def test_sms_login_referral_metadata_helper_hashes_client_context():
+    from flaskr.service.referral.service import extract_referral_post_auth_fields
+
+    fields = extract_referral_post_auth_fields(
+        {
+            "invite_code": "ABC12345",
+            "referral_session_id": "session-from-frontend",
+            "referral_entry_source": "manual",
+        },
+        client_ip="203.0.113.22",
+        user_agent="Referral metadata test",
+    )
+
+    assert fields["invite_code"] == "ABC12345"
+    assert fields["referral_session_id"] == "session-from-frontend"
+    assert fields["referral_entry_source"] == "manual"
+    assert fields["client_ip_hash"]
+    assert fields["client_ip_hash"] != "203.0.113.22"
+    assert fields["user_agent_hash"]
+    assert fields["user_agent_hash"] != "Referral metadata test"

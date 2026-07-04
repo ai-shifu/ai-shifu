@@ -22,6 +22,7 @@
     "smsSendTooFrequent": "SMS envoyés trop fréquemment",
     "userNotFound": "Utilisateur introuvable",
     "userNotLogin": "Utilisateur non connecté",
+    "userNotPermission": "L'utilisateur actuel n'est pas autorisé à effectuer cette action",
     "userTokenExpired": "Jeton expiré"
   }
 }

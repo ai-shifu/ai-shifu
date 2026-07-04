@@ -9,7 +9,9 @@ from typing import Any, Dict, Optional, Tuple
 from flask import Flask
 
 from flaskr.common.cache_provider import cache as redis
+from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.user.phone_flow import migrate_user_study_record, init_first_course
@@ -45,7 +47,7 @@ def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
             value = value.replace(tzinfo=None)
     except Exception:
         pass
-    now = datetime.datetime.utcnow()
+    now = now_utc()
     return (now - value).total_seconds() <= seconds
 
 
@@ -98,7 +100,9 @@ def verify_email_code(
         configure_fix_check_code(app.config.get("UNIVERSAL_VERIFICATION_CODE"))
 
     email_key = (email or "").strip()
-    code_key = app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email_key
+    code_key = (
+        get_redis_derived_prefix("REDIS_KEY_PREFIX_MAIL_CODE", app=app) + email_key
+    )
     if code != FIX_CHECK_CODE:
         cached = redis.get(code_key)
         if cached is not None:

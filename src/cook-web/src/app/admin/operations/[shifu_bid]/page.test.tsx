@@ -16,6 +16,7 @@ const mockGetAdminOperationCourseUsers = jest.fn();
 const mockGetAdminOperationCourseCreditUsages = jest.fn();
 const mockGetAdminOperationCourseCreditUsageDetails = jest.fn();
 const mockGetAdminOperationCourseChapterDetail = jest.fn();
+const mockBrowserTimeZone = jest.fn(() => 'UTC');
 const mockCopyText = jest.fn();
 const mockToastShow = jest.fn();
 const mockToastFail = jest.fn();
@@ -107,6 +108,10 @@ jest.mock('@/hooks/useToast', () => ({
   __esModule: true,
   fail: (...args: unknown[]) => mockToastFail(...args),
   show: (...args: unknown[]) => mockToastShow(...args),
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -307,6 +312,8 @@ describe('AdminOperationCourseDetailPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
     mockPush.mockReset();
+    mockBrowserTimeZone.mockReset();
+    mockBrowserTimeZone.mockReturnValue('UTC');
     mockGetAdminOperationCourseDetail.mockReset();
     mockGetAdminOperationCourseUsers.mockReset();
     mockGetAdminOperationCourseCreditUsages.mockReset();
@@ -547,6 +554,185 @@ describe('AdminOperationCourseDetailPage', () => {
         name: 'module.operationsCourse.title',
       }),
     ).toHaveAttribute('href', '/admin/operations');
+  });
+
+  test('converts course detail metadata timestamps to the browser timezone', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+    mockGetAdminOperationCourseDetail.mockResolvedValueOnce({
+      basic_info: {
+        shifu_bid: 'course-1',
+        course_name: 'Course One',
+        course_status: 'published',
+        creator_user_bid: 'creator-1',
+        creator_mobile: '13800001234',
+        creator_email: '',
+        creator_nickname: 'Alice',
+        created_at: '2026-06-09T12:01:50Z',
+        updated_at: '2026-06-09T13:01:50Z',
+      },
+      metrics: {
+        visit_count_30d: 34,
+        learner_count: 12,
+        order_count: 4,
+        order_amount: '88',
+        follow_up_count: 9,
+        rating_score: '4.2',
+        credit_consumed_total: 120,
+        credit_usage_count: 18,
+        credit_user_count: 6,
+        completed_credit_user_count: 3,
+        completed_user_avg_credits: 20,
+      },
+      chapters: [
+        {
+          outline_item_bid: 'chapter-timezone',
+          title: 'Timezone Chapter',
+          parent_bid: '',
+          position: '1',
+          node_type: 'chapter',
+          learning_permission: 'guest',
+          is_visible: true,
+          content_status: 'empty',
+          follow_up_count: 0,
+          rating_score: '',
+          rating_count: 0,
+          modifier_user_bid: 'creator-1',
+          modifier_mobile: '13800001234',
+          modifier_email: '',
+          modifier_nickname: 'Alice',
+          updated_at: '2026-06-09T13:01:50Z',
+          children: [],
+        },
+      ],
+    });
+
+    render(<AdminOperationCourseDetailPage />);
+
+    await screen.findByText('Timezone Chapter');
+
+    expect(screen.getByText('2026-06-09 05:01:50')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-06-09 06:01:50').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText('2026-06-09 12:01:50')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 13:01:50')).not.toBeInTheDocument();
+  });
+
+  test('converts course user activity timestamps to the browser timezone', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+    mockGetAdminOperationCourseUsers.mockResolvedValueOnce({
+      items: [
+        {
+          user_bid: 'student-1',
+          mobile: '13900001234',
+          email: '',
+          nickname: 'Bob',
+          user_role: 'student',
+          learned_lesson_count: 1,
+          total_lesson_count: 3,
+          learning_status: 'learning',
+          is_paid: true,
+          total_paid_amount: '88',
+          last_learning_at: '2026-04-08T11:30:00Z',
+          joined_at: '2026-04-07T09:00:00Z',
+          last_login_at: '2026-04-08T12:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationCourseDetailPage />);
+
+    await openUsersTab();
+
+    expect(screen.getByText('2026-04-08 04:30:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-08 05:00:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-07 02:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-08 11:30:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-08 12:00:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-07 09:00:00')).not.toBeInTheDocument();
+  });
+
+  test('converts course credit usage created_at values to the browser timezone', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+    mockGetAdminOperationCourseCreditUsages.mockResolvedValueOnce({
+      view: 'grouped',
+      items: [
+        {
+          group_key: 'student-1:lesson-1:learning:listen',
+          usage_bid: 'usage-listen',
+          progress_record_bid: 'progress-1',
+          generated_block_bid: '',
+          user_bid: 'student-1',
+          mobile: '13900001234',
+          email: '',
+          nickname: 'Bob',
+          chapter_outline_item_bid: 'chapter-1',
+          chapter_title: 'Chapter 1',
+          lesson_outline_item_bid: 'lesson-1',
+          lesson_title: 'Lesson 1',
+          usage_scene: 'learning',
+          usage_mode: 'listen',
+          provider: 'volcengine',
+          model: 'cancan-2.0',
+          usage_count: 1,
+          model_variant_count: 1,
+          consumed_credits: 2,
+          created_at: '2026-04-08T12:30:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    mockGetAdminOperationCourseCreditUsageDetails.mockResolvedValueOnce({
+      page: 1,
+      page_count: 1,
+      page_size: 10,
+      total: 1,
+      items: [
+        {
+          usage_bid: 'usage-detail-1',
+          created_at: '2026-04-08T12:20:00Z',
+          content: 'Listen detail content',
+          consumed_credits: 2,
+          input_tokens: 0,
+          output_tokens: 0,
+          word_count: 180,
+          duration_ms: 30000,
+          segment_count: 1,
+        },
+      ],
+    });
+
+    render(<AdminOperationCourseDetailPage />);
+
+    await openCreditUsageTab();
+
+    expect(screen.getByText('2026-04-08 05:30:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-08 12:30:00')).not.toBeInTheDocument();
+
+    const usageRow = (await screen.findByText('Lesson 1')).closest('tr');
+    expect(usageRow).not.toBeNull();
+    fireEvent.click(
+      within(usageRow as HTMLElement).getByRole('button', {
+        name: 'module.operationsCourse.detail.creditUsage.details.openUsageDetails',
+      }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => {
+      expect(
+        within(dialog).getByText('2026-04-08 05:20:00'),
+      ).toBeInTheDocument();
+    });
+    expect(
+      within(dialog).queryByText('2026-04-08 12:20:00'),
+    ).not.toBeInTheDocument();
   });
 
   test('loads credit usage tab on demand and renders credit rows', async () => {

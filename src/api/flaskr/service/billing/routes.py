@@ -7,6 +7,14 @@ from flask import Flask, request
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.billing.capabilities import build_billing_route_bootstrap
+from flaskr.service.billing.campaigns import (
+    build_admin_billing_campaign_detail,
+    build_admin_billing_campaign_product_options,
+    build_admin_billing_campaigns_page,
+    create_admin_billing_campaign,
+    update_admin_billing_campaign,
+    update_admin_billing_campaign_status,
+)
 from flaskr.service.billing.checkout import (
     create_billing_order_checkout,
     create_billing_subscription_checkout,
@@ -41,6 +49,11 @@ def _require_creator() -> None:
         raise_error("server.shifu.noPermission")
 
 
+def _require_operator() -> None:
+    if not getattr(request.user, "is_operator", False):
+        raise_error("server.shifu.noPermission")
+
+
 def _require_billing_enabled(app: Flask) -> None:
     if is_billing_enabled():
         return
@@ -53,15 +66,13 @@ def _require_billing_access(app: Flask) -> None:
     _require_creator()
 
 
+def _require_billing_operator_access(app: Flask) -> None:
+    _require_billing_access(app)
+    _require_operator()
+
+
 def _get_creator_bid() -> str:
     return str(getattr(request.user, "user_id", "") or "").strip()
-
-
-def _get_timezone_name() -> str | None:
-    timezone_name = (request.args.get("timezone", "") or "").strip()
-    if timezone_name and len(timezone_name) > 100:
-        raise_param_error("timezone")
-    return timezone_name or None
 
 
 def _get_page_args() -> tuple[str, str]:
@@ -102,7 +113,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             build_billing_overview(
                 app,
                 _get_creator_bid(),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -113,7 +123,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             acknowledge_trial_welcome_dialog(
                 app,
                 _get_creator_bid(),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -124,7 +133,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             build_billing_wallet_buckets(
                 app,
                 _get_creator_bid(),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -138,7 +146,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 _get_creator_bid(),
                 page_index=page_index,
                 page_size=page_size,
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -233,7 +240,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 status=_get_optional_query_arg("status"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -248,7 +254,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 status=_get_optional_query_arg("status"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -262,7 +267,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_index=page_index,
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -277,7 +281,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 page_size=page_size,
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 status=_get_optional_query_arg("status"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -293,7 +296,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 stat_date_from=_get_optional_query_arg("date_from"),
                 stat_date_to=_get_optional_query_arg("date_to"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -309,7 +311,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                 creator_bid=_get_optional_query_arg("creator_bid"),
                 stat_date_from=_get_optional_query_arg("date_from"),
                 stat_date_to=_get_optional_query_arg("date_to"),
-                timezone_name=_get_timezone_name(),
             )
         )
 
@@ -320,6 +321,74 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             adjust_admin_billing_ledger(
                 app,
                 operator_user_bid=_get_creator_bid(),
+                payload=request.get_json(silent=True) or {},
+            )
+        )
+
+    @app.route(admin_path_prefix + "/products/options", methods=["GET"])
+    def admin_billing_campaign_product_options_api():
+        _require_billing_operator_access(app)
+        return make_common_response(build_admin_billing_campaign_product_options(app))
+
+    @app.route(admin_path_prefix + "/campaigns", methods=["GET"])
+    def admin_billing_campaigns_api():
+        _require_billing_operator_access(app)
+        page_index, page_size = _get_page_args()
+        return make_common_response(
+            build_admin_billing_campaigns_page(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                keyword=_get_optional_query_arg("keyword", max_length=255),
+                product_type=_get_optional_query_arg("product_type"),
+                benefit_type=_get_optional_query_arg("benefit_type"),
+                status=_get_optional_query_arg("status"),
+                start_time=_get_optional_query_arg("start_time", max_length=64),
+                end_time=_get_optional_query_arg("end_time", max_length=64),
+            )
+        )
+
+    @app.route(admin_path_prefix + "/campaigns", methods=["POST"])
+    def admin_billing_campaign_create_api():
+        _require_billing_operator_access(app)
+        return make_common_response(
+            create_admin_billing_campaign(
+                app,
+                operator_user_bid=_get_creator_bid(),
+                payload=request.get_json(silent=True) or {},
+            )
+        )
+
+    @app.route(admin_path_prefix + "/campaigns/<campaign_bid>", methods=["GET"])
+    def admin_billing_campaign_detail_api(campaign_bid: str):
+        _require_billing_operator_access(app)
+        return make_common_response(
+            build_admin_billing_campaign_detail(
+                app,
+                campaign_bid,
+            )
+        )
+
+    @app.route(admin_path_prefix + "/campaigns/<campaign_bid>", methods=["POST"])
+    def admin_billing_campaign_update_api(campaign_bid: str):
+        _require_billing_operator_access(app)
+        return make_common_response(
+            update_admin_billing_campaign(
+                app,
+                operator_user_bid=_get_creator_bid(),
+                campaign_bid=campaign_bid,
+                payload=request.get_json(silent=True) or {},
+            )
+        )
+
+    @app.route(admin_path_prefix + "/campaigns/<campaign_bid>/status", methods=["POST"])
+    def admin_billing_campaign_status_api(campaign_bid: str):
+        _require_billing_operator_access(app)
+        return make_common_response(
+            update_admin_billing_campaign_status(
+                app,
+                operator_user_bid=_get_creator_bid(),
+                campaign_bid=campaign_bid,
                 payload=request.get_json(silent=True) or {},
             )
         )

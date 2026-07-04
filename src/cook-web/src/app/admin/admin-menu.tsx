@@ -4,6 +4,7 @@ import {
   DocumentIcon,
   PresentationChartLineIcon,
   ShoppingCartIcon,
+  UserPlusIcon,
 } from '@heroicons/react/24/outline';
 
 export type AdminMenuItem = {
@@ -18,11 +19,13 @@ export type AdminMenuItem = {
 type BuildAdminMenuItemsOptions = {
   t: (key: string) => string;
   isOperator: boolean;
+  showReferralInvite?: boolean;
 };
 
 export const buildAdminMenuItems = ({
   t,
   isOperator,
+  showReferralInvite = true,
 }: BuildAdminMenuItemsOptions): AdminMenuItem[] => {
   const items: AdminMenuItem[] = [
     {
@@ -44,6 +47,15 @@ export const buildAdminMenuItems = ({
       href: '/admin/dashboard',
     },
   ];
+
+  if (showReferralInvite) {
+    items.push({
+      id: 'referral',
+      icon: <UserPlusIcon className='w-4 h-4' />,
+      label: t('common.core.referralInvitation'),
+      href: '/admin/referral',
+    });
+  }
 
   if (isOperator) {
     items.push({
@@ -75,6 +87,16 @@ export const buildAdminMenuItems = ({
           id: 'operations-credit-notification',
           label: t('common.core.creditNotificationManagement'),
           href: '/admin/operations/credit-notifications',
+        },
+        {
+          id: 'operations-voice-clone',
+          label: t('common.core.voiceCloneManagement'),
+          href: '/admin/operations/voice-clones',
+        },
+        {
+          id: 'operations-profile-onboarding',
+          label: t('common.core.profileOnboardingManagement'),
+          href: '/admin/operations/profile-onboarding',
         },
       ],
     });

@@ -10,6 +10,7 @@ from flask import Flask
 
 from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from sqlalchemy import text
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
@@ -40,6 +41,7 @@ from flaskr.service.user.repository import (
     upsert_wechat_credentials,
     transactional_session,
 )
+from flaskr.common.config import get_redis_derived_prefix
 
 FIX_CHECK_CODE = None
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
@@ -91,7 +93,7 @@ def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
             value = value.replace(tzinfo=None)
     except Exception:
         pass
-    now = datetime.datetime.utcnow()
+    now = now_utc()
     return (now - value).total_seconds() <= seconds
 
 
@@ -295,10 +297,8 @@ def verify_phone_code(
     lookup_phones = [normalized_phone]
     if raw_phone and raw_phone not in lookup_phones:
         lookup_phones.append(raw_phone)
-    code_keys = [
-        app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + lookup_phone
-        for lookup_phone in lookup_phones
-    ]
+    phone_code_prefix = get_redis_derived_prefix("REDIS_KEY_PREFIX_PHONE_CODE", app=app)
+    code_keys = [phone_code_prefix + lookup_phone for lookup_phone in lookup_phones]
     if code != FIX_CHECK_CODE:
         cached = None
         cached_phone = normalized_phone
@@ -430,6 +430,7 @@ def verify_phone_code(
                     updates["language"] = language
                 entity = update_user_entity_fields(entity, **updates)
                 if promote_state:
+                    created_new_user = True
                     creator_granted_now = (
                         init_first_course(app, entity.user_bid) or creator_granted_now
                     )

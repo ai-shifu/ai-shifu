@@ -42,6 +42,7 @@ from pydantic import BaseModel
 from .models import DraftOutlineItem, LogDraftStruct
 from flaskr.dao import db
 from flaskr.util import generate_id
+from flaskr.util.datetime import to_utc_iso
 import queue
 from datetime import datetime
 import re
@@ -185,7 +186,7 @@ def _build_draft_meta(latest) -> dict:
     )
     return {
         "revision": int(latest.id),
-        "updated_at": latest.updated_at,
+        "updated_at": to_utc_iso(latest.updated_at),
         "updated_user": updated_user,
         "deleted": int(getattr(latest, "deleted", 0) or 0),
     }
@@ -208,7 +209,9 @@ def mask_contact_identifier(identifier: Optional[str]) -> str:
 
 
 def get_shifu_draft_meta(
-    app: Flask, shifu_bid: str, outline_bid: str | None = None
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str | None = None,
 ) -> dict:
     with app.app_context():
         if outline_bid:

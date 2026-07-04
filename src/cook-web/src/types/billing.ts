@@ -70,7 +70,8 @@ export type BillingBucketSourceType =
   | 'gift'
   | 'refund'
   | 'manual'
-  | 'usage';
+  | 'usage'
+  | 'campaign_bonus';
 
 export type BillingBucketStatus =
   | 'active'
@@ -170,6 +171,16 @@ export type BillingBootstrap = {
   notes: string[];
 };
 
+export type BillingCatalogCampaign = {
+  campaign_bid: string;
+  benefit_type: 'discount' | 'bonus';
+  discount_type?: 'fixed' | 'percent' | null;
+  discount_amount: number;
+  discount_percent: number;
+  campaign_price_amount: number;
+  bonus_credit_amount: number;
+};
+
 export type BillingPlan = {
   product_bid: string;
   product_code: string;
@@ -185,6 +196,7 @@ export type BillingPlan = {
   auto_renew_enabled: boolean;
   highlights?: string[];
   status_badge_key?: string;
+  campaign?: BillingCatalogCampaign | null;
 };
 
 export type BillingTopupProduct = {
@@ -198,6 +210,7 @@ export type BillingTopupProduct = {
   credit_amount: number;
   highlights?: string[];
   status_badge_key?: string;
+  campaign?: BillingCatalogCampaign | null;
 };
 
 export type BillingSubscription = {
@@ -367,6 +380,7 @@ export type BillingCheckoutResult = {
   provider: BillingProvider;
   payment_mode: BillingPaymentMode;
   status: 'init' | 'pending' | 'paid' | 'failed' | 'unsupported';
+  reused_existing_order?: boolean;
   checkout_type?: string | null;
   effective_mode?: 'immediate' | 'cycle_end' | string | null;
   current_product_bid?: string | null;
@@ -374,6 +388,10 @@ export type BillingCheckoutResult = {
   preorder_order_bid?: string | null;
   prepaid_offset_amount?: number;
   payable_amount?: number | null;
+  currency?: string;
+  expires_at?: string | null;
+  expires_in_seconds?: number | null;
+  campaign?: BillingCatalogCampaign | null;
   redirect_url?: string;
   checkout_session_id?: string;
   payment_payload?: Record<string, unknown>;
@@ -382,6 +400,8 @@ export type BillingCheckoutResult = {
 export type BillingSyncResult = {
   bill_order_bid: string;
   status: BillingOrderStatus;
+  expires_at?: string | null;
+  expires_in_seconds?: number | null;
 };
 
 export type BillingEntitlements = {

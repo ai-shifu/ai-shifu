@@ -164,7 +164,13 @@ test.describe('agent-first smoke harness', () => {
 
     page.on('response', async response => {
       const request = response.request();
-      const headers = await request.allHeaders();
+      let headers: Record<string, string> = {};
+      try {
+        headers = await request.allHeaders();
+      } catch {
+        // Response callbacks can still settle while Playwright is closing the page.
+        headers = {};
+      }
       const requestIdHeader = headers['x-request-id'];
       if (requestIdHeader) {
         lastObservedRequestId = requestIdHeader;

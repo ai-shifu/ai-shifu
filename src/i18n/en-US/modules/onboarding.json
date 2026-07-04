@@ -1,0 +1,42 @@
+{
+  "__namespace__": "module.onboarding",
+  "adminHome": {
+    "billingCard": {
+      "descriptionGeneric": "Check your credit balance here, or buy and upgrade plans when needed.",
+      "title": "Check credits and buy plans here"
+    },
+    "blankCourse": {
+      "description": "Create your own course here and build the content from scratch.",
+      "title": "Click to create a new course"
+    },
+    "lobsterCourse": {
+      "descriptionLink": "Create courses with AI assistant",
+      "descriptionPrefix": "You can also use ",
+      "descriptionSuffix": " to generate a first draft faster.",
+      "title": "Create courses with AI assistant"
+    }
+  },
+  "common": {
+    "continue": "Click anywhere to continue",
+    "replay": "Use the guide",
+    "skip": "Skip"
+  },
+  "courseEditor": {
+    "backHome": {
+      "description": "Click here to return to the admin console for platform management and settings.",
+      "title": "Back to the admin console"
+    },
+    "listenMode": {
+      "description": "Once listen mode is on, learners study with slides and voice.",
+      "title": "Enable listen mode"
+    },
+    "publish": {
+      "description": "Click here to update the course's draft content into the official published version, so learners see your latest content.",
+      "title": "Publish your course"
+    },
+    "settingsEntry": {
+      "description": "Click here to adjust course settings such as the teaching prompt, AI model, and pricing.",
+      "title": "Open course settings"
+    }
+  }
+}

@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import type {
+  AdminBillingCampaignDetail,
+  AdminBillingCampaignProductOption,
   AdminPromotionCampaignRedemptionItem,
   AdminPromotionCouponCodeItem,
   AdminPromotionCouponUsageItem,
@@ -27,14 +29,18 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { showErrorToast } from '@/hooks/useToast';
+import { formatBillingCreditAmount, formatBillingPrice } from '@/lib/billing';
 import {
   EMPTY_VALUE,
+  PACKAGE_CAMPAIGN_PRODUCT_DIALOG_COLUMN_COUNT,
   PAGE_SIZE,
   PROMOTION_CODE_DIALOG_COLUMN_COUNT,
   PROMOTION_REDEMPTION_DIALOG_COLUMN_COUNT,
   PROMOTION_USAGE_DIALOG_COLUMN_COUNT,
   renderTooltipText,
   renderUserLabel,
+  resolvePackageCampaignOptionTitle,
+  resolvePackageCampaignProductTypeLabel,
   TABLE_CELL_CLASS,
   TABLE_HEAD_CLASS,
   TABLE_LAST_CELL_CLASS,
@@ -57,6 +63,202 @@ type CouponCodesFetchParams = CouponUsageFetchParams & {
 type CouponCodesFetch = (
   params: CouponCodesFetchParams,
 ) => Promise<AdminPromotionListResponse<AdminPromotionCouponCodeItem>>;
+
+type PackageCampaignDetailFetch = (params: {
+  campaign_bid: string;
+}) => Promise<AdminBillingCampaignDetail>;
+
+const resolvePackageCampaignProductBenefitLabel = (
+  tPromotion: (key: string, options?: Record<string, unknown>) => string,
+  product: AdminBillingCampaignProductOption,
+  locale: string,
+) => {
+  if (product.campaign_bonus_credit_amount > 0) {
+    return tPromotion('packageCampaign.ruleBonus', {
+      value: formatBillingCreditAmount(product.campaign_bonus_credit_amount),
+    });
+  }
+  if (product.campaign_discount_type === 'percent') {
+    return tPromotion('packageCampaign.productDetailsPercent', {
+      value: product.campaign_discount_percent,
+      price: formatBillingPrice(
+        product.campaign_price_amount,
+        product.currency,
+        locale,
+      ),
+    });
+  }
+  if (product.campaign_price_amount > 0) {
+    return tPromotion('packageCampaign.productDetailsCampaignPrice', {
+      value: formatBillingPrice(
+        product.campaign_price_amount,
+        product.currency,
+        locale,
+      ),
+    });
+  }
+  if (product.campaign_discount_amount > 0) {
+    return tPromotion('packageCampaign.productDetailsDiscountAmount', {
+      value: formatBillingPrice(
+        product.campaign_discount_amount,
+        product.currency,
+        locale,
+      ),
+    });
+  }
+  return EMPTY_VALUE;
+};
+
+export const PackageCampaignProductDetailsDialog = ({
+  open,
+  onOpenChange,
+  campaignBid,
+  campaignName,
+  fetchDetailApi = api.getAdminBillingCampaignDetail as PackageCampaignDetailFetch,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  campaignBid: string;
+  campaignName: string;
+  fetchDetailApi?: PackageCampaignDetailFetch;
+}) => {
+  const { t, i18n } = useTranslation();
+  const { t: tPromotion } = useTranslation('module.operationsPromotion');
+  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState<AdminBillingCampaignProductOption[]>(
+    [],
+  );
+  const detailRequestIdRef = useRef(0);
+
+  const fetchDetail = useCallback(async () => {
+    if (!campaignBid) {
+      return;
+    }
+    const requestId = ++detailRequestIdRef.current;
+    setLoading(true);
+    try {
+      const detail = await fetchDetailApi({ campaign_bid: campaignBid });
+      if (requestId !== detailRequestIdRef.current) return;
+      setProducts(detail.products || []);
+    } catch (error) {
+      if (requestId !== detailRequestIdRef.current) return;
+      setProducts([]);
+      showErrorToast(
+        (error as Error).message ||
+          tPromotion('messages.loadPackageCampaignDetailFailed'),
+      );
+    } finally {
+      if (requestId === detailRequestIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [campaignBid, fetchDetailApi, tPromotion]);
+
+  useEffect(() => {
+    if (!open || !campaignBid) {
+      return;
+    }
+    void fetchDetail();
+  }, [campaignBid, fetchDetail, open]);
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      <DialogContent className='sm:max-w-4xl'>
+        <DialogHeader>
+          <DialogTitle>
+            {tPromotion('packageCampaign.productDetails')}
+          </DialogTitle>
+          <DialogDescription className='sr-only'>
+            {campaignName || campaignBid}
+          </DialogDescription>
+        </DialogHeader>
+        <div className='flex max-h-[70vh] min-h-0 flex-col overflow-hidden'>
+          <div className='mb-4 text-sm text-muted-foreground'>
+            {campaignName || campaignBid}
+          </div>
+          <AdminTableShell
+            loading={loading}
+            isEmpty={products.length === 0}
+            emptyContent={tPromotion('packageCampaign.productsUnavailable')}
+            emptyColSpan={PACKAGE_CAMPAIGN_PRODUCT_DIALOG_COLUMN_COUNT}
+            withTooltipProvider
+            containerClassName='min-h-0 flex-1'
+            tableWrapperClassName='min-h-0 flex-1 overflow-auto'
+            table={emptyRow => (
+              <Table className='table-fixed'>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className={`${TABLE_HEAD_CLASS} w-[260px]`}>
+                      {tPromotion('packageCampaign.productName')}
+                    </TableHead>
+                    <TableHead className={`${TABLE_HEAD_CLASS} w-[96px]`}>
+                      {tPromotion('packageCampaign.productType')}
+                    </TableHead>
+                    <TableHead className={`${TABLE_HEAD_CLASS} w-[120px]`}>
+                      {tPromotion('packageCampaign.originalPrice')}
+                    </TableHead>
+                    <TableHead className={`${TABLE_HEAD_CLASS} w-[96px]`}>
+                      {tPromotion('packageCampaign.originalCredits')}
+                    </TableHead>
+                    <TableHead className={`${TABLE_HEAD_CLASS} w-[220px]`}>
+                      {tPromotion('packageCampaign.productBenefit')}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {emptyRow}
+                  {products.map(product => (
+                    <TableRow key={product.product_bid}>
+                      <TableCell className={TABLE_CELL_CLASS}>
+                        {renderTooltipText(
+                          resolvePackageCampaignOptionTitle(t, product),
+                        )}
+                      </TableCell>
+                      <TableCell className={TABLE_CELL_CLASS}>
+                        {renderTooltipText(
+                          resolvePackageCampaignProductTypeLabel(
+                            tPromotion,
+                            product.product_type,
+                          ),
+                        )}
+                      </TableCell>
+                      <TableCell className={TABLE_CELL_CLASS}>
+                        {renderTooltipText(
+                          formatBillingPrice(
+                            product.price_amount,
+                            product.currency,
+                            i18n.language,
+                          ),
+                        )}
+                      </TableCell>
+                      <TableCell className={TABLE_CELL_CLASS}>
+                        {renderTooltipText(
+                          formatBillingCreditAmount(product.credit_amount),
+                        )}
+                      </TableCell>
+                      <TableCell className={TABLE_LAST_CELL_CLASS}>
+                        {renderTooltipText(
+                          resolvePackageCampaignProductBenefitLabel(
+                            tPromotion,
+                            product,
+                            i18n.language,
+                          ),
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export const PromotionCouponCodesDialog = ({
   open,

@@ -1,0 +1,39 @@
+{
+  "__namespace__": "module.profileOnboarding",
+  "admin": {
+    "allowedVariables": "允许写入变量",
+    "allowedVariablesHint": "该流程只能写入昵称、授课风格和用户背景。语言仍自动识别。",
+    "defaultMarkdownflow": "?[%{{sys_user_nickname}}...怎么称呼你？]\n?[%{{sys_user_style}} 简洁直接 | 循循善诱 | 生动活泼]\n?[%{{sys_user_background}}...你的职业/背景是什么？]",
+    "description": "配置学习端首次进入时展示的用户画像弹窗。",
+    "emptyPreview": "暂未识别到交互问题。",
+    "enabled": "启用画像初始化弹窗",
+    "enabledHint": "启用后，尚未完成或跳过该流程的用户会看到一次弹窗。",
+    "hidePreview": "收起预览",
+    "invalidVariables": "不允许写入的变量：{keys}",
+    "loadFailed": "画像初始化配置加载失败",
+    "markdownflow": "MarkdownFlow",
+    "preview": "预览",
+    "publishState": "发布状态",
+    "save": "保存",
+    "saveFailed": "画像初始化配置保存失败",
+    "saveSuccess": "画像初始化配置已保存",
+    "title": "画像初始化",
+    "updatedAt": "更新时间",
+    "updatedBy": "更新人",
+    "version": "版本"
+  },
+  "complete": "完成",
+  "description": "回答几个问题，让课程更自然地与你互动。",
+  "emptyFlow": "暂未配置画像问题。",
+  "inputPlaceholder": "请输入你的回答",
+  "next": "下一步",
+  "skip": "跳过",
+  "submitFailed": "保存画像失败，请检查填写内容后重试。",
+  "title": "设置你的学习画像",
+  "variableLabels": {
+    "sys_user_background": "用户职业/背景",
+    "sys_user_nickname": "用户昵称",
+    "sys_user_style": "授课风格"
+  },
+  "variablePrompt": "请填写 {variable}"
+}

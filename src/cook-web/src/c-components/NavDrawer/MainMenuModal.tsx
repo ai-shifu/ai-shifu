@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/AlertDialog';
 import PopupModal from '@/c-components/PopupModal';
 import { useTranslation } from 'react-i18next';
-import { useUserStore } from '@/store';
+import { useOnboardingReplayStore, useUserStore } from '@/store';
 import { shifu } from '@/c-service/Shifu';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { useEnvStore } from '@/c-store/envStore';
@@ -28,7 +28,7 @@ import Image from 'next/image';
 import imgPersonal from '@/c-assets/newchat/light/personal.png';
 import imgMultiLanguage from '@/c-assets/newchat/light/multiLanguage.png';
 import imgSignIn from '@/c-assets/newchat/light/signin.png';
-import { Monitor, BookPlus, KeyRound } from 'lucide-react';
+import { Monitor, BookPlus, KeyRound, Compass } from 'lucide-react';
 
 import LanguageSelect from '@/components/language-select';
 
@@ -55,10 +55,18 @@ const MainMenuModal = ({
   );
 
   const isCreator = userInfo?.is_creator ?? false;
+  const requestReplayAll = useOnboardingReplayStore(
+    state => state.requestReplayAll,
+  );
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const isPasswordEnabled = Array.isArray(loginMethodsEnabled)
     ? loginMethodsEnabled.includes('password')
     : false;
+  const hasMobile =
+    typeof userInfo?.mobile === 'string' && userInfo.mobile.trim() !== '';
+  const hasEmail =
+    typeof userInfo?.email === 'string' && userInfo.email.trim() !== '';
+  const canSetPassword = isPasswordEnabled && (hasMobile || hasEmail);
 
   const { trackEvent } = useTracking();
 
@@ -100,6 +108,42 @@ const MainMenuModal = ({
     // @ts-expect-error EXPECT
     onClose?.(evt);
   };
+  const setPasswordRow = canSetPassword ? (
+    <div
+      className={cn(styles.mainMenuModalRow, 'px-2.5')}
+      onClick={onSetPasswordClick}
+      title={t('module.settings.setPassword')}
+    >
+      <KeyRound
+        className={styles.rowIcon}
+        size={16}
+      />
+      <div className={styles.rowTitle}>{t('module.settings.setPassword')}</div>
+    </div>
+  ) : null;
+
+  const onReplayOnboardingClick = (evt: React.MouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    requestReplayAll();
+    // @ts-expect-error EXPECT
+    onClose?.(evt);
+  };
+  const replayOnboardingRow = (
+    <div
+      className={cn(styles.mainMenuModalRow, 'px-2.5')}
+      onClick={onReplayOnboardingClick}
+      title={t('module.onboarding.common.replay')}
+    >
+      <Compass
+        className={styles.rowIcon}
+        size={16}
+      />
+      <div className={styles.rowTitle}>
+        {t('module.onboarding.common.replay')}
+      </div>
+    </div>
+  );
 
   const onAdminEntryClick = (evt: React.MouseEvent) => {
     evt.preventDefault();
@@ -183,7 +227,7 @@ const MainMenuModal = ({
           className={styles.mainMenuModal}
           ref={htmlRef}
         >
-          {!isAdmin && (
+          {!isAdmin ? (
             <>
               <div
                 className={cn(styles.mainMenuModalRow, 'px-2.5')}
@@ -200,21 +244,7 @@ const MainMenuModal = ({
                   {t('component.menus.navigationMenus.personalInfo')}
                 </div>
               </div>
-              {isPasswordEnabled ? (
-                <div
-                  className={cn(styles.mainMenuModalRow, 'px-2.5')}
-                  onClick={onSetPasswordClick}
-                  title={t('module.settings.password')}
-                >
-                  <KeyRound
-                    className={styles.rowIcon}
-                    size={16}
-                  />
-                  <div className={styles.rowTitle}>
-                    {t('module.settings.passwordPlaceholder')}
-                  </div>
-                </div>
-              ) : null}
+              {setPasswordRow}
               <div
                 className={cn(styles.mainMenuModalRow, 'px-2.5')}
                 onClick={onAdminEntryClick}
@@ -236,6 +266,11 @@ const MainMenuModal = ({
                     : t('component.menus.navigationMenus.createCourse')}
                 </div>
               </div>
+            </>
+          ) : (
+            <>
+              {setPasswordRow}
+              {replayOnboardingRow}
             </>
           )}
 

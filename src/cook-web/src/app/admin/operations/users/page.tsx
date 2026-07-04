@@ -26,6 +26,10 @@ import {
   getAdminStickyRightHeaderClass,
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import {
@@ -61,7 +65,6 @@ import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
 import { buildBillingSwrKey } from '@/lib/billing';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
@@ -537,8 +540,8 @@ export default function AdminOperationUsersPage() {
           user_status: filters.user_status,
           user_role: filters.user_role,
           quick_filter: resolvedQuickFilter,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         })) as AdminOperationUserListResponse;
         if (requestId !== requestIdRef.current) {
           return;
@@ -770,9 +773,7 @@ export default function AdminOperationUsersPage() {
 
   const handleGrantSuccess = useCallback(() => {
     void fetchUsers(pageIndex, appliedFilters, quickFilter);
-    void mutate(
-      buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY, getBrowserTimeZone()),
-    );
+    void mutate(buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY));
   }, [appliedFilters, fetchUsers, mutate, pageIndex, quickFilter]);
 
   const renderResizeHandle = (key: ColumnKey) => (

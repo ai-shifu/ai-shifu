@@ -3,7 +3,7 @@ from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.common import raise_error
-from flaskr.dao import db
+from flaskr.dao import db, retry_on_deadlock
 from flaskr.service.shifu.dtos import MdflowDTOParseResult
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from typing import TypedDict
@@ -16,14 +16,12 @@ from flaskr.service.shifu.shifu_history_manager import (
 )
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
-    add_profile_item_quick,
+    add_profile_item_quick_internal,
 )
 from flaskr.service.user.models import UserInfo
-from datetime import datetime, timedelta
-from flaskr.util.timezone import (
-    format_with_app_timezone,
-    serialize_with_app_timezone,
-)
+from datetime import timedelta
+
+from flaskr.util.datetime import now_utc
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
@@ -99,7 +97,7 @@ def cleanup_outline_history_versions(
         content_anchor_version = version
     protected_ids = {latest_id, int(content_anchor_version.id)}
 
-    cutoff_time = datetime.now() - timedelta(days=max(1, keep_days))
+    cutoff_time = now_utc() - timedelta(days=max(1, keep_days))
     to_mark_deleted_ids: set[int] = set()
 
     # Trim by age.
@@ -154,83 +152,102 @@ def save_shifu_mdflow(
     """
     content = content or ""
     with app.app_context():
-        lock_latest = isinstance(base_revision, int) and base_revision >= 0
-        outline_query = DraftOutlineItem.query.filter(
-            DraftOutlineItem.shifu_bid == shifu_bid,
-            DraftOutlineItem.outline_item_bid == outline_bid,
-        ).order_by(DraftOutlineItem.id.desc())
-        if lock_latest:
-            outline_query = outline_query.with_for_update()
-        outline_item: DraftOutlineItem = outline_query.first()
-        if not outline_item:
-            raise_error("server.shifu.outlineItemNotFound")
-        if outline_item.deleted == 1:
+        # The risk check commits its own RiskControlResult row and calls an
+        # external moderation API, so it must run at most once per save. This
+        # guard lives outside the retried transaction below, so a deadlock retry
+        # of the DB write does not repeat that side effect.
+        risk_checked = False
+
+        @retry_on_deadlock()
+        def _save_txn() -> DraftSaveResponse:
+            nonlocal risk_checked
+            lock_latest = isinstance(base_revision, int) and base_revision >= 0
+            outline_query = DraftOutlineItem.query.filter(
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.outline_item_bid == outline_bid,
+            ).order_by(DraftOutlineItem.id.desc())
+            if lock_latest:
+                outline_query = outline_query.with_for_update()
+            outline_item: DraftOutlineItem = outline_query.first()
+            if not outline_item:
+                raise_error("server.shifu.outlineItemNotFound")
+            if outline_item.deleted == 1:
+                return {
+                    "conflict": True,
+                    "meta": get_shifu_draft_meta(app, shifu_bid, outline_bid),
+                }
+
+            if lock_latest:
+                latest_meta = get_shifu_draft_meta(app, shifu_bid, outline_bid)
+                if int(latest_meta.get("deleted", 0) or 0) == 1:
+                    return {"conflict": True, "meta": latest_meta}
+                latest_revision = int(latest_meta.get("revision", 0) or 0)
+                updated_user_bid = (latest_meta.get("updated_user") or {}).get(
+                    "user_bid"
+                ) or ""
+                if latest_revision > base_revision and (
+                    not updated_user_bid or updated_user_bid != user_id
+                ):
+                    return {"conflict": True, "meta": latest_meta}
+            # create new version
+            new_outline: DraftOutlineItem = outline_item.clone()
+            new_outline.content = content
+
+            # risk check
+            # save to database
+            new_revision = None
+            if not outline_item.content == new_outline.content:
+                if not risk_checked:
+                    check_text_with_risk_control(
+                        app, outline_item.outline_item_bid, user_id, content
+                    )
+                    risk_checked = True
+                new_outline.updated_user_bid = user_id
+                new_outline.updated_at = now_utc()
+                db.session.add(new_outline)
+                db.session.flush()
+                markdown_flow = MarkdownFlow(content).set_output_language(
+                    get_markdownflow_output_language()
+                )
+                blocks = markdown_flow.get_all_blocks()
+                variable_definitions = get_profile_item_definition_list(app, shifu_bid)
+
+                variables = markdown_flow.extract_variables()
+                for variable in variables:
+                    exist_variable = next(
+                        (v for v in variable_definitions if v.profile_key == variable),
+                        None,
+                    )
+                    if not exist_variable:
+                        # Use the *_internal variant so this shared helper does
+                        # not commit mid-transaction; the outer save owns the
+                        # commit, keeping the write atomic and retry-safe.
+                        add_profile_item_quick_internal(
+                            app, shifu_bid, variable, user_id
+                        )
+                save_outline_history(
+                    app,
+                    user_id,
+                    shifu_bid,
+                    outline_bid,
+                    new_outline.id,
+                    len(blocks),
+                )
+                cleanup_outline_history_versions(
+                    app,
+                    shifu_bid,
+                    outline_bid,
+                )
+                db.session.commit()
+                new_revision = int(new_outline.id)
             return {
-                "conflict": True,
-                "meta": get_shifu_draft_meta(app, shifu_bid, outline_bid),
+                "conflict": False,
+                "new_revision": new_revision
+                if new_revision is not None
+                else get_shifu_draft_revision(app, shifu_bid, outline_bid),
             }
 
-        if lock_latest:
-            latest_meta = get_shifu_draft_meta(app, shifu_bid, outline_bid)
-            if int(latest_meta.get("deleted", 0) or 0) == 1:
-                return {"conflict": True, "meta": latest_meta}
-            latest_revision = int(latest_meta.get("revision", 0) or 0)
-            updated_user_bid = (latest_meta.get("updated_user") or {}).get(
-                "user_bid"
-            ) or ""
-            if latest_revision > base_revision and (
-                not updated_user_bid or updated_user_bid != user_id
-            ):
-                return {"conflict": True, "meta": latest_meta}
-        # create new version
-        new_outline: DraftOutlineItem = outline_item.clone()
-        new_outline.content = content
-
-        # risk check
-        # save to database
-        new_revision = None
-        if not outline_item.content == new_outline.content:
-            check_text_with_risk_control(
-                app, outline_item.outline_item_bid, user_id, content
-            )
-            new_outline.updated_user_bid = user_id
-            new_outline.updated_at = datetime.now()
-            db.session.add(new_outline)
-            db.session.flush()
-            markdown_flow = MarkdownFlow(content).set_output_language(
-                get_markdownflow_output_language()
-            )
-            blocks = markdown_flow.get_all_blocks()
-            variable_definitions = get_profile_item_definition_list(app, shifu_bid)
-
-            variables = markdown_flow.extract_variables()
-            for variable in variables:
-                exist_variable = next(
-                    (v for v in variable_definitions if v.profile_key == variable), None
-                )
-                if not exist_variable:
-                    add_profile_item_quick(app, shifu_bid, variable, user_id)
-            save_outline_history(
-                app,
-                user_id,
-                shifu_bid,
-                outline_bid,
-                new_outline.id,
-                len(blocks),
-            )
-            cleanup_outline_history_versions(
-                app,
-                shifu_bid,
-                outline_bid,
-            )
-            db.session.commit()
-            new_revision = int(new_outline.id)
-        return {
-            "conflict": False,
-            "new_revision": new_revision
-            if new_revision is not None
-            else get_shifu_draft_revision(app, shifu_bid, outline_bid),
-        }
+        return _save_txn()
 
 
 def parse_shifu_mdflow(
@@ -294,7 +311,6 @@ def get_shifu_mdflow_history(
     shifu_bid: str,
     outline_bid: str,
     limit: int = 100,
-    timezone_name: str | None = None,
 ) -> dict:
     """
     Get lesson content history for a specific outline.
@@ -356,12 +372,7 @@ def get_shifu_mdflow_history(
             items.append(
                 {
                     "version_id": int(item.id),
-                    "updated_at": serialize_with_app_timezone(
-                        app, item.updated_at, timezone_name
-                    ),
-                    "updated_at_display": format_with_app_timezone(
-                        app, item.updated_at, "%m-%d %H:%M:%S", timezone_name
-                    ),
+                    "updated_at": item.updated_at,
                     "updated_user_bid": item.updated_user_bid,
                     "updated_user_name": user_name,
                 }
@@ -375,7 +386,6 @@ def get_shifu_mdflow_history_version_detail(
     shifu_bid: str,
     outline_bid: str,
     version_id: int,
-    timezone_name: str | None = None,
 ) -> dict:
     """
     Get lesson content detail for a specific history version.
@@ -415,12 +425,7 @@ def get_shifu_mdflow_history_version_detail(
         return {
             "version_id": int(version.id),
             "content": version.content or "",
-            "updated_at": serialize_with_app_timezone(
-                app, version.updated_at, timezone_name
-            ),
-            "updated_at_display": format_with_app_timezone(
-                app, version.updated_at, "%m-%d %H:%M:%S", timezone_name
-            ),
+            "updated_at": version.updated_at,
             "updated_user_bid": version.updated_user_bid,
             "updated_user_name": user_name or "",
         }

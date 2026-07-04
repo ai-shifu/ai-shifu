@@ -16,6 +16,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js (match Cook Web engines)
         uses: actions/setup-node@v4
@@ -27,7 +29,10 @@ jobs:
           cd src/cook-web
           npm ci
 
-      - name: Check Prettier formatting
+      - name: Check Prettier formatting for changed files
+        env:
+          PRETTIER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PRETTIER_HEAD_SHA: ${{ github.sha }}
         run: |
           cd src/cook-web
-          npm run format:check
+          npm run format:check:changed

@@ -245,6 +245,11 @@ class LearnOutlineItemInfoDTO(BaseModel):
     status: LearnStatus = Field(..., description="outline status", required=False)
     type: OutlineType = Field(..., description="outline type", required=False)
     is_paid: bool = Field(..., description="outline is paid", required=False)
+    has_content_update_for_current_user: bool = Field(
+        default=False,
+        description="Whether the published lesson content is newer than this user's latest learning progress",
+        required=False,
+    )
     children: list["LearnOutlineItemInfoDTO"] = Field(
         ..., description="outline children", required=False
     )
@@ -258,6 +263,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
         type: OutlineType,
         is_paid: bool,
         children: list["LearnOutlineItemInfoDTO"],
+        has_content_update_for_current_user: bool = False,
     ):
         super().__init__(
             bid=bid,
@@ -267,6 +273,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
             children=children,
             type=type,
             is_paid=is_paid,
+            has_content_update_for_current_user=has_content_update_for_current_user,
         )
 
     def __json__(self):
@@ -276,6 +283,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
             "title": self.title,
             "status": self.status.value,
             "is_paid": self.is_paid,
+            "has_content_update_for_current_user": self.has_content_update_for_current_user,
             "children": self.children,
             "type": self.type.value,
         }
@@ -926,13 +934,22 @@ class LearnElementRecordDTO(BaseModel):
     events: Optional[List[RunElementSSEMessageDTO]] = Field(
         default=None, description="Optional listen-mode event stream replay"
     )
+    last_progress_updated_at: Optional[str] = Field(
+        default=None,
+        description="Latest update time for the learner's progress on this lesson",
+    )
 
     def __init__(
         self,
         elements: Optional[List[ElementDTO]] = None,
         events: Optional[List[RunElementSSEMessageDTO]] = None,
+        last_progress_updated_at: Optional[str] = None,
     ):
-        super().__init__(elements=elements or [], events=events)
+        super().__init__(
+            elements=elements or [],
+            events=events,
+            last_progress_updated_at=last_progress_updated_at,
+        )
 
     def __json__(self):
         ret = {
@@ -946,6 +963,8 @@ class LearnElementRecordDTO(BaseModel):
                 item.__json__() if isinstance(item, BaseModel) else item
                 for item in self.events
             ]
+        if self.last_progress_updated_at is not None:
+            ret["last_progress_updated_at"] = self.last_progress_updated_at
         return ret
 
 

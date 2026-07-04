@@ -22,6 +22,7 @@
     "smsSendTooFrequent": "SMS sent too frequently",
     "userNotFound": "User Not Found",
     "userNotLogin": "User Not Logged In",
+    "userNotPermission": "The current user is not allowed to perform this action",
     "userTokenExpired": "Token Expired"
   }
 }

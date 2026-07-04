@@ -155,6 +155,23 @@ $color-on-accent: #fff;
   @include font-headline;
 }
 
+.columnOriginalPrice {
+  margin-bottom: 2px;
+  color: $color-muted;
+  text-decoration: line-through;
+  @include font-body;
+}
+
+.columnCampaignLabel {
+  display: inline-flex;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #dc2626;
+  @include font-badge;
+}
+
 .columnCreditAmount {
   text-align: center;
   color: $color-fg;

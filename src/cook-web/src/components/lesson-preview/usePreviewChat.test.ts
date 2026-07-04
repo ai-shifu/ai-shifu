@@ -1,5 +1,6 @@
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 import {
+  buildInteractionContinuationPreviewParams,
   buildPreviewBusinessErrorItem,
   replacePreviewLoadingWithBusinessError,
 } from './usePreviewChat';
@@ -78,7 +79,56 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-describe('usePreviewChat business error rendering', () => {
+describe('usePreviewChat helpers and business error rendering', () => {
+  test('builds interaction continuation preview params with latest mdflow', () => {
+    expect(
+      buildInteractionContinuationPreviewParams({
+        currentParams: {
+          shifuBid: 'shifu-1',
+          outlineBid: 'lesson-1',
+          mdflow: 'old prompt',
+          block_index: 1,
+          variables: { oldVar: 'old' },
+          user_input: { oldVar: ['old'] },
+        },
+        latestMdflow: 'new prompt',
+        blockIndex: 3,
+        variables: { answer: '42' },
+        userInput: { answer: ['42'] },
+      }),
+    ).toEqual({
+      shifuBid: 'shifu-1',
+      outlineBid: 'lesson-1',
+      mdflow: 'new prompt',
+      block_index: 3,
+      variables: { answer: '42' },
+      user_input: { answer: ['42'] },
+    });
+  });
+
+  test('drops stale interaction user input when continuation has no submission', () => {
+    expect(
+      buildInteractionContinuationPreviewParams({
+        currentParams: {
+          shifuBid: 'shifu-1',
+          outlineBid: 'lesson-1',
+          mdflow: 'old prompt',
+          block_index: 1,
+          user_input: { oldVar: ['old'] },
+        },
+        latestMdflow: 'new prompt',
+        blockIndex: 2,
+        variables: {},
+      }),
+    ).toEqual({
+      shifuBid: 'shifu-1',
+      outlineBid: 'lesson-1',
+      mdflow: 'new prompt',
+      block_index: 2,
+      variables: {},
+    });
+  });
+
   test('replaces loading placeholder with backend business error message', () => {
     const items: ChatContentItem[] = [
       {
@@ -92,11 +142,11 @@ describe('usePreviewChat business error rendering', () => {
     expect(
       replacePreviewLoadingWithBusinessError(
         items,
-        '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+        '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
       ),
     ).toEqual([
       buildPreviewBusinessErrorItem(
-        '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+        '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
       ),
     ]);
   });

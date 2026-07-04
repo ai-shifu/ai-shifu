@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
@@ -46,14 +48,9 @@ class DashboardEntryCourseItemDTO(BaseModel):
     order_amount: str = Field(
         ..., description="Order amount with 2 decimal places", required=False
     )
-    last_active_at: str = Field(
-        default="",
+    last_active_at: datetime | None = Field(
+        default=None,
         description="Course last active timestamp (ISO)",
-        required=False,
-    )
-    last_active_at_display: str = Field(
-        default="",
-        description="Course last active timestamp for direct display",
         required=False,
     )
 
@@ -65,7 +62,6 @@ class DashboardEntryCourseItemDTO(BaseModel):
             "order_count": int(self.order_count),
             "order_amount": self.order_amount,
             "last_active_at": self.last_active_at,
-            "last_active_at_display": self.last_active_at_display,
         }
 
 
@@ -108,14 +104,9 @@ class DashboardCourseDetailBasicInfoDTO(BaseModel):
         description="Course status for creator dashboard",
         required=False,
     )
-    created_at: str = Field(
-        default="",
+    created_at: datetime | None = Field(
+        default=None,
         description="Course creation timestamp (ISO)",
-        required=False,
-    )
-    created_at_display: str = Field(
-        default="",
-        description="Course creation timestamp for direct display",
         required=False,
     )
     chapter_count: int = Field(..., description="Visible lesson count", required=False)
@@ -129,7 +120,6 @@ class DashboardCourseDetailBasicInfoDTO(BaseModel):
             "course_name": self.course_name,
             "course_status": self.course_status,
             "created_at": self.created_at,
-            "created_at_display": self.created_at_display,
             "chapter_count": int(self.chapter_count),
             "learner_count": int(self.learner_count),
         }
@@ -205,24 +195,14 @@ class DashboardCourseDetailLearnerItemDTO(BaseModel):
     follow_up_count: int = Field(
         ..., description="Follow-up question count", required=False
     )
-    last_learning_at: str = Field(
-        default="",
+    last_learning_at: datetime | None = Field(
+        default=None,
         description="Last learning timestamp (ISO)",
         required=False,
     )
-    last_learning_at_display: str = Field(
-        default="",
-        description="Last learning timestamp for direct display",
-        required=False,
-    )
-    joined_at: str = Field(
-        default="",
+    joined_at: datetime | None = Field(
+        default=None,
         description="Joined-at timestamp (ISO)",
-        required=False,
-    )
-    joined_at_display: str = Field(
-        default="",
-        description="Joined-at timestamp for direct display",
         required=False,
     )
 
@@ -237,9 +217,7 @@ class DashboardCourseDetailLearnerItemDTO(BaseModel):
             "learning_status": self.learning_status,
             "follow_up_count": int(self.follow_up_count),
             "last_learning_at": self.last_learning_at,
-            "last_learning_at_display": self.last_learning_at_display,
             "joined_at": self.joined_at,
-            "joined_at_display": self.joined_at_display,
         }
 
 
@@ -294,8 +272,8 @@ class DashboardCourseFollowUpSummaryDTO(BaseModel):
     lesson_count: int = Field(
         ..., description="Distinct lesson count with follow-ups", required=False
     )
-    latest_follow_up_at: str = Field(
-        default="",
+    latest_follow_up_at: datetime | None = Field(
+        default=None,
         description="Latest follow-up time for direct display",
         required=False,
     )
@@ -328,9 +306,14 @@ class DashboardCourseFollowUpItemDTO(BaseModel):
     follow_up_content: str = Field(
         default="", description="Follow-up content", required=False
     )
+    has_source_output: bool = Field(
+        default=False,
+        description="Whether the original output source could be resolved",
+        required=False,
+    )
     turn_index: int = Field(default=0, description="Turn index", required=False)
-    created_at: str = Field(
-        default="",
+    created_at: datetime | None = Field(
+        default=None,
         description="Follow-up created time for direct display",
         required=False,
     )
@@ -346,6 +329,7 @@ class DashboardCourseFollowUpItemDTO(BaseModel):
             "chapter_title": self.chapter_title,
             "lesson_title": self.lesson_title,
             "follow_up_content": self.follow_up_content,
+            "has_source_output": bool(self.has_source_output),
             "turn_index": int(self.turn_index),
             "created_at": self.created_at,
         }
@@ -393,8 +377,8 @@ class DashboardCourseFollowUpDetailBasicInfoDTO(BaseModel):
     nickname: str = Field(default="", description="Learner nickname", required=False)
     chapter_title: str = Field(default="", description="Chapter title", required=False)
     lesson_title: str = Field(default="", description="Lesson title", required=False)
-    created_at: str = Field(
-        default="",
+    created_at: datetime | None = Field(
+        default=None,
         description="Follow-up created time for direct display",
         required=False,
     )
@@ -439,8 +423,8 @@ class DashboardCourseFollowUpTimelineItemDTO(BaseModel):
 
     role: str = Field(..., description="Timeline role", required=False)
     content: str = Field(default="", description="Timeline content", required=False)
-    created_at: str = Field(
-        default="",
+    created_at: datetime | None = Field(
+        default=None,
         description="Timeline created time for direct display",
         required=False,
     )
@@ -490,8 +474,8 @@ class DashboardCourseRatingSummaryDTO(BaseModel):
     user_count: int = Field(
         ..., description="Distinct learner count with ratings", required=False
     )
-    latest_rated_at: str = Field(
-        default="",
+    latest_rated_at: datetime | None = Field(
+        default=None,
         description="Latest rating time for direct display",
         required=False,
     )
@@ -523,8 +507,8 @@ class DashboardCourseRatingItemDTO(BaseModel):
     lesson_title: str = Field(default="", description="Lesson title", required=False)
     score: int = Field(..., description="Rating score", required=False)
     comment: str = Field(default="", description="Rating comment", required=False)
-    rated_at: str = Field(
-        default="",
+    rated_at: datetime | None = Field(
+        default=None,
         description="Rating time for direct display",
         required=False,
     )

@@ -1,7 +1,17 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import api from '@/api';
 import AdminOperationPromotionsPage from './page';
+import {
+  resolvePackageCampaignProductSummary,
+  resolvePromotionStatusBadgeClassName,
+} from './promotionPageShared';
 
 const mockToast = jest.fn();
 const MOCK_DIALOG_CLOSE_LABEL = 'mock-dialog-close';
@@ -36,6 +46,19 @@ jest.mock('@/api', () => ({
     getAdminOperationPromotionCampaignDetail: jest.fn(),
     getAdminOperationPromotionCampaignRedemptions: jest.fn(),
     updateAdminOperationPromotionCampaignStatus: jest.fn(),
+    getAdminOperationPromotionReferralCampaigns: jest.fn(),
+    createAdminOperationPromotionReferralCampaign: jest.fn(),
+    getAdminOperationPromotionReferralCampaignDetail: jest.fn(),
+    updateAdminOperationPromotionReferralCampaign: jest.fn(),
+    updateAdminOperationPromotionReferralCampaignStatus: jest.fn(),
+    getAdminOperationPromotionReferralCampaignRelations: jest.fn(),
+    getAdminOperationPromotionReferralCampaignInvitations: jest.fn(),
+    getAdminBillingCampaignProductOptions: jest.fn(),
+    getAdminBillingCampaigns: jest.fn(),
+    createAdminBillingCampaign: jest.fn(),
+    getAdminBillingCampaignDetail: jest.fn(),
+    updateAdminBillingCampaign: jest.fn(),
+    updateAdminBillingCampaignStatus: jest.fn(),
   },
 }));
 
@@ -47,7 +70,10 @@ jest.mock('@/app/admin/operations/useOperatorGuard', () => ({
 }));
 
 jest.mock('react-i18next', () => ({
-  useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
+  useTranslation: (namespace?: string | string[]) => ({
+    ...baseTranslation(namespace),
+    i18n: { language: 'en-US' },
+  }),
   Trans: ({
     i18nKey,
     values,
@@ -71,6 +97,11 @@ jest.mock('@/c-store', () => ({
     selector(mockEnvState),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
+
 jest.mock('@/components/loading', () => ({
   __esModule: true,
   default: () => <div data-testid='loading-indicator' />,
@@ -80,6 +111,38 @@ jest.mock('@/components/ErrorDisplay', () => ({
   __esModule: true,
   default: ({ errorMessage }: { errorMessage: string }) => (
     <div>{errorMessage}</div>
+  ),
+}));
+
+jest.mock('@/components/ui/Calendar', () => ({
+  __esModule: true,
+  Calendar: ({ onSelect }: { onSelect?: (date?: Date) => void }) => (
+    <button
+      type='button'
+      onClick={() => onSelect?.(new Date('2026-04-24T00:00:00Z'))}
+    >
+      select-date
+    </button>
+  ),
+}));
+
+jest.mock('@/components/ui/Checkbox', () => ({
+  __esModule: true,
+  Checkbox: ({
+    checked = false,
+    onCheckedChange,
+  }: {
+    checked?: boolean;
+    onCheckedChange?: (checked: boolean) => void;
+  }) => (
+    <button
+      type='button'
+      role='checkbox'
+      aria-checked={checked}
+      onClick={() => onCheckedChange?.(!checked)}
+    >
+      checkbox
+    </button>
   ),
 }));
 
@@ -118,31 +181,23 @@ jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
 
 jest.mock('@/components/ui/Sheet', () => ({
   __esModule: true,
-  Sheet: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  SheetContent: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  SheetHeader: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  SheetTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  Sheet: ({ children }: any) => <div>{children}</div>,
+  SheetContent: ({ children }: any) => <div>{children}</div>,
+  SheetHeader: ({ children }: any) => <div>{children}</div>,
+  SheetTitle: ({ children }: any) => <div>{children}</div>,
+  SheetDescription: ({ children }: any) => <div>{children}</div>,
 }));
 
 jest.mock('@/components/ui/Dialog', () => {
-  const MockDialogContent = React.forwardRef<
-    HTMLDivElement,
-    React.PropsWithChildren
-  >(({ children }, ref) => <div ref={ref}>{children}</div>);
+  const ReactModule = jest.requireActual('react') as typeof import('react');
+  const MockDialogContent = ReactModule.forwardRef<HTMLDivElement, any>(
+    ({ children }, ref) => <div ref={ref}>{children}</div>,
+  );
   MockDialogContent.displayName = 'MockDialogContent';
 
   return {
     __esModule: true,
-    Dialog: ({
-      open = true,
-      onOpenChange,
-      children,
-    }: React.PropsWithChildren<{
-      open?: boolean;
-      onOpenChange?: (open: boolean) => void;
-    }>) =>
+    Dialog: ({ open = true, onOpenChange, children }: any) =>
       open ? (
         <div>
           <button
@@ -156,51 +211,23 @@ jest.mock('@/components/ui/Dialog', () => {
         </div>
       ) : null,
     DialogContent: MockDialogContent,
-    DialogHeader: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
-    DialogTitle: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
-    DialogDescription: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
-    DialogFooter: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
+    DialogHeader: ({ children }: any) => <div>{children}</div>,
+    DialogTitle: ({ children }: any) => <div>{children}</div>,
+    DialogDescription: ({ children }: any) => <div>{children}</div>,
+    DialogFooter: ({ children }: any) => <div>{children}</div>,
   };
 });
 
 jest.mock('@/components/ui/AlertDialog', () => ({
   __esModule: true,
-  AlertDialog: ({
-    open = true,
-    children,
-  }: React.PropsWithChildren<{ open?: boolean }>) =>
+  AlertDialog: ({ open = true, children }: any) =>
     open ? <div>{children}</div> : null,
-  AlertDialogContent: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  AlertDialogHeader: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  AlertDialogTitle: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  AlertDialogDescription: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  AlertDialogFooter: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  AlertDialogCancel: ({
-    children,
-    onClick,
-    disabled = false,
-  }: React.PropsWithChildren<{
-    onClick?: () => void;
-    disabled?: boolean;
-  }>) => (
+  AlertDialogContent: ({ children }: any) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: any) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: any) => <div>{children}</div>,
+  AlertDialogDescription: ({ children }: any) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: any) => <div>{children}</div>,
+  AlertDialogCancel: ({ children, onClick, disabled = false }: any) => (
     <button
       type='button'
       onClick={onClick}
@@ -209,14 +236,7 @@ jest.mock('@/components/ui/AlertDialog', () => ({
       {children}
     </button>
   ),
-  AlertDialogAction: ({
-    children,
-    onClick,
-    disabled = false,
-  }: React.PropsWithChildren<{
-    onClick?: (event: { preventDefault: () => void }) => void;
-    disabled?: boolean;
-  }>) => (
+  AlertDialogAction: ({ children, onClick, disabled = false }: any) => (
     <button
       type='button'
       onClick={() => onClick?.({ preventDefault: () => undefined })}
@@ -229,19 +249,10 @@ jest.mock('@/components/ui/AlertDialog', () => ({
 
 jest.mock('@/components/ui/DropdownMenu', () => ({
   __esModule: true,
-  DropdownMenu: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => (
-    <>{children}</>
-  ),
-  DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  DropdownMenuItem: ({
-    children,
-    onClick,
-  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
+  DropdownMenu: ({ children }: any) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children }: any) => <>{children}</>,
+  DropdownMenuContent: ({ children }: any) => <div>{children}</div>,
+  DropdownMenuItem: ({ children, onClick }: any) => (
     <button
       type='button'
       onClick={onClick}
@@ -252,7 +263,7 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
 }));
 
 jest.mock('@/components/ui/Select', () => {
-  const ReactModule = jest.requireActual('react') as typeof React;
+  const ReactModule = jest.requireActual('react') as typeof import('react');
   const SelectContext = ReactModule.createContext<{
     value: string;
     onValueChange: (value: string) => void;
@@ -265,31 +276,15 @@ jest.mock('@/components/ui/Select', () => {
 
   return {
     __esModule: true,
-    Select: ({
-      value,
-      onValueChange,
-      disabled = false,
-      children,
-    }: React.PropsWithChildren<{
-      value: string;
-      onValueChange: (value: string) => void;
-      disabled?: boolean;
-    }>) => (
+    Select: ({ value, onValueChange, disabled = false, children }: any) => (
       <SelectContext.Provider value={{ value, onValueChange, disabled }}>
         <div>{children}</div>
       </SelectContext.Provider>
     ),
-    SelectTrigger: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
+    SelectTrigger: ({ children }: any) => <div>{children}</div>,
     SelectValue: () => <span />,
-    SelectContent: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
-    SelectItem: ({
-      value,
-      children,
-    }: React.PropsWithChildren<{ value: string }>) => {
+    SelectContent: ({ children }: any) => <div>{children}</div>,
+    SelectItem: ({ value, children }: any) => {
       const context = ReactModule.useContext(SelectContext);
       return (
         <button
@@ -305,7 +300,7 @@ jest.mock('@/components/ui/Select', () => {
 });
 
 jest.mock('@/components/ui/Tabs', () => {
-  const ReactModule = jest.requireActual('react') as typeof React;
+  const ReactModule = jest.requireActual('react') as typeof import('react');
   const TabsContext = ReactModule.createContext<{
     value: string;
     onValueChange: (value: string) => void;
@@ -318,21 +313,28 @@ jest.mock('@/components/ui/Tabs', () => {
     __esModule: true,
     Tabs: ({
       value,
+      defaultValue = 'coupons',
       onValueChange,
       children,
-    }: React.PropsWithChildren<{
-      value: string;
-      onValueChange: (value: string) => void;
-    }>) => (
-      <TabsContext.Provider value={{ value, onValueChange }}>
-        {children}
-      </TabsContext.Provider>
-    ),
-    TabsList: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-    TabsTrigger: ({
-      value,
-      children,
-    }: React.PropsWithChildren<{ value: string }>) => {
+    }: any) => {
+      const [internalValue, setInternalValue] = ReactModule.useState(
+        value || defaultValue,
+      );
+      const currentValue = value || internalValue;
+      const handleValueChange = (nextValue: string) => {
+        setInternalValue(nextValue);
+        onValueChange?.(nextValue);
+      };
+      return (
+        <TabsContext.Provider
+          value={{ value: currentValue, onValueChange: handleValueChange }}
+        >
+          {children}
+        </TabsContext.Provider>
+      );
+    },
+    TabsList: ({ children }: any) => <div>{children}</div>,
+    TabsTrigger: ({ value, children }: any) => {
       const context = ReactModule.useContext(TabsContext);
       return (
         <button
@@ -343,10 +345,7 @@ jest.mock('@/components/ui/Tabs', () => {
         </button>
       );
     },
-    TabsContent: ({
-      value,
-      children,
-    }: React.PropsWithChildren<{ value: string }>) => {
+    TabsContent: ({ value, children }: any) => {
       const context = ReactModule.useContext(TabsContext);
       return context.value === value ? <div>{children}</div> : null;
     },
@@ -373,6 +372,29 @@ const mockGetCampaignRedemptions =
   api.getAdminOperationPromotionCampaignRedemptions as jest.Mock;
 const mockUpdateCampaignStatus =
   api.updateAdminOperationPromotionCampaignStatus as jest.Mock;
+const mockGetReferralCampaigns =
+  api.getAdminOperationPromotionReferralCampaigns as jest.Mock;
+const mockCreateReferralCampaign =
+  api.createAdminOperationPromotionReferralCampaign as jest.Mock;
+const mockGetReferralCampaignDetail =
+  api.getAdminOperationPromotionReferralCampaignDetail as jest.Mock;
+const mockUpdateReferralCampaign =
+  api.updateAdminOperationPromotionReferralCampaign as jest.Mock;
+const mockUpdateReferralCampaignStatus =
+  api.updateAdminOperationPromotionReferralCampaignStatus as jest.Mock;
+const mockGetReferralCampaignRelations =
+  api.getAdminOperationPromotionReferralCampaignRelations as jest.Mock;
+const mockGetReferralCampaignInvitations =
+  api.getAdminOperationPromotionReferralCampaignInvitations as jest.Mock;
+const mockGetPackageCampaignProductOptions =
+  api.getAdminBillingCampaignProductOptions as jest.Mock;
+const mockGetPackageCampaigns = api.getAdminBillingCampaigns as jest.Mock;
+const mockCreatePackageCampaign = api.createAdminBillingCampaign as jest.Mock;
+const mockGetPackageCampaignDetail =
+  api.getAdminBillingCampaignDetail as jest.Mock;
+const mockUpdatePackageCampaign = api.updateAdminBillingCampaign as jest.Mock;
+const mockUpdatePackageCampaignStatus =
+  api.updateAdminBillingCampaignStatus as jest.Mock;
 
 describe('AdminOperationPromotionsPage', () => {
   beforeEach(() => {
@@ -389,6 +411,19 @@ describe('AdminOperationPromotionsPage', () => {
     mockGetCampaignDetail.mockReset();
     mockGetCampaignRedemptions.mockReset();
     mockUpdateCampaignStatus.mockReset();
+    mockGetReferralCampaigns.mockReset();
+    mockCreateReferralCampaign.mockReset();
+    mockGetReferralCampaignDetail.mockReset();
+    mockUpdateReferralCampaign.mockReset();
+    mockUpdateReferralCampaignStatus.mockReset();
+    mockGetReferralCampaignRelations.mockReset();
+    mockGetReferralCampaignInvitations.mockReset();
+    mockGetPackageCampaignProductOptions.mockReset();
+    mockGetPackageCampaigns.mockReset();
+    mockCreatePackageCampaign.mockReset();
+    mockGetPackageCampaignDetail.mockReset();
+    mockUpdatePackageCampaign.mockReset();
+    mockUpdatePackageCampaignStatus.mockReset();
     mockCreateCoupon.mockResolvedValue({ coupon_bid: 'created-coupon' });
     mockUpdateCoupon.mockResolvedValue({ coupon_bid: 'coupon-1' });
     mockGetCouponDetail.mockResolvedValue({
@@ -566,6 +601,284 @@ describe('AdminOperationPromotionsPage', () => {
     mockUpdateCampaignStatus.mockResolvedValue({
       promo_bid: 'promo-1',
       enabled: false,
+    });
+    mockGetReferralCampaigns.mockResolvedValue({
+      summary: {
+        total: 1,
+        active: 1,
+        relation_count: 14,
+        reward_count: 12,
+        invite_code_count: 8,
+        invite_event_count: 21,
+      },
+      items: [
+        {
+          campaign_bid: 'ref-campaign-1',
+          campaign_code: 'domestic_creator_invite_202606',
+          campaign_name: 'Domestic Creator Invite',
+          campaign_status: 7802,
+          computed_status: 'active',
+          enabled: true,
+          feature_flag_key: 'referral.invite.enabled',
+          starts_at: '2026-06-01T00:00:00Z',
+          ends_at: '2026-08-01T00:00:00Z',
+          invite_route_template: '/invite/{invite_code}',
+          inviter_eligibility: {},
+          invitee_eligibility: {},
+          invitee_benefit_policy: 'existing_trial_only',
+          rules_copy_i18n_key: 'module.referral.rules.default',
+          reward_rule_bid: 'reward-rule-1',
+          rule_code: 'domestic_creator_invite_202606_invited_registration',
+          rule_status: 7812,
+          reward_product_code: 'creator-plan-monthly',
+          reward_cycle_count: 1,
+          reward_credit_amount: '1000.0000000000',
+          reward_credit_validity_days: 30,
+          reward_cap_scope: 'per_inviter',
+          reward_cap_count: 12,
+          reward_timing_policy: 'immediate_extend_or_defer',
+          priority: 10,
+          relation_count: 14,
+          reward_count: 12,
+          invite_code_count: 8,
+          invite_event_count: 21,
+          latest_invite_event_at: '2026-06-12T08:00:00Z',
+          created_at: '2026-06-01T00:00:00Z',
+          updated_at: '2026-06-11T09:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    mockCreateReferralCampaign.mockResolvedValue({
+      campaign_bid: 'ref-campaign-created',
+    });
+    mockGetReferralCampaignDetail.mockResolvedValue({
+      campaign: {
+        campaign_bid: 'ref-campaign-1',
+        campaign_code: 'domestic_creator_invite_202606',
+        campaign_name: 'Domestic Creator Invite',
+        campaign_status: 7802,
+        computed_status: 'active',
+        enabled: true,
+        feature_flag_key: 'referral.invite.enabled',
+        starts_at: '2026-06-01T00:00:00Z',
+        ends_at: '2026-08-01T00:00:00Z',
+        invite_route_template: '/invite/{invite_code}',
+        inviter_eligibility: { country: 'CN' },
+        invitee_eligibility: {},
+        invitee_benefit_policy: 'existing_trial_only',
+        rules_copy_i18n_key: 'module.referral.rules.default',
+        reward_rule_bid: 'reward-rule-1',
+        rule_code: 'domestic_creator_invite_202606_invited_registration',
+        rule_status: 7812,
+        reward_product_code: 'creator-plan-monthly',
+        reward_cycle_count: 1,
+        reward_credit_amount: '1000.0000000000',
+        reward_credit_validity_days: 30,
+        reward_cap_scope: 'per_inviter',
+        reward_cap_count: 12,
+        reward_timing_policy: 'immediate_extend_or_defer',
+        priority: 10,
+        relation_count: 14,
+        reward_count: 12,
+        invite_code_count: 8,
+        invite_event_count: 21,
+        latest_invite_event_at: '2026-06-12T08:00:00Z',
+        created_at: '2026-06-01T00:00:00Z',
+        updated_at: '2026-06-11T09:00:00Z',
+      },
+    });
+    mockGetReferralCampaignRelations.mockResolvedValue({
+      items: [],
+      page_index: 1,
+      page_size: 20,
+      total: 0,
+      page_count: 0,
+    });
+    mockGetReferralCampaignInvitations.mockResolvedValue({
+      items: [
+        {
+          invite_code_bid: 'invite-code-1',
+          campaign_bid: 'ref-campaign-1',
+          invite_code: 'ABC12345',
+          inviter_user_bid: 'inviter-1',
+          inviter: { identifier: '13800000000' },
+          status: 7821,
+          generated_at: '2026-06-12T07:00:00Z',
+          event_counts: {},
+          link_clicked_count: 3,
+          registration_page_viewed_count: 2,
+          code_entered_count: 1,
+          registration_submitted_count: 1,
+          total_event_count: 7,
+          successful_relation_count: 1,
+          latest_event_at: '2026-06-12T08:00:00Z',
+        },
+      ],
+      page_index: 1,
+      page_size: 20,
+      total: 1,
+      page_count: 1,
+    });
+    mockUpdateReferralCampaign.mockResolvedValue({
+      campaign_bid: 'ref-campaign-1',
+    });
+    mockUpdateReferralCampaignStatus.mockResolvedValue({
+      campaign_bid: 'ref-campaign-1',
+      enabled: false,
+    });
+    mockGetPackageCampaignProductOptions.mockResolvedValue({
+      plans: [
+        {
+          product_bid: 'plan-trial',
+          product_code: 'creator-plan-trial',
+          product_type: 'plan',
+          display_name: 'module.billing.catalog.plans.trial.title',
+          description: 'module.billing.catalog.plans.trial.description',
+          currency: 'CNY',
+          price_amount: 0,
+          credit_amount: 0,
+          billing_interval: 'day',
+          billing_interval_count: 7,
+          campaign_discount_type: null,
+          campaign_discount_amount: 0,
+          campaign_discount_percent: 0,
+          campaign_price_amount: 0,
+          campaign_bonus_credit_amount: 0,
+        },
+        {
+          product_bid: 'plan-1',
+          product_code: 'creator-plan-monthly',
+          product_type: 'plan',
+          display_name: 'module.billing.catalog.plans.creatorMonthly.title',
+          description:
+            'module.billing.catalog.plans.creatorMonthly.description',
+          currency: 'CNY',
+          price_amount: 9900,
+          credit_amount: 100,
+          billing_interval: 'month',
+          billing_interval_count: 1,
+          campaign_discount_type: null,
+          campaign_discount_amount: 0,
+          campaign_discount_percent: 0,
+          campaign_price_amount: 0,
+          campaign_bonus_credit_amount: 0,
+        },
+      ],
+      topups: [
+        {
+          product_bid: 'topup-1',
+          product_code: 'creator-topup-basic',
+          product_type: 'topup',
+          display_name: 'module.billing.catalog.topups.default.title',
+          description: 'module.billing.catalog.topups.default.description',
+          currency: 'CNY',
+          price_amount: 1990,
+          credit_amount: 30,
+          billing_interval: 'none',
+          billing_interval_count: 0,
+          campaign_discount_type: null,
+          campaign_discount_amount: 0,
+          campaign_discount_percent: 0,
+          campaign_price_amount: 0,
+          campaign_bonus_credit_amount: 0,
+        },
+      ],
+    });
+    mockGetPackageCampaigns.mockResolvedValue({
+      items: [
+        {
+          campaign_bid: 'campaign-1',
+          name: 'Spring Package Promo',
+          note: 'Plan-only promotion',
+          benefit_type: 'discount',
+          discount_type: 'percent',
+          discount_amount: 0,
+          discount_percent: 20,
+          bonus_credit_amount: 0,
+          product_count: 1,
+          product_types: ['plan'],
+          product_names: ['module.billing.catalog.plans.creatorMonthly.title'],
+          has_custom_product_rules: false,
+          computed_status: 'active',
+          hit_order_count: 2,
+          start_at: '2026-04-24T10:00:00Z',
+          end_at: '2026-05-24T10:00:00Z',
+          enabled: true,
+          created_at: '2026-04-24T10:00:00Z',
+          updated_at: '2026-04-24T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+    mockCreatePackageCampaign.mockResolvedValue({
+      campaign: { campaign_bid: 'campaign-created' },
+      products: [],
+      created_user_bid: 'operator-1',
+      updated_user_bid: 'operator-1',
+    });
+    mockGetPackageCampaignDetail.mockResolvedValue({
+      campaign: {
+        campaign_bid: 'campaign-1',
+        name: 'Spring Package Promo',
+        note: 'Plan-only promotion',
+        benefit_type: 'discount',
+        discount_type: 'percent',
+        discount_amount: 0,
+        discount_percent: 20,
+        bonus_credit_amount: 0,
+        product_count: 1,
+        product_types: ['plan'],
+        product_names: ['module.billing.catalog.plans.creatorMonthly.title'],
+        has_custom_product_rules: false,
+        computed_status: 'active',
+        hit_order_count: 2,
+        start_at: '2026-04-24T10:00:00Z',
+        end_at: '2026-05-24T10:00:00Z',
+        enabled: true,
+        created_at: '2026-04-24T10:00:00Z',
+        updated_at: '2026-04-24T11:00:00Z',
+      },
+      products: [
+        {
+          product_bid: 'plan-1',
+          product_code: 'creator-plan-monthly',
+          product_type: 'plan',
+          display_name: 'module.billing.catalog.plans.creatorMonthly.title',
+          description:
+            'module.billing.catalog.plans.creatorMonthly.description',
+          currency: 'CNY',
+          price_amount: 9900,
+          credit_amount: 100,
+          billing_interval: 'month',
+          billing_interval_count: 1,
+          campaign_discount_type: 'percent',
+          campaign_discount_amount: 1980,
+          campaign_discount_percent: 20,
+          campaign_price_amount: 7920,
+          campaign_bonus_credit_amount: 0,
+        },
+      ],
+      created_user_bid: 'operator-1',
+      updated_user_bid: 'operator-1',
+    });
+    mockUpdatePackageCampaign.mockResolvedValue({
+      campaign: { campaign_bid: 'campaign-1' },
+      products: [],
+      created_user_bid: 'operator-1',
+      updated_user_bid: 'operator-1',
+    });
+    mockUpdatePackageCampaignStatus.mockResolvedValue({
+      campaign: { campaign_bid: 'campaign-1', enabled: false },
+      products: [],
+      created_user_bid: 'operator-1',
+      updated_user_bid: 'operator-1',
     });
   });
 
@@ -1627,6 +1940,7 @@ describe('AdminOperationPromotionsPage', () => {
           end_at: soonEndAt,
           total_count: 10,
           used_count: 10,
+          ops_states: ['used_up', 'expiring_soon'],
           computed_status: 'active',
           computed_status_key: 'module.operationsPromotion.status.active',
           created_at: '2026-04-24T10:00:00Z',
@@ -1681,6 +1995,7 @@ describe('AdminOperationPromotionsPage', () => {
           end_at: soonEndAt,
           total_count: 10,
           used_count: 0,
+          ops_states: ['expiring_soon'],
           computed_status: 'not_started',
           computed_status_key: 'module.operationsPromotion.status.notStarted',
           created_at: '2026-04-24T10:00:00Z',
@@ -1702,6 +2017,7 @@ describe('AdminOperationPromotionsPage', () => {
           end_at: soonEndAt,
           total_count: 10,
           used_count: 10,
+          ops_states: ['used_up', 'expiring_soon'],
           computed_status: 'inactive',
           computed_status_key: 'module.operationsPromotion.status.inactive',
           created_at: '2026-04-24T10:00:00Z',
@@ -1718,6 +2034,58 @@ describe('AdminOperationPromotionsPage', () => {
 
     await screen.findByText('Upcoming Coupon');
     await screen.findByText('Inactive Coupon');
+
+    expect(
+      screen.queryByText('module.operationsPromotion.opsState.usedUp'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsPromotion.opsState.expiringSoon'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('does not show coupon attention badges when an active coupon has no ops states', async () => {
+    mockGetCoupons.mockResolvedValueOnce({
+      summary: {
+        total: 1,
+        active: 1,
+        usage_count: 0,
+        latest_usage_at: '',
+        covered_courses: 1,
+        discount_amount: '0',
+      },
+      items: [
+        {
+          coupon_bid: 'coupon-stable',
+          name: 'Stable Coupon',
+          code: 'STABLE',
+          usage_type: 801,
+          usage_type_key: 'module.operationsPromotion.usageType.generic',
+          discount_type: 701,
+          discount_type_key: 'module.operationsPromotion.discountType.fixed',
+          value: '20',
+          scope_type: 'single_course',
+          shifu_bid: 'course-1',
+          course_name: 'Coupon Course',
+          start_at: '2026-04-24T10:00:00Z',
+          end_at: '2026-08-24T10:00:00Z',
+          total_count: 10,
+          used_count: 1,
+          ops_states: [],
+          computed_status: 'active',
+          computed_status_key: 'module.operationsPromotion.status.active',
+          created_at: '2026-04-24T10:00:00Z',
+          updated_at: '2026-04-24T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+
+    render(<AdminOperationPromotionsPage />);
+
+    await screen.findByText('Stable Coupon');
 
     expect(
       screen.queryByText('module.operationsPromotion.opsState.usedUp'),
@@ -2850,5 +3218,725 @@ describe('AdminOperationPromotionsPage', () => {
     });
 
     expect(await screen.findByText('Recovered Campaign')).toBeInTheDocument();
+  });
+
+  test('switches to package campaign tab and loads package campaigns', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetPackageCampaigns).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 20,
+        keyword: '',
+        product_type: '',
+        benefit_type: '',
+        status: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+    expect(mockGetPackageCampaignProductOptions).toHaveBeenCalledWith({});
+    expect(await screen.findByText('Spring Package Promo')).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsPromotion.packageCampaign.campaignBid',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsPromotion.table.createdAt'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('switches to referral campaign tab and loads referral campaigns', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetReferralCampaigns).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 20,
+        keyword: '',
+        status: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+    expect(mockGetPackageCampaignProductOptions).toHaveBeenCalledWith({});
+    expect(
+      await screen.findByText('Domestic Creator Invite'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.catalog.plans.creatorMonthly.title'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('1,000')).toBeInTheDocument();
+    expect(screen.getByText('14')).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText('8')).toBeInTheDocument();
+    expect(screen.getByText('21')).toBeInTheDocument();
+  });
+
+  test('opens referral campaign records dialog from referral campaign row', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await screen.findByText('Domestic Creator Invite');
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsPromotion.actions.viewData: module.operationsPromotion.referralCampaign.inviteCodeCount',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.operationsPromotion.referralCampaign.records.title',
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockGetReferralCampaignInvitations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          campaign_bid: 'ref-campaign-1',
+          page_index: 1,
+          page_size: 20,
+        }),
+      );
+    });
+    expect(await screen.findByText('ABC12345')).toBeInTheDocument();
+    expect(screen.getByText('13800000000')).toBeInTheDocument();
+
+    const closeButtons = screen.getAllByRole('button', {
+      name: MOCK_DIALOG_CLOSE_LABEL,
+    });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsPromotion.actions.viewData: module.operationsPromotion.referralCampaign.relationCount',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetReferralCampaignRelations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          campaign_bid: 'ref-campaign-1',
+          page_index: 1,
+          page_size: 20,
+        }),
+      );
+    });
+  });
+
+  test('normalizes referral reward credits when opening the edit dialog', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await screen.findByText('Domestic Creator Invite');
+
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsPromotion.actions.edit',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetReferralCampaignDetail).toHaveBeenCalledWith({
+        campaign_bid: 'ref-campaign-1',
+      });
+    });
+
+    const rewardCreditsInput = await screen.findByDisplayValue('1000');
+    expect(rewardCreditsInput).toBeInTheDocument();
+  });
+
+  test('creates a referral campaign with full configuration payload', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await screen.findByText('Domestic Creator Invite');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.createReferralCampaign',
+      }),
+    );
+
+    const dialogTitle = await screen.findByText(
+      'module.operationsPromotion.referralCampaign.dialogTitle',
+    );
+    const dialog = dialogTitle.closest('div')?.parentElement?.parentElement;
+    expect(dialog).not.toBeNull();
+    const dialogScope = within(dialog as HTMLElement);
+
+    fireEvent.change(
+      dialogScope.getByPlaceholderText(
+        'module.operationsPromotion.referralCampaign.namePlaceholder',
+      ),
+      {
+        target: { value: 'July Referral Campaign' },
+      },
+    );
+    fireEvent.change(
+      dialogScope.getByPlaceholderText(
+        'module.operationsPromotion.referralCampaign.codePlaceholder',
+      ),
+      {
+        target: { value: 'july_referral' },
+      },
+    );
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.billing.catalog.plans.creatorMonthly.title',
+      }),
+    );
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.campaign.startAtPlaceholder',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'select-date' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.confirm',
+      }),
+    );
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.campaign.endAtPlaceholder',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'select-date' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.confirm',
+      }),
+    );
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmCreate',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockCreateReferralCampaign).toHaveBeenCalledWith({
+        campaign_code: 'july_referral',
+        campaign_name: 'July Referral Campaign',
+        enabled: true,
+        starts_at: new Date('2026-04-24T00:00:00').toISOString(),
+        ends_at: new Date('2026-04-24T23:59:00').toISOString(),
+        reward_product_code: 'creator-plan-monthly',
+        reward_cycle_count: 1,
+        reward_credit_amount: '1000',
+        reward_credit_validity_days: 30,
+        reward_cap_scope: 'per_inviter',
+        reward_cap_count: 12,
+        feature_flag_key: '',
+        invite_route_template: '/invite/{invite_code}',
+        inviter_eligibility: {},
+        invitee_eligibility: {},
+        invitee_benefit_policy: 'existing_trial_only',
+        rules_copy_i18n_key: '',
+        rule_code: '',
+        priority: 0,
+      });
+    });
+  });
+
+  test('updates referral campaign status through the shared confirmation flow', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await screen.findByText('Domestic Creator Invite');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.disable',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmDisable',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateReferralCampaignStatus).toHaveBeenCalledWith({
+        campaign_bid: 'ref-campaign-1',
+        enabled: false,
+      });
+    });
+  });
+
+  test('maps package campaign upcoming status and unknown product summary safely', () => {
+    const tPromotion = (key: string) => `module.operationsPromotion.${key}`;
+
+    expect(resolvePromotionStatusBadgeClassName('upcoming')).toBe(
+      resolvePromotionStatusBadgeClassName('not_started'),
+    );
+    expect(
+      resolvePackageCampaignProductSummary(tPromotion, {
+        product_types: ['unknown'],
+        product_count: 1,
+      }),
+    ).toBe('--');
+  });
+
+  test('opens package campaign product details from product column', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Spring Package Promo');
+
+    const campaignRow = screen.getByText('Spring Package Promo').closest('tr');
+    expect(campaignRow).not.toBeNull();
+
+    fireEvent.click(
+      within(campaignRow as HTMLElement).getByRole('button', {
+        name: /module\.operationsPromotion\.packageCampaign\.productTypePlan/,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetPackageCampaignDetail).toHaveBeenCalledWith({
+        campaign_bid: 'campaign-1',
+      });
+    });
+
+    expect(
+      await screen.findByText(
+        'module.operationsPromotion.packageCampaign.productDetails',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.catalog.plans.creatorMonthly.title'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'module.operationsPromotion.packageCampaign.productDetailsPercent',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('creates a package campaign with the selected benefit and product payload', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Spring Package Promo');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.createPackageCampaign',
+      }),
+    );
+
+    const dialogTitle = await screen.findByText(
+      'module.operationsPromotion.packageCampaign.dialogTitle',
+    );
+    const dialog = dialogTitle.closest('div')?.parentElement?.parentElement;
+    expect(dialog).not.toBeNull();
+    const dialogScope = within(dialog as HTMLElement);
+
+    fireEvent.change(
+      dialogScope.getByPlaceholderText(
+        'module.operationsPromotion.packageCampaign.namePlaceholder',
+      ),
+      {
+        target: { value: 'May Bonus Campaign' },
+      },
+    );
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.packageCampaign.productTypePlan',
+      }),
+    );
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.packageCampaign.benefitTypeBonus',
+      }),
+    );
+    fireEvent.click(dialogScope.getByRole('checkbox'));
+    fireEvent.change(
+      dialogScope.getByPlaceholderText(
+        'module.operationsPromotion.packageCampaign.bonusCreditAmountPlaceholder',
+      ),
+      {
+        target: { value: '88' },
+      },
+    );
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.campaign.startAtPlaceholder',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'select-date' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.confirm',
+      }),
+    );
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.campaign.endAtPlaceholder',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'select-date' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.confirm',
+      }),
+    );
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmCreate',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockCreatePackageCampaign).toHaveBeenCalledWith({
+        name: 'May Bonus Campaign',
+        note: '',
+        benefit_type: 'bonus',
+        products: [
+          {
+            product_bid: 'plan-1',
+            discount_type: '',
+            campaign_price_amount: 0,
+            discount_percent: '',
+            bonus_credit_amount: '88',
+          },
+        ],
+        start_at: new Date('2026-04-24T00:00:00').toISOString(),
+        end_at: new Date('2026-04-24T23:59:00').toISOString(),
+      });
+    });
+  });
+
+  test('shows a percent suffix for package campaign percentage rules', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Spring Package Promo');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.createPackageCampaign',
+      }),
+    );
+
+    const dialogTitle = await screen.findByText(
+      'module.operationsPromotion.packageCampaign.dialogTitle',
+    );
+    const dialog = dialogTitle.closest('div')?.parentElement?.parentElement;
+    expect(dialog).not.toBeNull();
+    const dialogScope = within(dialog as HTMLElement);
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.packageCampaign.productTypePlan',
+      }),
+    );
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.packageCampaign.benefitTypeDiscount',
+      }),
+    );
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.discountType.percent',
+      }),
+    );
+    fireEvent.click(dialogScope.getByRole('checkbox'));
+
+    expect(
+      dialogScope.queryByPlaceholderText(
+        'module.operationsPromotion.packageCampaign.productDiscountPercentPlaceholder',
+      ),
+    ).not.toBeInTheDocument();
+    expect(dialogScope.getByText('%')).toBeInTheDocument();
+  });
+
+  test('rejects zero package campaign fixed price before submit', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Spring Package Promo');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.createPackageCampaign',
+      }),
+    );
+
+    const dialogTitle = await screen.findByText(
+      'module.operationsPromotion.packageCampaign.dialogTitle',
+    );
+    const dialog = dialogTitle.closest('div')?.parentElement?.parentElement;
+    expect(dialog).not.toBeNull();
+    const dialogScope = within(dialog as HTMLElement);
+
+    fireEvent.change(
+      dialogScope.getByPlaceholderText(
+        'module.operationsPromotion.packageCampaign.namePlaceholder',
+      ),
+      {
+        target: { value: 'Zero Price Campaign' },
+      },
+    );
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.packageCampaign.productTypePlan',
+      }),
+    );
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.packageCampaign.benefitTypeDiscount',
+      }),
+    );
+    fireEvent.click(dialogScope.getByRole('checkbox'));
+    fireEvent.change(
+      dialogScope.getByPlaceholderText(
+        'module.operationsPromotion.packageCampaign.campaignPricePlaceholder',
+      ),
+      {
+        target: { value: '0' },
+      },
+    );
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmCreate',
+      }),
+    );
+
+    expect(mockCreatePackageCampaign).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          'module.operationsPromotion.validation.packageCampaignPriceInvalid',
+      }),
+    );
+  });
+
+  test('rejects invalid package campaign numeric inputs before submit', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Spring Package Promo');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.createPackageCampaign',
+      }),
+    );
+
+    const dialogTitle = await screen.findByText(
+      'module.operationsPromotion.packageCampaign.dialogTitle',
+    );
+    const dialog = dialogTitle.closest('div')?.parentElement?.parentElement;
+    expect(dialog).not.toBeNull();
+    const dialogScope = within(dialog as HTMLElement);
+
+    fireEvent.change(
+      dialogScope.getByPlaceholderText(
+        'module.operationsPromotion.packageCampaign.namePlaceholder',
+      ),
+      {
+        target: { value: 'Invalid Bonus Campaign' },
+      },
+    );
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.packageCampaign.productTypePlan',
+      }),
+    );
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.packageCampaign.benefitTypeBonus',
+      }),
+    );
+    fireEvent.click(dialogScope.getByRole('checkbox'));
+    fireEvent.change(
+      dialogScope.getByPlaceholderText(
+        'module.operationsPromotion.packageCampaign.bonusCreditAmountPlaceholder',
+      ),
+      {
+        target: { value: 'abc' },
+      },
+    );
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmCreate',
+      }),
+    );
+
+    expect(mockCreatePackageCampaign).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          'module.operationsPromotion.validation.packageCampaignBonusInvalid',
+      }),
+    );
+  });
+
+  test('hides the trial plan from package campaign product options', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Spring Package Promo');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.createPackageCampaign',
+      }),
+    );
+
+    const dialogTitle = await screen.findByText(
+      'module.operationsPromotion.packageCampaign.dialogTitle',
+    );
+    const dialog = dialogTitle.closest('div')?.parentElement?.parentElement;
+    expect(dialog).not.toBeNull();
+    const dialogScope = within(dialog as HTMLElement);
+
+    fireEvent.click(
+      dialogScope.getByRole('button', {
+        name: 'module.operationsPromotion.packageCampaign.productTypePlan',
+      }),
+    );
+
+    expect(
+      dialogScope.queryByText('module.billing.catalog.plans.trial.title'),
+    ).not.toBeInTheDocument();
+    expect(
+      dialogScope.getByText(
+        'module.billing.catalog.plans.creatorMonthly.title',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('updates package campaign status through the shared confirmation flow', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.packageCampaigns',
+      }),
+    );
+
+    await screen.findByText('Spring Package Promo');
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.disable',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.actions.confirmDisable',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdatePackageCampaignStatus).toHaveBeenCalledWith({
+        campaign_bid: 'campaign-1',
+        enabled: false,
+      });
+    });
   });
 });

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -63,6 +65,17 @@ class BillingRouteBootstrapDTO(BillingBaseDTO):
 
 
 @register_schema_to_swagger
+class BillingCatalogCampaignDTO(BillingBaseDTO):
+    campaign_bid: str
+    benefit_type: str
+    discount_type: str | None = None
+    discount_amount: int = 0
+    discount_percent: int | float = 0
+    campaign_price_amount: int = 0
+    bonus_credit_amount: int | float = 0
+
+
+@register_schema_to_swagger
 class BillingPlanDTO(BillingBaseDTO):
     product_bid: str
     product_code: str
@@ -78,6 +91,7 @@ class BillingPlanDTO(BillingBaseDTO):
     billing_interval_count: int
     auto_renew_enabled: bool
     plan_tier: int | None = None
+    campaign: BillingCatalogCampaignDTO | None = None
 
 
 @register_schema_to_swagger
@@ -92,6 +106,7 @@ class BillingTopupProductDTO(BillingBaseDTO):
     credit_amount: int | float
     highlights: list[str] = Field(default_factory=list)
     status_badge_key: str | None = None
+    campaign: BillingCatalogCampaignDTO | None = None
 
 
 @register_schema_to_swagger
@@ -115,13 +130,13 @@ class BillingSubscriptionDTO(BillingBaseDTO):
     product_code: str
     status: str
     billing_provider: str
-    current_period_start_at: str | None = None
-    current_period_end_at: str | None = None
-    grace_period_end_at: str | None = None
+    current_period_start_at: datetime | None = None
+    current_period_end_at: datetime | None = None
+    grace_period_end_at: datetime | None = None
     cancel_at_period_end: bool
     next_product_bid: str | None = None
-    last_renewed_at: str | None = None
-    last_failed_at: str | None = None
+    last_renewed_at: datetime | None = None
+    last_failed_at: datetime | None = None
 
 
 @register_schema_to_swagger
@@ -148,15 +163,15 @@ class BillingTrialOfferDTO(BillingBaseDTO):
     highlights: list[str] = Field(default_factory=list)
     valid_days: int
     starts_on_first_grant: bool
-    granted_at: str | None = None
-    expires_at: str | None = None
-    welcome_dialog_acknowledged_at: str | None = None
+    granted_at: datetime | None = None
+    expires_at: datetime | None = None
+    welcome_dialog_acknowledged_at: datetime | None = None
 
 
 @register_schema_to_swagger
 class BillingTrialWelcomeAckDTO(BillingBaseDTO):
     acknowledged: bool
-    acknowledged_at: str | None = None
+    acknowledged_at: datetime | None = None
 
 
 @register_schema_to_swagger
@@ -187,8 +202,8 @@ class BillingWalletBucketDTO(BillingBaseDTO):
     source_type: str
     source_bid: str
     available_credits: int | float
-    effective_from: str
-    effective_to: str | None = None
+    effective_from: datetime | None
+    effective_to: datetime | None = None
     priority: int
     status: str
 
@@ -224,8 +239,8 @@ class BillingBucketBreakdownDTO(BillingBaseDTO):
     source_type: str
     source_bid: str
     consumed_credits: int | float
-    effective_from: str | None = None
-    effective_to: str | None = None
+    effective_from: datetime | None = None
+    effective_to: datetime | None = None
     metric_breakdown: list[BillingBucketMetricBreakdownDTO] = Field(
         default_factory=list
     )
@@ -253,10 +268,10 @@ class BillingLedgerItemDTO(BillingBaseDTO):
     idempotency_key: str
     amount: int | float
     balance_after: int | float
-    expires_at: str | None = None
-    consumable_from: str | None = None
+    expires_at: datetime | None = None
+    consumable_from: datetime | None = None
     metadata: BillingLedgerMetadataDTO | dict[str, Any]
-    created_at: str
+    created_at: datetime | None
 
 
 @register_schema_to_swagger
@@ -281,8 +296,8 @@ class BillingDailyUsageMetricDTO(BillingBaseDTO):
     raw_amount: int
     record_count: int
     consumed_credits: int | float
-    window_started_at: str
-    window_ended_at: str
+    window_started_at: datetime | None
+    window_ended_at: datetime | None
 
 
 @register_schema_to_swagger
@@ -302,8 +317,8 @@ class BillingDailyLedgerSummaryDTO(BillingBaseDTO):
     source_type: str
     amount: int | float
     entry_count: int
-    window_started_at: str
-    window_ended_at: str
+    window_started_at: datetime | None
+    window_ended_at: datetime | None
 
 
 @register_schema_to_swagger
@@ -320,8 +335,8 @@ class BillingRenewalEventDTO(BillingBaseDTO):
     renewal_event_bid: str
     event_type: str
     status: str
-    scheduled_at: str | None = None
-    processed_at: str | None = None
+    scheduled_at: datetime | None = None
+    processed_at: datetime | None = None
     attempt_count: int
     last_error: str
     payload: dict[str, Any] | None = None
@@ -342,16 +357,16 @@ class BillingOrderSummaryDTO(BillingBaseDTO):
     currency: str
     provider_reference_id: str
     failure_message: str
-    created_at: str
-    paid_at: str | None = None
+    created_at: datetime | None
+    paid_at: datetime | None = None
 
 
 @register_schema_to_swagger
 class BillingOrderDetailDTO(BillingOrderSummaryDTO):
     metadata: dict[str, Any] | None = None
     failure_code: str = ""
-    refunded_at: str | None = None
-    failed_at: str | None = None
+    refunded_at: datetime | None = None
+    failed_at: datetime | None = None
 
 
 @register_schema_to_swagger
@@ -369,6 +384,7 @@ class BillingCheckoutResultDTO(BillingBaseDTO):
     provider: str
     payment_mode: str
     status: str
+    reused_existing_order: bool = False
     checkout_type: str | None = None
     effective_mode: str | None = None
     current_product_bid: str | None = None
@@ -376,6 +392,10 @@ class BillingCheckoutResultDTO(BillingBaseDTO):
     preorder_order_bid: str | None = None
     prepaid_offset_amount: int = 0
     payable_amount: int | None = None
+    currency: str = ""
+    expires_at: datetime | None = None
+    expires_in_seconds: int | None = None
+    campaign: BillingCatalogCampaignDTO | None = None
     redirect_url: str | None = None
     checkout_session_id: str | None = None
     payment_payload: dict[str, Any] | None = None
@@ -385,6 +405,8 @@ class BillingCheckoutResultDTO(BillingBaseDTO):
 class BillingOrderSyncResultDTO(BillingBaseDTO):
     bill_order_bid: str
     status: str
+    expires_at: datetime | None = None
+    expires_in_seconds: int | None = None
 
 
 @register_schema_to_swagger
@@ -420,8 +442,8 @@ class AdminBillingEntitlementDTO(BillingEntitlementsDTO):
     source_type: str = ""
     source_bid: str | None = None
     product_bid: str | None = None
-    effective_from: str | None = None
-    effective_to: str | None = None
+    effective_from: datetime | None = None
+    effective_to: datetime | None = None
     feature_payload: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -444,7 +466,7 @@ class BillingDomainBindingDTO(BillingBaseDTO):
     verification_token: str
     verification_record_name: str
     verification_record_value: str
-    last_verified_at: str | None = None
+    last_verified_at: datetime | None = None
     ssl_status: str
     is_effective: bool
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -481,8 +503,8 @@ class BillingDomainAuditsPageDTO(BillingBaseDTO):
 @register_schema_to_swagger
 class AdminBillingOrderDTO(BillingOrderSummaryDTO):
     failure_code: str = ""
-    failed_at: str | None = None
-    refunded_at: str | None = None
+    failed_at: datetime | None = None
+    refunded_at: datetime | None = None
     has_attention: bool
 
 
@@ -496,10 +518,75 @@ class AdminBillingOrdersPageDTO(BillingBaseDTO):
 
 
 @register_schema_to_swagger
+class AdminBillingCampaignProductOptionDTO(BillingBaseDTO):
+    product_bid: str
+    product_code: str
+    product_type: str
+    display_name: str
+    description: str
+    currency: str
+    price_amount: int
+    credit_amount: int | float
+    billing_interval: str = "none"
+    billing_interval_count: int = 0
+    campaign_discount_type: str | None = None
+    campaign_discount_amount: int = 0
+    campaign_discount_percent: int | float = 0
+    campaign_price_amount: int = 0
+    campaign_bonus_credit_amount: int | float = 0
+
+
+@register_schema_to_swagger
+class AdminBillingCampaignProductOptionsDTO(BillingBaseDTO):
+    plans: list[AdminBillingCampaignProductOptionDTO] = Field(default_factory=list)
+    topups: list[AdminBillingCampaignProductOptionDTO] = Field(default_factory=list)
+
+
+@register_schema_to_swagger
+class AdminBillingCampaignDTO(BillingBaseDTO):
+    campaign_bid: str
+    name: str
+    note: str = ""
+    benefit_type: str
+    discount_type: str | None = None
+    discount_amount: int = 0
+    discount_percent: int | float = 0
+    bonus_credit_amount: int | float = 0
+    product_count: int = 0
+    product_types: list[str] = Field(default_factory=list)
+    product_names: list[str] = Field(default_factory=list)
+    has_custom_product_rules: bool = False
+    computed_status: str
+    hit_order_count: int = 0
+    start_at: datetime | None
+    end_at: datetime | None
+    enabled: bool
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
+@register_schema_to_swagger
+class AdminBillingCampaignDetailDTO(BillingBaseDTO):
+    campaign: AdminBillingCampaignDTO
+    products: list[AdminBillingCampaignProductOptionDTO] = Field(default_factory=list)
+    created_user_bid: str = ""
+    updated_user_bid: str = ""
+
+
+@register_schema_to_swagger
+class AdminBillingCampaignsPageDTO(BillingBaseDTO):
+    items: list[AdminBillingCampaignDTO]
+    page: int
+    page_count: int
+    page_size: int
+    total: int
+
+
+@register_schema_to_swagger
 class OperatorCreditOrderGrantDTO(BillingBaseDTO):
     granted_credits: int | float
-    valid_from: str | None = None
-    valid_to: str | None = None
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
     source_type: str
     source_bid: str
 
@@ -518,8 +605,8 @@ class OperatorCreditOrderDTO(BillingBaseDTO):
     product_type: str
     product_name_key: str
     credit_amount: int | float
-    valid_from: str | None = None
-    valid_to: str | None = None
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
     order_type: str
     status: str
     payment_provider: str
@@ -530,10 +617,10 @@ class OperatorCreditOrderDTO(BillingBaseDTO):
     provider_reference_id: str
     failure_code: str = ""
     failure_message: str = ""
-    created_at: str
-    paid_at: str | None = None
-    failed_at: str | None = None
-    refunded_at: str | None = None
+    created_at: datetime | None
+    paid_at: datetime | None = None
+    failed_at: datetime | None = None
+    refunded_at: datetime | None = None
     has_attention: bool
 
 
@@ -675,6 +762,7 @@ class RuntimeConfigDTO(BillingBaseDTO):
     googleOauthRedirect: str
     homeUrl: str
     contactUsUrl: str
+    officialSiteUrl: str
     currencySymbol: str
     legalUrls: RuntimeLegalUrlsDTO
     genMdfApiUrl: str

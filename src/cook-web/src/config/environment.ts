@@ -48,12 +48,19 @@ interface EnvironmentConfig {
   // Redirect Configuration
   homeUrl: string;
   contactUsUrl: string;
+  officialSiteUrl: string;
 
   // Legal Documents Configuration
   legalUrls: {
     agreement: Record<'zh-CN' | 'en-US' | 'fr-FR', string>;
     privacy: Record<'zh-CN' | 'en-US' | 'fr-FR', string>;
   };
+}
+
+export const DEFAULT_OFFICIAL_SITE_URL = 'https://ai-shifu.cn';
+
+export function resolveOfficialSiteUrl(value?: string): string {
+  return (value || '').trim() || DEFAULT_OFFICIAL_SITE_URL;
 }
 
 /**
@@ -312,6 +319,15 @@ function getContactUsUrl(): string {
 }
 
 /**
+ * Gets official site URL
+ */
+function getOfficialSiteUrl(): string {
+  return resolveOfficialSiteUrl(
+    getRuntimeEnv('OFFICIAL_SITE_URL') || process.env.OFFICIAL_SITE_URL,
+  );
+}
+
+/**
  * Gets currency symbol
  */
 function getCurrencySymbol(): string {
@@ -400,6 +416,7 @@ export const environment: EnvironmentConfig = {
   // Redirect Configuration
   homeUrl: getHomeUrl(),
   contactUsUrl: getContactUsUrl(),
+  officialSiteUrl: getOfficialSiteUrl(),
   currencySymbol: getCurrencySymbol(),
 
   // Legal Documents Configuration

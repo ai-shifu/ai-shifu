@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from decimal import Decimal
 
 from flaskr.service.billing.dtos import (
@@ -84,8 +86,8 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
     assert payload["billing_alerts"][0]["action_payload"] == {"target": "topup"}
     assert payload["trial_offer"]["status"] == "granted"
     assert payload["trial_offer"]["product_code"] == "creator-plan-trial"
-    assert payload["trial_offer"]["welcome_dialog_acknowledged_at"] == (
-        "2026-04-10T00:00:00+00:00"
+    assert payload["trial_offer"]["welcome_dialog_acknowledged_at"] == datetime(
+        2026, 4, 10, 0, 0, tzinfo=timezone.utc
     )
 
 
@@ -173,8 +175,8 @@ def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> Non
                 "source_type": "subscription",
                 "source_bid": "sub-1",
                 "available_credits": 97.5,
-                "effective_from": "2026-04-01T00:00:00+00:00",
-                "effective_to": "2026-05-01T00:00:00+00:00",
+                "effective_from": datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
+                "effective_to": datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc),
                 "priority": 20,
                 "status": "active",
             }
@@ -206,6 +208,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
         googleOauthRedirect="https://example.com/login/google-callback",
         homeUrl="/",
         contactUsUrl="https://ai-shifu.cn/contact.html",
+        officialSiteUrl="https://official.example.com",
         currencySymbol="¥",
         legalUrls=RuntimeLegalUrlsDTO(
             agreement=RuntimeLocalizedUrlDTO(
@@ -265,6 +268,7 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     assert payload["billingCreditPrecision"] == 2
     assert payload["branding"]["home_url"] == "https://creator.example.com"
     assert payload["contactUsUrl"] == "https://ai-shifu.cn/contact.html"
+    assert payload["officialSiteUrl"] == "https://official.example.com"
     assert (
         payload["branding"]["contact_us_url"] == "https://creator.example.com/contact"
     )

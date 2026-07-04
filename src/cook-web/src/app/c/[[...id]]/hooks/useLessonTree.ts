@@ -173,6 +173,8 @@ export const useLessonTree = () => {
             status: c.status,
             type: c.type,
             is_paid: c.is_paid,
+            has_content_update_for_current_user:
+              c.has_content_update_for_current_user,
             status_value: c.status, // TODO: DELETE status_value
             canLearning: checkChapterCanLearning({ status_value: c.status }),
           };

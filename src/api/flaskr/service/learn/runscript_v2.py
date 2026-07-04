@@ -4,6 +4,7 @@ import queue
 import threading
 import time
 import traceback
+from datetime import datetime
 from typing import Any, Generator, Optional
 
 from flask import Flask
@@ -35,7 +36,6 @@ from flaskr.service.order.models import Order
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.learn.context_v2 import RunScriptContextV2
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
-import datetime
 from flaskr.common.log import thread_local as log_thread_local
 from flaskr.service.learn.exceptions import BreakException
 from flaskr.i18n import get_current_language, set_language
@@ -43,6 +43,7 @@ from flaskr.common.shifu_context import (
     get_shifu_context_snapshot,
     apply_shifu_context_snapshot,
 )
+from flaskr.util.datetime import to_utc_iso
 
 RUN_SCRIPT_TIMEOUT_SECONDS = 5 * 60
 RUN_SCRIPT_STATUS_REFRESH_SECONDS = 30
@@ -426,10 +427,9 @@ def run_script_inner(
 
 
 def fmt(o):
-    if isinstance(o, datetime.datetime):
-        return o.isoformat()
-    else:
-        return o.__json__()
+    if isinstance(o, datetime):
+        return to_utc_iso(o)
+    return o.__json__()
 
 
 def _to_sse_chunk(payload: object) -> str:

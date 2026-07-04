@@ -12,6 +12,8 @@ import flaskr.dao as dao
 from flaskr.i18n import load_translations, set_language
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
     BILLING_INTERVAL_DAY,
     BILLING_MODE_RECURRING,
     CREDIT_BUCKET_CATEGORY_FREE,
@@ -26,9 +28,11 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_REFUND,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
+    BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_REFUNDED,
+    BILLING_ORDER_STATUS_TIMEOUT,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
@@ -48,6 +52,8 @@ from flaskr.service.billing.consts import (
     BILLING_TRIAL_PRODUCT_BID,
 )
 from flaskr.service.billing.models import (
+    BillingCampaign,
+    BillingCampaignProduct,
     BillingOrder,
     BillingProduct,
     BillingRenewalEvent,
@@ -81,6 +87,7 @@ from flaskr.service.order.payment_providers import (
 )
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
+from flaskr.util.datetime import now_utc, to_utc_iso
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
@@ -116,7 +123,7 @@ def _add_active_subscription(
     current_period_start_at: datetime | None = None,
     current_period_end_at: datetime | None = None,
 ) -> None:
-    now = datetime.now()
+    now = now_utc()
     with app.app_context():
         dao.db.session.add(
             BillingSubscription(
@@ -167,7 +174,7 @@ def _add_trial_subscription_state(
     current_period_end_at: datetime | None = None,
     credit_amount: Decimal = Decimal("100.0000000000"),
 ) -> None:
-    now = datetime.now()
+    now = now_utc()
     trial_start = current_period_start_at or now - timedelta(minutes=5)
     trial_end = current_period_end_at or now + timedelta(days=15)
     with app.app_context():
@@ -660,12 +667,75 @@ class TestBillingWriteRoutes:
         assert recurring["interval"] == "day"
         assert recurring["interval_count"] == 7
 
+    def test_stripe_subscription_campaign_uses_first_invoice_discount_not_recurring_price(
+        self,
+        billing_write_client,
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = now_utc()
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingCampaign(
+                    campaign_bid="campaign-stripe-first-invoice",
+                    name="Stripe first invoice campaign",
+                    note="",
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+                    discount_amount=200,
+                    discount_percent=Decimal("0"),
+                    bonus_credit_amount=Decimal("0"),
+                    enabled=1,
+                    start_at=now - timedelta(days=1),
+                    end_at=now + timedelta(days=1),
+                    created_user_bid="operator-1",
+                    updated_user_bid="operator-1",
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProduct(
+                    campaign_bid="campaign-stripe-first-invoice",
+                    product_bid="bill-product-plan-monthly",
+                    product_type=BILLING_PRODUCT_TYPE_PLAN,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+                    discount_amount=200,
+                    discount_percent=Decimal("0"),
+                    campaign_price_amount=790,
+                    bonus_credit_amount=Decimal("0"),
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["payable_amount"] == 790
+        stripe_request = billing_write_client["stripe_requests"][-1]
+        price_data = stripe_request["extra"]["line_items"][0]["price_data"]
+        assert price_data["unit_amount"] == 990
+        assert stripe_request["extra"]["subscription_one_time_discount_amount"] == 200
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=payload["data"]["bill_order_bid"]
+            ).one()
+            assert order.campaign_bid == "campaign-stripe-first-invoice"
+            assert order.payable_amount == 790
+
     def test_subscription_checkout_rejects_lower_tier_plan_while_active(
         self, billing_write_client
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
 
         with app.app_context():
             dao.db.session.add(
@@ -715,7 +785,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
 
         with app.app_context():
             dao.db.session.add(
@@ -767,7 +837,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
 
         with app.app_context():
             dao.db.session.add(
@@ -828,7 +898,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
 
         with app.app_context():
             dao.db.session.add_all(
@@ -889,7 +959,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_end = now + timedelta(days=25)
 
         with app.app_context():
@@ -944,9 +1014,8 @@ class TestBillingWriteRoutes:
             assert order.status == BILLING_ORDER_STATUS_PENDING
             assert order.metadata_json["checkout_type"] == "subscription_preorder"
             assert order.metadata_json["preorder_state"] == "pending_effective"
-            assert (
-                order.metadata_json["renewal_cycle_start_at"]
-                == current_period_end.isoformat()
+            assert order.metadata_json["renewal_cycle_start_at"] == to_utc_iso(
+                current_period_end
             )
 
     @pytest.mark.parametrize(
@@ -965,7 +1034,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
 
         with app.app_context():
             dao.db.session.add(
@@ -1019,7 +1088,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_end = now + timedelta(days=25)
 
         with app.app_context():
@@ -1087,7 +1156,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_end = now + timedelta(days=25)
 
         with app.app_context():
@@ -1168,7 +1237,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_start = now - timedelta(days=5)
         current_period_end = now + timedelta(days=25)
 
@@ -1247,7 +1316,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_start = now - timedelta(days=5)
         current_period_end = now + timedelta(days=25)
 
@@ -1373,7 +1442,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_start = now - timedelta(days=5)
         current_period_end = now + timedelta(days=25)
 
@@ -1519,7 +1588,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_start = now - timedelta(days=1)
         current_period_end = now + timedelta(days=14)
 
@@ -1589,7 +1658,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_start = now - timedelta(days=5)
         current_period_end = now + timedelta(days=25)
 
@@ -1645,7 +1714,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_start = now - timedelta(days=5)
 
         with app.app_context():
@@ -1704,7 +1773,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_start = now - timedelta(days=5)
         current_period_end = now + timedelta(days=25)
 
@@ -1916,7 +1985,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_start = now - timedelta(days=5)
         current_period_end = now + timedelta(days=25)
 
@@ -1993,7 +2062,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_start = now - timedelta(days=5)
         current_period_end = now + timedelta(days=25)
 
@@ -2082,7 +2151,7 @@ class TestBillingWriteRoutes:
         self, billing_write_client
     ) -> None:
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_start = now - timedelta(days=5)
         current_period_end = now + timedelta(days=25)
         renewal_cycle_end = current_period_end + timedelta(days=30)
@@ -2159,7 +2228,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_end = now + timedelta(days=25)
 
         with app.app_context():
@@ -2381,6 +2450,249 @@ class TestBillingWriteRoutes:
         assert billing_write_client["pingxx_requests"][1]["subject"] == "月套餐·轻量版"
         assert billing_write_client["pingxx_requests"][1]["body"] == "月套餐·轻量版"
 
+    def test_subscription_checkout_reuses_same_pending_stripe_order_within_timeout(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        assert first_checkout["code"] == 0
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            == first_checkout["data"]["bill_order_bid"]
+        )
+        assert second_checkout["data"]["reused_existing_order"] is True
+        assert second_checkout["data"]["redirect_url"] == "https://stripe.test/checkout"
+        assert len(billing_write_client["stripe_requests"]) == 1
+
+        with app.app_context():
+            orders = BillingOrder.query.filter_by(creator_bid="creator-1").all()
+            assert len(orders) == 1
+            assert orders[0].status == BILLING_ORDER_STATUS_PENDING
+            assert orders[0].expires_at is not None
+
+    def test_subscription_checkout_cancels_pending_order_when_switching_package(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly-pro",
+                "payment_provider": "stripe",
+                "action": "upgrade_immediate",
+            },
+        ).get_json(force=True)
+
+        assert first_checkout["code"] == 0
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            != first_checkout["data"]["bill_order_bid"]
+        )
+
+        with app.app_context():
+            old_order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            new_order = BillingOrder.query.filter_by(
+                bill_order_bid=second_checkout["data"]["bill_order_bid"]
+            ).one()
+            assert old_order.status == BILLING_ORDER_STATUS_CANCELED
+            assert old_order.failure_code == "replaced_by_new_package"
+            assert old_order.metadata_json["replaced_by_bill_order_bid"] == (
+                new_order.bill_order_bid
+            )
+            assert new_order.status == BILLING_ORDER_STATUS_PENDING
+
+    def test_expired_pending_order_is_timed_out_and_recreated_on_same_package_checkout(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        with app.app_context():
+            old_order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            old_order.expires_at = now_utc() - timedelta(minutes=1)
+            dao.db.session.add(old_order)
+            dao.db.session.commit()
+
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            != first_checkout["data"]["bill_order_bid"]
+        )
+        assert second_checkout["data"]["reused_existing_order"] is False
+
+        with app.app_context():
+            old_order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            assert old_order.status == BILLING_ORDER_STATUS_TIMEOUT
+            assert old_order.failure_code == "timeout"
+
+    def test_legacy_pending_order_without_expires_at_is_reused_within_timeout(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            order.expires_at = None
+            order.created_at = now_utc() - timedelta(minutes=10)
+            dao.db.session.add(order)
+            dao.db.session.commit()
+
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            == first_checkout["data"]["bill_order_bid"]
+        )
+        assert second_checkout["data"]["reused_existing_order"] is True
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            assert order.expires_at is not None
+
+    def test_legacy_pending_order_without_expires_at_times_out_and_recreates(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        first_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        with app.app_context():
+            old_order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            old_order.expires_at = None
+            old_order.created_at = now_utc() - timedelta(minutes=31)
+            dao.db.session.add(old_order)
+            dao.db.session.commit()
+
+        second_checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "stripe",
+            },
+        ).get_json(force=True)
+
+        assert second_checkout["code"] == 0
+        assert (
+            second_checkout["data"]["bill_order_bid"]
+            != first_checkout["data"]["bill_order_bid"]
+        )
+
+        with app.app_context():
+            old_order = BillingOrder.query.filter_by(
+                bill_order_bid=first_checkout["data"]["bill_order_bid"]
+            ).one()
+            assert old_order.status == BILLING_ORDER_STATUS_TIMEOUT
+            assert old_order.failure_code == "timeout"
+
+    def test_pending_subscription_checkout_route_marks_expired_order_timeout(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+
+        checkout = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly",
+                "payment_provider": "pingxx",
+            },
+        ).get_json(force=True)
+        bill_order_bid = checkout["data"]["bill_order_bid"]
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            order.expires_at = now_utc() - timedelta(minutes=1)
+            dao.db.session.add(order)
+            dao.db.session.commit()
+
+        refreshed = client.post(
+            f"/api/billing/orders/{bill_order_bid}/checkout",
+        ).get_json(force=True)
+
+        assert refreshed["code"] == ERROR_CODE["server.order.orderPayExpired"]
+
+        with app.app_context():
+            order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+            assert order.status == BILLING_ORDER_STATUS_TIMEOUT
+
     def test_pingxx_wechat_subscription_checkout_aligns_legacy_charge_extra(
         self, billing_write_client, monkeypatch
     ) -> None:
@@ -2479,12 +2791,36 @@ class TestBillingWriteRoutes:
                 == 1
             )
 
+    def test_stripe_topup_checkout_keeps_one_time_line_item(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        _add_active_subscription(app, subscription_bid="sub-topup-stripe-1")
+
+        checkout = client.post(
+            "/api/billing/topups/checkout",
+            json={
+                "product_bid": "bill-product-topup-small",
+                "payment_provider": "stripe",
+            },
+            headers={"X-Language": "zh-CN"},
+        ).get_json(force=True)
+
+        assert checkout["code"] == 0
+        assert checkout["data"]["provider"] == "stripe"
+        stripe_request = billing_write_client["stripe_requests"][-1]
+        assert stripe_request["extra"]["session_params"]["mode"] == "payment"
+        price_data = stripe_request["extra"]["line_items"][0]["price_data"]
+        assert price_data["unit_amount"] == 5000
+        assert "recurring" not in price_data
+
     def test_topup_grant_expires_with_current_subscription_period(
         self, billing_write_client
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        now = datetime.now()
+        now = now_utc()
         current_period_start_at = now - timedelta(days=3)
         current_period_end_at = now + timedelta(days=27)
         _add_active_subscription(
@@ -2527,7 +2863,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
-        current_period_end_at = datetime.now() + timedelta(days=30)
+        current_period_end_at = now_utc() + timedelta(days=30)
         _add_active_subscription(
             app,
             subscription_bid="sub-topup-repeat-1",
@@ -3491,6 +3827,11 @@ class TestBillingWriteRoutes:
                 return frozen_now
 
         monkeypatch.setattr(billing_subscriptions_module, "datetime", FrozenDateTime)
+        monkeypatch.setattr(
+            billing_subscriptions_module,
+            "now_utc",
+            lambda: datetime(2026, 4, 24, 10, 0, 0),
+        )
 
         with app.app_context():
             subscription = BillingSubscription(
@@ -3767,7 +4108,7 @@ class TestBillingWriteRoutes:
         self, billing_write_client
     ) -> None:
         app = billing_write_client["app"]
-        paid_at = datetime(2026, 5, 11, 14, 11, 8)
+        paid_at = datetime(2026, 6, 11, 14, 11, 8)
         expired_at = datetime(2026, 5, 5, 19, 22, 1)
 
         with app.app_context():
@@ -3883,7 +4224,7 @@ class TestBillingWriteRoutes:
         self, billing_write_client
     ) -> None:
         app = billing_write_client["app"]
-        paid_at = datetime(2026, 5, 11, 14, 11, 8)
+        paid_at = datetime(2026, 6, 11, 14, 11, 8)
         expired_at = datetime(2026, 5, 5, 19, 22, 1)
 
         with app.app_context():

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Flask, request
 from pydantic import ValidationError
@@ -34,7 +34,19 @@ from flaskr.service.promo.api import (
     update_operator_promotion_coupon,
     update_operator_promotion_coupon_status,
 )
-from flaskr.service.shifu.admin import (
+from flaskr.service.referral.api import (
+    create_operator_referral_campaign,
+    get_operator_referral_campaign_detail,
+    get_operator_referral_detail,
+    get_operator_referral_overview,
+    list_operator_referral_campaign_invitations,
+    list_operator_referral_campaigns,
+    list_operator_referrals,
+    update_operator_referral_campaign,
+    update_operator_referral_campaign_status,
+    update_operator_referral_status,
+)
+from flaskr.service.shifu.admin_operations.courses import (
     OPERATOR_ORDER_LIST_MAX_PAGE_SIZE,
     copy_operator_course,
     get_operator_course_chapter_detail,
@@ -61,6 +73,10 @@ from flaskr.service.shifu.admin_operations.credit_notifications import (
     sync_operator_credit_notification_template,
     update_operator_credit_notification_config,
 )
+from flaskr.service.shifu.admin_operations.profile_onboarding import (
+    get_operator_profile_onboarding_config,
+    update_operator_profile_onboarding_config,
+)
 from flaskr.service.shifu.admin_operations.user_credits import (
     get_operator_user_credit_usage_detail,
     get_operator_user_credits,
@@ -72,6 +88,12 @@ from flaskr.service.shifu.admin_operations.users import (
     get_operator_user_detail,
     get_operator_user_overview,
     list_operator_users,
+)
+from flaskr.service.shifu.admin_operations.voice_clones import (
+    OPERATOR_VOICE_CLONE_BILLING_STATUSES,
+    OPERATOR_VOICE_CLONE_LIST_MAX_PAGE_SIZE,
+    OPERATOR_VOICE_CLONE_STATUSES,
+    list_operator_voice_clones,
 )
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditGrantRequestDTO,
@@ -86,6 +108,7 @@ OPERATOR_USER_STATUS_VALUES = {"unregistered", "registered", "trial", "paid"}
 OPERATOR_USER_ROLE_VALUES = {"operator", "creator", "learner", "regular"}
 PROMOTION_COUPON_STATUS_VALUES = {"inactive", "not_started", "active", "expired"}
 PROMOTION_CAMPAIGN_STATUS_VALUES = {"inactive", "not_started", "active", "ended"}
+REFERRAL_CAMPAIGN_STATUS_VALUES = {"inactive", "not_started", "active", "ended"}
 PROMOTION_COUPON_USAGE_STATUS_VALUES = {"901", "902", "903", "904"}
 CREDIT_NOTIFICATION_STATUS_VALUES = {
     "pending",
@@ -130,7 +153,13 @@ def _parse_datetime_filter(
             return parsed
         except ValueError:
             continue
-    raise_param_error(field_name)
+    try:
+        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError:
+        raise_param_error(field_name)
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
 
 
 def _normalize_query_text(raw_value: object) -> str:
@@ -553,6 +582,118 @@ def register_admin_operations_routes(
         _require_operator()
         return make_common_response(get_operator_user_overview(app))
 
+    @app.route(path_prefix + "/admin/operations/voice-clones", methods=["GET"])
+    def admin_operations_voice_clones():
+        """
+        Operator MiniMax cloned voice list
+        ---
+        tags:
+            - TTS
+        parameters:
+            - name: page_index
+              type: integer
+              required: false
+            - name: page_size
+              type: integer
+              required: false
+            - name: status
+              type: string
+              required: false
+            - name: failure_reason
+              type: string
+              required: false
+            - name: billing_status
+              type: string
+              required: false
+            - name: start_time
+              type: string
+              required: false
+            - name: end_time
+              type: string
+              required: false
+            - name: user_keyword
+              type: string
+              required: false
+            - name: course_keyword
+              type: string
+              required: false
+            - name: voice_keyword
+              type: string
+              required: false
+            - name: minimax_status_code
+              type: integer
+              required: false
+        responses:
+            200:
+                description: List operator-visible MiniMax cloned voice jobs
+        """
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        page_size = min(page_size, OPERATOR_VOICE_CLONE_LIST_MAX_PAGE_SIZE)
+        raw_minimax_status_code = _normalize_query_text(
+            request.args.get("minimax_status_code")
+        )
+        minimax_status_code = (
+            _parse_positive_query_int(
+                raw_minimax_status_code,
+                field_name="minimax_status_code",
+                default=0,
+                minimum=0,
+            )
+            if raw_minimax_status_code
+            else None
+        )
+
+        filters = {
+            "status": _parse_choice_query_param(
+                request.args.get("status"),
+                field_name="status",
+                allowed_values=OPERATOR_VOICE_CLONE_STATUSES,
+            ),
+            "failure_reason": _normalize_query_text(request.args.get("failure_reason")),
+            "billing_status": _parse_choice_query_param(
+                request.args.get("billing_status"),
+                field_name="billing_status",
+                allowed_values=OPERATOR_VOICE_CLONE_BILLING_STATUSES,
+            ),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                field_name="start_time",
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                field_name="end_time",
+                is_end=True,
+            ),
+            "user_keyword": _normalize_query_text(request.args.get("user_keyword")),
+            "course_keyword": _normalize_query_text(request.args.get("course_keyword")),
+            "voice_keyword": _normalize_query_text(request.args.get("voice_keyword")),
+            "minimax_status_code": minimax_status_code,
+        }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
+        return make_common_response(
+            list_operator_voice_clones(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
     @app.route(path_prefix + "/admin/operations/orders", methods=["GET"])
     def admin_operations_orders():
         """
@@ -795,6 +936,33 @@ def register_admin_operations_routes(
         )
 
     @app.route(
+        path_prefix + "/admin/operations/profile-onboarding",
+        methods=["GET"],
+    )
+    def admin_operation_profile_onboarding_config():
+        """Get operator profile onboarding config."""
+        _require_operator()
+        return make_common_response(get_operator_profile_onboarding_config(app))
+
+    @app.route(
+        path_prefix + "/admin/operations/profile-onboarding",
+        methods=["POST"],
+    )
+    def admin_operation_update_profile_onboarding_config():
+        """Update operator profile onboarding config."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("profile_onboarding_config")
+        return make_common_response(
+            update_operator_profile_onboarding_config(
+                app,
+                payload=payload,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
         path_prefix + "/admin/operations/credit-notifications/templates/sync",
         methods=["POST"],
     )
@@ -969,10 +1137,7 @@ def register_admin_operations_routes(
                 credit_order_kind=_normalize_query_text(
                     request.args.get("credit_order_kind")
                 ),
-                status=_parse_digit_query_param(
-                    request.args.get("status"),
-                    field_name="status",
-                ),
+                status=_normalize_query_text(request.args.get("status")),
                 has_available_credits=_parse_boolean_query_param(
                     request.args.get("has_available_credits"),
                     field_name="has_available_credits",
@@ -1011,6 +1176,347 @@ def register_admin_operations_routes(
         """
         _require_operator()
         return make_common_response(build_operator_credit_orders_overview(app))
+
+    @app.route(path_prefix + "/admin/operations/referrals", methods=["GET"])
+    def admin_operations_referrals():
+        """List operator-visible referral invite relations."""
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "campaign_bid": _normalize_query_text(request.args.get("campaign_bid")),
+            "inviter_user_bid": _normalize_query_text(
+                request.args.get("inviter_user_bid")
+            ),
+            "invitee_user_bid": _normalize_query_text(
+                request.args.get("invitee_user_bid")
+            ),
+            "invite_code": _normalize_query_text(request.args.get("invite_code")),
+            "relation_status": _parse_digit_query_param(
+                request.args.get("relation_status"),
+                field_name="relation_status",
+            ),
+            "abnormal_status": _parse_digit_query_param(
+                request.args.get("abnormal_status"),
+                field_name="abnormal_status",
+            ),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                field_name="start_time",
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                field_name="end_time",
+                is_end=True,
+            ),
+        }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
+        return make_common_response(
+            list_operator_referrals(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(path_prefix + "/admin/operations/referrals/overview", methods=["GET"])
+    def admin_operations_referrals_overview():
+        """Return operator referral overview metrics."""
+        _require_operator()
+        return make_common_response(get_operator_referral_overview(app))
+
+    @app.route(
+        path_prefix + "/admin/operations/referrals/<relation_bid>",
+        methods=["GET"],
+    )
+    def admin_operations_referral_detail(relation_bid: str):
+        """Return one operator referral relation detail."""
+        _require_operator()
+        return make_common_response(
+            get_operator_referral_detail(app, relation_bid=relation_bid)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/referrals/<relation_bid>/status",
+        methods=["POST"],
+    )
+    def admin_operations_referral_status(relation_bid: str):
+        """Update one referral relation or reward operator status."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("referral_status")
+        return make_common_response(
+            update_operator_referral_status(
+                app,
+                relation_bid=relation_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/referrals/<relation_bid>/adjustment",
+        methods=["POST"],
+    )
+    def admin_operations_referral_adjustment(relation_bid: str):
+        """Apply an audited operator adjustment to one referral relation."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("referral_adjustment")
+        return make_common_response(
+            update_operator_referral_status(
+                app,
+                relation_bid=relation_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/referral-campaigns",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_referral_campaigns():
+        """Operator referral campaign configuration list."""
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "keyword": _normalize_query_text(request.args.get("keyword")),
+            "status": _parse_choice_query_param(
+                request.args.get("status"),
+                field_name="status",
+                allowed_values=REFERRAL_CAMPAIGN_STATUS_VALUES,
+            ),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                field_name="start_time",
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                field_name="end_time",
+                is_end=True,
+            ),
+        }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
+        return make_common_response(
+            list_operator_referral_campaigns(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/referral-campaigns",
+        methods=["POST"],
+    )
+    def admin_create_operations_promotion_referral_campaign():
+        """Create operator referral campaign configuration."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("referral_campaign")
+        return make_common_response(
+            create_operator_referral_campaign(
+                app,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/referral-campaigns/<campaign_bid>",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_referral_campaign_detail(campaign_bid: str):
+        """Get operator referral campaign configuration detail."""
+        _require_operator()
+        return make_common_response(
+            get_operator_referral_campaign_detail(app, campaign_bid=campaign_bid)
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/promotions/referral-campaigns/<campaign_bid>/relations",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_referral_campaign_relations(campaign_bid: str):
+        """List invite relations for one referral campaign."""
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "campaign_bid": _normalize_query_text(campaign_bid),
+            "inviter_user_bid": _normalize_query_text(
+                request.args.get("inviter_user_bid")
+            ),
+            "invitee_user_bid": _normalize_query_text(
+                request.args.get("invitee_user_bid")
+            ),
+            "invite_code": _normalize_query_text(request.args.get("invite_code")),
+            "relation_status": _parse_digit_query_param(
+                request.args.get("relation_status"),
+                field_name="relation_status",
+            ),
+            "abnormal_status": _parse_digit_query_param(
+                request.args.get("abnormal_status"),
+                field_name="abnormal_status",
+            ),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                field_name="start_time",
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                field_name="end_time",
+                is_end=True,
+            ),
+        }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
+        return make_common_response(
+            list_operator_referrals(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/promotions/referral-campaigns/<campaign_bid>/invitations",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_referral_campaign_invitations(campaign_bid: str):
+        """List invite-code funnel data for one referral campaign."""
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "inviter_user_bid": _normalize_query_text(
+                request.args.get("inviter_user_bid")
+            ),
+            "invite_code": _normalize_query_text(request.args.get("invite_code")),
+            "status": _parse_digit_query_param(
+                request.args.get("status"),
+                field_name="status",
+            ),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                field_name="start_time",
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                field_name="end_time",
+                is_end=True,
+            ),
+        }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
+        return make_common_response(
+            list_operator_referral_campaign_invitations(
+                app,
+                campaign_bid=campaign_bid,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/promotions/referral-campaigns/<campaign_bid>",
+        methods=["POST"],
+    )
+    def admin_update_operations_promotion_referral_campaign(campaign_bid: str):
+        """Update operator referral campaign configuration."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("referral_campaign")
+        return make_common_response(
+            update_operator_referral_campaign(
+                app,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                campaign_bid=campaign_bid,
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/promotions/referral-campaigns/<campaign_bid>/status",
+        methods=["POST"],
+    )
+    def admin_operations_promotion_referral_campaign_status(campaign_bid: str):
+        """Update operator referral campaign configuration status."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("referral_campaign_status")
+        return make_common_response(
+            update_operator_referral_campaign_status(
+                app,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                campaign_bid=campaign_bid,
+                enabled=payload.get("enabled"),
+            )
+        )
 
     @app.route(path_prefix + "/admin/operations/promotions/coupons", methods=["GET"])
     def admin_operations_promotion_coupons():
@@ -2078,6 +2584,11 @@ def register_admin_operations_routes(
               type: string
               required: false
               description: Chapter or lesson keyword
+            - name: source_status
+              in: query
+              type: string
+              required: false
+              description: Original output source status filter (resolved or missing)
             - name: start_time
               in: query
               type: string
@@ -2111,6 +2622,7 @@ def register_admin_operations_routes(
         filters = {
             "keyword": request.args.get("keyword", ""),
             "chapter_keyword": request.args.get("chapter_keyword", ""),
+            "source_status": request.args.get("source_status", ""),
             "start_time": _parse_datetime_filter(
                 request.args.get("start_time", ""),
                 field_name="start_time",

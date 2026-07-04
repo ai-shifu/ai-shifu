@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask, jsonify, request
 import pytest
@@ -11,6 +10,8 @@ import pytest
 import flaskr.dao as dao
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
     BILLING_INTERVAL_DAY,
     BILLING_METRIC_LLM_INPUT_TOKENS,
     BILLING_METRIC_LLM_OUTPUT_TOKENS,
@@ -34,6 +35,8 @@ from flaskr.service.billing.consts import (
     CREDIT_SOURCE_TYPE_USAGE,
 )
 from flaskr.service.billing.models import (
+    BillingCampaign,
+    BillingCampaignProduct,
     BillingDailyLedgerSummary,
     BillingDailyUsageMetric,
     BillingOrder,
@@ -52,8 +55,10 @@ from flaskr.service.billing.dtos import (
     BillingWalletBucketListDTO,
 )
 from flaskr.service.billing.capabilities import build_billing_route_bootstrap
+import flaskr.service.billing.campaigns as billing_campaigns_module
 import flaskr.service.billing.entitlements as billing_entitlements_module
 import flaskr.service.billing.queries as billing_queries_module
+import flaskr.service.billing.serializers as billing_serializers_module
 from flaskr.service.billing.read_models import (
     build_billing_catalog,
     build_billing_ledger_page,
@@ -89,8 +94,15 @@ def _freeze_billing_wall_clock(monkeypatch: pytest.MonkeyPatch) -> None:
                 return current.replace(tzinfo=tz)
             return current
 
+    _frozen_now = _FixedDateTime(2026, 4, 6, 12, 0, 0)
+
     monkeypatch.setattr(billing_entitlements_module, "datetime", _FixedDateTime)
+    monkeypatch.setattr(billing_entitlements_module, "now_utc", lambda: _frozen_now)
     monkeypatch.setattr(billing_queries_module, "datetime", _FixedDateTime)
+    monkeypatch.setattr(billing_queries_module, "now_utc", lambda: _frozen_now)
+    monkeypatch.setattr(billing_campaigns_module, "datetime", _FixedDateTime)
+    monkeypatch.setattr(billing_campaigns_module, "now_utc", lambda: _frozen_now)
+    monkeypatch.setattr(billing_serializers_module, "now_utc", lambda: _frozen_now)
 
 
 def _seed_products_with_yearly_entitlements():
@@ -654,6 +666,18 @@ class TestBillingRoutes:
             "method": "GET",
             "path": "/api/admin/billing/reports/ledger-daily",
         } in payload["data"]["admin_routes"]
+        assert {
+            "method": "GET",
+            "path": "/api/admin/billing/products/options",
+        } in payload["data"]["admin_routes"]
+        assert {
+            "method": "GET",
+            "path": "/api/admin/billing/campaigns",
+        } in payload["data"]["admin_routes"]
+        assert {
+            "method": "POST",
+            "path": "/api/admin/billing/campaigns",
+        } in payload["data"]["admin_routes"]
 
     def test_catalog_overview_and_wallet_buckets_follow_design_projection(
         self, billing_test_client
@@ -727,6 +751,55 @@ class TestBillingRoutes:
         assert bucket_payload["data"]["items"][0]["priority"] == 20
         assert bucket_payload["data"]["items"][2]["source_bid"] == "topup-1"
 
+    def test_catalog_returns_active_campaign_payload_for_plan_product(
+        self,
+        billing_test_client,
+    ) -> None:
+        app = billing_test_client.application
+        with app.app_context():
+            dao.db.session.add(
+                BillingCampaign(
+                    campaign_bid="campaign-catalog-1",
+                    name="April plan discount",
+                    note="",
+                    benefit_type=BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
+                    discount_type=BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
+                    discount_amount=0,
+                    discount_percent=Decimal("20.00"),
+                    bonus_credit_amount=Decimal("0"),
+                    enabled=1,
+                    start_at=datetime(2026, 4, 1, 0, 0, 0),
+                    end_at=datetime(2026, 4, 30, 23, 59, 0),
+                    created_user_bid="creator-1",
+                    updated_user_bid="creator-1",
+                )
+            )
+            dao.db.session.add(
+                BillingCampaignProduct(
+                    campaign_bid="campaign-catalog-1",
+                    product_bid="bill-product-plan-monthly",
+                    product_type=BILLING_PRODUCT_TYPE_PLAN,
+                )
+            )
+            dao.db.session.commit()
+
+        payload = billing_test_client.get("/api/billing/catalog").get_json(force=True)
+        plan = next(
+            item
+            for item in payload["data"]["plans"]
+            if item["product_bid"] == "bill-product-plan-monthly"
+        )
+
+        assert plan["campaign"] == {
+            "campaign_bid": "campaign-catalog-1",
+            "benefit_type": "discount",
+            "discount_type": "percent",
+            "discount_amount": 198,
+            "discount_percent": 20,
+            "campaign_price_amount": 792,
+            "bonus_credit_amount": 0,
+        }
+
     def test_catalog_serializes_daily_plan_interval_without_month_fallback(
         self, billing_test_client
     ) -> None:
@@ -774,16 +847,12 @@ class TestBillingRoutes:
         assert daily_plan["billing_interval"] == "day"
         assert daily_plan["billing_interval_count"] == 7
 
-    def test_overview_and_wallet_buckets_respect_request_timezone_and_fallback(
+    def test_overview_and_wallet_buckets_emit_utc_ignoring_request_timezone(
         self, billing_test_client
     ) -> None:
-        try:
-            target_tz = ZoneInfo("Asia/Shanghai")
-        except ZoneInfoNotFoundError:
-            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
-
-        app_tz = ZoneInfo(billing_test_client.application.config.get("TZ", "UTC"))
-
+        # The backend is a single UTC sink: ?timezone= is ignored and every
+        # datetime is emitted as UTC ISO 8601 with a 'Z' suffix. Display-time
+        # localization is a pure frontend concern.
         overview_response = billing_test_client.get(
             "/api/billing/overview?timezone=Asia/Shanghai"
         )
@@ -796,29 +865,22 @@ class TestBillingRoutes:
         timezone_bucket_payload = timezone_bucket_response.get_json(force=True)
         default_bucket_payload = default_bucket_response.get_json(force=True)
 
-        expected_period_end = datetime(2026, 5, 1, 0, 0, 0, tzinfo=app_tz).astimezone(
-            target_tz
-        )
-        expected_bucket_start = datetime(2026, 4, 1, 0, 0, 0, tzinfo=app_tz).astimezone(
-            target_tz
-        )
-
         assert overview_payload["code"] == 0
         assert (
             overview_payload["data"]["subscription"]["current_period_end_at"]
-            == expected_period_end.isoformat()
+            == "2026-05-01T00:00:00Z"
         )
 
         assert timezone_bucket_payload["code"] == 0
         assert (
             timezone_bucket_payload["data"]["items"][0]["effective_from"]
-            == expected_bucket_start.isoformat()
+            == "2026-04-01T00:00:00Z"
         )
 
         assert default_bucket_payload["code"] == 0
         assert (
             default_bucket_payload["data"]["items"][0]["effective_from"]
-            == "2026-04-01T00:00:00+00:00"
+            == "2026-04-01T00:00:00Z"
         )
 
     def test_wallet_buckets_return_runtime_expired_status_before_expire_task_runs(
@@ -835,8 +897,8 @@ class TestBillingRoutes:
                 return current
 
         monkeypatch.setattr(
-            "flaskr.service.billing.serializers.datetime",
-            _FixedDateTime,
+            "flaskr.service.billing.serializers.now_utc",
+            lambda: _FixedDateTime(2026, 5, 1, 12, 0, 0),
         )
 
         payload = billing_test_client.get("/api/billing/wallet-buckets").get_json(
@@ -918,7 +980,7 @@ class TestBillingRoutes:
             "priority_class": "priority",
             "analytics_tier": "advanced",
             "support_tier": "business_hours",
-            "effective_from": "2026-04-01T00:00:00+00:00",
+            "effective_from": "2026-04-01T00:00:00Z",
             "effective_to": None,
             "feature_payload": {"custom_css": True},
         }
@@ -933,8 +995,8 @@ class TestBillingRoutes:
             "priority_class": "vip",
             "analytics_tier": "enterprise",
             "support_tier": "priority",
-            "effective_from": "2026-04-01T00:00:00+00:00",
-            "effective_to": "2026-05-01T00:00:00+00:00",
+            "effective_from": "2026-04-01T00:00:00Z",
+            "effective_to": "2026-05-01T00:00:00Z",
             "feature_payload": {"beta_reports": True},
         }
 
@@ -953,8 +1015,8 @@ class TestBillingRoutes:
                 "raw_amount": 1234,
                 "record_count": 3,
                 "consumed_credits": 4.5,
-                "window_started_at": "2026-04-06T00:00:00+00:00",
-                "window_ended_at": "2026-04-07T00:00:00+00:00",
+                "window_started_at": "2026-04-06T00:00:00Z",
+                "window_ended_at": "2026-04-07T00:00:00Z",
             }
         ]
 
@@ -968,8 +1030,8 @@ class TestBillingRoutes:
                 "source_type": "usage",
                 "amount": -4.5,
                 "entry_count": 3,
-                "window_started_at": "2026-04-06T00:00:00+00:00",
-                "window_ended_at": "2026-04-07T00:00:00+00:00",
+                "window_started_at": "2026-04-06T00:00:00Z",
+                "window_ended_at": "2026-04-07T00:00:00Z",
             }
         ]
 
@@ -1005,54 +1067,30 @@ class TestBillingRoutes:
             == 2.5
         )
 
-    def test_ledger_uses_requested_timezone(self, billing_test_client) -> None:
-        try:
-            target_tz = ZoneInfo("Asia/Shanghai")
-            ledger_source_tz = ZoneInfo("Asia/Shanghai")
-        except ZoneInfoNotFoundError:
-            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
-
+    def test_ledger_emits_utc_ignoring_request_timezone(
+        self, billing_test_client
+    ) -> None:
         ledger_response = billing_test_client.get(
             "/api/billing/ledger?page_index=1&page_size=1&timezone=Asia/Shanghai"
         )
 
         ledger_payload = ledger_response.get_json(force=True)
 
-        expected_ledger_created_at = datetime(
-            2026, 4, 6, 10, 0, 0, tzinfo=ledger_source_tz
-        ).astimezone(target_tz)
-
         assert ledger_payload["code"] == 0
         assert (
-            ledger_payload["data"]["items"][0]["created_at"]
-            == expected_ledger_created_at.isoformat()
+            ledger_payload["data"]["items"][0]["created_at"] == "2026-04-06T10:00:00Z"
         )
 
-    def test_build_billing_ledger_page_uses_requested_timezone_for_created_at(
+    def test_build_billing_ledger_page_returns_raw_created_at(
         self, billing_test_client
     ) -> None:
-        try:
-            target_tz = ZoneInfo("Asia/Shanghai")
-            ledger_source_tz = ZoneInfo("Asia/Shanghai")
-        except ZoneInfoNotFoundError:
-            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
-
+        # DTO datetime fields now hold the raw stored datetime; the browser
+        # timezone thread is gone and the fmt sink emits UTC at serialization time.
         app = billing_test_client.application
 
-        ledger_page = build_billing_ledger_page(
-            app,
-            "creator-1",
-            page_size=1,
-            timezone_name="Asia/Shanghai",
-        )
-        default_ledger_page = build_billing_ledger_page(app, "creator-1", page_size=1)
+        ledger_page = build_billing_ledger_page(app, "creator-1", page_size=1)
 
-        expected_created_at = datetime(
-            2026, 4, 6, 10, 0, 0, tzinfo=ledger_source_tz
-        ).astimezone(target_tz)
-
-        assert ledger_page.items[0].created_at == expected_created_at.isoformat()
-        assert default_ledger_page.items[0].created_at == "2026-04-06T02:00:00+00:00"
+        assert ledger_page.items[0].created_at == datetime(2026, 4, 6, 10, 0)
 
     def test_build_billing_ledger_page_uses_draft_course_name_for_non_prod_usage(
         self, billing_test_client

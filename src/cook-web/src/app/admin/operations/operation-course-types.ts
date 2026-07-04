@@ -252,6 +252,7 @@ export type AdminOperationCourseFollowUpItem = {
   lesson_outline_item_bid: string;
   lesson_title: string;
   follow_up_content: string;
+  has_source_output: boolean;
   turn_index: number;
   created_at: string;
 };

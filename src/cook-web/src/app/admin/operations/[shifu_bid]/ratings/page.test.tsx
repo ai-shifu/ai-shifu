@@ -5,6 +5,7 @@ import AdminOperationCourseRatingsPage from './page';
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockGetAdminOperationCourseRatings = jest.fn();
+const mockBrowserTimeZone = jest.fn(() => 'UTC');
 const mockTranslationCache = new Map<string, { t: (key: string) => string }>();
 let mockLanguage = 'en-US';
 const mockEnvState = {
@@ -67,6 +68,10 @@ jest.mock('@/c-store', () => ({
       defaultLoginMethod: string;
     }) => unknown,
   ) => selector(mockEnvState),
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -174,6 +179,8 @@ describe('AdminOperationCourseRatingsPage', () => {
     mockReplace.mockReset();
     mockPush.mockReset();
     mockGetAdminOperationCourseRatings.mockReset();
+    mockBrowserTimeZone.mockReset();
+    mockBrowserTimeZone.mockReturnValue('UTC');
     mockLanguage = 'en-US';
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
@@ -273,6 +280,49 @@ describe('AdminOperationCourseRatingsPage', () => {
         name: 'module.operationsCourse.detail.title',
       }),
     ).toHaveAttribute('href', '/admin/operations/course-1');
+  });
+
+  test('converts rating timestamps to the browser timezone', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+    mockGetAdminOperationCourseRatings.mockResolvedValueOnce({
+      summary: {
+        average_score: '4.5',
+        rating_count: 1,
+        user_count: 1,
+        latest_rated_at: '2026-04-05T01:30:00Z',
+      },
+      items: [
+        {
+          lesson_feedback_bid: 'feedback-1',
+          progress_record_bid: 'progress-1',
+          user_bid: 'student-1',
+          mobile: '13900001235',
+          email: '',
+          nickname: 'Bob',
+          chapter_outline_item_bid: 'chapter-1',
+          chapter_title: 'Chapter 1',
+          lesson_outline_item_bid: 'lesson-1',
+          lesson_title: 'Lesson 1',
+          score: 5,
+          comment: 'Very helpful lesson',
+          mode: 'read',
+          rated_at: '2026-04-05T01:30:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      page_count: 1,
+    });
+
+    render(<AdminOperationCourseRatingsPage />);
+
+    await screen.findByText('Very helpful lesson');
+
+    expect(document.body.textContent).toContain('2026-04-04');
+    expect(document.body.textContent).toContain('18:30:00');
+    expect(document.body.textContent).not.toContain('2026-04-05');
+    expect(document.body.textContent).not.toContain('01:30:00');
   });
 
   test('formats rating summary counts without grouping in Chinese locale', async () => {

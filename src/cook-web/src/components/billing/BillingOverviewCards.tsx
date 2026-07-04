@@ -113,11 +113,13 @@ export function getPlanScaleKeys(
 type TopupCardProps = {
   actionLabel: string;
   actionLoading?: boolean;
+  campaignLabel?: string;
   creditsLabel: string;
   description?: string;
   disabled?: boolean;
   featured?: boolean;
   onAction?: () => void;
+  originalPriceLabel?: string;
   priceLabel: string;
   testId: string;
 };
@@ -125,11 +127,13 @@ type TopupCardProps = {
 export function TopupCard({
   actionLabel,
   actionLoading = false,
+  campaignLabel,
   creditsLabel,
   description,
   disabled = false,
   featured = false,
   onAction,
+  originalPriceLabel,
   priceLabel,
   testId,
 }: TopupCardProps) {
@@ -150,7 +154,19 @@ export function TopupCard({
         </div>
 
         <div className={styles.topupCardFooter}>
-          <div className={styles.topupCardPrice}>{priceLabel}</div>
+          <div className={styles.topupCardPriceGroup}>
+            {originalPriceLabel ? (
+              <div className={styles.topupCardOriginalPrice}>
+                {originalPriceLabel}
+              </div>
+            ) : null}
+            <div className={styles.topupCardPrice}>{priceLabel}</div>
+            {campaignLabel ? (
+              <div className={styles.topupCardCampaignLabel}>
+                {campaignLabel}
+              </div>
+            ) : null}
+          </div>
           <Button
             className={styles.topupCardAction}
             data-testid={`${testId}-action`}

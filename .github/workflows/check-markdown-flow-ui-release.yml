@@ -1,0 +1,57 @@
+name: Check markdown-flow-ui release pin
+
+# Gate for PRs into main: the markdown-flow-ui pin in src/cook-web/package.json
+# must resolve to a RELEASE version (X.Y.Z), never a pre-release/dev build
+# (e.g. X.Y.Z-dev.N). dev builds are for feature branches only.
+#
+# To actually block merges, add this check as a required status check in the
+# branch protection / ruleset for `main`.
+#
+# No `paths:` filter on purpose: required checks with path filters get stuck
+# "pending" on PRs that don't touch the filtered files.
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check-markdown-flow-ui-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Ensure markdown-flow-ui pin is a release version
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+
+          const path = "src/cook-web/package.json";
+          const pkg = JSON.parse(fs.readFileSync(path, "utf8"));
+          const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+          const raw = deps["markdown-flow-ui"];
+
+          if (!raw) {
+            console.error(`::error::No 'markdown-flow-ui' dependency found in ${path}.`);
+            process.exit(1);
+          }
+
+          // Strip any range prefix (^, ~, >=, spaces, ...) to get the core version.
+          const core = raw.replace(/^[^\d]*/, "");
+
+          // semver pre-release = anything after a hyphen (e.g. 0.1.128-dev.1)
+          if (core.includes("-")) {
+            console.error(
+              `::error::markdown-flow-ui ${raw} is a pre-release/dev build and cannot be ` +
+                "merged into main. Pin a release version (X.Y.Z) first — publish a release " +
+                "build from markdown-flow-ui, then update the pin.",
+            );
+            process.exit(1);
+          }
+
+          console.log(`OK: markdown-flow-ui ${raw} is a release version.`);
+          NODE

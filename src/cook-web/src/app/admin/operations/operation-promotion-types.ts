@@ -32,6 +32,7 @@ export type AdminPromotionCouponItem = {
   end_at: string;
   total_count: number;
   used_count: number;
+  ops_states?: string[];
   enabled?: boolean;
   computed_status: string;
   computed_status_key: string;
@@ -136,4 +137,101 @@ export type AdminPromotionCampaignRedemptionItem = {
   status_key: string;
   applied_at: string;
   updated_at: string;
+};
+
+export type AdminBillingCampaignProductOption = {
+  product_bid: string;
+  product_code: string;
+  product_type: 'plan' | 'topup';
+  display_name: string;
+  description: string;
+  currency: string;
+  price_amount: number;
+  credit_amount: number;
+  billing_interval: string;
+  billing_interval_count: number;
+  campaign_discount_type?: 'fixed' | 'percent' | null;
+  campaign_discount_amount: number;
+  campaign_discount_percent: number;
+  campaign_price_amount: number;
+  campaign_bonus_credit_amount: number;
+};
+
+export type AdminBillingCampaignProductOptions = {
+  plans: AdminBillingCampaignProductOption[];
+  topups: AdminBillingCampaignProductOption[];
+};
+
+export type AdminBillingCampaignItem = {
+  campaign_bid: string;
+  name: string;
+  note: string;
+  benefit_type: 'discount' | 'bonus';
+  discount_type?: 'fixed' | 'percent' | null;
+  discount_amount: number;
+  discount_percent: number;
+  bonus_credit_amount: number;
+  product_count: number;
+  product_types: string[];
+  product_names: string[];
+  has_custom_product_rules: boolean;
+  computed_status: 'active' | 'upcoming' | 'ended' | 'inactive';
+  hit_order_count: number;
+  start_at: string;
+  end_at: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminBillingCampaignDetail = {
+  campaign: AdminBillingCampaignItem;
+  products: AdminBillingCampaignProductOption[];
+  created_user_bid: string;
+  updated_user_bid: string;
+};
+
+export type AdminReferralCampaignStatus =
+  | 'active'
+  | 'not_started'
+  | 'ended'
+  | 'inactive';
+
+export type AdminReferralCampaignItem = {
+  campaign_bid: string;
+  campaign_code: string;
+  campaign_name: string;
+  campaign_status: number;
+  computed_status: AdminReferralCampaignStatus;
+  enabled: boolean;
+  feature_flag_key: string;
+  starts_at: string;
+  ends_at: string;
+  invite_route_template: string;
+  inviter_eligibility: Record<string, unknown>;
+  invitee_eligibility: Record<string, unknown>;
+  invitee_benefit_policy: string;
+  rules_copy_i18n_key: string;
+  reward_rule_bid: string;
+  rule_code: string;
+  rule_status: number;
+  reward_product_code: string;
+  reward_cycle_count: number;
+  reward_credit_amount: string | null;
+  reward_credit_validity_days: number;
+  reward_cap_scope: 'none' | 'per_inviter' | 'per_campaign' | string;
+  reward_cap_count: number | null;
+  reward_timing_policy: string;
+  priority: number;
+  relation_count: number;
+  reward_count: number;
+  invite_code_count: number;
+  invite_event_count: number;
+  latest_invite_event_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminReferralCampaignDetail = {
+  campaign: AdminReferralCampaignItem;
 };

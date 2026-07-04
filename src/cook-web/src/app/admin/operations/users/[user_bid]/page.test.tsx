@@ -428,7 +428,7 @@ describe('AdminOperationUserDetailPage', () => {
       screen.queryByText('module.operationsUser.table.updatedAt'),
     ).not.toBeInTheDocument();
     expect(screen.getByText('¥88.50')).toBeInTheDocument();
-    expect(screen.getAllByText('35.5').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('35.5').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('27.5')).toBeInTheDocument();
     expect(screen.getByText('8')).toBeInTheDocument();
     expect(screen.getByText('2026-05-01 00:00:00')).toBeInTheDocument();
@@ -733,7 +733,7 @@ describe('AdminOperationUserDetailPage', () => {
     });
   });
 
-  test('renders detail timestamps with operator UTC formatting', async () => {
+  test('renders user detail timestamps with field-specific formatting', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationUserDetail.mockResolvedValue({
       ...detailResponse,
@@ -767,12 +767,85 @@ describe('AdminOperationUserDetailPage', () => {
     expect(screen.getByText('2026-04-14 18:30:00')).toBeInTheDocument();
     expect(screen.getByText('2026-04-14 19:30:00')).toBeInTheDocument();
     expect(screen.getByText('2026-04-13 18:15:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-15 01:30:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-15 02:30:00')).not.toBeInTheDocument();
     expect(screen.getAllByText('2026-04-30 18:00:00').length).toBeGreaterThan(
       0,
     );
     expect(screen.getAllByText('2026-04-17 18:00:00').length).toBeGreaterThan(
       0,
     );
+    expect(screen.queryByText('2026-04-18 01:00:00')).not.toBeInTheDocument();
+  });
+
+  test('converts user credit usage detail created_at to the browser timezone', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+    mockGetAdminOperationUserCredits.mockResolvedValue({
+      ...creditsResponse,
+      items: [
+        {
+          ...creditsResponse.items[0],
+          entry_type: 'consume',
+          source_type: 'usage',
+          display_entry_type: 'preview_consume',
+          display_source_type: 'usage',
+          amount: '-6',
+          created_at: '2026-04-18T01:00:00Z',
+          usage_bid: 'usage-1',
+          course_bid: 'course-usage-1',
+          course_name: 'Usage Course',
+          chapter_title: 'Chapter A',
+          lesson_title: 'Lesson B',
+          usage_scene: 'learning',
+          usage_mode: 'ask',
+        },
+      ],
+    });
+    mockGetAdminOperationUserCreditUsageDetail.mockResolvedValue({
+      usage_bid: 'usage-1',
+      course_bid: 'course-usage-1',
+      course_name: 'Usage Course',
+      chapter_title: 'Chapter A',
+      lesson_title: 'Lesson B',
+      usage_scene: 'learning',
+      usage_mode: 'ask',
+      total_consumed_credits: '6',
+      items: [
+        {
+          usage_bid: 'usage-1',
+          created_at: '2026-04-18T10:00:00Z',
+          content: 'Generated answer content',
+          consumed_credits: '6',
+          usage_units: 120,
+          input_tokens: 100,
+          output_tokens: 20,
+          word_count: 0,
+          duration_ms: 0,
+          segment_count: 0,
+        },
+      ],
+    });
+
+    render(<AdminOperationUserDetailPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsUser.detail.creditLedgerFilters.typeOptions.consume',
+      }),
+    );
+
+    const openDetailButton = await screen.findByRole('button', {
+      name: 'module.operationsUser.detail.creditUsageDetail.actions.openAriaLabel',
+    });
+    fireEvent.click(openDetailButton);
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      await within(dialog).findByText('2026-04-18 03:00:00'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText('2026-04-18 10:00:00'),
+    ).not.toBeInTheDocument();
   });
 
   test('keeps note column empty for system ledger rows without manual note', async () => {

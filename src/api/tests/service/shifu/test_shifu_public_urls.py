@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
 from flask import Flask
 
+import flaskr.dao as dao
 import flaskr.common.config as common_config
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 
 
 def _reset_config_cache(*keys: str) -> None:
@@ -47,6 +50,45 @@ def _make_draft(shifu_bid: str = "course-1") -> SimpleNamespace:
         ask_llm_system_prompt="",
         ask_provider_config="{}",
     )
+
+
+def _seed_preview_route_course(
+    app,
+    *,
+    shifu_bid: str,
+    owner_bid: str,
+    collaborator_bid: str,
+) -> None:
+    from flaskr.service.shifu.models import AiCourseAuth, DraftShifu
+
+    with app.app_context():
+        AiCourseAuth.query.filter_by(course_id=shifu_bid).delete()
+        DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()
+        dao.db.session.add(
+            DraftShifu(
+                shifu_bid=shifu_bid,
+                title="Preview Route Course",
+                description="desc",
+                avatar_res_bid="avatar-1",
+                keywords="test",
+                llm="gpt-test",
+                llm_temperature=Decimal("0"),
+                llm_system_prompt="",
+                price=Decimal("0"),
+                created_user_bid=owner_bid,
+                updated_user_bid=owner_bid,
+            )
+        )
+        dao.db.session.add(
+            AiCourseAuth(
+                course_auth_id=f"auth-{shifu_bid}-{collaborator_bid}",
+                course_id=shifu_bid,
+                user_id=collaborator_bid,
+                auth_type=json.dumps(["view"]),
+                status=1,
+            )
+        )
+        dao.db.session.commit()
 
 
 def _build_detail_for_base_url(monkeypatch, base_url: str):
@@ -137,6 +179,53 @@ def test_shifu_preview_endpoint_url_uses_public_base(monkeypatch):
     assert preview_url == "https://forwarded.example.com/c/course-1?preview=true"
 
 
+def test_shifu_preview_endpoint_admits_course_owner_usage_for_collaborator(
+    monkeypatch,
+    test_client,
+    app,
+):
+    shifu_bid = "preview-route-owner-admission"
+    owner_bid = "owner-preview-route-admission"
+    collaborator_bid = "collaborator-preview-route-admission"
+    captured: dict[str, object] = {}
+    _seed_preview_route_course(
+        app,
+        shifu_bid=shifu_bid,
+        owner_bid=owner_bid,
+        collaborator_bid=collaborator_bid,
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: SimpleNamespace(
+            user_id=collaborator_bid,
+            is_creator=True,
+            is_operator=False,
+            language="en-US",
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.route.admit_creator_usage",
+        lambda _app, **kwargs: captured.setdefault("admission", kwargs),
+        raising=False,
+    )
+
+    resp = test_client.post(
+        f"/api/shifu/shifus/{shifu_bid}/preview",
+        headers={"Token": "test-token"},
+        json={"variables": {}},
+    )
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"].endswith(f"/c/{shifu_bid}?preview=true")
+    assert captured["admission"] == {
+        "shifu_bid": shifu_bid,
+        "usage_scene": BILL_USAGE_SCENE_PREVIEW,
+    }
+
+
 def test_shifu_publish_url_builder_uses_public_base():
     from flaskr.service.shifu.shifu_publish_funcs import _build_frontend_url
 
@@ -144,3 +233,131 @@ def test_shifu_publish_url_builder_uses_public_base():
         _build_frontend_url("https://example.com/", "/c/course-1")
         == "https://example.com/c/course-1"
     )
+
+
+def _seed_white_label(
+    app,
+    *,
+    creator_bid: str,
+    host: str,
+    custom_domain_enabled: bool = True,
+    binding_status: int | None = None,
+) -> None:
+    from datetime import datetime, timedelta
+
+    from flaskr.service.billing.consts import (
+        BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
+        BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
+        CREDIT_SOURCE_TYPE_MANUAL,
+    )
+    from flaskr.service.billing.models import (
+        BillingDomainBinding,
+        BillingEntitlement,
+    )
+
+    status = (
+        binding_status
+        if binding_status is not None
+        else BILLING_DOMAIN_BINDING_STATUS_VERIFIED
+    )
+    with app.app_context():
+        BillingDomainBinding.query.filter_by(creator_bid=creator_bid).delete()
+        BillingEntitlement.query.filter_by(creator_bid=creator_bid).delete()
+        now = datetime.now()
+        dao.db.session.add(
+            BillingEntitlement(
+                entitlement_bid=f"ent-{creator_bid}",
+                creator_bid=creator_bid,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid="",
+                branding_enabled=1,
+                custom_domain_enabled=1 if custom_domain_enabled else 0,
+                effective_from=now - timedelta(days=1),
+                effective_to=None,
+            )
+        )
+        dao.db.session.add(
+            BillingDomainBinding(
+                domain_binding_bid=f"bind-{creator_bid}",
+                creator_bid=creator_bid,
+                host=host,
+                status=status,
+                verification_method=BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
+                verification_token="token-test",
+            )
+        )
+        dao.db.session.commit()
+
+
+def test_resolve_effective_custom_origin_returns_verified_host(app):
+    from flaskr.service.billing.domains import resolve_effective_custom_origin
+
+    creator_bid = "wl-owner-verified"
+    _seed_white_label(app, creator_bid=creator_bid, host="learn.acme.test")
+
+    assert (
+        resolve_effective_custom_origin(app, creator_bid) == "https://learn.acme.test"
+    )
+
+
+def test_resolve_effective_custom_origin_none_when_entitlement_disabled(app):
+    from flaskr.service.billing.domains import resolve_effective_custom_origin
+
+    creator_bid = "wl-owner-disabled"
+    _seed_white_label(
+        app,
+        creator_bid=creator_bid,
+        host="disabled.acme.test",
+        custom_domain_enabled=False,
+    )
+
+    assert resolve_effective_custom_origin(app, creator_bid) is None
+
+
+def test_resolve_effective_custom_origin_none_when_binding_pending(app):
+    from flaskr.service.billing.consts import (
+        BILLING_DOMAIN_BINDING_STATUS_PENDING,
+    )
+    from flaskr.service.billing.domains import resolve_effective_custom_origin
+
+    creator_bid = "wl-owner-pending"
+    _seed_white_label(
+        app,
+        creator_bid=creator_bid,
+        host="pending.acme.test",
+        binding_status=BILLING_DOMAIN_BINDING_STATUS_PENDING,
+    )
+
+    assert resolve_effective_custom_origin(app, creator_bid) is None
+
+
+def test_publish_base_url_prefers_custom_domain(app, monkeypatch):
+    from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
+    from flaskr.service.shifu.route import _resolve_publish_base_url
+
+    creator_bid = "wl-owner-publish"
+    _seed_white_label(app, creator_bid=creator_bid, host="pub.acme.test")
+    monkeypatch.setenv("HOST_URL", "https://example.com/")
+    _reset_config_cache("HOST_URL")
+
+    set_shifu_context("course-x", creator_bid)
+    try:
+        with app.app_context():
+            assert _resolve_publish_base_url(app) == "https://pub.acme.test"
+    finally:
+        clear_shifu_context()
+
+
+def test_publish_base_url_falls_back_without_custom_domain(app, monkeypatch):
+    from flaskr.common.shifu_context import clear_shifu_context, set_shifu_context
+    from flaskr.service.shifu.route import _resolve_publish_base_url
+
+    monkeypatch.setenv("HOST_URL", "https://example.com/")
+    _reset_config_cache("HOST_URL")
+
+    set_shifu_context("course-y", "wl-owner-without-domain")
+    try:
+        with app.app_context():
+            assert _resolve_publish_base_url(app) == "https://example.com"
+    finally:
+        clear_shifu_context()

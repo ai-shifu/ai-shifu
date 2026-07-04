@@ -7,12 +7,23 @@ Author: yfge
 Date: 2025-08-07
 """
 
+from flask import Flask
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
 )
 from typing import Any
 from pydantic import BaseModel, Field
+
+
+def resolve_demo_course_for_language(
+    app: Flask, language: str | None
+) -> dict[str, Any]:
+    from flaskr.service.shifu.demo_courses import (
+        resolve_demo_course_for_language as _resolve_demo_course_for_language,
+    )
+
+    return _resolve_demo_course_for_language(app, language)
 
 
 @register_schema_to_swagger
@@ -39,6 +50,11 @@ class ShifuDto(BaseModel):
     created_user_bid: str = Field(
         "", description="owner user business id", required=False
     )
+    is_guide_course: bool = Field(
+        False,
+        description="whether this course is the built-in guide course",
+        required=False,
+    )
 
     def __init__(
         self,
@@ -52,6 +68,7 @@ class ShifuDto(BaseModel):
         can_manage_archive: bool = False,
         can_manage_permissions: bool = False,
         created_user_bid: str = "",
+        is_guide_course: bool = False,
         **kwargs,
     ):
         super().__init__(
@@ -65,6 +82,7 @@ class ShifuDto(BaseModel):
             can_manage_archive=can_manage_archive,
             can_manage_permissions=can_manage_permissions,
             created_user_bid=created_user_bid or "",
+            is_guide_course=is_guide_course,
         )
 
     def __json__(self):
@@ -78,6 +96,7 @@ class ShifuDto(BaseModel):
             "can_manage_archive": self.can_manage_archive,
             "can_manage_permissions": self.can_manage_permissions,
             "created_user_bid": self.created_user_bid,
+            "is_guide_course": self.is_guide_course,
         }
 
 
