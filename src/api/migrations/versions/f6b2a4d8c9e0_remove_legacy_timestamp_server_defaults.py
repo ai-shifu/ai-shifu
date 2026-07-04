@@ -40,15 +40,20 @@ TIMESTAMP_COLUMNS = [
 
 
 def _set_server_default(server_default):
+    table_columns = {}
     for table_name, column_name, comment in TIMESTAMP_COLUMNS:
+        table_columns.setdefault(table_name, []).append((column_name, comment))
+
+    for table_name, columns in table_columns.items():
         with op.batch_alter_table(table_name, schema=None) as batch_op:
-            batch_op.alter_column(
-                column_name,
-                existing_type=sa.DateTime(),
-                existing_nullable=False,
-                existing_comment=comment,
-                server_default=server_default,
-            )
+            for column_name, comment in columns:
+                batch_op.alter_column(
+                    column_name,
+                    existing_type=sa.DateTime(),
+                    existing_nullable=False,
+                    existing_comment=comment,
+                    server_default=server_default,
+                )
 
 
 def upgrade():
