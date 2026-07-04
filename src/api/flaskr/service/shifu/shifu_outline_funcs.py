@@ -53,15 +53,19 @@ def convert_outline_to_reorder_outline_item_dto(
     if not isinstance(json_array, list):
         raise_param_error("outlines")
 
-    return [
-        ReorderOutlineItemDto(
-            bid=item.get("bid"),
-            children=convert_outline_to_reorder_outline_item_dto(
-                item.get("children", [])
-            ),
+    result = []
+    for item in json_array:
+        if not isinstance(item, dict):
+            raise_param_error("outlines")
+        result.append(
+            ReorderOutlineItemDto(
+                bid=item.get("bid"),
+                children=convert_outline_to_reorder_outline_item_dto(
+                    item.get("children") or []
+                ),
+            )
         )
-        for item in json_array
-    ]
+    return result
 
 
 def __get_existing_outline_items(shifu_bid: str) -> list[DraftOutlineItem]:

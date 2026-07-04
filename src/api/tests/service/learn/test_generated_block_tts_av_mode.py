@@ -554,8 +554,16 @@ class TestGeneratedBlockListenTtsElementFirst:
             )
         )
 
-        assert synthesized_texts == [generated_content]
-        assert [event.type for event in events].count(GeneratedType.AUDIO_COMPLETE) == 1
+        # The legacy fallback still runs raw_text through the streaming TTS
+        # processor, which strips non-speakable markup (the SVG block) and
+        # splits the remaining text into sentence segments before synthesis.
+        assert synthesized_texts == ["Hello legacy.", "Speak this too."]
+        # The whole legacy block is synthesized in a single position-0 pass, so
+        # the sentences are concatenated into one AUDIO_COMPLETE event.
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+        assert [event.content.position for event in audio_complete_events] == [0]
         assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_listen_preserves_position_after_short_text(
