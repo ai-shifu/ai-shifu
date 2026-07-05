@@ -1469,10 +1469,17 @@ def stream_generated_block_audio(
                 # from the raw block text instead of failing.
                 cleaned_fallback_text = preprocess_for_tts(raw_text)
                 if not cleaned_fallback_text or len(cleaned_fallback_text.strip()) < 2:
-                    raise_error_with_args(
-                        "server.common.paramsError",
-                        param_message="No speakable text elements available for TTS synthesis",
+                    app.logger.info(
+                        "skip listen-mode TTS for non-speakable generated block | shifu_bid=%s | generated_block_bid=%s | user_bid=%s",
+                        shifu_bid,
+                        generated_block_bid,
+                        user_bid,
                     )
+                    yield _build_tts_done_message(
+                        outline_bid=generated_block.outline_item_bid or "",
+                        generated_block_bid=generated_block_bid,
+                    )
+                    return
 
                 def _generate_legacy_audio():
                     yield from _yield_run_tts_audio_events(
