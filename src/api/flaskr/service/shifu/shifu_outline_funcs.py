@@ -23,7 +23,7 @@ from .consts import (
 from .models import DraftOutlineItem
 from ...dao import db
 from ...util import generate_id
-from ..common.models import raise_error
+from ..common.models import raise_error, raise_param_error
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from decimal import Decimal
 from .shifu_history_manager import (
@@ -50,15 +50,22 @@ def convert_outline_to_reorder_outline_item_dto(
     Returns:
         The reorder outline item dto
     """
-    return [
-        ReorderOutlineItemDto(
-            bid=item.get("bid"),
-            children=convert_outline_to_reorder_outline_item_dto(
-                item.get("children", [])
-            ),
+    if not isinstance(json_array, list):
+        raise_param_error("outlines")
+
+    result = []
+    for item in json_array:
+        if not isinstance(item, dict):
+            raise_param_error("outlines")
+        result.append(
+            ReorderOutlineItemDto(
+                bid=item.get("bid"),
+                children=convert_outline_to_reorder_outline_item_dto(
+                    item.get("children") or []
+                ),
+            )
         )
-        for item in json_array
-    ]
+    return result
 
 
 def __get_existing_outline_items(shifu_bid: str) -> list[DraftOutlineItem]:
