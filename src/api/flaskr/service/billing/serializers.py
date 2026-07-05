@@ -375,13 +375,12 @@ def serialize_admin_subscription(
     renewal_event: BillingRenewalEvent | None,
 ) -> AdminBillingSubscriptionDTO:
     next_product_bid = normalize_bid(row.next_product_bid)
-    runtime_status = _resolve_runtime_subscription_status(row)
     return AdminBillingSubscriptionDTO(
         subscription_bid=row.subscription_bid,
         creator_bid=row.creator_bid,
         product_bid=row.product_bid,
         product_code=product_codes.get(row.product_bid, ""),
-        status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(runtime_status, "draft"),
+        status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(row.status, "draft"),
         billing_provider=str(row.billing_provider or ""),
         current_period_start_at=row.current_period_start_at,
         current_period_end_at=row.current_period_end_at,

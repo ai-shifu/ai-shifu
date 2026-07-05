@@ -368,6 +368,10 @@ async function acceptBillingAgreement(
   });
 }
 
+function futureIso(days: number): string {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
 describe('BillingOverviewTab', () => {
   beforeEach(() => {
     mockEnvState.paymentChannels = ['stripe', 'pingxx'];
@@ -404,7 +408,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'stripe',
           current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T00:00:00Z',
+          current_period_end_at: futureIso(10),
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: null,
@@ -767,7 +771,7 @@ describe('BillingOverviewTab', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('treats stale active subscriptions as expired for plan checkout actions', async () => {
+  test('treats server-expired subscriptions as inactive for plan checkout actions', async () => {
     const user = userEvent.setup();
 
     mockUseBillingOverview.mockReturnValue({
@@ -783,7 +787,7 @@ describe('BillingOverviewTab', () => {
           subscription_bid: 'sub-stale-active',
           product_bid: 'bill-product-plan-monthly-pro',
           product_code: 'creator-plan-monthly-pro',
-          status: 'active',
+          status: 'expired',
           billing_provider: 'manual',
           current_period_start_at: '2026-04-26T11:53:02Z',
           current_period_end_at: '2026-05-26T11:53:02Z',
@@ -846,6 +850,85 @@ describe('BillingOverviewTab', () => {
     ).toBeUndefined();
   });
 
+  test('lets expired trial subscribers purchase a paid plan', async () => {
+    const user = userEvent.setup();
+
+    mockUseBillingOverview.mockReturnValue({
+      data: {
+        creator_bid: 'creator-1',
+        wallet: {
+          available_credits: 0,
+          reserved_credits: 0,
+          lifetime_granted_credits: 100,
+          lifetime_consumed_credits: 100,
+        },
+        subscription: {
+          subscription_bid: 'sub-expired-trial',
+          product_bid: 'bill-product-plan-trial',
+          product_code: 'creator-plan-trial',
+          status: 'expired',
+          billing_provider: 'manual',
+          current_period_start_at: '2026-04-20T00:00:00Z',
+          current_period_end_at: '2026-05-05T00:00:00Z',
+          grace_period_end_at: null,
+          cancel_at_period_end: false,
+          next_product_bid: null,
+          last_renewed_at: null,
+          last_failed_at: null,
+        },
+        billing_alerts: [],
+        trial_offer: { ...DEFAULT_TRIAL_OFFER },
+      },
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutateOverview,
+    });
+    mockCheckoutBillingSubscription.mockResolvedValue({
+      bill_order_bid: 'order-expired-trial-upgrade-1',
+      provider: 'stripe',
+      payment_mode: 'subscription',
+      status: 'pending',
+      checkout_type: 'subscription',
+      payable_amount: 990,
+      redirect_url: 'https://stripe.test/expired-trial-upgrade',
+    });
+
+    renderOverviewTab();
+
+    const paidPlanAction = screen.getByTestId(
+      'billing-plan-card-bill-product-plan-monthly-action',
+    );
+    expect(paidPlanAction).toBeEnabled();
+    expect(paidPlanAction).toHaveTextContent(
+      'module.billing.package.actions.subscribeNow',
+    );
+
+    await act(async () => {
+      await user.click(paidPlanAction);
+    });
+    await acceptBillingAgreement(user);
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', {
+          name: 'module.billing.checkout.confirm',
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockCheckoutBillingSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payment_provider: 'stripe',
+          product_bid: 'bill-product-plan-monthly',
+        }),
+      );
+    });
+    expect(
+      mockCheckoutBillingSubscription.mock.calls[0][0].action,
+    ).toBeUndefined();
+  });
+
   test('blocks lower-tier preorder when the current subscription is Stripe-managed', async () => {
     const user = userEvent.setup();
 
@@ -865,7 +948,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'stripe',
           current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T00:00:00Z',
+          current_period_end_at: futureIso(10),
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: null,
@@ -922,7 +1005,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'manual',
           current_period_start_at: '2026-05-29T05:44:32Z',
-          current_period_end_at: '2026-07-31T05:44:32Z',
+          current_period_end_at: '2099-07-31T05:44:32Z',
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: null,
@@ -1009,7 +1092,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'manual',
           current_period_start_at: '2026-05-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T15:59:59Z',
+          current_period_end_at: '2099-07-31T15:59:59Z',
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: null,
@@ -1110,7 +1193,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'pingxx',
           current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T00:00:00Z',
+          current_period_end_at: futureIso(10),
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: null,
@@ -1288,7 +1371,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'pingxx',
           current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T00:00:00Z',
+          current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: 'bill-product-plan-monthly-pro',
@@ -1395,7 +1478,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'pingxx',
           current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T00:00:00Z',
+          current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: 'bill-product-plan-monthly-pro',
@@ -1438,7 +1521,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'pingxx',
           current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T00:00:00Z',
+          current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: null,
@@ -1482,7 +1565,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'pingxx',
           current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T00:00:00Z',
+          current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: 'bill-product-plan-monthly',
@@ -1582,7 +1665,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'stripe',
           current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T00:00:00Z',
+          current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: null,
@@ -1639,7 +1722,7 @@ describe('BillingOverviewTab', () => {
           status: 'cancel_scheduled',
           billing_provider: 'stripe',
           current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T00:00:00Z',
+          current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
           cancel_at_period_end: true,
           next_product_bid: null,
@@ -1667,7 +1750,7 @@ describe('BillingOverviewTab', () => {
       status: 'active',
       billing_provider: 'stripe',
       current_period_start_at: '2026-04-01T00:00:00Z',
-      current_period_end_at: '2026-07-31T00:00:00Z',
+      current_period_end_at: '2099-07-31T00:00:00Z',
       grace_period_end_at: null,
       cancel_at_period_end: false,
       next_product_bid: null,
@@ -2020,7 +2103,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'pingxx',
           current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T00:00:00Z',
+          current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: null,
@@ -2110,7 +2193,7 @@ describe('BillingOverviewTab', () => {
           status: 'active',
           billing_provider: 'pingxx',
           current_period_start_at: '2026-04-01T00:00:00Z',
-          current_period_end_at: '2026-07-31T00:00:00Z',
+          current_period_end_at: '2099-07-31T00:00:00Z',
           grace_period_end_at: null,
           cancel_at_period_end: false,
           next_product_bid: null,

@@ -49,20 +49,18 @@ type BillingCatalogResponse = {
   topups: BillingTopupProduct[];
 };
 
-const INACTIVE_SUBSCRIPTION_STATUSES = new Set(['canceled', 'expired', 'draft']);
+const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
+  'canceled',
+  'expired',
+  'draft',
+]);
 
 function isBillingSubscriptionActive(
   subscription: BillingSubscription | null | undefined,
 ): subscription is BillingSubscription {
-  if (!subscription || INACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)) {
-    return false;
-  }
-
-  const periodEndAt = subscription.current_period_end_at;
-  if (!periodEndAt) return false;
-
-  const periodEnd = new Date(periodEndAt);
-  return !Number.isNaN(periodEnd.getTime()) && periodEnd.getTime() > Date.now();
+  return (
+    !!subscription && !INACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)
+  );
 }
 
 type BillingOverviewTabProps = {
@@ -253,9 +251,8 @@ export function BillingOverviewTab({
     ? overview.subscription
     : null;
   const currentPlan =
-    plans.find(
-      item => item.product_bid === activeSubscription?.product_bid,
-    ) || null;
+    plans.find(item => item.product_bid === activeSubscription?.product_bid) ||
+    null;
   const pendingPreorderPlan =
     plans.find(
       item => item.product_bid === activeSubscription?.next_product_bid,
