@@ -714,6 +714,8 @@ def register_admin_operations_routes(
         """
         _require_operator()
         payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload must be a JSON object")
         return make_common_response(
             register_operator_voice_clone(
                 app,

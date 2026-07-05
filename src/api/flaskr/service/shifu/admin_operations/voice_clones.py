@@ -386,6 +386,11 @@ def register_operator_voice_clone(
         raise_param_error("voice_id is invalid")
 
     with app.app_context():
+        # Validate the voice_id against the platform MiniMax account before any
+        # DB query, so this external HTTP call does not hold a database
+        # connection / open transaction while it runs.
+        _verify_minimax_voice_id(normalized_voice_id)
+
         owner = UserEntity.query.filter(
             UserEntity.user_bid == normalized_owner_bid,
             UserEntity.deleted == 0,
@@ -402,8 +407,6 @@ def register_operator_voice_clone(
         ).first()
         if existing is not None:
             raise_param_error("voice_id already exists")
-
-        _verify_minimax_voice_id(normalized_voice_id)
 
         row = TTSMiniMaxClonedVoice(
             voice_bid=generate_id(app),
