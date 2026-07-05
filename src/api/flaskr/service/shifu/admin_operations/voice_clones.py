@@ -7,14 +7,32 @@ from typing import Any, Optional, Sequence, Set
 from flask import Flask
 from sqlalchemy import or_
 
+from flaskr.api.tts import get_default_voice_settings, synthesize_text
 from flaskr.dao import db
+from flaskr.service.common.models import raise_param_error
 from flaskr.service.shifu.admin_operations.shared import (
     format_operator_datetime,
     load_operator_user_map,
 )
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
-from flaskr.service.tts.models import TTSMiniMaxClonedVoice
+from flaskr.service.tts.api import (
+    is_valid_minimax_custom_voice_id,
+    serialize_minimax_cloned_voice,
+)
+from flaskr.service.tts.models import (
+    TTSMiniMaxClonedVoice,
+    TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
+    TTS_MINIMAX_CLONE_STATUS_READY,
+)
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
+
+OPERATOR_VOICE_CLONE_SOURCE_METHOD = "operator_register"
+# Short text/model used only to validate a registered voice_id against the
+# platform MiniMax account (and keep the cloned voice alive past 168h).
+OPERATOR_VOICE_VERIFY_TEXT = "Voice sample check."
+OPERATOR_VOICE_VERIFY_MODEL = "speech-2.8-turbo"
 
 OPERATOR_VOICE_CLONE_LIST_MAX_PAGE_SIZE = 100
 OPERATOR_VOICE_CLONE_STATUSES = {
@@ -316,3 +334,91 @@ def list_operator_voice_clones(
             "total": total,
             "page_count": math.ceil(total / page_size) if total else 0,
         }
+
+
+def _verify_minimax_voice_id(voice_id: str) -> None:
+    """Run a short test synthesis to validate the voice id and keep it alive.
+
+    The synthesis goes through the platform MiniMax account. It fails fast if
+    the voice id does not exist under that account (e.g. it was cloned on a
+    different MiniMax account), and, on success, locks the cloned voice in past
+    MiniMax's 168-hour unused-voice expiry.
+    """
+    voice_settings = get_default_voice_settings("minimax")
+    voice_settings.voice_id = voice_id
+    try:
+        synthesize_text(
+            OPERATOR_VOICE_VERIFY_TEXT,
+            voice_settings=voice_settings,
+            provider_name="minimax",
+            model=OPERATOR_VOICE_VERIFY_MODEL,
+        )
+    except Exception as exc:  # noqa: BLE001 - surface the real reason to the operator
+        raise_param_error(f"voice_id verification failed: {exc}")
+
+
+def register_operator_voice_clone(
+    app: Flask,
+    *,
+    operator_user_bid: str,
+    owner_user_bid: str,
+    display_name: str,
+    voice_id: str,
+) -> dict[str, Any]:
+    """Register a MiniMax voice cloned on the console and assign it to a teacher.
+
+    Operations-managed path: an operator clones a voice on the platform MiniMax
+    account, then registers the resulting ``voice_id`` here for a specific
+    teacher. No audio is uploaded and no creator credits are charged; the row is
+    written directly as ``ready`` / ``billing_status=not_required`` so it shows
+    up in that teacher's course voice dropdown. A short test synthesis validates
+    the id against the platform account and keeps it alive.
+    """
+    del operator_user_bid  # recorded by the route for audit; not persisted here
+    normalized_owner_bid = _normalize_text(owner_user_bid)
+    if not normalized_owner_bid:
+        raise_param_error("owner_user_bid is required")
+    normalized_display_name = _normalize_text(display_name)[:128]
+    if not normalized_display_name:
+        raise_param_error("display_name is required")
+    normalized_voice_id = _normalize_text(voice_id)
+    if not is_valid_minimax_custom_voice_id(normalized_voice_id):
+        raise_param_error("voice_id is invalid")
+
+    with app.app_context():
+        owner = UserEntity.query.filter(
+            UserEntity.user_bid == normalized_owner_bid,
+            UserEntity.deleted == 0,
+        ).first()
+        if owner is None:
+            raise_param_error("owner_user_bid not found")
+        if not int(owner.is_creator or 0):
+            raise_param_error("owner_user_bid is not a teacher")
+
+        existing = TTSMiniMaxClonedVoice.query.filter(
+            TTSMiniMaxClonedVoice.deleted == 0,
+            TTSMiniMaxClonedVoice.owner_user_bid == normalized_owner_bid,
+            TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+        ).first()
+        if existing is not None:
+            raise_param_error("voice_id already exists")
+
+        _verify_minimax_voice_id(normalized_voice_id)
+
+        row = TTSMiniMaxClonedVoice(
+            voice_bid=generate_id(app),
+            owner_user_bid=normalized_owner_bid,
+            shifu_bid="",
+            display_name=normalized_display_name,
+            voice_id=normalized_voice_id,
+            status=TTS_MINIMAX_CLONE_STATUS_READY,
+            status_msg="",
+            source_capture_method=OPERATOR_VOICE_CLONE_SOURCE_METHOD,
+            billing_status=TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
+            estimated_credits=0,
+            charged_credits=0,
+            ready_at=now_utc(),
+        )
+        db.session.add(row)
+        db.session.commit()
+        return serialize_minimax_cloned_voice(row)

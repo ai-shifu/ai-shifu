@@ -16,7 +16,9 @@ import {
   getAdminStickyRightHeaderClass,
 } from '@/app/admin/components/adminTableStyles';
 import AdminTitle from '@/app/admin/components/AdminTitle';
+import { Button } from '@/components/ui/Button';
 import Loading from '@/components/loading';
+import VoiceCloneRegisterDialog from './VoiceCloneRegisterDialog';
 import {
   Select,
   SelectContent,
@@ -132,6 +134,7 @@ export default function AdminOperationVoiceClonesPage() {
   const [detail, setDetail] =
     React.useState<AdminOperationVoiceCloneItem | null>(null);
   const [filtersExpanded, setFiltersExpanded] = React.useState(false);
+  const [registerDialogOpen, setRegisterDialogOpen] = React.useState(false);
   const requestIdRef = React.useRef(0);
   const filterControlClassName = 'min-w-0 flex-1 xl:max-w-[245px]';
   const filterLabelClassName = 'w-28 text-right';
@@ -568,6 +571,22 @@ export default function AdminOperationVoiceClonesPage() {
       <AdminTitle
         title={t('module.operationsVoiceClone.title')}
         description={t('module.operationsVoiceClone.description')}
+        actions={
+          <Button
+            type='button'
+            onClick={() => setRegisterDialogOpen(true)}
+          >
+            {t('module.operationsVoiceClone.register.button')}
+          </Button>
+        }
+      />
+
+      <VoiceCloneRegisterDialog
+        open={registerDialogOpen}
+        onOpenChange={setRegisterDialogOpen}
+        onRegistered={() => {
+          void fetchItems();
+        }}
       />
 
       <AdminFilter

@@ -193,6 +193,7 @@ const api = {
   getAdminOperationCreditNotifications:
     'GET /shifu/admin/operations/credit-notifications',
   getAdminOperationVoiceClones: 'GET /shifu/admin/operations/voice-clones',
+  registerAdminOperationVoiceClone: 'POST /shifu/admin/operations/voice-clones',
   getAdminOperationCreditNotificationsOverview:
     'GET /shifu/admin/operations/credit-notifications/overview',
   getAdminOperationCreditNotificationDetail:
