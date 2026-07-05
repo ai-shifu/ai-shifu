@@ -755,10 +755,12 @@ jobs:
               conventional_prefix = r"(?:feat|fix|chore|build|ci|bump)(?:\([^)]+\))?!?:"
               version_action = r"(?:update|bump|release|set)"
               version_target = r"(?:package\s+)?version(?:\s+number)?"
+              version_value = r"v?\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?"
               patterns = [
                   rf"^{conventional_prefix}\s+release\b",
                   rf"^{conventional_prefix}\s+{version_action}\s+{version_target}\b",
                   rf"^{conventional_prefix}\s+{version_target}\s+{version_action}\b",
+                  rf"^{conventional_prefix}\s+{version_target}\s+{version_value}\b",
               ]
               return any(re.match(pattern, subject, re.IGNORECASE) for pattern in patterns)
 
