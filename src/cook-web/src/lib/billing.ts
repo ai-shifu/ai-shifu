@@ -321,7 +321,7 @@ function normalizeBillingDateTimeValue(
 
   const billingDateOnlyMatch = normalizedValue.match(BILLING_DATE_ONLY_RE);
   if (billingDateOnlyMatch) {
-    return `${billingDateOnlyMatch[1]}T00:00:00Z`;
+    return billingDateOnlyMatch[1];
   }
   const billingDateTimeMatch = normalizedValue.match(BILLING_DATETIME_RE);
   if (!billingDateTimeMatch) {
@@ -506,6 +506,18 @@ export function formatBillingDate(
   value: string | null | undefined,
   locale: string,
 ): string {
+  const dateOnlyMatch = String(value || '')
+    .trim()
+    .match(BILLING_DATE_ONLY_RE);
+  if (dateOnlyMatch) {
+    return new Intl.DateTimeFormat(locale, {
+      timeZone: 'UTC',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(`${dateOnlyMatch[1]}T00:00:00Z`));
+  }
+
   const date = parseBillingDateValue(value);
   if (!date) {
     return '';
@@ -522,7 +534,11 @@ export function formatBillingDateTime(
   locale: string,
 ): string {
   void locale;
-  return formatAdminUtcDateTime(normalizeBillingDateTimeValue(value));
+  const normalizedValue = normalizeBillingDateTimeValue(value);
+  if (normalizedValue?.match(BILLING_DATE_ONLY_RE)) {
+    return '';
+  }
+  return formatAdminUtcDateTime(normalizedValue);
 }
 
 export function formatBillingCompactDateTime(
@@ -530,9 +546,11 @@ export function formatBillingCompactDateTime(
   locale: string,
 ): string {
   void locale;
-  const formattedValue = formatAdminUtcDateTime(
-    normalizeBillingDateTimeValue(value),
-  );
+  const normalizedValue = normalizeBillingDateTimeValue(value);
+  if (normalizedValue?.match(BILLING_DATE_ONLY_RE)) {
+    return '';
+  }
+  const formattedValue = formatAdminUtcDateTime(normalizedValue);
   return formattedValue ? formattedValue.slice(0, 16) : '';
 }
 

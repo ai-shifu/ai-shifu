@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -207,7 +208,7 @@ def persist_credit_wallet_snapshot(
         "available_credits": _quantize_credit_amount(available_credits),
         "reserved_credits": _quantize_credit_amount(reserved_credits),
         "version": next_version,
-        "updated_at": updated_at or datetime.now(),
+        "updated_at": updated_at or now_utc(),
     }
     if lifetime_granted_credits is not None:
         values["lifetime_granted_credits"] = _quantize_credit_amount(
@@ -388,7 +389,7 @@ def rebuild_credit_wallet_snapshots(
                 wallets=[],
             )
 
-        rebuilt_at = datetime.now()
+        rebuilt_at = now_utc()
         payload_wallets: list[WalletSnapshotRecord] = []
         for wallet in wallets:
             refresh_credit_wallet_snapshot(wallet)
@@ -429,7 +430,7 @@ def repair_credit_bucket_runtime_statuses(
 
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_wallet_bucket_bid = str(wallet_bucket_bid or "").strip()
-    repaired_at = datetime.now()
+    repaired_at = now_utc()
     with app.app_context():
         query = CreditWalletBucket.query.filter(
             CreditWalletBucket.deleted == 0,
@@ -547,7 +548,7 @@ def grant_refund_return_credits(
             )
 
         wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
-        now = effective_from or datetime.now()
+        now = effective_from or now_utc()
         bucket_category = resolve_runtime_credit_bucket_category(
             source_type=CREDIT_SOURCE_TYPE_REFUND,
             source_bid=normalized_refund_bid,
@@ -668,7 +669,7 @@ def adjust_credit_wallet_balance(
     with app.app_context():
         wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
         adjustment_bid = generate_id(app)
-        adjusted_at = datetime.now()
+        adjusted_at = now_utc()
         metadata = {
             "adjustment_bid": adjustment_bid,
             "note": normalized_note,
@@ -852,7 +853,7 @@ def grant_manual_credit_wallet_balance(
         )
 
     with app.app_context():
-        granted_at = effective_from or datetime.now()
+        granted_at = effective_from or now_utc()
         wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
         grant_bid = normalized_source_bid or generate_id(app)
         ledger_key = normalized_idempotency_key or f"manual_grant:{grant_bid}"
@@ -988,7 +989,7 @@ def expire_credit_wallet_buckets(
     """Expire currently active buckets whose effective window has ended."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
-    cutoff = expire_before or datetime.now()
+    cutoff = expire_before or now_utc()
     with app.app_context():
         result = _expire_credit_wallet_buckets_in_session(
             app,
@@ -1008,7 +1009,7 @@ def _expire_credit_wallet_buckets_in_session(
     """Expire eligible buckets inside the current transaction without committing."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
-    cutoff = expire_before or datetime.now()
+    cutoff = expire_before or now_utc()
     query = CreditWalletBucket.query.filter(
         CreditWalletBucket.deleted == 0,
         CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,

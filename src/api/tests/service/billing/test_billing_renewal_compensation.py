@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from flask import Flask
@@ -26,6 +26,10 @@ from flaskr.service.order.payment_providers.base import PaymentNotificationResul
 from tests.common.fixtures.bill_products import build_bill_products
 
 _MONTHLY_PLAN_CREDITS = Decimal("5.0000000000")
+
+
+def _utc_epoch(value: datetime) -> int:
+    return int(value.replace(tzinfo=timezone.utc).timestamp())
 
 
 @pytest.fixture
@@ -151,8 +155,8 @@ def test_sync_billing_order_marks_subscription_renewal_paid(
         "id": "sub_provider_sync_1",
         "customer": "cus_renewal_1",
         "status": "active",
-        "current_period_start": int(cycle_start_at.timestamp()),
-        "current_period_end": int(cycle_end_at.timestamp()),
+        "current_period_start": _utc_epoch(cycle_start_at),
+        "current_period_end": _utc_epoch(cycle_end_at),
         "cancel_at_period_end": False,
     }
 
@@ -218,14 +222,14 @@ def test_stripe_subscription_webhook_matches_pending_renewal_order_and_grants(
             status="customer.subscription.updated",
             provider_payload={
                 "type": "customer.subscription.updated",
-                "created": int(cycle_end_at.timestamp()),
+                "created": _utc_epoch(cycle_end_at),
                 "data": {
                     "object": {
                         "id": "sub_provider_webhook_1",
                         "customer": "cus_renewal_1",
                         "status": "active",
-                        "current_period_start": int(cycle_start_at.timestamp()),
-                        "current_period_end": int(cycle_end_at.timestamp()),
+                        "current_period_start": _utc_epoch(cycle_start_at),
+                        "current_period_end": _utc_epoch(cycle_end_at),
                         "cancel_at_period_end": False,
                         "metadata": {},
                     }

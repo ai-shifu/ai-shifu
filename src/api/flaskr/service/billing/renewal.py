@@ -9,6 +9,7 @@ from typing import Any
 from flask import Flask
 
 from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 
 from .credit_notifications import (
     enqueue_credit_notification as _enqueue_credit_notification,
@@ -189,7 +190,7 @@ def run_billing_renewal_event(
         if claim_status != "claimed":
             return _result_from_event(claim_status, event)
 
-        now = datetime.now()
+        now = now_utc()
         if event.scheduled_at and event.scheduled_at > now:
             _release_renewal_event(event, now=now)
             db.session.commit()
@@ -548,7 +549,7 @@ def _align_preorder_cycle_to_boundary(
         }
     )
     order.metadata_json = metadata
-    order.updated_at = datetime.now()
+    order.updated_at = now_utc()
     db.session.add(order)
 
 
@@ -760,7 +761,7 @@ def _claim_target_renewal_event(
     if int(event.status or 0) == BILLING_RENEWAL_EVENT_STATUS_PROCESSING:
         return "already_claimed", event
 
-    now = datetime.now()
+    now = now_utc()
     expected_attempt_count = int(event.attempt_count or 0)
     updated_rows = BillingRenewalEvent.query.filter(
         BillingRenewalEvent.deleted == 0,

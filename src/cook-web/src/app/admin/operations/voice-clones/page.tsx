@@ -9,7 +9,11 @@ import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+  formatAdminUtcDateTime,
+} from '@/app/admin/lib/dateTime';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import {
   getAdminStickyRightCellClass,
@@ -154,6 +158,14 @@ export default function AdminOperationVoiceClonesPage() {
     Object.entries(appliedFilters).forEach(([key, value]) => {
       const normalized = value.trim();
       if (normalized) {
+        if (key === 'start_time') {
+          params[key] = formatAdminDateRangeStartUtc(normalized);
+          return;
+        }
+        if (key === 'end_time') {
+          params[key] = formatAdminDateRangeEndUtc(normalized);
+          return;
+        }
         params[key] = normalized;
       }
     });

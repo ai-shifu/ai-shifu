@@ -10,6 +10,10 @@ import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
+import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
@@ -270,8 +274,8 @@ export default function CreditOrdersTab() {
             ? { has_available_credits: true }
             : {}),
           payment_provider: filters.payment_provider,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         })) as AdminOperationCreditOrderListResponse;
 
         if (requestId !== requestIdRef.current) {

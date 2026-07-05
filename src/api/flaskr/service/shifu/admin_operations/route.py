@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Flask, request
 from pydantic import ValidationError
@@ -39,6 +39,7 @@ from flaskr.service.referral.api import (
     get_operator_referral_campaign_detail,
     get_operator_referral_detail,
     get_operator_referral_overview,
+    list_operator_referral_campaign_invitations,
     list_operator_referral_campaigns,
     list_operator_referrals,
     update_operator_referral_campaign,
@@ -153,7 +154,13 @@ def _parse_datetime_filter(
             return parsed
         except ValueError:
             continue
-    raise_param_error(field_name)
+    try:
+        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError:
+        raise_param_error(field_name)
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
 
 
 def _normalize_query_text(raw_value: object) -> str:
@@ -1396,6 +1403,119 @@ def register_admin_operations_routes(
         _require_operator()
         return make_common_response(
             get_operator_referral_campaign_detail(app, campaign_bid=campaign_bid)
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/promotions/referral-campaigns/<campaign_bid>/relations",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_referral_campaign_relations(campaign_bid: str):
+        """List invite relations for one referral campaign."""
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "campaign_bid": _normalize_query_text(campaign_bid),
+            "inviter_user_bid": _normalize_query_text(
+                request.args.get("inviter_user_bid")
+            ),
+            "invitee_user_bid": _normalize_query_text(
+                request.args.get("invitee_user_bid")
+            ),
+            "invite_code": _normalize_query_text(request.args.get("invite_code")),
+            "relation_status": _parse_digit_query_param(
+                request.args.get("relation_status"),
+                field_name="relation_status",
+            ),
+            "abnormal_status": _parse_digit_query_param(
+                request.args.get("abnormal_status"),
+                field_name="abnormal_status",
+            ),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                field_name="start_time",
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                field_name="end_time",
+                is_end=True,
+            ),
+        }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
+        return make_common_response(
+            list_operator_referrals(
+                app,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/promotions/referral-campaigns/<campaign_bid>/invitations",
+        methods=["GET"],
+    )
+    def admin_operations_promotion_referral_campaign_invitations(campaign_bid: str):
+        """List invite-code funnel data for one referral campaign."""
+        _require_operator()
+        page_index = _parse_positive_query_int(
+            request.args.get("page_index"),
+            field_name="page_index",
+            default=1,
+        )
+        page_size = _parse_positive_query_int(
+            request.args.get("page_size"),
+            field_name="page_size",
+            default=20,
+        )
+        filters = {
+            "inviter_user_bid": _normalize_query_text(
+                request.args.get("inviter_user_bid")
+            ),
+            "invite_code": _normalize_query_text(request.args.get("invite_code")),
+            "status": _parse_digit_query_param(
+                request.args.get("status"),
+                field_name="status",
+            ),
+            "start_time": _parse_datetime_filter(
+                request.args.get("start_time", ""),
+                field_name="start_time",
+                is_end=False,
+            ),
+            "end_time": _parse_datetime_filter(
+                request.args.get("end_time", ""),
+                field_name="end_time",
+                is_end=True,
+            ),
+        }
+        _validate_datetime_range(
+            filters["start_time"],
+            filters["end_time"],
+            field_name="start_time",
+        )
+        return make_common_response(
+            list_operator_referral_campaign_invitations(
+                app,
+                campaign_bid=campaign_bid,
+                page_index=page_index,
+                page_size=page_size,
+                filters=filters,
+            )
         )
 
     @app.route(

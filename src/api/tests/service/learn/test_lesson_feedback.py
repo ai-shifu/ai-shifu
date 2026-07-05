@@ -1,11 +1,13 @@
 import json
 import unittest
+from datetime import datetime
 
 from flask import Flask
 import flaskr.dao as dao
 
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
+    list_lesson_feedbacks,
     submit_lesson_feedback,
 )
 from flaskr.service.learn.models import (
@@ -110,6 +112,35 @@ class LessonFeedbackTests(unittest.TestCase):
         synced_generated_content = json.loads(synced_block.generated_content)
         self.assertEqual(synced_generated_content.get("score"), 3)
         self.assertEqual(synced_generated_content.get("comment"), "Need more examples")
+
+    def test_list_feedback_serializes_timestamps_as_utc_iso_z(self):
+        feedback = LearnLessonFeedback(
+            bid="feedback-1",
+            lesson_feedback_bid="feedback-1",
+            shifu_bid="shifu-1",
+            outline_item_bid="outline-1",
+            progress_record_bid="progress-1",
+            user_bid="user-1",
+            score=4,
+            comment="Useful",
+            mode="read",
+            deleted=0,
+            created_at=datetime(2026, 6, 30, 11, 57, 3),
+            updated_at=datetime(2026, 6, 30, 12, 8, 9),
+        )
+        dao.db.session.add(feedback)
+        dao.db.session.commit()
+
+        result = list_lesson_feedbacks(
+            self.app,
+            shifu_bid="shifu-1",
+            page_index=1,
+            page_size=20,
+        )
+
+        self.assertEqual(result["total"], 1)
+        self.assertEqual(result["items"][0]["created_at"], "2026-06-30T11:57:03Z")
+        self.assertEqual(result["items"][0]["updated_at"], "2026-06-30T12:08:09Z")
 
 
 if __name__ == "__main__":
