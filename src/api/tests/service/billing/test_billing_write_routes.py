@@ -618,6 +618,67 @@ class TestBillingWriteRoutes:
             == "month"
         )
 
+    def test_subscription_checkout_starts_new_order_when_active_status_is_stale(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = now_utc()
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-stale-active-checkout",
+                    creator_bid="creator-stale-checkout",
+                    product_bid="bill-product-plan-monthly-pro",
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="manual",
+                    provider_subscription_id="",
+                    provider_customer_id="",
+                    current_period_start_at=now - timedelta(days=60),
+                    current_period_end_at=now - timedelta(days=30),
+                    cancel_at_period_end=0,
+                    next_product_bid="",
+                    metadata_json={},
+                    created_at=now - timedelta(days=60),
+                    updated_at=now - timedelta(days=60),
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly-pro",
+                "payment_provider": "stripe",
+            },
+            headers={"X-User-Id": "creator-stale-checkout"},
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["checkout_type"] == "subscription"
+        with app.app_context():
+            stale_subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-stale-active-checkout"
+            ).one()
+            new_subscription = (
+                BillingSubscription.query.filter(
+                    BillingSubscription.creator_bid == "creator-stale-checkout",
+                    BillingSubscription.subscription_bid != "sub-stale-active-checkout",
+                )
+                .order_by(BillingSubscription.id.desc())
+                .one()
+            )
+            order = BillingOrder.query.filter_by(
+                creator_bid="creator-stale-checkout",
+                subscription_bid=new_subscription.subscription_bid,
+            ).one()
+
+            assert stale_subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+            assert new_subscription.status == BILLING_SUBSCRIPTION_STATUS_DRAFT
+            assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START
+
     def test_subscription_checkout_supports_daily_stripe_recurring_interval(
         self, billing_write_client
     ) -> None:
@@ -3450,6 +3511,7 @@ class TestBillingWriteRoutes:
     ) -> None:
         client = billing_write_client["client"]
         app = billing_write_client["app"]
+        now = now_utc()
 
         with app.app_context():
             dao.db.session.add(
@@ -3461,8 +3523,8 @@ class TestBillingWriteRoutes:
                     billing_provider="stripe",
                     provider_subscription_id="sub_provider_1",
                     provider_customer_id="cus_provider_1",
-                    current_period_start_at=datetime(2026, 4, 1, 0, 0, 0),
-                    current_period_end_at=datetime(2026, 5, 1, 0, 0, 0),
+                    current_period_start_at=now - timedelta(days=1),
+                    current_period_end_at=now + timedelta(days=29),
                     cancel_at_period_end=0,
                     next_product_bid="",
                     metadata_json={},
