@@ -241,7 +241,7 @@ describe('AdminBillingPage', () => {
       ],
       page: 1,
       page_count: 1,
-      page_size: 4,
+      page_size: 20,
       total: 1,
     });
     mockUseBillingOverview.mockReturnValue({
@@ -417,7 +417,7 @@ describe('AdminBillingPage', () => {
     });
     expect(mockGetBillingLedger).toHaveBeenCalledWith({
       page_index: 1,
-      page_size: 10,
+      page_size: 20,
     });
 
     expect(

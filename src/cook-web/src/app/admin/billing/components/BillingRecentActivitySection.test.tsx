@@ -83,7 +83,7 @@ describe('BillingRecentActivitySection', () => {
           page: 2,
           page_count: 2,
           page_size,
-          total: 11,
+          total: 21,
         });
       }
 
@@ -143,7 +143,7 @@ describe('BillingRecentActivitySection', () => {
         page: 1,
         page_count: 2,
         page_size,
-        total: 11,
+        total: 21,
       });
     });
   });
@@ -154,7 +154,7 @@ describe('BillingRecentActivitySection', () => {
     await waitFor(() => {
       expect(mockGetBillingLedger).toHaveBeenCalledWith({
         page_index: 1,
-        page_size: 10,
+        page_size: 20,
       });
     });
 
@@ -238,7 +238,7 @@ describe('BillingRecentActivitySection', () => {
     await waitFor(() => {
       expect(mockGetBillingLedger).toHaveBeenCalledWith({
         page_index: 2,
-        page_size: 10,
+        page_size: 20,
       });
     });
 
@@ -250,13 +250,13 @@ describe('BillingRecentActivitySection', () => {
 
   test('keeps one full page height when a full usage page is available', async () => {
     mockGetBillingLedger.mockResolvedValueOnce({
-      items: Array.from({ length: 10 }, (_, index) =>
+      items: Array.from({ length: 20 }, (_, index) =>
         createLedgerItem(index + 1),
       ),
       page: 1,
       page_count: 3,
-      page_size: 10,
-      total: 30,
+      page_size: 20,
+      total: 60,
     });
 
     renderSection({ stretchToFill: true });
@@ -264,9 +264,9 @@ describe('BillingRecentActivitySection', () => {
     expect(await screen.findByText('+1.00')).toBeInTheDocument();
     const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
     expect(scrollContainer).toHaveClass('flex-1');
-    expect(scrollContainer.style.minHeight).toBe('570px');
+    expect(scrollContainer.style.minHeight).toBe('1100px');
     expect(scrollContainer.parentElement).toHaveStyle({
-      minHeight: '570px',
+      minHeight: '1100px',
     });
   });
 
@@ -293,7 +293,7 @@ describe('BillingRecentActivitySection', () => {
       ],
       page: 1,
       page_count: 1,
-      page_size: 10,
+      page_size: 20,
       total: 1,
     });
 
@@ -321,7 +321,7 @@ describe('BillingRecentActivitySection', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('keeps a full 10-row skeleton height while the next ledger page is loading', async () => {
+  test('keeps a full 20-row skeleton height while the next ledger page is loading', async () => {
     const user = userEvent.setup();
     let resolveSecondPage:
       | ((value: {
@@ -386,7 +386,7 @@ describe('BillingRecentActivitySection', () => {
         page: 1,
         page_count: 2,
         page_size,
-        total: 11,
+        total: 21,
       });
     });
 
@@ -410,7 +410,7 @@ describe('BillingRecentActivitySection', () => {
     const skeleton = await screen.findByTestId('billing-usage-table-skeleton');
     expect(skeleton).toBeInTheDocument();
     const skeletonRows = screen.getAllByTestId('billing-usage-skeleton-row');
-    expect(skeletonRows).toHaveLength(10);
+    expect(skeletonRows).toHaveLength(20);
     expect(skeletonRows[0]).toHaveClass('hover:!bg-transparent');
     expect(skeletonRows[0].querySelector('td:last-child > div')).toHaveClass(
       'ml-auto',
@@ -436,8 +436,8 @@ describe('BillingRecentActivitySection', () => {
         ],
         page: 2,
         page_count: 2,
-        page_size: 10,
-        total: 11,
+        page_size: 20,
+        total: 21,
       });
     });
 

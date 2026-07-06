@@ -23,7 +23,7 @@ import {
   resolveBillingLedgerReasonLabel,
 } from '@/lib/billing';
 
-const RECENT_ITEMS_LIMIT = 10;
+const RECENT_ITEMS_LIMIT = 20;
 const USAGE_TABLE_HEADER_HEIGHT = 40;
 const USAGE_TABLE_ROW_HEIGHT = 53;
 const USAGE_TABLE_PAGE_MIN_HEIGHT =
