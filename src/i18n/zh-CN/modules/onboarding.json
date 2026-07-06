@@ -35,7 +35,7 @@
       "title": "发布最新版本"
     },
     "settingsEntry": {
-      "description": "在这里设置课程提示词、AI 模型、价格和听课模式等选项。",
+      "description": "在这里设置课程提示词、AI 模型、价格，以及听课模式开关。",
       "title": "课程设置"
     }
   }
