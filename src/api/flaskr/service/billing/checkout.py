@@ -366,6 +366,67 @@ def _subscription_checkout_lock(app: Flask, creator_bid: str) -> Iterator[None]:
             pass
 
 
+_CREDIT_LEDGER_LOCK_TIMEOUT_SECONDS = 60
+_CREDIT_LEDGER_LOCK_BLOCKING_TIMEOUT_SECONDS = 60
+
+
+def _build_credit_ledger_lock_key(app: Flask, creator_bid: str) -> str:
+    prefix = str(app.config.get("REDIS_KEY_PREFIX", "ai-shifu") or "ai-shifu").rstrip(
+        ":"
+    )
+    scope = str(creator_bid or "").strip() or "unknown"
+    return f"{prefix}:billing:credit-ledger:{scope}"
+
+
+@contextmanager
+def _credit_ledger_lock(app: Flask, creator_bid: str) -> Iterator[None]:
+    """Serialize credit-ledger writes for a creator.
+
+    Concurrent order syncs for the same creator (timeout scan vs renewal
+    reconcile vs manual sync) otherwise both pass the ``existing_entry`` grant
+    pre-check and then trip the ``(creator_bid, idempotency_key)`` unique key at
+    commit, and contend on the same ``bill_orders`` row (seen in production as
+    ``Lock wait timeout``). Serializing per creator lets the second caller re-run
+    the pre-check inside the lock, find the first caller's committed grant, and
+    take the idempotent repair path instead. Mirrors ``_usage_settlement_lock``
+    in ``settlement.py``: on lock-backend failure it degrades to running without
+    the lock rather than blocking the sync.
+    """
+
+    lock = cache_provider.cache.lock(
+        _build_credit_ledger_lock_key(app, creator_bid),
+        timeout=_CREDIT_LEDGER_LOCK_TIMEOUT_SECONDS,
+        blocking_timeout=_CREDIT_LEDGER_LOCK_BLOCKING_TIMEOUT_SECONDS,
+    )
+    acquired = False
+    try:
+        if lock is not None:
+            acquired = bool(lock.acquire(blocking=True))
+    except Exception as exc:
+        # Lock-backend failure (e.g. Redis outage): degrade to running without
+        # the lock rather than crashing the order sync. The grant idempotency
+        # pre-check and unique key still guard correctness.
+        app.logger.warning(
+            "credit-ledger lock acquire failed; running without lock: %s", exc
+        )
+    if lock is not None and not acquired:
+        # Blocking timeout elapsed under contention: acquire() returned False.
+        # Log so this fail-open path is observable rather than silent.
+        app.logger.warning(
+            "credit-ledger lock not acquired within timeout for %s; "
+            "running without lock",
+            _build_credit_ledger_lock_key(app, creator_bid),
+        )
+    try:
+        yield
+    finally:
+        if acquired and lock is not None:
+            try:
+                lock.release()
+            except Exception as exc:
+                app.logger.warning("credit-ledger lock release failed: %s", exc)
+
+
 def _load_active_pending_subscription_orders(
     creator_bid: str,
 ) -> list[BillingOrder]:
@@ -983,7 +1044,10 @@ def sync_billing_order(
     normalized_order_bid = _normalize_bid(bill_order_bid)
     session_id = _normalize_bid(payload.get("session_id"))
 
-    with app.app_context():
+    # Hold a per-creator lock across the whole read-modify-commit so the grant
+    # idempotency pre-check and the commit run in one critical section (see
+    # _credit_ledger_lock).
+    with app.app_context(), _credit_ledger_lock(app, normalized_creator_bid):
         order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
