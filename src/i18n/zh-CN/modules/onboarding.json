@@ -10,10 +10,10 @@
       "title": "新建空白课程"
     },
     "lobsterCourse": {
-      "descriptionLink": "龙虾助理智能建课",
+      "descriptionLink": "AI 助理（龙虾）智能建课",
       "descriptionPrefix": "也可以使用",
       "descriptionSuffix": "，并和其它 Skill 协作，根据你的资料和要求先生成一版可编辑的课程初稿。",
-      "title": "用龙虾助理生成课程初稿"
+      "title": "用 AI 助理（龙虾）生成课程初稿"
     }
   },
   "common": {
