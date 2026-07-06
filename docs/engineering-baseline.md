@@ -68,37 +68,9 @@ python scripts/check_dev_tools.py --strict   # also fail on Cook Web tooling gap
 3. Generate a migration for DB changes: `flask db migrate -m "description"`
 4. Test the relevant change surface
 5. Use English for code-facing text
-6. For human-authored and coding-agent-authored commits, follow the
-   [Commit Message Policy](#commit-message-policy)
-
-### Commit Message Policy
-
-This policy applies to human-authored and coding-agent-authored commits.
-Existing workflow-generated bot commits are exempt unless the workflow is being
-updated for this policy. The local `commit-msg` hook remains a baseline
-Conventional Commits syntax check; use this section as the source of truth for
-requirements the hook cannot validate.
-
-- Subject: use English Conventional Commits without scope parentheses, such as
-  `type: summary`; do not use `type(scope): summary`.
-- Body: include exactly two sections, `Changed:` and `Benefit:`.
-- Classification: use `chore` for repository-maintenance-only instruction or
-  generated guidance updates like this file.
-- Runtime prompt, template, and system-prompt changes affect product behavior:
-  use `feat` when adding capability and `fix` when correcting behavior; do not
-  use `docs`.
-
-Example:
-
-```text
-chore: codify commit message guidance
-
-Changed:
-Codified commit message requirements across repository guidance files.
-
-Benefit:
-Contributors can write commit history that is easier to review and audit.
-```
+6. For human-authored and coding-agent-authored commits, follow the git commit
+   message requirements in
+   [`AGENTS.md`](../AGENTS.md#git-commit-message-requirements)
 
 ### Common Pitfalls To Avoid
 

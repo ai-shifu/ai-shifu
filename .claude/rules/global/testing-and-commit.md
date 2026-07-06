@@ -39,9 +39,9 @@ duplicating the shared repository guidance already stored in `AGENTS.md`.
   missing tools, surface the printed install commands to the user and pause the
   commit until they are installed or the user explicitly opts to proceed.
 
-- Keep commit hygiene aligned with
-  `docs/engineering-baseline.md#commit-message-policy`; do not duplicate the
-  detailed commit-format policy in Claude-only rules.
+- For git commit message title, body, and classification requirements, read the
+  root `AGENTS.md#git-commit-message-requirements`; do not duplicate the
+  detailed commit-message policy in Claude-only rules.
 
 - If a task changes only docs or AI-instruction files, the minimum
   verification target is `python scripts/check_repo_harness.py`.
