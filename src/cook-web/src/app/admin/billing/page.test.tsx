@@ -302,6 +302,12 @@ describe('AdminBillingPage', () => {
       }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'module.billing.page.title · module.billing.page.tabs.plans',
+      }),
+    ).toHaveClass('sr-only');
+    expect(
       screen.queryByRole('heading', {
         name: 'module.billing.package.title',
       }),
@@ -440,6 +446,12 @@ describe('AdminBillingPage', () => {
     expect(
       await screen.findByText('module.billing.details.title'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'module.billing.page.title · module.billing.page.tabs.ledger',
+      }),
+    ).toHaveClass('sr-only');
     expect(screen.getByTestId('admin-billing-details-panel')).toHaveClass(
       'mt-0',
     );
