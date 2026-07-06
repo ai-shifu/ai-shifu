@@ -528,9 +528,6 @@ describe('AdminOperationUsersPage', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('navigation', { name: 'breadcrumb' }),
-    ).toHaveTextContent('module.operationsUser.title');
-    expect(
       screen.getByText('module.operationsUser.overview.title'),
     ).toBeInTheDocument();
     expect(screen.getByText('128')).toBeInTheDocument();

@@ -325,7 +325,7 @@ describe('AdminOperationCourseFollowUpsPage', () => {
     });
   });
 
-  test('renders follow-up list with breadcrumb navigation', async () => {
+  test('renders follow-up list', async () => {
     render(<AdminOperationCourseFollowUpsPage />);
 
     expect(
@@ -370,17 +370,6 @@ describe('AdminOperationCourseFollowUpsPage', () => {
         'module.operationsCourse.detail.followUps.table.sourceMissing',
       ),
     ).toBeInTheDocument();
-
-    expect(
-      screen.getByRole('link', {
-        name: 'module.operationsCourse.title',
-      }),
-    ).toHaveAttribute('href', '/admin/operations');
-    expect(
-      screen.getByRole('link', {
-        name: 'module.operationsCourse.detail.title',
-      }),
-    ).toHaveAttribute('href', '/admin/operations/course-1');
   });
 
   test('formats follow-up summary counts without grouping in Chinese locale', async () => {

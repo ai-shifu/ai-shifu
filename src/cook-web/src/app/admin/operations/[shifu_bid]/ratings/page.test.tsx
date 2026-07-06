@@ -237,7 +237,7 @@ describe('AdminOperationCourseRatingsPage', () => {
     });
   });
 
-  test('renders rating list with breadcrumb navigation', async () => {
+  test('renders rating list', async () => {
     render(<AdminOperationCourseRatingsPage />);
 
     expect(
@@ -269,17 +269,6 @@ describe('AdminOperationCourseRatingsPage', () => {
       screen.getAllByText('module.operationsCourse.detail.ratings.scoreValue')
         .length,
     ).toBeGreaterThan(0);
-
-    expect(
-      screen.getByRole('link', {
-        name: 'module.operationsCourse.title',
-      }),
-    ).toHaveAttribute('href', '/admin/operations');
-    expect(
-      screen.getByRole('link', {
-        name: 'module.operationsCourse.detail.title',
-      }),
-    ).toHaveAttribute('href', '/admin/operations/course-1');
   });
 
   test('converts rating timestamps to the browser timezone', async () => {

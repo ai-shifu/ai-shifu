@@ -10,7 +10,6 @@ import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
@@ -1078,7 +1077,6 @@ export default function AdminOperationUsersPage() {
     <div className='h-full p-0'>
       <TooltipProvider delayDuration={150}>
         <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-          <AdminBreadcrumb items={[{ label: tOperationsUsers('title') }]} />
           <AdminTitle title={tOperationsUsers('title')} />
 
           <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm'>

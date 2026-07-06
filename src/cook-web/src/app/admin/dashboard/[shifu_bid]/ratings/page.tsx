@@ -1,17 +1,16 @@
 'use client';
 
-import { X } from 'lucide-react';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminFilter, {
   type AdminFilterItem,
 } from '@/app/admin/components/AdminFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
   createDateRangeFilterItem,
@@ -43,7 +42,6 @@ import {
   DASHBOARD_FILTER_CONTENT_CLASS,
   DASHBOARD_FILTER_LABEL_CLASS,
 } from '../../dashboardFilterUiShared';
-import { buildAdminDashboardCourseDetailUrl } from '../../admin-dashboard-routes';
 
 type ErrorState = { message: string; code?: number };
 type ContactMode = 'phone' | 'email';
@@ -219,10 +217,6 @@ export default function AdminDashboardCourseRatingsPage() {
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
     : params?.shifu_bid || '';
-  const detailPageUrl = useMemo(
-    () => buildAdminDashboardCourseDetailUrl(shifuBid),
-    [shifuBid],
-  );
   const emptyValue = t('module.dashboard.detail.ratings.emptyValue');
   const clearLabel = t('common.core.close');
   const unknownErrorMessage = t('common.core.unknownError');
@@ -510,19 +504,7 @@ export default function AdminDashboardCourseRatingsPage() {
   return (
     <div className='h-full overflow-auto pr-1'>
       <div className='pb-6'>
-        <AdminBreadcrumb
-          items={[
-            {
-              label: t('module.dashboard.title'),
-              href: '/admin/dashboard',
-            },
-            {
-              label: t('module.dashboard.detail.title'),
-              href: detailPageUrl || '/admin/dashboard',
-            },
-            { label: t('module.dashboard.detail.ratings.title') },
-          ]}
-        />
+        <AdminTitle title={t('module.dashboard.detail.ratings.title')} />
         <div className='space-y-5'>
           <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
             {summaryCards.map(card => (

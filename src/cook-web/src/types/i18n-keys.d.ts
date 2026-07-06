@@ -22,7 +22,6 @@ export type I18nKey =
   | 'common.core.errorSaveFailed'
   | 'common.core.expand'
   | 'common.core.follow'
-  | 'common.core.home'
   | 'common.core.legalFallbackEnglishNotice'
   | 'common.core.logout'
   | 'common.core.mobileUnsupportedDescription'

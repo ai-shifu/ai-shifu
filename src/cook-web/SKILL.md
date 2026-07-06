@@ -23,7 +23,6 @@
 - `AdminTableShell` 内的表头默认保持左对齐；如果某些 body 单元格需要右对齐，只在 body 内容层处理，不要把表头也右对齐。自定义骨架屏行放进 `AdminTableShell` 时要禁用 hover 背景，避免加载翻页时出现整行灰色条。
 - 账户余额、可用积分、侧边会员卡余额这类“积分余额”展示统一只保留整数部分且不加千分位分隔；套餐赠送额度、购买额度、消耗量等非余额数字继续使用通用积分格式化方法，避免把两类数字口径混用。
 - 当产品要求把套餐赠送积分数、免费体验积分和积分包额度也统一成整数展示时，优先复用 `src/lib/billing.ts` 的共享积分数量格式化方法，确保套餐卡、免费卡、积分包卡和对应测试口径一致。
-- 积分购买页的当前页面标题优先通过后台面包屑承载；页面主体不要再重复展示同名大标题，避免“首页 > 积分购买”下方再次出现“积分购买”。
 - 积分消耗明细表格迁移到 `AdminTableShell` 后，列宽优先让“消耗项”占最大宽度，时间列居中偏右，数量列贴近最右侧对齐；不要在时间列保留旧版 grid 表格里的 `text-right`、`justify-end` 或 `ml-auto` 残留，数量列如需靠右可只在该列内容层使用 `justify-end`/`ml-auto`。加载骨架屏行需要同时禁用 `tr:hover` 和 `td:hover` 背景，避免翻页 loading 时出现整行灰色条。
 - admin 侧边会员卡如果改成双层信息布局，保持整卡点击跳转 `packages`、底部“查看详情”独立跳转 `details`，并把积分余额与到期时间放在同一信息层；卡片整体内边距优先保持 `py-14px / pl-16px`，右侧需要贴设计微调时可收敛成 `pr-12px`。若设计稿要求顶部“积分 + 升级”这一整行整体左收 `4px`，优先给这一行的外层容器补 `padding-right`，不要误加到升级按钮本身；`查看详情` 默认不要额外补右侧内边距。头部与信息层之间优先用弱分隔线 `rgba(0,0,0,0.05)`，分隔线下余额行 `pt-3`、到期/详情行 `pt-2.5`，正文颜色优先复用 `--base-card-foreground` 和既有 `text-sm` typography token。
 - 14px 文字旁边的 chevron 类图标，优先收敛到 `h-4 w-4`，并让容器使用 `items-center + leading-none`、文字单独保留 `leading-5`，避免图标因继承文本行高出现视觉不对齐。
@@ -104,7 +103,6 @@
 - `skills/chat-system-interaction-button-overrides/SKILL.md`
 - `skills/shared-loading-dots/SKILL.md`
 - `skills/app-error-boundary-display/SKILL.md`
-- `skills/admin-breadcrumbs/SKILL.md`
 - `skills/admin-filter-layout/SKILL.md`
 - `skills/admin-table-visual-system/SKILL.md`
 

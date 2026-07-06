@@ -40,11 +40,7 @@ import {
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
-import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
-import {
-  buildAdminOperationsCourseDetailUrl,
-  buildAdminOperationsCourseRatingsUrl,
-} from '../../operation-course-routes';
+import { buildAdminOperationsCourseRatingsUrl } from '../../operation-course-routes';
 import type {
   AdminOperationCourseRatingItem,
   AdminOperationCourseRatingListResponse,
@@ -288,10 +284,6 @@ export default function AdminOperationCourseRatingsPage() {
   const requestIdRef = useRef(0);
   const fullSummaryLoadedRef = useRef(false);
 
-  const detailPageUrl = useMemo(
-    () => buildAdminOperationsCourseDetailUrl(shifuBid),
-    [shifuBid],
-  );
   const currentPageUrl = useMemo(
     () => buildAdminOperationsCourseRatingsUrl(shifuBid),
     [shifuBid],
@@ -732,19 +724,6 @@ export default function AdminOperationCourseRatingsPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
-        <AdminOperationsBreadcrumb
-          items={[
-            {
-              label: tOperations('title'),
-              href: '/admin/operations',
-            },
-            {
-              label: tOperations('detail.title'),
-              href: detailPageUrl || undefined,
-            },
-            { label: tOperations('detail.ratings.title') },
-          ]}
-        />
         <AdminTitle title={tOperations('detail.ratings.title')} />
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>

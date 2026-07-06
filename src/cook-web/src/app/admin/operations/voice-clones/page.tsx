@@ -4,7 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
@@ -577,9 +576,6 @@ export default function AdminOperationVoiceClonesPage() {
 
   return (
     <div className='flex min-h-0 flex-1 flex-col px-8 py-6'>
-      <AdminBreadcrumb
-        items={[{ label: t('module.operationsVoiceClone.title') }]}
-      />
       <AdminTitle
         title={t('module.operationsVoiceClone.title')}
         description={t('module.operationsVoiceClone.description')}

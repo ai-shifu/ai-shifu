@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
 import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
 import { BillingRecentActivitySection } from './components/BillingRecentActivitySection';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle, {
   ADMIN_TITLE_HEADLINE_TABS_LIST_CLASSNAME,
   ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME,
@@ -100,21 +99,12 @@ export function AdminBillingPageClient({
     return null;
   }
 
-  const breadcrumbTitle =
-    activeTab === 'details'
-      ? t('module.billing.page.tabs.ledger')
-      : t('module.billing.package.title');
-
   return (
     <div
       className='h-full min-h-0 overscroll-none p-0'
       data-testid='admin-billing-page'
     >
       <div className='flex h-full min-h-0 flex-col px-1 pb-6'>
-        <AdminBreadcrumb
-          className='shrink-0'
-          items={[{ label: breadcrumbTitle }]}
-        />
         <Tabs
           className='flex min-h-0 flex-1 flex-col'
           value={activeTab}

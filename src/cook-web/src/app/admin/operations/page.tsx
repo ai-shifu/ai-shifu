@@ -11,7 +11,6 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
@@ -1319,7 +1318,6 @@ const OperationsPage = () => {
       data-testid='admin-operations-page'
     >
       <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-        <AdminBreadcrumb items={[{ label: tOperations('title') }]} />
         <AdminTitle
           data-testid='admin-operations-header'
           title={tOperations('title')}

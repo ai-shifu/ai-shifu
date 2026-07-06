@@ -2,7 +2,6 @@
 
 import React from 'react';
 import api from '@/api';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
 import { Badge } from '@/components/ui/Badge';
@@ -153,17 +152,6 @@ export default function ProfileOnboardingAdminPage() {
 
   return (
     <div className='flex min-h-0 flex-1 flex-col px-8 py-6'>
-      <AdminBreadcrumb
-        items={[
-          {
-            label: t('common.core.operations'),
-            href: '/admin/operations',
-          },
-          {
-            label: t('module.profileOnboarding.admin.title'),
-          },
-        ]}
-      />
       <AdminTitle
         title={t('module.profileOnboarding.admin.title')}
         description={t('module.profileOnboarding.admin.description')}

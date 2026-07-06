@@ -341,9 +341,6 @@ describe('AdminBillingConsolePage', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('navigation', { name: 'breadcrumb' }),
-    ).toHaveTextContent('module.billing.page.title');
-    expect(
       screen.getByRole('link', {
         name: 'module.billing.admin.backToCreatorBilling',
       }),

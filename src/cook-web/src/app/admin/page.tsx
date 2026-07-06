@@ -50,7 +50,6 @@ import {
   buildOnboardingTargetProps,
   ONBOARDING_TARGET_IDS,
 } from '@/lib/onboardingTargets';
-import AdminBreadcrumb from './components/AdminBreadcrumb';
 import AdminTitle from './components/AdminTitle';
 
 interface ShifuCardProps {
@@ -754,7 +753,6 @@ const ScriptManagementPage = () => {
       />
       <div className='h-full p-0'>
         <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-          <AdminBreadcrumb items={[{ label: t('common.core.shifu') }]} />
           <AdminTitle title={t('common.core.shifu')} />
           <div className='mb-8 flex shrink-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
             <Tabs
