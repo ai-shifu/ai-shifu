@@ -250,7 +250,7 @@ describe('BillingRecentActivitySection', () => {
     expect(await screen.findByText('+5.00')).toBeInTheDocument();
   });
 
-  test('keeps one full page height when a full usage page is available', async () => {
+  test('renders a full usage page without fixed vertical scrolling', async () => {
     mockGetBillingLedger.mockResolvedValueOnce({
       items: Array.from({ length: 20 }, (_, index) =>
         createLedgerItem(index + 1),
@@ -267,8 +267,8 @@ describe('BillingRecentActivitySection', () => {
     const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
     expect(scrollContainer).not.toHaveClass('flex-1');
     expect(scrollContainer).toHaveClass('overflow-x-auto');
-    expect(scrollContainer.style.minHeight).toBe('1100px');
-    expect(scrollContainer.parentElement).toHaveStyle({
+    expect(scrollContainer.style.minHeight).toBe('');
+    expect(scrollContainer.parentElement).not.toHaveStyle({
       minHeight: '1100px',
     });
   });

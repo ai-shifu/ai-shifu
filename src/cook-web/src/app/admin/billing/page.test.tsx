@@ -290,7 +290,10 @@ describe('AdminBillingPage', () => {
     expect(screen.getByTestId('admin-billing-page')).toHaveClass(
       'overscroll-none',
     );
+    expect(screen.getByTestId('admin-billing-page')).not.toHaveClass('h-full');
+    expect(screen.getByTestId('admin-billing-page')).not.toHaveClass('min-h-0');
     expect(packagesPanel).toHaveClass('mt-0');
+    expect(packagesPanel).not.toHaveClass('min-h-0');
     expect(
       within(tabs).getByRole('tab', {
         name: 'module.billing.page.tabs.plans',
