@@ -34,7 +34,7 @@ from .shifu_history_manager import (
     delete_outline_history,
 )
 from .shifu_mdflow_funcs import cleanup_outline_history_versions
-from datetime import datetime
+from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
 
 from flaskr.common.i18n_utils import get_markdownflow_output_language
@@ -264,7 +264,7 @@ def create_outline(
         SimpleOutlineDto: Outline dto
     """
     with app.app_context():
-        now_time = datetime.now()
+        now_time = now_utc()
         # generate new outline id
         outline_bid = generate_id(app)
 
@@ -375,7 +375,7 @@ def reorder_outline_tree(
         app.logger.info(
             f"reorder outline tree, user_id: {user_id}, shifu_id: {shifu_id}"
         )
-        now_time = datetime.now()
+        now_time = now_utc()
 
         # get existing outlines
         existing_items = __get_existing_outline_items(shifu_id)
@@ -506,7 +506,7 @@ def modify_unit(
     """
     with app.app_context():
         app.logger.info(f"modify unit: {unit_id}, name: {unit_name}")
-        now_time = datetime.now()
+        now_time = now_utc()
         # find existing unit
         existing_unit = (
             DraftOutlineItem.query.filter(
@@ -586,7 +586,7 @@ def delete_unit(app, user_id: str, unit_id: str):
         bool: True if deleted, False otherwise
     """
     with app.app_context():
-        now_time = datetime.now()
+        now_time = now_utc()
         # find the unit to delete
         unit_to_delete = (
             DraftOutlineItem.query.filter(

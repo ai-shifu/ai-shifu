@@ -24,7 +24,7 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_outline_tree
 from flaskr.util import generate_id
-from datetime import datetime
+from flaskr.util.datetime import now_utc
 import threading
 import queue
 from flaskr.service.shifu.shifu_struct_manager import ShifuInfoDto
@@ -105,7 +105,7 @@ def publish_shifu_draft(
         str: Shifu published URL
     """
     with app.app_context():
-        now_time = datetime.now()
+        now_time = now_utc()
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
