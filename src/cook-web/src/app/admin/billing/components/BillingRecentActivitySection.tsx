@@ -107,7 +107,7 @@ export function BillingRecentActivitySection({
   const currentPage = Number(ledgerData?.page || pageIndex);
   const shouldUsePageHeight =
     ledgerLoading || ledgerItems.length >= RECENT_ITEMS_LIMIT;
-  const shouldStretchTable = stretchToFill && shouldUsePageHeight;
+  const shouldStretchTable = stretchToFill;
   const usageTablePageStyle: React.CSSProperties | undefined =
     shouldUsePageHeight && !stretchToFill
       ? {

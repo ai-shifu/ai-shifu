@@ -292,6 +292,24 @@ describe('BillingRecentActivitySection', () => {
     });
   });
 
+  test('keeps the stretch layout when a usage page has fewer rows', async () => {
+    mockGetBillingLedger.mockResolvedValueOnce({
+      items: [createLedgerItem(1)],
+      page: 2,
+      page_count: 2,
+      page_size: 20,
+      total: 21,
+    });
+
+    renderSection({ stretchToFill: true });
+
+    expect(await screen.findByText('+1.00')).toBeInTheDocument();
+    const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
+    expect(scrollContainer).toHaveClass('flex-1');
+    expect(scrollContainer.style.minHeight).toBe('');
+    expect(scrollContainer.parentElement).toHaveClass('flex-1');
+  });
+
   test('does not render an empty pagination footer for a single page result', async () => {
     mockGetBillingLedger.mockResolvedValueOnce({
       items: [
