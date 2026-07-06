@@ -2036,14 +2036,14 @@ export default function ShifuSettingDialog({
                           <SelectContent>
                             {isMiniMaxTtsProvider ? (
                               <>
-                                {builtInTtsVoiceOptions.length > 0 ? (
+                                {clonedTtsVoiceOptions.length > 0 ? (
                                   <SelectGroup>
                                     <SelectLabel>
                                       {t(
-                                        'module.shifuSetting.minimaxVoiceGroupBuiltIn',
+                                        'module.shifuSetting.minimaxVoiceGroupCloned',
                                       )}
                                     </SelectLabel>
-                                    {builtInTtsVoiceOptions.map(option => (
+                                    {clonedTtsVoiceOptions.map(option => (
                                       <SelectItem
                                         key={option.value}
                                         value={option.value}
@@ -2056,18 +2056,18 @@ export default function ShifuSettingDialog({
                                     ))}
                                   </SelectGroup>
                                 ) : null}
-                                {clonedTtsVoiceOptions.length > 0 ? (
+                                {builtInTtsVoiceOptions.length > 0 ? (
                                   <>
-                                    {builtInTtsVoiceOptions.length > 0 ? (
+                                    {clonedTtsVoiceOptions.length > 0 ? (
                                       <SelectSeparator />
                                     ) : null}
                                     <SelectGroup>
                                       <SelectLabel>
                                         {t(
-                                          'module.shifuSetting.minimaxVoiceGroupCloned',
+                                          'module.shifuSetting.minimaxVoiceGroupBuiltIn',
                                         )}
                                       </SelectLabel>
-                                      {clonedTtsVoiceOptions.map(option => (
+                                      {builtInTtsVoiceOptions.map(option => (
                                         <SelectItem
                                           key={option.value}
                                           value={option.value}
@@ -2083,8 +2083,8 @@ export default function ShifuSettingDialog({
                                 ) : null}
                                 {manualTtsVoiceOptions.length > 0 ? (
                                   <>
-                                    {builtInTtsVoiceOptions.length > 0 ||
-                                    clonedTtsVoiceOptions.length > 0 ? (
+                                    {clonedTtsVoiceOptions.length > 0 ||
+                                    builtInTtsVoiceOptions.length > 0 ? (
                                       <SelectSeparator />
                                     ) : null}
                                     <SelectGroup>
