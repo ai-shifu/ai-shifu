@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
@@ -197,6 +198,147 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(app, monkey
     assert detail.ask_temperature == pytest.approx(0.8)
     assert detail.ask_system_prompt == "ask prompt"
     assert detail.ask_provider_config == ask_provider_config
+
+
+def test_save_shifu_draft_info_normalizes_removed_tts_fields(app, monkeypatch):
+    from flaskr.service.shifu import shifu_draft_funcs
+    from flaskr.service.shifu.models import DraftShifu
+
+    shifu_bid = "test-save-shifu-tts-normalized"
+    owner_bid = "owner-tts-normalized"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_shifu_permissions(monkeypatch)
+
+    captured: dict[str, object] = {}
+
+    def _fake_validate_tts_settings_strict(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            provider="minimax",
+            model="speech-01-turbo",
+            voice_id="voice-1",
+            speed=1.2,
+            pitch=kwargs["pitch"],
+            emotion=kwargs["emotion"],
+        )
+
+    monkeypatch.setattr(
+        shifu_draft_funcs,
+        "validate_tts_settings_strict",
+        _fake_validate_tts_settings_strict,
+        raising=False,
+    )
+
+    shifu_draft_funcs.save_shifu_draft_info(
+        app=app,
+        user_id=owner_bid,
+        shifu_id=shifu_bid,
+        shifu_name="Test Shifu",
+        shifu_description="desc",
+        shifu_avatar="res",
+        shifu_keywords=["test"],
+        shifu_model="gpt-test",
+        shifu_temperature=0.3,
+        shifu_price=1.23,
+        shifu_system_prompt="",
+        base_url="http://localhost:5000",
+        tts_enabled=True,
+        tts_provider="minimax",
+        tts_model="speech-01-turbo",
+        tts_voice_id="voice-1",
+        tts_speed=1.2,
+        tts_pitch=9,
+        tts_emotion="happy",
+    )
+
+    assert captured["pitch"] == 0
+    assert captured["emotion"] == ""
+
+    with app.app_context():
+        latest = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert latest is not None
+        assert latest.tts_pitch == 0
+        assert latest.tts_emotion == ""
+
+
+def test_save_shifu_draft_info_normalizes_legacy_tts_fields_when_omitted(
+    app, monkeypatch
+):
+    from flaskr.service.shifu import shifu_draft_funcs
+    from flaskr.service.shifu.models import DraftShifu
+
+    shifu_bid = "test-save-shifu-tts-legacy-omitted"
+    owner_bid = "owner-tts-legacy-omitted"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_shifu_permissions(monkeypatch)
+
+    # Existing draft still carries legacy non-default pitch/emotion.
+    with app.app_context():
+        legacy = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        legacy.tts_enabled = 1
+        legacy.tts_provider = "minimax"
+        legacy.tts_model = "speech-01-turbo"
+        legacy.tts_voice_id = "voice-1"
+        legacy.tts_speed = Decimal("1.20")
+        legacy.tts_pitch = 9
+        legacy.tts_emotion = "happy"
+        dao.db.session.commit()
+
+    def _fake_validate_tts_settings_strict(**kwargs):
+        return SimpleNamespace(
+            provider=kwargs["provider"],
+            model=kwargs["model"],
+            voice_id=kwargs["voice_id"],
+            speed=kwargs["speed"],
+            pitch=kwargs["pitch"],
+            emotion=kwargs["emotion"],
+        )
+
+    monkeypatch.setattr(
+        shifu_draft_funcs,
+        "validate_tts_settings_strict",
+        _fake_validate_tts_settings_strict,
+        raising=False,
+    )
+
+    # Caller omits pitch/emotion entirely (frontend no longer sends them).
+    shifu_draft_funcs.save_shifu_draft_info(
+        app=app,
+        user_id=owner_bid,
+        shifu_id=shifu_bid,
+        shifu_name="Test Shifu",
+        shifu_description="desc",
+        shifu_avatar="res",
+        shifu_keywords=["test"],
+        shifu_model="gpt-test",
+        shifu_temperature=0.3,
+        shifu_price=1.23,
+        shifu_system_prompt="",
+        base_url="http://localhost:5000",
+        tts_enabled=True,
+        tts_provider="minimax",
+        tts_model="speech-01-turbo",
+        tts_voice_id="voice-1",
+        tts_speed=1.2,
+    )
+
+    with app.app_context():
+        latest = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert latest is not None
+        assert latest.tts_pitch == 0
+        assert latest.tts_emotion == ""
 
 
 def test_get_draft_meta_route_serializes_utc_timestamp(app, test_client, monkeypatch):
