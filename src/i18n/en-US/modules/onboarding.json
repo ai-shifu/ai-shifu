@@ -23,15 +23,15 @@
   },
   "courseEditor": {
     "backHome": {
-      "description": "Return to the admin console to keep managing courses, orders, and plans.",
+      "description": "Return to the course list to keep managing other courses, orders, and plans.",
       "title": "Back to the course list"
     },
     "listenMode": {
-      "description": "Enable listen mode",
+      "description": "When it is on, learners can study this course with slides and voice.",
       "title": "Listen mode switch"
     },
     "publish": {
-      "description": "After publishing, the current draft becomes the official version learners can see.",
+      "description": "After publishing, learners will see this version of the course content.",
       "title": "Publish the latest version"
     },
     "settingsEntry": {

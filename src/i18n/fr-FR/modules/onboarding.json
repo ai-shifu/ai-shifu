@@ -23,15 +23,15 @@
   },
   "courseEditor": {
     "backHome": {
-      "description": "Revenez à la console d'administration pour continuer à gérer les cours, les commandes et les offres.",
+      "description": "Revenez à la liste des cours pour continuer à gérer les autres cours, les commandes et les offres.",
       "title": "Retour à la liste des cours"
     },
     "listenMode": {
-      "description": "Activer le mode écoute",
+      "description": "Une fois activé, les apprenants peuvent suivre ce cours avec des diapositives et de l'audio.",
       "title": "Interrupteur du mode écoute"
     },
     "publish": {
-      "description": "Après publication, le brouillon actuel devient la version officielle visible par les apprenants.",
+      "description": "Après publication, les apprenants verront cette version du contenu du cours.",
       "title": "Publier la dernière version"
     },
     "settingsEntry": {
