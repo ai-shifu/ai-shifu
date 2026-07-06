@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/Table';
 import { cn } from '@/lib/utils';
 import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
-import { BILLING_SECTION_TITLE_CLASS } from '@/components/billing/billingSectionTitleClass';
+import { BILLING_SUBSECTION_TITLE_CLASS } from '@/components/billing/billingSectionTitleClass';
 import {
   buildBillingSwrKey,
   formatBillingCreditDetail,
@@ -125,7 +125,7 @@ export function BillingRecentActivitySection({
       data-testid='billing-usage-table-section'
     >
       <div>
-        <h2 className={BILLING_SECTION_TITLE_CLASS}>
+        <h2 className={BILLING_SUBSECTION_TITLE_CLASS}>
           {t('module.billing.details.usageTable.title')}
         </h2>
       </div>

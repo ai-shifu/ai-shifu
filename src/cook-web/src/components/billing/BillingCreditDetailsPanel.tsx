@@ -10,7 +10,6 @@ import {
   CardTitle,
 } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { BILLING_SECTION_TITLE_CLASS } from './billingSectionTitleClass';
 import {
   Tooltip,
   TooltipContent,
@@ -219,12 +218,6 @@ export function BillingCreditDetailsPanel({
       className='space-y-6'
       data-testid='billing-credit-details-panel'
     >
-      <div>
-        <h1 className={BILLING_SECTION_TITLE_CLASS}>
-          {t('module.billing.details.title')}
-        </h1>
-      </div>
-
       <Card className='gap-[var(--spacing-6,24px)] overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] border border-[var(--base-border,#E5E5E5)] bg-[#F6FAFF] shadow-[var(--shadow-xs-offset-x,0)_var(--shadow-xs-offset-y,1px)_var(--shadow-xs-blur-radius,2px)_var(--shadow-xs-spread-radius,0)_var(--shadow-xs-color,rgba(0,0,0,0.05))]'>
         <CardHeader className='gap-6 px-6 pb-0 pt-6 md:flex-row md:items-start md:justify-between'>
           <div className='space-y-1.5'>

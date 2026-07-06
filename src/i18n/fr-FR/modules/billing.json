@@ -353,18 +353,18 @@
     "table": {
       "balance": "Solde",
       "creditType": "Type",
-      "validUntil": "Expire le"
+      "validUntil": "Valide jusqu’au"
     },
-    "title": "Crédits Vue d’ensemble",
-    "topupAvailabilityLabel": "Sans expiration",
-    "topupAvailabilityTooltip": "Un abonnement actif est requis pour utiliser les packs de crédits",
-    "totalCreditsDescription": "Les crédits sont consommés par ordre de priorité : crédits du forfait > packs de crédits",
-    "totalCreditsLabel": "Solde de crédits",
+    "title": "Détails",
+    "topupAvailabilityLabel": "Aucune expiration",
+    "topupAvailabilityTooltip": "Un abonnement actif est requis pour utiliser les packs de crédits.",
+    "totalCreditsDescription": "Les crédits du forfait sont utilisés en premier, puis les packs de crédits.",
+    "totalCreditsLabel": "Solde",
     "usageTable": {
       "columns": {
         "scene": "Élément d’utilisation"
       },
-      "title": "Crédit usage details"
+      "title": "Détail des consommations"
     }
   },
   "domains": {

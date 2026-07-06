@@ -353,18 +353,18 @@
     "table": {
       "balance": "余额",
       "creditType": "类型",
-      "validUntil": "有效期到"
+      "validUntil": "有效期至"
     },
-    "title": "积分总览",
+    "title": "详情",
     "topupAvailabilityLabel": "无限期",
-    "topupAvailabilityTooltip": "必须有任意激活套餐才可使用",
-    "totalCreditsDescription": "按照套餐积分>积分包的顺序优先扣减",
-    "totalCreditsLabel": "积分余额",
+    "topupAvailabilityTooltip": "需开通任一有效套餐后才可使用",
+    "totalCreditsDescription": "优先使用套餐积分，再使用积分包",
+    "totalCreditsLabel": "余额",
     "usageTable": {
       "columns": {
         "scene": "消耗项"
       },
-      "title": "积分消耗明细"
+      "title": "消耗明细"
     }
   },
   "domains": {
