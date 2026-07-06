@@ -34,6 +34,23 @@ describe('tts-model-options', () => {
     expect(options[0].creditMultiplierLabel).toBe('2x');
   });
 
+  test('parses fallback values by splitting on the first slash only', () => {
+    // A stale selection missing from options must round-trip without losing
+    // slashes in the model portion (matches backend split('/', 1)).
+    expect(parseTtsModelOptionValue('volcengine/seed/tts/2.0', [])).toEqual({
+      provider: 'volcengine',
+      model: 'seed/tts/2.0',
+    });
+    expect(parseTtsModelOptionValue('minimax/default', [])).toEqual({
+      provider: 'minimax',
+      model: '',
+    });
+    expect(parseTtsModelOptionValue('minimax', [])).toEqual({
+      provider: 'minimax',
+      model: '',
+    });
+  });
+
   test('filters volcengine voices by selected resource model', () => {
     const voices = [
       { value: 'voice-1', label: 'Voice 1', resource_id: 'seed-tts-1.0' },

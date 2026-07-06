@@ -254,3 +254,99 @@ def test_tts_display_name_prefers_request_language(monkeypatch):
             )
     finally:
         clear_language()
+
+
+def test_tts_display_name_normalizes_config_keys(monkeypatch):
+    import flaskr.api.tts as tts_api
+    from flaskr.i18n import clear_language
+
+    # Config uses non-normalized provider casing; lookups later use the
+    # normalized "tencent/default" key, so parsing must normalize provider case
+    # to keep the label.
+    monkeypatch.setenv(
+        "TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON",
+        json.dumps(
+            {
+                "TenCent/default": {
+                    "zh-CN": "基础语音",
+                    "en-US": "Basic Voice",
+                }
+            }
+        ),
+    )
+
+    app = Flask(__name__)
+    try:
+        with app.test_request_context(headers={"Accept-Language": "en-US"}):
+            display_names = tts_api._parse_tts_display_names()
+            assert "tencent/default" in display_names
+            assert (
+                tts_api._resolve_localized_tts_label(
+                    display_names,
+                    "tencent/default",
+                    "Tencent",
+                )
+                == "Basic Voice"
+            )
+    finally:
+        clear_language()
+
+
+def test_parse_tts_display_names_accepts_preparsed_dict(monkeypatch):
+    import flaskr.api.tts as tts_api
+
+    # A programmatic/unit-test config may hand back an already-parsed dict; the
+    # parser must accept it instead of str()-ing and failing json.loads.
+    monkeypatch.setattr(
+        tts_api,
+        "get_config",
+        lambda key, default=None: (
+            {"MiniMax/speech-01-turbo": {"en-US": "Flagship Voice"}}
+            if key == "TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON"
+            else default
+        ),
+    )
+
+    display_names = tts_api._parse_tts_display_names()
+    assert display_names == {"minimax/speech-01-turbo": {"en-US": "Flagship Voice"}}
+
+
+def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
+    import flaskr.api.tts as tts_api
+    from datetime import datetime
+    from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
+    from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
+
+    utc_sentinel = datetime(2026, 1, 1, 0, 0, 0)
+    local_sentinel = datetime(2026, 1, 1, 8, 0, 0)
+
+    class _FakeDateTime:
+        @staticmethod
+        def utcnow():
+            return utc_sentinel
+
+        @staticmethod
+        def now():
+            return local_sentinel
+
+    monkeypatch.setattr(tts_api, "datetime", _FakeDateTime)
+
+    captured = {}
+
+    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+        captured["settlement_at"] = settlement_at
+        return None
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.charges.load_usage_rate",
+        fake_load_usage_rate,
+    )
+
+    tts_api._load_usage_rate_unit_cost(
+        usage_type=BILL_USAGE_TYPE_TTS,
+        provider="tencent",
+        model_candidates=[""],
+        billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
+    )
+
+    assert captured["settlement_at"] == utc_sentinel

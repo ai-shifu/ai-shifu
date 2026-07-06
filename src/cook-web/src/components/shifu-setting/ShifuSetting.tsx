@@ -469,6 +469,7 @@ export default function ShifuSettingDialog({
 
   // Fetch TTS config from backend
   useEffect(() => {
+    let cancelled = false;
     const fetchConfig = async () => {
       try {
         const requestLanguage = currentLanguage || undefined;
@@ -476,6 +477,11 @@ export default function ShifuSettingDialog({
           api.ttsConfig({ language: requestLanguage }),
           api.askConfig({ language: requestLanguage }),
         ]);
+        // Ignore stale responses when the language changed mid-flight so a
+        // slower earlier request cannot overwrite the current-language config.
+        if (cancelled) {
+          return;
+        }
         setTtsConfig({
           providers: normalizeTtsProviders(ttsConfigResponse?.providers),
           model_options: normalizeTtsModelOptions(
@@ -491,6 +497,9 @@ export default function ShifuSettingDialog({
       }
     };
     fetchConfig();
+    return () => {
+      cancelled = true;
+    };
   }, [currentLanguage, normalizeAskProviders, normalizeTtsProviders]);
 
   const refreshMinimaxVoiceData = useCallback(async () => {
@@ -1982,12 +1991,9 @@ export default function ShifuSettingDialog({
                               ttsConfig?.providers.find(
                                 p => p.name === next.provider,
                               );
-                            const nextVoices = filterTtsVoicesForModel(
-                              next.provider,
-                              nextProviderConfig?.voices || [],
-                              next.model,
-                            );
-                            setTtsVoiceId(nextVoices[0]?.value || '');
+                            // Keep the current voice; the sanitizing effect
+                            // picks a fallback only when it is no longer valid,
+                            // preserving cloned/manual selections that still fit.
                             if (nextProviderConfig?.speed) {
                               setTtsSpeed(nextProviderConfig.speed.default);
                             }

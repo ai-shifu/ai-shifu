@@ -253,15 +253,35 @@ def _parse_allowed_tts_model_keys() -> list[str]:
 
 
 def _parse_tts_display_names() -> dict:
-    raw = str(get_config("TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON") or "").strip()
-    if not raw:
+    configured = get_config("TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON")
+    if isinstance(configured, dict):
+        payload = configured
+    else:
+        raw = str(configured or "").strip()
+        if not raw:
+            return {}
+        try:
+            payload = json.loads(raw)
+        except (TypeError, ValueError) as exc:
+            logger.warning(
+                "Ignoring invalid TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON: %s", exc
+            )
+            return {}
+    if not isinstance(payload, dict):
         return {}
-    try:
-        payload = json.loads(raw)
-    except (TypeError, ValueError) as exc:
-        logger.warning("Ignoring invalid TTS_ALLOWED_MODEL_DISPLAY_NAMES_JSON: %s", exc)
-        return {}
-    return payload if isinstance(payload, dict) else {}
+
+    # Normalize keys the same way as TTS_ALLOWED_MODELS so localized labels are
+    # found regardless of the provider/model casing used in the config value.
+    normalized: dict = {}
+    for raw_key, value in payload.items():
+        key = str(raw_key or "").strip()
+        if "/" not in key:
+            continue
+        provider, model = key.split("/", 1)
+        normalized_key = _normalize_tts_model_key(provider, model)
+        if normalized_key:
+            normalized[normalized_key] = value
+    return normalized
 
 
 def _iter_tts_display_language_candidates():
@@ -381,7 +401,9 @@ def _load_usage_rate_unit_cost(
     normalized_models = [str(model or "").strip() for model in model_candidates]
     if not normalized_models:
         normalized_models = [""]
-    settlement_at = datetime.now()
+    # Match the UTC settlement window used by billing rate selection
+    # (billing/charges.py defaults settlement_at to datetime.utcnow()).
+    settlement_at = datetime.utcnow()
     for model in normalized_models:
         rate = load_usage_rate(
             usage=BillUsageRecord(

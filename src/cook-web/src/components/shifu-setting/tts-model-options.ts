@@ -37,7 +37,16 @@ export const parseTtsModelOptionValue = (
     };
   }
 
-  const [rawProvider = '', rawModel = ''] = String(value || '').split('/');
+  // Split on the first slash only so model ids containing slashes survive,
+  // matching the backend `split('/', 1)` normalization.
+  const normalizedValue = String(value || '').trim();
+  const separatorIndex = normalizedValue.indexOf('/');
+  const rawProvider =
+    separatorIndex >= 0
+      ? normalizedValue.slice(0, separatorIndex)
+      : normalizedValue;
+  const rawModel =
+    separatorIndex >= 0 ? normalizedValue.slice(separatorIndex + 1) : '';
   const provider = rawProvider.trim().toLowerCase();
   const model = rawModel.trim();
   return {
