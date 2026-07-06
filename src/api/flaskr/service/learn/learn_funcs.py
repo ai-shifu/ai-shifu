@@ -105,6 +105,7 @@ from flaskr.service.tts.models import (
     TTSMiniMaxClonedVoice,
     TTS_MINIMAX_CLONE_STATUS_READY,
 )
+from flaskr.service.tts.minimax_voice_clone import is_valid_minimax_custom_voice_id
 from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
@@ -738,9 +739,10 @@ def _resolve_runtime_tts_voice_id(
     MiniMax accepts user-defined clone IDs that share the same character shape as
     historical built-in voices. A stale DB value can therefore pass local shape
     validation and fail only after the external API call with `2054 - voice id not
-    exist`. For learner-facing audio generation, fall back to the provider's
-    default voice when the MiniMax voice is neither a current built-in voice nor a
-    ready cloned voice tracked by our system.
+    exist`. For learner-facing audio generation, keep valid manual custom voice
+    IDs so preview/runtime behavior matches publish, while still falling back
+    when this shifu explicitly points at a local cloned voice row that is not
+    ready yet.
     """
     normalized_provider = (provider or "").strip().lower()
     normalized_voice_id = (voice_id or "").strip()
@@ -756,22 +758,30 @@ def _resolve_runtime_tts_voice_id(
     if normalized_voice_id in built_in_voice_ids:
         return normalized_voice_id
 
-    # Only accept a cloned voice that belongs to THIS shifu and is ready.
-    # Scoping by shifu_bid keeps a stale/misconfigured voice id from resolving to
-    # another shifu's clone, and filtering status in the query prevents a newer
-    # non-ready duplicate from hiding an older ready row.
+    # If this shifu tracks a local clone row for the selected voice id, only
+    # accept it when the latest row is ready. This prevents preview/runtime
+    # from trying to use a clone that is still queued or has already failed.
     normalized_shifu_bid = (shifu_bid or "").strip()
     cloned_voice = (
         TTSMiniMaxClonedVoice.query.filter(
             TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
             TTSMiniMaxClonedVoice.shifu_bid == normalized_shifu_bid,
-            TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
             TTSMiniMaxClonedVoice.deleted == 0,
         )
         .order_by(TTSMiniMaxClonedVoice.id.desc())
         .first()
     )
+    if cloned_voice and cloned_voice.status == TTS_MINIMAX_CLONE_STATUS_READY:
+        return normalized_voice_id
     if cloned_voice:
+        app.logger.warning(
+            "MiniMax TTS voice_id %s for shifu %s is tracked locally but not ready; falling back to a default voice",
+            normalized_voice_id,
+            normalized_shifu_bid,
+        )
+    elif is_valid_minimax_custom_voice_id(normalized_voice_id):
+        # Manual custom voice IDs are allowed for MiniMax even when we do not
+        # have a local cloned-voice row for this shifu.
         return normalized_voice_id
 
     default_voice_settings = get_default_voice_settings(normalized_provider)
