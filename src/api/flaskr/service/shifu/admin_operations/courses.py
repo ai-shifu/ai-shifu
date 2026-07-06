@@ -5519,7 +5519,9 @@ def _list_operator_courses_legacy(
                 == COURSE_STATUS_PUBLISHED
             ]
         elif quick_filter == COURSE_QUICK_FILTER_CREATED_LAST_7D:
-            created_window_start, created_window_end = _resolve_created_last_7d_window()
+            created_window_start, created_window_end = _resolve_created_last_7d_window(
+                now_utc()
+            )
             merged_courses = [
                 course
                 for course in merged_courses
@@ -5657,7 +5659,7 @@ def list_operator_courses(
                 )
             elif quick_filter == COURSE_QUICK_FILTER_CREATED_LAST_7D:
                 created_window_start, created_window_end = (
-                    _resolve_created_last_7d_window()
+                    _resolve_created_last_7d_window(now_utc())
                 )
                 query = query.filter(
                     candidate_subquery.c.created_at >= created_window_start,
