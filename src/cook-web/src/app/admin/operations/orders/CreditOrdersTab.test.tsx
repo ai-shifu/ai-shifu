@@ -1,6 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/lib/admin-date-time';
 import CreditOrdersTab from './CreditOrdersTab';
 
 const translationCache = new Map<
@@ -14,6 +18,7 @@ const TRANSLATION_OVERRIDES: Record<string, string> = {
   'module.operationsOrder.creditOrders.productNameFormat': 'Yearly - Advanced',
 };
 let mockLanguage = 'en-US';
+const mockBrowserTimeZone = jest.fn(() => 'America/Los_Angeles');
 
 const baseTranslation = (namespace?: string | string[]) => {
   const ns = Array.isArray(namespace) ? namespace[0] : namespace;
@@ -65,6 +70,10 @@ jest.mock('@/api', () => ({
     getAdminOperationCreditOrders: jest.fn(),
     getAdminOperationCreditOrderDetail: jest.fn(),
   },
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('@/lib/request', () => ({
@@ -168,8 +177,20 @@ jest.mock('@/components/ui/Select', () => {
 
 jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
   __esModule: true,
-  default: ({ placeholder }: { placeholder: string }) => (
-    <div>{placeholder}</div>
+  default: ({
+    placeholder,
+    onChange,
+  }: {
+    placeholder: string;
+    onChange: (range: { start: string; end: string }) => void;
+  }) => (
+    <button
+      type='button'
+      data-testid={`date-range-${placeholder}`}
+      onClick={() => onChange({ start: '2026-07-02', end: '2026-07-02' })}
+    >
+      {placeholder}
+    </button>
   ),
 }));
 
@@ -200,6 +221,7 @@ describe('CreditOrdersTab', () => {
     mockGetAdminOperationCreditOrders.mockReset();
     mockGetAdminOperationCreditOrderDetail.mockReset();
     mockLanguage = 'en-US';
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     window.localStorage.clear();
     mockGetAdminOperationCreditOrdersOverview.mockResolvedValue({
       total_order_count: 12,
@@ -241,7 +263,7 @@ describe('CreditOrdersTab', () => {
           provider_reference_id: 'charge_1',
           failure_code: '',
           failure_message: '',
-          created_at: '2026-04-27T09:00:00+08:00',
+          created_at: '2026-04-27T09:00:00Z',
           paid_at: '2026-04-27T10:00:00Z',
           failed_at: null,
           refunded_at: null,
@@ -312,7 +334,7 @@ describe('CreditOrdersTab', () => {
         provider_reference_id: 'charge_1',
         failure_code: '',
         failure_message: '',
-        created_at: '2026-04-27T09:00:00+08:00',
+        created_at: '2026-04-27T09:00:00Z',
         paid_at: '2026-04-27T10:00:00Z',
         failed_at: null,
         refunded_at: null,
@@ -352,8 +374,8 @@ describe('CreditOrdersTab', () => {
     });
 
     expect(await screen.findByText('bill-order-1')).toBeInTheDocument();
-    expect(screen.getByText('2026-04-27 09:00:00')).toBeInTheDocument();
-    expect(screen.queryByText('2026-04-27 01:00:00')).not.toBeInTheDocument();
+    expect(screen.getByText('2026-04-27 02:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-27 09:00:00')).not.toBeInTheDocument();
     expect(
       screen.queryByText('module.operationsOrder.overview.activeFilter'),
     ).not.toBeInTheDocument();
@@ -599,6 +621,11 @@ describe('CreditOrdersTab', () => {
         target: { value: 'creator-topup-small' },
       },
     );
+    fireEvent.click(
+      screen.getByTestId(
+        'date-range-module.operationsOrder.filters.timeRangePlaceholder',
+      ),
+    );
 
     fireEvent.click(
       screen.getByRole('button', {
@@ -612,6 +639,8 @@ describe('CreditOrdersTab', () => {
           creator_keyword: '13800138000',
           product_keyword: 'creator-topup-small',
           status: 'paid',
+          start_time: formatAdminDateRangeStartUtc('2026-07-02'),
+          end_time: formatAdminDateRangeEndUtc('2026-07-02'),
         }),
       );
     });
@@ -635,10 +664,10 @@ describe('CreditOrdersTab', () => {
         'module.operationsOrder.creditOrders.detail.title',
       ),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('2026-04-27 09:00:00').length).toBeGreaterThan(
+    expect(screen.queryAllByText('2026-04-27 02:00:00').length).toBeGreaterThan(
       0,
     );
-    expect(screen.queryByText('2026-04-27 01:00:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-04-27 09:00:00')).not.toBeInTheDocument();
   });
 
   test('shows detail error state when detail request fails', async () => {

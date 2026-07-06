@@ -756,12 +756,9 @@ const ScriptEditor = ({
   }, [currentShifu?.bid, resetDraftConflictState, shouldSkipConflictCheck]);
 
   useEffect(() => {
-    if (shouldSkipConflictCheck) {
-      return;
-    }
     const shifuBid = currentShifu?.bid;
     const outlineBid = currentNode?.bid;
-    if (!shifuBid || !outlineBid) {
+    if (!shifuBid || !outlineBid || !isLessonNode) {
       return;
     }
 
@@ -776,6 +773,9 @@ const ScriptEditor = ({
       ) {
         return;
       }
+      if (shouldSkipConflictCheck) {
+        return;
+      }
       await syncDraftFromRemote(shifuBid, outlineBid, meta, {
         showNotice: false,
         mode: resolveDraftConflictMode(meta),
@@ -788,6 +788,7 @@ const ScriptEditor = ({
   }, [
     currentNode?.bid,
     currentShifu?.bid,
+    isLessonNode,
     resetDraftConflictState,
     resolveDraftConflictMode,
     shouldSkipConflictCheck,

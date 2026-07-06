@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
@@ -72,6 +73,20 @@ def _mock_route_user(monkeypatch, user_id: str):
         raising=False,
     )
     return dummy_user
+
+
+def _mock_route_permission(monkeypatch, permission_map: dict[str, bool]):
+    from flaskr.service.shifu import route
+
+    def _has_permission(_app, _user_id, _shifu_bid, permission: str):
+        return permission_map.get(permission, False)
+
+    monkeypatch.setattr(
+        route,
+        "shifu_permission_verification",
+        _has_permission,
+        raising=False,
+    )
 
 
 def test_save_shifu_draft_info_keeps_existing_price_when_input_is_none(
@@ -185,6 +200,147 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(app, monkey
     assert detail.ask_provider_config == ask_provider_config
 
 
+def test_save_shifu_draft_info_normalizes_removed_tts_fields(app, monkeypatch):
+    from flaskr.service.shifu import shifu_draft_funcs
+    from flaskr.service.shifu.models import DraftShifu
+
+    shifu_bid = "test-save-shifu-tts-normalized"
+    owner_bid = "owner-tts-normalized"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_shifu_permissions(monkeypatch)
+
+    captured: dict[str, object] = {}
+
+    def _fake_validate_tts_settings_strict(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            provider="minimax",
+            model="speech-01-turbo",
+            voice_id="voice-1",
+            speed=1.2,
+            pitch=kwargs["pitch"],
+            emotion=kwargs["emotion"],
+        )
+
+    monkeypatch.setattr(
+        shifu_draft_funcs,
+        "validate_tts_settings_strict",
+        _fake_validate_tts_settings_strict,
+        raising=False,
+    )
+
+    shifu_draft_funcs.save_shifu_draft_info(
+        app=app,
+        user_id=owner_bid,
+        shifu_id=shifu_bid,
+        shifu_name="Test Shifu",
+        shifu_description="desc",
+        shifu_avatar="res",
+        shifu_keywords=["test"],
+        shifu_model="gpt-test",
+        shifu_temperature=0.3,
+        shifu_price=1.23,
+        shifu_system_prompt="",
+        base_url="http://localhost:5000",
+        tts_enabled=True,
+        tts_provider="minimax",
+        tts_model="speech-01-turbo",
+        tts_voice_id="voice-1",
+        tts_speed=1.2,
+        tts_pitch=9,
+        tts_emotion="happy",
+    )
+
+    assert captured["pitch"] == 0
+    assert captured["emotion"] == ""
+
+    with app.app_context():
+        latest = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert latest is not None
+        assert latest.tts_pitch == 0
+        assert latest.tts_emotion == ""
+
+
+def test_save_shifu_draft_info_normalizes_legacy_tts_fields_when_omitted(
+    app, monkeypatch
+):
+    from flaskr.service.shifu import shifu_draft_funcs
+    from flaskr.service.shifu.models import DraftShifu
+
+    shifu_bid = "test-save-shifu-tts-legacy-omitted"
+    owner_bid = "owner-tts-legacy-omitted"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.23"))
+    _mock_shifu_permissions(monkeypatch)
+
+    # Existing draft still carries legacy non-default pitch/emotion.
+    with app.app_context():
+        legacy = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        legacy.tts_enabled = 1
+        legacy.tts_provider = "minimax"
+        legacy.tts_model = "speech-01-turbo"
+        legacy.tts_voice_id = "voice-1"
+        legacy.tts_speed = Decimal("1.20")
+        legacy.tts_pitch = 9
+        legacy.tts_emotion = "happy"
+        dao.db.session.commit()
+
+    def _fake_validate_tts_settings_strict(**kwargs):
+        return SimpleNamespace(
+            provider=kwargs["provider"],
+            model=kwargs["model"],
+            voice_id=kwargs["voice_id"],
+            speed=kwargs["speed"],
+            pitch=kwargs["pitch"],
+            emotion=kwargs["emotion"],
+        )
+
+    monkeypatch.setattr(
+        shifu_draft_funcs,
+        "validate_tts_settings_strict",
+        _fake_validate_tts_settings_strict,
+        raising=False,
+    )
+
+    # Caller omits pitch/emotion entirely (frontend no longer sends them).
+    shifu_draft_funcs.save_shifu_draft_info(
+        app=app,
+        user_id=owner_bid,
+        shifu_id=shifu_bid,
+        shifu_name="Test Shifu",
+        shifu_description="desc",
+        shifu_avatar="res",
+        shifu_keywords=["test"],
+        shifu_model="gpt-test",
+        shifu_temperature=0.3,
+        shifu_price=1.23,
+        shifu_system_prompt="",
+        base_url="http://localhost:5000",
+        tts_enabled=True,
+        tts_provider="minimax",
+        tts_model="speech-01-turbo",
+        tts_voice_id="voice-1",
+        tts_speed=1.2,
+    )
+
+    with app.app_context():
+        latest = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        assert latest is not None
+        assert latest.tts_pitch == 0
+        assert latest.tts_emotion == ""
+
+
 def test_get_draft_meta_route_serializes_utc_timestamp(app, test_client, monkeypatch):
     from flaskr.service.shifu.models import DraftOutlineItem
 
@@ -222,3 +378,46 @@ def test_get_draft_meta_route_serializes_utc_timestamp(app, test_client, monkeyp
     assert response.status_code == 200
     assert payload["code"] == 0
     assert payload["data"]["updated_at"] == "2026-06-30T05:37:42Z"
+
+
+def test_get_draft_meta_route_allows_view_only_permission(
+    app, test_client, monkeypatch
+):
+    from flaskr.service.shifu.models import DraftOutlineItem
+
+    shifu_bid = "test-draft-meta-view-only"
+    owner_bid = "owner-draft-meta-view-only"
+    shared_user_bid = "shared-draft-meta-view-only"
+    outline_bid = "lesson-draft-meta-view-only"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.00"))
+    _mock_route_user(monkeypatch, shared_user_bid)
+    _mock_route_permission(monkeypatch, {"view": True, "edit": False})
+
+    with app.app_context():
+        DraftOutlineItem.query.filter_by(
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+        ).delete()
+        dao.db.session.add(
+            DraftOutlineItem(
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                title="Lesson",
+                content="content",
+                updated_user_bid=owner_bid,
+                created_user_bid=owner_bid,
+                updated_at=datetime(2026, 7, 2, 10, 0, 0),
+                created_at=datetime(2026, 7, 2, 10, 0, 0),
+            )
+        )
+        dao.db.session.commit()
+
+    response = test_client.get(
+        f"/api/shifu/shifus/{shifu_bid}/draft-meta?outline_bid={outline_bid}",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["updated_at"] == "2026-07-02T10:00:00Z"

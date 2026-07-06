@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from flaskr.dao import db
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import get_user_entity_by_bid
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
@@ -362,7 +363,7 @@ def _bootstrap_trial_subscription(
     if valid_days <= 0 or credit_amount <= 0:
         return
 
-    now = datetime.now()
+    now = now_utc()
     expires_at = now + timedelta(days=valid_days)
     product_bid = str(
         _trial_product_field(product_ref, "product_bid", BILLING_TRIAL_PRODUCT_BID)
@@ -809,7 +810,7 @@ def _acknowledge_trial_welcome_dialog(
                 acknowledged_at=None,
             )
 
-        acknowledged_at = datetime.now()
+        acknowledged_at = now_utc()
         _set_trial_welcome_acknowledged_at(
             target_record,
             acknowledged_at=acknowledged_at,

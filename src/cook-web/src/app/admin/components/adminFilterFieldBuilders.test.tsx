@@ -13,13 +13,19 @@ jest.mock('@/components/ui/Select', () => ({
   SelectTrigger: ({
     children,
     className,
+    id,
+    'aria-labelledby': ariaLabelledBy,
   }: {
     children: ReactNode;
     className?: string;
+    id?: string;
+    'aria-labelledby'?: string;
   }) => (
     <button
       data-testid='select-trigger'
       className={className}
+      id={id}
+      aria-labelledby={ariaLabelledBy}
     >
       {children}
     </button>
@@ -64,6 +70,7 @@ describe('adminFilterFieldBuilders', () => {
     const item = createSelectFilterItem({
       key: 'status',
       label: 'Status',
+      labelId: 'status-label',
       value: '__all__',
       placeholder: 'Choose status',
       options: [
@@ -71,12 +78,22 @@ describe('adminFilterFieldBuilders', () => {
         { value: 'active', label: 'Active' },
       ],
       onChange: jest.fn(),
+      triggerId: 'status-trigger',
+      triggerAriaLabelledBy: 'status-label',
     });
 
     render(item.component);
     expect(screen.getByText('Choose status')).toBeInTheDocument();
     expect(screen.getByText('All')).toBeInTheDocument();
     expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByTestId('select-trigger')).toHaveAttribute(
+      'id',
+      'status-trigger',
+    );
+    expect(screen.getByTestId('select-trigger')).toHaveAttribute(
+      'aria-labelledby',
+      'status-label',
+    );
   });
 
   test('builds date range filter item with trigger placeholder', () => {
@@ -94,6 +111,25 @@ describe('adminFilterFieldBuilders', () => {
     render(item.component);
     expect(
       screen.getByRole('button', { name: 'Start ~ End' }),
+    ).toBeInTheDocument();
+  });
+
+  test('passes trigger aria label to date range filter', () => {
+    const item = createDateRangeFilterItem({
+      key: 'date_range',
+      label: 'Date',
+      startValue: '',
+      endValue: '',
+      triggerAriaLabel: 'Filter by date range',
+      placeholder: 'Start ~ End',
+      resetLabel: 'Reset',
+      clearLabel: 'Clear',
+      onChange: jest.fn(),
+    });
+
+    render(item.component);
+    expect(
+      screen.getByRole('button', { name: 'Filter by date range' }),
     ).toBeInTheDocument();
   });
 });

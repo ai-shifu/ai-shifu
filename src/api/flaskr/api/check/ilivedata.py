@@ -1,7 +1,6 @@
 #  ilivedata
 #  https://docs.ilivedata.com/textcheck/sync/check/
 
-import datetime
 import base64
 import hmac
 import json
@@ -9,6 +8,8 @@ from hashlib import sha256 as sha256
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 from flask import Flask
+from flaskr.util.datetime import now_utc
+
 from .dto import (
     CheckResultDTO,
     CHECK_RESULT_PASS,
@@ -71,7 +72,7 @@ def ilivedata_check(
             raw_data={},
         )
 
-    now_date = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_date = now_utc().strftime("%Y-%m-%dT%H:%M:%SZ")
     params = {"content": text, "userId": user_id, "sessionId": data_id}
     query_body = json.dumps(params)
     parameter = "POST\n"

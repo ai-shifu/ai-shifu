@@ -7,7 +7,11 @@ from datetime import datetime
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
 from typing import Any
 
-from flaskr.service.metering.consts import BILL_USAGE_TYPE_LLM, BILL_USAGE_TYPE_TTS
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
 from flaskr.service.metering.models import BillUsageRecord
 
 from .consts import (
@@ -24,6 +28,8 @@ from .consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from .models import CreditUsageRate
+from flaskr.util.datetime import now_utc
+
 from .primitives import (
     credit_decimal_to_number,
     decimal_to_number,
@@ -36,6 +42,18 @@ _ROUNDING_LABELS = {
     CREDIT_ROUNDING_MODE_CEIL: "ceil",
     CREDIT_ROUNDING_MODE_FLOOR: "floor",
     CREDIT_ROUNDING_MODE_ROUND: "round",
+}
+_USAGE_TYPE_RATE_METRICS = {
+    BILL_USAGE_TYPE_LLM: (
+        BILLING_METRIC_LLM_INPUT_TOKENS,
+        BILLING_METRIC_LLM_CACHE_TOKENS,
+        BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    ),
+    BILL_USAGE_TYPE_TTS: (
+        BILLING_METRIC_TTS_REQUEST_COUNT,
+        BILLING_METRIC_TTS_OUTPUT_CHARS,
+        BILLING_METRIC_TTS_INPUT_CHARS,
+    ),
 }
 
 
@@ -278,6 +296,77 @@ def load_usage_rate(
         reverse=True,
     )
     return candidates[0]
+
+
+def _rate_unit_cost(rate: CreditUsageRate | None) -> Decimal:
+    if rate is None:
+        return _ZERO
+    unit_size = max(int(rate.unit_size or 1), 1)
+    return to_decimal(rate.credits_per_unit) / Decimal(str(unit_size))
+
+
+def _format_multiplier(value: Decimal) -> str:
+    rounded = value.quantize(Decimal("0.01"))
+    text = format(rounded.normalize(), "f").rstrip("0").rstrip(".")
+    return f"{text or '0'}x"
+
+
+def resolve_credit_multiplier_label(
+    *,
+    usage_type: int,
+    provider: str,
+    model: str,
+    usage_scene: int = BILL_USAGE_SCENE_PROD,
+    settlement_at: datetime | None = None,
+    billing_metrics: tuple[int, ...] | None = None,
+) -> str | None:
+    metrics = billing_metrics or _USAGE_TYPE_RATE_METRICS.get(int(usage_type or 0), ())
+    if not metrics:
+        return None
+
+    at = settlement_at or now_utc()
+    usage = BillUsageRecord(
+        usage_type=int(usage_type),
+        provider=str(provider or "").strip(),
+        model=str(model or "").strip(),
+        usage_scene=int(usage_scene or BILL_USAGE_SCENE_PROD),
+    )
+    baseline_usage = BillUsageRecord(
+        usage_type=int(usage_type),
+        provider="",
+        model="",
+        usage_scene=int(usage_scene or BILL_USAGE_SCENE_PROD),
+    )
+    ratios: list[Decimal] = []
+
+    for metric in metrics:
+        baseline_rate = load_usage_rate(
+            usage=baseline_usage,
+            billing_metric=metric,
+            settlement_at=at,
+        )
+        baseline_cost = _rate_unit_cost(baseline_rate)
+        if baseline_cost <= _ZERO:
+            continue
+
+        rate = load_usage_rate(
+            usage=usage,
+            billing_metric=metric,
+            settlement_at=at,
+        )
+        actual_cost = _rate_unit_cost(rate or baseline_rate)
+        if actual_cost <= _ZERO:
+            continue
+        ratios.append(actual_cost / baseline_cost)
+
+    if not ratios:
+        return None
+
+    low = min(ratios)
+    high = max(ratios)
+    if (high - low).copy_abs() < Decimal("0.005"):
+        return _format_multiplier(high)
+    return f"{_format_multiplier(low)}-{_format_multiplier(high)}"
 
 
 def round_usage_units(

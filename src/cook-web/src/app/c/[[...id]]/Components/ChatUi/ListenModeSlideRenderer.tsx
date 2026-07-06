@@ -1858,6 +1858,8 @@ const ListenModeSlideRenderer = ({
     showAskOverlays && isMobileAskPanelMounted && !shouldRenderEmptyPpt;
   const shouldRenderManualFullscreenButton =
     showManualFullscreenButton && !isClassroomFullscreenActive;
+  const listenPlayerClassName =
+    variant === 'listen' ? 'listen-slide-player' : '';
 
   const desktopAskOverlay = shouldRenderDesktopAskOverlay ? (
     <div
@@ -1894,6 +1896,7 @@ const ListenModeSlideRenderer = ({
       className={cn(
         'listen-reveal-wrapper',
         previewMode && !mobileStyle && 'listen-reveal-wrapper--preview',
+        variant === 'classroom' && 'listen-reveal-wrapper--classroom',
         mobileStyle ? 'mobile bg-white' : 'bg-[var(--color-slide-desktop-bg)]',
       )}
       ref={chatRef}
@@ -1990,6 +1993,7 @@ const ListenModeSlideRenderer = ({
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
           playerClassName={cn(
+            listenPlayerClassName,
             mobileStyle ? 'listen-slide-player-mobile' : '',
             playerClassName,
           )}

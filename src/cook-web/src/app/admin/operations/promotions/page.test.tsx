@@ -51,6 +51,8 @@ jest.mock('@/api', () => ({
     getAdminOperationPromotionReferralCampaignDetail: jest.fn(),
     updateAdminOperationPromotionReferralCampaign: jest.fn(),
     updateAdminOperationPromotionReferralCampaignStatus: jest.fn(),
+    getAdminOperationPromotionReferralCampaignRelations: jest.fn(),
+    getAdminOperationPromotionReferralCampaignInvitations: jest.fn(),
     getAdminBillingCampaignProductOptions: jest.fn(),
     getAdminBillingCampaigns: jest.fn(),
     createAdminBillingCampaign: jest.fn(),
@@ -179,31 +181,23 @@ jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
 
 jest.mock('@/components/ui/Sheet', () => ({
   __esModule: true,
-  Sheet: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  SheetContent: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  SheetHeader: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  SheetTitle: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  Sheet: ({ children }: any) => <div>{children}</div>,
+  SheetContent: ({ children }: any) => <div>{children}</div>,
+  SheetHeader: ({ children }: any) => <div>{children}</div>,
+  SheetTitle: ({ children }: any) => <div>{children}</div>,
+  SheetDescription: ({ children }: any) => <div>{children}</div>,
 }));
 
 jest.mock('@/components/ui/Dialog', () => {
-  const MockDialogContent = React.forwardRef<
-    HTMLDivElement,
-    React.PropsWithChildren
-  >(({ children }, ref) => <div ref={ref}>{children}</div>);
+  const ReactModule = jest.requireActual('react') as typeof import('react');
+  const MockDialogContent = ReactModule.forwardRef<HTMLDivElement, any>(
+    ({ children }, ref) => <div ref={ref}>{children}</div>,
+  );
   MockDialogContent.displayName = 'MockDialogContent';
 
   return {
     __esModule: true,
-    Dialog: ({
-      open = true,
-      onOpenChange,
-      children,
-    }: React.PropsWithChildren<{
-      open?: boolean;
-      onOpenChange?: (open: boolean) => void;
-    }>) =>
+    Dialog: ({ open = true, onOpenChange, children }: any) =>
       open ? (
         <div>
           <button
@@ -217,51 +211,23 @@ jest.mock('@/components/ui/Dialog', () => {
         </div>
       ) : null,
     DialogContent: MockDialogContent,
-    DialogHeader: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
-    DialogTitle: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
-    DialogDescription: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
-    DialogFooter: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
+    DialogHeader: ({ children }: any) => <div>{children}</div>,
+    DialogTitle: ({ children }: any) => <div>{children}</div>,
+    DialogDescription: ({ children }: any) => <div>{children}</div>,
+    DialogFooter: ({ children }: any) => <div>{children}</div>,
   };
 });
 
 jest.mock('@/components/ui/AlertDialog', () => ({
   __esModule: true,
-  AlertDialog: ({
-    open = true,
-    children,
-  }: React.PropsWithChildren<{ open?: boolean }>) =>
+  AlertDialog: ({ open = true, children }: any) =>
     open ? <div>{children}</div> : null,
-  AlertDialogContent: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  AlertDialogHeader: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  AlertDialogTitle: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  AlertDialogDescription: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  AlertDialogFooter: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  AlertDialogCancel: ({
-    children,
-    onClick,
-    disabled = false,
-  }: React.PropsWithChildren<{
-    onClick?: () => void;
-    disabled?: boolean;
-  }>) => (
+  AlertDialogContent: ({ children }: any) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: any) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: any) => <div>{children}</div>,
+  AlertDialogDescription: ({ children }: any) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: any) => <div>{children}</div>,
+  AlertDialogCancel: ({ children, onClick, disabled = false }: any) => (
     <button
       type='button'
       onClick={onClick}
@@ -270,14 +236,7 @@ jest.mock('@/components/ui/AlertDialog', () => ({
       {children}
     </button>
   ),
-  AlertDialogAction: ({
-    children,
-    onClick,
-    disabled = false,
-  }: React.PropsWithChildren<{
-    onClick?: (event: { preventDefault: () => void }) => void;
-    disabled?: boolean;
-  }>) => (
+  AlertDialogAction: ({ children, onClick, disabled = false }: any) => (
     <button
       type='button'
       onClick={() => onClick?.({ preventDefault: () => undefined })}
@@ -290,19 +249,10 @@ jest.mock('@/components/ui/AlertDialog', () => ({
 
 jest.mock('@/components/ui/DropdownMenu', () => ({
   __esModule: true,
-  DropdownMenu: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => (
-    <>{children}</>
-  ),
-  DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  DropdownMenuItem: ({
-    children,
-    onClick,
-  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
+  DropdownMenu: ({ children }: any) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children }: any) => <>{children}</>,
+  DropdownMenuContent: ({ children }: any) => <div>{children}</div>,
+  DropdownMenuItem: ({ children, onClick }: any) => (
     <button
       type='button'
       onClick={onClick}
@@ -313,7 +263,7 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
 }));
 
 jest.mock('@/components/ui/Select', () => {
-  const ReactModule = jest.requireActual('react') as typeof React;
+  const ReactModule = jest.requireActual('react') as typeof import('react');
   const SelectContext = ReactModule.createContext<{
     value: string;
     onValueChange: (value: string) => void;
@@ -326,31 +276,15 @@ jest.mock('@/components/ui/Select', () => {
 
   return {
     __esModule: true,
-    Select: ({
-      value,
-      onValueChange,
-      disabled = false,
-      children,
-    }: React.PropsWithChildren<{
-      value: string;
-      onValueChange: (value: string) => void;
-      disabled?: boolean;
-    }>) => (
+    Select: ({ value, onValueChange, disabled = false, children }: any) => (
       <SelectContext.Provider value={{ value, onValueChange, disabled }}>
         <div>{children}</div>
       </SelectContext.Provider>
     ),
-    SelectTrigger: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
+    SelectTrigger: ({ children }: any) => <div>{children}</div>,
     SelectValue: () => <span />,
-    SelectContent: ({ children }: React.PropsWithChildren) => (
-      <div>{children}</div>
-    ),
-    SelectItem: ({
-      value,
-      children,
-    }: React.PropsWithChildren<{ value: string }>) => {
+    SelectContent: ({ children }: any) => <div>{children}</div>,
+    SelectItem: ({ value, children }: any) => {
       const context = ReactModule.useContext(SelectContext);
       return (
         <button
@@ -366,7 +300,7 @@ jest.mock('@/components/ui/Select', () => {
 });
 
 jest.mock('@/components/ui/Tabs', () => {
-  const ReactModule = jest.requireActual('react') as typeof React;
+  const ReactModule = jest.requireActual('react') as typeof import('react');
   const TabsContext = ReactModule.createContext<{
     value: string;
     onValueChange: (value: string) => void;
@@ -379,21 +313,28 @@ jest.mock('@/components/ui/Tabs', () => {
     __esModule: true,
     Tabs: ({
       value,
+      defaultValue = 'coupons',
       onValueChange,
       children,
-    }: React.PropsWithChildren<{
-      value: string;
-      onValueChange: (value: string) => void;
-    }>) => (
-      <TabsContext.Provider value={{ value, onValueChange }}>
-        {children}
-      </TabsContext.Provider>
-    ),
-    TabsList: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-    TabsTrigger: ({
-      value,
-      children,
-    }: React.PropsWithChildren<{ value: string }>) => {
+    }: any) => {
+      const [internalValue, setInternalValue] = ReactModule.useState(
+        value || defaultValue,
+      );
+      const currentValue = value || internalValue;
+      const handleValueChange = (nextValue: string) => {
+        setInternalValue(nextValue);
+        onValueChange?.(nextValue);
+      };
+      return (
+        <TabsContext.Provider
+          value={{ value: currentValue, onValueChange: handleValueChange }}
+        >
+          {children}
+        </TabsContext.Provider>
+      );
+    },
+    TabsList: ({ children }: any) => <div>{children}</div>,
+    TabsTrigger: ({ value, children }: any) => {
       const context = ReactModule.useContext(TabsContext);
       return (
         <button
@@ -404,10 +345,7 @@ jest.mock('@/components/ui/Tabs', () => {
         </button>
       );
     },
-    TabsContent: ({
-      value,
-      children,
-    }: React.PropsWithChildren<{ value: string }>) => {
+    TabsContent: ({ value, children }: any) => {
       const context = ReactModule.useContext(TabsContext);
       return context.value === value ? <div>{children}</div> : null;
     },
@@ -444,6 +382,10 @@ const mockUpdateReferralCampaign =
   api.updateAdminOperationPromotionReferralCampaign as jest.Mock;
 const mockUpdateReferralCampaignStatus =
   api.updateAdminOperationPromotionReferralCampaignStatus as jest.Mock;
+const mockGetReferralCampaignRelations =
+  api.getAdminOperationPromotionReferralCampaignRelations as jest.Mock;
+const mockGetReferralCampaignInvitations =
+  api.getAdminOperationPromotionReferralCampaignInvitations as jest.Mock;
 const mockGetPackageCampaignProductOptions =
   api.getAdminBillingCampaignProductOptions as jest.Mock;
 const mockGetPackageCampaigns = api.getAdminBillingCampaigns as jest.Mock;
@@ -474,6 +416,8 @@ describe('AdminOperationPromotionsPage', () => {
     mockGetReferralCampaignDetail.mockReset();
     mockUpdateReferralCampaign.mockReset();
     mockUpdateReferralCampaignStatus.mockReset();
+    mockGetReferralCampaignRelations.mockReset();
+    mockGetReferralCampaignInvitations.mockReset();
     mockGetPackageCampaignProductOptions.mockReset();
     mockGetPackageCampaigns.mockReset();
     mockCreatePackageCampaign.mockReset();
@@ -664,6 +608,8 @@ describe('AdminOperationPromotionsPage', () => {
         active: 1,
         relation_count: 14,
         reward_count: 12,
+        invite_code_count: 8,
+        invite_event_count: 21,
       },
       items: [
         {
@@ -694,6 +640,9 @@ describe('AdminOperationPromotionsPage', () => {
           priority: 10,
           relation_count: 14,
           reward_count: 12,
+          invite_code_count: 8,
+          invite_event_count: 21,
+          latest_invite_event_at: '2026-06-12T08:00:00Z',
           created_at: '2026-06-01T00:00:00Z',
           updated_at: '2026-06-11T09:00:00Z',
         },
@@ -735,9 +684,44 @@ describe('AdminOperationPromotionsPage', () => {
         priority: 10,
         relation_count: 14,
         reward_count: 12,
+        invite_code_count: 8,
+        invite_event_count: 21,
+        latest_invite_event_at: '2026-06-12T08:00:00Z',
         created_at: '2026-06-01T00:00:00Z',
         updated_at: '2026-06-11T09:00:00Z',
       },
+    });
+    mockGetReferralCampaignRelations.mockResolvedValue({
+      items: [],
+      page_index: 1,
+      page_size: 20,
+      total: 0,
+      page_count: 0,
+    });
+    mockGetReferralCampaignInvitations.mockResolvedValue({
+      items: [
+        {
+          invite_code_bid: 'invite-code-1',
+          campaign_bid: 'ref-campaign-1',
+          invite_code: 'ABC12345',
+          inviter_user_bid: 'inviter-1',
+          inviter: { identifier: '13800000000' },
+          status: 7821,
+          generated_at: '2026-06-12T07:00:00Z',
+          event_counts: {},
+          link_clicked_count: 3,
+          registration_page_viewed_count: 2,
+          code_entered_count: 1,
+          registration_submitted_count: 1,
+          total_event_count: 7,
+          successful_relation_count: 1,
+          latest_event_at: '2026-06-12T08:00:00Z',
+        },
+      ],
+      page_index: 1,
+      page_size: 20,
+      total: 1,
+      page_count: 1,
     });
     mockUpdateReferralCampaign.mockResolvedValue({
       campaign_bid: 'ref-campaign-1',
@@ -3302,6 +3286,99 @@ describe('AdminOperationPromotionsPage', () => {
     expect(screen.getByText('1,000')).toBeInTheDocument();
     expect(screen.getByText('14')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText('8')).toBeInTheDocument();
+    expect(screen.getByText('21')).toBeInTheDocument();
+  });
+
+  test('opens referral campaign records dialog from referral campaign row', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await screen.findByText('Domestic Creator Invite');
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsPromotion.actions.viewData: module.operationsPromotion.referralCampaign.inviteCodeCount',
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        'module.operationsPromotion.referralCampaign.records.title',
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockGetReferralCampaignInvitations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          campaign_bid: 'ref-campaign-1',
+          page_index: 1,
+          page_size: 20,
+        }),
+      );
+    });
+    expect(await screen.findByText('ABC12345')).toBeInTheDocument();
+    expect(screen.getByText('13800000000')).toBeInTheDocument();
+
+    const closeButtons = screen.getAllByRole('button', {
+      name: MOCK_DIALOG_CLOSE_LABEL,
+    });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsPromotion.actions.viewData: module.operationsPromotion.referralCampaign.relationCount',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetReferralCampaignRelations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          campaign_bid: 'ref-campaign-1',
+          page_index: 1,
+          page_size: 20,
+        }),
+      );
+    });
+  });
+
+  test('normalizes referral reward credits when opening the edit dialog', async () => {
+    render(<AdminOperationPromotionsPage />);
+
+    await waitFor(() => expect(mockGetCoupons).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsPromotion.tabs.referralCampaigns',
+      }),
+    );
+
+    await screen.findByText('Domestic Creator Invite');
+
+    const moreButtons = screen.getAllByRole('button', {
+      name: 'common.core.more',
+    });
+    fireEvent.click(moreButtons[moreButtons.length - 1]);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsPromotion.actions.edit',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetReferralCampaignDetail).toHaveBeenCalledWith({
+        campaign_bid: 'ref-campaign-1',
+      });
+    });
+
+    const rewardCreditsInput = await screen.findByDisplayValue('1000');
+    expect(rewardCreditsInput).toBeInTheDocument();
   });
 
   test('creates a referral campaign with full configuration payload', async () => {

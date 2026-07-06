@@ -26,6 +26,9 @@ to.
 - Before committing, run `python scripts/check_dev_tools.py` to confirm
   lefthook and its underlying tools are installed; the local checks are
   silently skipped if lefthook was never installed.
+- For git commit message title, body, and classification requirements, use
+  [Git Commit Message Requirements](#git-commit-message-requirements); keep
+  agent-specific rule files pointing there instead of duplicating the policy.
 - When a branch already has an open PR, keep the PR title and description in
   sync with the latest code changes so they accurately describe the current
   implementation and verification state.
@@ -79,6 +82,39 @@ to.
   vs offset-aware, or string vs string) — normalize both to UTC before
   comparing. These are exactly the drifts that reappear when new code lands in
   modules the UTC sweep has not yet reached.
+
+## Git Commit Message Requirements
+
+All git commit message requirements live in this section. Other docs and
+agent-specific rule files may point here for title, body, and classification
+rules, but must not duplicate or redefine them.
+
+- Human-authored and coding-agent-authored commit messages must follow the
+  policy below. Existing workflow-generated bot commits are exempt unless the
+  workflow is being updated for this policy.
+- The local `commit-msg` hook is only a baseline Conventional Commits syntax
+  check. It does not enforce the `Changed:` / `Benefit:` body or the
+  classification rules below.
+- Subject: use English Conventional Commits without scope parentheses, such as
+  `type: summary`; do not use `type(scope): summary`.
+- Body: include exactly two sections, `Changed:` and `Benefit:`.
+- Classification: use `chore` for repository-maintenance-only instruction or
+  generated guidance updates like this file.
+- Runtime prompt, template, and system-prompt changes affect product behavior:
+  use `feat` when adding capability and `fix` when correcting behavior; do not
+  use `docs`.
+
+Example:
+
+```text
+chore: centralize commit message requirements
+
+Changed:
+Moved repository commit message requirements into the root AGENTS.md file.
+
+Benefit:
+Contributors have one place to check the required commit title and body format.
+```
 
 ## Commands
 

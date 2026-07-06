@@ -366,7 +366,7 @@ export default function CourseCreditUsageTab({
       CreditUsageColumnKey,
       (row: AdminOperationCourseCreditUsageItem) => string[]
     > = {
-      createdAt: row => [row.created_at || emptyValue],
+      createdAt: row => [formatAdminUtcDateTime(row.created_at) || emptyValue],
       account: row => [resolveAccount(row)],
       nickname: row => [row.nickname || defaultUserName],
       scene: row => [resolveSceneLabel(row.usage_scene)],

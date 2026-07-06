@@ -271,7 +271,7 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
           follow_up_content: 'Third follow-up question',
           has_source_output: false,
           turn_index: 3,
-          created_at: '2026-04-05 19:05:00',
+          created_at: '2026-04-05T11:05:00Z',
         },
       ],
       page: 1,
@@ -386,6 +386,8 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
       screen.getAllByText('module.dashboard.detail.title')[0].closest('a'),
     ).toHaveAttribute('href', '/admin/dashboard/course-1');
     expect(screen.getByText('Second follow-up question')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-05 19:02:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-05 19:05:00')).toBeInTheDocument();
     expect(screen.getAllByText('13900001235').length).toBeGreaterThan(0);
     expect(
       screen.getByText(
@@ -467,8 +469,12 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
     expect((await screen.findAllByText('Second follow-up answer')).length).toBe(
       2,
     );
+    expect(screen.queryAllByText('2026-04-05 19:02:00').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByText('2026-04-05 19:02:10')).toBeInTheDocument();
     expect(
-      screen.getAllByText(
+      screen.queryAllByText(
         'module.dashboard.detail.followUps.drawer.timeline.current',
       ).length,
     ).toBeGreaterThan(0);
@@ -590,7 +596,6 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
     expect(mockGetDashboardCourseFollowUpDetail).toHaveBeenNthCalledWith(2, {
       shifu_bid: 'course-1',
       generated_block_bid: 'ask-3',
-      timezone: 'Asia/Shanghai',
     });
   });
 
@@ -616,6 +621,6 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
       });
     });
 
-    expect(screen.getByDisplayValue('13900001235')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('student-1')).toBeInTheDocument();
   });
 });

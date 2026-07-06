@@ -15,6 +15,7 @@ from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from . import primitives as billing_primitives
 from .bucket_categories import (
@@ -77,7 +78,7 @@ def estimate_voice_clone_operation_credits(app: Flask) -> OperationCreditEstimat
     """Estimate MiniMax voice-clone cost using only configured active rates."""
 
     with app.app_context():
-        now = datetime.now()
+        now = now_utc()
         usage = BillUsageRecord(
             usage_type=BILL_USAGE_TYPE_TTS,
             usage_scene=BILL_USAGE_SCENE_PREVIEW,
@@ -132,7 +133,7 @@ def reserve_operation_credits(
             return _reservation_result_from_hold(existing)
 
         wallet = _load_wallet(normalized_creator_bid, lock=True)
-        buckets = _load_active_buckets(wallet, datetime.now(), lock=True)
+        buckets = _load_active_buckets(wallet, now_utc(), lock=True)
         available = sum(
             (
                 billing_primitives.to_decimal(bucket.available_credits)
@@ -180,7 +181,7 @@ def reserve_operation_credits(
             wallet,
             available_credits=wallet.available_credits,
             reserved_credits=wallet.reserved_credits,
-            updated_at=datetime.now(),
+            updated_at=now_utc(),
         )
 
         ledger_bid = generate_id(app)
@@ -268,7 +269,7 @@ def capture_reserved_operation_credits(
             available_credits=wallet.available_credits,
             reserved_credits=wallet.reserved_credits,
             lifetime_consumed_credits=wallet.lifetime_consumed_credits,
-            updated_at=datetime.now(),
+            updated_at=now_utc(),
         )
 
         ledger_bid = generate_id(app)
@@ -343,7 +344,7 @@ def release_reserved_operation_credits(
             wallet,
             available_credits=wallet.available_credits,
             reserved_credits=wallet.reserved_credits,
-            updated_at=datetime.now(),
+            updated_at=now_utc(),
         )
 
         ledger_bid = generate_id(app)
