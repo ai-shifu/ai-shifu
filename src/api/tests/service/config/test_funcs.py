@@ -282,6 +282,46 @@ class TestGetConfig:
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
     @patch("flaskr.service.config.funcs.Config")
+    @patch("flaskr.service.config.funcs._decrypt_config")
+    def test_get_config_ignores_lock_not_owned_error_on_release(
+        self,
+        mock_decrypt,
+        mock_config_class,
+        mock_redis,
+        mock_get_config_from_common,
+        app,
+    ):
+        """get_config still returns the DB value if lock.release() raises
+        LockNotOwnedError (the 1s lock TTL elapsed before release)."""
+        from redis.exceptions import LockNotOwnedError
+
+        with app.app_context():
+            app.config["REDIS_KEY_PREFIX"] = "test:"
+            mock_get_config_from_common.return_value = None
+            mock_redis.get.return_value = None
+            mock_lock = MagicMock()
+            mock_lock.acquire.return_value = True
+            mock_lock.release.side_effect = LockNotOwnedError("lock expired")
+            mock_redis.lock.return_value = mock_lock
+
+            mock_config_instance = MagicMock()
+            mock_config_instance.value = "db-value"
+            mock_config_instance.is_encrypted = 0
+            mock_config_instance.created_at = datetime.now()
+            mock_query = MagicMock()
+            mock_query.filter.return_value.order_by.return_value.first.return_value = (
+                mock_config_instance
+            )
+            mock_config_class.query = mock_query
+
+            # Must not propagate the LockNotOwnedError from release().
+            result = get_config("test_key")
+            assert result == "db-value"
+            mock_lock.release.assert_called_once()
+
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    @patch("flaskr.service.config.funcs.redis")
+    @patch("flaskr.service.config.funcs.Config")
     def test_get_config_queries_database_when_default_is_explicit_empty_string(
         self, mock_config_class, mock_redis, mock_get_config_from_common, app
     ):
