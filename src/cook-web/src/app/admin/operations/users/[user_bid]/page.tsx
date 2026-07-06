@@ -8,6 +8,7 @@ import AdminTitle from '@/app/admin/components/AdminTitle';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
 import type { AdminOperationUserCreditUsageDetailResponse } from '../../operation-user-types';
 import useOperatorGuard from '../../useOperatorGuard';
 import UserDetailSummarySection from './UserDetailSummarySection';
@@ -285,6 +286,15 @@ export default function AdminOperationUserDetailPage() {
       >
         <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
           <div className='mb-5 shrink-0 space-y-3 px-1 pt-6'>
+            <AdminOperationsBreadcrumb
+              items={[
+                {
+                  label: tOperationsUsers('title'),
+                  href: '/admin/operations/users',
+                },
+                { label: tOperationsUsers('detail.title') },
+              ]}
+            />
             <AdminTitle title={tOperationsUsers('detail.title')} />
           </div>
 

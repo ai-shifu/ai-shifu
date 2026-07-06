@@ -43,7 +43,11 @@ import {
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
-import { buildAdminOperationsCourseFollowUpsUrl } from '../../operation-course-routes';
+import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
+import {
+  buildAdminOperationsCourseDetailUrl,
+  buildAdminOperationsCourseFollowUpsUrl,
+} from '../../operation-course-routes';
 import type {
   AdminOperationCourseFollowUpDetailResponse,
   AdminOperationCourseFollowUpItem,
@@ -312,6 +316,10 @@ export default function AdminOperationCourseFollowUpsPage() {
   const contactMode = useMemo<ContactMode>(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
+  );
+  const detailPageUrl = useMemo(
+    () => buildAdminOperationsCourseDetailUrl(shifuBid),
+    [shifuBid],
   );
   const currentPageUrl = useMemo(
     () => buildAdminOperationsCourseFollowUpsUrl(shifuBid),
@@ -672,6 +680,19 @@ export default function AdminOperationCourseFollowUpsPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
+        <AdminOperationsBreadcrumb
+          items={[
+            {
+              label: tOperations('title'),
+              href: '/admin/operations',
+            },
+            {
+              label: tOperations('detail.title'),
+              href: detailPageUrl || undefined,
+            },
+            { label: tOperations('detail.followUps.title') },
+          ]}
+        />
         <AdminTitle title={tOperations('detail.followUps.title')} />
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>

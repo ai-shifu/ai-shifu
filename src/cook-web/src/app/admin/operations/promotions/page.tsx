@@ -7,6 +7,7 @@ import api from '@/api';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
@@ -1745,6 +1746,7 @@ export default function AdminOperationPromotionsPage() {
 
   return (
     <div className='pb-6'>
+      <AdminBreadcrumb items={[{ label: tPromotion('title') }]} />
       <Tabs
         value={tab}
         onValueChange={value => setTab(value as PromotionTab)}

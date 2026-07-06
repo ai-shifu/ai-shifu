@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { fail, show } from '@/hooks/useToast';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
+import AdminOperationsBreadcrumb from '../AdminOperationsBreadcrumb';
 import {
   buildAdminOperationsCourseFollowUpsUrl,
   buildAdminOperationsOrdersUrl,
@@ -1486,6 +1487,15 @@ export default function AdminOperationCourseDetailPage() {
   return (
     <div className='h-full min-h-0 overflow-hidden bg-stone-50 p-0 overscroll-none'>
       <div className='mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden'>
+        <AdminOperationsBreadcrumb
+          items={[
+            {
+              label: tOperations('title'),
+              href: '/admin/operations',
+            },
+            { label: tOperations('detail.title') },
+          ]}
+        />
         <AdminTitle title={tOperations('detail.title')} />
 
         <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1'>

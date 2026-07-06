@@ -9,6 +9,7 @@ import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
 } from '@/app/admin/lib/dateTime';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
 import {
@@ -612,6 +613,9 @@ export default function AdminOperationCreditNotificationsPage() {
 
   return (
     <div className='flex h-full min-h-0 flex-col p-0'>
+      <AdminBreadcrumb
+        items={[{ label: t('module.operationsCreditNotifications.title') }]}
+      />
       <Tabs
         value={activeTab}
         className='flex min-h-0 flex-1 flex-col overflow-hidden'

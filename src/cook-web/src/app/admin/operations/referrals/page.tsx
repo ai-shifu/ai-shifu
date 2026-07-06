@@ -4,6 +4,7 @@ import React from 'react';
 import { RefreshCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import useOperatorGuard from '@/app/admin/operations/useOperatorGuard';
@@ -62,6 +63,7 @@ export default function AdminOperationReferralsPage() {
 
   return (
     <div className='flex min-h-0 flex-col pb-6'>
+      <AdminBreadcrumb items={[{ label: t('operator.title') }]} />
       <AdminTitle
         title={t('operator.title')}
         description={t('operator.description')}

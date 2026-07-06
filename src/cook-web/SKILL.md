@@ -30,6 +30,7 @@
 - 同一 billing 页面如果多个 section title 需要保持一致，除了标题字号本身，还要同步检查标题到卡片/表格主体的纵向间距；当前这类 section 优先统一为 `24px`，避免一个 `space-y-4`、一个 `space-y-6` 的情况。
 - admin 页面里这种二选一 tabs/switch 如果产品要求“选中态和未选中态的圆角一致”，优先在具体页面同时覆写 `TabsList` 和 `TabsTrigger` 的圆角，不要只改外层容器导致内部 trigger 仍保留另一套圆角。
 - admin 页面头部如果有单一主创建动作（如“新建课程”），优先复用 `Button` 的默认主按钮样式，保持蓝底白字；不要继续沿用 `outline` 让主 CTA 在信息层级上变弱。
+- `/admin/operations` 运营模块下的页面保留面包屑导航，优先复用 `src/app/admin/components/AdminBreadcrumb.tsx` 和 `src/app/admin/operations/AdminOperationsBreadcrumb.tsx`；课程首页、数据、订单、账务等非运营 admin 页面继续通过 `AdminTitle`、tabs 或页面主体表达层级，不恢复面包屑。
 - `/admin` 课程首页顶部布局中，标题下方操作区左侧放课程筛选 tabs（如“全部/归档”），右侧放课程创建入口；OpenClaw 智能建课引导文案应放在新建课程按钮左侧，不要和标题挤在同一行。
 - `/admin` 课程首页的 tabs 与新建课程工具行默认不要额外添加上下 padding，底部间距保持 `32px`；新建课程按钮默认只展示文字，不展示左侧加号图标，确保右侧操作视觉更简洁。
 - `/admin` 课程首页课程筛选 tabs 外层使用 `10px` 圆角、`--base-muted` 背景和 `3px` padding；选中项使用 `8px` 圆角、`1px` 边框、白色背景、`shadow-sm` 变量阴影和 `4px 8px` padding。

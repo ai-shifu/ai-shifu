@@ -889,7 +889,7 @@ describe('AdminOperationUserDetailPage', () => {
     expect(screen.getAllByText('--').length).toBeGreaterThan(0);
   });
 
-  test('renders user detail', async () => {
+  test('renders user detail with breadcrumb navigation', async () => {
     render(<AdminOperationUserDetailPage />);
 
     await waitFor(() => {
@@ -897,8 +897,19 @@ describe('AdminOperationUserDetailPage', () => {
     });
 
     expect(
+      screen.getByRole('link', {
+        name: 'module.operationsUser.title',
+      }),
+    ).toHaveAttribute('href', '/admin/operations/users');
+    expect(
       screen.getAllByText('module.operationsUser.detail.title').length,
     ).toBeGreaterThan(0);
+    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
+    expect(
+      within(breadcrumb)
+        .getByText('module.operationsUser.detail.title')
+        .closest('a'),
+    ).toBeNull();
   });
 
   test('does not request detail or credits when the route param cannot be decoded', async () => {

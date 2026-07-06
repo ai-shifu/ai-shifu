@@ -101,6 +101,19 @@ src/app/admin/components/AdminTitle.tsx
 - 弱操作使用 `Button variant="ghost"` 或 `variant="outline"`。
 - 右侧操作不额外添加右侧 padding，确保和表格、卡片右边缘对齐。
 
+### 3.4 运营面包屑
+
+`/admin/operations` 运营模块下的页面保留面包屑导航，用于表达运营列表、课程详情、追问、评价、用户详情等层级关系。
+
+默认复用：
+
+```text
+src/app/admin/components/AdminBreadcrumb.tsx
+src/app/admin/operations/AdminOperationsBreadcrumb.tsx
+```
+
+非运营 admin 页面默认不恢复面包屑，应继续通过 `AdminTitle`、tabs 或页面主体表达当前层级。
+
 ## 4. Tabs 规范
 
 ### 4.1 大号标题 Tabs

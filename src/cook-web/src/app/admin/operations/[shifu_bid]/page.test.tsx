@@ -483,7 +483,7 @@ describe('AdminOperationCourseDetailPage', () => {
     });
   });
 
-  test('renders course detail data', async () => {
+  test('renders course detail data with breadcrumb navigation', async () => {
     render(<AdminOperationCourseDetailPage />);
 
     expect(
@@ -548,6 +548,12 @@ describe('AdminOperationCourseDetailPage', () => {
       screen.getAllByText('module.operationsCourse.detail.userRole.student')
         .length,
     ).toBeGreaterThan(0);
+
+    expect(
+      screen.getByRole('link', {
+        name: 'module.operationsCourse.title',
+      }),
+    ).toHaveAttribute('href', '/admin/operations');
   });
 
   test('converts course detail metadata timestamps to the browser timezone', async () => {
