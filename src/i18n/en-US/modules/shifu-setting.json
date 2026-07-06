@@ -142,7 +142,7 @@
   "minimaxCloneSubmitReasonSubmitting": "Submitting. Please wait.",
   "minimaxCloneVoiceId": "Voice ID",
   "minimaxCloneVoiceIdPlaceholder": "Optional custom MiniMax voice_id",
-  "minimaxCloneVoiceOptionLabel": "{name} voice clone",
+  "minimaxCloneVoiceOptionLabel": "{name}",
   "minimaxManualVoiceApply": "Use",
   "minimaxManualVoiceBadge": "Custom",
   "minimaxManualVoiceInvalid": "Enter a valid MiniMax custom voice ID",
