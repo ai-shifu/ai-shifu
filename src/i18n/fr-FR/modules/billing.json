@@ -355,7 +355,6 @@
       "creditType": "Type",
       "validUntil": "Valide jusqu’au"
     },
-    "title": "Détails",
     "topupAvailabilityLabel": "Aucune expiration",
     "topupAvailabilityTooltip": "Un abonnement actif est requis pour utiliser les packs de crédits.",
     "totalCreditsDescription": "Les crédits du forfait sont utilisés en premier, puis les packs de crédits.",

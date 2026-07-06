@@ -131,7 +131,10 @@ describe('BillingCreditDetailsPanel', () => {
     render(<BillingCreditDetailsPanel onUpgrade={onUpgrade} />);
 
     expect(
-      screen.queryByText('module.billing.details.title'),
+      within(screen.getByTestId('billing-credit-details-panel')).queryByRole(
+        'heading',
+        { level: 1 },
+      ),
     ).not.toBeInTheDocument();
     expect(
       screen.getByText('module.billing.details.totalCreditsLabel'),

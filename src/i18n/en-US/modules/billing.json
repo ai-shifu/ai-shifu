@@ -355,7 +355,6 @@
       "creditType": "Type",
       "validUntil": "Valid until"
     },
-    "title": "Details",
     "topupAvailabilityLabel": "No expiration",
     "topupAvailabilityTooltip": "An active subscription is required to use credit packs.",
     "totalCreditsDescription": "Plan credits are used first, then credit packs.",

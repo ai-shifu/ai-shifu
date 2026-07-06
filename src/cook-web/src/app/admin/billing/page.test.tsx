@@ -446,9 +446,7 @@ describe('AdminBillingPage', () => {
     expect(
       await screen.findByText('module.billing.details.totalCreditsLabel'),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText('module.billing.details.title'),
-    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(
       screen.getByRole('heading', {
         level: 1,
@@ -478,8 +476,6 @@ describe('AdminBillingPage', () => {
     expect(
       await screen.findByText('module.billing.details.totalCreditsLabel'),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText('module.billing.details.title'),
-    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 });

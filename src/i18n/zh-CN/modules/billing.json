@@ -355,7 +355,6 @@
       "creditType": "类型",
       "validUntil": "有效期至"
     },
-    "title": "详情",
     "topupAvailabilityLabel": "无限期",
     "topupAvailabilityTooltip": "需开通任一有效套餐后才可使用",
     "totalCreditsDescription": "优先使用套餐积分，再使用积分包",
