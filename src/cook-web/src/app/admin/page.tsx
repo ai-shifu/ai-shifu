@@ -121,8 +121,6 @@ const ShifuCard = ({
     >
       <Link
         href={`/shifu/${id}`}
-        target='_blank'
-        rel='noopener noreferrer'
         className='block w-full h-full'
       >
         <Card
