@@ -164,6 +164,16 @@ export const PAGE_SIZE = 20;
 export const EMPTY_VALUE = '--';
 export const ALL_OPTION_VALUE = '__all__';
 export const PROMOTION_EXPIRING_SOON_DAYS = 7;
+export const COUPON_OPS_STATE_OPTIONS = [
+  {
+    value: 'expiring_soon',
+    labelKey: 'opsState.expiringSoon',
+  },
+  {
+    value: 'used_up',
+    labelKey: 'opsState.usedUp',
+  },
+] as const;
 export const COLUMN_MIN_WIDTH = 90;
 export const COLUMN_MAX_WIDTH = 420;
 export const COUPON_COLUMN_WIDTH_STORAGE_KEY =
@@ -229,6 +239,9 @@ export const REFERRAL_CAMPAIGN_DEFAULT_COLUMN_WIDTHS = {
   campaignTime: 280,
   relationCount: 110,
   rewardCount: 110,
+  inviteCodeCount: 110,
+  inviteEventCount: 120,
+  latestInviteEventAt: 170,
   updatedAt: 170,
   action: 120,
 } as const;
@@ -515,6 +528,22 @@ export const stringifyReferralCampaignJson = (value: unknown) => {
   return JSON.stringify(value, null, 2);
 };
 
+export const normalizeReferralCampaignDecimalInput = (
+  value: string | null | undefined,
+) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return '';
+  }
+  if (!normalized.includes('.')) {
+    return normalized;
+  }
+  return normalized
+    .replace(/(\.\d*?[1-9])0+$/, '$1')
+    .replace(/\.0+$/, '')
+    .replace(/\.$/, '');
+};
+
 export const createReferralCampaignFormFromDetail = (
   detail: AdminReferralCampaignDetail,
 ): ReferralCampaignFormState => {
@@ -527,7 +556,9 @@ export const createReferralCampaignFormFromDetail = (
     ends_at: normalizePromotionFormDateTimeValue(campaign.ends_at),
     reward_product_code: campaign.reward_product_code || '',
     reward_cycle_count: String(campaign.reward_cycle_count || ''),
-    reward_credit_amount: campaign.reward_credit_amount || '',
+    reward_credit_amount: normalizeReferralCampaignDecimalInput(
+      campaign.reward_credit_amount,
+    ),
     reward_credit_validity_days: String(
       campaign.reward_credit_validity_days || '',
     ),
@@ -1081,20 +1112,13 @@ export const parseDateValue = (value: string) => {
   return parsed;
 };
 
-export const isPromotionExpiringSoon = (endAt?: string) => {
-  const endDate = parseDateValue(endAt || '');
-  if (!endDate) {
-    return false;
-  }
-  const now = new Date();
-  const diff = endDate.getTime() - now.getTime();
-  return (
-    diff >= 0 && diff <= PROMOTION_EXPIRING_SOON_DAYS * 24 * 60 * 60 * 1000
-  );
-};
+export const resolveCouponOpsStates = (item: AdminPromotionCouponItem) =>
+  Array.isArray(item.ops_states) ? item.ops_states : [];
 
-export const isCouponUsedUp = (item: AdminPromotionCouponItem) =>
-  Number(item.used_count || 0) >= Number(item.total_count || 0);
+export const couponHasOpsState = (
+  item: AdminPromotionCouponItem,
+  state: (typeof COUPON_OPS_STATE_OPTIONS)[number]['value'],
+) => resolveCouponOpsStates(item).includes(state);
 
 export const renderCouponAttentionBadges = (
   item: AdminPromotionCouponItem,
@@ -1104,7 +1128,7 @@ export const renderCouponAttentionBadges = (
     return [];
   }
 
-  if (isCouponUsedUp(item)) {
+  if (couponHasOpsState(item, 'used_up')) {
     return [
       <Badge
         key='used-up'
@@ -1116,7 +1140,7 @@ export const renderCouponAttentionBadges = (
     ];
   }
 
-  if (isPromotionExpiringSoon(item.end_at)) {
+  if (couponHasOpsState(item, 'expiring_soon')) {
     return [
       <Badge
         key='expiring-soon'

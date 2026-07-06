@@ -1520,6 +1520,7 @@ class RunScriptContextV2:
         """Create StreamingTTSProcessor if TTS is configured, else return None."""
         try:
             from flaskr.common.config import get_config
+            from flaskr.service.learn.learn_funcs import _resolve_runtime_tts_voice_id
             from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
             from flaskr.service.tts.validation import validate_tts_settings_strict
 
@@ -1559,6 +1560,13 @@ class RunScriptContextV2:
             if not validated:
                 return None
 
+            runtime_voice_id = _resolve_runtime_tts_voice_id(
+                self.app,
+                validated.provider,
+                validated.voice_id,
+                shifu_bid=effective_shifu_bid,
+            )
+
             max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
             if not max_segment_chars:
                 max_segment_chars = 300
@@ -1570,7 +1578,7 @@ class RunScriptContextV2:
                 user_bid=self._user_info.user_id,
                 shifu_bid=effective_shifu_bid,
                 position=int(position or 0),
-                voice_id=validated.voice_id,
+                voice_id=runtime_voice_id,
                 speed=validated.speed,
                 pitch=validated.pitch,
                 emotion=validated.emotion,

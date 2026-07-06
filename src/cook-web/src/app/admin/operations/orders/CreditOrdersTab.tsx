@@ -8,7 +8,11 @@ import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
@@ -270,8 +274,8 @@ export default function CreditOrdersTab() {
             ? { has_available_credits: true }
             : {}),
           payment_provider: filters.payment_provider,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         })) as AdminOperationCreditOrderListResponse;
 
         if (requestId !== requestIdRef.current) {
@@ -896,7 +900,7 @@ export default function CreditOrdersTab() {
                           style={getColumnStyle('createdAt')}
                         >
                           {renderTooltipText(
-                            formatAdminNaiveDateTime(order.created_at) ||
+                            formatAdminUtcDateTime(order.created_at) ||
                               EMPTY_STATE_LABEL,
                           )}
                         </TableCell>

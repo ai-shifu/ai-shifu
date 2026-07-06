@@ -1,11 +1,5 @@
 {
   "__namespace__": "module.referral",
-  "abnormalStatus": {
-    "confirmedAbnormal": "已确认异常",
-    "normal": "正常",
-    "reviewing": "复核中",
-    "unknown": "未知异常状态"
-  },
   "creator": {
     "copied": "已复制",
     "copyLink": "复制链接",
@@ -61,64 +55,22 @@
   },
   "operator": {
     "actions": {
-      "cancelReward": "取消关系与奖励",
-      "detail": "详情",
-      "freezeReward": "冻结奖励",
-      "markNormal": "标记正常",
-      "markReviewing": "标记复核",
       "reset": "重置",
       "search": "搜索"
     },
-    "description": "查看邀请关系、奖励状态、被邀请账号和计费关联，并执行少量人工异常处理。",
-    "detail": {
-      "abnormalStatus": "异常状态",
-      "billOrder": "订单 BID",
-      "boundAt": "绑定时间",
-      "campaign": "活动",
-      "inviteCode": "邀请码",
-      "invitee": "被邀请用户",
-      "inviteeMobile": "被邀请手机号",
-      "inviter": "邀请人",
-      "ledger": "流水 BID",
-      "loading": "加载中",
-      "operatorNote": "运营备注",
-      "operatorNotePlaceholder": "记录本次人工处理原因",
-      "relationStatus": "关系状态",
-      "reward": "奖励与计费",
-      "rewardBid": "奖励 BID",
-      "rewardProduct": "奖励产品",
-      "rewardQueue": {
-        "artifacts": {
-          "ledger": "流水",
-          "order": "订单",
-          "reward": "奖励"
-        },
-        "columns": {
-          "artifacts": "订单/流水",
-          "credits": "积分",
-          "effectiveAt": "生效时间",
-          "expiresAt": "到期时间",
-          "index": "期数",
-          "invitee": "被邀请人",
-          "ledgerState": "账务状态",
-          "status": "状态"
-        },
-        "empty": "暂无奖励队列。",
-        "title": "奖励队列"
-      },
-      "rewardStatus": "奖励状态",
-      "subscription": "订阅 BID",
-      "title": "邀请关系详情",
-      "walletBucket": "积分桶 BID"
-    },
+    "description": "查看邀请关系、奖励状态、被邀请账号和计费关联。",
     "empty": "暂无邀请关系。",
     "filters": {
-      "abnormalStatus": "异常状态",
       "all": "全部",
+      "boundAt": "绑定时间",
       "campaignBid": "活动 BID",
       "inviteCode": "邀请码",
-      "inviteeUserBid": "被邀请用户 BID",
-      "inviterUserBid": "邀请人 BID",
+      "invitee": "被邀请人",
+      "inviteeEmailPlaceholder": "请输入被邀请人邮箱",
+      "inviteeMobilePlaceholder": "请输入被邀请人手机号",
+      "inviter": "邀请人",
+      "inviterEmailPlaceholder": "请输入邀请人邮箱",
+      "inviterMobilePlaceholder": "请输入邀请人手机号",
       "relationStatus": "关系状态"
     },
     "loadFailed": "邀请关系读取失败，请刷新后重试。",

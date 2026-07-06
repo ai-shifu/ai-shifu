@@ -4,8 +4,12 @@ import { useMemo } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
-import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
+import {
+  createDateRangeFilterItem,
+  createSelectFilterItem,
+  createTextFilterItem,
+} from '@/app/admin/components/adminFilterFieldBuilders';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import {
@@ -14,15 +18,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/Popover';
 import { ScrollArea } from '@/components/ui/ScrollArea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
 import type { Shifu } from '@/types/shifu';
+import {
+  ORDER_FILTER_GRID_CLASS,
+  getOrdersTabFilterContentClassName,
+  getOrdersTabFilterLabelClassName,
+} from './orderFilterUiShared';
 import type { OrderFilters } from './ordersPageShared';
 
 const ALL_OPTION_VALUE = '__all__';
@@ -44,8 +46,6 @@ type OrdersFilterPanelProps = {
   userBidPlaceholder: string;
   statusOptions: SelectOption[];
   channelOptions: SelectOption[];
-  contentClassName: string;
-  expandedLabelClassName: string;
   onCourseSearchChange: (value: string) => void;
   onExpandedChange: (expanded: boolean) => void;
   onFilterChange: (
@@ -67,8 +67,6 @@ export default function OrdersFilterPanel({
   userBidPlaceholder,
   statusOptions,
   channelOptions,
-  contentClassName,
-  expandedLabelClassName,
   onCourseSearchChange,
   onExpandedChange,
   onFilterChange,
@@ -76,9 +74,12 @@ export default function OrdersFilterPanel({
   onReset,
   onSearch,
 }: OrdersFilterPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n?.language || 'en-US';
   const displayStatusValue = filters.status || ALL_OPTION_VALUE;
   const displayChannelValue = filters.payment_channel || ALL_OPTION_VALUE;
+  const contentClassName = getOrdersTabFilterContentClassName(locale);
+  const labelClassName = getOrdersTabFilterLabelClassName(locale);
 
   const courseNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -122,18 +123,14 @@ export default function OrdersFilterPanel({
   }, [courseSearch, courses]);
 
   const filterItems = [
-    {
+    createTextFilterItem({
       key: 'user_bid',
       label: userBidPlaceholder,
-      component: (
-        <AdminClearableInput
-          value={filters.user_bid}
-          onChange={value => onFilterChange('user_bid', value)}
-          placeholder={userBidPlaceholder}
-          clearLabel={t('common.core.close')}
-        />
-      ),
-    },
+      value: filters.user_bid,
+      onChange: value => onFilterChange('user_bid', value),
+      placeholder: userBidPlaceholder,
+      clearLabel: t('common.core.close'),
+    }),
     {
       key: 'shifu_bids',
       label: t('module.order.filters.shifuBid'),
@@ -164,8 +161,8 @@ export default function OrdersFilterPanel({
             align='start'
             className='p-3'
             style={{
-              width: 'var(--radix-popover-trigger-width)',
-              maxWidth: 'var(--radix-popover-trigger-width)',
+              width:
+                'min(max(var(--radix-popover-trigger-width), 320px), 90vw)',
             }}
           >
             <AdminClearableInput
@@ -225,94 +222,56 @@ export default function OrdersFilterPanel({
         </Popover>
       ),
     },
-    {
+    createSelectFilterItem({
       key: 'status',
       label: t('module.order.filters.status'),
-      component: (
-        <Select
-          value={displayStatusValue}
-          onValueChange={value =>
-            onFilterChange('status', value === ALL_OPTION_VALUE ? '' : value)
-          }
-        >
-          <SelectTrigger className='h-9'>
-            <SelectValue placeholder={t('module.order.filters.status')} />
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map(option => (
-              <SelectItem
-                key={option.value || 'all'}
-                value={option.value || ALL_OPTION_VALUE}
-                className={SINGLE_SELECT_ITEM_CLASS}
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ),
-    },
-    {
+      value: displayStatusValue,
+      onChange: value =>
+        onFilterChange('status', value === ALL_OPTION_VALUE ? '' : value),
+      placeholder: t('module.order.filters.status'),
+      options: statusOptions.map(option => ({
+        value: option.value || ALL_OPTION_VALUE,
+        label: option.label,
+      })),
+      selectItemClassName: SINGLE_SELECT_ITEM_CLASS,
+    }),
+    createSelectFilterItem({
       key: 'payment_channel',
       label: t('module.order.filters.channel'),
-      component: (
-        <Select
-          value={displayChannelValue}
-          onValueChange={value =>
-            onFilterChange(
-              'payment_channel',
-              value === ALL_OPTION_VALUE ? '' : value,
-            )
-          }
-        >
-          <SelectTrigger className='h-9'>
-            <SelectValue placeholder={t('module.order.filters.channel')} />
-          </SelectTrigger>
-          <SelectContent>
-            {channelOptions.map(option => (
-              <SelectItem
-                key={option.value || 'all'}
-                value={option.value || ALL_OPTION_VALUE}
-                className={SINGLE_SELECT_ITEM_CLASS}
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ),
-    },
-    {
+      value: displayChannelValue,
+      onChange: value =>
+        onFilterChange(
+          'payment_channel',
+          value === ALL_OPTION_VALUE ? '' : value,
+        ),
+      placeholder: t('module.order.filters.channel'),
+      options: channelOptions.map(option => ({
+        value: option.value || ALL_OPTION_VALUE,
+        label: option.label,
+      })),
+      selectItemClassName: SINGLE_SELECT_ITEM_CLASS,
+    }),
+    createDateRangeFilterItem({
       key: 'date_range',
       label: t('module.order.table.createdAt'),
-      component: (
-        <AdminDateRangeFilter
-          startValue={filters.start_time}
-          endValue={filters.end_time}
-          onChange={range => {
-            onFilterChange('start_time', range.start);
-            onFilterChange('end_time', range.end);
-          }}
-          placeholder={`${t('module.order.filters.startTime')} ~ ${t(
-            'module.order.filters.endTime',
-          )}`}
-          resetLabel={t('module.order.filters.reset')}
-          clearLabel={t('common.core.close')}
-        />
-      ),
-    },
-    {
+      startValue: filters.start_time,
+      endValue: filters.end_time,
+      onChange: range => {
+        onFilterChange('start_time', range.start);
+        onFilterChange('end_time', range.end);
+      },
+      placeholder: t('module.order.filters.dateRangePlaceholder'),
+      resetLabel: t('module.order.filters.reset'),
+      clearLabel: t('common.core.close'),
+    }),
+    createTextFilterItem({
       key: 'order_bid',
       label: t('module.order.filters.orderBid'),
-      component: (
-        <AdminClearableInput
-          value={filters.order_bid}
-          onChange={value => onFilterChange('order_bid', value)}
-          placeholder={t('module.order.filters.orderBid')}
-          clearLabel={t('common.core.close')}
-        />
-      ),
-    },
+      value: filters.order_bid,
+      onChange: value => onFilterChange('order_bid', value),
+      placeholder: t('module.order.filters.orderBid'),
+      clearLabel: t('common.core.close'),
+    }),
   ];
 
   return (
@@ -328,7 +287,9 @@ export default function OrdersFilterPanel({
       collapseLabel={t('common.core.collapse')}
       collapsedCount={3}
       contentClassName={contentClassName}
-      expandedLabelClassName={expandedLabelClassName}
+      labelClassName={labelClassName}
+      collapsedGridClassName={ORDER_FILTER_GRID_CLASS}
+      expandedGridClassName={ORDER_FILTER_GRID_CLASS}
     />
   );
 }

@@ -11,7 +11,11 @@ import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+  formatAdminUtcDateTime,
+} from '@/app/admin/lib/dateTime';
 import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import type {
@@ -47,7 +51,6 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { cn } from '@/lib/utils';
 import {
   PackageCampaignDialog,
@@ -64,6 +67,9 @@ import {
 import PromotionCampaignsTab from './PromotionCampaignsTab';
 import PromotionCouponsTab from './PromotionCouponsTab';
 import ReferralCampaignsTab from './ReferralCampaignsTab';
+import ReferralCampaignRecordsDialog, {
+  type ReferralCampaignRecordsTab,
+} from './ReferralCampaignRecordsDialog';
 import PromotionStatusConfirmDialog from './PromotionStatusConfirmDialog';
 import {
   ALL_OPTION_VALUE,
@@ -78,6 +84,7 @@ import {
   COLUMN_MIN_WIDTH,
   COUPON_COLUMN_WIDTH_STORAGE_KEY,
   COUPON_DEFAULT_COLUMN_WIDTHS,
+  COUPON_OPS_STATE_OPTIONS,
   type CouponColumnKey,
   type CouponFilters,
   type CouponFormState,
@@ -124,6 +131,9 @@ import {
  * t('module.operationsPromotion.referralCampaign.capSummary')
  * t('module.operationsPromotion.referralCampaign.relationCount')
  * t('module.operationsPromotion.referralCampaign.rewardCount')
+ * t('module.operationsPromotion.referralCampaign.inviteCodeCount')
+ * t('module.operationsPromotion.referralCampaign.inviteEventCount')
+ * t('module.operationsPromotion.referralCampaign.latestInviteEventAt')
  * t('module.operationsPromotion.referralCampaign.validityDaysValue')
  */
 export default function AdminOperationPromotionsPage() {
@@ -216,6 +226,12 @@ export default function AdminOperationPromotionsPage() {
     useState('');
   const [selectedPackageCampaignName, setSelectedPackageCampaignName] =
     useState('');
+  const [selectedReferralCampaign, setSelectedReferralCampaign] =
+    useState<AdminReferralCampaignItem | null>(null);
+  const [
+    selectedReferralCampaignRecordsTab,
+    setSelectedReferralCampaignRecordsTab,
+  ] = useState<ReferralCampaignRecordsTab>('relations');
   const [pendingStatusChange, setPendingStatusChange] =
     useState<PromotionStatusChangeTarget | null>(null);
   const [statusChangeSubmitting, setStatusChangeSubmitting] = useState(false);
@@ -307,8 +323,8 @@ export default function AdminOperationPromotionsPage() {
           ops_state: filters.ops_state,
           discount_type: filters.discount_type,
           status: filters.status,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         };
         let response = (await api.getAdminOperationPromotionCoupons(
           requestPayload,
@@ -358,8 +374,8 @@ export default function AdminOperationPromotionsPage() {
           channel: filters.channel.trim(),
           discount_type: filters.discount_type,
           status: filters.status,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         };
         let response = (await api.getAdminOperationPromotionCampaigns(
           requestPayload,
@@ -415,9 +431,8 @@ export default function AdminOperationPromotionsPage() {
           product_type: filters.product_type,
           benefit_type: filters.benefit_type,
           status: filters.status,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
-          timezone: getBrowserTimeZone(),
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         };
         let response = (await api.getAdminBillingCampaigns(requestPayload)) as {
           items: AdminBillingCampaignItem[];
@@ -465,8 +480,8 @@ export default function AdminOperationPromotionsPage() {
           page_size: PAGE_SIZE,
           keyword: filters.keyword.trim(),
           status: filters.status,
-          start_time: filters.start_time,
-          end_time: filters.end_time,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
         };
         let response = (await api.getAdminOperationPromotionReferralCampaigns(
           requestPayload,
@@ -833,6 +848,17 @@ export default function AdminOperationPromotionsPage() {
     });
   };
 
+  const handleOpenReferralCampaignRecords = useCallback(
+    (
+      item: AdminReferralCampaignItem,
+      tab: ReferralCampaignRecordsTab = 'relations',
+    ) => {
+      setSelectedReferralCampaignRecordsTab(tab);
+      setSelectedReferralCampaign(item);
+    },
+    [],
+  );
+
   const handleConfirmStatusToggle = async () => {
     if (!pendingStatusChange) {
       return;
@@ -1174,18 +1200,15 @@ export default function AdminOperationPromotionsPage() {
             >
               {t('common.core.all')}
             </SelectItem>
-            <SelectItem
-              value='expiring_soon'
-              className={SINGLE_SELECT_ITEM_CLASS}
-            >
-              {tPromotion('opsState.expiringSoon')}
-            </SelectItem>
-            <SelectItem
-              value='used_up'
-              className={SINGLE_SELECT_ITEM_CLASS}
-            >
-              {tPromotion('opsState.usedUp')}
-            </SelectItem>
+            {COUPON_OPS_STATE_OPTIONS.map(option => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                className={SINGLE_SELECT_ITEM_CLASS}
+              >
+                {tPromotion(option.labelKey)}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       ),
@@ -2135,6 +2158,7 @@ export default function AdminOperationPromotionsPage() {
             renderResizeHandle={renderReferralCampaignResizeHandle}
             onEdit={handleStartReferralCampaignEdit}
             onToggleStatus={handleReferralCampaignStatusToggle}
+            onOpenRecords={handleOpenReferralCampaignRecords}
           />
         </TabsContent>
       </Tabs>
@@ -2257,6 +2281,18 @@ export default function AdminOperationPromotionsPage() {
         }}
         campaignBid={selectedPackageCampaignBid}
         campaignName={selectedPackageCampaignName}
+      />
+      <ReferralCampaignRecordsDialog
+        open={Boolean(selectedReferralCampaign)}
+        onOpenChange={open => {
+          if (!open) {
+            setSelectedReferralCampaign(null);
+            setSelectedReferralCampaignRecordsTab('relations');
+          }
+        }}
+        campaignBid={selectedReferralCampaign?.campaign_bid || ''}
+        campaignName={selectedReferralCampaign?.campaign_name || ''}
+        defaultTab={selectedReferralCampaignRecordsTab}
       />
       <PromotionStatusConfirmDialog
         changeTarget={pendingStatusChange}

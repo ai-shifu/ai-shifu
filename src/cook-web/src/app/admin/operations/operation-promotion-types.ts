@@ -32,6 +32,7 @@ export type AdminPromotionCouponItem = {
   end_at: string;
   total_count: number;
   used_count: number;
+  ops_states?: string[];
   enabled?: boolean;
   computed_status: string;
   computed_status_key: string;
@@ -224,6 +225,9 @@ export type AdminReferralCampaignItem = {
   priority: number;
   relation_count: number;
   reward_count: number;
+  invite_code_count: number;
+  invite_event_count: number;
+  latest_invite_event_at: string | null;
   created_at: string;
   updated_at: string;
 };

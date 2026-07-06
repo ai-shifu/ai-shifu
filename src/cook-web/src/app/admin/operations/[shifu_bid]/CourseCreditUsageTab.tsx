@@ -12,7 +12,7 @@ import {
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
 } from '@/app/admin/components/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -366,7 +366,7 @@ export default function CourseCreditUsageTab({
       CreditUsageColumnKey,
       (row: AdminOperationCourseCreditUsageItem) => string[]
     > = {
-      createdAt: row => [row.created_at || emptyValue],
+      createdAt: row => [formatAdminUtcDateTime(row.created_at) || emptyValue],
       account: row => [resolveAccount(row)],
       nickname: row => [row.nickname || defaultUserName],
       scene: row => [resolveSceneLabel(row.usage_scene)],
@@ -786,7 +786,7 @@ export default function CourseCreditUsageTab({
                             style={getColumnStyle('createdAt')}
                           >
                             <AdminTooltipText
-                              text={formatAdminNaiveDateTime(row.created_at)}
+                              text={formatAdminUtcDateTime(row.created_at)}
                               emptyValue={emptyValue}
                               className='mx-auto block max-w-full tabular-nums'
                             />
@@ -977,7 +977,7 @@ export default function CourseCreditUsageTab({
                         {detailData.items.map(detail => (
                           <TableRow key={detail.usage_bid}>
                             <TableCell className='border-r border-border py-2.5 text-center text-xs text-muted-foreground/70'>
-                              {formatAdminNaiveDateTime(detail.created_at) ||
+                              {formatAdminUtcDateTime(detail.created_at) ||
                                 emptyValue}
                             </TableCell>
                             <TableCell className='border-r border-border py-2.5 text-center text-sm font-medium tabular-nums text-foreground'>

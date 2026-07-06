@@ -3,7 +3,11 @@ from flask import Flask
 
 from flaskr.route.storage import register_storage_handler
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES, OSS_PROFILE_DEFAULT
-from flaskr.service.common.storage import STORAGE_PROVIDER_LOCAL, upload_to_storage
+from flaskr.service.common.storage import (
+    STORAGE_PROVIDER_LOCAL,
+    read_storage_bytes,
+    upload_to_storage,
+)
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 
 
@@ -88,3 +92,49 @@ def test_upload_audio_to_oss_uses_storage_layer(monkeypatch, tmp_path):
     assert (
         tmp_path / "default" / "tts-audio" / "abc123.mp3"
     ).read_bytes() == audio_bytes
+
+
+def test_read_storage_bytes_fetches_from_oss_when_local_file_is_missing(
+    monkeypatch,
+    tmp_path,
+):
+    import flaskr.service.common.storage as storage
+    from flaskr.service.common.oss_utils import OSSConfig
+
+    _make_storage_app(monkeypatch, tmp_path, "oss")
+    monkeypatch.setattr(storage, "is_oss_profile_configured", lambda _profile: True)
+    monkeypatch.setattr(
+        storage,
+        "get_oss_config",
+        lambda _profile: OSSConfig(
+            endpoint="https://oss.example",
+            access_key_id="test-key-id",
+            access_key_secret="test-key-secret",
+            base_url="https://cdn.example",
+            bucket="configured-bucket",
+        ),
+    )
+
+    class FakeObject:
+        def read(self):
+            return b"remote-audio"
+
+    class FakeBucket:
+        def get_object(self, object_key: str):
+            assert object_key == "tts/minimax/source.webm"
+            return FakeObject()
+
+    def fake_create_oss_bucket(config):
+        assert config.bucket == "resource-bucket"
+        return FakeBucket()
+
+    monkeypatch.setattr(storage, "create_oss_bucket", fake_create_oss_bucket)
+
+    assert (
+        read_storage_bytes(
+            object_key="tts/minimax/source.webm",
+            profile=OSS_PROFILE_COURSES,
+            bucket_name="resource-bucket",
+        )
+        == b"remote-audio"
+    )

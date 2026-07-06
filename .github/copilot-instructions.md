@@ -9,6 +9,12 @@
   code-facing text, no hardcoded user-facing strings or secrets, and
   shared-contract doc updates in the same change.
 
+- For terminology, use `老师` in Chinese and `teacher` / `enseignant` in
+  translations for the generic role; use `课程负责人` or `负责人` for a specific
+  course owner, which may still translate as `creator` / `créateur`; keep
+  technical `creator*` identifiers unchanged unless a contract migration
+  explicitly requires it.
+
 - Use `ARCHITECTURE.md`, `PLANS.md`, and `docs/engineering-baseline.md` as the
   primary repository knowledge entry points instead of duplicating them
   everywhere.
@@ -25,6 +31,10 @@
 - When a branch already has an open PR, keep the PR title and description in
   sync with the latest code changes so they accurately describe the current
   implementation and verification state.
+
+- For git commit message title, body, and classification requirements, read
+  `AGENTS.md#git-commit-message-requirements`; keep agent-specific rule files
+  from duplicating the detailed commit-message policy.
 
 - Regenerate repository knowledge indexes with
   `python scripts/build_repo_knowledge_index.py` after moving docs or changing

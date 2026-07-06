@@ -1,0 +1,70 @@
+name: Check markdown-flow release pin
+
+# Gate for PRs into main: the markdown-flow pin in src/api/requirements.txt
+# must be a RELEASE version (X.Y.Z), never a pre-release/dev build
+# (e.g. X.Y.Z.devN, X.Y.ZrcN). dev builds are for feature branches only.
+#
+# To actually block merges, add this check as a required status check in the
+# branch protection rules for `main`.
+#
+# No `paths:` filter on purpose: required checks with path filters get stuck
+# "pending" on PRs that don't touch the filtered files. This runs on every PR
+# into main and validates whatever pin main would end up with — cheap and safe.
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check-markdown-flow-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install tooling
+        run: pip install --upgrade packaging
+
+      - name: Ensure markdown-flow pin is a release version
+        run: |
+          python - <<'PY'
+          import re
+          import sys
+
+          from packaging.version import InvalidVersion, Version
+
+          path = "src/api/requirements.txt"
+          with open(path, encoding="utf-8") as f:
+              text = f.read()
+
+          match = re.search(r"(?m)^markdown-flow==(.+)$", text)
+          if not match:
+              print(f"::error::No 'markdown-flow==' pin found in {path}.")
+              sys.exit(1)
+
+          raw = match.group(1).strip()
+          try:
+              version = Version(raw)
+          except InvalidVersion:
+              print(f"::error::Invalid markdown-flow version '{raw}' in {path}.")
+              sys.exit(1)
+
+          if version.is_prerelease or version.is_devrelease:
+              print(
+                  f"::error::markdown-flow=={raw} is a pre-release/dev build and cannot be "
+                  "merged into main. Pin a release version (X.Y.Z) first — publish a release "
+                  "build from markdown-flow-agent-py, then update the pin."
+              )
+              sys.exit(1)
+
+          print(f"OK: markdown-flow=={raw} is a release version.")
+          PY

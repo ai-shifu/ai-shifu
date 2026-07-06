@@ -15,6 +15,8 @@ interface SimpleTreeItemWrapperProps<T = {}> extends TreeItemComponentProps<T> {
     onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>;
     onAddClick?: React.MouseEventHandler<HTMLButtonElement>;
     showAdd?: boolean;
+    forceShowActions?: boolean;
+    addActionTargetProps?: Record<string, string>;
   };
   onItemClick?: React.MouseEventHandler<HTMLDivElement>;
 }
@@ -136,7 +138,12 @@ export const SimpleTreeItemWrapper = forwardRef<
                 {chapter.label}
               </span>
             ) : null}
-            <div className='outline-tree_action-buttons hidden group-hover:flex mx-2'>
+            <div
+              className={clsx(
+                'outline-tree_action-buttons mx-2',
+                chapter.forceShowActions ? 'flex' : 'hidden group-hover:flex',
+              )}
+            >
               {chapter.onSettingsClick && (
                 <button
                   type='button'
@@ -155,6 +162,7 @@ export const SimpleTreeItemWrapper = forwardRef<
                 <button
                   type='button'
                   className='outline-tree_action-button'
+                  {...chapter.addActionTargetProps}
                   onMouseDown={e => {
                     // prevent drag/collapse event intercept, ensure click takes effect immediately
                     e.stopPropagation();

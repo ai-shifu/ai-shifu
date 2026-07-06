@@ -77,6 +77,7 @@ class UserAggregate:
     state: int
     deleted: bool
     created_at: datetime
+    creator_activated_at: Optional[datetime]
     updated_at: datetime
     credentials: List[CredentialSummary] = field(default_factory=list)
     is_creator: bool = False
@@ -241,6 +242,7 @@ def _build_user_aggregate(
         state=_normalize_user_state(entity.state),
         deleted=bool(entity.deleted),
         created_at=entity.created_at,
+        creator_activated_at=entity.creator_activated_at,
         updated_at=entity.updated_at,
         credentials=summaries,
         is_creator=bool(entity.is_creator),

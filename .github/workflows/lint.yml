@@ -1,0 +1,125 @@
+name: Lint
+
+# Replaces the pre-commit.ci PR check, mirroring its behaviour:
+#   - auto-fixable issues are fixed and pushed back to the PR branch as a commit
+#   - issues that cannot be auto-fixed (ruff E722, invalid YAML/JSON, merge
+#     markers, hardcoded CJK in backend) fail the run.
+#
+# Scope: only the checks NOT already enforced by another workflow. Prettier has
+# prettier-check.yml, the repo-harness scripts have repo-harness.yml, and the
+# translation scripts have translations-check.yml -- those are intentionally
+# not duplicated here. ESLint mirrors the old pre-commit.ci behaviour (auto-fix
+# only, never a hard gate), since cook-web carries known eslint warnings.
+#
+# Auto-fixes are scoped to the files changed in the PR (like pre-commit.ci), so
+# pre-existing non-conforming files elsewhere are never reformatted.
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@v6
+        with:
+          # Same-repo PRs: check out the head branch so auto-fixes can be pushed
+          # back. Fork PRs: head_ref does not exist in this repo, so fall back to
+          # the default PR merge ref (read-only; fork fixes are never pushed).
+          ref: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || '' }}
+          fetch-depth: 0
+          # Do not leave the write-capable token in .git/config while
+          # PR-controlled tooling (npm ci, linters) runs. The push step
+          # supplies it explicitly. The repo is public, so the base fetch
+          # below needs no credentials.
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js (match Cook Web engines)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.16.0"
+
+      - name: Install tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ruff==0.15.13" "pre-commit-hooks==6.0.0"
+          (cd src/cook-web && npm ci)
+
+      - name: Collect files changed in this PR
+        run: |
+          base='${{ github.event.pull_request.base.sha }}'
+          git fetch --no-tags --depth=1 origin "$base" || true
+          git diff --name-only --diff-filter=ACMR "$base"...HEAD > /tmp/changed.txt || \
+            git diff --name-only --diff-filter=ACMR "$base" HEAD > /tmp/changed.txt
+          echo "Changed files:"; cat /tmp/changed.txt
+          # Text-only subset (grep -I reports no match on binary files), so the
+          # whitespace/eof fixers never corrupt PNGs and other binaries.
+          while read -r f; do [ -f "$f" ] && grep -Iq . "$f" && printf '%s\n' "$f"; done \
+            < /tmp/changed.txt > /tmp/changed_text.txt || true
+
+      - name: Auto-fix (changed files only; never fails this step)
+        run: |
+          sel() { grep -E "$1" /tmp/changed.txt || true; }
+          py=$(sel '\.py$')
+          [ -n "$py" ] && { ruff check --fix $py || true; ruff format $py || true; }
+          txt=$(cat /tmp/changed_text.txt)
+          [ -n "$txt" ] && { end-of-file-fixer $txt || true; trailing-whitespace-fixer $txt || true; }
+          i18n=$(sel '^src/i18n/.*\.json$')
+          [ -n "$i18n" ] && { pretty-format-json --autofix --indent=2 --no-ensure-ascii --top-keys=__namespace__ $i18n || true; }
+          reqs=$(sel 'requirements.*\.txt$' | grep -v '^src/api/requirements\.txt$' || true)
+          [ -n "$reqs" ] && { requirements-txt-fixer $reqs || true; }
+          cw=$(sel '^src/cook-web/.*\.(js|jsx|ts|tsx|mjs|cjs|css|scss|md|mdx|json)$')
+          [ -n "$cw" ] && { src/cook-web/node_modules/.bin/prettier --write --config src/cook-web/.prettierrc --ignore-path src/cook-web/.prettierignore $cw || true; }
+          cwlint=$(sel '^src/cook-web/.*\.(js|jsx|ts|tsx)$' | sed 's|src/cook-web/||g')
+          [ -n "$cwlint" ] && { (cd src/cook-web && npm run lint-file -- $cwlint) || true; }
+          true
+
+      - name: Apply auto-fixes (push on same-repo PRs; fail forks that need fixes)
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          GH_TOKEN: ${{ github.token }}
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No auto-fixes needed."
+            exit 0
+          fi
+          echo "Auto-fixable changes detected:"; git --no-pager diff --stat
+          if [ "$SAME_REPO" = "true" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "style: auto-fix from lint hooks"
+            # Token supplied only here (branch name via env, never expanded in shell).
+            git -c http.https://github.com/.extraheader="AUTHORIZATION: bearer ${GH_TOKEN}" \
+              push origin "HEAD:${HEAD_REF}"
+          else
+            echo "::error::Auto-fixable lint issues found on a fork PR (cannot push fixes). Run 'lefthook run pre-commit --all-files' locally and push the result."
+            exit 1
+          fi
+
+      - name: Hard-fail checks (on the now-fixed tree)
+        run: |
+          sel() { grep -E "$1" /tmp/changed.txt || true; }
+          yaml=$(sel '\.(ya?ml)$'); [ -n "$yaml" ] && check-yaml $yaml
+          json=$(sel '\.json$'); [ -n "$json" ] && check-json $json
+          txt=$(cat /tmp/changed_text.txt)
+          [ -n "$txt" ] && check-merge-conflict $txt
+          all=$(cat /tmp/changed.txt)
+          [ -n "$all" ] && check-symlinks $all
+          py=$(sel '\.py$'); [ -n "$py" ] && ruff check $py
+          python3 scripts/check_backend_hardcoded_cn.py
+          echo "Lint hard-fail checks passed."

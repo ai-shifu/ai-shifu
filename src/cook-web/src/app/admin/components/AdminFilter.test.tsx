@@ -11,12 +11,16 @@ const renderFilter = ({
   activeFilter,
   layoutPreset,
   surface,
+  actionsDisabled,
+  showActions,
 }: {
   expanded?: boolean;
   items?: AdminFilterItem[];
   activeFilter?: AdminFilterActiveFilter | null;
   layoutPreset?: 'default' | 'operations';
   surface?: 'plain' | 'card';
+  actionsDisabled?: boolean;
+  showActions?: boolean;
 } = {}) =>
   render(
     <AdminFilter
@@ -43,6 +47,7 @@ const renderFilter = ({
       onExpandedChange={() => undefined}
       onReset={() => undefined}
       onSearch={() => undefined}
+      actionsDisabled={actionsDisabled}
       resetLabel='Reset'
       searchLabel='Search'
       expandLabel='Expand'
@@ -54,6 +59,7 @@ const renderFilter = ({
       activeFilter={activeFilter}
       layoutPreset={layoutPreset}
       surface={surface}
+      showActions={showActions}
     />,
   );
 
@@ -134,5 +140,27 @@ describe('AdminFilter', () => {
     expect(screen.getByText('Type')).toHaveClass("after:content-[':']");
     expect(screen.getByText('Type')).toHaveClass('w-20');
     expect(container.querySelector('.xl\\:grid-cols-3')).toBeInTheDocument();
+  });
+
+  test('can hide built-in action buttons', () => {
+    renderFilter({ showActions: false });
+
+    expect(
+      screen.queryByRole('button', { name: 'Reset' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Search' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Expand' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('disables built-in action buttons', () => {
+    renderFilter({ actionsDisabled: true });
+
+    expect(screen.getByRole('button', { name: 'Reset' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Expand' })).toBeDisabled();
   });
 });

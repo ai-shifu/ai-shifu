@@ -10,6 +10,13 @@ describe('auth api definitions', () => {
       false,
     );
   });
+
+  test('exposes admin onboarding endpoints', () => {
+    expect(api.getCreatorOnboardingStatus).toBe('GET /user/onboarding/status');
+    expect(api.completeCreatorOnboarding).toBe(
+      'POST /user/onboarding/complete',
+    );
+  });
 });
 
 describe('profile onboarding api definitions', () => {
@@ -23,6 +30,14 @@ describe('profile onboarding api definitions', () => {
     );
     expect(api.updateAdminOperationProfileOnboardingConfig).toBe(
       'POST /shifu/admin/operations/profile-onboarding',
+    );
+  });
+});
+
+describe('operator voice clone api definitions', () => {
+  test('exposes operator MiniMax voice clone record endpoint', () => {
+    expect(api.getAdminOperationVoiceClones).toBe(
+      'GET /shifu/admin/operations/voice-clones',
     );
   });
 });
@@ -67,6 +82,12 @@ describe('referral api definitions', () => {
     );
     expect(api.updateAdminOperationPromotionReferralCampaignStatus).toBe(
       'POST /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/status',
+    );
+    expect(api.getAdminOperationPromotionReferralCampaignRelations).toBe(
+      'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/relations',
+    );
+    expect(api.getAdminOperationPromotionReferralCampaignInvitations).toBe(
+      'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/invitations',
     );
   });
 });

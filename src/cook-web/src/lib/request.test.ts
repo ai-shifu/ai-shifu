@@ -92,21 +92,21 @@ describe('request SSE business fallback', () => {
 
     xhr.responseText = JSON.stringify({
       code: 2301,
-      message: '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+      message: '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
     });
     xhr.dispatchEvent(new Event('load'));
 
     await waitFor(() => {
       expect(toast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+          title: '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
           variant: 'destructive',
         }),
       );
       expect(onHandled).toHaveBeenCalledTimes(1);
       expect(onHandled.mock.calls[0][0]).toMatchObject({
         code: 2301,
-        message: '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+        message: '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
         requestId: 'fallback-request-id',
         harnessRunId: 'fallback-run-id',
       });

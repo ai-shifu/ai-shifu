@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Iterator
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from flask import Flask, current_app
+from flask import Flask
 
 from flaskr.common import cache_provider
 from flaskr.common.public_urls import build_stripe_billing_result_url
@@ -42,7 +42,7 @@ from flaskr.service.order.raw_snapshots import (
     upsert_billing_stripe_snapshot,
 )
 from flaskr.service.user.repository import load_user_aggregate
-from flaskr.util.timezone import serialize_with_app_timezone
+from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 
 from .campaigns import resolve_applied_billing_campaign
@@ -210,20 +210,11 @@ class RefundProviderMetadata:
         return payload
 
 
-def _serialize_checkout_datetime(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    try:
-        return serialize_with_app_timezone(current_app, value, "UTC")
-    except RuntimeError:
-        return value.isoformat()
-
-
 def _resolve_billing_order_expires_at(
     *,
     now: datetime | None = None,
 ) -> datetime:
-    return (now or datetime.now()) + BILLING_PENDING_ORDER_TIMEOUT_DELTA
+    return (now or now_utc()) + BILLING_PENDING_ORDER_TIMEOUT_DELTA
 
 
 def _resolve_effective_billing_order_expires_at(
@@ -258,7 +249,7 @@ def _calculate_billing_order_expires_in_seconds(
     resolved_expires_at = _resolve_effective_billing_order_expires_at(order)
     if resolved_expires_at is None:
         return None
-    remaining = int((resolved_expires_at - (now or datetime.now())).total_seconds())
+    remaining = int((resolved_expires_at - (now or now_utc())).total_seconds())
     return max(0, remaining)
 
 
@@ -294,7 +285,7 @@ def _is_billing_order_expired(
     resolved_expires_at = _resolve_effective_billing_order_expires_at(order)
     if resolved_expires_at is None:
         return False
-    return resolved_expires_at <= (now or datetime.now())
+    return resolved_expires_at <= (now or now_utc())
 
 
 def _mark_billing_order_invalidated(
@@ -305,7 +296,7 @@ def _mark_billing_order_invalidated(
     invalidated_at: datetime | None = None,
     replaced_by_bill_order_bid: str = "",
 ) -> None:
-    now = invalidated_at or datetime.now()
+    now = invalidated_at or now_utc()
     metadata = (
         dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
     )
@@ -375,6 +366,67 @@ def _subscription_checkout_lock(app: Flask, creator_bid: str) -> Iterator[None]:
             pass
 
 
+_CREDIT_LEDGER_LOCK_TIMEOUT_SECONDS = 60
+_CREDIT_LEDGER_LOCK_BLOCKING_TIMEOUT_SECONDS = 60
+
+
+def _build_credit_ledger_lock_key(app: Flask, creator_bid: str) -> str:
+    prefix = str(app.config.get("REDIS_KEY_PREFIX", "ai-shifu") or "ai-shifu").rstrip(
+        ":"
+    )
+    scope = str(creator_bid or "").strip() or "unknown"
+    return f"{prefix}:billing:credit-ledger:{scope}"
+
+
+@contextmanager
+def _credit_ledger_lock(app: Flask, creator_bid: str) -> Iterator[None]:
+    """Serialize credit-ledger writes for a creator.
+
+    Concurrent order syncs for the same creator (timeout scan vs renewal
+    reconcile vs manual sync) otherwise both pass the ``existing_entry`` grant
+    pre-check and then trip the ``(creator_bid, idempotency_key)`` unique key at
+    commit, and contend on the same ``bill_orders`` row (seen in production as
+    ``Lock wait timeout``). Serializing per creator lets the second caller re-run
+    the pre-check inside the lock, find the first caller's committed grant, and
+    take the idempotent repair path instead. Mirrors ``_usage_settlement_lock``
+    in ``settlement.py``: on lock-backend failure it degrades to running without
+    the lock rather than blocking the sync.
+    """
+
+    lock = cache_provider.cache.lock(
+        _build_credit_ledger_lock_key(app, creator_bid),
+        timeout=_CREDIT_LEDGER_LOCK_TIMEOUT_SECONDS,
+        blocking_timeout=_CREDIT_LEDGER_LOCK_BLOCKING_TIMEOUT_SECONDS,
+    )
+    acquired = False
+    try:
+        if lock is not None:
+            acquired = bool(lock.acquire(blocking=True))
+    except Exception as exc:
+        # Lock-backend failure (e.g. Redis outage): degrade to running without
+        # the lock rather than crashing the order sync. The grant idempotency
+        # pre-check and unique key still guard correctness.
+        app.logger.warning(
+            "credit-ledger lock acquire failed; running without lock: %s", exc
+        )
+    if lock is not None and not acquired:
+        # Blocking timeout elapsed under contention: acquire() returned False.
+        # Log so this fail-open path is observable rather than silent.
+        app.logger.warning(
+            "credit-ledger lock not acquired within timeout for %s; "
+            "running without lock",
+            _build_credit_ledger_lock_key(app, creator_bid),
+        )
+    try:
+        yield
+    finally:
+        if acquired and lock is not None:
+            try:
+                lock.release()
+            except Exception as exc:
+                app.logger.warning("credit-ledger lock release failed: %s", exc)
+
+
 def _load_active_pending_subscription_orders(
     creator_bid: str,
 ) -> list[BillingOrder]:
@@ -411,14 +463,14 @@ def create_billing_subscription_checkout(
     )
 
     with app.app_context(), _subscription_checkout_lock(app, normalized_creator_bid):
-        now = datetime.now()
+        now = now_utc()
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
         if payment_provider == "stripe":
             channel = "checkout_session"
 
         current_subscription = _load_primary_active_subscription(
             normalized_creator_bid,
-            as_of=datetime.now(),
+            as_of=now_utc(),
         )
         if current_subscription is not None:
             current_subscription = _lock_subscription_for_checkout(current_subscription)
@@ -512,7 +564,7 @@ def create_billing_subscription_checkout(
                 }
             else:
                 raise_error("server.order.orderStatusError")
-            subscription.updated_at = datetime.now()
+            subscription.updated_at = now_utc()
 
         pending_orders = _load_active_pending_subscription_orders(
             normalized_creator_bid
@@ -748,7 +800,7 @@ def create_billing_order_checkout(
     requested_channel = _normalize_bid(payload.get("channel"))
 
     with app.app_context():
-        now = datetime.now()
+        now = now_utc()
         order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
@@ -910,7 +962,7 @@ def refund_billing_order(
         if str(refund_result.status or "").lower() in {"failed", "canceled"}:
             raise_error("server.order.orderRefundError")
 
-        now = datetime.now()
+        now = now_utc()
         order.status = BILLING_ORDER_STATUS_REFUNDED
         order.refunded_at = order.refunded_at or now
         order.updated_at = now
@@ -992,7 +1044,10 @@ def sync_billing_order(
     normalized_order_bid = _normalize_bid(bill_order_bid)
     session_id = _normalize_bid(payload.get("session_id"))
 
-    with app.app_context():
+    # Hold a per-creator lock across the whole read-modify-commit so the grant
+    # idempotency pre-check and the commit run in one critical section (see
+    # _credit_ledger_lock).
+    with app.app_context(), _credit_ledger_lock(app, normalized_creator_bid):
         order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
@@ -1127,7 +1182,7 @@ def _build_billing_order_sync_result(
     return BillingOrderSyncResultDTO(
         bill_order_bid=order.bill_order_bid,
         status=status_label,
-        expires_at=_serialize_checkout_datetime(order.expires_at),
+        expires_at=order.expires_at,
         expires_in_seconds=_calculate_billing_order_expires_in_seconds(order),
     )
 
@@ -1155,7 +1210,7 @@ def _validate_plan_checkout_upgrade_only(
 ) -> None:
     current_subscription = _load_primary_active_subscription(
         creator_bid,
-        as_of=datetime.now(),
+        as_of=now_utc(),
     )
     if current_subscription is None:
         return
@@ -1233,7 +1288,7 @@ def _assert_same_plan_preorder_within_single_cycle(
 
     max_single_prepaid_end = _calculate_self_managed_billing_cycle_end(
         target_product,
-        cycle_start_at=datetime.now(),
+        cycle_start_at=now_utc(),
     )
     if (
         max_single_prepaid_end is not None
@@ -1489,7 +1544,7 @@ def _complete_zero_amount_subscription_checkout(
     app: Flask,
     order: BillingOrder,
 ) -> tuple[BillingCheckoutResultDTO, BillingPaidOrderSideEffects]:
-    now = datetime.now()
+    now = now_utc()
     previous_status = int(order.status or 0)
     metadata = (
         dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
@@ -1563,7 +1618,7 @@ def _build_checkout_response_payload(
         "prepaid_offset_amount": int(order_metadata.get("prepaid_offset_amount") or 0),
         "payable_amount": int(order.payable_amount or 0),
         "currency": str(order.currency or "CNY"),
-        "expires_at": _serialize_checkout_datetime(order.expires_at),
+        "expires_at": order.expires_at,
         "expires_in_seconds": _calculate_billing_order_expires_in_seconds(order),
         "campaign": order_metadata.get("campaign") or None,
     }
@@ -2103,10 +2158,22 @@ def _sync_pingxx_order(
     app: Flask,
     order: BillingOrder,
 ) -> BillingOrderProviderUpdateResult:
-    provider = get_payment_provider("pingxx")
     if not order.provider_reference_id:
-        raise_error("server.order.orderNotFound")
+        # No pingxx charge was ever created for this order (e.g. a subscription
+        # renewal preorder whose charge creation never happened). Treat it as
+        # still unpaid instead of raising orderNotFound so callers such as the
+        # pending-order timeout scan can expire it normally.
+        return _apply_billing_order_provider_update(
+            order,
+            provider="pingxx",
+            event_type="manual_sync",
+            source="sync",
+            payload={},
+            provider_reference_id="",
+            target_status=BILLING_ORDER_STATUS_PENDING,
+        )
 
+    provider = get_payment_provider("pingxx")
     sync_result = provider.sync_reference(
         provider_reference=order.provider_reference_id,
         reference_type="charge",
@@ -2151,10 +2218,21 @@ def _sync_native_order(
     order: BillingOrder,
 ) -> BillingOrderProviderUpdateResult:
     provider_name = _normalize_bid(order.payment_provider)
-    provider = get_payment_provider(provider_name)
     if not order.provider_reference_id:
-        raise_error("server.order.orderNotFound")
+        # Same as pingxx: no native trade was ever created for this order, so
+        # treat it as still unpaid instead of raising orderNotFound and let the
+        # caller (e.g. the pending-order timeout scan) expire it normally.
+        return _apply_billing_order_provider_update(
+            order,
+            provider=provider_name,
+            event_type="manual_sync",
+            source="sync",
+            payload={},
+            provider_reference_id="",
+            target_status=BILLING_ORDER_STATUS_PENDING,
+        )
 
+    provider = get_payment_provider(provider_name)
     sync_result = provider.sync_reference(
         provider_reference=order.provider_reference_id,
         reference_type="payment",

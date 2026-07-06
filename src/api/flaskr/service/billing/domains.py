@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 import ipaddress
 import re
-from datetime import datetime
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -13,8 +12,8 @@ from flask import Flask
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.util.timezone import serialize_with_app_timezone
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_DISABLED,
@@ -67,8 +66,6 @@ class DomainVerificationResult:
 def build_creator_domain_bindings(
     app: Flask,
     creator_bid: str,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingDomainBindingsDTO:
     """Return the creator domain binding list and entitlement gate state."""
 
@@ -95,7 +92,6 @@ def build_creator_domain_bindings(
                 _serialize_domain_binding(
                     app,
                     row,
-                    timezone_name=timezone_name,
                     custom_domain_enabled=custom_domain_enabled,
                 )
                 for row in rows
@@ -107,8 +103,6 @@ def manage_creator_domain_binding(
     app: Flask,
     creator_bid: str,
     payload: dict[str, Any],
-    *,
-    timezone_name: str | None = None,
 ) -> BillingDomainBindResultDTO:
     """Bind, verify, or disable a creator custom domain."""
 
@@ -156,7 +150,6 @@ def manage_creator_domain_binding(
             binding=_serialize_domain_binding(
                 app,
                 binding,
-                timezone_name=timezone_name,
                 custom_domain_enabled=custom_domain_enabled,
             ),
         )
@@ -169,7 +162,6 @@ def verify_domain_binding(
     domain_binding_bid: str = "",
     host: Any = "",
     verification_token: Any = "",
-    timezone_name: str | None = None,
 ) -> DomainVerificationResult:
     """Verify one domain binding by business id or host for background tasks."""
 
@@ -199,7 +191,6 @@ def verify_domain_binding(
                     or _normalize_bid(binding.verification_token)
                 ),
             },
-            timezone_name=timezone_name,
         )
         return DomainVerificationResult(
             creator_bid=binding_creator_bid,
@@ -448,7 +439,7 @@ def _verify_creator_domain(
     metadata = _as_dict(binding.metadata_json).to_metadata_json()
     if normalized_token == _normalize_bid(binding.verification_token):
         binding.status = BILLING_DOMAIN_BINDING_STATUS_VERIFIED
-        binding.last_verified_at = datetime.now()
+        binding.last_verified_at = now_utc()
         metadata["verification_error"] = ""
         metadata["verified_by"] = "creator_verify"
     else:
@@ -526,7 +517,6 @@ def _serialize_domain_binding(
     app: Flask,
     row: BillingDomainBinding,
     *,
-    timezone_name: str | None = None,
     custom_domain_enabled: bool = False,
 ) -> BillingDomainBindingDTO:
     metadata = _as_dict(row.metadata_json)
@@ -549,11 +539,7 @@ def _serialize_domain_binding(
         verification_token=row.verification_token,
         verification_record_name=verification_record_name,
         verification_record_value=verification_record_value,
-        last_verified_at=serialize_with_app_timezone(
-            app,
-            row.last_verified_at,
-            timezone_name,
-        ),
+        last_verified_at=row.last_verified_at,
         ssl_status=BILLING_DOMAIN_SSL_STATUS_LABELS.get(
             row.ssl_status,
             "not_requested",

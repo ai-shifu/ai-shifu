@@ -33,9 +33,11 @@ jest.mock('@/c-store', () => ({
     selector(mockEnvState),
 }));
 
+const mockBrowserTimeZone = jest.fn(() => 'America/Los_Angeles');
+
 jest.mock('@/lib/browser-timezone', () => ({
   __esModule: true,
-  getBrowserTimeZone: () => 'Asia/Shanghai',
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('@/api', () => ({
@@ -69,6 +71,7 @@ const mockGetAdminBillingOrders = api.getAdminBillingOrders as jest.Mock;
 describe('AdminBillingConsolePage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockEnvState.billingEnabled = 'true';
     mockEnvState.runtimeConfigLoaded = true;
     mockAdjustAdminBillingLedger.mockReset();
@@ -353,9 +356,12 @@ describe('AdminBillingConsolePage', () => {
     expect(mockGetAdminBillingSubscriptions).toHaveBeenCalledWith({
       page_index: 1,
       page_size: 10,
-      timezone: 'Asia/Shanghai',
     });
     expect(await screen.findByText('sub-past-due')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-03-31 17:00:00').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText('2026-04-01T00:00:00Z')).not.toBeInTheDocument();
     expect(
       screen.getByText('module.billing.renewal.eventType.retry'),
     ).toBeInTheDocument();
@@ -372,6 +378,7 @@ describe('AdminBillingConsolePage', () => {
     });
 
     expect(await screen.findByText('order-1')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-03 00:55:00')).toBeInTheDocument();
     expect(
       screen.getByText('module.billing.admin.orders.title'),
     ).toBeInTheDocument();
@@ -389,6 +396,9 @@ describe('AdminBillingConsolePage', () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText('creator-2').length).toBeGreaterThan(0);
     expect(screen.getByText('Card was declined')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-03-31 17:00:00').length).toBeGreaterThan(
+      0,
+    );
 
     await act(async () => {
       await user.click(
@@ -430,7 +440,6 @@ describe('AdminBillingConsolePage', () => {
     expect(mockGetAdminBillingDailyUsageMetrics).toHaveBeenCalledWith({
       page_index: 1,
       page_size: 6,
-      timezone: 'Asia/Shanghai',
     });
     expect(
       screen.getByText('module.billing.admin.reports.sections.usage.title'),
@@ -438,6 +447,9 @@ describe('AdminBillingConsolePage', () => {
     expect(
       screen.getByText('module.billing.reports.metric.llmOutputTokens'),
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText('2026-04-05 17:00:00 → 2026-04-06 17:00:00').length,
+    ).toBeGreaterThan(0);
   });
 
   test('submits a manual ledger adjustment and revalidates admin billing data', async () => {

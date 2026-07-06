@@ -172,6 +172,23 @@ npm run dev
 
 Cook Web (which now serves both the learner experience and authoring console) will be available at `http://localhost:3000`.
 
+#### Step 5.5: Install the Code-Quality Hooks (Contributors)
+
+If you plan to commit changes, install the lefthook git hooks so the same
+pre-commit checks that run in CI also run locally. **Without this step the
+checks are silently skipped on commit.**
+
+```bash
+# From the repository root
+brew install lefthook   # or see https://lefthook.dev for non-macOS installs
+pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0
+(cd src/cook-web && npm ci)   # provides prettier + eslint
+lefthook install
+
+# Verify the toolchain (reports anything missing and how to install it)
+python scripts/check_dev_tools.py
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -194,6 +211,10 @@ Cook Web (which now serves both the learner experience and authoring console) wi
    - Ensure Node.js version is 22.16.0
    - Clear node_modules and reinstall: `rm -rf node_modules && npm install`
    - Check for environment variable issues
+
+5. **Pre-commit Hooks Not Running / "command not found"**
+   - Make sure you ran `lefthook install` once in this clone
+   - Run `python scripts/check_dev_tools.py` to see which tools are missing and how to install them
 
 ### Log Files
 

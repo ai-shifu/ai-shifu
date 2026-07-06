@@ -2,7 +2,7 @@
   "__namespace__": "common.core",
   "actionFailed": "操作未完成，请稍后重试",
   "adminTitle": "管理后台",
-  "aiCourseCreator": "龙虾助理智能建课",
+  "aiCourseCreator": "AI 助理（龙虾）智能建课",
   "all": "全部",
   "archived": "归档",
   "brandName": "AI 师傅",
@@ -61,5 +61,6 @@
   "unsupportedBrowserDescription": "当前 iOS 版本暂不支持，请升级到 iOS 16.4 或更高版本后再访问。",
   "unsupportedBrowserTitle": "当前 iOS 版本暂不支持",
   "userManagement": "用户管理",
+  "voiceCloneManagement": "克隆音色",
   "waitingForCompletion": "敬请期待"
 }

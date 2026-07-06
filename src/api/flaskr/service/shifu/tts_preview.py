@@ -51,8 +51,8 @@ def build_tts_preview_response(
     model = (payload.get("model") or "").strip()
     voice_id = payload.get("voice_id") or ""
     speed_raw = payload.get("speed")
-    pitch_raw = payload.get("pitch")
-    emotion = payload.get("emotion", "")
+    pitch_raw = 0
+    emotion = ""
     text = payload.get(
         "text",
         "你好，这是语音合成的试听效果。Hello, this is a preview of text-to-speech.",

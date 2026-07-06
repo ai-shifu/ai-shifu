@@ -3,7 +3,6 @@ from __future__ import annotations
 from decimal import Decimal
 from datetime import datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import Mock
 
 import pytest
 
@@ -11,7 +10,6 @@ from flaskr.dao import db
 from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
-from flaskr.service.promo.admin import _format_promotion_admin_datetime
 from flaskr.service.promo.consts import (
     COUPON_APPLY_TYPE_ALL,
     COUPON_APPLY_TYPE_SPECIFIC,
@@ -194,7 +192,7 @@ def test_admin_promotions_routes_reject_invalid_status_filter(
 def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch):
     _mock_operator(monkeypatch)
     monkeypatch.setattr(
-        "flaskr.service.promo.admin._now_local_naive",
+        "flaskr.service.promo.admin.now_utc",
         lambda: datetime(2026, 5, 20, 12, 0, 0),
     )
 
@@ -258,6 +256,7 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
     assert list_payload["data"]["summary"]["usage_count"] == 1
     assert list_payload["data"]["items"][0]["name"] == "Spring Batch"
     assert list_payload["data"]["items"][0]["course_name"] == "Coupon Course"
+    assert list_payload["data"]["items"][0]["ops_states"] == ["expiring_soon"]
 
     filtered_list_response = test_client.get(
         "/api/shifu/admin/operations/promotions/coupons",
@@ -290,6 +289,9 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
     assert expiring_coupon_payload["code"] == 0
     assert expiring_coupon_payload["data"]["total"] == 1
     assert expiring_coupon_payload["data"]["items"][0]["coupon_bid"] == coupon_bid
+    assert expiring_coupon_payload["data"]["items"][0]["ops_states"] == [
+        "expiring_soon"
+    ]
 
     non_matching_expiring_response = test_client.get(
         "/api/shifu/admin/operations/promotions/coupons",
@@ -404,6 +406,10 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
     assert used_up_payload["code"] == 0
     assert used_up_payload["data"]["total"] == 1
     assert used_up_payload["data"]["items"][0]["coupon_bid"] == coupon_bid
+    assert set(used_up_payload["data"]["items"][0]["ops_states"]) == {
+        "used_up",
+        "expiring_soon",
+    }
 
     status_response = test_client.post(
         f"/api/shifu/admin/operations/promotions/coupons/{coupon_bid}/status",
@@ -417,6 +423,51 @@ def test_admin_promotions_coupon_routes_round_trip(app, test_client, monkeypatch
         coupon = Coupon.query.filter(Coupon.coupon_bid == coupon_bid).first()
         assert coupon is not None
         assert coupon.status == 0
+
+
+def test_admin_promotions_coupon_list_returns_empty_ops_states_by_default(
+    app, test_client, monkeypatch
+):
+    _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.promo.admin.now_utc",
+        lambda: datetime(2026, 5, 20, 12, 0, 0),
+    )
+
+    with app.app_context():
+        _seed_user("operator-1", "operator@example.com", "Operator", is_operator=True)
+        _seed_course("course-1", "Coupon Course")
+
+        coupon = Coupon()
+        coupon.coupon_bid = "stable-coupon"
+        coupon.name = "Stable Coupon"
+        coupon.code = "STABLE"
+        coupon.usage_type = COUPON_APPLY_TYPE_ALL
+        coupon.discount_type = COUPON_TYPE_FIXED
+        coupon.value = Decimal("20")
+        coupon.filter = '{"course_id": "course-1"}'
+        coupon.total_count = 10
+        coupon.used_count = 1
+        coupon.status = 1
+        coupon.created_user_bid = "operator-1"
+        coupon.updated_user_bid = "operator-1"
+        coupon.start = datetime(2026, 4, 24, 10, 0, 0)
+        coupon.end = datetime(2026, 8, 24, 10, 0, 0)
+        db.session.add(coupon)
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/promotions/coupons",
+        query_string={"page_index": 1, "page_size": 20},
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["total"] == 1
+    assert payload["data"]["items"][0]["coupon_bid"] == "stable-coupon"
+    assert payload["data"]["items"][0]["ops_states"] == []
 
 
 def test_creator_redemption_code_route_creates_course_scoped_coupon(
@@ -569,6 +620,7 @@ def test_creator_redemption_code_list_shows_only_owned_course_batches(
     assert payload["data"]["items"][0]["course_name"] == "Creator Course"
     assert payload["data"]["items"][0]["created_user_bid"] == "creator-1"
     assert payload["data"]["items"][0]["created_user_name"] == "Creator"
+    assert payload["data"]["items"][0]["ops_states"] == []
 
     all_response = test_client.get(
         "/api/order/admin/orders/redemption-codes",
@@ -580,6 +632,50 @@ def test_creator_redemption_code_list_shows_only_owned_course_batches(
     assert all_payload["code"] == 0
     assert all_payload["data"]["total"] == 1
     assert all_payload["data"]["items"][0]["coupon_bid"] != "other-coupon"
+    assert all_payload["data"]["items"][0]["ops_states"] == []
+
+
+def test_creator_redemption_code_list_accepts_utc_date_filter_bounds(
+    app, test_client, monkeypatch
+):
+    _mock_creator(monkeypatch, user_id="creator-1")
+    captured_filters = {}
+
+    def fake_list(_app, creator_user_bid, page_index, page_size, filters):
+        captured_filters.update(filters)
+        assert creator_user_bid == "creator-1"
+        assert page_index == 1
+        assert page_size == 20
+        return {
+            "summary": {},
+            "items": [],
+            "page": page_index,
+            "page_size": page_size,
+            "page_count": 0,
+            "total": 0,
+        }
+
+    monkeypatch.setattr(
+        "flaskr.route.order.list_creator_course_redemption_coupons",
+        fake_list,
+    )
+
+    response = test_client.get(
+        "/api/order/admin/orders/redemption-codes",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "start_time": "2026-07-01T16:00:00Z",
+            "end_time": "2026-07-02T15:59:59Z",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert captured_filters["start_time"] == datetime(2026, 7, 1, 16, 0, 0)
+    assert captured_filters["end_time"] == datetime(2026, 7, 2, 15, 59, 59)
 
 
 def test_creator_redemption_code_usage_route_requires_owned_course_coupon(
@@ -906,9 +1002,7 @@ def test_admin_promotions_generic_coupon_requires_code_and_quantity(
     assert missing_quantity_payload["code"] != 0
 
 
-def test_admin_promotions_serializes_coupon_times_from_shanghai_source_timezone(
-    app, test_client, monkeypatch
-):
+def test_admin_promotions_serializes_coupon_times_as_utc(app, test_client, monkeypatch):
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -949,11 +1043,11 @@ def test_admin_promotions_serializes_coupon_times_from_shanghai_source_timezone(
     detail_payload = detail_response.get_json(force=True)
 
     assert list_payload["code"] == 0
-    assert list_payload["data"]["items"][0]["start_at"] == "2026-04-23T16:00:00Z"
-    assert list_payload["data"]["items"][0]["end_at"] == "2026-04-24T15:59:00Z"
+    assert list_payload["data"]["items"][0]["start_at"] == "2026-04-24T00:00:00Z"
+    assert list_payload["data"]["items"][0]["end_at"] == "2026-04-24T23:59:00Z"
     assert detail_payload["code"] == 0
-    assert detail_payload["data"]["coupon"]["start_at"] == "2026-04-23T16:00:00Z"
-    assert detail_payload["data"]["coupon"]["end_at"] == "2026-04-24T15:59:00Z"
+    assert detail_payload["data"]["coupon"]["start_at"] == "2026-04-24T00:00:00Z"
+    assert detail_payload["data"]["coupon"]["end_at"] == "2026-04-24T23:59:00Z"
 
 
 def test_admin_promotions_single_use_coupon_generates_sub_codes_only(
@@ -2470,23 +2564,6 @@ def test_admin_promotions_campaign_update_ignores_null_end_time(
         assert campaign.end_at == datetime.strptime(
             "2099-05-24 10:00:00", "%Y-%m-%d %H:%M:%S"
         )
-
-
-def test_format_promotion_admin_datetime_accepts_string_value(app):
-    with app.app_context():
-        assert (
-            _format_promotion_admin_datetime("2026-04-28 14:38:41")
-            == "2026-04-28T06:38:41Z"
-        )
-
-
-def test_format_promotion_admin_datetime_returns_empty_for_invalid_string(app):
-    with app.app_context():
-        warning = Mock()
-        app.logger.warning = warning
-
-        assert _format_promotion_admin_datetime("not-a-datetime") == ""
-        warning.assert_called_once()
 
 
 def test_admin_promotions_campaign_update_rejects_apply_type_change_after_redemption(

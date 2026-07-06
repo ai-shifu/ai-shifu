@@ -20,6 +20,7 @@ class TTSProvider(str, Enum):
     VOLCENGINE_HTTP = "volcengine_http"
     BAIDU = "baidu"
     ALIYUN = "aliyun"
+    TENCENT = "tencent"
 
 
 @dataclass
@@ -52,6 +53,8 @@ class ProviderConfig:
     models: Optional[List[Dict[str, str]]] = None
     voices: List[Dict[str, str]] = field(default_factory=list)
     emotions: List[Dict[str, str]] = field(default_factory=list)
+    supports_custom_voice_id: bool = False
+    supports_voice_cloning: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         data = {
@@ -60,6 +63,8 @@ class ProviderConfig:
             "speed": self.speed.to_dict(),
             "pitch": self.pitch.to_dict(),
             "supports_emotion": self.supports_emotion,
+            "supports_custom_voice_id": self.supports_custom_voice_id,
+            "supports_voice_cloning": self.supports_voice_cloning,
             "voices": self.voices,
             "emotions": self.emotions,
         }

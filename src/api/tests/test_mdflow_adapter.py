@@ -1,6 +1,4 @@
 from datetime import datetime, timedelta
-import re
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pytest
 
@@ -98,11 +96,7 @@ def test_get_shifu_mdflow_history_includes_baseline_and_masks_user(app):
 
     history = get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit=100)
     assert [item["version_id"] for item in history["items"]] == [id_5, id_3, id_1]
-    assert isinstance(history["items"][0]["updated_at"], str)
-    assert re.match(
-        r"^\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",
-        history["items"][0]["updated_at_display"],
-    )
+    assert isinstance(history["items"][0]["updated_at"], datetime)
 
     latest_user_name = history["items"][0]["updated_user_name"]
     assert latest_user_name != "13812345678"
@@ -110,63 +104,6 @@ def test_get_shifu_mdflow_history_includes_baseline_and_masks_user(app):
 
     limited = get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit=2)
     assert [item["version_id"] for item in limited["items"]] == [id_5, id_3]
-
-
-def test_get_shifu_mdflow_history_uses_request_timezone(app):
-    try:
-        ZoneInfo("Asia/Shanghai")
-    except ZoneInfoNotFoundError:
-        pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
-
-    shifu_bid = "shifu-mdflow-history-tz-1"
-    outline_bid = "outline-mdflow-history-tz-1"
-
-    with app.app_context():
-        app_tz = ZoneInfo(app.config.get("TZ", "UTC"))
-        item = DraftOutlineItem(
-            shifu_bid=shifu_bid,
-            outline_item_bid=outline_bid,
-            title="outline",
-            content="A",
-            updated_user_bid="user-tz-1",
-            updated_at=datetime(2026, 3, 3, 0, 0, 0, tzinfo=app_tz),
-            created_user_bid="user-tz-1",
-        )
-        db.session.add(item)
-        db.session.commit()
-
-    history_utc = get_shifu_mdflow_history(
-        app,
-        shifu_bid,
-        outline_bid,
-        limit=100,
-        timezone_name="UTC",
-    )
-    history_shanghai = get_shifu_mdflow_history(
-        app,
-        shifu_bid,
-        outline_bid,
-        limit=100,
-        timezone_name="Asia/Shanghai",
-    )
-
-    expected_shanghai = datetime(2026, 3, 3, 0, 0, 0, tzinfo=app_tz).astimezone(
-        ZoneInfo("Asia/Shanghai")
-    )
-    expected_utc = datetime(2026, 3, 3, 0, 0, 0, tzinfo=app_tz).astimezone(
-        ZoneInfo("UTC")
-    )
-
-    assert history_shanghai["items"][0][
-        "updated_at_display"
-    ] == expected_shanghai.strftime("%m-%d %H:%M:%S")
-    assert datetime.fromisoformat(history_shanghai["items"][0]["updated_at"]) == (
-        expected_shanghai
-    )
-    assert history_utc["items"][0]["updated_at_display"] == expected_utc.strftime(
-        "%m-%d %H:%M:%S"
-    )
-    assert datetime.fromisoformat(history_utc["items"][0]["updated_at"]) == expected_utc
 
 
 def test_get_shifu_mdflow_history_version_detail_returns_content_and_user(app):
@@ -193,15 +130,13 @@ def test_get_shifu_mdflow_history_version_detail_returns_content_and_user(app):
         shifu_bid,
         outline_bid,
         version_id,
-        timezone_name="UTC",
     )
 
     assert detail["version_id"] == version_id
     assert detail["content"] == content
     assert detail["updated_user_bid"] == user_bid
     assert detail["updated_user_name"] == "Detail User"
-    assert isinstance(detail["updated_at"], str)
-    assert re.match(r"^\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", detail["updated_at_display"])
+    assert isinstance(detail["updated_at"], datetime)
 
 
 def test_get_shifu_mdflow_history_version_detail_raises_not_found(app):
@@ -328,7 +263,7 @@ def test_save_shifu_mdflow_normalizes_none_content(app, monkeypatch):
         lambda *_args, **_kwargs: [],
     )
     monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick",
+        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
@@ -371,7 +306,7 @@ def test_save_shifu_mdflow_returns_outline_revision_not_history_log(app, monkeyp
         lambda *_args, **_kwargs: [],
     )
     monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick",
+        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
@@ -455,7 +390,7 @@ def test_restore_shifu_mdflow_history_restores_content(app, monkeypatch):
         lambda *_args, **_kwargs: [],
     )
     monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick",
+        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(

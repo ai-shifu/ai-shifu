@@ -517,6 +517,57 @@ class TestOffsetDriftRegression:
 class TestFinalizeDelayManagement:
     """Tests for finalize delay management improvements."""
 
+    @patch("flaskr.service.tts.tts_usage_recorder.record_tts_segment_usage")
+    @patch("flaskr.service.tts.streaming_tts.synthesize_text")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_ready_segments_use_provider_subtitles_bounded_to_duration(
+        self,
+        mock_is_configured,
+        mock_synthesize_text,
+        mock_record_segment_usage,
+        mock_app,
+    ):
+        mock_is_configured.return_value = True
+        mock_synthesize_text.return_value = TTSResult(
+            audio_data=b"fake_audio_data",
+            duration_ms=1000,
+            sample_rate=16000,
+            format="mp3",
+            word_count=8,
+            subtitle_cues=[
+                {"text": "第一句。", "start_ms": 0, "end_ms": 1200},
+                {"text": "第二句！", "start_ms": 1200, "end_ms": 2400},
+            ],
+        )
+        app_context = MagicMock()
+        app_context.__enter__.return_value = None
+        app_context.__exit__.return_value = False
+        mock_app.app_context.return_value = app_context
+
+        processor = create_test_processor(mock_app, tts_provider="tencent")
+        processor._synthesize_in_thread(
+            TTSSegment(index=0, text="第一句。第二句！"),
+            processor.voice_settings,
+            processor.audio_settings,
+            processor.tts_provider,
+            processor.tts_model,
+        )
+
+        events = list(processor._yield_ready_segments())
+
+        assert len(events) == 1
+        mock_record_segment_usage.assert_called_once()
+        cues = events[0].content.subtitle_cues
+        assert [cue.text for cue in cues] == ["第一句。", "第二句！"]
+        assert [(cue.start_ms, cue.end_ms) for cue in cues] == [(0, 500), (500, 1000)]
+        assert cues[-1].end_ms == events[0].content.duration_ms
+
+        final_cues = processor._build_segment_subtitle_cues(processor._all_audio_data)
+        assert [(cue["start_ms"], cue["end_ms"]) for cue in final_cues] == [
+            (0, 500),
+            (500, 1000),
+        ]
+
     @patch("flaskr.service.tts.streaming_tts._tts_executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     @patch("flaskr.service.tts.streaming_tts.time.sleep")

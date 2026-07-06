@@ -52,6 +52,7 @@
   "filters": {
     "all": "Tous",
     "channel": "Canal de paiement",
+    "dateRangePlaceholder": "Date de début ~ Date de fin",
     "endTime": "Date de fin",
     "orderBid": "ID de commande",
     "reset": "Réinitialiser",
@@ -92,7 +93,7 @@
     "nicknamePlaceholder": "Saisir le pseudonyme",
     "partialSummary": "{successCount} réussis, {failedCount} échoués",
     "submit": "Importer",
-    "submitting": "Importation...",
+    "submitting": "Importation…",
     "success": "Activation importée",
     "successSummary": "{count} numéros mobiles importés avec succès",
     "title": "Importer une activation"
@@ -132,7 +133,8 @@
     "emptyList": "Aucun code",
     "loadCoursesFailed": "Échec du chargement des cours. Veuillez réessayer plus tard.",
     "loadFailed": "Échec du chargement des codes. Veuillez actualiser et réessayer.",
-    "submitting": "Création...",
+    "opsState": "Marqueur d'état",
+    "submitting": "Création…",
     "tooManyCourses": "Seuls les premiers cours publiés sont affichés. Veuillez affiner la liste des cours si nécessaire.",
     "totalCount": "Codes: {count}",
     "updateSuccess": "Enregistré avec succès",

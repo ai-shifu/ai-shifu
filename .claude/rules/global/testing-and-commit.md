@@ -33,9 +33,15 @@ duplicating the shared repository guidance already stored in `AGENTS.md`.
 - When Claude is asked for a commit-sized change, run the smallest relevant
   verification first and widen only when shared contracts are affected.
 
-- Keep commit hygiene aligned with the shared repository rule set:
-  Conventional Commit subjects, English-only code-facing text, and no skipped
-  migration review after backend schema changes.
+- Before running `git commit`, run `python scripts/check_dev_tools.py` to
+  confirm lefthook and its underlying tools are installed. The lefthook hooks
+  are silently skipped when lefthook is not installed, so if the doctor reports
+  missing tools, surface the printed install commands to the user and pause the
+  commit until they are installed or the user explicitly opts to proceed.
+
+- For git commit message title, body, and classification requirements, read the
+  root `AGENTS.md#git-commit-message-requirements`; do not duplicate the
+  detailed commit-message policy in Claude-only rules.
 
 - If a task changes only docs or AI-instruction files, the minimum
   verification target is `python scripts/check_repo_harness.py`.

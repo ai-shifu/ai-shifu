@@ -37,6 +37,7 @@ import re
 from pathlib import Path
 
 from flask import (
+    has_request_context,
     Flask,
     request,
     current_app,
@@ -230,13 +231,39 @@ def _get_request_base_url() -> str:
 
 
 def _resolve_publish_base_url(app: Flask) -> str:
-    """Prefer the creator's verified custom domain for published/preview links.
+    """Resolve the publish/preview base URL for a shifu.
 
-    Falls back to the default public origin when the current shifu's creator has
-    no effective custom domain binding or resolution fails.
+    When the request arrives through a verified custom domain that domain takes
+    precedence regardless of who owns the shifu, so every creator on that
+    domain sees the same base URL for publishing and previews. Falls back to
+    the shifu owner's custom domain, then to the default public origin.
     """
-    # Use the thread-local context getter (no args), not the shifu.utils
-    # get_shifu_creator_bid(app, shifu_bid) imported elsewhere in this module.
+
+    host = None
+    if has_request_context():
+        host = str(request.headers.get("X-Forwarded-Host", "") or "").strip()
+        if host:
+            host = host.split(",", 1)[0].strip()
+        else:
+            host = str(getattr(request, "host", "") or "").strip()
+    if host:
+        try:
+            from flaskr.service.billing.api import (
+                resolve_creator_bid_by_host,
+                resolve_effective_custom_origin,
+            )
+
+            domain_creator_bid = resolve_creator_bid_by_host(app, host)
+            if domain_creator_bid:
+                domain_origin = resolve_effective_custom_origin(app, domain_creator_bid)
+                if domain_origin:
+                    return domain_origin
+        except Exception:
+            app.logger.exception(
+                "Failed to resolve custom domain from request host; host=%s",
+                host,
+            )
+
     from flaskr.common.shifu_context import (
         get_shifu_creator_bid as get_context_creator_bid,
     )
@@ -957,8 +984,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         tts_model = json_data.get("tts_model")
         tts_voice_id = json_data.get("tts_voice_id")
         tts_speed = json_data.get("tts_speed")
-        tts_pitch = json_data.get("tts_pitch")
-        tts_emotion = json_data.get("tts_emotion")
+        tts_pitch = 0 if "tts_pitch" in json_data else None
+        tts_emotion = "" if "tts_emotion" in json_data else None
         # Language Output Configuration
         use_learner_language = json_data.get("use_learner_language")
         if isinstance(use_learner_language, str):
@@ -1170,7 +1197,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                         $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
-        outlines = request.get_json().get("outlines")
+        request_json = request.get_json(silent=True)
+        if not isinstance(request_json, dict):
+            raise_param_error("outlines")
+        outlines = request_json.get("outlines")
         app.logger.info(type(outlines))
         app.logger.info(
             f"reorder outline tree, user_id: {user_id}, shifu_bid: {shifu_bid}, outlines: {outlines}"
@@ -1456,7 +1486,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         path_prefix + "/shifus/<shifu_bid>/draft-meta",
         methods=["GET"],
     )
-    @ShifuTokenValidation(ShifuPermission.EDIT)
+    @ShifuTokenValidation(ShifuPermission.VIEW)
     def get_draft_meta_api(shifu_bid: str):
         """
         get draft meta
@@ -1492,7 +1522,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                             description: latest draft revision (course-level or outline content-level when outline_bid is provided)
                                         updated_at:
                                             type: string
-                                            description: last update timestamp
+                                            description: last update timestamp as UTC ISO 8601 with Z suffix
                                         updated_user:
                                             type: object
                                             properties:
@@ -1684,10 +1714,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                                         description: outline history version id
                                                     updated_at:
                                                         type: string
-                                                        description: update time in requested timezone (or app timezone if not specified)
-                                                    updated_at_display:
-                                                        type: string
-                                                        description: formatted update time for direct display
+                                                        description: UTC update timestamp (ISO 8601)
                                                     updated_user_bid:
                                                         type: string
                                                         description: updater user bid
@@ -1696,9 +1723,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                                         description: updater display name
         """
         limit_raw = request.args.get("limit", 100)
-        timezone_name = (request.args.get("timezone", "") or "").strip() or None
-        if timezone_name and len(timezone_name) > 100:
-            raise_param_error("timezone")
         try:
             limit = int(limit_raw)
         except (TypeError, ValueError):
@@ -1706,7 +1730,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if limit < 1 or limit > 200:
             raise_param_error("limit")
         return make_common_response(
-            get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit, timezone_name)
+            get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit)
         )
 
     @app.route(
@@ -1750,17 +1774,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         except (TypeError, ValueError):
             raise_param_error("version_id")
 
-        timezone_name = (request.args.get("timezone", "") or "").strip() or None
-        if timezone_name and len(timezone_name) > 100:
-            raise_param_error("timezone")
-
         return make_common_response(
             get_shifu_mdflow_history_version_detail(
                 app,
                 shifu_bid,
                 outline_bid,
                 version_id_int,
-                timezone_name,
             )
         )
 
@@ -2361,6 +2380,129 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 trace_payload={"output": preview_output},
                 root_span_payload={"output": preview_output},
             )
+
+    @app.route(path_prefix + "/tts/minimax/voices", methods=["GET"])
+    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    def list_minimax_tts_voices_api():
+        from flaskr.service.tts.api import list_minimax_cloned_voices
+
+        user_id = request.user.user_id
+        shifu_bid = (request.args.get("shifu_bid") or "").strip()
+        return make_common_response(
+            {
+                "voices": list_minimax_cloned_voices(
+                    app,
+                    owner_user_bid=user_id,
+                    shifu_bid=shifu_bid,
+                )
+            }
+        )
+
+    @app.route(path_prefix + "/tts/minimax/voices/clone-cost", methods=["GET"])
+    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    def minimax_tts_clone_cost_api():
+        from flaskr.service.tts.api import build_minimax_clone_cost
+
+        user_id = request.user.user_id
+        shifu_bid = (request.args.get("shifu_bid") or "").strip()
+        return make_common_response(
+            build_minimax_clone_cost(app, creator_bid=user_id, shifu_bid=shifu_bid)
+        )
+
+    @app.route(path_prefix + "/tts/minimax/voices/validate-id", methods=["POST"])
+    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    def validate_minimax_tts_voice_id_api():
+        from flaskr.service.tts.api import (
+            is_valid_minimax_custom_voice_id,
+        )
+
+        payload = request.get_json(silent=True) or {}
+        voice_id = (payload.get("voice_id") or "").strip()
+        return make_common_response(
+            {
+                "voice_id": voice_id,
+                "valid": is_valid_minimax_custom_voice_id(voice_id),
+            }
+        )
+
+    @app.route(path_prefix + "/tts/minimax/voices/clone", methods=["POST"])
+    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
+    def clone_minimax_tts_voice_api():
+        from flaskr.service.tts.api import (
+            serialize_minimax_cloned_voice,
+            submit_minimax_voice_clone,
+        )
+
+        source_file = request.files.get("source_audio")
+        if source_file is None:
+            raise_param_error("source_audio is required")
+        prompt_file = request.files.get("prompt_audio")
+        row = submit_minimax_voice_clone(
+            app,
+            owner_user_bid=request.user.user_id,
+            shifu_bid=(request.form.get("shifu_bid") or "").strip(),
+            display_name=(request.form.get("display_name") or "").strip(),
+            voice_id=(request.form.get("voice_id") or "").strip(),
+            source_audio_bytes=source_file.read(),
+            source_filename=source_file.filename or "recording.webm",
+            source_content_type=source_file.content_type or "",
+            source_capture_method=(
+                request.form.get("source_capture_method") or "upload"
+            ).strip(),
+            prompt_audio_bytes=prompt_file.read() if prompt_file is not None else None,
+            prompt_filename=prompt_file.filename if prompt_file is not None else "",
+            prompt_content_type=(
+                prompt_file.content_type if prompt_file is not None else ""
+            ),
+        )
+        response = current_app.response_class(
+            response=make_common_response(serialize_minimax_cloned_voice(row)),
+            status=202,
+            mimetype="application/json",
+        )
+        return response
+
+    @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["GET"])
+    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    def get_minimax_tts_voice_api(voice_bid):
+        from flaskr.service.tts.api import get_minimax_cloned_voice
+
+        return make_common_response(
+            get_minimax_cloned_voice(
+                app,
+                owner_user_bid=request.user.user_id,
+                voice_bid=voice_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/tts/minimax/voices/<voice_bid>/retry",
+        methods=["POST"],
+    )
+    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
+    def retry_minimax_tts_voice_api(voice_bid):
+        from flaskr.service.tts.api import retry_minimax_voice_clone
+
+        return make_common_response(
+            retry_minimax_voice_clone(
+                app,
+                owner_user_bid=request.user.user_id,
+                voice_bid=voice_bid,
+            )
+        )
+
+    @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["DELETE"])
+    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
+    def delete_minimax_tts_voice_api(voice_bid):
+        from flaskr.service.tts.api import delete_minimax_cloned_voice
+
+        return make_common_response(
+            delete_minimax_cloned_voice(
+                app,
+                owner_user_bid=request.user.user_id,
+                voice_bid=voice_bid,
+            )
+        )
 
     @app.route(path_prefix + "/tts/config", methods=["GET"])
     @bypass_token_validation

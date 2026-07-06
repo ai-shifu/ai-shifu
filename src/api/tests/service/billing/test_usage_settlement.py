@@ -32,7 +32,10 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
-from flaskr.service.billing.charges import build_usage_metric_charges
+from flaskr.service.billing.charges import (
+    build_usage_metric_charges,
+    resolve_credit_multiplier_label,
+)
 from flaskr.service.billing.settlement import (
     backfill_bill_usage_settlement,
     replay_bill_usage_settlement,
@@ -1475,3 +1478,30 @@ def test_build_usage_metric_charges_uses_public_charge_module(
         assert len(charges) == 1
         assert charges[0]["billing_metric"] == BILLING_METRIC_LLM_INPUT_TOKENS
         assert charges[0]["raw_amount"] == 1200
+
+
+def test_resolve_credit_multiplier_label_uses_utc_default_settlement(monkeypatch):
+    from flaskr.service.billing import charges
+
+    utc_sentinel = datetime(2026, 1, 1, 0, 0, 0)
+    captured = []
+
+    monkeypatch.setattr(charges, "now_utc", lambda: utc_sentinel)
+
+    def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+        captured.append(settlement_at)
+        return None
+
+    monkeypatch.setattr(charges, "load_usage_rate", fake_load_usage_rate)
+
+    assert (
+        resolve_credit_multiplier_label(
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider="minimax",
+            model="speech-01-turbo",
+        )
+        is None
+    )
+
+    assert captured
+    assert set(captured) == {utc_sentinel}

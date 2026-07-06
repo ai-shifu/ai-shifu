@@ -1,10 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import LessonPreview from './LessonPreview';
 import { resolveLessonPreviewItemKey } from './LessonPreview';
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
 
 const mockPush = jest.fn();
+const mockCopyText = jest.fn();
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -29,6 +30,40 @@ jest.mock('@/components/ui/UseAlert', () => ({
     showAlert: jest.fn(),
   }),
 }));
+
+jest.mock('@/components/ui/tooltip', () => {
+  const React = jest.requireActual('react');
+  const TooltipProviderContext = React.createContext(false);
+
+  return {
+    TooltipProvider: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(
+        TooltipProviderContext.Provider,
+        { value: true },
+        children,
+      ),
+    Tooltip: ({ children }: { children: React.ReactNode }) => {
+      if (!React.useContext(TooltipProviderContext)) {
+        throw new Error('`Tooltip` must be used within `TooltipProvider`');
+      }
+      return <div>{children}</div>;
+    },
+    TooltipContent: ({ children }: { children: React.ReactNode }) => (
+      <div role='tooltip'>{children}</div>
+    ),
+    TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
+      <>{children}</>
+    ),
+  };
+});
+
+jest.mock('@/c-utils/textutils', () => {
+  const actual = jest.requireActual('@/c-utils/textutils');
+  return {
+    ...actual,
+    copyText: (...args: unknown[]) => mockCopyText(...args),
+  };
+});
 
 jest.mock('@/components/ui/Dialog', () => ({
   Dialog: ({ children }: { children: React.ReactNode }) => (
@@ -121,6 +156,7 @@ jest.mock('./VariableList', () => ({
 describe('LessonPreview billing action', () => {
   beforeEach(() => {
     mockPush.mockReset();
+    mockCopyText.mockReset();
   });
 
   test('renders billing action for credit insufficient preview errors', () => {
@@ -128,7 +164,7 @@ describe('LessonPreview billing action', () => {
       {
         element_bid: 'preview-business-error',
         generated_block_bid: 'preview-business-error',
-        content: '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+        content: '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
         type: ChatContentItemType.ERROR,
         business_code: 7101,
       },
@@ -201,6 +237,51 @@ describe('LessonPreview billing action', () => {
     expect(
       screen.queryByRole('button', { name: 'finish-text-1' }),
     ).not.toBeInTheDocument();
+  });
+
+  test('copies preview content with hover guidance and copied button feedback', async () => {
+    mockCopyText.mockResolvedValue(undefined);
+    const items: ChatContentItem[] = [
+      {
+        element_bid: 'text-1',
+        generated_block_bid: '0',
+        content: 'First paragraph content',
+        type: ChatContentItemType.CONTENT,
+        element_type: 'text',
+        is_final: true,
+      },
+    ];
+
+    render(
+      <LessonPreview
+        loading={false}
+        items={items}
+        shifuBid='shifu-1'
+        onRefresh={jest.fn()}
+        onSend={jest.fn()}
+      />,
+    );
+
+    const copyButton = screen.getByRole('button', {
+      name: 'module.shifu.previewArea.copy',
+    });
+
+    expect(screen.getByRole('tooltip')).toHaveTextContent(
+      'module.shifu.previewArea.copyTooltip',
+    );
+
+    fireEvent.click(copyButton);
+
+    await waitFor(() => {
+      expect(mockCopyText).toHaveBeenCalledWith(
+        '!===' + '\nFirst paragraph content\n' + '!===',
+      );
+    });
+    expect(
+      screen.getByRole('button', {
+        name: 'module.shifu.previewArea.copied',
+      }),
+    ).toBeInTheDocument();
   });
 
   test('builds stable preview item keys from business ids and falls back to idx only when needed', () => {
