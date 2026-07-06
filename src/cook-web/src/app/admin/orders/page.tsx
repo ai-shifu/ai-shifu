@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
@@ -32,7 +36,6 @@ import {
   type OrderListResponse,
   type OrdersPageTab,
 } from './ordersPageShared';
-import { cn } from '@/lib/utils';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
@@ -47,7 +50,7 @@ import {
 } from '@/app/admin/operations/orders/orderUiShared';
 
 const OrdersPage = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -164,14 +167,6 @@ const OrdersPage = () => {
   );
 
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
-  const locale = i18n?.language || 'en-US';
-  const filterControlClassName = cn(
-    'min-w-0 flex-1',
-    !locale.startsWith('zh') && 'xl:max-w-[220px]',
-  );
-  const filterLabelClassName = locale.startsWith('zh')
-    ? 'w-16 text-right'
-    : 'w-24 text-right';
 
   const contactType = useMemo(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
@@ -453,8 +448,8 @@ const OrdersPage = () => {
           shifu_bid: shifuBidValue,
           status: resolvedFilters.status,
           payment_channel: resolvedFilters.payment_channel,
-          start_time: resolvedFilters.start_time,
-          end_time: resolvedFilters.end_time,
+          start_time: formatAdminDateRangeStartUtc(resolvedFilters.start_time),
+          end_time: formatAdminDateRangeEndUtc(resolvedFilters.end_time),
         })) as OrderListResponse;
 
         const list = response.items || [];
@@ -482,7 +477,7 @@ const OrdersPage = () => {
     if (isInitialized && !isGuest && activeTab === 'orders') {
       fetchOrders(1);
     }
-  }, [activeTab, fetchOrders, i18n.language, isGuest, isInitialized]);
+  }, [activeTab, fetchOrders, isGuest, isInitialized]);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -606,8 +601,6 @@ const OrdersPage = () => {
                   userBidPlaceholder={userBidPlaceholder}
                   statusOptions={statusOptions}
                   channelOptions={channelOptions}
-                  contentClassName={filterControlClassName}
-                  expandedLabelClassName={filterLabelClassName}
                   onCourseSearchChange={setCourseSearch}
                   onExpandedChange={setExpanded}
                   onFilterChange={handleFilterChange}

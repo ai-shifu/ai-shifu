@@ -13,6 +13,7 @@ from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.dtos import resolve_demo_course_for_language
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
+from flaskr.util.datetime import now_utc
 
 
 ONBOARDING_VERSION = "v1"
@@ -116,7 +117,7 @@ def _resolve_user_segment(user: UserEntity | None) -> str:
     existing_rollout_threshold = _parse_rollout_threshold(
         get_dynamic_config(EXISTING_CREATOR_ROLLOUT_CONFIG_KEY, "")
     )
-    now = datetime.utcnow()
+    now = now_utc()
 
     if threshold is None:
         if existing_rollout_threshold is not None and now >= existing_rollout_threshold:
@@ -233,7 +234,7 @@ def complete_onboarding_scene(
             UserOnboardingState.scene_key == normalized_scene_key,
             UserOnboardingState.version == normalized_version,
         ).first()
-        now = datetime.utcnow()
+        now = now_utc()
         if existing is None:
             existing = UserOnboardingState(
                 user_bid=normalized_user_bid,

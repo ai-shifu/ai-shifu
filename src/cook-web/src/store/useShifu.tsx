@@ -25,6 +25,7 @@ import {
 } from '../types/shifu';
 import api from '@/api';
 import { debounce } from 'lodash';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
 import { normalizeModelOptions } from './modelOptions';
 import {
@@ -592,11 +593,15 @@ export const ShifuProvider = ({
           payload.outline_bid = outlineId;
         }
         const meta = await api.getShifuDraftMeta(payload);
-        setLatestDraftMeta(meta as DraftMeta);
+        if (!outlineId || currentOutlineRef.current === outlineId) {
+          setLatestDraftMeta(meta as DraftMeta);
+        }
         return meta as DraftMeta;
       } catch (error) {
         console.error('Failed to load draft meta', error);
-        setLatestDraftMeta(null);
+        if (!outlineId || currentOutlineRef.current === outlineId) {
+          setLatestDraftMeta(null);
+        }
         return null;
       }
     },
@@ -608,12 +613,7 @@ export const ShifuProvider = ({
       if (!shifuId || !outlineId) {
         return [] as MdflowHistoryItem[];
       }
-      const timezone =
-        typeof window !== 'undefined' &&
-        typeof Intl !== 'undefined' &&
-        Intl.DateTimeFormat
-          ? Intl.DateTimeFormat().resolvedOptions().timeZone
-          : '';
+      const timezone = getBrowserTimeZone();
       try {
         const result = (await api.getMdflowHistory({
           shifu_bid: shifuId,
@@ -635,12 +635,7 @@ export const ShifuProvider = ({
       if (!shifuId || !outlineId || versionId <= 0) {
         return null;
       }
-      const timezone =
-        typeof window !== 'undefined' &&
-        typeof Intl !== 'undefined' &&
-        Intl.DateTimeFormat
-          ? Intl.DateTimeFormat().resolvedOptions().timeZone
-          : '';
+      const timezone = getBrowserTimeZone();
       try {
         return (await api.getMdflowHistoryVersionDetail({
           shifu_bid: shifuId,
@@ -1844,10 +1839,6 @@ export const ShifuProvider = ({
     if (saveMdflowLockRef.current.inflight) {
       if (outline_bid && saveMdflowLockRef.current.outlineId !== outline_bid) {
         // When another outline save is in-flight, skip cross-outline saves
-        console.log(
-          'outline save is in-flight, skip cross-outline saves',
-          saveMdflowLockRef.current.outlineId,
-        );
         return;
       }
     }
@@ -1871,6 +1862,7 @@ export const ShifuProvider = ({
         lastPersistedMdflowRef.current[outline_bid] = data || '';
       }
       setLastSaveTime(new Date());
+      await loadDraftMeta(shifu_bid, outline_bid);
     } catch (error: any) {
       if (error?.code === 4007) {
         await loadDraftMeta(shifu_bid, outline_bid);

@@ -13,6 +13,7 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .credit_notifications import (
     enqueue_credit_notification,
@@ -214,7 +215,7 @@ def grant_manual_plan_to_user(
                 user_bid=normalized_user_bid,
                 request_id=normalized_request_id,
             )
-            now = datetime.now()
+            now = now_utc()
             if existing_order is not None:
                 granted = grant_paid_order_credits(app, existing_order)
                 notification_bid = ""
@@ -300,7 +301,7 @@ def grant_manual_plan_to_user(
                     raise_error("server.billing.subscriptionUpgradeOnly")
                 order_type = BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
 
-            granted_at = datetime.now()
+            granted_at = now_utc()
             cycle_end_at = _resolve_manual_plan_cycle_end(
                 product=product,
                 granted_at=granted_at,

@@ -66,7 +66,35 @@ jest.mock('@/components/outline-tree', () => {
 });
 jest.mock('@/components/chapter-setting', () => () => null);
 jest.mock('@/components/mdf-convert', () => ({ MdfConvertDialog: () => null }));
-jest.mock('../header', () => () => null);
+jest.mock('../header', () => ({
+  __esModule: true,
+  default: ({
+    lessonHistoryUrl,
+    lessonHistoryUpdatedAt,
+    onLessonHistoryClick,
+  }: {
+    lessonHistoryUrl?: string | null;
+    lessonHistoryUpdatedAt?: Date | string | null;
+    onLessonHistoryClick?: () => void;
+  }) =>
+    lessonHistoryUrl ? (
+      <a
+        href={lessonHistoryUrl}
+        target='_blank'
+        rel='noopener noreferrer'
+        title='module.shifu.history.title'
+        data-testid='lesson-history-link'
+        data-history-updated-at={
+          lessonHistoryUpdatedAt instanceof Date
+            ? lessonHistoryUpdatedAt.toISOString()
+            : lessonHistoryUpdatedAt || ''
+        }
+        onClick={onLessonHistoryClick}
+      >
+        history
+      </a>
+    ) : null,
+}));
 jest.mock('../loading', () => {
   const MockLoading = () => <div data-testid='loading' />;
   MockLoading.displayName = 'MockLoading';
@@ -251,6 +279,7 @@ const mockShifuState = {
   },
   baseRevision: null as number | null,
   latestDraftMeta: null,
+  lastSaveTime: null as Date | null,
   hasDraftConflict: false,
   autosavePaused: false,
 };
@@ -325,6 +354,7 @@ describe('ShifuEdit draft conflict checks', () => {
     };
     mockShifuState.baseRevision = null;
     mockShifuState.latestDraftMeta = null;
+    mockShifuState.lastSaveTime = null;
     mockShifuState.hasDraftConflict = false;
     mockShifuState.autosavePaused = false;
     mockShifuState.mdflow = '';
@@ -375,6 +405,27 @@ describe('ShifuEdit draft conflict checks', () => {
     await waitFor(() => {
       expect(mockLoadDraftMeta).toHaveBeenCalledWith('shifu-1', 'lesson-1');
     });
+  });
+
+  test('still loads draft meta for readonly lessons without starting draft sync', async () => {
+    setLessonNode();
+    mockShifuState.currentShifu = {
+      bid: 'shifu-1',
+      readonly: true,
+      name: 'Course',
+    };
+    mockLoadDraftMeta.mockResolvedValue({
+      revision: 3,
+      updated_at: '2026-07-02T10:00:00Z',
+      updated_user: null,
+    });
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    await waitFor(() => {
+      expect(mockLoadDraftMeta).toHaveBeenCalledWith('shifu-1', 'lesson-1');
+    });
+    expect(baseActions.loadMdflow).not.toHaveBeenCalled();
   });
 
   test('auto-syncs latest lesson content without opening conflict dialog when there are no local edits', async () => {
@@ -544,6 +595,19 @@ describe('ShifuEdit draft conflict checks', () => {
     );
     expect(historyLink.getAttribute('target')).toBe('_blank');
     expect(historyLink.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  test('does not use global save time as lesson history timestamp fallback', async () => {
+    setLessonNode();
+    mockShifuState.lastSaveTime = new Date('2026-06-30T12:00:00Z');
+    mockShifuState.latestDraftMeta = null;
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    expect(screen.getByTestId('lesson-history-link')).toHaveAttribute(
+      'data-history-updated-at',
+      '',
+    );
   });
 
   test('tracks history entry clicks for the current lesson', async () => {

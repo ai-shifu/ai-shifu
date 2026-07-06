@@ -142,6 +142,7 @@
   "minimaxCloneSubmitReasonSubmitting": "正在提交，请稍候。",
   "minimaxCloneVoiceId": "Voice ID",
   "minimaxCloneVoiceIdPlaceholder": "可选，填写自定义 MiniMax voice_id",
+  "minimaxCloneVoiceOptionLabel": "{name} 语音clone 音色",
   "minimaxManualVoiceApply": "使用",
   "minimaxManualVoiceBadge": "自定义",
   "minimaxManualVoiceInvalid": "请输入合法的 MiniMax 自定义音色 ID",

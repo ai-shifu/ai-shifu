@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
 from typing import Any
 
 from flask import Flask
 
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.config.funcs import add_config, get_config
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 
 PROFILE_ONBOARDING_CONFIG_KEY = "PROFILE_ONBOARDING_FLOW"
@@ -23,7 +23,7 @@ _INTERACTION_VARIABLE_PATTERN = re.compile(r"%\{\{\s*([^}\s]+)\s*\}\}")
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return to_utc_iso(now_utc().replace(microsecond=0)) or ""
 
 
 def _default_config_payload() -> dict[str, Any]:

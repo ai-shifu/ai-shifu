@@ -557,6 +557,7 @@ describe('AdminOperationCourseDetailPage', () => {
   });
 
   test('converts course detail metadata timestamps to the browser timezone', async () => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationCourseDetail.mockResolvedValueOnce({
       basic_info: {
         shifu_bid: 'course-1',
@@ -566,8 +567,8 @@ describe('AdminOperationCourseDetailPage', () => {
         creator_mobile: '13800001234',
         creator_email: '',
         creator_nickname: 'Alice',
-        created_at: '2026-06-09T12:01:50+08:00',
-        updated_at: '2026-06-09T13:01:50+08:00',
+        created_at: '2026-06-09T12:01:50Z',
+        updated_at: '2026-06-09T13:01:50Z',
       },
       metrics: {
         visit_count_30d: 34,
@@ -599,7 +600,7 @@ describe('AdminOperationCourseDetailPage', () => {
           modifier_mobile: '13800001234',
           modifier_email: '',
           modifier_nickname: 'Alice',
-          updated_at: '2026-06-09T13:01:50+08:00',
+          updated_at: '2026-06-09T13:01:50Z',
           children: [],
         },
       ],
@@ -609,11 +610,12 @@ describe('AdminOperationCourseDetailPage', () => {
 
     await screen.findByText('Timezone Chapter');
 
-    expect(screen.getByText('2026-06-09 04:01:50')).toBeInTheDocument();
-    expect(screen.getAllByText('2026-06-09 05:01:50').length).toBeGreaterThan(
+    expect(screen.getByText('2026-06-09 05:01:50')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-06-09 06:01:50').length).toBeGreaterThan(
       0,
     );
     expect(screen.queryByText('2026-06-09 12:01:50')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 13:01:50')).not.toBeInTheDocument();
   });
 
   test('converts course user activity timestamps to the browser timezone', async () => {

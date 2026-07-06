@@ -12,6 +12,7 @@ from .consts import (
 from .models import BillingOrder, BillingProduct, BillingSubscription
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 CHECKOUT_ACTION_PREORDER = "preorder"
 CHECKOUT_ACTION_UPGRADE_IMMEDIATE = "upgrade_immediate"
@@ -110,12 +111,12 @@ def build_preorder_order_metadata(
             "current_product_bid": current_product.product_bid,
             "target_product_bid": target_product.product_bid,
             "preorder_target_product_bid": target_product.product_bid,
-            "preorder_effective_at": effective_at.isoformat(),
+            "preorder_effective_at": to_utc_iso(effective_at),
             "preorder_source_subscription_bid": subscription.subscription_bid,
             "absorbed_by_bill_order_bid": None,
             "absorbed_at": None,
-            "renewal_cycle_start_at": effective_at.isoformat(),
-            "renewal_cycle_end_at": cycle_end_at.isoformat(),
+            "renewal_cycle_start_at": to_utc_iso(effective_at),
+            "renewal_cycle_end_at": to_utc_iso(cycle_end_at),
             "subscription_bid": subscription.subscription_bid,
             "product_bid": target_product.product_bid,
             "provider_reference_type": "charge",
@@ -143,7 +144,7 @@ def mark_subscription_preorder_pending(
     )
     subscription.next_product_bid = order.product_bid
     subscription.metadata_json = metadata
-    subscription.updated_at = datetime.now()
+    subscription.updated_at = now_utc()
 
 
 def clear_subscription_preorder_metadata(subscription: BillingSubscription) -> None:
@@ -167,7 +168,7 @@ def mark_preorder_absorbed_by_upgrade(
     upgrade_order_bid: str,
     absorbed_at: datetime | None = None,
 ) -> None:
-    now = absorbed_at or datetime.now()
+    now = absorbed_at or now_utc()
     metadata = (
         dict(preorder_order.metadata_json)
         if isinstance(preorder_order.metadata_json, dict)
@@ -178,12 +179,12 @@ def mark_preorder_absorbed_by_upgrade(
             {
                 "preorder_state": PREORDER_STATE_ABSORBED_BY_UPGRADE,
                 "absorbed_by_bill_order_bid": upgrade_order_bid,
-                "absorbed_at": now.isoformat(),
+                "absorbed_at": to_utc_iso(now),
             }
         )
     )
     preorder_order.metadata_json = metadata
-    preorder_order.updated_at = datetime.now()
+    preorder_order.updated_at = now_utc()
 
 
 def mark_preorder_effective_applied(order: BillingOrder) -> None:
@@ -199,9 +200,9 @@ def mark_preorder_effective_applied(order: BillingOrder) -> None:
         _normalize_json_object(
             {
                 "preorder_state": PREORDER_STATE_EFFECTIVE_APPLIED,
-                "effective_applied_at": datetime.now().isoformat(),
+                "effective_applied_at": to_utc_iso(now_utc()),
             }
         )
     )
     order.metadata_json = metadata
-    order.updated_at = datetime.now()
+    order.updated_at = now_utc()

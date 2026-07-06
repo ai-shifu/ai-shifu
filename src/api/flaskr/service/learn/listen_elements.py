@@ -169,6 +169,7 @@ def get_listen_element_record(
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
     return _get_listen_element_record(
+        app=app,
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         user_bid=user_bid,
