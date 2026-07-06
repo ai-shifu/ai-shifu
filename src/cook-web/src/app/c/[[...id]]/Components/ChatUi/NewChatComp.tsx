@@ -15,13 +15,16 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
+import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 import { AppContext } from '../AppContext';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { shifu } from '@/c-service/Shifu';
 import { useEnvStore } from '@/c-store/envStore';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { fail, toast } from '@/hooks/useToast';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import InteractionBlock from './InteractionBlock';
@@ -87,6 +90,7 @@ interface NewChatComponentsProps {
   lessonId?: string;
   lessonTitle?: string;
   lessonStatus?: string;
+  lessonHasContentUpdate?: boolean;
   onPurchased: () => void;
   chapterUpdate: any;
   updateSelectedLesson: any;
@@ -111,6 +115,7 @@ export const NewChatComponents = ({
   lessonId,
   lessonTitle = '',
   lessonStatus = '',
+  lessonHasContentUpdate = false,
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
@@ -268,15 +273,23 @@ export const NewChatComponents = ({
     });
   }, [resolveScrollPresentation]);
 
-  const { openPayModal, payModalResult, resetedLessonId, resettingLessonId } =
-    useCourseStore(
-      useShallow(state => ({
-        openPayModal: state.openPayModal,
-        payModalResult: state.payModalResult,
-        resetedLessonId: state.resetedLessonId,
-        resettingLessonId: state.resettingLessonId,
-      })),
-    );
+  const {
+    openPayModal,
+    payModalResult,
+    resetChapter,
+    resetedLessonId,
+    resettingLessonId,
+    updateLessonId,
+  } = useCourseStore(
+    useShallow(state => ({
+      openPayModal: state.openPayModal,
+      payModalResult: state.payModalResult,
+      resetChapter: state.resetChapter,
+      resetedLessonId: state.resetedLessonId,
+      resettingLessonId: state.resettingLessonId,
+      updateLessonId: state.updateLessonId,
+    })),
+  );
   const shouldShowResetLoading =
     mobileStyle &&
     (resettingLessonId === lessonId || resetedLessonId === lessonId);
@@ -301,6 +314,48 @@ export const NewChatComponents = ({
   const previousListenModeActiveRef = useRef(isListenModeActive);
   // Normalize lesson scope for downstream APIs and stores that require a string key.
   const resolvedLessonId = lessonId || '';
+  const isRetakingCurrentLesson =
+    Boolean(resolvedLessonId) && resettingLessonId === resolvedLessonId;
+  const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
+  const handleRetakeCurrentLesson = useSingleFlight(async () => {
+    if (!resolvedLessonId) {
+      return false;
+    }
+
+    try {
+      stopActiveLessonStream(resolvedLessonId);
+      await resetChapter(resolvedLessonId);
+      updateLessonId(resolvedLessonId);
+      shifu.resetTools.resetChapter({
+        chapter_id: chapterId,
+        lesson_id: resolvedLessonId,
+        chapter_name: lessonTitle,
+      });
+      return true;
+    } catch (error) {
+      fail(
+        (error as Error).message || t('module.backend.common.operationFailed'),
+      );
+      return false;
+    }
+  });
+  const handleRetakeButtonClick = useCallback(() => {
+    if (!resolvedLessonId || isRetakingCurrentLesson) {
+      return;
+    }
+
+    setShowRetakeConfirm(true);
+  }, [isRetakingCurrentLesson, resolvedLessonId]);
+  const handleRetakeConfirmOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open && isRetakingCurrentLesson) {
+        return;
+      }
+
+      setShowRetakeConfirm(open);
+    },
+    [isRetakingCurrentLesson],
+  );
   const promptContextKey = `${resolvedLessonId}:${
     isClassroomMode ? 'classroom' : isListenModeActive ? 'listen' : 'read'
   }`;
@@ -407,6 +462,7 @@ export const NewChatComponents = ({
     reGenerateConfirm,
     requestAudioForBlock,
     lessonFeedbackPopup,
+    showLessonUpdateNotice,
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
@@ -414,6 +470,7 @@ export const NewChatComponents = ({
     lessonId: resolvedLessonId,
     chapterId,
     previewMode,
+    lessonHasContentUpdate,
     isListenMode: isListenModeActive,
     trackEvent,
     chatBoxBottomRef,
@@ -1198,6 +1255,71 @@ export const NewChatComponents = ({
         </div>
       </div>
     ) : null;
+  const lessonUpdateNotice = showLessonUpdateNotice ? (
+    <div className='mx-auto mb-3 mt-2 max-w-[1000px] px-4 md:px-5'>
+      <div className='inline-flex max-w-full items-center gap-3 rounded-full border border-amber-200/80 bg-amber-50/90 px-4 py-2 text-sm leading-6 text-amber-900 shadow-sm shadow-amber-100/40'>
+        <span>{t('module.chat.lessonUpdateRecommendRetake')}</span>
+        <Button
+          type='button'
+          size='sm'
+          variant='outline'
+          className='h-8 rounded-[15px] border border-amber-300 bg-white/85 px-3 text-[13px] font-medium text-amber-900 shadow-none hover:bg-white'
+          onClick={handleRetakeButtonClick}
+          disabled={isRetakingCurrentLesson}
+        >
+          {t('module.chat.lessonUpdateRetakeAction')}
+        </Button>
+        <Dialog
+          open={showRetakeConfirm}
+          onOpenChange={handleRetakeConfirmOpenChange}
+        >
+          <DialogContent
+            showClose={!isRetakingCurrentLesson}
+            onEscapeKeyDown={event => {
+              if (isRetakingCurrentLesson) {
+                event.preventDefault();
+              }
+            }}
+            onPointerDownOutside={event => {
+              if (isRetakingCurrentLesson) {
+                event.preventDefault();
+              }
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>{t('module.lesson.reset.confirmTitle')}</DialogTitle>
+              <DialogDescription>
+                {t('module.lesson.reset.confirmContent')}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => setShowRetakeConfirm(false)}
+                disabled={isRetakingCurrentLesson}
+              >
+                {t('common.core.cancel')}
+              </Button>
+              <Button
+                type='button'
+                onClick={() => {
+                  void handleRetakeCurrentLesson().then(didReset => {
+                    if (didReset) {
+                      setShowRetakeConfirm(false);
+                    }
+                  });
+                }}
+                disabled={isRetakingCurrentLesson}
+              >
+                {t('common.core.ok')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div
@@ -1206,24 +1328,27 @@ export const NewChatComponents = ({
     >
       {isSlideMode ? (
         isClassroomMode || isListenModeAvailable ? (
-          <ListenModeSlideRenderer
-            items={slideModeItems}
-            mobileStyle={mobileStyle}
-            chatRef={chatRef as React.RefObject<HTMLDivElement>}
-            isLoading={isLoading}
-            courseAvatar={courseAvatar}
-            courseName={courseName}
-            sectionTitle={lessonTitle}
-            lessonId={lessonId}
-            shifuBid={shifuBid}
-            previewMode={previewMode}
-            lessonStatus={lessonStatus}
-            variant={isClassroomMode ? 'classroom' : 'listen'}
-            onMobileViewModeChange={onListenMobileViewModeChange}
-            onSend={memoizedOnSend}
-            onPlayerVisibilityChange={onListenPlayerVisibilityChange}
-            onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
-          />
+          <>
+            {lessonUpdateNotice}
+            <ListenModeSlideRenderer
+              items={slideModeItems}
+              mobileStyle={mobileStyle}
+              chatRef={chatRef as React.RefObject<HTMLDivElement>}
+              isLoading={isLoading}
+              courseAvatar={courseAvatar}
+              courseName={courseName}
+              sectionTitle={lessonTitle}
+              lessonId={lessonId}
+              shifuBid={shifuBid}
+              previewMode={previewMode}
+              lessonStatus={lessonStatus}
+              variant={isClassroomMode ? 'classroom' : 'listen'}
+              onMobileViewModeChange={onListenMobileViewModeChange}
+              onSend={memoizedOnSend}
+              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+              onLessonFeedbackPromptStateChange={setIsListenFeedbackReady}
+            />
+          </>
         ) : (
           <div
             className={cn(
@@ -1256,6 +1381,7 @@ export const NewChatComponents = ({
               <></>
             ) : (
               <>
+                {lessonUpdateNotice}
                 {visibleReadModeItems.map((item, idx) => {
                   const isLongPressed =
                     longPressedBlockBid === item.element_bid;

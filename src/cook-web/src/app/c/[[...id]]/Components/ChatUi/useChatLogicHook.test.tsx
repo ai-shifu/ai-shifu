@@ -97,6 +97,14 @@ const mockGetRunMessage = jest.fn();
 const mockCheckIsRunning = jest.fn();
 const mockStreamGeneratedBlockAudio = jest.fn();
 const mockSubmitLessonFeedback = jest.fn();
+const mockGetShifuDraftMeta = jest.fn();
+
+jest.mock('@/api', () => ({
+  __esModule: true,
+  default: {
+    getShifuDraftMeta: (...args: unknown[]) => mockGetShifuDraftMeta(...args),
+  },
+}));
 
 jest.mock('@/c-api/studyV2', () => {
   return {
@@ -194,6 +202,7 @@ describe('useChatLogicHook stream cleanup', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockStreamGeneratedBlockAudio.mockReset();
+    mockGetShifuDraftMeta.mockReset();
     useLessonRunContentStore.getState().clearAll();
     activeRun = undefined;
 
@@ -208,6 +217,9 @@ describe('useChatLogicHook stream cleanup', () => {
       running_time: 0,
     });
     mockSubmitLessonFeedback.mockResolvedValue({});
+    mockGetShifuDraftMeta.mockResolvedValue({
+      updated_at: '2026-06-30T12:00:00+08:00',
+    });
 
     mockGetRunMessage.mockImplementation(
       (
@@ -258,10 +270,19 @@ describe('useChatLogicHook stream cleanup', () => {
     </AppContext.Provider>
   );
 
+  const createDeferred = <T,>() => {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>(next => {
+      resolve = next;
+    });
+    return { promise, resolve };
+  };
+
   const buildBaseParams = () => ({
     shifuBid: 'shifu-1',
     outlineBid: 'lesson-1',
     lessonId: 'lesson-1',
+    lessonHasContentUpdate: false,
     trackEvent: jest.fn(),
     trackTrailProgress: jest.fn(),
     lessonUpdate: jest.fn(),
@@ -3099,6 +3120,201 @@ describe('useChatLogicHook stream cleanup', () => {
       expect(initialSource?.close).not.toHaveBeenCalled();
       expect(mockGetRunMessage).toHaveBeenCalledTimes(runCallCountBeforeCancel);
       expect(result.current.reGenerateConfirm.open).toBe(false);
+    });
+  });
+
+  describe('lesson update notice', () => {
+    it('shows the notice when draft content is newer than learner history', async () => {
+      mockGetLessonStudyRecord.mockResolvedValue({
+        elements: [
+          {
+            element_type: 'content',
+            element_bid: 'history-1',
+            generated_block_bid: 'history-1',
+            content: 'history content',
+            like_status: 'none',
+            user_input: '',
+            is_marker: false,
+            is_new: false,
+            is_renderable: true,
+            is_speakable: false,
+          },
+        ],
+        last_progress_updated_at: '2026-06-30T10:00:00Z',
+      });
+      mockGetShifuDraftMeta.mockResolvedValue({
+        updated_at: '2026-06-30T12:00:00Z',
+      });
+
+      const { result } = renderHook(
+        () =>
+          useChatLogicHook({
+            ...buildBaseParams(),
+            previewMode: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.showLessonUpdateNotice).toBe(true);
+      });
+      expect(mockGetShifuDraftMeta).toHaveBeenCalledWith({
+        shifu_bid: 'shifu-1',
+        outline_bid: 'lesson-1',
+      });
+    });
+
+    it('keeps the notice hidden when there is no learner history', async () => {
+      mockGetLessonStudyRecord.mockResolvedValue({
+        elements: [],
+        last_progress_updated_at: null,
+      });
+
+      const { result } = renderHook(
+        () =>
+          useChatLogicHook({
+            ...buildBaseParams(),
+            previewMode: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.showLessonUpdateNotice).toBe(false);
+      });
+    });
+
+    it('skips draft-meta loading when learner history has no progress timestamp', async () => {
+      mockGetLessonStudyRecord.mockResolvedValue({
+        elements: [
+          {
+            element_type: 'content',
+            element_bid: 'history-1',
+            generated_block_bid: 'history-1',
+            content: 'history content',
+            like_status: 'none',
+            user_input: '',
+            is_marker: false,
+            is_new: false,
+            is_renderable: true,
+            is_speakable: false,
+          },
+        ],
+        last_progress_updated_at: null,
+      });
+
+      const { result } = renderHook(
+        () =>
+          useChatLogicHook({
+            ...buildBaseParams(),
+            previewMode: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.showLessonUpdateNotice).toBe(false);
+      });
+      expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
+    });
+
+    it('shows the notice in published mode when the current lesson has a published update', async () => {
+      mockGetLessonStudyRecord.mockResolvedValue({
+        elements: [
+          {
+            element_type: 'content',
+            element_bid: 'history-1',
+            generated_block_bid: 'history-1',
+            content: 'history content',
+            like_status: 'none',
+            user_input: '',
+            is_marker: false,
+            is_new: false,
+            is_renderable: true,
+            is_speakable: false,
+          },
+        ],
+        last_progress_updated_at: '2026-06-30T10:00:00+08:00',
+      });
+
+      const { result } = renderHook(
+        () =>
+          useChatLogicHook({
+            ...buildBaseParams(),
+            previewMode: false,
+            lessonHasContentUpdate: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.showLessonUpdateNotice).toBe(true);
+      });
+      expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
+    });
+
+    it('ignores stale preview update responses after lesson navigation', async () => {
+      const staleRecord = createDeferred<{
+        elements: Array<Record<string, unknown>>;
+        last_progress_updated_at: string;
+      }>();
+      mockGetLessonStudyRecord.mockImplementation(({ outline_bid }) => {
+        if (outline_bid === 'lesson-1') {
+          return staleRecord.promise;
+        }
+        return Promise.resolve({
+          elements: [],
+          last_progress_updated_at: null,
+        });
+      });
+      mockGetShifuDraftMeta.mockResolvedValue({
+        updated_at: '2026-06-30T12:00:00Z',
+      });
+
+      const { result, rerender } = renderHook(
+        ({ outlineBid, lessonId }) =>
+          useChatLogicHook({
+            ...buildBaseParams(),
+            outlineBid,
+            lessonId,
+            previewMode: true,
+          }),
+        {
+          wrapper,
+          initialProps: { outlineBid: 'lesson-1', lessonId: 'lesson-1' },
+        },
+      );
+
+      rerender({ outlineBid: 'lesson-2', lessonId: 'lesson-2' });
+
+      await waitFor(() => {
+        expect(mockGetLessonStudyRecord).toHaveBeenCalledWith(
+          expect.objectContaining({ outline_bid: 'lesson-2' }),
+        );
+      });
+
+      await act(async () => {
+        staleRecord.resolve({
+          elements: [
+            {
+              element_type: 'content',
+              element_bid: 'history-1',
+              generated_block_bid: 'history-1',
+              content: 'history content',
+              like_status: 'none',
+              user_input: '',
+              is_marker: false,
+              is_new: false,
+              is_renderable: true,
+              is_speakable: false,
+            },
+          ],
+          last_progress_updated_at: '2026-06-30T10:00:00Z',
+        });
+        await staleRecord.promise;
+      });
+
+      expect(result.current.showLessonUpdateNotice).toBe(false);
     });
   });
 });

@@ -275,9 +275,9 @@ def test_invite_profile_includes_creator_reward_queue(
                 "reward_credit_amount": "1000.0000000000",
                 "reward_product_code": "creator-plan-monthly-pro",
                 "ledger_credit_state": "",
-                "effective_at": "2026-06-26T13:18:00",
-                "expires_at": "2026-07-26T13:18:00",
-                "created_at": reward.created_at.isoformat(),
+                "effective_at": "2026-06-26T13:18:00Z",
+                "expires_at": "2026-07-26T13:18:00Z",
+                "created_at": reward.created_at.isoformat() + "Z",
             }
         ]
         assert "13521510781" not in str(queue)
@@ -546,6 +546,7 @@ def test_post_auth_preserves_reward_when_billing_grant_fails_then_repairs(
         ).one()
         assert relation.relation_status == REFERRAL_RELATION_STATUS_REGISTERED
         assert reward.billing_artifacts["grant_error"] == "billing offline"
+        assert reward.billing_artifacts["last_failed_at"].endswith("Z")
 
         dry_run = retry_pending_referral_rewards(referral_app, dry_run=True)
         assert dry_run == [

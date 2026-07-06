@@ -57,6 +57,7 @@ def test_profile_onboarding_config_roundtrip(app, monkeypatch):
         "sys_user_style",
         "sys_user_background",
     ]
+    assert result["updated_at"].endswith("Z")
     assert saved_payloads[0][1] == "operator-1"
 
 

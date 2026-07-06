@@ -1,6 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/lib/admin-date-time';
 import { toast } from '@/hooks/useToast';
 import AdminOperationCreditNotificationsPage from './page';
 
@@ -9,6 +13,7 @@ const mockPush = jest.fn();
 let mockSearchParams = new URLSearchParams();
 let mockLoginMethodsEnabled = ['phone'];
 let mockDefaultLoginMethod = 'phone';
+const mockBrowserTimeZone = jest.fn(() => 'America/Los_Angeles');
 
 const mockTranslations: Record<string, string> = {
   'module.operationsCreditNotifications.errorReason.policy_disabled':
@@ -46,6 +51,10 @@ jest.mock('../useOperatorGuard', () => ({
   default: () => ({
     isReady: true,
   }),
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
 }));
 
 jest.mock('@/c-store', () => ({
@@ -98,6 +107,24 @@ jest.mock('@/components/ErrorDisplay', () => ({
   __esModule: true,
   default: ({ errorMessage }: { errorMessage: string }) => (
     <div>{errorMessage}</div>
+  ),
+}));
+jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
+  __esModule: true,
+  default: ({
+    placeholder,
+    onChange,
+  }: {
+    placeholder: string;
+    onChange: (range: { start: string; end: string }) => void;
+  }) => (
+    <button
+      type='button'
+      data-testid={`date-range-${placeholder}`}
+      onClick={() => onChange({ start: '2026-07-02', end: '2026-07-02' })}
+    >
+      {placeholder}
+    </button>
   ),
 }));
 
@@ -229,6 +256,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
     mockSearchParams = new URLSearchParams();
     mockLoginMethodsEnabled = ['phone'];
     mockDefaultLoginMethod = 'phone';
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockReplace.mockReset();
     mockPush.mockReset();
     mockGetConfig.mockReset();
@@ -268,8 +296,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
       requested_at: '',
       attempted_at: '',
       sent_at: '',
-      created_at: '2026-05-21T00:00:00',
-      updated_at: '2026-05-21T00:00:00',
+      created_at: '2026-05-21T00:00:00Z',
+      updated_at: '2026-05-21T00:00:00Z',
       metadata: {},
     });
     mockGetOverview.mockResolvedValue({
@@ -292,7 +320,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
           sync_status: 'synced',
           error_code: '',
           error_message: '',
-          last_synced_at: '2026-05-22T00:00:00',
+          last_synced_at: '2026-05-22T00:00:00Z',
           source: 'provider',
         },
       ],
@@ -339,8 +367,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
           requested_at: '',
           attempted_at: '',
           sent_at: '',
-          created_at: '2026-05-21T00:00:00',
-          updated_at: '2026-05-21T00:00:00',
+          created_at: '2026-05-21T00:00:00Z',
+          updated_at: '2026-05-21T00:00:00Z',
           metadata: {},
         },
       ],
@@ -368,7 +396,7 @@ describe('AdminOperationCreditNotificationsPage', () => {
       sync_status: 'synced',
       error_code: '',
       error_message: '',
-      last_synced_at: '2026-05-22T00:00:00',
+      last_synced_at: '2026-05-22T00:00:00Z',
       compatible: false,
     });
   });
@@ -379,6 +407,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Creator One')).toBeInTheDocument();
     });
+    expect(screen.getByText('2026-05-20 17:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-05-21T00:00:00Z')).not.toBeInTheDocument();
     expect(mockGetConfig).not.toHaveBeenCalled();
     expect(mockGetTemplates).not.toHaveBeenCalled();
     expect(
@@ -502,6 +532,9 @@ describe('AdminOperationCreditNotificationsPage', () => {
         .length,
     ).toBeGreaterThan(0);
     expect(screen.getByText('notification-1')).toBeInTheDocument();
+    expect(screen.getAllByText('2026-05-20 17:00:00').length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getByText('credit_granted:ledger-1')).toBeInTheDocument();
   });
 
@@ -532,8 +565,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
           requested_at: '',
           attempted_at: '',
           sent_at: '',
-          created_at: '2026-05-21T00:00:00',
-          updated_at: '2026-05-21T00:00:00',
+          created_at: '2026-05-21T00:00:00Z',
+          updated_at: '2026-05-21T00:00:00Z',
           metadata: {},
         },
       ],
@@ -575,8 +608,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
           requested_at: '',
           attempted_at: '',
           sent_at: '',
-          created_at: '2026-05-21T00:00:00',
-          updated_at: '2026-05-21T00:00:00',
+          created_at: '2026-05-21T00:00:00Z',
+          updated_at: '2026-05-21T00:00:00Z',
           metadata: {},
         },
       ],
@@ -622,6 +655,11 @@ describe('AdminOperationCreditNotificationsPage', () => {
       ),
       { target: { value: '13800138000' } },
     );
+    fireEvent.click(
+      screen.getByTestId(
+        'date-range-module.operationsCreditNotifications.filters.timeRangePlaceholder',
+      ),
+    );
     expect(mockGetRecords).toHaveBeenCalledTimes(1);
 
     fireEvent.click(
@@ -637,6 +675,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
       expect.objectContaining({
         creator_keyword: '13800138000',
         page_index: 1,
+        start_time: formatAdminDateRangeStartUtc('2026-07-02'),
+        end_time: formatAdminDateRangeEndUtc('2026-07-02'),
       }),
     );
 

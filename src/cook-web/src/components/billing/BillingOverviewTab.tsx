@@ -7,7 +7,6 @@ import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { toast } from '@/hooks/useToast';
 import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import {
   BILLING_WALLET_BUCKETS_SWR_KEY,
@@ -38,7 +37,6 @@ import {
   resolveBillingPingxxChannelLabel,
   resolveBillingProductTitle,
   resolveBillingProviderLabel,
-  withBillingTimezone,
 } from '@/lib/billing';
 import { BillingAlertsBanner } from './BillingAlertsBanner';
 import { BillingCheckoutDialog } from './BillingCheckoutDialog';
@@ -50,6 +48,20 @@ type BillingCatalogResponse = {
   plans: BillingPlan[];
   topups: BillingTopupProduct[];
 };
+
+const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
+  'canceled',
+  'expired',
+  'draft',
+]);
+
+function isBillingSubscriptionActive(
+  subscription: BillingSubscription | null | undefined,
+): subscription is BillingSubscription {
+  return (
+    !!subscription && !INACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)
+  );
+}
 
 type BillingOverviewTabProps = {
   onOpenOrdersTab?: () => void;
@@ -173,7 +185,6 @@ export function BillingOverviewTab({
 }: BillingOverviewTabProps = {}) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
-  const timezone = getBrowserTimeZone();
 
   const {
     data: overview,
@@ -186,11 +197,8 @@ export function BillingOverviewTab({
     error: catalogError,
     isLoading: catalogLoading,
   } = useSWR<BillingCatalogResponse>(
-    buildBillingSwrKey('billing-catalog', timezone),
-    async () =>
-      (await api.getBillingCatalog(
-        withBillingTimezone({}, timezone),
-      )) as BillingCatalogResponse,
+    buildBillingSwrKey('billing-catalog'),
+    async () => (await api.getBillingCatalog({})) as BillingCatalogResponse,
     {
       revalidateOnFocus: false,
     },
@@ -239,13 +247,15 @@ export function BillingOverviewTab({
   const plans = catalog?.plans || [];
   const topups = catalog?.topups || [];
   const trialOffer = overview?.trial_offer;
+  const activeSubscription = isBillingSubscriptionActive(overview?.subscription)
+    ? overview.subscription
+    : null;
   const currentPlan =
-    plans.find(
-      item => item.product_bid === overview?.subscription?.product_bid,
-    ) || null;
+    plans.find(item => item.product_bid === activeSubscription?.product_bid) ||
+    null;
   const pendingPreorderPlan =
     plans.find(
-      item => item.product_bid === overview?.subscription?.next_product_bid,
+      item => item.product_bid === activeSubscription?.next_product_bid,
     ) || null;
   const monthlyPlans = plans.filter(
     product => product.billing_interval === 'month',
@@ -253,14 +263,11 @@ export function BillingOverviewTab({
   const yearlyPlans = plans.filter(
     product => product.billing_interval === 'year',
   );
-  const hasActiveSubscription = Boolean(
-    overview?.subscription &&
-    !['canceled', 'expired', 'draft'].includes(overview.subscription.status),
-  );
+  const hasActiveSubscription = Boolean(activeSubscription);
   const isTrialCurrentPlan = Boolean(
     hasActiveSubscription &&
     trialOffer?.product_bid &&
-    overview?.subscription?.product_bid === trialOffer.product_bid,
+    activeSubscription?.product_bid === trialOffer.product_bid,
   );
   const firstAvailableTopup = topups[0]
     ? (() => {
@@ -277,9 +284,7 @@ export function BillingOverviewTab({
   async function refreshBillingData() {
     await Promise.all([
       mutateOverview(),
-      mutateSWRCache(
-        buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY, timezone),
-      ),
+      mutateSWRCache(buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY)),
     ]);
   }
 
@@ -617,7 +622,7 @@ export function BillingOverviewTab({
         onAlertAction={handleAlertAction}
       />
 
-      {overview?.subscription?.next_product_bid && pendingPreorderPlan ? (
+      {activeSubscription?.next_product_bid && pendingPreorderPlan ? (
         <div
           className='rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800'
           data-testid='billing-pending-preorder-banner'
@@ -626,7 +631,7 @@ export function BillingOverviewTab({
             plan: resolveBillingProductTitle(t, pendingPreorderPlan),
             date:
               formatBillingDateTime(
-                overview.subscription.current_period_end_at,
+                activeSubscription.current_period_end_at,
                 i18n.language,
               ) || t('module.billing.common.empty'),
           })}
@@ -636,7 +641,7 @@ export function BillingOverviewTab({
       <BillingOverviewShowcase
         checkoutLoadingKey={checkoutLoadingKey}
         currentPlan={currentPlan}
-        currentSubscription={overview?.subscription || null}
+        currentSubscription={activeSubscription}
         hasActiveSubscription={hasActiveSubscription}
         isTrialCurrentPlan={isTrialCurrentPlan}
         isLoading={overviewLoading || catalogLoading}

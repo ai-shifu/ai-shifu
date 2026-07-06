@@ -19,13 +19,12 @@ from flaskr.service.profile.funcs import (
     save_user_profiles,
 )
 from flaskr.service.profile.models import VariableValue
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 
 
 def _now_iso() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return to_utc_iso(now_utc().replace(microsecond=0)) or ""
 
 
 def _has_onboarding_state(user_id: str) -> bool:

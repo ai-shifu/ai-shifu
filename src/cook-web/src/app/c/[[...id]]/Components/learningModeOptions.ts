@@ -9,10 +9,10 @@ type LearningModeOption = {
 
 export const LEARNING_MODE_OPTIONS = [
   {
-    mode: 'read',
+    mode: 'listen',
   },
   {
-    mode: 'listen',
+    mode: 'read',
   },
   {
     mode: 'classroom',

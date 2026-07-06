@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from flaskr.dao import db
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import get_user_entity_by_bid
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
@@ -45,7 +46,6 @@ from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import safe_to_positive_int as _safe_to_positive_int
-from .primitives import serialize_dt as _serialize_dt
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
 
 _ACTIVE_SUBSCRIPTION_STATUSES = (
@@ -79,9 +79,7 @@ class TrialOfferState:
     expires_at: datetime | None = None
     welcome_dialog_acknowledged_at: datetime | None = None
 
-    def to_dto(
-        self, app: Flask, *, timezone_name: str | None = None
-    ) -> BillingTrialOfferDTO:
+    def to_dto(self, app: Flask) -> BillingTrialOfferDTO:
         return BillingTrialOfferDTO(
             enabled=bool(self.enabled),
             status=str(self.status),
@@ -95,21 +93,9 @@ class TrialOfferState:
             highlights=list(self.highlights),
             valid_days=int(self.valid_days),
             starts_on_first_grant=bool(self.starts_on_first_grant),
-            granted_at=_serialize_dt(
-                app,
-                self.granted_at,
-                timezone_name=timezone_name,
-            ),
-            expires_at=_serialize_dt(
-                app,
-                self.expires_at,
-                timezone_name=timezone_name,
-            ),
-            welcome_dialog_acknowledged_at=_serialize_dt(
-                app,
-                self.welcome_dialog_acknowledged_at,
-                timezone_name=timezone_name,
-            ),
+            granted_at=self.granted_at,
+            expires_at=self.expires_at,
+            welcome_dialog_acknowledged_at=self.welcome_dialog_acknowledged_at,
         )
 
 
@@ -377,7 +363,7 @@ def _bootstrap_trial_subscription(
     if valid_days <= 0 or credit_amount <= 0:
         return
 
-    now = datetime.now()
+    now = now_utc()
     expires_at = now + timedelta(days=valid_days)
     product_bid = str(
         _trial_product_field(product_ref, "product_bid", BILLING_TRIAL_PRODUCT_BID)
@@ -700,7 +686,6 @@ def _resolve_new_creator_trial_offer(
     creator_bid: str,
     *,
     trigger: str,
-    timezone_name: str | None = None,
 ) -> BillingTrialOfferDTO:
     del trigger
 
@@ -737,7 +722,6 @@ def _resolve_new_creator_trial_offer(
                 expires_at=expires_at,
                 welcome_dialog_acknowledged_at=acknowledged_at,
             ),
-            timezone_name=timezone_name,
         )
 
     if not enabled:
@@ -748,7 +732,6 @@ def _resolve_new_creator_trial_offer(
                 enabled=False,
                 status="disabled",
             ),
-            timezone_name=timezone_name,
         )
 
     creator = get_user_entity_by_bid(normalized_creator_bid)
@@ -760,7 +743,6 @@ def _resolve_new_creator_trial_offer(
                 enabled=True,
                 status="ineligible",
             ),
-            timezone_name=timezone_name,
         )
 
     current_subscription = _load_active_creator_subscription(normalized_creator_bid)
@@ -772,7 +754,6 @@ def _resolve_new_creator_trial_offer(
                 enabled=True,
                 status="ineligible",
             ),
-            timezone_name=timezone_name,
         )
 
     return _serialize_trial_offer(
@@ -782,24 +763,19 @@ def _resolve_new_creator_trial_offer(
             enabled=True,
             status="eligible",
         ),
-        timezone_name=timezone_name,
     )
 
 
 def _serialize_trial_offer(
     app: Flask,
     state: TrialOfferState,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingTrialOfferDTO:
-    return state.to_dto(app, timezone_name=timezone_name)
+    return state.to_dto(app)
 
 
 def _acknowledge_trial_welcome_dialog(
     app: Flask,
     creator_bid: str,
-    *,
-    timezone_name: str | None = None,
 ) -> BillingTrialWelcomeAckDTO:
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
@@ -824,11 +800,7 @@ def _acknowledge_trial_welcome_dialog(
         if existing_acknowledged_at is not None:
             return BillingTrialWelcomeAckDTO(
                 acknowledged=True,
-                acknowledged_at=_serialize_dt(
-                    app,
-                    existing_acknowledged_at,
-                    timezone_name=timezone_name,
-                ),
+                acknowledged_at=existing_acknowledged_at,
             )
 
         target_record = trial_subscription or trial_order or legacy_entry
@@ -838,7 +810,7 @@ def _acknowledge_trial_welcome_dialog(
                 acknowledged_at=None,
             )
 
-        acknowledged_at = datetime.now()
+        acknowledged_at = now_utc()
         _set_trial_welcome_acknowledged_at(
             target_record,
             acknowledged_at=acknowledged_at,
@@ -847,11 +819,7 @@ def _acknowledge_trial_welcome_dialog(
         db.session.commit()
         return BillingTrialWelcomeAckDTO(
             acknowledged=True,
-            acknowledged_at=_serialize_dt(
-                app,
-                acknowledged_at,
-                timezone_name=timezone_name,
-            ),
+            acknowledged_at=acknowledged_at,
         )
 
 

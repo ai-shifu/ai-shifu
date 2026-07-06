@@ -32,6 +32,10 @@
   sync with the latest code changes so they accurately describe the current
   implementation and verification state.
 
+- Follow the canonical commit-message policy in
+  `docs/engineering-baseline.md#commit-message-policy`; keep agent-specific
+  rule files pointing there instead of duplicating the policy.
+
 - Regenerate repository knowledge indexes with
   `python scripts/build_repo_knowledge_index.py` after moving docs or changing
   required metadata.

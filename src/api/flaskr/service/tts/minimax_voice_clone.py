@@ -7,7 +7,6 @@ import os
 import re
 import tempfile
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -57,6 +56,7 @@ from flaskr.service.tts.models import (
     TTS_MINIMAX_CLONE_STATUS_QUEUED,
     TTS_MINIMAX_CLONE_STATUS_READY,
 )
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 
 
@@ -612,7 +612,7 @@ def delete_minimax_cloned_voice(
         if row.owner_user_bid != owner_bid:
             raise_error("server.shifu.noPermission")
         row.deleted = 1
-        row.deleted_at = datetime.now()
+        row.deleted_at = now_utc()
         db.session.commit()
         return serialize_minimax_cloned_voice(row)
 
@@ -668,9 +668,9 @@ def serialize_minimax_cloned_voice(row: TTSMiniMaxClonedVoice) -> dict[str, Any]
         "estimated_credits": str(to_decimal(row.estimated_credits)),
         "charged_credits": str(to_decimal(row.charged_credits)),
         "clone_usage_bid": row.clone_usage_bid or "",
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-        "ready_at": row.ready_at.isoformat() if row.ready_at else None,
+        "created_at": to_utc_iso(row.created_at),
+        "updated_at": to_utc_iso(row.updated_at),
+        "ready_at": to_utc_iso(row.ready_at),
         "deleted": int(row.deleted or 0),
     }
 
@@ -788,7 +788,7 @@ def _execute_clone_processing(
             row.billing_status = TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
             row.charged_credits = _ZERO()
         row.status = TTS_MINIMAX_CLONE_STATUS_READY
-        row.ready_at = datetime.now()
+        row.ready_at = now_utc()
         db.session.commit()
         _cleanup_raw_resources(app, row)
         return MiniMaxVoiceCloneRunResult(

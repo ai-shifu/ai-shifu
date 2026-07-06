@@ -1,55 +1,90 @@
+import base64
+import json
+import logging
+import queue
+import time
+import uuid
+from dataclasses import replace
+from datetime import datetime, timezone
+
+from flask import Flask, has_request_context, request
 from markdown_flow import (
     InteractionParser,
 )
-from flask import Flask, request, has_request_context
-import base64
-import json
-import time
-import logging
-from dataclasses import replace
-import uuid
+
+from flaskr.dao import db
+from flaskr.i18n import _
+from flaskr.service.common import raise_error, raise_error_with_args
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
-    LearnShifuInfoDTO,
-    LearnOutlineItemInfoDTO,
-    LearnStatus,
-    BlockType,
-    LikeStatus,
-    LearnOutlineItemsWithBannerInfoDTO,
-    LearnBannerInfoDTO,
-    OutlineType,
-    GeneratedInfoDTO,
-    RunMarkdownFlowDTO,
-    GeneratedType,
-    AudioSegmentDTO,
     AudioCompleteDTO,
+    AudioSegmentDTO,
+    BlockType,
+    GeneratedInfoDTO,
+    GeneratedType,
+    LearnBannerInfoDTO,
+    LearnOutlineItemsWithBannerInfoDTO,
+    LearnOutlineItemInfoDTO,
+    LearnShifuInfoDTO,
+    LearnStatus,
+    LikeStatus,
+    OutlineType,
+    RunMarkdownFlowDTO,
 )
-from flaskr.service.shifu.models import (
-    DraftShifu,
-    PublishedShifu,
-    DraftOutlineItem,
-    PublishedOutlineItem,
-    LogDraftStruct,
-    LogPublishedStruct,
+from flaskr.service.learn.lesson_feedback import (
+    build_lesson_feedback_interaction_md,
+    is_lesson_feedback_interaction,
+)
+from flaskr.service.learn.legacy_record_builder import (
+    LegacyGeneratedBlockRecord,
+    LegacyLearnRecord,
+    build_legacy_record_for_progress,
+)
+from flaskr.service.learn.listen_element_matching import (
+    get_speakable_text_elements,
 )
 from flaskr.service.learn.models import (
-    LearnProgressRecord,
     LearnGeneratedBlock,
     LearnLessonFeedback,
+    LearnProgressRecord,
 )
-from flaskr.service.tts.models import LearnGeneratedAudio, AUDIO_STATUS_COMPLETED
 from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
 )
-from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
-from flaskr.service.tts.pipeline import split_text_for_tts
+from flaskr.service.order.consts import (
+    LEARN_STATUS_COMPLETED,
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_LOCKED,
+    LEARN_STATUS_NOT_STARTED,
+    LEARN_STATUS_RESET,
+    ORDER_STATUS_SUCCESS,
+)
+from flaskr.service.order.models import BannerInfo, Order
+from flaskr.service.shifu.consts import (
+    UNIT_TYPE_VALUE_GUEST,
+    UNIT_TYPE_VALUE_NORMAL,
+    UNIT_TYPE_VALUE_TRIAL,
+)
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    LogDraftStruct,
+    LogPublishedStruct,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.struct_utils import find_node_with_parents
+from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.api.tts import (
     get_default_audio_settings,
     get_default_voice_settings,
-    synthesize_text,
     is_tts_configured,
+    synthesize_text,
 )
+from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
 from flaskr.service.tts.api import create_streaming_tts_processor
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
@@ -63,43 +98,37 @@ from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
 )
+from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
+from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
-from flaskr.service.common import raise_error, raise_error_with_args
-from flaskr.service.shifu.utils import get_shifu_res_url
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.shifu.struct_utils import find_node_with_parents
-from flaskr.service.order.models import Order, BannerInfo
-from flaskr.i18n import _
-from flaskr.service.order.consts import (
-    ORDER_STATUS_SUCCESS,
-    LEARN_STATUS_LOCKED,
-    LEARN_STATUS_NOT_STARTED,
-    LEARN_STATUS_IN_PROGRESS,
-    LEARN_STATUS_COMPLETED,
-    LEARN_STATUS_RESET,
-)
-import queue
-from flaskr.dao import db
-from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
-from flaskr.service.learn.lesson_feedback import (
-    build_lesson_feedback_interaction_md,
-    is_lesson_feedback_interaction,
-)
-from flaskr.service.learn.listen_element_matching import (
-    get_speakable_text_elements,
-)
-from flaskr.service.learn.legacy_record_builder import (
-    LegacyGeneratedBlockRecord,
-    LegacyLearnRecord,
-    build_legacy_record_for_progress,
-)
-from flaskr.service.shifu.consts import (
-    UNIT_TYPE_VALUE_TRIAL,
-    UNIT_TYPE_VALUE_NORMAL,
-    UNIT_TYPE_VALUE_GUEST,
-)
 from flaskr.util import generate_id
+
+
+def _normalize_dt_to_utc(
+    value: datetime | None,
+) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc)
+    return value.replace(tzinfo=timezone.utc)
+
+
+def _resolve_published_effective_updated_at(
+    outline_item: PublishedOutlineItem,
+) -> datetime | None:
+    updated_at = _normalize_dt_to_utc(getattr(outline_item, "updated_at", None))
+    return updated_at
+
+
+def _resolve_progress_effective_updated_at(
+    progress_record: LearnProgressRecord | None,
+) -> datetime | None:
+    return _normalize_dt_to_utc(
+        getattr(progress_record, "updated_at", None) if progress_record else None,
+    )
+
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
@@ -300,9 +329,48 @@ def get_outline_item_tree(
             LearnProgressRecord.status != LEARN_STATUS_RESET,
             LearnProgressRecord.deleted == 0,
         ).all()
-        progress_records_map: dict[str, LearnProgressRecord] = {
-            i.outline_item_bid: i for i in progress_records
-        }
+        progress_records_map: dict[str, LearnProgressRecord] = {}
+        latest_progress_record_map: dict[str, LearnProgressRecord] = {}
+        for progress_record in progress_records:
+            current_status_record = progress_records_map.get(
+                progress_record.outline_item_bid
+            )
+            if (
+                current_status_record is None
+                or progress_record.id > current_status_record.id
+            ):
+                progress_records_map[progress_record.outline_item_bid] = progress_record
+            latest_progress_record = latest_progress_record_map.get(
+                progress_record.outline_item_bid
+            )
+            progress_updated_at = _resolve_progress_effective_updated_at(
+                progress_record
+            )
+            latest_progress_updated_at = _resolve_progress_effective_updated_at(
+                latest_progress_record
+            )
+            if latest_progress_record is None:
+                latest_progress_record_map[progress_record.outline_item_bid] = (
+                    progress_record
+                )
+            elif (
+                (
+                    progress_updated_at is not None
+                    and latest_progress_updated_at is not None
+                    and progress_updated_at > latest_progress_updated_at
+                )
+                or (
+                    latest_progress_updated_at is None
+                    and progress_updated_at is not None
+                )
+                or (
+                    progress_updated_at == latest_progress_updated_at
+                    and progress_record.id > latest_progress_record.id
+                )
+            ):
+                latest_progress_record_map[progress_record.outline_item_bid] = (
+                    progress_record
+                )
 
         def build_outline_item_tree(item: HistoryItem):
             outline_item: DraftOutlineItem | PublishedOutlineItem = next(
@@ -319,6 +387,26 @@ def get_outline_item_tree(
                 status = progress_record.status
                 if status == LEARN_STATUS_LOCKED:
                     status = LEARN_STATUS_NOT_STARTED
+            is_lesson_node = not bool(item.children)
+            has_content_update_for_current_user = False
+            if not preview_mode and is_lesson_node:
+                latest_progress_record = latest_progress_record_map.get(
+                    outline_item.outline_item_bid
+                )
+                published_updated_at = _resolve_published_effective_updated_at(
+                    outline_item
+                )
+                latest_progress_updated_at = _resolve_progress_effective_updated_at(
+                    latest_progress_record
+                )
+                has_content_update_for_current_user = bool(
+                    latest_progress_record is not None
+                    and latest_progress_record.status
+                    in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
+                    and published_updated_at
+                    and latest_progress_updated_at
+                    and published_updated_at > latest_progress_updated_at
+                )
             outline_item_info = LearnOutlineItemInfoDTO(
                 bid=outline_item.outline_item_bid,
                 position=outline_item.position,
@@ -326,6 +414,7 @@ def get_outline_item_tree(
                 status=STATUS_MAP.get(status, LearnStatus.NOT_STARTED),
                 type=outline_type_map.get(outline_item.type, OutlineType.NORMAL),
                 is_paid=is_paid,
+                has_content_update_for_current_user=has_content_update_for_current_user,
                 children=[],
             )
             if item.children:
@@ -1374,10 +1463,41 @@ def stream_generated_block_audio(
                         generated_block_bid=generated_block_bid,
                     )
                     return
-                raise_error_with_args(
-                    "server.common.paramsError",
-                    param_message="No speakable text elements available for TTS synthesis",
+
+                # Non-preview historical blocks may have generated_content but
+                # no learn_generated_elements. Fall back to synthesizing audio
+                # from the raw block text instead of failing.
+                cleaned_fallback_text = preprocess_for_tts(raw_text)
+                if not cleaned_fallback_text or len(cleaned_fallback_text.strip()) < 2:
+                    raise_error_with_args(
+                        "server.common.paramsError",
+                        param_message="No speakable text elements available for TTS synthesis",
+                    )
+
+                def _generate_legacy_audio():
+                    yield from _yield_run_tts_audio_events(
+                        app=app,
+                        text=raw_text,
+                        provider=provider,
+                        tts_model=tts_model,
+                        voice_settings=voice_settings,
+                        generated_block=generated_block,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        preview_mode=preview_mode,
+                        position=0,
+                    )
+
+                yield from _yield_with_tts_error_mapping(
+                    app,
+                    unknown_error_log="Legacy listen TTS synthesis failed",
+                    body=_generate_legacy_audio,
                 )
+                yield _build_tts_done_message(
+                    outline_bid=generated_block.outline_item_bid or "",
+                    generated_block_bid=generated_block_bid,
+                )
+                return
 
             expected_segment_count = len(speakable_segments)
             existing_by_position: dict[int, LearnGeneratedAudio] = {}

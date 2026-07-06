@@ -42,6 +42,7 @@ from .subscriptions import (
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
 from .value_objects import JsonObjectMap
+from flaskr.util.datetime import now_utc
 
 _STRIPE_SUCCESS_EVENT_TYPES = {
     "payment_intent.succeeded",
@@ -139,9 +140,9 @@ def _apply_billing_order_provider_update(
     ):
         return result
 
-    now = event_time or datetime.now()
+    now = event_time or now_utc()
     order.status = int(target_status or order.status or 0)
-    order.updated_at = datetime.now()
+    order.updated_at = now_utc()
     result.applied = True
     if target_status == BILLING_ORDER_STATUS_PENDING:
         return result
@@ -365,7 +366,7 @@ def _apply_billing_subscription_provider_update(
         or subscription.current_period_end_at
     )
 
-    now = event_time or datetime.now()
+    now = event_time or now_utc()
     if mapped_status in {
         BILLING_SUBSCRIPTION_STATUS_ACTIVE,
         BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
@@ -373,7 +374,7 @@ def _apply_billing_subscription_provider_update(
         subscription.last_renewed_at = now
     if mapped_status == BILLING_SUBSCRIPTION_STATUS_PAST_DUE:
         subscription.last_failed_at = now
-    subscription.updated_at = datetime.now()
+    subscription.updated_at = now_utc()
     _sync_subscription_lifecycle_events(app, subscription)
     return True
 
@@ -417,9 +418,9 @@ def _apply_subscription_checkout_success(
         if subscription.cancel_at_period_end
         else BILLING_SUBSCRIPTION_STATUS_ACTIVE
     )
-    now = event_time or datetime.now()
+    now = event_time or now_utc()
     subscription.last_renewed_at = now
-    subscription.updated_at = datetime.now()
+    subscription.updated_at = now_utc()
     _sync_subscription_lifecycle_events(app, subscription)
     return True
 
@@ -447,8 +448,8 @@ def _apply_subscription_checkout_failure(
     )
     subscription.billing_provider = provider
     subscription.status = BILLING_SUBSCRIPTION_STATUS_PAST_DUE
-    subscription.last_failed_at = event_time or datetime.now()
-    subscription.updated_at = datetime.now()
+    subscription.last_failed_at = event_time or now_utc()
+    subscription.updated_at = now_utc()
     _sync_subscription_lifecycle_events(app, subscription)
     return True
 

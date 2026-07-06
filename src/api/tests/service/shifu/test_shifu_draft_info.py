@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -54,6 +55,36 @@ def _mock_shifu_permissions(monkeypatch):
         shifu_draft_funcs,
         "get_config",
         lambda key: 0.5 if key == "MIN_SHIFU_PRICE" else None,
+        raising=False,
+    )
+
+
+def _mock_route_user(monkeypatch, user_id: str):
+    from types import SimpleNamespace
+
+    dummy_user = SimpleNamespace(
+        user_id=user_id,
+        is_creator=True,
+        language="en-US",
+    )
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: dummy_user,
+        raising=False,
+    )
+    return dummy_user
+
+
+def _mock_route_permission(monkeypatch, permission_map: dict[str, bool]):
+    from flaskr.service.shifu import route
+
+    def _has_permission(_app, _user_id, _shifu_bid, permission: str):
+        return permission_map.get(permission, False)
+
+    monkeypatch.setattr(
+        route,
+        "shifu_permission_verification",
+        _has_permission,
         raising=False,
     )
 
@@ -232,3 +263,85 @@ def test_save_shifu_draft_info_normalizes_removed_tts_fields(app, monkeypatch):
         assert latest is not None
         assert latest.tts_pitch == 0
         assert latest.tts_emotion == ""
+
+
+def test_get_draft_meta_route_serializes_utc_timestamp(app, test_client, monkeypatch):
+    from flaskr.service.shifu.models import DraftOutlineItem
+
+    shifu_bid = "test-draft-meta-timezone"
+    owner_bid = "owner-draft-meta-timezone"
+    outline_bid = "lesson-draft-meta-timezone"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.00"))
+    _mock_route_user(monkeypatch, owner_bid)
+
+    with app.app_context():
+        DraftOutlineItem.query.filter_by(
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+        ).delete()
+        dao.db.session.add(
+            DraftOutlineItem(
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                title="Lesson",
+                content="content",
+                updated_user_bid=owner_bid,
+                created_user_bid=owner_bid,
+                updated_at=datetime(2026, 6, 30, 5, 37, 42),
+                created_at=datetime(2026, 6, 30, 5, 37, 42),
+            )
+        )
+        dao.db.session.commit()
+
+    response = test_client.get(
+        f"/api/shifu/shifus/{shifu_bid}/draft-meta?outline_bid={outline_bid}",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["updated_at"] == "2026-06-30T05:37:42Z"
+
+
+def test_get_draft_meta_route_allows_view_only_permission(
+    app, test_client, monkeypatch
+):
+    from flaskr.service.shifu.models import DraftOutlineItem
+
+    shifu_bid = "test-draft-meta-view-only"
+    owner_bid = "owner-draft-meta-view-only"
+    shared_user_bid = "shared-draft-meta-view-only"
+    outline_bid = "lesson-draft-meta-view-only"
+    _seed_shifu(app, shifu_bid, owner_bid, Decimal("1.00"))
+    _mock_route_user(monkeypatch, shared_user_bid)
+    _mock_route_permission(monkeypatch, {"view": True, "edit": False})
+
+    with app.app_context():
+        DraftOutlineItem.query.filter_by(
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+        ).delete()
+        dao.db.session.add(
+            DraftOutlineItem(
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                title="Lesson",
+                content="content",
+                updated_user_bid=owner_bid,
+                created_user_bid=owner_bid,
+                updated_at=datetime(2026, 7, 2, 10, 0, 0),
+                created_at=datetime(2026, 7, 2, 10, 0, 0),
+            )
+        )
+        dao.db.session.commit()
+
+    response = test_client.get(
+        f"/api/shifu/shifus/{shifu_bid}/draft-meta?outline_bid={outline_bid}",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["updated_at"] == "2026-07-02T10:00:00Z"

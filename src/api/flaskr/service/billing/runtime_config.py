@@ -101,6 +101,23 @@ def _build_branding_payload(
     entitlement_state,
 ) -> RuntimeBillingBrandingDTO:
     normalized_feature_payload = entitlement_state.feature_payload.to_metadata_json()
+
+    def _pick_feature_str(key: str) -> str | None:
+        value = normalized_feature_payload.get(key)
+        normalized_value = str(value or "").strip()
+        return normalized_value or None
+
+    home_url_from_feature = _pick_feature_str("home_url")
+
+    if not bool(entitlement_state.branding_enabled):
+        return RuntimeBillingBrandingDTO(
+            logo_wide_url=None,
+            logo_square_url=None,
+            favicon_url=None,
+            home_url=home_url_from_feature,
+            contact_us_url=None,
+        )
+
     branding_payload = normalized_feature_payload.get("branding")
     normalized_branding_payload = (
         branding_payload if isinstance(branding_payload, dict) else {}
@@ -115,15 +132,6 @@ def _build_branding_payload(
             if normalized_value:
                 return normalized_value
         return None
-
-    if not bool(entitlement_state.branding_enabled):
-        return RuntimeBillingBrandingDTO(
-            logo_wide_url=None,
-            logo_square_url=None,
-            favicon_url=None,
-            home_url=None,
-            contact_us_url=None,
-        )
 
     return RuntimeBillingBrandingDTO(
         logo_wide_url=pick("logo_wide_url", "logoWideUrl"),
