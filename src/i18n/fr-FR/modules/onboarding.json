@@ -2,7 +2,7 @@
   "__namespace__": "module.onboarding",
   "adminHome": {
     "billingCard": {
-      "descriptionGeneric": "Consultez ici les crédits disponibles, ou achetez et mettez votre offre à niveau.",
+      "descriptionGeneric": "Consultez ici les crédits disponibles, souscrivez un abonnement ou achetez des crédits.",
       "title": "Crédits et offres"
     },
     "blankCourse": {

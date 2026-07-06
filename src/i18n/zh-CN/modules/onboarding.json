@@ -2,7 +2,7 @@
   "__namespace__": "module.onboarding",
   "adminHome": {
     "billingCard": {
-      "descriptionGeneric": "在这里查看可用积分，购买或升级套餐。",
+      "descriptionGeneric": "在这里查看可用积分，开通订阅或购买积分。",
       "title": "积分和套餐"
     },
     "blankCourse": {
