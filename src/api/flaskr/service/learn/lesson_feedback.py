@@ -167,13 +167,18 @@ def submit_lesson_feedback(
             )
             db.session.add(feedback_record)
 
-        _sync_feedback_to_generated_block(
-            user_bid,
-            shifu_bid,
-            outline_bid,
-            normalized_score,
-            normalized_comment,
-        )
+        # Querying the generated block must not autoflush a newly-added feedback row.
+        # During concurrent submissions another request may have inserted the unique
+        # active feedback first; let the commit path catch that IntegrityError and
+        # merge into the existing row instead of surfacing a 500 from autoflush.
+        with db.session.no_autoflush:
+            _sync_feedback_to_generated_block(
+                user_bid,
+                shifu_bid,
+                outline_bid,
+                normalized_score,
+                normalized_comment,
+            )
         try:
             db.session.commit()
         except IntegrityError:
