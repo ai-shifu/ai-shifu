@@ -57,9 +57,7 @@ def _make_fake_clone_model(first_result):
 
 
 def _fake_app():
-    return SimpleNamespace(
-        logger=SimpleNamespace(warning=lambda *args, **kwargs: None)
-    )
+    return SimpleNamespace(logger=SimpleNamespace(warning=lambda *args, **kwargs: None))
 
 
 def _patch_provider(monkeypatch, built_in_values, default_voice_id="default-voice"):
@@ -68,9 +66,7 @@ def _patch_provider(monkeypatch, built_in_values, default_voice_id="default-voic
     )
     monkeypatch.setattr(
         "flaskr.service.learn.learn_funcs.get_tts_provider",
-        lambda _provider: SimpleNamespace(
-            get_provider_config=lambda: provider_config
-        ),
+        lambda _provider: SimpleNamespace(get_provider_config=lambda: provider_config),
     )
     monkeypatch.setattr(
         "flaskr.service.learn.learn_funcs.get_default_voice_settings",
@@ -106,14 +102,10 @@ def test_minimax_ready_cloned_voice_is_kept(monkeypatch):
     monkeypatch.setattr(
         learn_funcs,
         "TTSMiniMaxClonedVoice",
-        _make_fake_clone_model(
-            SimpleNamespace(status=TTS_MINIMAX_CLONE_STATUS_READY)
-        ),
+        _make_fake_clone_model(SimpleNamespace(status=TTS_MINIMAX_CLONE_STATUS_READY)),
     )
     assert (
-        learn_funcs._resolve_runtime_tts_voice_id(
-            _fake_app(), "minimax", "clone-ready"
-        )
+        learn_funcs._resolve_runtime_tts_voice_id(_fake_app(), "minimax", "clone-ready")
         == "clone-ready"
     )
 
