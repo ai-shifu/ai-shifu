@@ -31,7 +31,7 @@
       "title": "Listen mode switch"
     },
     "publish": {
-      "description": "After publishing, learners will see this version of the course content.",
+      "description": "Learners will only see this version of the course content after publishing.",
       "title": "Publish the latest version"
     },
     "settingsEntry": {

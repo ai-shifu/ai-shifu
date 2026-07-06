@@ -31,7 +31,7 @@
       "title": "听课模式开关"
     },
     "publish": {
-      "description": "发布后，学员会看到当前这版课程内容。",
+      "description": "发布后，学员才会看到当前这版课程内容。",
       "title": "发布最新版本"
     },
     "settingsEntry": {

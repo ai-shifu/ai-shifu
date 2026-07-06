@@ -31,7 +31,7 @@
       "title": "Interrupteur du mode écoute"
     },
     "publish": {
-      "description": "Après publication, les apprenants verront cette version du contenu du cours.",
+      "description": "Les apprenants verront cette version du contenu du cours uniquement après publication.",
       "title": "Publier la dernière version"
     },
     "settingsEntry": {
