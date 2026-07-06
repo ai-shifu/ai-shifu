@@ -27,7 +27,7 @@
       "title": "返回课程列表"
     },
     "listenMode": {
-      "description": "开启后，学员可以用 PPT + 语音的形式学习这门课。",
+      "description": "开启听课模式",
       "title": "听课模式开关"
     },
     "publish": {

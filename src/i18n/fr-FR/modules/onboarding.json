@@ -27,7 +27,7 @@
       "title": "Retour à la liste des cours"
     },
     "listenMode": {
-      "description": "Une fois activé, les apprenants peuvent suivre ce cours avec des diapositives et de l'audio.",
+      "description": "Activer le mode écoute",
       "title": "Interrupteur du mode écoute"
     },
     "publish": {

@@ -27,7 +27,7 @@
       "title": "Back to the course list"
     },
     "listenMode": {
-      "description": "When it is on, learners can study this course with slides and voice.",
+      "description": "Enable listen mode",
       "title": "Listen mode switch"
     },
     "publish": {
