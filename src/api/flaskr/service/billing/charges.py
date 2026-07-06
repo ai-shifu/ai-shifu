@@ -28,6 +28,8 @@ from .consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from .models import CreditUsageRate
+from flaskr.util.datetime import now_utc
+
 from .primitives import (
     credit_decimal_to_number,
     decimal_to_number,
@@ -322,7 +324,7 @@ def resolve_credit_multiplier_label(
     if not metrics:
         return None
 
-    at = settlement_at or datetime.utcnow()
+    at = settlement_at or now_utc()
     usage = BillUsageRecord(
         usage_type=int(usage_type),
         provider=str(provider or "").strip(),

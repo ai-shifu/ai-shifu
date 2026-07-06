@@ -318,18 +318,8 @@ def test_usage_rate_unit_cost_uses_utc_settlement(monkeypatch):
     from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
 
     utc_sentinel = datetime(2026, 1, 1, 0, 0, 0)
-    local_sentinel = datetime(2026, 1, 1, 8, 0, 0)
 
-    class _FakeDateTime:
-        @staticmethod
-        def utcnow():
-            return utc_sentinel
-
-        @staticmethod
-        def now():
-            return local_sentinel
-
-    monkeypatch.setattr(tts_api, "datetime", _FakeDateTime)
+    monkeypatch.setattr(tts_api, "now_utc", lambda: utc_sentinel)
 
     captured = {}
 

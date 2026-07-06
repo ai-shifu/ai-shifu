@@ -14,13 +14,13 @@ The provider can be selected per-Shifu configuration.
 import logging
 import os
 import json
-from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 from flask import has_request_context, request
 
 from flaskr.common.config import get_config
+from flaskr.util.datetime import now_utc
 from flaskr.common.log import AppLoggerProxy
 from flaskr.i18n import get_current_language
 from flaskr.service.billing.consts import (
@@ -401,9 +401,8 @@ def _load_usage_rate_unit_cost(
     normalized_models = [str(model or "").strip() for model in model_candidates]
     if not normalized_models:
         normalized_models = [""]
-    # Match the UTC settlement window used by billing rate selection
-    # (billing/charges.py defaults settlement_at to datetime.utcnow()).
-    settlement_at = datetime.utcnow()
+    # Match the UTC settlement window used by billing rate selection.
+    settlement_at = now_utc()
     for model in normalized_models:
         rate = load_usage_rate(
             usage=BillUsageRecord(
