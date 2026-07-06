@@ -40,7 +40,9 @@ from .consts import (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_TYPE_LABELS,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
     BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
@@ -110,6 +112,23 @@ _USAGE_TYPE_LABELS = {
     BILL_USAGE_TYPE_LLM: "llm",
     BILL_USAGE_TYPE_TTS: "tts",
 }
+
+_RUNTIME_EXPIRABLE_SUBSCRIPTION_STATUSES = {
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+}
+
+
+def _resolve_runtime_subscription_status(row: BillingSubscription) -> int:
+    if (
+        row.status in _RUNTIME_EXPIRABLE_SUBSCRIPTION_STATUSES
+        and row.current_period_end_at is not None
+        and row.current_period_end_at <= now_utc()
+    ):
+        return BILLING_SUBSCRIPTION_STATUS_EXPIRED
+    return int(row.status or 0)
 
 
 def serialize_catalog_campaign(
@@ -330,11 +349,12 @@ def serialize_subscription(
         return None
     product_codes = load_product_code_map([row.product_bid])
     next_product_bid = normalize_bid(row.next_product_bid)
+    runtime_status = _resolve_runtime_subscription_status(row)
     return BillingSubscriptionDTO(
         subscription_bid=row.subscription_bid,
         product_bid=row.product_bid,
         product_code=product_codes.get(row.product_bid, ""),
-        status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(row.status, "draft"),
+        status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(runtime_status, "draft"),
         billing_provider=str(row.billing_provider or ""),
         current_period_start_at=row.current_period_start_at,
         current_period_end_at=row.current_period_end_at,
@@ -429,7 +449,8 @@ def build_billing_alerts(
     if subscription is None:
         return alerts
 
-    if subscription.status == BILLING_SUBSCRIPTION_STATUS_PAST_DUE:
+    runtime_status = _resolve_runtime_subscription_status(subscription)
+    if runtime_status == BILLING_SUBSCRIPTION_STATUS_PAST_DUE:
         alerts.append(
             BillingAlertDTO(
                 code="subscription_past_due",
@@ -442,7 +463,10 @@ def build_billing_alerts(
             )
         )
 
-    if subscription.cancel_at_period_end:
+    if (
+        runtime_status != BILLING_SUBSCRIPTION_STATUS_EXPIRED
+        and subscription.cancel_at_period_end
+    ):
         alerts.append(
             BillingAlertDTO(
                 code="subscription_cancel_scheduled",

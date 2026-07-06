@@ -15,6 +15,7 @@ from flask import Flask
 from ...dao import db
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime
+from flaskr.util.datetime import now_utc
 from .dtos import ShifuDto, ShifuDetailDto
 from ...util import generate_id
 from .consts import (
@@ -244,7 +245,7 @@ def create_shifu_draft(
         ShifuDto: Shifu dto
     """
     with app.app_context():
-        now_time = datetime.now()
+        now_time = now_utc()
 
         shifu_id = generate_id(app)
 
@@ -490,20 +491,13 @@ def save_shifu_draft_info(
                     else 1.0
                 )
             )
-            merged_pitch = (
-                tts_pitch
-                if tts_pitch is not None
-                else (
-                    int(shifu_draft.tts_pitch)
-                    if shifu_draft and shifu_draft.tts_pitch is not None
-                    else 0
-                )
-            )
-            merged_emotion = (
-                tts_emotion
-                if tts_emotion is not None
-                else (shifu_draft.tts_emotion if shifu_draft else "")
-            )
+            merged_pitch = 0
+            merged_emotion = ""
+            # Legacy pitch/emotion are always normalized to their defaults when
+            # TTS is enabled, so force them to persist even when the caller
+            # omitted them; otherwise stale legacy rows never converge to 0/"".
+            tts_pitch_provided = True
+            tts_emotion_provided = True
             validated = validate_tts_settings_strict(
                 provider=merged_provider,
                 model=merged_model,
@@ -653,7 +647,7 @@ def save_shifu_draft_info(
             if use_learner_language is not None:
                 new_shifu_draft.use_learner_language = 1 if use_learner_language else 0
             new_shifu_draft.updated_user_bid = user_id
-            new_shifu_draft.updated_at = datetime.now()
+            new_shifu_draft.updated_at = now_utc()
             if shifu_system_prompt is not None:
                 new_shifu_draft.llm_system_prompt = shifu_system_prompt
             if not new_shifu_draft.eq(shifu_draft):
@@ -925,7 +919,7 @@ def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):
             raise_error("server.shifu.noPermission")
 
         new_flag = 1 if archived else 0
-        now = datetime.now()
+        now = now_utc()
         existing = ShifuUserArchive.query.filter(
             ShifuUserArchive.shifu_bid == shifu_id,
             ShifuUserArchive.user_bid == user_id,

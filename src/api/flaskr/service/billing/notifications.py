@@ -17,7 +17,7 @@ from flaskr.i18n import get_current_language, set_language
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.timezone import format_with_app_timezone
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 from .consts import (
     BILLING_ORDER_STATUS_PAID,
@@ -185,7 +185,7 @@ def stage_subscription_purchase_sms_for_paid_order(
     if current_status:
         return False
 
-    now = datetime.now().isoformat()
+    now = to_utc_iso(now_utc())
     payload["status"] = "pending"
     payload["requested_at"] = now
     payload["updated_at"] = now
@@ -222,7 +222,7 @@ def stage_billing_paid_feishu_for_paid_order(
     if current_status:
         return False
 
-    now = datetime.now().isoformat()
+    now = to_utc_iso(now_utc())
     payload["status"] = "pending"
     payload["requested_at"] = now
     payload["updated_at"] = now
@@ -607,10 +607,10 @@ def _finalize_billing_paid_feishu_notification(
 ) -> None:
     payload = _read_notification_payload_by_key(order, _BILLING_PAID_FEISHU_KEY)
     payload["status"] = status
-    payload["updated_at"] = now.isoformat()
-    payload["processed_at"] = now.isoformat()
+    payload["updated_at"] = to_utc_iso(now)
+    payload["processed_at"] = to_utc_iso(now)
     if status == "sent":
-        payload["sent_at"] = now.isoformat()
+        payload["sent_at"] = to_utc_iso(now)
         payload.pop("error_code", None)
         payload.pop("error_message", None)
     else:
@@ -631,10 +631,10 @@ def _finalize_notification(
 ) -> None:
     payload = _read_notification_payload(order)
     payload["status"] = status
-    payload["updated_at"] = now.isoformat()
-    payload["processed_at"] = now.isoformat()
+    payload["updated_at"] = to_utc_iso(now)
+    payload["processed_at"] = to_utc_iso(now)
     if status == "sent":
-        payload["sent_at"] = now.isoformat()
+        payload["sent_at"] = to_utc_iso(now)
         payload.pop("error_code", None)
         payload.pop("error_message", None)
     else:
@@ -729,8 +729,8 @@ def deliver_billing_paid_feishu(
         )
         now = now_utc()
         payload["status"] = "processing"
-        payload["attempted_at"] = now.isoformat()
-        payload["updated_at"] = now.isoformat()
+        payload["attempted_at"] = to_utc_iso(now)
+        payload["updated_at"] = to_utc_iso(now)
         _write_notification_payload_by_key(order, _BILLING_PAID_FEISHU_KEY, payload)
         db.session.add(order)
         db.session.commit()
@@ -869,8 +869,8 @@ def deliver_subscription_purchase_sms(
             )
 
         payload["status"] = "processing"
-        payload["attempted_at"] = now.isoformat()
-        payload["updated_at"] = now.isoformat()
+        payload["attempted_at"] = to_utc_iso(now)
+        payload["updated_at"] = to_utc_iso(now)
         _write_notification_payload(order, payload)
         db.session.add(order)
         db.session.commit()

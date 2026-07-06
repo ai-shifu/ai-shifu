@@ -11,6 +11,7 @@ from flask import Flask
 from flaskr.dao import db
 from flaskr.service.common.models import AppException
 from flaskr.service.shifu import admin as admin_module
+from flaskr.service.shifu.admin_operations import courses as admin_courses_module
 from flaskr.service.shifu.admin import (
     _load_latest_shifus,
     _build_operator_course_overview,
@@ -739,6 +740,7 @@ def test_list_operator_courses_applies_quick_filters(monkeypatch):
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(admin_courses_module, "now_utc", lambda: FixedDateTime.now())
 
     app = Flask(__name__)
     recent_course = DummyCourse(
@@ -879,6 +881,7 @@ def test_build_operator_course_overview_returns_expected_counts(app, monkeypatch
             return cls(2025, 5, 1, 12, 0, 0)
 
     monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(admin_courses_module, "now_utc", lambda: FixedDateTime.now())
 
     draft_only_bid = uuid.uuid4().hex[:32]
     published_only_bid = uuid.uuid4().hex[:32]

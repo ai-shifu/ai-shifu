@@ -44,7 +44,7 @@ from flaskr.dao import db
 from flaskr.util import generate_id
 from flaskr.util.datetime import to_utc_iso
 import queue
-from datetime import datetime
+from flaskr.util.datetime import now_utc
 import re
 from flaskr.service.user.models import UserInfo
 
@@ -257,7 +257,7 @@ def __save_shifu_history(
     Returns:
         None
     """
-    now = datetime.now()
+    now = now_utc()
     shifu_history = LogDraftStruct(
         struct_bid=generate_id(app),
         shifu_bid=shifu_bid,

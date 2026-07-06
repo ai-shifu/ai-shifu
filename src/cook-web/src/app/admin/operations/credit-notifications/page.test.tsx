@@ -1,6 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/lib/admin-date-time';
 import { toast } from '@/hooks/useToast';
 import AdminOperationCreditNotificationsPage from './page';
 
@@ -103,6 +107,24 @@ jest.mock('@/components/ErrorDisplay', () => ({
   __esModule: true,
   default: ({ errorMessage }: { errorMessage: string }) => (
     <div>{errorMessage}</div>
+  ),
+}));
+jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
+  __esModule: true,
+  default: ({
+    placeholder,
+    onChange,
+  }: {
+    placeholder: string;
+    onChange: (range: { start: string; end: string }) => void;
+  }) => (
+    <button
+      type='button'
+      data-testid={`date-range-${placeholder}`}
+      onClick={() => onChange({ start: '2026-07-02', end: '2026-07-02' })}
+    >
+      {placeholder}
+    </button>
   ),
 }));
 
@@ -633,6 +655,11 @@ describe('AdminOperationCreditNotificationsPage', () => {
       ),
       { target: { value: '13800138000' } },
     );
+    fireEvent.click(
+      screen.getByTestId(
+        'date-range-module.operationsCreditNotifications.filters.timeRangePlaceholder',
+      ),
+    );
     expect(mockGetRecords).toHaveBeenCalledTimes(1);
 
     fireEvent.click(
@@ -648,6 +675,8 @@ describe('AdminOperationCreditNotificationsPage', () => {
       expect.objectContaining({
         creator_keyword: '13800138000',
         page_index: 1,
+        start_time: formatAdminDateRangeStartUtc('2026-07-02'),
+        end_time: formatAdminDateRangeEndUtc('2026-07-02'),
       }),
     );
 

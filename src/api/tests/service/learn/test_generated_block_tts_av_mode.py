@@ -536,6 +536,120 @@ class TestGeneratedBlockListenTtsElementFirst:
             assert records[0].subtitle_cues[0]["text"] == "First."
             assert records[1].subtitle_cues[0]["text"] == "Second."
 
+    def test_stream_generated_block_audio_listen_falls_back_to_legacy_block_text(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "user-legacy"
+        shifu_bid = "shifu-legacy"
+        generated_block_bid = "gen-legacy"
+        generated_content = (
+            "Hello legacy.\n\n<svg><text>visual only</text></svg>\n\nSpeak this too."
+        )
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-legacy",
+                    user_bid=user_bid,
+                    block_bid="block-legacy",
+                    outline_item_bid="outline-legacy",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content=generated_content,
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=True,
+            )
+        )
+
+        # The legacy fallback still runs raw_text through the streaming TTS
+        # processor, which strips non-speakable markup (the SVG block) and
+        # splits the remaining text into sentence segments before synthesis.
+        assert synthesized_texts == ["Hello legacy.", "Speak this too."]
+        # The whole legacy block is synthesized in a single position-0 pass, so
+        # the sentences are concatenated into one AUDIO_COMPLETE event.
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+        assert [event.content.position for event in audio_complete_events] == [0]
+        assert events[-1].type == GeneratedType.DONE
+
+    def test_stream_generated_block_audio_listen_finishes_non_speakable_legacy_block(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "user-legacy-non-speakable"
+        shifu_bid = "shifu-legacy-non-speakable"
+        generated_block_bid = "gen-legacy-non-speakable"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-legacy-non-speakable",
+                    user_bid=user_bid,
+                    block_bid="block-legacy-non-speakable",
+                    outline_item_bid="outline-legacy-non-speakable",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content="<svg><text>visual only</text></svg>",
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(monkeypatch)
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=True,
+            )
+        )
+
+        assert synthesized_texts == []
+        assert [event.type for event in events] == [GeneratedType.DONE]
+
     def test_stream_generated_block_audio_preview_listen_falls_back_to_block_tts_without_final_elements(
         self, monkeypatch
     ):

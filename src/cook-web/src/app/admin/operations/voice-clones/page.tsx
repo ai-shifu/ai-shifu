@@ -9,14 +9,20 @@ import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+  formatAdminUtcDateTime,
+} from '@/app/admin/lib/dateTime';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import {
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
 } from '@/app/admin/components/adminTableStyles';
 import AdminTitle from '@/app/admin/components/AdminTitle';
+import { Button } from '@/components/ui/Button';
 import Loading from '@/components/loading';
+import VoiceCloneRegisterDialog from './VoiceCloneRegisterDialog';
 import {
   Select,
   SelectContent,
@@ -132,6 +138,7 @@ export default function AdminOperationVoiceClonesPage() {
   const [detail, setDetail] =
     React.useState<AdminOperationVoiceCloneItem | null>(null);
   const [filtersExpanded, setFiltersExpanded] = React.useState(false);
+  const [registerDialogOpen, setRegisterDialogOpen] = React.useState(false);
   const requestIdRef = React.useRef(0);
   const filterControlClassName = 'min-w-0 flex-1 xl:max-w-[245px]';
   const filterLabelClassName = 'w-28 text-right';
@@ -151,6 +158,14 @@ export default function AdminOperationVoiceClonesPage() {
     Object.entries(appliedFilters).forEach(([key, value]) => {
       const normalized = value.trim();
       if (normalized) {
+        if (key === 'start_time') {
+          params[key] = formatAdminDateRangeStartUtc(normalized);
+          return;
+        }
+        if (key === 'end_time') {
+          params[key] = formatAdminDateRangeEndUtc(normalized);
+          return;
+        }
         params[key] = normalized;
       }
     });
@@ -568,6 +583,22 @@ export default function AdminOperationVoiceClonesPage() {
       <AdminTitle
         title={t('module.operationsVoiceClone.title')}
         description={t('module.operationsVoiceClone.description')}
+        actions={
+          <Button
+            type='button'
+            onClick={() => setRegisterDialogOpen(true)}
+          >
+            {t('module.operationsVoiceClone.register.button')}
+          </Button>
+        }
+      />
+
+      <VoiceCloneRegisterDialog
+        open={registerDialogOpen}
+        onOpenChange={setRegisterDialogOpen}
+        onRegistered={() => {
+          void fetchItems();
+        }}
       />
 
       <AdminFilter

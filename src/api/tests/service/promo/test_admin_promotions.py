@@ -635,6 +635,49 @@ def test_creator_redemption_code_list_shows_only_owned_course_batches(
     assert all_payload["data"]["items"][0]["ops_states"] == []
 
 
+def test_creator_redemption_code_list_accepts_utc_date_filter_bounds(
+    app, test_client, monkeypatch
+):
+    _mock_creator(monkeypatch, user_id="creator-1")
+    captured_filters = {}
+
+    def fake_list(_app, creator_user_bid, page_index, page_size, filters):
+        captured_filters.update(filters)
+        assert creator_user_bid == "creator-1"
+        assert page_index == 1
+        assert page_size == 20
+        return {
+            "summary": {},
+            "items": [],
+            "page": page_index,
+            "page_size": page_size,
+            "page_count": 0,
+            "total": 0,
+        }
+
+    monkeypatch.setattr(
+        "flaskr.route.order.list_creator_course_redemption_coupons",
+        fake_list,
+    )
+
+    response = test_client.get(
+        "/api/order/admin/orders/redemption-codes",
+        query_string={
+            "page_index": 1,
+            "page_size": 20,
+            "start_time": "2026-07-01T16:00:00Z",
+            "end_time": "2026-07-02T15:59:59Z",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    assert captured_filters["start_time"] == datetime(2026, 7, 1, 16, 0, 0)
+    assert captured_filters["end_time"] == datetime(2026, 7, 2, 15, 59, 59)
+
+
 def test_creator_redemption_code_usage_route_requires_owned_course_coupon(
     app, test_client, monkeypatch
 ):

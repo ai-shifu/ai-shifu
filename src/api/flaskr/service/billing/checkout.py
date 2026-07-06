@@ -2094,10 +2094,22 @@ def _sync_pingxx_order(
     app: Flask,
     order: BillingOrder,
 ) -> BillingOrderProviderUpdateResult:
-    provider = get_payment_provider("pingxx")
     if not order.provider_reference_id:
-        raise_error("server.order.orderNotFound")
+        # No pingxx charge was ever created for this order (e.g. a subscription
+        # renewal preorder whose charge creation never happened). Treat it as
+        # still unpaid instead of raising orderNotFound so callers such as the
+        # pending-order timeout scan can expire it normally.
+        return _apply_billing_order_provider_update(
+            order,
+            provider="pingxx",
+            event_type="manual_sync",
+            source="sync",
+            payload={},
+            provider_reference_id="",
+            target_status=BILLING_ORDER_STATUS_PENDING,
+        )
 
+    provider = get_payment_provider("pingxx")
     sync_result = provider.sync_reference(
         provider_reference=order.provider_reference_id,
         reference_type="charge",
@@ -2142,10 +2154,21 @@ def _sync_native_order(
     order: BillingOrder,
 ) -> BillingOrderProviderUpdateResult:
     provider_name = _normalize_bid(order.payment_provider)
-    provider = get_payment_provider(provider_name)
     if not order.provider_reference_id:
-        raise_error("server.order.orderNotFound")
+        # Same as pingxx: no native trade was ever created for this order, so
+        # treat it as still unpaid instead of raising orderNotFound and let the
+        # caller (e.g. the pending-order timeout scan) expire it normally.
+        return _apply_billing_order_provider_update(
+            order,
+            provider=provider_name,
+            event_type="manual_sync",
+            source="sync",
+            payload={},
+            provider_reference_id="",
+            target_status=BILLING_ORDER_STATUS_PENDING,
+        )
 
+    provider = get_payment_provider(provider_name)
     sync_result = provider.sync_reference(
         provider_reference=order.provider_reference_id,
         reference_type="payment",

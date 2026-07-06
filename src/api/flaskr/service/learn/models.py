@@ -8,7 +8,6 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
 from flaskr.util.datetime import now_utc
 from ...dao import db
 
@@ -383,14 +382,12 @@ class LearnGeneratedElement(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         onupdate=now_utc,
         comment="Last update timestamp",
     )
@@ -484,14 +481,12 @@ class LearnLessonFeedback(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         onupdate=now_utc,
         comment="Last update timestamp",
     )

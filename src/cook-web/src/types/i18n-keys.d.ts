@@ -2974,6 +2974,7 @@ export type I18nKey =
   | 'module.shifuSetting.minimaxCloneSubmitReasonSubmitting'
   | 'module.shifuSetting.minimaxCloneVoiceId'
   | 'module.shifuSetting.minimaxCloneVoiceIdPlaceholder'
+  | 'module.shifuSetting.minimaxCloneVoiceOptionLabel'
   | 'module.shifuSetting.minimaxManualVoiceApply'
   | 'module.shifuSetting.minimaxManualVoiceBadge'
   | 'module.shifuSetting.minimaxManualVoiceInvalid'

@@ -984,8 +984,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         tts_model = json_data.get("tts_model")
         tts_voice_id = json_data.get("tts_voice_id")
         tts_speed = json_data.get("tts_speed")
-        tts_pitch = json_data.get("tts_pitch")
-        tts_emotion = json_data.get("tts_emotion")
+        tts_pitch = 0 if "tts_pitch" in json_data else None
+        tts_emotion = "" if "tts_emotion" in json_data else None
         # Language Output Configuration
         use_learner_language = json_data.get("use_learner_language")
         if isinstance(use_learner_language, str):
@@ -1197,7 +1197,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                         $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
-        outlines = request.get_json().get("outlines")
+        request_json = request.get_json(silent=True)
+        if not isinstance(request_json, dict):
+            raise_param_error("outlines")
+        outlines = request_json.get("outlines")
         app.logger.info(type(outlines))
         app.logger.info(
             f"reorder outline tree, user_id: {user_id}, shifu_bid: {shifu_bid}, outlines: {outlines}"

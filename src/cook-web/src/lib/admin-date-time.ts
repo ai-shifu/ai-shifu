@@ -62,6 +62,55 @@ export const formatAdminUtcDateTime = (
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 };
 
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+const formatUtcIsoWithoutMilliseconds = (date: Date): string =>
+  date.toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+const parseAdminDateOnly = (value: string | null | undefined): Date | null => {
+  const normalizedValue = String(value || '').trim();
+  const match = normalizedValue.match(DATE_ONLY_RE);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+};
+
+export const formatAdminDateRangeStartUtc = (
+  value: string | null | undefined,
+): string => {
+  const date = parseAdminDateOnly(value);
+  if (!date) {
+    return '';
+  }
+  date.setHours(0, 0, 0, 0);
+  return formatUtcIsoWithoutMilliseconds(date);
+};
+
+export const formatAdminDateRangeEndUtc = (
+  value: string | null | undefined,
+): string => {
+  const date = parseAdminDateOnly(value);
+  if (!date) {
+    return '';
+  }
+  date.setHours(23, 59, 59, 0);
+  return formatUtcIsoWithoutMilliseconds(date);
+};
+
 export type AdminNaiveDateTimeParts = {
   year: string;
   month: string;

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Flask, request
 from pydantic import ValidationError
@@ -94,6 +94,7 @@ from flaskr.service.shifu.admin_operations.voice_clones import (
     OPERATOR_VOICE_CLONE_LIST_MAX_PAGE_SIZE,
     OPERATOR_VOICE_CLONE_STATUSES,
     list_operator_voice_clones,
+    register_operator_voice_clone,
 )
 from flaskr.service.shifu.admin_dtos import (
     AdminOperationUserCreditGrantRequestDTO,
@@ -153,7 +154,13 @@ def _parse_datetime_filter(
             return parsed
         except ValueError:
             continue
-    raise_param_error(field_name)
+    try:
+        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError:
+        raise_param_error(field_name)
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
 
 
 def _normalize_query_text(raw_value: object) -> str:
@@ -685,6 +692,44 @@ def register_admin_operations_routes(
                 page_index=page_index,
                 page_size=page_size,
                 filters=filters,
+            )
+        )
+
+    @app.route(path_prefix + "/admin/operations/voice-clones", methods=["POST"])
+    def admin_operations_register_voice_clone():
+        """
+        Register a MiniMax voice cloned on the console and assign it to a teacher
+        ---
+        tags:
+            - TTS
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    owner_user_bid:
+                        type: string
+                    display_name:
+                        type: string
+                    voice_id:
+                        type: string
+        responses:
+            200:
+                description: The registered MiniMax cloned voice record
+        """
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload must be a JSON object")
+        return make_common_response(
+            register_operator_voice_clone(
+                app,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                owner_user_bid=str(payload.get("owner_user_bid") or ""),
+                display_name=str(payload.get("display_name") or ""),
+                voice_id=str(payload.get("voice_id") or ""),
             )
         )
 
