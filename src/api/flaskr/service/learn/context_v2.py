@@ -126,6 +126,15 @@ from flaskr.common.shifu_context import (
 context_local = threading.local()
 
 
+def _find_outline_path_or_raise(
+    struct: HistoryItem, outline_bid: str
+) -> list[HistoryItem]:
+    path = find_node_with_parents(struct, outline_bid)
+    if not path:
+        raise_error("server.shifu.lessonNotFoundInCourse")
+    return path
+
+
 def _normalize_stream_number(value: Any) -> int | None:
     try:
         return int(value) if value is not None else None
@@ -1385,6 +1394,11 @@ class RunScriptContextV2:
         self.shifu_ids = []
         self.outline_item_ids = []
         self.current_outline_item = None
+        # Initialize the private attribute the runtime actually reads: it is only
+        # assigned later when a matching outline is found in the struct, so
+        # without this default it stays undefined (AttributeError) whenever the
+        # requested outline is missing from the struct.
+        self._current_outline_item = None
         self._run_type = RunType.INPUT
         self._can_continue = True
         self._stop_event = stop_event
@@ -1726,7 +1740,7 @@ class RunScriptContextV2:
                     and not self._user_info.email
                 ):
                     raise UserNotLoginException()
-            parent_path = find_node_with_parents(self._struct, outline_bid)
+            parent_path = _find_outline_path_or_raise(self._struct, outline_bid)
             attend_info = None
             for item in parent_path:
                 if item.type == "outline":
@@ -1911,7 +1925,7 @@ class RunScriptContextV2:
         def _mark_sub_node_start(
             outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
         ):
-            path = find_node_with_parents(self._struct, outline_item_info.bid)
+            path = _find_outline_path_or_raise(self._struct, outline_item_info.bid)
             for item in path:
                 if item.type == "outline":
                     if item.children and item.children[0].type == "outline":
@@ -3517,7 +3531,7 @@ class RunScriptContextV2:
         return self._can_continue
 
     def get_system_prompt(self, outline_item_bid: str) -> str:
-        path = find_node_with_parents(self._struct, outline_item_bid)
+        path = _find_outline_path_or_raise(self._struct, outline_item_bid)
         path = list(reversed(path))
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]
@@ -3558,7 +3572,7 @@ class RunScriptContextV2:
         return None
 
     def get_llm_settings(self, outline_bid: str) -> LLMSettings:
-        path = find_node_with_parents(self._struct, outline_bid)
+        path = _find_outline_path_or_raise(self._struct, outline_bid)
         path.reverse()
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]
