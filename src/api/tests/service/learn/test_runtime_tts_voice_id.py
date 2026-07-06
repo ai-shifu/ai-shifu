@@ -1,69 +1,40 @@
 from types import SimpleNamespace
 
+import pytest
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 
 import flaskr.dao as dao
+from flaskr.service.tts.models import (
+    TTSMiniMaxClonedVoice,
+    TTS_MINIMAX_CLONE_STATUS_FAILED,
+    TTS_MINIMAX_CLONE_STATUS_READY,
+)
 
-if dao.db is None:
-    _test_app = Flask("test-runtime-tts-voice-id")
-    _test_app.config.update(
+
+@pytest.fixture
+def voice_app():
+    app = Flask(__name__)
+    app.testing = True
+    app.config.update(
         SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": "sqlite:///:memory:",
+            "ai_shifu_admin": "sqlite:///:memory:",
+        },
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
     )
-    _db = SQLAlchemy()
-    _db.init_app(_test_app)
-    dao.db = _db
-
-if not hasattr(dao, "redis_client"):
-    dao.redis_client = None
-
-
-class _Col:
-    """Stand-in for a SQLAlchemy column expression used in filter/order_by."""
-
-    def desc(self):
-        return self
-
-    def __eq__(self, other):
-        return False
+    dao.db.init_app(app)
+    with app.app_context():
+        dao.db.create_all()
+        yield app
+        dao.db.session.remove()
+        dao.db.drop_all()
 
 
-class _FakeQuery:
-    def __init__(self, result):
-        self._result = result
-
-    def filter(self, *args, **kwargs):
-        return self
-
-    def order_by(self, *args, **kwargs):
-        return self
-
-    def first(self):
-        return self._result
-
-
-def _make_fake_clone_model(first_result):
-    return type(
-        "_FakeCloneModel",
-        (),
-        {
-            "voice_id": _Col(),
-            "deleted": _Col(),
-            "id": _Col(),
-            "query": _FakeQuery(first_result),
-        },
-    )
-
-
-def _fake_app():
-    return SimpleNamespace(logger=SimpleNamespace(warning=lambda *args, **kwargs: None))
-
-
-def _patch_provider(monkeypatch, built_in_values, default_voice_id="default-voice"):
-    provider_config = SimpleNamespace(
-        voices=[{"value": value} for value in built_in_values]
-    )
+def _patch_provider(
+    monkeypatch, built_in=("builtin-1",), default_voice_id="default-voice"
+):
+    provider_config = SimpleNamespace(voices=[{"value": value} for value in built_in])
     monkeypatch.setattr(
         "flaskr.service.learn.learn_funcs.get_tts_provider",
         lambda _provider: SimpleNamespace(get_provider_config=lambda: provider_config),
@@ -74,59 +45,112 @@ def _patch_provider(monkeypatch, built_in_values, default_voice_id="default-voic
     )
 
 
-def test_non_minimax_provider_returns_voice_id_unchanged(monkeypatch):
+def _add_clone(shifu_bid, voice_id, status, voice_bid):
+    dao.db.session.add(
+        TTSMiniMaxClonedVoice(
+            voice_bid=voice_bid,
+            shifu_bid=shifu_bid,
+            voice_id=voice_id,
+            status=status,
+            deleted=0,
+        )
+    )
+    dao.db.session.commit()
+
+
+def test_non_minimax_provider_returns_voice_id_unchanged(voice_app):
     from flaskr.service.learn import learn_funcs
 
-    # Non-MiniMax providers are trusted as-is; no provider/DB lookups happen.
-    assert (
-        learn_funcs._resolve_runtime_tts_voice_id(_fake_app(), "tencent", "any-voice")
-        == "any-voice"
-    )
+    with voice_app.app_context():
+        # Non-MiniMax providers are trusted as-is; no provider/DB lookups happen.
+        assert (
+            learn_funcs._resolve_runtime_tts_voice_id(
+                voice_app, "tencent", "any-voice", shifu_bid="shifu-1"
+            )
+            == "any-voice"
+        )
 
 
-def test_minimax_builtin_voice_is_kept(monkeypatch):
+def test_minimax_empty_voice_id_returns_empty(voice_app):
     from flaskr.service.learn import learn_funcs
 
-    _patch_provider(monkeypatch, ["builtin-1", "builtin-2"])
-    assert (
-        learn_funcs._resolve_runtime_tts_voice_id(_fake_app(), "MiniMax", "builtin-1")
-        == "builtin-1"
-    )
+    with voice_app.app_context():
+        assert (
+            learn_funcs._resolve_runtime_tts_voice_id(
+                voice_app, "minimax", "", shifu_bid="shifu-1"
+            )
+            == ""
+        )
 
 
-def test_minimax_ready_cloned_voice_is_kept(monkeypatch):
-    from flaskr.service.learn import learn_funcs
-    from flaskr.service.tts.models import TTS_MINIMAX_CLONE_STATUS_READY
-
-    _patch_provider(monkeypatch, ["builtin-1"])
-    monkeypatch.setattr(
-        learn_funcs,
-        "TTSMiniMaxClonedVoice",
-        _make_fake_clone_model(SimpleNamespace(status=TTS_MINIMAX_CLONE_STATUS_READY)),
-    )
-    assert (
-        learn_funcs._resolve_runtime_tts_voice_id(_fake_app(), "minimax", "clone-ready")
-        == "clone-ready"
-    )
-
-
-def test_minimax_stale_voice_falls_back_to_default(monkeypatch):
+def test_minimax_builtin_voice_is_kept(voice_app, monkeypatch):
     from flaskr.service.learn import learn_funcs
 
-    _patch_provider(monkeypatch, ["builtin-1"], default_voice_id="default-voice")
-    # Not a built-in voice and no ready clone tracked -> fall back to default.
-    monkeypatch.setattr(
-        learn_funcs,
-        "TTSMiniMaxClonedVoice",
-        _make_fake_clone_model(None),
-    )
-    assert (
-        learn_funcs._resolve_runtime_tts_voice_id(_fake_app(), "minimax", "stale-voice")
-        == "default-voice"
-    )
+    _patch_provider(monkeypatch)
+    with voice_app.app_context():
+        assert (
+            learn_funcs._resolve_runtime_tts_voice_id(
+                voice_app, "MiniMax", "builtin-1", shifu_bid="shifu-1"
+            )
+            == "builtin-1"
+        )
 
 
-def test_minimax_empty_voice_id_returns_empty(monkeypatch):
+def test_minimax_ready_clone_of_same_shifu_is_kept(voice_app, monkeypatch):
     from flaskr.service.learn import learn_funcs
 
-    assert learn_funcs._resolve_runtime_tts_voice_id(_fake_app(), "minimax", "") == ""
+    _patch_provider(monkeypatch)
+    with voice_app.app_context():
+        _add_clone("shifu-1", "AiShifu_clone_1", TTS_MINIMAX_CLONE_STATUS_READY, "vb-1")
+        assert (
+            learn_funcs._resolve_runtime_tts_voice_id(
+                voice_app, "minimax", "AiShifu_clone_1", shifu_bid="shifu-1"
+            )
+            == "AiShifu_clone_1"
+        )
+
+
+def test_minimax_ready_clone_of_other_shifu_falls_back(voice_app, monkeypatch):
+    from flaskr.service.learn import learn_funcs
+
+    _patch_provider(monkeypatch)
+    with voice_app.app_context():
+        # Ready clone exists but belongs to a different shifu -> must not leak.
+        _add_clone("shifu-2", "AiShifu_clone_1", TTS_MINIMAX_CLONE_STATUS_READY, "vb-2")
+        assert (
+            learn_funcs._resolve_runtime_tts_voice_id(
+                voice_app, "minimax", "AiShifu_clone_1", shifu_bid="shifu-1"
+            )
+            == "default-voice"
+        )
+
+
+def test_minimax_non_ready_clone_of_same_shifu_falls_back(voice_app, monkeypatch):
+    from flaskr.service.learn import learn_funcs
+
+    _patch_provider(monkeypatch)
+    with voice_app.app_context():
+        # Clone belongs to this shifu but is not ready -> fall back.
+        _add_clone(
+            "shifu-1", "AiShifu_clone_1", TTS_MINIMAX_CLONE_STATUS_FAILED, "vb-3"
+        )
+        assert (
+            learn_funcs._resolve_runtime_tts_voice_id(
+                voice_app, "minimax", "AiShifu_clone_1", shifu_bid="shifu-1"
+            )
+            == "default-voice"
+        )
+
+
+def test_minimax_unknown_voice_falls_back_to_default(voice_app, monkeypatch):
+    from flaskr.service.learn import learn_funcs
+
+    _patch_provider(monkeypatch)
+    with voice_app.app_context():
+        # Not a built-in voice and no clone tracked at all -> fall back.
+        assert (
+            learn_funcs._resolve_runtime_tts_voice_id(
+                voice_app, "minimax", "stale-voice", shifu_bid="shifu-1"
+            )
+            == "default-voice"
+        )

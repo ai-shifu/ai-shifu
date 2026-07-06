@@ -730,7 +730,9 @@ def get_generated_content(
         )
 
 
-def _resolve_runtime_tts_voice_id(app: Flask, provider: str, voice_id: str) -> str:
+def _resolve_runtime_tts_voice_id(
+    app: Flask, provider: str, voice_id: str, *, shifu_bid: str
+) -> str:
     """Return a voice id that is safe to send to the provider at runtime.
 
     MiniMax accepts user-defined clone IDs that share the same character shape as
@@ -754,15 +756,22 @@ def _resolve_runtime_tts_voice_id(app: Flask, provider: str, voice_id: str) -> s
     if normalized_voice_id in built_in_voice_ids:
         return normalized_voice_id
 
+    # Only accept a cloned voice that belongs to THIS shifu and is ready.
+    # Scoping by shifu_bid keeps a stale/misconfigured voice id from resolving to
+    # another shifu's clone, and filtering status in the query prevents a newer
+    # non-ready duplicate from hiding an older ready row.
+    normalized_shifu_bid = (shifu_bid or "").strip()
     cloned_voice = (
         TTSMiniMaxClonedVoice.query.filter(
             TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+            TTSMiniMaxClonedVoice.shifu_bid == normalized_shifu_bid,
+            TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
             TTSMiniMaxClonedVoice.deleted == 0,
         )
         .order_by(TTSMiniMaxClonedVoice.id.desc())
         .first()
     )
-    if cloned_voice and cloned_voice.status == TTS_MINIMAX_CLONE_STATUS_READY:
+    if cloned_voice:
         return normalized_voice_id
 
     default_voice_settings = get_default_voice_settings(normalized_provider)
@@ -818,6 +827,7 @@ def _resolve_shifu_tts_settings(
         app,
         validated.provider,
         validated.voice_id,
+        shifu_bid=shifu_bid,
     )
 
     voice_settings = get_default_voice_settings(validated.provider)
