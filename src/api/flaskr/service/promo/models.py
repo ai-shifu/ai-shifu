@@ -7,7 +7,6 @@ from sqlalchemy import (
     DateTime,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
 from flaskr.util.datetime import now_utc
 from ...dao import db
 from .consts import (
@@ -92,7 +91,6 @@ class Coupon(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         comment="Creation timestamp",
     )
     created_user_bid = Column(
@@ -105,7 +103,6 @@ class Coupon(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         onupdate=now_utc,
         comment="Update timestamp",
     )
@@ -194,14 +191,12 @@ class CouponUsage(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         onupdate=now_utc,
         comment="Update timestamp",
     )
@@ -306,7 +301,6 @@ class PromoCampaign(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         comment="Creation timestamp",
     )
     created_user_bid = Column(
@@ -320,7 +314,6 @@ class PromoCampaign(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         onupdate=now_utc,
         comment="Last update timestamp",
     )
@@ -423,14 +416,12 @@ class PromoRedemption(db.Model):
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=now_utc,
-        server_default=func.now(),
         onupdate=now_utc,
         comment="Last update timestamp",
     )
