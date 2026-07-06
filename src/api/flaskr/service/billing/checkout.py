@@ -409,6 +409,14 @@ def _credit_ledger_lock(app: Flask, creator_bid: str) -> Iterator[None]:
         app.logger.warning(
             "credit-ledger lock acquire failed; running without lock: %s", exc
         )
+    if lock is not None and not acquired:
+        # Blocking timeout elapsed under contention: acquire() returned False.
+        # Log so this fail-open path is observable rather than silent.
+        app.logger.warning(
+            "credit-ledger lock not acquired within timeout for %s; "
+            "running without lock",
+            _build_credit_ledger_lock_key(app, creator_bid),
+        )
     try:
         yield
     finally:
