@@ -15,7 +15,7 @@ jest.mock('@/c-utils/textutils', () => ({
 }));
 
 jest.mock('@/lib/browser-timezone', () => ({
-  getBrowserTimeZone: () => 'UTC',
+  getBrowserTimeZone: () => 'Asia/Shanghai',
 }));
 
 jest.mock('@/components/ErrorDisplay', () => ({
@@ -65,7 +65,7 @@ describe('AdminReferralPage', () => {
           ledger_credit_state: 'reserved',
           effective_at: '2026-06-26T13:18:00Z',
           expires_at: '2026-07-26T13:18:00Z',
-          created_at: '2026-06-11T12:00:00',
+          created_at: '2026-06-11T12:00:00Z',
         },
       ],
       rules_copy_i18n_key: 'module.referral.rules.default',
@@ -116,8 +116,8 @@ describe('AdminReferralPage', () => {
     expect(screen.getByText('135****0781')).toBeInTheDocument();
     expect(screen.queryByText('13521510781')).not.toBeInTheDocument();
     expect(screen.getAllByText(/"credits":"1,000"/).length).toBeGreaterThan(0);
-    expect(screen.getByText('2026-06-26 13:18:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-07-26 13:18:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-26 21:18:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-07-26 21:18:00')).toBeInTheDocument();
     expect(
       screen.queryByText('creator.ledgerStates.reserved'),
     ).not.toBeInTheDocument();
