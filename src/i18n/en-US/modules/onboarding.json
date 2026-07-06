@@ -35,7 +35,7 @@
       "title": "Publish the latest version"
     },
     "settingsEntry": {
-      "description": "Set the course prompt, AI model, price, and the listen mode switch here.",
+      "description": "Set the course prompt, AI model, price, and turn listen mode on or off here.",
       "title": "Course settings"
     }
   }

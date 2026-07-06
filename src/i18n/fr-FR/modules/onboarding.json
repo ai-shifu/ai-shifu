@@ -35,7 +35,7 @@
       "title": "Publier la dernière version"
     },
     "settingsEntry": {
-      "description": "Définissez ici le prompt du cours, le modèle d'IA, le prix et l'interrupteur du mode écoute.",
+      "description": "Définissez ici le prompt du cours, le modèle d'IA, le prix, et activez ou désactivez le mode écoute.",
       "title": "Paramètres du cours"
     }
   }
