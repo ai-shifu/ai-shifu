@@ -14,7 +14,7 @@ import uuid
 import threading
 import time
 from typing import Any, Generator, Optional, List, Dict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor, Future
 
 from flask import Flask
@@ -141,6 +141,7 @@ class TTSSegment:
     latency_ms: int = 0
     error: Optional[str] = None
     is_ready: bool = False
+    subtitle_cues: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -241,6 +242,7 @@ class StreamingTTSProcessor:
         # Storage for all yielded audio data and text (for final concatenation/subtitles)
         # List of (index, audio_data, duration_ms, text)
         self._all_audio_data: List[tuple] = []
+        self._segment_subtitle_cues: Dict[int, list[dict[str, Any]]] = {}
 
         # Check if TTS is configured for the specified provider
         self._enabled = is_tts_configured(tts_provider)
@@ -488,6 +490,9 @@ class StreamingTTSProcessor:
                 segment.usage_characters = int(
                     getattr(result, "usage_characters", 0) or 0
                 )
+                segment.subtitle_cues = normalize_subtitle_cues(
+                    list(getattr(result, "subtitle_cues", []) or [])
+                )
                 segment.latency_ms = int((time.monotonic() - segment_start) * 1000)
                 segment.is_ready = True
 
@@ -565,27 +570,23 @@ class StreamingTTSProcessor:
                             segment.text,
                         )
                     )
+                    provider_subtitle_cues = list(
+                        getattr(segment, "subtitle_cues", []) or []
+                    )
+                    if provider_subtitle_cues:
+                        self._segment_subtitle_cues[segment.index] = (
+                            provider_subtitle_cues
+                        )
                     logger.debug(
                         f"TTS stored segment {segment.index} for concatenation, "
                         f"total stored: {len(self._all_audio_data)}"
                     )
 
             if segment.audio_data and not segment.error:
-                subtitle_cues: list[dict[str, Any]] = []
                 with self._lock:
-                    for (
-                        saved_segment_index,
-                        _saved_audio_data,
-                        saved_duration_ms,
-                        saved_segment_text,
-                    ) in self._all_audio_data:
-                        append_subtitle_cue(
-                            subtitle_cues,
-                            text=str(saved_segment_text or ""),
-                            duration_ms=int(saved_duration_ms or 0),
-                            segment_index=int(saved_segment_index or 0),
-                            position=self.position,
-                        )
+                    subtitle_cues = self._build_segment_subtitle_cues(
+                        list(self._all_audio_data)
+                    )
                 # Encode to base64
                 base64_audio = base64.b64encode(segment.audio_data).decode("utf-8")
 
@@ -639,11 +640,80 @@ class StreamingTTSProcessor:
             ),
         )
 
+    def _build_provider_segment_subtitle_cues(
+        self,
+        *,
+        segment_index: int,
+        duration_ms: int,
+        offset_ms: int,
+        segment_text: str,
+    ) -> list[dict[str, Any]]:
+        raw_cues = normalize_subtitle_cues(
+            self._segment_subtitle_cues.get(segment_index) or []
+        )
+        if not raw_cues:
+            return []
+
+        target_duration_ms = max(int(duration_ms or 0), 0)
+        timeline_start_ms = max(int(offset_ms or 0), 0)
+        timeline_end_ms = timeline_start_ms + target_duration_ms
+        if target_duration_ms <= 0:
+            return []
+
+        source_end_ms = self._subtitle_cues_end_ms(raw_cues)
+        if source_end_ms <= 0:
+            return []
+        scale = target_duration_ms / source_end_ms
+
+        fitted_cues: list[dict[str, Any]] = []
+        last_end_ms = timeline_start_ms
+        for cue in raw_cues:
+            text = self._subtitle_cue_text(cue)
+            if not text:
+                continue
+            source_start_ms = max(int(cue.get("start_ms", 0) or 0), 0)
+            source_cue_end_ms = max(
+                int(cue.get("end_ms", source_start_ms) or source_start_ms),
+                source_start_ms,
+            )
+            start_ms = timeline_start_ms + int(round(source_start_ms * scale))
+            end_ms = timeline_start_ms + int(round(source_cue_end_ms * scale))
+            start_ms = min(max(start_ms, last_end_ms), timeline_end_ms)
+            if start_ms >= timeline_end_ms:
+                continue
+            end_ms = min(max(end_ms, start_ms + 1), timeline_end_ms)
+            fitted_cues.append(
+                {
+                    "text": text,
+                    "start_ms": start_ms,
+                    "end_ms": end_ms,
+                    "segment_index": int(segment_index or 0),
+                    "position": self.position,
+                }
+            )
+            last_end_ms = end_ms
+
+        if fitted_cues:
+            fitted_cues[-1]["end_ms"] = timeline_end_ms
+        if not self._subtitle_cues_cover_text(fitted_cues, segment_text):
+            return []
+
+        return normalize_subtitle_cues(fitted_cues)
+
     def _build_segment_subtitle_cues(
         self, all_segments: list[tuple]
     ) -> list[dict[str, Any]]:
         subtitle_cues: list[dict[str, Any]] = []
         for segment_index, _audio_data, duration_ms, segment_text in all_segments:
+            provider_cues = self._build_provider_segment_subtitle_cues(
+                segment_index=int(segment_index or 0),
+                duration_ms=int(duration_ms or 0),
+                offset_ms=self._subtitle_cues_end_ms(subtitle_cues),
+                segment_text=str(segment_text or ""),
+            )
+            if provider_cues:
+                subtitle_cues.extend(provider_cues)
+                continue
             append_subtitle_cue(
                 subtitle_cues,
                 text=str(segment_text or ""),

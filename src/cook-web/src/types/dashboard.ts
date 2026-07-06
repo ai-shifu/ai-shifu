@@ -93,6 +93,7 @@ export type DashboardCourseFollowUpItem = {
   chapter_title: string;
   lesson_title: string;
   follow_up_content: string;
+  has_source_output: boolean;
   turn_index: number;
   created_at: string;
 };

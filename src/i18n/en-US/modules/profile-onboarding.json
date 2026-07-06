@@ -1,0 +1,39 @@
+{
+  "__namespace__": "module.profileOnboarding",
+  "admin": {
+    "allowedVariables": "Information this guide can collect",
+    "allowedVariablesHint": "This guide can collect only nickname, preferred teaching style, and work or background. Language is still detected automatically.",
+    "defaultMarkdownflow": "?[%{{sys_user_nickname}}...What should the course call you?]\n?[%{{sys_user_style}} Concise and direct | Step-by-step coaching | Vivid and lively]\n?[%{{sys_user_background}}...What is your work or background?]",
+    "description": "Configure the learning profile questions learners see the first time they enter the learning app.",
+    "emptyPreview": "No recognizable interaction questions yet.",
+    "enabled": "Enable learning profile guide",
+    "enabledHint": "When enabled, learners who have not completed or skipped this guide will see the popup once.",
+    "hidePreview": "Hide Preview",
+    "invalidVariables": "Information not supported yet: {keys}",
+    "loadFailed": "Failed to load learning profile guide configuration",
+    "markdownflow": "MarkdownFlow",
+    "preview": "Preview",
+    "publishState": "Publish State",
+    "save": "Save",
+    "saveFailed": "Failed to save learning profile guide configuration",
+    "saveSuccess": "Learning profile guide configuration saved",
+    "title": "Learning Profile Guide",
+    "updatedAt": "Updated At",
+    "updatedBy": "Updated By",
+    "version": "Version"
+  },
+  "complete": "Finish",
+  "description": "Answer a few questions so the course can address you naturally.",
+  "emptyFlow": "No profile questions are configured.",
+  "inputPlaceholder": "Type your answer",
+  "next": "Next",
+  "skip": "Skip",
+  "submitFailed": "Unable to save your profile. Please check your answers and try again.",
+  "title": "Set Up Your Learning Profile",
+  "variableLabels": {
+    "sys_user_background": "work or background",
+    "sys_user_nickname": "nickname",
+    "sys_user_style": "preferred teaching style"
+  },
+  "variablePrompt": "Please provide {variable}"
+}

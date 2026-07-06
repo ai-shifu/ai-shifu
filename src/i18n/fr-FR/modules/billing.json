@@ -3,7 +3,7 @@
   "admin": {
     "adjust": {
       "cancel": "Annuler",
-      "description": "Utilisez un nombre décimal positif pour attribuer des crédits ou négatif pour les consommer selon l’ordre standard des compartiments.",
+      "description": "Utilisez un nombre décimal positif pour attribuer des crédits ou un nombre négatif pour les consommer selon l’ordre standard des réserves.",
       "errors": {
         "amountInvalid": "Saisir un montant décimal non nul avec jusqu’à 10 décimales.",
         "creatorBidRequired": "Le BID du créateur est requis."
@@ -22,20 +22,20 @@
         "creatorBid": "creator_bid",
         "note": "Raison de l’ajustement manuel"
       },
-      "quickAction": "Ajuster ce créateur",
+      "quickAction": "Ajuster cet enseignant",
       "submit": "Appliquer l’ajustement",
-      "submitting": "Application...",
+      "submitting": "Application…",
       "success": "Grand livre mis à jour pour {creatorBid}. Crédits disponibles : {availableCredits}.",
       "title": "Ajustement manuel des crédits"
     },
     "attention": "À traiter",
     "backToCreatorBilling": "Retour au centre de facturation",
     "domains": {
-      "description": "Auditer les domaines personnalisés des créateurs, vérifier les droits et repérer les hôtes nécessitant un suivi.",
+      "description": "Auditer les domaines personnalisés des enseignants, vérifier les droits et repérer les hôtes nécessitant un suivi.",
       "empty": "Aucune liaison de domaine personnalisé pour le moment.",
       "loadError": "Impossible de charger les données d’audit des domaines admin.",
       "table": {
-        "creator": "Créateur",
+        "creator": "Enseignant",
         "effective": "Effectif",
         "entitlement": "Domaine entitlement",
         "host": "Hôte",
@@ -50,7 +50,7 @@
       }
     },
     "entitlements": {
-      "description": "Examiner l’instantané effectif des droits résolu pour chaque espace créateur.",
+      "description": "Examiner l’instantané effectif des droits résolu pour chaque espace enseignant.",
       "empty": "Aucun instantané de droits pour le moment.",
       "loadError": "Impossible de charger les données de droits admin.",
       "source": {
@@ -60,7 +60,7 @@
       },
       "table": {
         "analytics": "Niveau d’analyse",
-        "creator": "Créateur",
+        "creator": "Enseignant",
         "features": "Fonctionnalités",
         "priority": "Classe de priorité",
         "source": "Source",
@@ -87,13 +87,13 @@
       "title": "Exceptions"
     },
     "orders": {
-      "description": "Examiner les commandes de facturation de tous les créateurs et repérer les actions fournisseur en échec.",
+      "description": "Examiner les commandes de facturation de tous les enseignants et repérer les actions fournisseur en échec.",
       "empty": "Aucune commande de facturation pour le moment.",
       "loadError": "Impossible de charger les données de commandes admin.",
       "table": {
         "amount": "Montant",
         "createdAt": "Créé le",
-        "creator": "Créateur",
+        "creator": "Enseignant",
         "failure": "Échec",
         "order": "Commande",
         "provider": "Fournisseur",
@@ -105,30 +105,30 @@
       "page": "Page {page} / {pageCount} · {total} enregistrements"
     },
     "reports": {
-      "description": "Consulter les agrégats d’utilisation et de grand livre multi-créateurs sans quitter la console d’opérations.",
+      "description": "Consulter les agrégats d’utilisation et de grand livre multi-enseignants sans quitter la console d’opérations.",
       "sections": {
         "ledger": {
-          "description": "Mouvements du grand livre multi-créateurs par jour, source et type d’écriture.",
+          "description": "Mouvements du grand livre multi-enseignants par jour, source et type d’écriture.",
           "title": "Agrégats du grand livre"
         },
         "usage": {
-          "description": "Agrégats des coûts d’utilisation par créateur, shifu, scène et métrique.",
+          "description": "Agrégats des coûts d’utilisation par enseignant, shifu, scène et métrique.",
           "title": "Agrégats d’utilisation"
         }
       },
       "table": {
-        "creator": "Créateur"
+        "creator": "Enseignant"
       },
       "title": "Rapports"
     },
     "subscriptions": {
-      "description": "Inspecter les abonnements créateur, soldes de portefeuille et contexte de renouvellement.",
+      "description": "Inspecter les abonnements enseignant, soldes de compte et contexte de renouvellement.",
       "empty": "Aucun abonnement pour le moment.",
       "loadError": "Impossible de charger les données d’abonnement admin.",
       "preorderTarget": "Précommande : {product}",
       "table": {
         "availableCredits": "Crédits disponibles",
-        "creator": "Créateur",
+        "creator": "Enseignant",
         "currentPeriodEnd": "Fin de période actuelle",
         "product": "Produit",
         "provider": "Fournisseur",
@@ -152,19 +152,19 @@
   },
   "alerts": {
     "actions": {
-      "checkoutTopup": "Recharger maintenant",
+      "checkoutTopup": "Acheter des crédits",
       "openOrders": "Ouvrir les enregistrements de paiement",
       "resumeSubscription": "Reprendre l’abonnement"
     },
     "cancelScheduled": "Cet abonnement doit se terminer à la fin de la période actuelle. Reprenez-le pour conserver les crédits récurrents actifs.",
-    "lowBalance": "Le portefeuille du créateur n’a plus de crédits. Lancez une recharge avant le prochain règlement.",
+    "lowBalance": "Le compte enseignant n’a plus de crédits. Abonnez-vous ou achetez des crédits avant le prochain règlement.",
     "lowBalanceDescription": "Vos crédits sont épuisés ; le contenu généré par IA est indisponible pour le moment.",
     "lowBalanceTitle": "Vos crédits sont épuisés. L’IA fait une pause.",
     "subscriptionPastDue": "Le renouvellement de l’abonnement est bloqué. Consultez les enregistrements de paiement et synchronisez le dernier statut fournisseur."
   },
   "capabilities": {
     "description": "Ce résumé indique quelles surfaces de facturation sont actives dans l’interface et lesquelles restent limitées à des flux internes ou protégés par configuration.",
-    "fallbackDescription": "Le statut des capacités est suivi depuis le registre de facturation.",
+    "fallbackDescription": "Le statut des capacités est suivi depuis le grand livre de facturation.",
     "fallbackTitle": "Capacité de facturation",
     "items": {
       "adminDomains": {
@@ -196,20 +196,20 @@
         "title": "Indicateur de facturation"
       },
       "creatorCatalog": {
-        "description": "Les cartes de catalogue pour les forfaits et recharges restent actives.",
-        "title": "Catalogue créateur"
+        "description": "Les cartes de catalogue pour les forfaits et packs de crédits restent actives.",
+        "title": "Catalogue enseignant"
       },
       "creatorOrders": {
-        "description": "Les flux de commandes créateur, synchronisation, remboursement et recharge restent activés.",
-        "title": "Commandes créateur"
+        "description": "Les flux de commandes enseignant, synchronisation, remboursement et achat de packs de crédits restent activés.",
+        "title": "Commandes enseignant"
       },
       "creatorSubscriptionCheckout": {
-        "description": "Les flux de paiement, annulation et reprise d’abonnement créateur restent activés.",
-        "title": "Cycle de vie de l’abonnement créateur"
+        "description": "Les flux de paiement, annulation et reprise d’abonnement enseignant restent activés.",
+        "title": "Cycle de vie de l’abonnement enseignant"
       },
       "creatorWalletLedger": {
-        "description": "Les compartiments de portefeuille et les modèles de lecture du grand livre restent activés.",
-        "title": "Portefeuille et grand livre du créateur"
+        "description": "Les réserves de crédits du compte et les modèles de lecture du grand livre restent activés.",
+        "title": "Compte créateur et grand livre"
       },
       "dailyAggregateRebuild": {
         "description": "Les flux de reconstruction et finalisation des agrégats quotidiens restent internes uniquement.",
@@ -244,8 +244,8 @@
         "title": "Règlement d’utilisation"
       },
       "walletBucketExpiration": {
-        "description": "L’expiration des compartiments de portefeuille reste interne uniquement.",
-        "title": "Expiration des compartiments de portefeuille"
+        "description": "L’expiration des réserves de crédits du compte reste interne uniquement.",
+        "title": "Expiration des réserves de crédits du compte"
       }
     },
     "status": {
@@ -262,7 +262,7 @@
   },
   "catalog": {
     "actions": {
-      "processing": "Traitement..."
+      "processing": "Traitement…"
     },
     "badges": {
       "bestValue": "Meilleur choix",
@@ -326,7 +326,7 @@
     "preorderDescription": "Ce forfait est prépayé maintenant et prendra effet à la fin du cycle actuel.",
     "prepaidOffsetLabel": "Compensation prépayée",
     "priceLabel": "Prix",
-    "processing": "Traitement...",
+    "processing": "Traitement…",
     "productLabel": "Produit",
     "providerLabel": "Fournisseur de paiement",
     "subject": {
@@ -337,7 +337,7 @@
       }
     },
     "title": "Confirmer l’achat",
-    "topupDescription": "Vous allez ouvrir un paiement de recharge de crédits ponctuelle.",
+    "topupDescription": "Vous allez ouvrir un paiement d’achat ponctuel d’un pack de crédits.",
     "unsupported": "Ce moyen de paiement n’est pas disponible pour le moment.",
     "upgradeDescription": "Cette mise à niveau prend effet immédiatement.",
     "upgradeWithPreorderDescription": "Cette mise à niveau prend effet immédiatement. Tout prépaiement en attente est appliqué en compensation."
@@ -379,7 +379,7 @@
     "status": {
       "disabled": "Désactivé",
       "failed": "Échec de la vérification",
-      "pending": "En attente verification",
+      "pending": "En attente de vérification",
       "verified": "Vérifié"
     }
   },
@@ -413,14 +413,14 @@
     }
   },
   "ledger": {
-    "bucketDescription": "Consulter les compartiments source, les soldes restants et l’ordre de consommation.",
+    "bucketDescription": "Consulter les réserves de crédits, les soldes restants et l’ordre de consommation.",
     "category": {
       "subscription": "Crédits du forfait",
       "topup": "Pack de crédits"
     },
-    "empty": "Aucun compartiment de portefeuille pour le moment. Les crédits apparaîtront ici après votre première attribution.",
+    "empty": "Aucune réserve de crédits sur le compte pour le moment. Les crédits apparaîtront ici après votre première attribution.",
     "entriesDescription": "Les enregistrements d’attribution, consommation, remboursement et expiration au niveau écriture seront connectés dans la prochaine tâche de facturation.",
-    "entriesTitle": "Écritures du grand livre",
+    "entriesTitle": "Écritures comptables",
     "entryType": {
       "adjustment": "Ajustement",
       "consume": "Consommer",
@@ -430,7 +430,7 @@
       "refund": "Remboursement",
       "release": "Libérer"
     },
-    "loadError": "Impossible de charger les données des compartiments de portefeuille. Actualisez et réessayez.",
+    "loadError": "Impossible de charger les réserves de crédits du compte. Actualisez et réessayez.",
     "neverExpires": "Suit l’expiration des crédits du forfait",
     "pagination": {
       "page": "Page {page} / {pageCount} · {total} écritures"
@@ -445,9 +445,9 @@
       "usage": "Règlement d’utilisation"
     },
     "summary": {
-      "activeBuckets": "Compartiments actifs",
+      "activeBuckets": "Réserves actives",
       "nextExpiry": "Prochaine expiration",
-      "totalAvailable": "Crédits du compartiment"
+      "totalAvailable": "Crédits en réserve"
     },
     "table": {
       "action": "Action",
@@ -485,7 +485,7 @@
       "subscriptionRenewal": "Renouvellement d’abonnement",
       "subscriptionStart": "Début d’abonnement",
       "subscriptionUpgrade": "Mise à niveau d’abonnement",
-      "topup": "Commande de recharge"
+      "topup": "Commande de pack de crédits"
     }
   },
   "overview": {
@@ -647,7 +647,7 @@
     "title": "Acheter des crédits",
     "topup": {
       "creditLabel": "{credits} crédits",
-      "noteFrozen": "Les crédits de recharge ne peuvent être utilisés que si le compte dispose d’un forfait de crédits actif.",
+      "noteFrozen": "Les crédits du pack de crédits ne peuvent être utilisés que si le compte dispose d’un forfait de crédits actif.",
       "noteInstant": "Les crédits prennent effet immédiatement après l’achat."
     },
     "topupComingSoon": "Bientôt disponible",

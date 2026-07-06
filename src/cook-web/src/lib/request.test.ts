@@ -1,7 +1,9 @@
 import { waitFor } from '@testing-library/react';
 import { toast } from '@/hooks/useToast';
 import {
+  Request,
   attachSseBusinessResponseFallback,
+  handleBusinessCode,
   parseBusinessResponsePayload,
 } from './request';
 import {
@@ -90,25 +92,67 @@ describe('request SSE business fallback', () => {
 
     xhr.responseText = JSON.stringify({
       code: 2301,
-      message: '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+      message: '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
     });
     xhr.dispatchEvent(new Event('load'));
 
     await waitFor(() => {
       expect(toast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+          title: '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
           variant: 'destructive',
         }),
       );
       expect(onHandled).toHaveBeenCalledTimes(1);
       expect(onHandled.mock.calls[0][0]).toMatchObject({
         code: 2301,
-        message: '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+        message: '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
         requestId: 'fallback-request-id',
         harnessRunId: 'fallback-run-id',
       });
     });
+  });
+
+  test('falls back to actionFailed for business errors without a message', async () => {
+    await expect(
+      handleBusinessCode({
+        code: 2301,
+      }),
+    ).rejects.toMatchObject({
+      code: 2301,
+      message: 'common.core.actionFailed',
+    });
+
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'common.core.actionFailed',
+        variant: 'destructive',
+      }),
+    );
+  });
+
+  test('falls back to requestFailed for HTTP request failures', async () => {
+    const request = new Request();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      headers: new Headers(),
+    }) as jest.Mock;
+
+    await expect(
+      request.get('http://example.com/api/demo'),
+    ).rejects.toMatchObject({
+      code: 503,
+      message: 'common.core.requestFailed',
+      status: 503,
+    });
+
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'common.core.requestFailed',
+        variant: 'destructive',
+      }),
+    );
   });
 
   test('ignores normal SSE transcript payloads', async () => {

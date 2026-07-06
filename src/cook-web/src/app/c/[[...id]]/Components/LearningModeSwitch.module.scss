@@ -8,19 +8,6 @@
   box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
     var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
     var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
-  cursor: pointer;
-  appearance: none;
-
-  &:focus-visible {
-    outline: 2px solid var(--primary, #0f63ee);
-    outline-offset: 2px;
-  }
-}
-
-.learningModeSwitchDesktop {
-  .betaBadge {
-    right: -6px;
-  }
 }
 
 .segment {
@@ -38,12 +25,13 @@
   font-weight: var(--font-weight-normal, 400);
   line-height: 14px;
   white-space: nowrap;
-  pointer-events: none;
-}
+  cursor: pointer;
+  appearance: none;
 
-.listenSegment {
-  position: relative;
-  overflow: visible;
+  &:focus-visible {
+    outline: 2px solid var(--primary, #0f63ee);
+    outline-offset: 2px;
+  }
 }
 
 .segmentDesktop {
@@ -65,13 +53,4 @@
 
 .segmentLabel {
   line-height: inherit;
-}
-
-.betaBadge {
-  position: absolute;
-  top: 0;
-  right: -11px;
-  margin-left: 0;
-  transform: translate(40%, -45%);
-  z-index: 1;
 }

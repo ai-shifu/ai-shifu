@@ -13,6 +13,7 @@ from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.payment_providers import get_payment_provider
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     BILLING_INTERVAL_DAY,
@@ -385,7 +386,7 @@ def cancel_billing_subscription(
             ).to_metadata_json()
         subscription.cancel_at_period_end = 1
         subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
-        subscription.updated_at = datetime.now()
+        subscription.updated_at = now_utc()
         _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
         db.session.commit()
@@ -428,7 +429,7 @@ def resume_billing_subscription(
             ).to_metadata_json()
         subscription.cancel_at_period_end = 0
         subscription.status = BILLING_SUBSCRIPTION_STATUS_ACTIVE
-        subscription.updated_at = datetime.now()
+        subscription.updated_at = now_utc()
         _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
         db.session.commit()
@@ -676,7 +677,7 @@ def _should_defer_subscription_renewal_activation(
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
     if _extract_order_metadata_datetime(metadata, "applied_cycle_start_at") is not None:
         return False
-    if effective_from <= datetime.now():
+    if effective_from <= now_utc():
         return False
     return (
         _should_defer_pingxx_renewal_activation(order)
@@ -756,7 +757,7 @@ def _activate_subscription_for_paid_order(
 
     effective_from = _resolve_credit_bucket_effective_from(
         order=order,
-        default_effective_from=order.paid_at or datetime.now(),
+        default_effective_from=order.paid_at or now_utc(),
     )
     effective_to = _resolve_credit_bucket_effective_to(
         order=order,
@@ -829,7 +830,7 @@ def _activate_subscription_for_paid_order(
             subscription.current_period_end_at or effective_to
         )
 
-    subscription.updated_at = datetime.now()
+    subscription.updated_at = now_utc()
     _sync_subscription_lifecycle_events(app, subscription)
     db.session.add(subscription)
     return True
@@ -868,7 +869,7 @@ def _realign_active_credit_bucket_effective_to(
     if bucket is None:
         return
 
-    now = datetime.now()
+    now = now_utc()
     if bucket.effective_from is not None and bucket.effective_from > effective_from:
         return
     if bucket.effective_to is not None:
@@ -952,7 +953,7 @@ def _repair_existing_paid_order_grant_bucket(
         return False
 
     effective_to = grant_entry.expires_at
-    now = datetime.now()
+    now = now_utc()
     if (
         effective_to is not None
         and effective_to <= now
@@ -1009,7 +1010,7 @@ def _should_reserve_subscription_renewal_grant(
 ) -> bool:
     return (
         order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
-        and effective_from > datetime.now()
+        and effective_from > now_utc()
     )
 
 
@@ -1099,7 +1100,7 @@ def _upsert_paid_order_credit_bucket(
         effective_from=effective_from,
         effective_to=effective_to,
     )
-    now = datetime.now()
+    now = now_utc()
     current_available = _to_decimal(bucket.available_credits)
     current_reserved = _to_decimal(bucket.reserved_credits)
 
@@ -1217,7 +1218,7 @@ def _activate_reserved_subscription_grant_for_order(
         transition_at=effective_from,
     )
 
-    now = datetime.now()
+    now = now_utc()
     release_amount = min(
         _to_decimal(grant_entry.amount),
         _to_decimal(bucket.reserved_credits),
@@ -1311,7 +1312,7 @@ def _activate_reserved_campaign_bonus_grant_for_order(
         return False
 
     wallet = _load_or_create_credit_wallet(app, order.creator_bid)
-    now = datetime.now()
+    now = now_utc()
     release_amount = min(
         _to_decimal(grant_entry.amount),
         _to_decimal(bucket.reserved_credits),
@@ -1380,7 +1381,7 @@ def _void_reserved_subscription_grant_for_order(
     if bucket is None:
         return False
 
-    now = datetime.now()
+    now = now_utc()
     release_amount = min(
         _to_decimal(grant_entry.amount),
         _to_decimal(bucket.reserved_credits),
@@ -1448,7 +1449,7 @@ def _void_reserved_campaign_bonus_grant_for_order(
     if bucket is None:
         return False
 
-    now = datetime.now()
+    now = now_utc()
     release_amount = min(
         _to_decimal(grant_entry.amount),
         _to_decimal(bucket.reserved_credits),
@@ -1572,7 +1573,7 @@ def _absorb_preorder_replaced_by_paid_upgrade(
     if subscription is not None:
         _clear_subscription_preorder_metadata(subscription)
         subscription.next_product_bid = ""
-        subscription.updated_at = datetime.now()
+        subscription.updated_at = now_utc()
         db.session.add(subscription)
     db.session.add(preorder_order)
     return True
@@ -1596,7 +1597,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
 
     effective_from = _resolve_credit_bucket_effective_from(
         order=order,
-        default_effective_from=order.paid_at or datetime.now(),
+        default_effective_from=order.paid_at or now_utc(),
     )
     effective_to = _resolve_credit_bucket_effective_to(
         order=order,
@@ -1696,7 +1697,7 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
         available_credits=wallet.available_credits,
         reserved_credits=wallet.reserved_credits,
         lifetime_granted_credits=next_lifetime_granted,
-        updated_at=datetime.now(),
+        updated_at=now_utc(),
     )
     db.session.add(ledger_entry)
 
@@ -1828,7 +1829,7 @@ def _grant_paid_campaign_bonus_credits(
         available_credits=wallet.available_credits,
         reserved_credits=wallet.reserved_credits,
         lifetime_granted_credits=next_lifetime_granted,
-        updated_at=datetime.now(),
+        updated_at=now_utc(),
     )
     db.session.add(ledger_entry)
     return True
@@ -2017,7 +2018,7 @@ def repair_topup_grant_expiries(
                 repaired_ledger_count=0,
             )
 
-        repaired_at = datetime.now()
+        repaired_at = now_utc()
         repaired_records: list[TopupExpiryRepairRecord] = []
         skipped_bucket_bids: list[str] = []
         repaired_ledger_count = 0
@@ -2151,7 +2152,7 @@ def repair_subscription_cycle_mismatches(
             BillingSubscription.created_at.desc(),
             BillingSubscription.id.desc(),
         ).all()
-        repaired_at = datetime.now()
+        repaired_at = now_utc()
         repaired_records: list[SubscriptionCycleRepairRecord] = []
         skipped_subscription_bids: list[str] = []
 
@@ -2543,7 +2544,7 @@ def _upsert_subscription_renewal_event(
         event.last_error = ""
         event.payload_json = payload.to_metadata_json()
         event.processed_at = None
-        event.updated_at = datetime.now()
+        event.updated_at = now_utc()
 
     db.session.add(event)
     _cancel_stale_subscription_renewal_events(
@@ -2570,7 +2571,7 @@ def _cancel_stale_subscription_renewal_events(
         .order_by(BillingRenewalEvent.id.desc())
         .all()
     )
-    now = datetime.now()
+    now = now_utc()
     for row in rows:
         row.status = BILLING_RENEWAL_EVENT_STATUS_CANCELED
         row.processed_at = now
@@ -2593,7 +2594,7 @@ def _cancel_subscription_renewal_events(
         .order_by(BillingRenewalEvent.id.desc())
         .all()
     )
-    now = datetime.now()
+    now = now_utc()
     for row in rows:
         row.status = BILLING_RENEWAL_EVENT_STATUS_CANCELED
         row.processed_at = now

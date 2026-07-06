@@ -47,6 +47,20 @@ type RequestDebugMeta = {
   skipErrorToast?: boolean;
 };
 
+const getBusinessFallbackMessage = () => i18n.t('common.core.actionFailed');
+
+const getRequestFallbackMessage = (error?: Partial<ErrorWithCode>) => {
+  if (
+    typeof navigator !== 'undefined' &&
+    Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
+    navigator.onLine === false
+  ) {
+    return i18n.t('common.core.networkError');
+  }
+
+  return i18n.t('common.core.requestFailed');
+};
+
 // ===== Error Handling =====
 export class ErrorWithCode extends Error {
   code: number;
@@ -126,7 +140,7 @@ const buildRequestDebugPayload = (
 const handleApiError = (error: ErrorWithCode, showToast = true) => {
   if (showToast) {
     toast({
-      title: error.message || i18n.t('common.core.networkError'),
+      title: error.message || getRequestFallbackMessage(error),
       variant: 'destructive',
     });
   }
@@ -223,7 +237,7 @@ export const handleBusinessCode = async (
   meta: RequestDebugMeta = {},
 ) => {
   const error = new ErrorWithCode(
-    response.message || i18n.t('common.core.unknownError'),
+    response.message || getBusinessFallbackMessage(),
     response.code || -1,
   ) as ErrorWithCode & { status?: number };
 
@@ -497,10 +511,9 @@ export class Request {
       harnessRunId = responseTraceHeaders.harnessRunId || harnessRunId;
 
       if (!response.ok) {
-        const isDevelopment = process.env.NODE_ENV === 'development';
-        const errorMessage = isDevelopment
-          ? `Request failed with status ${response.status}`
-          : 'Network request failed';
+        const errorMessage = getRequestFallbackMessage({
+          status: response.status,
+        });
         const httpError = new ErrorWithCode(
           errorMessage,
           response.status,

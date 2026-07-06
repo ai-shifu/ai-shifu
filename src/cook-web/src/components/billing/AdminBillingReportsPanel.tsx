@@ -2,7 +2,6 @@ import React from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Badge } from '@/components/ui/Badge';
 import {
   Card,
@@ -32,7 +31,6 @@ import {
   resolveBillingMetricLabel,
   resolveBillingUsageSceneLabel,
   resolveBillingUsageTypeLabel,
-  withBillingTimezone,
 } from '@/lib/billing';
 import type {
   AdminBillingDailyLedgerSummaryItem,
@@ -103,22 +101,16 @@ function ReportSection({
 export function AdminBillingReportsPanel() {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
-  const timezone = getBrowserTimeZone();
   const {
     data: usageReports,
     error: usageError,
     isLoading: usageLoading,
   } = useSWR<BillingPagedResponse<AdminBillingDailyUsageMetricItem>>(
-    buildBillingSwrKey('admin-billing-daily-usage-metrics', timezone),
+    buildBillingSwrKey('admin-billing-daily-usage-metrics'),
     async () =>
       (await api.getAdminBillingDailyUsageMetrics({
-        ...withBillingTimezone(
-          {
-            page_index: 1,
-            page_size: ADMIN_REPORT_PAGE_SIZE,
-          },
-          timezone,
-        ),
+        page_index: 1,
+        page_size: ADMIN_REPORT_PAGE_SIZE,
       })) as BillingPagedResponse<AdminBillingDailyUsageMetricItem>,
     {
       revalidateOnFocus: false,
@@ -129,16 +121,11 @@ export function AdminBillingReportsPanel() {
     error: ledgerError,
     isLoading: ledgerLoading,
   } = useSWR<BillingPagedResponse<AdminBillingDailyLedgerSummaryItem>>(
-    buildBillingSwrKey('admin-billing-daily-ledger-summary', timezone),
+    buildBillingSwrKey('admin-billing-daily-ledger-summary'),
     async () =>
       (await api.getAdminBillingDailyLedgerSummary({
-        ...withBillingTimezone(
-          {
-            page_index: 1,
-            page_size: ADMIN_REPORT_PAGE_SIZE,
-          },
-          timezone,
-        ),
+        page_index: 1,
+        page_size: ADMIN_REPORT_PAGE_SIZE,
       })) as BillingPagedResponse<AdminBillingDailyLedgerSummaryItem>,
     {
       revalidateOnFocus: false,

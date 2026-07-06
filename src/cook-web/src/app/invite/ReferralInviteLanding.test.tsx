@@ -36,7 +36,7 @@ jest.mock('@/api', () => ({
   },
 }));
 
-const mockEnvState: { officialSiteUrl?: string | null } = {
+const mockEnvState: { officialSiteUrl: string } = {
   officialSiteUrl: 'https://official.example.com',
 };
 
@@ -119,8 +119,8 @@ describe('ReferralInviteLanding', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('renders without official site link when officialSiteUrl is unset', async () => {
-    mockEnvState.officialSiteUrl = undefined;
+  test('links the logo to the China official site when officialSiteUrl is blank', async () => {
+    mockEnvState.officialSiteUrl = '   ';
 
     render(<ReferralInviteLanding initialInviteCode='ab12cd34' />);
 
@@ -130,9 +130,10 @@ describe('ReferralInviteLanding', () => {
         { skipErrorToast: true },
       ),
     );
-    expect(
-      screen.queryByRole('link', { name: 'AI-Shifu' }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'AI-Shifu' })).toHaveAttribute(
+      'href',
+      'https://ai-shifu.cn',
+    );
   });
 
   test('redirects directly from invite-code route without re-entering code', async () => {

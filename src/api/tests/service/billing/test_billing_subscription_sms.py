@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 import types
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from flask import Flask
@@ -39,7 +39,12 @@ from flaskr.service.order.payment_providers.base import PaymentNotificationResul
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.repository import create_user_entity, upsert_credential
+from flaskr.util.datetime import now_utc
 from tests.common.fixtures.bill_products import build_bill_products
+
+
+def _utc_epoch(value: datetime) -> int:
+    return int(value.replace(tzinfo=timezone.utc).timestamp())
 
 
 @pytest.fixture
@@ -256,8 +261,8 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
                         "id": provider_reference,
                         "customer": "cus_sync_sms_1",
                         "status": "active",
-                        "current_period_start": int(cycle_start_at.timestamp()),
-                        "current_period_end": int(cycle_end_at.timestamp()),
+                        "current_period_start": _utc_epoch(cycle_start_at),
+                        "current_period_end": _utc_epoch(cycle_end_at),
                         "cancel_at_period_end": False,
                     }
                 },
@@ -312,7 +317,7 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
         order = BillingOrder.query.filter_by(bill_order_bid="billing-sync-sms-1").one()
         notification = order.metadata_json["notifications"]["subscription_purchase_sms"]
         assert notification["status"] == "pending"
-        assert notification["requested_at"] is not None
+        assert notification["requested_at"].endswith("Z")
 
 
 def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
@@ -352,14 +357,14 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
         status="customer.subscription.updated",
         provider_payload={
             "type": "customer.subscription.updated",
-            "created": int(cycle_end_at.timestamp()),
+            "created": _utc_epoch(cycle_end_at),
             "data": {
                 "object": {
                     "id": "sub_sub-webhook-sms-1",
                     "customer": "cus_webhook_sms_1",
                     "status": "active",
-                    "current_period_start": int(cycle_start_at.timestamp()),
-                    "current_period_end": int(cycle_end_at.timestamp()),
+                    "current_period_start": _utc_epoch(cycle_start_at),
+                    "current_period_end": _utc_epoch(cycle_end_at),
                     "cancel_at_period_end": False,
                     "metadata": {},
                 }
@@ -408,8 +413,8 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
                         "id": provider_reference,
                         "customer": "cus_sync_feishu_1",
                         "status": "active",
-                        "current_period_start": int(cycle_start_at.timestamp()),
-                        "current_period_end": int(cycle_end_at.timestamp()),
+                        "current_period_start": _utc_epoch(cycle_start_at),
+                        "current_period_end": _utc_epoch(cycle_end_at),
                         "cancel_at_period_end": False,
                     }
                 },
@@ -482,7 +487,7 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
         ).one()
         notification = order.metadata_json["notifications"]["billing_paid_feishu"]
         assert notification["status"] == "pending"
-        assert notification["requested_at"] is not None
+        assert notification["requested_at"].endswith("Z")
 
 
 def test_pingxx_topup_webhook_enqueues_billing_paid_feishu_once(
@@ -639,7 +644,7 @@ def test_send_billing_paid_feishu_task_marks_sent(
 ) -> None:
     app = billing_subscription_sms_app
     _seed_creator(app)
-    now = datetime.now()
+    now = now_utc()
     paid_at = now - timedelta(days=1)
     captured: list[dict[str, object]] = []
 
@@ -714,7 +719,7 @@ def test_send_billing_paid_feishu_task_marks_sent(
         ).one()
         notification = order.metadata_json["notifications"]["billing_paid_feishu"]
         assert notification["status"] == "sent"
-        assert notification["sent_at"] is not None
+        assert notification["sent_at"].endswith("Z")
 
 
 def test_send_billing_paid_feishu_task_raises_retryable_error_on_provider_failure(
@@ -802,7 +807,7 @@ def test_send_billing_paid_feishu_task_retries_failed_provider_notification(
         ).one()
         notification = order.metadata_json["notifications"]["billing_paid_feishu"]
         assert notification["status"] == "sent"
-        assert notification["sent_at"] is not None
+        assert notification["sent_at"].endswith("Z")
 
 
 def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
@@ -865,7 +870,7 @@ def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
         order = BillingOrder.query.filter_by(bill_order_bid="billing-task-sent-1").one()
         notification = order.metadata_json["notifications"]["subscription_purchase_sms"]
         assert notification["status"] == "sent"
-        assert notification["sent_at"] is not None
+        assert notification["sent_at"].endswith("Z")
 
 
 def test_deliver_subscription_purchase_sms_skips_when_creator_has_no_mobile(

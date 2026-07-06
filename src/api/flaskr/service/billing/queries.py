@@ -11,6 +11,7 @@ from sqlalchemy import case
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.util.datetime import now_utc
 
 from .primitives import coerce_datetime, normalize_bid
 from .consts import (
@@ -341,7 +342,7 @@ def load_primary_active_subscription(
     if not normalized_creator_bid:
         return None
 
-    resolved_at = as_of or datetime.now()
+    resolved_at = as_of or now_utc()
     product_sort_order = case(
         (BillingProduct.sort_order.is_(None), -1),
         else_=BillingProduct.sort_order,

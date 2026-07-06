@@ -567,4 +567,13 @@ class MinimaxTTSProvider(BaseTTSProvider):
             models=MINIMAX_MODELS,
             voices=MINIMAX_VOICES,
             emotions=MINIMAX_EMOTIONS,
+            # Voice cloning is now an operations-managed flow: operators clone
+            # on the MiniMax console and register the voice via the admin
+            # backend, then assign it to a teacher. Teachers can no longer
+            # self-clone or paste raw voice ids, so both entry points are
+            # hidden in the course editor. Assigned voices still surface in the
+            # voice dropdown because that list is fetched independently of these
+            # flags.
+            supports_custom_voice_id=False,
+            supports_voice_cloning=False,
         )

@@ -8,13 +8,13 @@ import React, {
 } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
 import { Rnd } from 'react-rnd';
 import { useTranslation } from 'react-i18next';
 import {
   ChevronLeft,
   Columns2,
-  History,
   Info,
   ListCollapse,
   Loader2,
@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEnvStore } from '@/c-store';
+import api from '@/api';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { EnvStoreState } from '@/c-types/store';
 import {
@@ -31,8 +32,10 @@ import {
 } from '@/c-utils/urlUtils';
 import { toast } from '@/hooks/useToast';
 import i18n, { normalizeLanguage } from '@/i18n';
+import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
-import { useShifu, useUserStore } from '@/store';
+import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
+import { useOnboardingReplayStore, useShifu, useUserStore } from '@/store';
 import {
   DraftMeta,
   LessonCreationSettings,
@@ -43,6 +46,8 @@ import ChapterSettingsDialog from '@/components/chapter-setting';
 import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { MdfConvertDialog } from '@/components/mdf-convert';
+import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay';
+import { buildCourseEditorOnboardingSteps } from '@/components/onboarding/editorOnboardingSteps';
 import OutlineTree from '@/components/outline-tree';
 import DraftConflictDialog from './DraftConflictDialog';
 import Loading from '../loading';
@@ -57,6 +62,11 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import {
+  useCreatorOnboardingStatus,
+  useOnboarding,
+} from '@/hooks/useOnboarding';
+import { ONBOARDING_TARGET_IDS } from '@/lib/onboardingTargets';
 import './shifuEdit.scss';
 
 const MarkdownFlowEditor = dynamic(
@@ -75,8 +85,25 @@ const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
 const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
 const TOOLBAR_ICON_SIZE = 18; // Match markdown-flow-ui toolbar icon size
+const SUPPORTED_EDITOR_TRIGGER_SOURCES = new Set([
+  'editor_entry',
+  'manual_create',
+  'lobster_create',
+  'skills_create',
+]);
+const DEFAULT_EDITOR_TRIGGER_SOURCE = 'editor_entry';
+const CREATED_COURSE_ONBOARDING_DELAY_MS = 900;
 
 const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
+
+export const resolveEditorOnboardingTriggerSource = (
+  source: string | null | undefined,
+) => {
+  const explicitSource = String(source || '').trim();
+  return SUPPORTED_EDITOR_TRIGGER_SOURCES.has(explicitSource)
+    ? explicitSource
+    : DEFAULT_EDITOR_TRIGGER_SOURCE;
+};
 type MarkdownFlowEditorLocale = 'en-US' | 'zh-CN';
 
 const resolveMarkdownFlowEditorLocale = (
@@ -123,7 +150,9 @@ const ScriptEditor = ({
   initialViewMode = 'edit',
 }: ScriptEditorProps) => {
   const { t } = useTranslation();
+  const { t: tOnboarding } = useTranslation('module.onboarding');
   const { trackEvent } = useTracking();
+  const searchParams = useSearchParams();
   const profile = useUserStore(state => state.userInfo);
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
@@ -251,6 +280,60 @@ const ScriptEditor = ({
     return profile.user_bid || profile.user_id || '';
   }, [profile]);
   const isHistoryPage = initialViewMode === 'history';
+  const editorOnboardingTriggerSource = useMemo(() => {
+    const source =
+      searchParams?.get('onboarding_source') || searchParams?.get('onboarding');
+    return resolveEditorOnboardingTriggerSource(source);
+  }, [searchParams]);
+  const [editorOnboardingReady, setEditorOnboardingReady] = useState(false);
+  useEffect(() => {
+    if (isHistoryPage || !currentShifu?.bid) {
+      setEditorOnboardingReady(false);
+      return;
+    }
+
+    setEditorOnboardingReady(false);
+    const timeoutId = window.setTimeout(() => {
+      setEditorOnboardingReady(true);
+    }, CREATED_COURSE_ONBOARDING_DELAY_MS);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [currentShifu?.bid, isHistoryPage]);
+  const isCourseOwner = Boolean(
+    currentShifu?.created_user_bid &&
+    currentUserId &&
+    currentShifu.created_user_bid === currentUserId,
+  );
+  const { data: onboardingStatus, mutate: mutateOnboardingStatus } =
+    useCreatorOnboardingStatus(Boolean(currentUserId));
+  const courseEditorSceneStatus =
+    onboardingStatus?.scenes.course_editor_onboarding;
+  const editorOnboardingSteps = useMemo(
+    () =>
+      buildCourseEditorOnboardingSteps({
+        t: tOnboarding,
+        targetIds: {
+          backHome: ONBOARDING_TARGET_IDS.editorBackHome,
+          settingsEntry: ONBOARDING_TARGET_IDS.editorSettingsEntry,
+          listenMode: ONBOARDING_TARGET_IDS.editorCourseListenMode,
+          publish: ONBOARDING_TARGET_IDS.editorPublish,
+        },
+      }),
+    [tOnboarding],
+  );
+  const shouldShowCourseEditorOnboarding =
+    !isHistoryPage &&
+    editorOnboardingReady &&
+    courseEditorSceneStatus?.eligible === true &&
+    (courseEditorSceneStatus?.status ?? null) === null &&
+    isCourseOwner;
+  const replayScenes = useOnboardingReplayStore(state => state.replayScenes);
+  const clearReplay = useOnboardingReplayStore(state => state.clearReplay);
+  const isCourseEditorReplay = replayScenes.course_editor_onboarding;
+  const courseEditorOnboardingEnabled =
+    !isHistoryPage &&
+    (shouldShowCourseEditorOnboarding || isCourseEditorReplay);
   const actionsRef = useRef(actions);
   const baseRevisionRef = useRef<number | null>(null);
   const conflictStateRef = useRef({
@@ -261,6 +344,118 @@ const ScriptEditor = ({
   const currentShifuBidRef = useRef<string | null>(null);
   const initializedShifuRef = useRef<string | null>(null);
   const remoteDraftSyncingTargetsRef = useRef<Set<string>>(new Set());
+  const trackedEditorOnboardingStartRef = useRef(false);
+
+  const persistCourseEditorOnboarding = useCallback(
+    async (status: 'completed' | 'skipped') => {
+      const version = onboardingStatus?.version || 'v1';
+      const language = profile?.language || i18n.language;
+      try {
+        await api.completeCreatorOnboarding({
+          scene_key: 'course_editor_onboarding',
+          version,
+          trigger_source: editorOnboardingTriggerSource,
+          status,
+        });
+        trackEvent(
+          status === 'skipped'
+            ? 'creator_onboarding_skipped'
+            : 'creator_onboarding_completed',
+          {
+            scene_key: 'course_editor_onboarding',
+            version,
+            user_segment: onboardingStatus?.user_segment || 'ineligible',
+            trigger_source: editorOnboardingTriggerSource,
+            language,
+          },
+        );
+      } catch {
+        trackEvent('creator_onboarding_complete_failed', {
+          scene_key: 'course_editor_onboarding',
+          version,
+          user_segment: onboardingStatus?.user_segment || 'ineligible',
+          trigger_source: editorOnboardingTriggerSource,
+          language,
+        });
+      }
+      await mutateOnboardingStatus(current => {
+        if (!current) {
+          return current;
+        }
+        return {
+          ...current,
+          scenes: {
+            ...current.scenes,
+            course_editor_onboarding: {
+              ...current.scenes.course_editor_onboarding,
+              completed: status === 'completed',
+              completed_at: new Date().toISOString(),
+              status,
+            },
+          },
+        };
+      }, false);
+      if (typeof window !== 'undefined') {
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.delete('onboarding_source');
+        currentUrl.searchParams.delete('onboarding');
+        window.history.replaceState({}, '', currentUrl.toString());
+      }
+    },
+    [
+      editorOnboardingTriggerSource,
+      i18n.language,
+      mutateOnboardingStatus,
+      onboardingStatus?.user_segment,
+      onboardingStatus?.version,
+      profile?.language,
+      trackEvent,
+    ],
+  );
+
+  const {
+    isOpen: courseEditorOnboardingOpen,
+    currentStep: courseEditorOnboardingStep,
+    currentStepIndex: courseEditorOnboardingStepIndex,
+    totalSteps: courseEditorOnboardingTotalSteps,
+    targetRect: courseEditorOnboardingTargetRect,
+    advance: advanceCourseEditorOnboarding,
+    skip: skipCourseEditorOnboarding,
+  } = useOnboarding({
+    enabled: courseEditorOnboardingEnabled,
+    steps: editorOnboardingSteps,
+    onStepResolved: (step, stepIndex) => {
+      trackEvent('creator_onboarding_step_viewed', {
+        scene_key: 'course_editor_onboarding',
+        version: onboardingStatus?.version || 'v1',
+        user_segment: onboardingStatus?.user_segment || 'ineligible',
+        step_id: step.id,
+        step_index: stepIndex + 1,
+        trigger_source: editorOnboardingTriggerSource,
+        language: profile?.language || i18n.language,
+      });
+    },
+    onComplete: async () => {
+      if (isCourseEditorReplay) {
+        clearReplay('course_editor_onboarding');
+        return;
+      }
+      await persistCourseEditorOnboarding('completed');
+      clearReplay('course_editor_onboarding');
+    },
+    onSkip: async () => {
+      if (isCourseEditorReplay) {
+        clearReplay('course_editor_onboarding');
+        return;
+      }
+      await persistCourseEditorOnboarding('skipped');
+      clearReplay('course_editor_onboarding');
+    },
+  });
+  const shouldRenderCourseEditorOnboardingOverlay = Boolean(
+    courseEditorOnboardingStep &&
+    (!courseEditorOnboardingStep.targetId || courseEditorOnboardingTargetRect),
+  );
 
   useEffect(() => {
     actionsRef.current = actions;
@@ -281,6 +476,37 @@ const ScriptEditor = ({
   useEffect(() => {
     currentShifuBidRef.current = currentShifu?.bid ?? null;
   }, [currentShifu?.bid]);
+
+  useEffect(() => {
+    if (
+      !courseEditorOnboardingOpen ||
+      trackedEditorOnboardingStartRef.current
+    ) {
+      return;
+    }
+    trackedEditorOnboardingStartRef.current = true;
+    trackEvent('creator_onboarding_started', {
+      scene_key: 'course_editor_onboarding',
+      version: onboardingStatus?.version || 'v1',
+      user_segment: onboardingStatus?.user_segment || 'ineligible',
+      trigger_source: editorOnboardingTriggerSource,
+      language: profile?.language || i18n.language,
+    });
+  }, [
+    courseEditorOnboardingOpen,
+    editorOnboardingTriggerSource,
+    onboardingStatus?.user_segment,
+    onboardingStatus?.version,
+    profile?.language,
+    trackEvent,
+  ]);
+
+  useEffect(() => {
+    if (courseEditorOnboardingOpen) {
+      return;
+    }
+    trackedEditorOnboardingStartRef.current = false;
+  }, [courseEditorOnboardingOpen]);
 
   useEffect(() => {
     const scopeChanged = editorContentScopeRef.current !== editorScopeKey;
@@ -530,12 +756,9 @@ const ScriptEditor = ({
   }, [currentShifu?.bid, resetDraftConflictState, shouldSkipConflictCheck]);
 
   useEffect(() => {
-    if (shouldSkipConflictCheck) {
-      return;
-    }
     const shifuBid = currentShifu?.bid;
     const outlineBid = currentNode?.bid;
-    if (!shifuBid || !outlineBid) {
+    if (!shifuBid || !outlineBid || !isLessonNode) {
       return;
     }
 
@@ -550,6 +773,9 @@ const ScriptEditor = ({
       ) {
         return;
       }
+      if (shouldSkipConflictCheck) {
+        return;
+      }
       await syncDraftFromRemote(shifuBid, outlineBid, meta, {
         showNotice: false,
         mode: resolveDraftConflictMode(meta),
@@ -562,6 +788,7 @@ const ScriptEditor = ({
   }, [
     currentNode?.bid,
     currentShifu?.bid,
+    isLessonNode,
     resetDraftConflictState,
     resolveDraftConflictMode,
     shouldSkipConflictCheck,
@@ -1190,6 +1417,13 @@ const ScriptEditor = ({
   const historyPageUrl = useMemo(() => {
     return buildUrlWithLessonId(`/shifu/${id}/history`, currentNode?.bid || '');
   }, [currentNode?.bid, id]);
+  const currentLessonHistoryUrl = isLessonNode ? historyPageUrl : null;
+  const currentLessonHistoryUpdatedAt = useMemo(() => {
+    if (!isLessonNode) {
+      return null;
+    }
+    return parseLessonHistoryDate(latestDraftMeta?.updated_at);
+  }, [isLessonNode, latestDraftMeta?.updated_at]);
   const documentPageUrl = useMemo(() => {
     return buildUrlWithLessonId(
       `/shifu/${id}`,
@@ -1343,7 +1577,7 @@ const ScriptEditor = ({
                         const selected =
                           selectedHistoryVersionId === item.version_id;
                         const timeLabel =
-                          item.updated_at_display || item.updated_at || '--';
+                          formatAdminUtcDateTime(item.updated_at) || '--';
                         const userName =
                           item.updated_user_name ||
                           item.updated_user_bid ||
@@ -1426,7 +1660,44 @@ const ScriptEditor = ({
 
   return (
     <div className='flex flex-col h-screen bg-gray-50'>
-      <Header />
+      {courseEditorOnboardingStep ? (
+        <OnboardingOverlay
+          open={
+            courseEditorOnboardingOpen &&
+            shouldRenderCourseEditorOnboardingOverlay
+          }
+          advanceAriaLabel={tOnboarding('common.continue')}
+          title={courseEditorOnboardingStep.title}
+          description={courseEditorOnboardingStep.description}
+          stepIndex={courseEditorOnboardingStepIndex}
+          totalSteps={courseEditorOnboardingTotalSteps}
+          continueLabel={tOnboarding('common.continue')}
+          targetRect={courseEditorOnboardingTargetRect}
+          onAdvance={() => {
+            void advanceCourseEditorOnboarding();
+          }}
+          skipLabel={tOnboarding('common.skip')}
+          onSkip={() => {
+            void skipCourseEditorOnboarding();
+          }}
+        />
+      ) : null}
+      <Header
+        backHomeTargetId={ONBOARDING_TARGET_IDS.editorBackHome}
+        settingsTriggerTargetId={ONBOARDING_TARGET_IDS.editorSettingsEntry}
+        settingsOpenSignal={
+          courseEditorOnboardingStep?.panel === 'shifu_settings'
+            ? courseEditorOnboardingStep.id
+            : undefined
+        }
+        settingsShouldStayOpen={
+          courseEditorOnboardingStep?.panel === 'shifu_settings'
+        }
+        publishTargetId={ONBOARDING_TARGET_IDS.editorPublish}
+        lessonHistoryUrl={currentLessonHistoryUrl}
+        lessonHistoryUpdatedAt={currentLessonHistoryUpdatedAt}
+        onLessonHistoryClick={handleHistoryEntryClick}
+      />
       <div className='flex flex-1 overflow-hidden'>
         <Rnd
           id='outline-panel'
@@ -1556,37 +1827,6 @@ const ScriptEditor = ({
                           ))}
                         </TabsList>
                       </Tabs>
-                      {currentNode?.bid ? (
-                        <Button
-                          asChild
-                          variant='ghost'
-                          size='icon'
-                          className='h-8 w-8 rounded-full text-[rgba(0,0,0,0.65)] hover:bg-muted/50 hover:text-foreground shrink-0'
-                        >
-                          <Link
-                            href={historyPageUrl}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                            onClick={handleHistoryEntryClick}
-                            aria-label={t('module.shifu.history.title')}
-                            title={t('module.shifu.history.title')}
-                          >
-                            <History className='h-4 w-4' />
-                          </Link>
-                        </Button>
-                      ) : (
-                        <Button
-                          type='button'
-                          variant='ghost'
-                          size='icon'
-                          className='h-8 w-8 rounded-full text-[rgba(0,0,0,0.65)] hover:bg-muted/50 hover:text-foreground shrink-0'
-                          aria-label={t('module.shifu.history.title')}
-                          title={t('module.shifu.history.title')}
-                          disabled
-                        >
-                          <History className='h-4 w-4' />
-                        </Button>
-                      )}
                       <Button
                         type='button'
                         size='sm'

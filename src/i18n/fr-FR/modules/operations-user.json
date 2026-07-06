@@ -48,7 +48,7 @@
         "all": "Tout",
         "manual": "Attribution manuelle",
         "subscription": "Abonnement",
-        "topup": "Recharge",
+        "topup": "Pack de crédits",
         "trial_subscription": "Crédits d’essai"
       },
       "time": "Période",
@@ -91,9 +91,9 @@
       "subscription_grant": "Crédits attribués par l’abonnement",
       "subscription_purchase": "Crédits attribués lors de l’achat d’abonnement",
       "subscription_renewal": "Crédits attribués lors du renouvellement d’abonnement",
-      "topup_expire": "Crédits de recharge expirés",
-      "topup_grant": "Crédits attribués par recharge",
-      "topup_purchase": "Crédits attribués lors de l’achat d’une recharge",
+      "topup_expire": "Crédits du pack de crédits expirés",
+      "topup_grant": "Crédits attribués par le pack de crédits",
+      "topup_purchase": "Crédits attribués lors de l’achat d’un pack de crédits",
       "trial_bootstrap": "Crédits attribués lors de l’activation de l’essai",
       "trial_subscription_grant": "Crédits attribués par l’abonnement d’essai"
     },
@@ -107,7 +107,7 @@
       "refund": "Remboursement",
       "reward": "Récompense",
       "subscription": "Abonnement",
-      "topup": "Recharge",
+      "topup": "Pack de crédits",
       "trial_subscription": "Abonnement d’essai",
       "usage": "Utilisation"
     },
@@ -130,8 +130,8 @@
       "release": "Libération de crédits",
       "subscription_expire": "Expiration des crédits d’abonnement",
       "subscription_grant": "Attribution d’abonnement",
-      "topup_expire": "Expiration recharge",
-      "topup_grant": "Attribution recharge",
+      "topup_expire": "Expiration du pack de crédits",
+      "topup_grant": "Attribution du pack de crédits",
       "trial_subscription_grant": "Attribution d’abonnement d’essai"
     },
     "creditLedgerUsageSceneLabels": {
@@ -170,7 +170,7 @@
       "availableCredits": "Solde total de crédits",
       "creditsExpireAt": "Validité des crédits",
       "subscriptionCredits": "Solde de crédits d’abonnement",
-      "topupCredits": "Solde de crédits de recharge"
+      "topupCredits": "Solde de crédits du pack de crédits"
     },
     "emptyCourses": "Aucun cours",
     "emptyCredits": "Aucune entrée de crédit",
@@ -215,7 +215,7 @@
       "validityPreset": "Validité"
     },
     "confirmTitle": "Confirmer l’attribution de crédits",
-    "description": "Utilisez cette fenêtre pour attribuer des crédits ou un forfait aux créateurs et opérateurs depuis les opérations.",
+    "description": "Utilisez cette fenêtre pour attribuer des crédits ou un forfait aux enseignants et opérateurs depuis les opérations.",
     "fields": {
       "amount": "Crédits",
       "mode": "Type d’attribution",
@@ -242,14 +242,14 @@
       "amount": "Saisir le montant des crédits",
       "note": "Optionnel. Indiquez la raison de cette attribution",
       "product": "Sélectionnez un forfait",
-      "productLoading": "Chargement des forfaits...",
+      "productLoading": "Chargement des forfaits…",
       "referralRewardAmount": "Saisir les crédits de récompense",
       "source": "Sélectionnez une source",
       "validityPreset": "Sélectionnez une validité"
     },
     "referralReward": {
       "bootstrapError": "Impossible de charger les données de récompense de parrainage. Veuillez réessayer plus tard.",
-      "bootstrapLoading": "Chargement des données de récompense de parrainage...",
+      "bootstrapLoading": "Chargement des données de récompense de parrainage…",
       "currentCredits": "Crédits de récompense de parrainage actuels",
       "currentExpireAt": "Validité actuelle de la récompense de parrainage",
       "description": "Chaque attribution de récompense de parrainage ajoute les crédits saisis et prolonge la validité actuelle de 1 mois.",
@@ -304,7 +304,7 @@
   "overview": {
     "activeFilter": "Filtre rapide",
     "metrics": {
-      "creators": "Créateurs",
+      "creators": "Enseignants",
       "guests": "Invités",
       "learners": "Apprenants",
       "learningActive30d": "Apprenants actifs (30 j)",
@@ -318,7 +318,7 @@
     "staleData": "Échec de l’actualisation de la vue d’ensemble. Affichage du dernier instantané réussi.",
     "title": "Vue d’ensemble",
     "tooltips": {
-      "creators": "Utilisateurs créateurs",
+      "creators": "Utilisateurs enseignants",
       "guests": "Utilisateurs invités",
       "learners": "Utilisateurs avec enregistrements d’apprentissage",
       "learningActive30d": "Utilisateurs avec activité d’apprentissage au cours des 30 derniers jours",
@@ -339,7 +339,7 @@
     "wechat": "WeChat"
   },
   "roleLabels": {
-    "creator": "Créateur",
+    "creator": "Enseignant",
     "learner": "Apprenant",
     "operator": "Opérateur",
     "regular": "Standard",
@@ -369,10 +369,10 @@
     "role": "Rôle",
     "status": "Statut",
     "subscriptionCredits": "Crédits d’abonnement",
-    "topupCredits": "Crédits de recharge",
+    "topupCredits": "Crédits du pack de crédits",
     "totalPaidAmount": "Total payé",
     "updatedAt": "Mis à jour le",
-    "userId": "ID utilisateur"
+    "userId": "ID d’utilisateur"
   },
   "title": "Gestion des utilisateurs"
 }

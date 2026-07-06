@@ -13,11 +13,27 @@ export const redirectToHomeUrlIfRootPath = (homeUrl?: string): boolean => {
   const pathname = window.location.pathname || '/';
   const normalizedPath = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
   const shouldRedirect = normalizedPath === '/' || normalizedPath === '/c';
-
-  if (shouldRedirect) {
-    window.location.replace(homeUrl);
-    return true;
+  if (!shouldRedirect) {
+    return false;
   }
 
-  return false;
+  try {
+    const currentUrl = new URL(window.location.href);
+    const targetUrl = new URL(homeUrl, window.location.href);
+
+    const currentPath = currentUrl.pathname.replace(/\/+$/, '') || '/';
+    const targetPath = targetUrl.pathname.replace(/\/+$/, '') || '/';
+
+    if (
+      currentUrl.origin === targetUrl.origin &&
+      (targetPath === '/' || targetPath === '/c' || currentPath === targetPath)
+    ) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  window.location.replace(homeUrl);
+  return true;
 };

@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/button';
-import { Loader2, MonitorPlay, PlayIcon } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { useEnvStore } from '@/c-store';
 import { useShifu } from '@/store';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { useBillingOverview } from '@/hooks/useBillingData';
+import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
 
-const PreviewSettingsModal = () => {
+type PreviewSettingsModalProps = {
+  targetId?: string;
+};
+
+const PreviewSettingsModal = ({ targetId }: PreviewSettingsModalProps) => {
   const { t } = useTranslation();
   const { currentShifu, actions } = useShifu();
   const { trackEvent } = useTracking();
@@ -46,7 +51,12 @@ const PreviewSettingsModal = () => {
     }
   };
   return (
-    <div className='flex items-center justify-center h-9 rounded-lg cursor-pointer shifu-setting-icon-container ml-2'>
+    <div
+      className='flex items-center justify-center h-9 rounded-lg cursor-pointer shifu-setting-icon-container ml-2'
+      {...(targetId && debugAllowed
+        ? buildOnboardingTargetProps(targetId)
+        : {})}
+    >
       <Button
         variant='ghost'
         size='sm'
@@ -54,13 +64,14 @@ const PreviewSettingsModal = () => {
         onClick={handleStartPreview}
         disabled={loading || !debugAllowed}
         loading={loading}
+        icon={Eye}
+        iconClassName='h-4 w-4'
         title={
           debugAllowed
             ? undefined
             : t('module.preview.debugDisabledBySoftLimit')
         }
       >
-        {loading ? null : <MonitorPlay className='h-4 w-4 mr-[5px]' />}{' '}
         <span className='title'>{t('module.preview.previewAll')}</span>
       </Button>
     </div>

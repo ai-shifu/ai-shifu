@@ -17,7 +17,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/Sheet';
-import { formatAdminNaiveDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { cn } from '@/lib/utils';
 import type { AdminOperationCourseFollowUpDetailResponse } from '../../operation-course-types';
 
@@ -37,6 +37,10 @@ type FollowUpDetailSheetProps = {
     lessonTitle?: string;
     chapterTitle?: string;
     emptyValue: string;
+  }) => string;
+  resolveOutlineFieldLabel: (values: {
+    lessonTitle?: string;
+    chapterTitle?: string;
   }) => string;
   onRetry: () => void;
   onOpenChange: (open: boolean) => void;
@@ -198,6 +202,7 @@ export default function FollowUpDetailSheet({
   contactMode,
   defaultUserName,
   resolveLessonDisplay,
+  resolveOutlineFieldLabel,
   onRetry,
   onOpenChange,
 }: FollowUpDetailSheetProps) {
@@ -290,7 +295,10 @@ export default function FollowUpDetailSheet({
                   value={formatValue(basicInfo?.user_bid, emptyValue)}
                 />
                 <DetailRow
-                  label={t('detail.followUps.drawer.fields.chapter')}
+                  label={resolveOutlineFieldLabel({
+                    lessonTitle: basicInfo?.lesson_title,
+                    chapterTitle: basicInfo?.chapter_title,
+                  })}
                   value={resolveLessonDisplay({
                     lessonTitle: basicInfo?.lesson_title,
                     chapterTitle: basicInfo?.chapter_title,
@@ -300,8 +308,7 @@ export default function FollowUpDetailSheet({
                 <DetailRow
                   label={t('detail.followUps.drawer.fields.followUpTime')}
                   value={
-                    formatAdminNaiveDateTime(basicInfo?.created_at) ||
-                    emptyValue
+                    formatAdminUtcDateTime(basicInfo?.created_at) || emptyValue
                   }
                 />
                 <DetailRow
@@ -371,7 +378,7 @@ export default function FollowUpDetailSheet({
                             ) : null}
                           </div>
                           <span className='text-xs text-muted-foreground'>
-                            {formatAdminNaiveDateTime(item.created_at) ||
+                            {formatAdminUtcDateTime(item.created_at) ||
                               emptyValue}
                           </span>
                         </div>

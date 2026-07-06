@@ -18,12 +18,13 @@ from flaskr.service.shifu.models import (
 )
 from flaskr.service.shifu.shifu_outline_funcs import (
     build_outline_tree,
+    assert_outline_tree_publishable,
     ShifuOutlineTreeNode,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_outline_tree
 from flaskr.util import generate_id
-from datetime import datetime
+from flaskr.util.datetime import now_utc
 import threading
 import queue
 from flaskr.service.shifu.shifu_struct_manager import ShifuInfoDto
@@ -104,7 +105,7 @@ def publish_shifu_draft(
         str: Shifu published URL
     """
     with app.app_context():
-        now_time = datetime.now()
+        now_time = now_utc()
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
@@ -144,6 +145,9 @@ def publish_shifu_draft(
         )
         db.session.add(shifu_published)
         db.session.flush()
+        # Block publishing a structurally broken outline instead of silently
+        # dropping orphaned/colliding nodes from the published result.
+        assert_outline_tree_publishable(app, shifu_id)
         outline_tree = build_outline_tree(app, shifu_id)
 
         def publish_outline_item(node: ShifuOutlineTreeNode, history_item: HistoryItem):
@@ -166,9 +170,8 @@ def publish_shifu_draft(
                 draft_outline_item.ask_llm_system_prompt
             )
             outline_item.created_user_bid = user_id
-            outline_item.created_at = now_time
             outline_item.updated_user_bid = user_id
-            outline_item.updated_at = now_time
+            outline_item.updated_at = draft_outline_item.updated_at
             outline_item.prerequisite_item_bids = (
                 draft_outline_item.prerequisite_item_bids
             )

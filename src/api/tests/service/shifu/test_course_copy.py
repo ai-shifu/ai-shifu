@@ -396,6 +396,7 @@ def test_copy_course_creates_missing_target_user_and_grants_creator_role(
 
         assert result["created_new_user"] is True
         assert target_entity.is_creator == 1
+        assert target_entity.creator_activated_at is not None
         assert target_credential is not None
         assert copied_draft.created_user_bid == target_user_bid
         assert copied_draft.updated_user_bid == SOURCE_OPERATOR_BID
@@ -449,6 +450,7 @@ def test_copy_course_reuses_existing_google_creator_account(app):
             shifu_bid=result["new_shifu_bid"],
             deleted=0,
         ).one()
+        target_entity = UserEntity.query.filter_by(user_bid=target_user_bid).one()
         email_credential = AuthCredential.query.filter_by(
             user_bid=target_user_bid,
             provider_name="email",
@@ -458,6 +460,7 @@ def test_copy_course_reuses_existing_google_creator_account(app):
 
         assert result["created_new_user"] is False
         assert result["target_creator_user_bid"] == target_user_bid
+        assert target_entity.creator_activated_at is not None
         assert copied_draft.created_user_bid == target_user_bid
         assert email_credential is not None
 

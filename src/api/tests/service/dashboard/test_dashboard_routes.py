@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from types import SimpleNamespace
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pytest
 
@@ -35,18 +34,6 @@ from flaskr.service.shifu.models import (
     ShifuUserArchive,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo, UserToken
-from flaskr.service.dashboard.funcs import _format_dashboard_datetime_display
-
-
-def test_format_dashboard_datetime_display_preserves_naive_mysql_strings(app):
-    assert (
-        _format_dashboard_datetime_display(
-            app,
-            "2026-05-20 16:40:51",
-            "Asia/Shanghai",
-        )
-        == "2026-05-20 16:40:51"
-    )
 
 
 def _clear_dashboard_tables() -> None:
@@ -470,22 +457,16 @@ class TestDashboardRoutes:
         assert payload["data"]["items"][0]["order_count"] == 1
         assert payload["data"]["items"][0]["order_amount"] == "9.99"
 
-    def test_entry_preserves_wall_clock_last_active_display_for_naive_times(
+    def test_entry_emits_utc_last_active_ignoring_request_timezone(
         self,
         monkeypatch,
         test_client,
         app,
     ):
-        try:
-            ZoneInfo("Asia/Shanghai")
-        except ZoneInfoNotFoundError:
-            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
-
         self._mock_request_user(monkeypatch)
         with app.app_context():
             self._seed_dashboard_course(shifu_bid="course-timezone", title="Course TZ")
-            app_tz = ZoneInfo(app.config.get("TZ", "UTC"))
-            last_active = datetime(2026, 3, 6, 8, 0, 0, tzinfo=app_tz)
+            last_active = datetime(2026, 3, 6, 8, 0, 0)
             db.session.add(
                 LearnProgressRecord(
                     progress_record_bid="entry-timezone-progress-1",
@@ -506,15 +487,12 @@ class TestDashboardRoutes:
         )
         payload = resp.get_json(force=True)
 
-        expected = datetime(2026, 3, 6, 8, 0, 0, tzinfo=app_tz).astimezone(
-            ZoneInfo("Asia/Shanghai")
-        )
         item = payload["data"]["items"][0]
 
         assert resp.status_code == 200
         assert payload["code"] == 0
-        assert item["last_active_at"] == expected.isoformat()
-        assert item["last_active_at_display"] == "2026-03-06 08:00:00"
+        assert item["last_active_at"] == "2026-03-06T08:00:00Z"
+        assert "last_active_at_display" not in item
 
     def test_entry_course_count_respects_date_filter(
         self,
@@ -965,7 +943,7 @@ class TestDashboardRoutes:
 
         draft_created_at = datetime(2025, 1, 1, 8, 0, 0)
         published_created_at = datetime(2025, 2, 1, 9, 0, 0)
-        recent_now = datetime.utcnow()
+        recent_now = datetime.utcnow().replace(microsecond=0)
         old_activity = recent_now - timedelta(days=10)
 
         with app.app_context():
@@ -1250,8 +1228,7 @@ class TestDashboardRoutes:
             "shifu_bid": "course-detail",
             "course_name": "Detail Course",
             "course_status": "published",
-            "created_at": "2025-01-01T08:00:00+00:00",
-            "created_at_display": "2025-01-01 08:00:00",
+            "created_at": "2025-01-01T08:00:00Z",
             "chapter_count": 3,
             "learner_count": 3,
         }
@@ -1288,20 +1265,19 @@ class TestDashboardRoutes:
         assert learners_payload["data"]["items"][1]["learning_status"] == "learning"
         assert learners_payload["data"]["items"][2]["nickname"] == "Charlie"
         assert learners_payload["data"]["items"][2]["learning_status"] == "not_started"
-        assert learners_payload["data"]["items"][0]["last_learning_at_display"] == (
+        assert learners_payload["data"]["items"][0]["last_learning_at"] == (
             recent_now - timedelta(minutes=30)
-        ).strftime("%Y-%m-%d %H:%M:%S")
-        assert learners_payload["data"]["items"][0]["joined_at_display"] == (
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        assert learners_payload["data"]["items"][0]["joined_at"] == (
             recent_now - timedelta(hours=2)
-        ).strftime("%Y-%m-%d %H:%M:%S")
-        assert learners_payload["data"]["items"][1]["last_learning_at_display"] == (
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        assert learners_payload["data"]["items"][1]["last_learning_at"] == (
             old_activity
-        ).strftime("%Y-%m-%d %H:%M:%S")
-        assert learners_payload["data"]["items"][1]["joined_at_display"] == (
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        assert learners_payload["data"]["items"][1]["joined_at"] == (
             old_activity - timedelta(minutes=25)
-        ).strftime("%Y-%m-%d %H:%M:%S")
-        assert learners_payload["data"]["items"][2]["last_learning_at"] == ""
-        assert learners_payload["data"]["items"][2]["last_learning_at_display"] == ""
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        assert learners_payload["data"]["items"][2]["last_learning_at"] is None
 
     def test_course_learners_supports_search_and_pagination(
         self,
@@ -1649,14 +1625,14 @@ class TestDashboardRoutes:
             "average_score": "4.0",
             "rating_count": 3,
             "user_count": 2,
-            "latest_rated_at": "2026-04-06 09:05:00",
+            "latest_rated_at": "2026-04-06T09:05:00Z",
         }
         assert [item["lesson_feedback_bid"] for item in payload["data"]["items"]] == [
             "rating-feedback-3",
             "rating-feedback-2",
             "rating-feedback-1",
         ]
-        assert payload["data"]["items"][0]["rated_at"] == "2026-04-06 09:05:00"
+        assert payload["data"]["items"][0]["rated_at"] == "2026-04-06T09:05:00Z"
         assert payload["data"]["items"][1]["chapter_title"] == "Deep Dive"
         assert payload["data"]["items"][1]["lesson_title"] == "Lesson Beta"
 
@@ -1673,7 +1649,7 @@ class TestDashboardRoutes:
             "average_score": "4.0",
             "rating_count": 3,
             "user_count": 2,
-            "latest_rated_at": "2026-04-06 09:05:00",
+            "latest_rated_at": "2026-04-06T09:05:00Z",
         }
         assert filtered_payload["data"]["items"][0]["lesson_feedback_bid"] == (
             "rating-feedback-2"
@@ -1784,6 +1760,23 @@ class TestDashboardRoutes:
             db.session.add_all(
                 [
                     LearnGeneratedBlock(
+                        generated_block_bid="followup-source-1",
+                        progress_record_bid="followup-progress-1",
+                        user_bid="learner-followup-1",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-followups",
+                        type=BLOCK_TYPE_MDCONTENT_VALUE,
+                        role=ROLE_TEACHER,
+                        generated_content="Start by reviewing the lesson objective.",
+                        position=1,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now - timedelta(hours=2, minutes=5),
+                        updated_at=now - timedelta(hours=2, minutes=5),
+                    ),
+                    LearnGeneratedBlock(
                         generated_block_bid="followup-ask-1",
                         progress_record_bid="followup-progress-1",
                         user_bid="learner-followup-1",
@@ -1817,6 +1810,40 @@ class TestDashboardRoutes:
                         created_at=now - timedelta(hours=1, minutes=55),
                         updated_at=now - timedelta(hours=1, minutes=55),
                     ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="followup-ask-2",
+                        progress_record_bid="followup-progress-1",
+                        user_bid="learner-followup-1",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-followups",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="What if I still do not understand?",
+                        position=2,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now - timedelta(hours=1),
+                        updated_at=now - timedelta(hours=1),
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="followup-answer-2",
+                        progress_record_bid="followup-progress-1",
+                        user_bid="learner-followup-1",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-followups",
+                        type=BLOCK_TYPE_MDCONTENT_VALUE,
+                        role=ROLE_TEACHER,
+                        generated_content="Review the worked example once more.",
+                        position=2,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now - timedelta(minutes=55),
+                        updated_at=now - timedelta(minutes=55),
+                    ),
                 ]
             )
             db.session.commit()
@@ -1828,24 +1855,32 @@ class TestDashboardRoutes:
 
         assert list_resp.status_code == 200
         assert list_payload["code"] == 0
-        assert list_payload["data"]["summary"]["follow_up_count"] == 1
+        assert list_payload["data"]["summary"]["follow_up_count"] == 2
         assert list_payload["data"]["summary"]["user_count"] == 1
         assert list_payload["data"]["summary"]["lesson_count"] == 1
         assert list_payload["data"]["summary"]["latest_follow_up_at"] == (
-            now - timedelta(hours=2)
-        ).strftime("%Y-%m-%d %H:%M:%S")
+            now - timedelta(hours=1)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        assert (
+            list_payload["data"]["items"][0]["generated_block_bid"] == "followup-ask-2"
+        )
+        assert list_payload["data"]["items"][0]["has_source_output"] is False
         assert list_payload["data"]["items"][0]["user_bid"] == "learner-followup-1"
         assert list_payload["data"]["items"][0]["mobile"] == "13800138000"
         assert list_payload["data"]["items"][0]["nickname"] == "Alice"
         assert list_payload["data"]["items"][0]["chapter_title"] == "Chapter 1"
         assert list_payload["data"]["items"][0]["lesson_title"] == "Lesson 1"
         assert list_payload["data"]["items"][0]["follow_up_content"] == (
-            "How should I start lesson 1?"
+            "What if I still do not understand?"
         )
-        assert list_payload["data"]["items"][0]["turn_index"] == 1
+        assert list_payload["data"]["items"][0]["turn_index"] == 2
         assert list_payload["data"]["items"][0]["created_at"] == (
-            now - timedelta(hours=2)
-        ).strftime("%Y-%m-%d %H:%M:%S")
+            now - timedelta(hours=1)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        assert (
+            list_payload["data"]["items"][1]["generated_block_bid"] == "followup-ask-1"
+        )
+        assert list_payload["data"]["items"][1]["has_source_output"] is True
 
         filtered_list_resp = test_client.get(
             "/api/dashboard/shifus/course-followups/follow-ups"
@@ -1855,12 +1890,36 @@ class TestDashboardRoutes:
 
         assert filtered_list_resp.status_code == 200
         assert filtered_list_payload["code"] == 0
-        assert filtered_list_payload["data"]["summary"]["follow_up_count"] == 1
+        assert filtered_list_payload["data"]["summary"]["follow_up_count"] == 2
         assert filtered_list_payload["data"]["summary"]["user_count"] == 1
         assert filtered_list_payload["data"]["summary"]["lesson_count"] == 1
-        assert filtered_list_payload["data"]["total"] == 1
+        assert filtered_list_payload["data"]["total"] == 2
         assert filtered_list_payload["data"]["items"][0]["user_bid"] == (
             "learner-followup-1"
+        )
+
+        resolved_list_resp = test_client.get(
+            "/api/dashboard/shifus/course-followups/follow-ups?source_status=resolved"
+        )
+        resolved_list_payload = resolved_list_resp.get_json(force=True)
+
+        assert resolved_list_resp.status_code == 200
+        assert resolved_list_payload["code"] == 0
+        assert resolved_list_payload["data"]["total"] == 1
+        assert resolved_list_payload["data"]["items"][0]["generated_block_bid"] == (
+            "followup-ask-1"
+        )
+
+        missing_list_resp = test_client.get(
+            "/api/dashboard/shifus/course-followups/follow-ups?source_status=missing"
+        )
+        missing_list_payload = missing_list_resp.get_json(force=True)
+
+        assert missing_list_resp.status_code == 200
+        assert missing_list_payload["code"] == 0
+        assert missing_list_payload["data"]["total"] == 1
+        assert missing_list_payload["data"]["items"][0]["generated_block_bid"] == (
+            "followup-ask-2"
         )
 
         detail_resp = test_client.get(
@@ -1882,17 +1941,17 @@ class TestDashboardRoutes:
         )
         assert detail_payload["data"]["basic_info"]["created_at"] == (
             now - timedelta(hours=2)
-        ).strftime("%Y-%m-%d %H:%M:%S")
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
         assert detail_payload["data"]["timeline"][0]["role"] == "student"
         assert detail_payload["data"]["timeline"][0]["is_current"] is True
         assert detail_payload["data"]["timeline"][0]["created_at"] == (
             now - timedelta(hours=2)
-        ).strftime("%Y-%m-%d %H:%M:%S")
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
         assert detail_payload["data"]["timeline"][1]["role"] == "teacher"
         assert detail_payload["data"]["timeline"][1]["is_current"] is True
         assert detail_payload["data"]["timeline"][1]["created_at"] == (
             now - timedelta(hours=1, minutes=55)
-        ).strftime("%Y-%m-%d %H:%M:%S")
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def test_course_follow_ups_clamps_page_index_to_last_page(
         self,
@@ -2026,17 +2085,36 @@ class TestDashboardRoutes:
         assert response.status_code == 200
         assert payload["message"] == f"Params Error {expected_param}"
 
-    def test_course_detail_returns_timezone_adjusted_created_at_fields(
+    def test_course_follow_ups_reject_invalid_source_status(
         self,
         monkeypatch,
         test_client,
         app,
     ):
-        try:
-            ZoneInfo("Asia/Shanghai")
-        except ZoneInfoNotFoundError:
-            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
+        self._mock_request_user(monkeypatch)
 
+        with app.app_context():
+            self._seed_dashboard_course(
+                shifu_bid="course-followups-invalid-source",
+                title="Follow-up Invalid Source Course",
+            )
+            db.session.commit()
+
+        response = test_client.get(
+            "/api/dashboard/shifus/course-followups-invalid-source/follow-ups"
+            "?source_status=invalid"
+        )
+        payload = response.get_json(force=True)
+
+        assert response.status_code == 200
+        assert payload["message"] == "Params Error source_status"
+
+    def test_course_detail_emits_utc_created_at_ignoring_request_timezone(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -2054,19 +2132,12 @@ class TestDashboardRoutes:
         )
         payload = resp.get_json(force=True)
 
-        app_tz = ZoneInfo(app.config.get("TZ", "UTC"))
-        expected = datetime(2026, 3, 3, 0, 0, 0, tzinfo=app_tz).astimezone(
-            ZoneInfo("Asia/Shanghai")
-        )
-
         assert resp.status_code == 200
         assert payload["code"] == 0
-        assert payload["data"]["basic_info"]["created_at"] == expected.isoformat()
-        assert payload["data"]["basic_info"]["created_at_display"] == expected.strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        assert payload["data"]["basic_info"]["created_at"] == "2026-03-03T00:00:00Z"
+        assert "created_at_display" not in payload["data"]["basic_info"]
 
-    def test_course_learners_preserve_wall_clock_displays_when_timezone_changes(
+    def test_course_learners_emit_utc_timestamps_ignoring_request_timezone(
         self,
         monkeypatch,
         test_client,
@@ -2134,11 +2205,9 @@ class TestDashboardRoutes:
 
         assert response.status_code == 200
         assert payload["code"] == 0
-        assert payload["data"]["items"][0]["joined_at_display"] == "2026-03-04 09:15:00"
-        assert (
-            payload["data"]["items"][0]["last_learning_at_display"]
-            == "2026-03-04 10:45:00"
-        )
+        assert payload["data"]["items"][0]["joined_at"] == "2026-03-04T09:15:00Z"
+        assert payload["data"]["items"][0]["last_learning_at"] == "2026-03-04T10:45:00Z"
+        assert "joined_at_display" not in payload["data"]["items"][0]
 
     def test_course_detail_counts_restudy_learners_as_completed(
         self,

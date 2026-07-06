@@ -5,6 +5,7 @@ import MainMenuModal from './MainMenuModal';
 const mockUpdateUserInfo = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockRefreshUserInfo = jest.fn();
+const mockRequestReplayAll = jest.fn();
 
 const mockEnvState = {
   loginMethodsEnabled: ['password', 'phone'],
@@ -57,6 +58,15 @@ jest.mock('@/store', () => ({
   __esModule: true,
   useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
     selector(mockUserStoreState),
+  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      replayScenes: {
+        admin_home_onboarding: false,
+        course_editor_onboarding: false,
+      },
+      requestReplayAll: mockRequestReplayAll,
+      clearReplay: jest.fn(),
+    }),
 }));
 
 jest.mock('@/c-common/hooks/useTracking', () => ({
@@ -155,6 +165,7 @@ describe('MainMenuModal', () => {
     mockTrackEvent.mockReset();
     mockRefreshUserInfo.mockReset();
     mockUpdateUserInfo.mockReset();
+    mockRequestReplayAll.mockReset();
     mockUserStoreState.isLoggedIn = true;
     mockUserStoreState.userInfo = {
       mobile: '13800000000',
@@ -186,6 +197,25 @@ describe('MainMenuModal', () => {
 
     expect(screen.getByTestId('set-password-modal')).toBeInTheDocument();
     expect(mockTrackEvent).toHaveBeenCalledWith('USER_MENU_SET_PASSWORD', {});
+  });
+
+  test('replays onboarding from the admin menu and closes the modal', () => {
+    const onClose = jest.fn();
+
+    render(
+      <MainMenuModal
+        open
+        onClose={onClose}
+        onBasicInfoClick={jest.fn()}
+        onPersonalInfoClick={jest.fn()}
+        isAdmin
+      />,
+    );
+
+    fireEvent.click(screen.getByText('module.onboarding.common.replay'));
+
+    expect(mockRequestReplayAll).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   test('hides set password entry in admin menu when no password login or contact method is available', () => {

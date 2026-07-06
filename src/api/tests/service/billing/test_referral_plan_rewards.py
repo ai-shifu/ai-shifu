@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from flask import Flask
@@ -39,6 +39,7 @@ from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end_after_boundary,
 )
 from flaskr.service.billing.renewal import run_billing_renewal_event
+from flaskr.util.datetime import now_utc
 from tests.common.fixtures.bill_products import build_bill_products
 
 
@@ -147,7 +148,7 @@ def test_referral_plan_reward_creates_manual_paid_order_and_credits(
 def test_referral_plan_reward_defers_active_trial_subscription_until_boundary(
     referral_billing_app: Flask,
 ) -> None:
-    trial_started_at = datetime.now() - timedelta(minutes=5)
+    trial_started_at = now_utc() - timedelta(minutes=5)
     trial_ends_at = trial_started_at + timedelta(days=15)
 
     with referral_billing_app.app_context():
@@ -333,7 +334,7 @@ def test_referral_plan_reward_defers_active_trial_subscription_until_boundary(
 def test_referral_plan_reward_queues_multiple_trial_rewards_in_order(
     referral_billing_app: Flask,
 ) -> None:
-    trial_started_at = datetime.now() - timedelta(minutes=5)
+    trial_started_at = now_utc() - timedelta(minutes=5)
     trial_ends_at = trial_started_at + timedelta(days=15)
 
     with referral_billing_app.app_context():
@@ -575,7 +576,7 @@ def test_referral_plan_reward_reserves_future_manual_renewal_credits(
 def test_referral_plan_reward_releases_reserved_manual_renewal_at_boundary(
     referral_billing_app: Flask,
 ) -> None:
-    boundary_at = datetime.now() - timedelta(minutes=1)
+    boundary_at = now_utc() - timedelta(minutes=1)
     current_cycle_start = boundary_at - timedelta(days=30)
     next_cycle_end = boundary_at + timedelta(days=30)
 
@@ -723,7 +724,7 @@ def test_referral_plan_reward_releases_reserved_manual_renewal_at_boundary(
 def test_referral_plan_reward_releases_reserved_trial_reward_at_boundary(
     referral_billing_app: Flask,
 ) -> None:
-    boundary_at = datetime.now() - timedelta(minutes=1)
+    boundary_at = now_utc() - timedelta(minutes=1)
     trial_started_at = boundary_at - timedelta(days=15)
     reward_cycle_end = boundary_at + timedelta(days=30)
 
@@ -875,7 +876,7 @@ def test_referral_plan_reward_releases_reserved_trial_reward_at_boundary(
 def test_referral_plan_reward_defers_after_higher_paid_subscription(
     referral_billing_app: Flask,
 ) -> None:
-    now = datetime.now()
+    now = now_utc()
     current_end = now + timedelta(days=90)
     with referral_billing_app.app_context():
         dao.db.session.add_all(

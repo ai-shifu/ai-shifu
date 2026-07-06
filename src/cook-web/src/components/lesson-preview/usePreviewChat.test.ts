@@ -142,11 +142,11 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(
       replacePreviewLoadingWithBusinessError(
         items,
-        '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+        '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
       ),
     ).toEqual([
       buildPreviewBusinessErrorItem(
-        '积分余额不足，暂时无法继续调用，请先充值或开通订阅',
+        '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
       ),
     ]);
   });

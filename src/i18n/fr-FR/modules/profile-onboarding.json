@@ -1,0 +1,39 @@
+{
+  "__namespace__": "module.profileOnboarding",
+  "admin": {
+    "allowedVariables": "Informations que ce guide peut collecter",
+    "allowedVariablesHint": "Ce guide peut uniquement collecter le surnom, le style d’enseignement préféré et le métier ou le parcours. La langue reste détectée automatiquement.",
+    "defaultMarkdownflow": "?[%{{sys_user_nickname}}...Comment le cours doit-il vous appeler ?]\n?[%{{sys_user_style}} Concis et direct | Accompagnement étape par étape | Vivant et imagé]\n?[%{{sys_user_background}}...Quel est votre métier ou votre parcours ?]",
+    "description": "Configurez les questions de profil d’apprentissage que les apprenants voient lors de leur première entrée dans l’espace d’apprentissage.",
+    "emptyPreview": "Aucune question interactive reconnue pour le moment.",
+    "enabled": "Activer le guide du profil d’apprentissage",
+    "enabledHint": "Une fois activé, les apprenants qui ne l’ont pas terminé ou ignoré verront la fenêtre une seule fois.",
+    "hidePreview": "Masquer l’aperçu",
+    "invalidVariables": "Informations non prises en charge : {keys}",
+    "loadFailed": "Échec du chargement de la configuration du guide du profil d’apprentissage",
+    "markdownflow": "MarkdownFlow",
+    "preview": "Aperçu",
+    "publishState": "État de publication",
+    "save": "Enregistrer",
+    "saveFailed": "Échec de l’enregistrement de la configuration du guide du profil d’apprentissage",
+    "saveSuccess": "Configuration du guide du profil d’apprentissage enregistrée",
+    "title": "Guide du profil d’apprentissage",
+    "updatedAt": "Mis à jour le",
+    "updatedBy": "Mis à jour par",
+    "version": "Version"
+  },
+  "complete": "Terminer",
+  "description": "Répondez à quelques questions pour personnaliser votre apprentissage.",
+  "emptyFlow": "Aucune question de profil n’est configurée.",
+  "inputPlaceholder": "Saisissez votre réponse",
+  "next": "Suivant",
+  "skip": "Ignorer",
+  "submitFailed": "Impossible d’enregistrer votre profil. Vérifiez vos réponses et réessayez.",
+  "title": "Configurer votre profil d’apprentissage",
+  "variableLabels": {
+    "sys_user_background": "métier ou parcours",
+    "sys_user_nickname": "surnom",
+    "sys_user_style": "style d’enseignement préféré"
+  },
+  "variablePrompt": "Veuillez renseigner {variable}"
+}

@@ -1,21 +1,29 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminFilter, {
+  type AdminFilterItem,
+} from '@/app/admin/components/AdminFilter';
 import { AdminPagination } from '@/app/admin/components/AdminPagination';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import {
+  createDateRangeFilterItem,
+  createSelectFilterItem,
+  createTextFilterItem,
+} from '@/app/admin/components/adminFilterFieldBuilders';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
 import {
   Table,
   TableBody,
@@ -24,7 +32,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
@@ -34,6 +41,10 @@ import type {
   DashboardCourseFollowUpItem,
   DashboardCourseFollowUpListResponse,
 } from '@/types/dashboard';
+import {
+  DASHBOARD_FILTER_CONTENT_CLASS,
+  DASHBOARD_FILTER_LABEL_CLASS,
+} from '../../dashboardFilterUiShared';
 import { buildAdminDashboardCourseDetailUrl } from '../../admin-dashboard-routes';
 import FollowUpDetailSheet from './FollowUpDetailSheet';
 
@@ -44,11 +55,19 @@ type FollowUpFilters = {
   userBid: string;
   keyword: string;
   chapterKeyword: string;
+  sourceStatus: string;
   startTime: string;
   endTime: string;
 };
 
 const PAGE_SIZE = 20;
+const ALL_SOURCE_STATUS = 'all';
+const DETAIL_CACHE_LIMIT = 20;
+const FOLLOW_UP_SOURCE_STATUS_LABEL_ID = 'follow-ups-source-status-label';
+const FOLLOW_UP_SOURCE_STATUS_TRIGGER_ID = 'follow-ups-source-status-trigger';
+const FOLLOW_UP_FILTER_GRID_CLASS =
+  'gap-x-5 md:grid-cols-2 xl:grid-cols-[minmax(0,300px)_minmax(0,300px)_minmax(0,200px)_minmax(0,280px)]';
+const FOLLOW_UP_FILTER_LABEL_CLASS = 'w-[68px]';
 
 const EMPTY_FOLLOW_UPS_RESPONSE: DashboardCourseFollowUpListResponse = {
   summary: {
@@ -90,6 +109,7 @@ const createFollowUpFilters = (
   userBid: values?.userBid?.trim() || '',
   keyword: values?.keyword?.trim() || '',
   chapterKeyword: values?.chapterKeyword?.trim() || '',
+  sourceStatus: values?.sourceStatus?.trim() || ALL_SOURCE_STATUS,
   startTime: values?.startTime?.trim() || '',
   endTime: values?.endTime?.trim() || '',
 });
@@ -162,50 +182,6 @@ const splitTimestampValue = (value: string) => {
   return [datePart, timePart];
 };
 
-function ClearableTextInput({
-  value,
-  placeholder,
-  clearLabel,
-  onChange,
-  onSubmit,
-}: {
-  value: string;
-  placeholder: string;
-  clearLabel: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
-}) {
-  const hasValue = value.trim().length > 0;
-
-  return (
-    <div className='relative'>
-      <Input
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        onKeyDown={event => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            onSubmit();
-          }
-        }}
-        placeholder={placeholder}
-        className={cn('h-9', hasValue && 'pr-9')}
-      />
-      {hasValue ? (
-        <button
-          type='button'
-          aria-label={clearLabel}
-          className='absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground'
-          onMouseDown={event => event.preventDefault()}
-          onClick={() => onChange('')}
-        >
-          <X className='h-3.5 w-3.5' />
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
 export default function AdminDashboardCourseFollowUpsPage() {
   const { t } = useTranslation();
   const params = useParams<{ shifu_bid?: string }>();
@@ -214,7 +190,6 @@ export default function AdminDashboardCourseFollowUpsPage() {
   const isGuest = useUserStore(state => state.isGuest);
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  const timezone = getBrowserTimeZone();
 
   const shifuBid = Array.isArray(params?.shifu_bid)
     ? params.shifu_bid[0] || ''
@@ -237,6 +212,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
         userBid: searchParams.get('user_bid') || '',
         keyword: searchParams.get('keyword') || '',
         chapterKeyword: searchParams.get('chapter_keyword') || '',
+        sourceStatus: searchParams.get('source_status') || '',
         startTime: searchParams.get('start_time') || '',
         endTime: searchParams.get('end_time') || '',
       }),
@@ -271,6 +247,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
   const [detailError, setDetailError] = useState<ErrorState | null>(null);
   const listRequestIdRef = useRef(0);
   const detailRequestIdRef = useRef(0);
+  const detailCacheRef = useRef(
+    new Map<string, DashboardCourseFollowUpDetailResponse>(),
+  );
 
   useEffect(() => {
     setFiltersDraft(initialFilters);
@@ -300,9 +279,12 @@ export default function AdminDashboardCourseFollowUpsPage() {
           user_bid: resolvedFilters.userBid,
           keyword: resolvedFilters.keyword.trim(),
           chapter_keyword: resolvedFilters.chapterKeyword.trim(),
+          source_status:
+            resolvedFilters.sourceStatus.trim() === ALL_SOURCE_STATUS
+              ? ''
+              : resolvedFilters.sourceStatus.trim(),
           start_time: resolvedFilters.startTime,
           end_time: resolvedFilters.endTime,
-          ...(timezone ? { timezone } : {}),
         })) as DashboardCourseFollowUpListResponse;
         if (requestId !== listRequestIdRef.current) {
           return;
@@ -326,50 +308,76 @@ export default function AdminDashboardCourseFollowUpsPage() {
         }
       }
     },
-    [filters, shifuBid, timezone, unknownErrorMessage],
+    [filters, shifuBid, unknownErrorMessage],
   );
 
-  const fetchFollowUpDetail = useCallback(async () => {
-    if (!shifuBid.trim() || !selectedGeneratedBlockBid.trim()) {
-      setDetailError({ message: unknownErrorMessage });
-      setDetail(EMPTY_FOLLOW_UP_DETAIL);
-      setDetailLoading(false);
-      return;
-    }
-
-    const requestId = detailRequestIdRef.current + 1;
-    detailRequestIdRef.current = requestId;
-    setDetailLoading(true);
-    setDetailError(null);
-
-    try {
-      const response = (await api.getDashboardCourseFollowUpDetail({
-        shifu_bid: shifuBid,
-        generated_block_bid: selectedGeneratedBlockBid,
-        ...(timezone ? { timezone } : {}),
-      })) as DashboardCourseFollowUpDetailResponse;
-      if (requestId !== detailRequestIdRef.current) {
-        return;
-      }
-      setDetail(response || EMPTY_FOLLOW_UP_DETAIL);
-    } catch (err) {
-      if (requestId !== detailRequestIdRef.current) {
-        return;
-      }
-      setDetail(EMPTY_FOLLOW_UP_DETAIL);
-      if (err instanceof ErrorWithCode) {
-        setDetailError({ message: err.message, code: err.code });
-      } else if (err instanceof Error) {
-        setDetailError({ message: err.message });
-      } else {
+  const fetchFollowUpDetail = useCallback(
+    async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+      if (!shifuBid.trim() || !selectedGeneratedBlockBid.trim()) {
         setDetailError({ message: unknownErrorMessage });
-      }
-    } finally {
-      if (requestId === detailRequestIdRef.current) {
+        setDetail(EMPTY_FOLLOW_UP_DETAIL);
         setDetailLoading(false);
+        return;
       }
-    }
-  }, [selectedGeneratedBlockBid, shifuBid, timezone, unknownErrorMessage]);
+
+      if (!forceRefresh) {
+        const cachedDetail = detailCacheRef.current.get(
+          selectedGeneratedBlockBid,
+        );
+        if (cachedDetail) {
+          detailCacheRef.current.delete(selectedGeneratedBlockBid);
+          detailCacheRef.current.set(selectedGeneratedBlockBid, cachedDetail);
+          return;
+        }
+      }
+
+      const requestId = detailRequestIdRef.current + 1;
+      detailRequestIdRef.current = requestId;
+      setDetailLoading(true);
+      setDetailError(null);
+
+      try {
+        const response = (await api.getDashboardCourseFollowUpDetail({
+          shifu_bid: shifuBid,
+          generated_block_bid: selectedGeneratedBlockBid,
+        })) as DashboardCourseFollowUpDetailResponse;
+        if (requestId !== detailRequestIdRef.current) {
+          return;
+        }
+        const resolvedDetail = response || EMPTY_FOLLOW_UP_DETAIL;
+        detailCacheRef.current.delete(selectedGeneratedBlockBid);
+        detailCacheRef.current.set(selectedGeneratedBlockBid, resolvedDetail);
+        if (detailCacheRef.current.size > DETAIL_CACHE_LIMIT) {
+          const oldestKey = detailCacheRef.current.keys().next().value;
+          if (oldestKey) {
+            detailCacheRef.current.delete(oldestKey);
+          }
+        }
+        setDetail(resolvedDetail);
+      } catch (err) {
+        if (requestId !== detailRequestIdRef.current) {
+          return;
+        }
+        setDetail(EMPTY_FOLLOW_UP_DETAIL);
+        if (err instanceof ErrorWithCode) {
+          setDetailError({ message: err.message, code: err.code });
+        } else if (err instanceof Error) {
+          setDetailError({ message: err.message });
+        } else {
+          setDetailError({ message: unknownErrorMessage });
+        }
+      } finally {
+        if (requestId === detailRequestIdRef.current) {
+          setDetailLoading(false);
+        }
+      }
+    },
+    [selectedGeneratedBlockBid, shifuBid, unknownErrorMessage],
+  );
+
+  useEffect(() => {
+    detailCacheRef.current.clear();
+  }, [shifuBid]);
 
   useEffect(() => {
     if (!isInitialized || !isGuest) {
@@ -447,7 +455,10 @@ export default function AdminDashboardCourseFollowUpsPage() {
       },
       {
         label: t('module.dashboard.detail.followUps.summary.latestFollowUpAt'),
-        value: formatValue(followUps.summary.latest_follow_up_at, emptyValue),
+        value: formatValue(
+          formatAdminUtcDateTime(followUps.summary.latest_follow_up_at),
+          emptyValue,
+        ),
         tone: 'timestamp' as const,
       },
     ],
@@ -470,6 +481,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
       userBid: filtersDraft.userBid,
       keyword: filtersDraft.keyword.trim(),
       chapterKeyword: filtersDraft.chapterKeyword.trim(),
+      sourceStatus: filtersDraft.sourceStatus.trim(),
       startTime: filtersDraft.startTime,
       endTime: filtersDraft.endTime,
     };
@@ -509,9 +521,13 @@ export default function AdminDashboardCourseFollowUpsPage() {
 
       detailRequestIdRef.current += 1;
       setSelectedGeneratedBlockBid(normalizedGeneratedBlockBid);
-      setDetail(null);
+      setDetail(
+        detailCacheRef.current.get(normalizedGeneratedBlockBid) ?? null,
+      );
       setDetailError(null);
-      setDetailLoading(true);
+      setDetailLoading(
+        !detailCacheRef.current.has(normalizedGeneratedBlockBid),
+      );
       setDetailOpen(true);
     },
     [unknownErrorMessage],
@@ -527,6 +543,105 @@ export default function AdminDashboardCourseFollowUpsPage() {
       setDetailLoading(false);
     }
   }, []);
+  const sourceStatusOptions = useMemo(
+    () => [
+      {
+        value: ALL_SOURCE_STATUS,
+        label: t('module.dashboard.detail.followUps.filters.sourceStatusAll'),
+      },
+      {
+        value: 'resolved',
+        label: t(
+          'module.dashboard.detail.followUps.filters.sourceStatusResolved',
+        ),
+      },
+      {
+        value: 'missing',
+        label: t(
+          'module.dashboard.detail.followUps.filters.sourceStatusMissing',
+        ),
+      },
+    ],
+    [t],
+  );
+  const userFilterDisplayValue = filtersDraft.userBid || filtersDraft.keyword;
+  const filterItems: AdminFilterItem[] = [
+    createTextFilterItem({
+      key: 'user_bid',
+      label: t('module.dashboard.detail.followUps.filters.userKeyword'),
+      value: userFilterDisplayValue,
+      onChange: value =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          keyword: value,
+          userBid:
+            previous.userBid && value.trim() === previous.userBid.trim()
+              ? previous.userBid
+              : '',
+        })),
+      onSubmit: handleSearch,
+      placeholder: userKeywordPlaceholder,
+      clearLabel,
+      labelClassName: FOLLOW_UP_FILTER_LABEL_CLASS,
+      contentClassName: 'min-w-0 flex-[1.35]',
+      inputClassName: 'min-w-0',
+    }),
+    createTextFilterItem({
+      key: 'chapter_keyword',
+      label: outlineFilterLabel,
+      value: filtersDraft.chapterKeyword,
+      onChange: value =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          chapterKeyword: value,
+        })),
+      onSubmit: handleSearch,
+      placeholder: outlineFilterPlaceholder,
+      clearLabel,
+      labelClassName: FOLLOW_UP_FILTER_LABEL_CLASS,
+      contentClassName: 'min-w-0 flex-[1.15]',
+      inputClassName: 'min-w-0',
+    }),
+    createSelectFilterItem({
+      key: 'source_status',
+      label: t('module.dashboard.detail.followUps.filters.sourceStatus'),
+      labelId: FOLLOW_UP_SOURCE_STATUS_LABEL_ID,
+      value: filtersDraft.sourceStatus,
+      onChange: value =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          sourceStatus: value,
+        })),
+      triggerId: FOLLOW_UP_SOURCE_STATUS_TRIGGER_ID,
+      triggerAriaLabelledBy: FOLLOW_UP_SOURCE_STATUS_LABEL_ID,
+      placeholder: t(
+        'module.dashboard.detail.followUps.filters.sourceStatusAll',
+      ),
+      options: sourceStatusOptions,
+      contentClassName: 'min-w-0 flex-[1.1]',
+      triggerClassName: 'min-w-[140px]',
+    }),
+    createDateRangeFilterItem({
+      key: 'date_range',
+      label: t('module.dashboard.detail.followUps.filters.followUpTime'),
+      startValue: filtersDraft.startTime,
+      endValue: filtersDraft.endTime,
+      triggerAriaLabel: t(
+        'module.dashboard.detail.followUps.filters.followUpTime',
+      ),
+      onChange: ({ start, end }) =>
+        setFiltersDraft(previous => ({
+          ...previous,
+          startTime: start,
+          endTime: end,
+        })),
+      placeholder: t(
+        'module.dashboard.detail.followUps.filters.timePlaceholder',
+      ),
+      resetLabel: t('module.dashboard.detail.followUps.filters.reset'),
+      clearLabel,
+    }),
+  ];
 
   if (!isInitialized || isGuest) {
     return (
@@ -589,97 +704,45 @@ export default function AdminDashboardCourseFollowUpsPage() {
 
           <Card className='overflow-hidden border-border/80 shadow-sm'>
             <CardHeader className='pb-3'>
-              <div className='flex items-center gap-3'>
+              <div className='space-y-0.5'>
                 <CardTitle className='text-base font-semibold tracking-normal'>
                   {t('module.dashboard.detail.followUps.table.title')}
                 </CardTitle>
+                <p className='text-xs leading-5 text-muted-foreground/85'>
+                  {t('module.dashboard.detail.followUps.summary.scopeHint')}
+                </p>
                 <p className='text-xs leading-5 text-muted-foreground/85'>
                   {t('module.dashboard.detail.followUps.turnIndexHelp')}
                 </p>
               </div>
             </CardHeader>
             <CardContent className='space-y-5 pt-0'>
-              <form
-                className='rounded-xl border border-border bg-muted/20 p-3'
-                onSubmit={event => {
-                  event.preventDefault();
-                  handleSearch();
-                }}
-              >
-                <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
-                      {t(
-                        'module.dashboard.detail.followUps.filters.userKeyword',
-                      )}
-                    </label>
-                    <ClearableTextInput
-                      value={filtersDraft.keyword}
-                      placeholder={userKeywordPlaceholder}
-                      clearLabel={clearLabel}
-                      onChange={value =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          keyword: value,
-                          userBid:
-                            previous.userBid &&
-                            value.trim() !== previous.keyword.trim()
-                              ? ''
-                              : previous.userBid,
-                        }))
-                      }
-                      onSubmit={handleSearch}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
-                      {outlineFilterLabel}
-                    </label>
-                    <ClearableTextInput
-                      value={filtersDraft.chapterKeyword}
-                      placeholder={outlineFilterPlaceholder}
-                      clearLabel={clearLabel}
-                      onChange={value =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          chapterKeyword: value,
-                        }))
-                      }
-                      onSubmit={handleSearch}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-xs font-medium text-muted-foreground'>
-                      {t(
-                        'module.dashboard.detail.followUps.filters.followUpTime',
-                      )}
-                    </label>
-                    <AdminDateRangeFilter
-                      startValue={filtersDraft.startTime}
-                      endValue={filtersDraft.endTime}
-                      triggerAriaLabel={t(
-                        'module.dashboard.detail.followUps.filters.followUpTime',
-                      )}
-                      placeholder={t(
-                        'module.dashboard.detail.followUps.filters.timePlaceholder',
-                      )}
-                      resetLabel={t(
-                        'module.dashboard.detail.followUps.filters.reset',
-                      )}
-                      clearLabel={clearLabel}
-                      onChange={({ start, end }) =>
-                        setFiltersDraft(previous => ({
-                          ...previous,
-                          startTime: start,
-                          endTime: end,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className='mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3 xl:items-end'>
-                  <div className='pl-3 text-sm text-muted-foreground xl:self-center'>
+              <div className='rounded-xl border border-border bg-muted/20 p-3'>
+                <AdminFilter
+                  items={filterItems}
+                  expanded={false}
+                  onExpandedChange={() => undefined}
+                  onReset={handleReset}
+                  onSearch={handleSearch}
+                  actionsDisabled={loading}
+                  showActions={false}
+                  resetLabel={t(
+                    'module.dashboard.detail.followUps.filters.reset',
+                  )}
+                  searchLabel={t(
+                    'module.dashboard.detail.followUps.filters.search',
+                  )}
+                  expandLabel={t('common.core.expand')}
+                  collapseLabel={t('common.core.collapse')}
+                  collapsedCount={4}
+                  showToggle={false}
+                  labelClassName={DASHBOARD_FILTER_LABEL_CLASS}
+                  contentClassName={DASHBOARD_FILTER_CONTENT_CLASS}
+                  collapsedGridClassName={FOLLOW_UP_FILTER_GRID_CLASS}
+                  expandedGridClassName={FOLLOW_UP_FILTER_GRID_CLASS}
+                />
+                <div className='mt-3 flex flex-col gap-3 pl-3 sm:flex-row sm:items-center sm:justify-between'>
+                  <div className='text-sm text-muted-foreground'>
                     {t(
                       'module.dashboard.detail.followUps.filters.resultCount',
                       {
@@ -687,8 +750,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
                       },
                     )}
                   </div>
-                  <div className='hidden xl:block' />
-                  <div className='flex min-h-9 items-center justify-start gap-2 md:justify-end'>
+                  <div className='flex items-center justify-end gap-2'>
                     <Button
                       type='button'
                       size='sm'
@@ -700,16 +762,17 @@ export default function AdminDashboardCourseFollowUpsPage() {
                       {t('module.dashboard.detail.followUps.filters.reset')}
                     </Button>
                     <Button
-                      type='submit'
+                      type='button'
                       size='sm'
                       className='h-9 px-4'
+                      onClick={handleSearch}
                       disabled={loading}
                     >
                       {t('module.dashboard.detail.followUps.filters.search')}
                     </Button>
                   </div>
                 </div>
-              </form>
+              </div>
 
               {error ? (
                 <ErrorDisplay
@@ -796,7 +859,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
                                 <TableRow key={item.generated_block_bid}>
                                   <TableCell className='whitespace-nowrap py-3 align-middle text-sm text-foreground/80'>
                                     <AdminTooltipText
-                                      text={item.created_at}
+                                      text={formatAdminUtcDateTime(
+                                        item.created_at,
+                                      )}
                                       emptyValue={emptyValue}
                                       className='block max-w-[180px]'
                                     />
@@ -846,6 +911,25 @@ export default function AdminDashboardCourseFollowUpsPage() {
                                         emptyValue={emptyValue}
                                         className='block max-w-[320px] text-sm font-medium text-foreground'
                                       />
+                                      <div className='mt-2'>
+                                        <Badge
+                                          variant='outline'
+                                          className={cn(
+                                            'border px-2 py-0.5 text-[11px] font-medium',
+                                            item.has_source_output
+                                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                              : 'border-amber-200 bg-amber-50 text-amber-700',
+                                          )}
+                                        >
+                                          {item.has_source_output
+                                            ? t(
+                                                'module.dashboard.detail.followUps.table.sourceResolved',
+                                              )
+                                            : t(
+                                                'module.dashboard.detail.followUps.table.sourceMissing',
+                                              )}
+                                        </Badge>
+                                      </div>
                                     </div>
                                   </TableCell>
                                   <TableCell className='whitespace-nowrap py-3 align-top text-sm text-foreground'>
@@ -902,7 +986,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
         contactMode={contactMode}
         defaultUserName={defaultUserName}
         resolveLessonDisplay={resolvePrimaryLessonDisplay}
-        onRetry={fetchFollowUpDetail}
+        onRetry={() => fetchFollowUpDetail({ forceRefresh: true })}
         onOpenChange={handleDetailOpenChange}
       />
     </div>

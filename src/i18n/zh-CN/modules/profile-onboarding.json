@@ -1,0 +1,39 @@
+{
+  "__namespace__": "module.profileOnboarding",
+  "admin": {
+    "allowedVariables": "可收集的信息",
+    "allowedVariablesHint": "该引导只能收集昵称、偏好的讲解风格和职业/背景。语言会自动识别。",
+    "defaultMarkdownflow": "?[%{{sys_user_nickname}}...怎么称呼你？]\n?[%{{sys_user_style}} 简洁直接 | 循循善诱 | 生动活泼]\n?[%{{sys_user_background}}...你的职业/背景是什么？]",
+    "description": "配置学员首次进入学习端时看到的学习画像问题。",
+    "emptyPreview": "暂未识别到交互问题。",
+    "enabled": "启用学习画像引导",
+    "enabledHint": "启用后，尚未完成或跳过该引导的学员会看到一次弹窗。",
+    "hidePreview": "收起预览",
+    "invalidVariables": "暂不支持收集的信息：{keys}",
+    "loadFailed": "学习画像引导配置加载失败",
+    "markdownflow": "MarkdownFlow",
+    "preview": "预览",
+    "publishState": "发布状态",
+    "save": "保存",
+    "saveFailed": "学习画像引导配置保存失败",
+    "saveSuccess": "学习画像引导配置已保存",
+    "title": "学习画像引导",
+    "updatedAt": "更新时间",
+    "updatedBy": "更新人",
+    "version": "版本"
+  },
+  "complete": "完成",
+  "description": "回答几个问题，让课程更自然地与你互动。",
+  "emptyFlow": "暂未配置学习画像问题。",
+  "inputPlaceholder": "请输入你的回答",
+  "next": "下一步",
+  "skip": "跳过",
+  "submitFailed": "保存学习画像失败，请检查填写内容后重试。",
+  "title": "设置你的学习画像",
+  "variableLabels": {
+    "sys_user_background": "职业/背景",
+    "sys_user_nickname": "昵称",
+    "sys_user_style": "偏好的讲解风格"
+  },
+  "variablePrompt": "请填写 {variable}"
+}

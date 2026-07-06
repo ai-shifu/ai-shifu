@@ -10,6 +10,7 @@ from flask import Flask
 
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .credit_notifications import stage_credit_granted_notification
 from .grant_results import ManualCreditGrantResult
@@ -131,7 +132,7 @@ def grant_manual_credits_to_user(
             raise_param_error("note")
 
         granted_amount = _normalize_credit_amount(amount)
-        granted_at = datetime.now()
+        granted_at = now_utc()
         expires_at = _resolve_manual_credit_grant_expiry(
             creator_bid=normalized_user_bid,
             validity_preset=normalized_validity_preset,

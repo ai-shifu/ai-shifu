@@ -21,6 +21,7 @@ export type ReferralRewardQueueItem = {
 };
 
 export type ReferralInviteProfile = {
+  available?: boolean;
   campaign_bid: string;
   campaign_code: string;
   invite_code: string;
@@ -140,12 +141,39 @@ export type AdminReferralListResponse = {
   page_index: number;
   page_size: number;
   total: number;
+  page_count?: number;
 };
 
 export type AdminReferralOverview = {
   total_relations: number;
   abnormal_relations: number;
   generated_rewards: number;
+};
+
+export type AdminReferralCampaignInvitationItem = {
+  invite_code_bid: string;
+  campaign_bid: string;
+  invite_code: string;
+  inviter_user_bid: string;
+  inviter: AdminReferralUserSummary;
+  status: number;
+  generated_at: string | null;
+  event_counts: Record<string, number>;
+  link_clicked_count: number;
+  registration_page_viewed_count: number;
+  code_entered_count: number;
+  registration_submitted_count: number;
+  total_event_count: number;
+  successful_relation_count: number;
+  latest_event_at: string | null;
+};
+
+export type AdminReferralCampaignInvitationListResponse = {
+  items: AdminReferralCampaignInvitationItem[];
+  page_index: number;
+  page_size: number;
+  total: number;
+  page_count: number;
 };
 
 export type AdminReferralStatusPayload = {

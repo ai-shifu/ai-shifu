@@ -36,7 +36,7 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
     celery_app = Celery(
         resolved_flask_app.import_name,
         task_cls=FlaskTask,
-        include=("flaskr.service.billing.tasks",),
+        include=("flaskr.service.billing.tasks", "flaskr.service.tts.tasks"),
     )
     celery_app.conf.update(_build_celery_config(resolved_flask_app))
     celery_app.flask_app = resolved_flask_app  # type: ignore[attr-defined]

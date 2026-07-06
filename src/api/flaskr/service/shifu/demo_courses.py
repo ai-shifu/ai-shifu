@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from flask import Flask
-from typing import Set
+from typing import Any, Set
 
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 
@@ -9,6 +9,10 @@ BUILTIN_DEMO_TITLES: Set[str] = {
     "AI 师傅教学引导",
     "AI-Shifu Creation Guide",
 }
+
+
+def load_builtin_demo_titles() -> Set[str]:
+    return set(BUILTIN_DEMO_TITLES)
 
 
 def load_demo_shifu_bids() -> Set[str]:
@@ -21,6 +25,52 @@ def load_demo_shifu_bids() -> Set[str]:
         if bid:
             demo_bids.add(bid)
     return demo_bids
+
+
+def resolve_demo_course_for_language(
+    app: Flask, language: str | None
+) -> dict[str, Any]:
+    normalized_language = str(language or "").strip().lower()
+    preferred_key = (
+        "DEMO_SHIFU_BID"
+        if normalized_language.startswith("zh")
+        else "DEMO_EN_SHIFU_BID"
+    )
+    fallback_key = (
+        "DEMO_EN_SHIFU_BID" if preferred_key == "DEMO_SHIFU_BID" else "DEMO_SHIFU_BID"
+    )
+
+    try:
+        preferred_bid = str(get_dynamic_config(preferred_key, "") or "").strip()
+    except Exception:
+        preferred_bid = ""
+    try:
+        fallback_bid = str(get_dynamic_config(fallback_key, "") or "").strip()
+    except Exception:
+        fallback_bid = ""
+    resolved_bid = preferred_bid or fallback_bid
+    resolved_language = "zh-CN" if preferred_key == "DEMO_SHIFU_BID" else "en-US"
+    if not preferred_bid and fallback_bid:
+        resolved_language = "en-US" if fallback_key == "DEMO_EN_SHIFU_BID" else "zh-CN"
+
+    title = ""
+    if resolved_bid:
+        for candidate_title, _ in _load_shifu_demo_metadata(app, resolved_bid):
+            if candidate_title:
+                title = candidate_title
+                break
+    if not title:
+        title = (
+            "AI 师傅教学引导"
+            if resolved_language == "zh-CN"
+            else "AI-Shifu Creation Guide"
+        )
+
+    return {
+        "bid": resolved_bid,
+        "title": title,
+        "language": resolved_language,
+    }
 
 
 def is_builtin_demo_course(

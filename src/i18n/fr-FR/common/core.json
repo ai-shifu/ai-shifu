@@ -1,5 +1,6 @@
 {
   "__namespace__": "common.core",
+  "actionFailed": "L'opération n'a pas pu être effectuée, veuillez réessayer plus tard",
   "adminTitle": "Administration",
   "aiCourseCreator": "Créer des cours avec l’assistant IA",
   "all": "Tous",
@@ -33,8 +34,10 @@
   "ok": "OK",
   "operations": "Opérations",
   "orderManagement": "Gestion des commandes",
+  "profileOnboardingManagement": "Initialisation du profil",
   "promotionManagement": "Promotions",
   "referralInvitation": "Inviter des amis",
+  "requestFailed": "Échec de la requête, veuillez réessayer plus tard",
   "retry": "Réessayer",
   "selectModel": "Modèle",
   "settings": "Paramètres",
@@ -53,10 +56,11 @@
     }
   },
   "submitFailed": "Échec de l'envoi",
-  "submitting": "Envoi...",
+  "submitting": "Envoi…",
   "unknownError": "Erreur inconnue",
   "unsupportedBrowserDescription": "Votre version actuelle d’iOS n’est pas prise en charge. Veuillez passer à iOS 16.4 ou version ultérieure, puis réessayer.",
   "unsupportedBrowserTitle": "Votre version d’iOS n’est pas prise en charge",
   "userManagement": "Gestion des utilisateurs",
+  "voiceCloneManagement": "Gestion du clonage vocal",
   "waitingForCompletion": "Bientôt disponible"
 }

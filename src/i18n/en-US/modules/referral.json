@@ -1,11 +1,5 @@
 {
   "__namespace__": "module.referral",
-  "abnormalStatus": {
-    "confirmedAbnormal": "Confirmed abnormal",
-    "normal": "Normal",
-    "reviewing": "Under review",
-    "unknown": "Unknown abnormal status"
-  },
   "creator": {
     "copied": "Copied",
     "copyLink": "Copy link",
@@ -61,64 +55,22 @@
   },
   "operator": {
     "actions": {
-      "cancelReward": "Cancel relation and reward",
-      "detail": "Detail",
-      "freezeReward": "Freeze reward",
-      "markNormal": "Mark normal",
-      "markReviewing": "Mark reviewing",
       "reset": "Reset",
       "search": "Search"
     },
-    "description": "Review invite relations, reward status, invited accounts, billing artifacts, and manual exception handling.",
-    "detail": {
-      "abnormalStatus": "Abnormal status",
-      "billOrder": "Order BID",
-      "boundAt": "Bound at",
-      "campaign": "Campaign",
-      "inviteCode": "Invite code",
-      "invitee": "Invitee",
-      "inviteeMobile": "Invitee mobile",
-      "inviter": "Inviter",
-      "ledger": "Ledger BID",
-      "loading": "Loading",
-      "operatorNote": "Operator note",
-      "operatorNotePlaceholder": "Record why this manual action is needed",
-      "relationStatus": "Relation status",
-      "reward": "Reward and billing",
-      "rewardBid": "Reward BID",
-      "rewardProduct": "Reward product",
-      "rewardQueue": {
-        "artifacts": {
-          "ledger": "Ledger",
-          "order": "Order",
-          "reward": "Reward"
-        },
-        "columns": {
-          "artifacts": "Order / ledger",
-          "credits": "Credits",
-          "effectiveAt": "Effective at",
-          "expiresAt": "Expires at",
-          "index": "Cycle",
-          "invitee": "Invitee",
-          "ledgerState": "Ledger state",
-          "status": "Status"
-        },
-        "empty": "No reward queue.",
-        "title": "Reward queue"
-      },
-      "rewardStatus": "Reward status",
-      "subscription": "Subscription BID",
-      "title": "Invite relation detail",
-      "walletBucket": "Wallet bucket BID"
-    },
+    "description": "Review invite relations, reward status, invited accounts, and billing artifacts.",
     "empty": "No invite relations.",
     "filters": {
-      "abnormalStatus": "Abnormal status",
       "all": "All",
+      "boundAt": "Bound at",
       "campaignBid": "Campaign BID",
       "inviteCode": "Invite code",
-      "inviteeUserBid": "Invitee user BID",
-      "inviterUserBid": "Inviter user BID",
+      "invitee": "Invitee",
+      "inviteeEmailPlaceholder": "Enter invitee email",
+      "inviteeMobilePlaceholder": "Enter invitee mobile",
+      "inviter": "Inviter",
+      "inviterEmailPlaceholder": "Enter inviter email",
+      "inviterMobilePlaceholder": "Enter inviter mobile",
       "relationStatus": "Relation status"
     },
     "loadFailed": "Failed to load invite relations. Refresh and try again.",

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
@@ -9,9 +9,6 @@ import {
   DEFAULT_END_TIME,
   DEFAULT_START_TIME,
   FormField,
-  createCouponFormFromItem,
-  isPositiveIntegerString,
-  parseLocalDateTimeInput,
   type CouponFormState,
 } from '@/app/admin/operations/promotions/promotionPageShared';
 import Loading from '@/components/loading';
@@ -39,127 +36,64 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
-import type { Shifu } from '@/types/shifu';
 import type { AdminPromotionCouponItem } from '@/app/admin/operations/operation-promotion-types';
+import {
+  createCreatorCouponFormState,
+  validateCreatorCouponForm,
+} from './creatorRedemptionCodeDialogShared';
+import { useCreatorPublishedCourseOptions } from './useCreatorPublishedCourseOptions';
 
 const SELECT_ITEM_CLASS =
   'pl-3 pr-8 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
 const SELECT_ITEM_INDICATOR_CLASS = 'left-auto right-2';
-const MAX_COURSE_PAGES = 50;
-
-const createDefaultCreatorCouponForm = (): CouponFormState => ({
-  name: '',
-  code: '',
-  usage_type: '',
-  discount_type: '',
-  value: '',
-  total_count: '',
-  scope_type: 'single_course',
-  shifu_bid: '',
-  start_at: '',
-  end_at: '',
-  enabled: 'true',
-});
 
 const CreatorRedemptionCodeDialog = ({
   open,
   onOpenChange,
   onSuccess,
   coupon,
+  initialShifuBid,
+  initialShifuName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
   coupon?: AdminPromotionCouponItem | null;
+  initialShifuBid?: string;
+  initialShifuName?: string;
 }) => {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
   const [form, setForm] = useState<CouponFormState>(() =>
-    createDefaultCreatorCouponForm(),
+    createCreatorCouponFormState(),
   );
-  const [courses, setCourses] = useState<Shifu[]>([]);
-  const [coursesLoading, setCoursesLoading] = useState(false);
-  const [coursesError, setCoursesError] = useState('');
-  const [coursesWarning, setCoursesWarning] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const isEditing = Boolean(coupon);
+  const { courseOptions, coursesError, coursesLoading, coursesWarning } =
+    useCreatorPublishedCourseOptions({
+      open,
+      t,
+    });
+  const lockedCourseName = React.useMemo(() => {
+    if (!initialShifuBid) {
+      return '';
+    }
+    const matchedCourse = courseOptions.find(
+      course => course.bid === initialShifuBid,
+    );
+    return initialShifuName || matchedCourse?.name || initialShifuBid;
+  }, [courseOptions, initialShifuBid, initialShifuName]);
 
   useEffect(() => {
     if (!open) {
       return;
     }
-    setForm(
-      coupon
-        ? createCouponFormFromItem(coupon)
-        : createDefaultCreatorCouponForm(),
-    );
-  }, [coupon, open]);
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
+    const nextForm = createCreatorCouponFormState(coupon);
+    if (!coupon && initialShifuBid) {
+      nextForm.shifu_bid = initialShifuBid;
     }
-
-    let canceled = false;
-    const loadCourses = async () => {
-      setCoursesLoading(true);
-      setCoursesError(current => (current ? '' : current));
-      setCoursesWarning(current => (current ? '' : current));
-      try {
-        const pageSize = 100;
-        let pageIndex = 1;
-        let reachedLimit = false;
-        const collected: Shifu[] = [];
-        const seen = new Set<string>();
-
-        while (!canceled && pageIndex <= MAX_COURSE_PAGES) {
-          const response = (await api.getAdminOrderShifus({
-            page_index: pageIndex,
-            page_size: pageSize,
-            published: true,
-          })) as { items?: Shifu[] };
-          const pageItems = response.items || [];
-          pageItems.forEach(course => {
-            if (course?.bid && !seen.has(course.bid)) {
-              seen.add(course.bid);
-              collected.push(course);
-            }
-          });
-          if (pageItems.length < pageSize) {
-            break;
-          }
-          pageIndex += 1;
-        }
-        if (pageIndex > MAX_COURSE_PAGES) {
-          reachedLimit = true;
-        }
-
-        if (!canceled) {
-          setCourses(collected);
-          if (reachedLimit) {
-            setCoursesWarning(t('module.order.redemptionCodes.tooManyCourses'));
-          }
-        }
-      } catch (error) {
-        if (!canceled) {
-          setCourses([]);
-          setCoursesError(
-            (error as Error).message ||
-              t('module.order.redemptionCodes.loadCoursesFailed'),
-          );
-        }
-      } finally {
-        if (!canceled) {
-          setCoursesLoading(false);
-        }
-      }
-    };
-
-    void loadCourses();
-    return () => {
-      canceled = true;
-    };
-  }, [open, t]);
+    setForm(nextForm);
+  }, [coupon, initialShifuBid, open]);
 
   const isGenericCoupon = form.usage_type === '801';
   const isPercentDiscount = form.discount_type === '702';
@@ -170,108 +104,20 @@ const CreatorRedemptionCodeDialog = ({
     ? tPromotion('coupon.valuePercentPlaceholder')
     : tPromotion('coupon.valueAmountPlaceholder');
 
-  const courseOptions = useMemo(
-    () => courses.filter(course => Boolean(String(course.bid || '').trim())),
-    [courses],
-  );
-
   const handleSubmit = async () => {
-    const normalizedName = (form.name || '').trim();
-    const normalizedCode = (form.code || '').trim();
-    const normalizedQuantity = (form.total_count || '').trim();
-    const normalizedCourseId = (form.shifu_bid || '').trim();
-    const normalizedValue = (form.value || '').trim();
-    const startAtDate = parseLocalDateTimeInput(form.start_at);
-    const endAtDate = parseLocalDateTimeInput(form.end_at);
-
-    if (!normalizedName) {
-      showDefaultToast(tPromotion('validation.couponNameRequired'));
-      return;
-    }
-    if (!form.usage_type) {
-      showDefaultToast(tPromotion('validation.usageTypeRequired'));
-      return;
-    }
-    if (!form.discount_type) {
-      showDefaultToast(tPromotion('validation.discountTypeRequired'));
-      return;
-    }
-    if (!normalizedValue) {
-      showDefaultToast(
-        isPercentDiscount
-          ? tPromotion('validation.valuePercentRequired')
-          : tPromotion('validation.valueAmountRequired'),
-      );
-      return;
-    }
-
-    const numericValue = Number(normalizedValue);
-    if (!Number.isFinite(numericValue)) {
-      showDefaultToast(
-        isPercentDiscount
-          ? tPromotion('validation.valuePercentInvalid')
-          : tPromotion('validation.valueAmountInvalid'),
-      );
-      return;
-    }
-    if (isPercentDiscount) {
-      if (numericValue <= 0 || numericValue > 100) {
-        showDefaultToast(tPromotion('validation.valuePercentInvalid'));
-        return;
-      }
-    } else if (numericValue <= 0) {
-      showDefaultToast(tPromotion('validation.valueAmountInvalid'));
-      return;
-    }
-
-    if (isGenericCoupon && !normalizedCode) {
-      showDefaultToast(tPromotion('validation.codeRequired'));
-      return;
-    }
-    if (!normalizedQuantity) {
-      showDefaultToast(tPromotion('validation.quantityRequired'));
-      return;
-    }
-    if (
-      !isPositiveIntegerString(normalizedQuantity) ||
-      Number(normalizedQuantity) <= 0
-    ) {
-      showDefaultToast(tPromotion('validation.quantityInvalid'));
-      return;
-    }
-    if (!normalizedCourseId) {
-      showDefaultToast(t('module.order.redemptionCodes.courseRequired'));
-      return;
-    }
-    if (!form.start_at) {
-      showDefaultToast(tPromotion('validation.startAtRequired'));
-      return;
-    }
-    if (!form.end_at) {
-      showDefaultToast(tPromotion('validation.endAtRequired'));
-      return;
-    }
-    if (
-      !startAtDate ||
-      !endAtDate ||
-      endAtDate.getTime() < startAtDate.getTime()
-    ) {
-      showDefaultToast(tPromotion('validation.endAtInvalid'));
+    const { errorKey, payload, submitSuccessKey } = validateCreatorCouponForm({
+      form,
+      isEditing,
+      t,
+      tPromotion,
+    });
+    if (errorKey || !payload || !submitSuccessKey) {
+      showDefaultToast(errorKey);
       return;
     }
 
     setSubmitting(true);
     try {
-      const payload = {
-        ...form,
-        code: normalizedCode,
-        name: normalizedName,
-        scope_type: 'single_course',
-        shifu_bid: normalizedCourseId,
-        total_count: normalizedQuantity,
-        value: normalizedValue,
-        enabled: true,
-      };
       if (isEditing && coupon) {
         await api.updateCreatorCourseRedemptionCode({
           ...payload,
@@ -280,11 +126,7 @@ const CreatorRedemptionCodeDialog = ({
       } else {
         await api.createCreatorCourseRedemptionCode(payload);
       }
-      showDefaultToast(
-        isEditing
-          ? t('module.order.redemptionCodes.updateSuccess')
-          : t('module.order.redemptionCodes.createSuccess'),
-      );
+      showDefaultToast(submitSuccessKey);
       onSuccess?.();
       onOpenChange(false);
     } catch (error) {
@@ -461,56 +303,65 @@ const CreatorRedemptionCodeDialog = ({
             />
           </FormField>
           <FormField label={t('module.order.redemptionCodes.courseLabel')}>
-            <Select
-              value={form.shifu_bid}
-              onValueChange={value =>
-                setForm(current => ({ ...current, shifu_bid: value }))
-              }
-              disabled={coursesLoading || isEditing}
-            >
-              <SelectTrigger className='h-9'>
-                <SelectValue
-                  placeholder={t(
-                    'module.order.redemptionCodes.coursePlaceholder',
-                  )}
-                />
-              </SelectTrigger>
-              <SelectContent className='max-h-60'>
-                {coursesLoading ? (
-                  <div className='flex items-center justify-center py-3'>
-                    <Loading className='h-5 w-5' />
-                  </div>
-                ) : coursesError ? (
-                  <div className='px-2 py-3 text-xs text-destructive'>
-                    {coursesError}
-                  </div>
-                ) : (
-                  <>
-                    {coursesWarning ? (
-                      <div className='px-2 py-2 text-xs text-muted-foreground'>
-                        {coursesWarning}
-                      </div>
-                    ) : null}
-                    {courseOptions.length === 0 ? (
-                      <div className='px-2 py-3 text-xs text-muted-foreground'>
-                        {t('module.order.redemptionCodes.emptyCourses')}
-                      </div>
-                    ) : (
-                      courseOptions.map(course => (
-                        <SelectItem
-                          key={course.bid}
-                          value={course.bid}
-                          className={SELECT_ITEM_CLASS}
-                          indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
-                        >
-                          {course.name || course.bid}
-                        </SelectItem>
-                      ))
+            {initialShifuBid && !isEditing ? (
+              <Input
+                className='h-9'
+                value={lockedCourseName}
+                readOnly
+                disabled
+              />
+            ) : (
+              <Select
+                value={form.shifu_bid}
+                onValueChange={value =>
+                  setForm(current => ({ ...current, shifu_bid: value }))
+                }
+                disabled={coursesLoading || isEditing}
+              >
+                <SelectTrigger className='h-9'>
+                  <SelectValue
+                    placeholder={t(
+                      'module.order.redemptionCodes.coursePlaceholder',
                     )}
-                  </>
-                )}
-              </SelectContent>
-            </Select>
+                  />
+                </SelectTrigger>
+                <SelectContent className='max-h-60'>
+                  {coursesLoading ? (
+                    <div className='flex items-center justify-center py-3'>
+                      <Loading className='h-5 w-5' />
+                    </div>
+                  ) : coursesError ? (
+                    <div className='px-2 py-3 text-xs text-destructive'>
+                      {coursesError}
+                    </div>
+                  ) : (
+                    <>
+                      {coursesWarning ? (
+                        <div className='px-2 py-2 text-xs text-muted-foreground'>
+                          {coursesWarning}
+                        </div>
+                      ) : null}
+                      {courseOptions.length === 0 ? (
+                        <div className='px-2 py-3 text-xs text-muted-foreground'>
+                          {t('module.order.redemptionCodes.emptyCourses')}
+                        </div>
+                      ) : (
+                        courseOptions.map(course => (
+                          <SelectItem
+                            key={course.bid}
+                            value={course.bid}
+                            className={SELECT_ITEM_CLASS}
+                            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
+                          >
+                            {course.name || course.bid}
+                          </SelectItem>
+                        ))
+                      )}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            )}
           </FormField>
           <FormField label={tPromotion('coupon.startAt')}>
             <PromotionDateTimePicker

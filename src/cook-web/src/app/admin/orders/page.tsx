@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
-import { Button } from '@/components/ui/Button';
 import OrderDetailSheet from '@/components/order/OrderDetailSheet';
-import ImportActivationDialog from '@/components/order/ImportActivationDialog';
-import CreatorRedemptionCodeDialog from './CreatorRedemptionCodeDialog';
 import CreatorRedemptionCodesTab from './CreatorRedemptionCodesTab';
 import OrdersFilterPanel from './OrdersFilterPanel';
 import OrdersTable from './OrdersTable';
@@ -35,9 +36,7 @@ import {
   type OrderListResponse,
   type OrdersPageTab,
 } from './ordersPageShared';
-import { cn } from '@/lib/utils';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { ArchiveRestore, Ticket } from 'lucide-react';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
@@ -51,7 +50,7 @@ import {
 } from '@/app/admin/operations/orders/orderUiShared';
 
 const OrdersPage = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -96,9 +95,6 @@ const OrdersPage = () => {
   const [total, setTotal] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<OrderSummary | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [redemptionOpen, setRedemptionOpen] = useState(false);
-  const [redemptionReloadKey, setRedemptionReloadKey] = useState(0);
-  const [importOpen, setImportOpen] = useState(false);
   const [courses, setCourses] = useState<Shifu[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesError, setCoursesError] = useState<string | null>(null);
@@ -171,14 +167,6 @@ const OrdersPage = () => {
   );
 
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
-  const locale = i18n?.language || 'en-US';
-  const filterControlClassName = cn(
-    'min-w-0 flex-1',
-    !locale.startsWith('zh') && 'xl:max-w-[220px]',
-  );
-  const filterLabelClassName = locale.startsWith('zh')
-    ? 'w-16 text-right'
-    : 'w-24 text-right';
 
   const contactType = useMemo(
     () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
@@ -222,7 +210,6 @@ const OrdersPage = () => {
     },
     [pathname, router, searchParamsString],
   );
-
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
@@ -461,8 +448,8 @@ const OrdersPage = () => {
           shifu_bid: shifuBidValue,
           status: resolvedFilters.status,
           payment_channel: resolvedFilters.payment_channel,
-          start_time: resolvedFilters.start_time,
-          end_time: resolvedFilters.end_time,
+          start_time: formatAdminDateRangeStartUtc(resolvedFilters.start_time),
+          end_time: formatAdminDateRangeEndUtc(resolvedFilters.end_time),
         })) as OrderListResponse;
 
         const list = response.items || [];
@@ -490,7 +477,7 @@ const OrdersPage = () => {
     if (isInitialized && !isGuest && activeTab === 'orders') {
       fetchOrders(1);
     }
-  }, [activeTab, fetchOrders, i18n.language, isGuest, isInitialized]);
+  }, [activeTab, fetchOrders, isGuest, isInitialized]);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -599,26 +586,6 @@ const OrdersPage = () => {
                 </TabsTrigger>
               </TabsList>
             }
-            actions={
-              <div className='flex items-center gap-3 lg:justify-end'>
-                <Button
-                  variant='ghost'
-                  className='h-9 gap-1.5 px-0 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] hover:bg-transparent hover:text-[var(--base-foreground,#0A0A0A)]'
-                  onClick={() => setRedemptionOpen(true)}
-                >
-                  <Ticket className='h-4 w-4' />
-                  {t('module.order.redemptionCodes.action')}
-                </Button>
-                <Button
-                  variant='ghost'
-                  className='h-9 gap-1.5 px-0 text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] hover:bg-transparent hover:text-[var(--base-foreground,#0A0A0A)]'
-                  onClick={() => setImportOpen(true)}
-                >
-                  <ArchiveRestore className='h-4 w-4' />
-                  {t('module.order.importActivation.action')}
-                </Button>
-              </div>
-            }
           />
 
           <div className='min-h-0 flex-1 overflow-hidden pr-1'>
@@ -634,8 +601,6 @@ const OrdersPage = () => {
                   userBidPlaceholder={userBidPlaceholder}
                   statusOptions={statusOptions}
                   channelOptions={channelOptions}
-                  contentClassName={filterControlClassName}
-                  expandedLabelClassName={filterLabelClassName}
                   onCourseSearchChange={setCourseSearch}
                   onExpandedChange={setExpanded}
                   onFilterChange={handleFilterChange}
@@ -661,7 +626,7 @@ const OrdersPage = () => {
                 />
               </div>
             ) : (
-              <CreatorRedemptionCodesTab reloadKey={redemptionReloadKey} />
+              <CreatorRedemptionCodesTab reloadKey={0} />
             )}
           </div>
         </Tabs>
@@ -673,20 +638,6 @@ const OrdersPage = () => {
             if (!open) {
               setSelectedOrder(null);
             }
-          }}
-        />
-
-        <ImportActivationDialog
-          open={importOpen}
-          onOpenChange={setImportOpen}
-          onSuccess={() => fetchOrders(1)}
-        />
-        <CreatorRedemptionCodeDialog
-          open={redemptionOpen}
-          onOpenChange={setRedemptionOpen}
-          onSuccess={() => {
-            setRedemptionReloadKey(current => current + 1);
-            updateTab('redemptionCodes');
           }}
         />
       </div>

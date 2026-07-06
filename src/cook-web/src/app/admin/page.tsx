@@ -35,10 +35,21 @@ import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import MobileUnsupportedDialog from '@/components/MobileUnsupportedDialog';
 import ShifuPermissionDialog from '@/components/shifu-setting/ShifuPermissionDialog';
+import ImportActivationDialog from '@/components/order/ImportActivationDialog';
+import CreatorRedemptionCodeDialog from './orders/CreatorRedemptionCodeDialog';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
-import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
+import { useCreatorOnboardingStatus } from '@/hooks/useOnboarding';
+import {
+  canManageArchive as canManageArchiveForShifu,
+  canManageOwnerCourseAction,
+} from '@/lib/shifu-permissions';
+import {
+  buildGuideCourseTargetId,
+  buildOnboardingTargetProps,
+  ONBOARDING_TARGET_IDS,
+} from '@/lib/onboardingTargets';
 import AdminBreadcrumb from './components/AdminBreadcrumb';
 import AdminTitle from './components/AdminTitle';
 
@@ -53,6 +64,9 @@ interface ShifuCardProps {
   canManagePermissions?: boolean;
   onArchiveRequest?: () => void;
   onPermissionRequest?: () => void;
+  onImportActivationRequest?: () => void;
+  onRedemptionCodeRequest?: () => void;
+  onboardingTargetId?: string;
 }
 
 const CARD_CONTAINER_CLASS =
@@ -71,6 +85,9 @@ const COURSE_TABS_LIST_CLASS =
   'h-auto rounded-[var(--border-radius-rounded-lg,10px)] bg-[var(--base-muted,#F5F5F5)] p-[3px]';
 const COURSE_TABS_TRIGGER_CLASS =
   'min-w-[100px] gap-[var(--spacing-2,8px)] rounded-[var(--border-radius-rounded-md,8px)] border-[length:var(--border-width-border,1px)] border-transparent px-[var(--spacing-2,8px)] py-[var(--spacing-1,4px)] text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]';
+const CREATE_SUCCESS_TOAST_DURATION_MS = 2000;
+const CREATE_SUCCESS_REDIRECT_DELAY_MS = 600;
+const ACTION_DIALOG_RESET_DELAY_MS = 200;
 
 const ShifuCard = ({
   id,
@@ -83,12 +100,25 @@ const ShifuCard = ({
   canManagePermissions,
   onArchiveRequest,
   onPermissionRequest,
+  onImportActivationRequest,
+  onRedemptionCodeRequest,
+  onboardingTargetId,
 }: ShifuCardProps) => {
   const { t } = useTranslation();
-  const showMenu = Boolean(canManageArchive || canManagePermissions);
+  const showMenu = Boolean(
+    onRedemptionCodeRequest ||
+    onImportActivationRequest ||
+    canManageArchive ||
+    canManagePermissions,
+  );
 
   return (
-    <div className='relative w-full h-full group'>
+    <div
+      className='relative w-full h-full group'
+      {...(onboardingTargetId
+        ? buildOnboardingTargetProps(onboardingTargetId)
+        : {})}
+    >
       <Link
         href={`/shifu/${id}`}
         target='_blank'
@@ -168,16 +198,24 @@ const ShifuCard = ({
             sideOffset={0}
             className='min-w-0'
           >
-            {canManageArchive && (
+            {onImportActivationRequest && (
               <DropdownMenuItem
                 onSelect={event => {
                   event.stopPropagation();
-                  onArchiveRequest?.();
+                  onImportActivationRequest();
                 }}
               >
-                {archived
-                  ? t('module.shifuSetting.unarchive')
-                  : t('module.shifuSetting.archive')}
+                {t('module.order.importActivation.action')}
+              </DropdownMenuItem>
+            )}
+            {onRedemptionCodeRequest && (
+              <DropdownMenuItem
+                onSelect={event => {
+                  event.stopPropagation();
+                  onRedemptionCodeRequest();
+                }}
+              >
+                {t('module.order.redemptionCodes.action')}
               </DropdownMenuItem>
             )}
             {canManagePermissions && (
@@ -188,6 +226,18 @@ const ShifuCard = ({
                 }}
               >
                 {t('module.shifuSetting.permissionManage')}
+              </DropdownMenuItem>
+            )}
+            {canManageArchive && (
+              <DropdownMenuItem
+                onSelect={event => {
+                  event.stopPropagation();
+                  onArchiveRequest?.();
+                }}
+              >
+                {archived
+                  ? t('module.shifuSetting.unarchive')
+                  : t('module.shifuSetting.archive')}
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -209,6 +259,9 @@ const ScriptManagementPage = () => {
   const hasAuthenticatedAdminSession = isInitialized && isLoggedIn && !isGuest;
   const hasResolvedAdminSession =
     hasAuthenticatedAdminSession && Boolean(currentUserId);
+  const { data: onboardingStatus } = useCreatorOnboardingStatus(
+    hasResolvedAdminSession,
+  );
   const [courseCreatorUrl, setCourseCreatorUrl] = useState<string | null>(null);
   const [adminReady, setAdminReady] = useState(false);
   const [permissionRetryNonce, setPermissionRetryNonce] = useState(0);
@@ -225,6 +278,11 @@ const ScriptManagementPage = () => {
   const [archiveTarget, setArchiveTarget] = useState<Shifu | null>(null);
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
   const [permissionTarget, setPermissionTarget] = useState<Shifu | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [redemptionOpen, setRedemptionOpen] = useState(false);
+  const [selectedActionShifu, setSelectedActionShifu] = useState<Shifu | null>(
+    null,
+  );
   const pageSize = 30;
   const currentPage = useRef(1);
   const containerRef = useRef(null);
@@ -232,8 +290,17 @@ const ScriptManagementPage = () => {
   const loadingRef = useRef(false);
   const hasMoreRef = useRef(true);
   const listVersionRef = useRef(0);
+  const createRedirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const actionDialogResetTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   const activeTabRef = useRef<'all' | 'archived'>(activeTab);
+  const guideCourseTargetId = buildGuideCourseTargetId(
+    onboardingStatus?.guide_course.bid,
+  );
 
   useEffect(() => {
     activeTabRef.current = activeTab;
@@ -243,10 +310,52 @@ const ScriptManagementPage = () => {
     setCourseCreatorUrl(getCourseCreatorUrl());
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (createRedirectTimeoutRef.current) {
+        clearTimeout(createRedirectTimeoutRef.current);
+        createRedirectTimeoutRef.current = null;
+      }
+      if (actionDialogResetTimeoutRef.current) {
+        clearTimeout(actionDialogResetTimeoutRef.current);
+        actionDialogResetTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const cancelActionDialogReset = useCallback(() => {
+    if (actionDialogResetTimeoutRef.current) {
+      clearTimeout(actionDialogResetTimeoutRef.current);
+      actionDialogResetTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleActionDialogReset = useCallback(() => {
+    cancelActionDialogReset();
+    actionDialogResetTimeoutRef.current = setTimeout(() => {
+      setSelectedActionShifu(current => (current ? null : current));
+      actionDialogResetTimeoutRef.current = null;
+    }, ACTION_DIALOG_RESET_DELAY_MS);
+  }, [cancelActionDialogReset]);
+
   const setHasMoreState = useCallback((value: boolean) => {
     hasMoreRef.current = value;
     setHasMore(value);
   }, []);
+
+  const waitForCreateRedirectDelay = useCallback(
+    () =>
+      new Promise<void>(resolve => {
+        if (createRedirectTimeoutRef.current) {
+          clearTimeout(createRedirectTimeoutRef.current);
+        }
+        createRedirectTimeoutRef.current = setTimeout(() => {
+          createRedirectTimeoutRef.current = null;
+          resolve();
+        }, CREATE_SUCCESS_REDIRECT_DELAY_MS);
+      }),
+    [],
+  );
 
   const fetchShifus = useCallback(async () => {
     if (loadingRef.current || !hasMoreRef.current) return;
@@ -327,15 +436,21 @@ const ScriptManagementPage = () => {
       toast({
         title: t('common.core.createSuccess'),
         description: t('common.core.createSuccessDescription'),
+        duration: CREATE_SUCCESS_TOAST_DURATION_MS,
       });
       setShowCreateShifuModal(false);
       trackEvent('creator_shifu_create_success', {
         shifu_bid: response.bid,
         shifu_name: response.name,
       });
+      await waitForCreateRedirectDelay();
       // Redirect to edit page instead of refreshing list
-      router.push(`/shifu/${response.bid}`);
+      router.push(`/shifu/${response.bid}?onboarding_source=manual_create`);
     } catch (error) {
+      if (createRedirectTimeoutRef.current) {
+        clearTimeout(createRedirectTimeoutRef.current);
+        createRedirectTimeoutRef.current = null;
+      }
       toast({
         title: t('common.core.createFailed'),
         description:
@@ -392,6 +507,24 @@ const ScriptManagementPage = () => {
     setPermissionTarget(shifu);
     setPermissionDialogOpen(true);
   }, []);
+
+  const handleImportActivationRequest = useCallback(
+    (shifu: Shifu) => {
+      cancelActionDialogReset();
+      setSelectedActionShifu(shifu);
+      setImportOpen(true);
+    },
+    [cancelActionDialogReset],
+  );
+
+  const handleRedemptionCodeRequest = useCallback(
+    (shifu: Shifu) => {
+      cancelActionDialogReset();
+      setSelectedActionShifu(shifu);
+      setRedemptionOpen(true);
+    },
+    [cancelActionDialogReset],
+  );
 
   const handleArchiveConfirm = useCallback(async () => {
     if (!archiveTarget?.bid || archiveLoading) {
@@ -595,6 +728,32 @@ const ScriptManagementPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ImportActivationDialog
+        open={importOpen}
+        onOpenChange={open => {
+          cancelActionDialogReset();
+          setImportOpen(open);
+          if (!open) {
+            scheduleActionDialogReset();
+          }
+        }}
+        initialCourseId={selectedActionShifu?.bid}
+        initialCourseName={
+          selectedActionShifu?.name || selectedActionShifu?.bid
+        }
+      />
+      <CreatorRedemptionCodeDialog
+        open={redemptionOpen}
+        onOpenChange={open => {
+          cancelActionDialogReset();
+          setRedemptionOpen(open);
+          if (!open) {
+            scheduleActionDialogReset();
+          }
+        }}
+        initialShifuBid={selectedActionShifu?.bid}
+        initialShifuName={selectedActionShifu?.name || selectedActionShifu?.bid}
+      />
       <div className='h-full p-0'>
         <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
           <AdminBreadcrumb items={[{ label: t('common.core.shifu') }]} />
@@ -620,22 +779,35 @@ const ScriptManagementPage = () => {
               </TabsList>
             </Tabs>
             <div className='flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end'>
-              {courseCreatorUrl ? (
-                <a
-                  href={courseCreatorUrl}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='text-xs text-muted-foreground underline hover:text-foreground'
-                >
-                  {t('common.core.aiCourseCreator')}
-                </a>
-              ) : null}
-              <Button
-                size='sm'
-                onClick={handleCreateShifuModal}
+              <div
+                className='flex flex-col gap-3 sm:flex-row sm:items-center'
+                {...buildOnboardingTargetProps(
+                  ONBOARDING_TARGET_IDS.courseCreationEntry,
+                )}
               >
-                {t('common.core.createBlankShifu')}
-              </Button>
+                {courseCreatorUrl ? (
+                  <a
+                    href={courseCreatorUrl}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='text-xs text-muted-foreground underline hover:text-foreground'
+                    {...buildOnboardingTargetProps(
+                      ONBOARDING_TARGET_IDS.lobsterCreateEntry,
+                    )}
+                  >
+                    {t('common.core.aiCourseCreator')}
+                  </a>
+                ) : null}
+                <Button
+                  size='sm'
+                  onClick={handleCreateShifuModal}
+                  {...buildOnboardingTargetProps(
+                    ONBOARDING_TARGET_IDS.blankCreateEntry,
+                  )}
+                >
+                  {t('common.core.createBlankShifu')}
+                </Button>
+              </div>
             </div>
           </div>
           <CreateShifuDialog
@@ -658,6 +830,21 @@ const ScriptManagementPage = () => {
                   canManagePermissions={canManagePermissions(shifu)}
                   onArchiveRequest={() => handleArchiveRequest(shifu)}
                   onPermissionRequest={() => handlePermissionRequest(shifu)}
+                  onImportActivationRequest={
+                    canManageOwnerCourseAction(shifu, currentUserId)
+                      ? () => handleImportActivationRequest(shifu)
+                      : undefined
+                  }
+                  onRedemptionCodeRequest={
+                    canManageOwnerCourseAction(shifu, currentUserId)
+                      ? () => handleRedemptionCodeRequest(shifu)
+                      : undefined
+                  }
+                  onboardingTargetId={
+                    shifu.bid === onboardingStatus?.guide_course.bid
+                      ? guideCourseTargetId
+                      : undefined
+                  }
                 />
               ))}
             </div>

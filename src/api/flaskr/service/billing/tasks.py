@@ -12,6 +12,7 @@ from sqlalchemy import and_, or_
 
 from flaskr.dao import db
 from flaskr.service.config import get_config
+from flaskr.util.datetime import now_utc
 
 from .checkout import reconcile_billing_provider_reference, sync_billing_order
 from .consts import (
@@ -187,7 +188,7 @@ def _recover_stale_processing_renewal_events(
         {
             "status": BILLING_RENEWAL_EVENT_STATUS_PENDING,
             "last_error": "recovered_stale_processing",
-            "updated_at": datetime.now(),
+            "updated_at": now_utc(),
         },
         synchronize_session=False,
     )
@@ -224,7 +225,7 @@ def dispatch_due_renewal_events(
             config.get("queue"),
             enabled=config.get("use_dedicated_queue"),
         )
-        now = datetime.now()
+        now = now_utc()
         recovered_processing_count = _recover_stale_processing_renewal_events(
             stale_before=now - timedelta(minutes=processing_timeout_minutes)
         )
@@ -325,7 +326,7 @@ def _expire_pending_billing_orders(
     expire_before: Any = None,
 ) -> dict[str, Any]:
     normalized_creator_bid = _normalize_bid(creator_bid)
-    resolved_expire_before = _coerce_datetime(expire_before) or datetime.now()
+    resolved_expire_before = _coerce_datetime(expire_before) or now_utc()
     legacy_expire_before = resolved_expire_before - BILLING_PENDING_ORDER_TIMEOUT_DELTA
 
     with app.app_context():
@@ -502,7 +503,6 @@ def reconcile_provider_reference_task(
 def send_low_balance_alert_task(
     *,
     creator_bid: str = "",
-    timezone_name: str = "",
 ) -> dict[str, Any]:
     """Scan low-balance notifications while preserving the legacy task name."""
 
@@ -513,7 +513,6 @@ def send_low_balance_alert_task(
         creator_bid=normalized_creator_bid,
     )
     payload["task_name"] = "billing.send_low_balance_alert"
-    payload["timezone_name"] = _normalize_bid(timezone_name) or None
     return payload
 
 

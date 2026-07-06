@@ -86,6 +86,9 @@ describe('AdminReferralPage', () => {
     expect(screen.queryByText('creator.metrics.cap')).not.toBeInTheDocument();
     expect(screen.queryByText('AB12CD34')).not.toBeInTheDocument();
     expect(screen.queryByText('1000.0000000000')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'creator.refresh' }),
+    ).not.toBeInTheDocument();
   });
 
   test('copies invite link', async () => {
@@ -115,5 +118,39 @@ describe('AdminReferralPage', () => {
     expect(
       screen.queryByText('creator.ledgerStates.reserved'),
     ).not.toBeInTheDocument();
+  });
+
+  test('hides invite page content when referral campaign is unavailable', async () => {
+    (api.getReferralInviteProfile as jest.Mock).mockResolvedValueOnce({
+      available: false,
+      campaign_bid: '',
+      campaign_code: '',
+      invite_code: '',
+      invite_url: '',
+      reward_product_code: '',
+      reward_cycle_count: 0,
+      reward_credit_amount: null,
+      reward_credit_validity_days: null,
+      reward_cap_scope: '',
+      reward_cap_count: null,
+      reward_granted_count: 0,
+      reward_remaining_count: null,
+      reward_queue_summary: {},
+      reward_queue: [],
+      rules_copy_i18n_key: '',
+    });
+
+    const { container } = render(<AdminReferralPage />);
+
+    await waitFor(() =>
+      expect(api.getReferralInviteProfile).toHaveBeenCalledTimes(1),
+    );
+
+    expect(container).toBeEmptyDOMElement();
+    expect(screen.queryByText('creator.title')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('creator.inviteCardTitle'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('error')).not.toBeInTheDocument();
   });
 });

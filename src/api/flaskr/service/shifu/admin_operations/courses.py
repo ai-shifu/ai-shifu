@@ -16,6 +16,7 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.i18n import _
+from flaskr.util.datetime import now_utc
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -95,8 +96,8 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_TRIAL,
 )
 from flaskr.service.shifu.demo_courses import (
-    BUILTIN_DEMO_TITLES,
     is_builtin_demo_course,
+    load_builtin_demo_titles,
     load_demo_shifu_bids,
 )
 from flaskr.service.shifu.shifu_draft_funcs import (
@@ -133,7 +134,6 @@ from flaskr.service.user.repository import (
     set_user_state,
     upsert_credential,
 )
-from flaskr.util.timezone import serialize_with_app_timezone
 from flaskr.service.user.utils import (
     ensure_demo_course_permissions,
     load_existing_demo_shifu_ids,
@@ -367,18 +367,6 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
     return None
 
 
-def _format_operator_datetime(value: Any) -> str:
-    normalized_value = _coerce_operator_datetime(value)
-    if not normalized_value:
-        return ""
-    serialized_value = serialize_with_app_timezone(
-        current_app._get_current_object(),
-        normalized_value,
-        tz_name="UTC",
-    )
-    return str(serialized_value or "").replace("+00:00", "Z")
-
-
 def _format_average_score(value: Optional[Decimal]) -> str:
     if value is None:
         return ""
@@ -571,7 +559,7 @@ def _build_operator_course_credit_usage_item(
         usage_count=max(int(usage_count or 0), 1),
         model_variant_count=max(int(model_variant_count or 0), 0),
         consumed_credits=resolved_consumed_credits,
-        created_at=_format_operator_datetime(resolved_created_at),
+        created_at=resolved_created_at,
     )
 
 
@@ -934,7 +922,7 @@ def _build_operator_course_credit_usage_detail_item(
             if output_summary is not None
             else _resolve_course_credit_usage_output_summary(usage_row)
         ),
-        created_at=_format_operator_datetime(getattr(usage_row, "created_at", None)),
+        created_at=getattr(usage_row, "created_at", None),
     )
 
 
@@ -1423,7 +1411,7 @@ def _build_operator_visible_course_filter(
         not_(
             and_(
                 normalized_created_user_bid == "system",
-                normalized_title.in_(sorted(BUILTIN_DEMO_TITLES)),
+                normalized_title.in_(sorted(load_builtin_demo_titles())),
             )
         ),
     ]
@@ -1988,8 +1976,8 @@ def _build_course_summary(
         updater_mobile=updater.get("mobile", ""),
         updater_email=updater.get("email", ""),
         updater_nickname=updater.get("nickname", ""),
-        created_at=_format_operator_datetime(course.created_at),
-        updated_at=_format_operator_datetime(updated_at),
+        created_at=course.created_at,
+        updated_at=updated_at,
     )
 
 
@@ -2391,7 +2379,7 @@ def _update_course_creator_bid(
     published_values = {PublishedShifu.created_user_bid: creator_user_bid}
     normalized_updated_user_bid = str(updated_user_bid or "").strip()
     if normalized_updated_user_bid:
-        updated_at = datetime.now()
+        updated_at = now_utc()
         draft_values[DraftShifu.updated_user_bid] = normalized_updated_user_bid
         draft_values[DraftShifu.updated_at] = updated_at
         published_values[PublishedShifu.updated_user_bid] = normalized_updated_user_bid
@@ -2502,7 +2490,7 @@ def copy_operator_course(
             raise_error("server.shifu.copyCourseDemoNotAllowed")
 
         action_user_bid = normalized_operator_user_bid
-        now = datetime.now()
+        now = now_utc()
         new_shifu_bid = generate_id(app)
         resolved_new_course_name = _resolve_course_copy_title(
             source_draft.title,
@@ -2828,7 +2816,7 @@ def _build_chapter_tree(
             modifier_mobile=modifier.get("mobile", ""),
             modifier_email=modifier.get("email", ""),
             modifier_nickname=modifier.get("nickname", ""),
-            updated_at=_format_operator_datetime(item.updated_at),
+            updated_at=item.updated_at,
             children=[],
         )
         node_map[bid] = node
@@ -3211,6 +3199,75 @@ def _load_follow_up_groups_for_progress_record(
     return groups
 
 
+def _load_follow_up_groups_for_progress_records(
+    progress_record_bids: Sequence[str],
+) -> dict[str, list[dict[str, Any]]]:
+    normalized_progress_record_bids = sorted(
+        {
+            str(progress_record_bid or "").strip()
+            for progress_record_bid in progress_record_bids
+            if str(progress_record_bid or "").strip()
+        }
+    )
+    if not normalized_progress_record_bids:
+        return {}
+
+    blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.progress_record_bid.in_(
+                normalized_progress_record_bids
+            ),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+            or_(
+                and_(
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+                    LearnGeneratedBlock.role == ROLE_STUDENT,
+                ),
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDANSWER_VALUE,
+                and_(
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+                    LearnGeneratedBlock.role == ROLE_TEACHER,
+                ),
+            ),
+        )
+        .order_by(
+            LearnGeneratedBlock.progress_record_bid.asc(),
+            LearnGeneratedBlock.created_at.asc(),
+            LearnGeneratedBlock.id.asc(),
+        )
+        .all()
+    )
+    blocks_by_progress_record: dict[str, list[LearnGeneratedBlock]] = {}
+    for block in blocks:
+        progress_record_bid = str(
+            getattr(block, "progress_record_bid", "") or ""
+        ).strip()
+        if not progress_record_bid:
+            continue
+        blocks_by_progress_record.setdefault(progress_record_bid, []).append(block)
+
+    groups_by_progress_record: dict[str, list[dict[str, Any]]] = {}
+    for progress_record_bid, progress_blocks in blocks_by_progress_record.items():
+        groups: list[dict[str, Any]] = []
+        for index, block in enumerate(progress_blocks):
+            if (
+                int(block.type or 0) != BLOCK_TYPE_MDASK_VALUE
+                or int(block.role or 0) != ROLE_STUDENT
+            ):
+                continue
+            groups.append(
+                {
+                    "ask_block": block,
+                    "answer_block": _resolve_follow_up_answer_block(
+                        progress_blocks, index
+                    ),
+                }
+            )
+        groups_by_progress_record[progress_record_bid] = groups
+    return groups_by_progress_record
+
+
 def _resolve_follow_up_source_from_element(
     *,
     shifu_bid: str,
@@ -3409,6 +3466,74 @@ def _resolve_follow_up_source(
         "source_element_bid": "",
         "source_element_type": "",
     }
+
+
+def _build_follow_up_source_status_map(
+    *,
+    shifu_bid: str,
+    generated_block_bids: list[str],
+) -> dict[str, bool]:
+    normalized_generated_block_bids = sorted(
+        {
+            str(generated_block_bid or "").strip()
+            for generated_block_bid in generated_block_bids
+            if str(generated_block_bid or "").strip()
+        }
+    )
+    if not normalized_generated_block_bids:
+        return {}
+
+    ask_blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.shifu_bid == shifu_bid,
+            LearnGeneratedBlock.generated_block_bid.in_(
+                normalized_generated_block_bids
+            ),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+            LearnGeneratedBlock.role == ROLE_STUDENT,
+        )
+        .order_by(LearnGeneratedBlock.id.asc())
+        .all()
+    )
+    if not ask_blocks:
+        return {}
+
+    groups_cache = _load_follow_up_groups_for_progress_records(
+        [
+            str(getattr(ask_block, "progress_record_bid", "") or "")
+            for ask_block in ask_blocks
+        ]
+    )
+    answer_block_map: dict[str, LearnGeneratedBlock | None] = {}
+    for groups in groups_cache.values():
+        for group in groups:
+            group_ask_block = group.get("ask_block")
+            group_generated_block_bid = str(
+                getattr(group_ask_block, "generated_block_bid", "") or ""
+            ).strip()
+            if not group_generated_block_bid:
+                continue
+            answer_block_map[group_generated_block_bid] = group.get("answer_block")
+    source_status_map: dict[str, bool] = {}
+
+    for ask_block in ask_blocks:
+        generated_block_bid = str(
+            getattr(ask_block, "generated_block_bid", "") or ""
+        ).strip()
+        if not generated_block_bid:
+            continue
+
+        source_info = _resolve_follow_up_source(
+            ask_block=ask_block,
+            answer_block=answer_block_map.get(generated_block_bid),
+        )
+        source_status_map[generated_block_bid] = bool(
+            str(source_info.get("source_output_content", "") or "").strip()
+        )
+
+    return source_status_map
 
 
 def _load_course_related_user_bids(
@@ -3752,8 +3877,8 @@ def get_operator_course_detail(
                 creator_mobile=creator.get("mobile", ""),
                 creator_email=creator.get("email", ""),
                 creator_nickname=creator.get("nickname", ""),
-                created_at=_format_operator_datetime(course.created_at),
-                updated_at=_format_operator_datetime(course.updated_at),
+                created_at=course.created_at,
+                updated_at=course.updated_at,
             ),
             metrics=AdminOperationCourseDetailMetricsDTO(
                 visit_count_30d=int(visit_count_30d),
@@ -3945,9 +4070,9 @@ def get_operator_course_users(
                 learning_status=learning_status,
                 is_paid=is_paid,
                 total_paid_amount=_format_decimal(total_paid_amount),
-                last_learning_at=_format_operator_datetime(last_learning_at),
-                joined_at=_format_operator_datetime(joined_at),
-                last_login_at=_format_operator_datetime(last_login_at),
+                last_learning_at=last_learning_at,
+                joined_at=joined_at,
+                last_login_at=last_login_at,
             )
             items_with_sort_keys.append(
                 (
@@ -4264,9 +4389,7 @@ def get_operator_course_credit_usages(
                     consumed_credits=credit_decimal_to_number(
                         Decimal(str(getattr(row, "consumed_credits", 0) or 0))
                     ),
-                    created_at=_format_operator_datetime(
-                        getattr(row, "created_at", None)
-                    ),
+                    created_at=getattr(row, "created_at", None),
                 )
             )
 
@@ -4388,8 +4511,11 @@ def get_operator_course_follow_ups(
 
         keyword = str(filters.get("keyword", "") or "").strip()
         chapter_keyword = str(filters.get("chapter_keyword", "") or "").strip().lower()
+        source_status = str(filters.get("source_status", "") or "").strip().lower()
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
+        if source_status not in {"", "resolved", "missing"}:
+            raise_param_error("source_status")
         follow_up_base = _build_course_follow_up_base_subquery(normalized_shifu_bid)
         user_keyword_filter = _build_follow_up_user_keyword_filter(
             follow_up_base.c.user_bid,
@@ -4406,7 +4532,7 @@ def get_operator_course_follow_ups(
                     follow_up_count=0,
                     user_count=0,
                     lesson_count=0,
-                    latest_follow_up_at="",
+                    latest_follow_up_at=None,
                 ),
                 items=[],
                 page=safe_page_index,
@@ -4433,28 +4559,81 @@ def get_operator_course_follow_ups(
                 follow_up_base.c.created_at <= end_time
             )
 
-        filtered_follow_ups = filtered_query.subquery()
-        if include_summary:
-            summary_row = db.session.query(
-                db.func.count(filtered_follow_ups.c.id).label("follow_up_count"),
-                db.func.count(
-                    db.func.distinct(db.func.nullif(filtered_follow_ups.c.user_bid, ""))
-                ).label("user_count"),
-                db.func.count(
-                    db.func.distinct(
-                        db.func.nullif(filtered_follow_ups.c.outline_item_bid, "")
-                    )
-                ).label("lesson_count"),
-                db.func.max(filtered_follow_ups.c.created_at).label(
-                    "latest_follow_up_at"
-                ),
-            ).one()
-            total = int(getattr(summary_row, "follow_up_count", 0) or 0)
-        else:
-            summary_row = None
-            total = int(
-                db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar() or 0
+        summary_row = None
+        filtered_source_status_map: dict[str, bool] | None = None
+        if source_status:
+            filtered_rows = filtered_query.order_by(
+                follow_up_base.c.created_at.desc(),
+                follow_up_base.c.id.desc(),
+            ).all()
+            filtered_source_status_map = _build_follow_up_source_status_map(
+                shifu_bid=normalized_shifu_bid,
+                generated_block_bids=[
+                    str(getattr(row, "generated_block_bid", "") or "")
+                    for row in filtered_rows
+                ],
             )
+            filtered_rows = [
+                row
+                for row in filtered_rows
+                if filtered_source_status_map.get(
+                    str(getattr(row, "generated_block_bid", "") or "").strip(), False
+                )
+                == (source_status == "resolved")
+            ]
+            total = len(filtered_rows)
+            if include_summary:
+                unique_user_bids = {
+                    str(getattr(row, "user_bid", "") or "").strip()
+                    for row in filtered_rows
+                    if str(getattr(row, "user_bid", "") or "").strip()
+                }
+                unique_outline_item_bids = {
+                    str(getattr(row, "outline_item_bid", "") or "").strip()
+                    for row in filtered_rows
+                    if str(getattr(row, "outline_item_bid", "") or "").strip()
+                }
+                latest_follow_up_at = max(
+                    (
+                        getattr(row, "created_at", None)
+                        for row in filtered_rows
+                        if getattr(row, "created_at", None) is not None
+                    ),
+                    default=None,
+                )
+                summary = AdminOperationCourseFollowUpSummaryDTO(
+                    follow_up_count=total,
+                    user_count=len(unique_user_bids),
+                    lesson_count=len(unique_outline_item_bids),
+                    latest_follow_up_at=latest_follow_up_at,
+                )
+            else:
+                summary = AdminOperationCourseFollowUpSummaryDTO(follow_up_count=total)
+        else:
+            filtered_follow_ups = filtered_query.subquery()
+            if include_summary:
+                summary_row = db.session.query(
+                    db.func.count(filtered_follow_ups.c.id).label("follow_up_count"),
+                    db.func.count(
+                        db.func.distinct(
+                            db.func.nullif(filtered_follow_ups.c.user_bid, "")
+                        )
+                    ).label("user_count"),
+                    db.func.count(
+                        db.func.distinct(
+                            db.func.nullif(filtered_follow_ups.c.outline_item_bid, "")
+                        )
+                    ).label("lesson_count"),
+                    db.func.max(filtered_follow_ups.c.created_at).label(
+                        "latest_follow_up_at"
+                    ),
+                ).one()
+                total = int(getattr(summary_row, "follow_up_count", 0) or 0)
+            else:
+                total = int(
+                    db.session.query(db.func.count(filtered_follow_ups.c.id)).scalar()
+                    or 0
+                )
 
         if total == 0:
             return AdminOperationCourseFollowUpListDTO(
@@ -4467,16 +4646,19 @@ def get_operator_course_follow_ups(
             )
 
         start = (safe_page_index - 1) * safe_page_size
-        paged_rows = (
-            db.session.query(filtered_follow_ups)
-            .order_by(
-                filtered_follow_ups.c.created_at.desc(),
-                filtered_follow_ups.c.id.desc(),
+        if source_status:
+            paged_rows = filtered_rows[start : start + safe_page_size]
+        else:
+            paged_rows = (
+                db.session.query(filtered_follow_ups)
+                .order_by(
+                    filtered_follow_ups.c.created_at.desc(),
+                    filtered_follow_ups.c.id.desc(),
+                )
+                .offset(start)
+                .limit(safe_page_size)
+                .all()
             )
-            .offset(start)
-            .limit(safe_page_size)
-            .all()
-        )
         user_map = _load_user_map(
             sorted(
                 {
@@ -4486,6 +4668,16 @@ def get_operator_course_follow_ups(
                 }
             )
         )
+        if source_status and filtered_source_status_map is not None:
+            source_status_map = filtered_source_status_map
+        else:
+            source_status_map = _build_follow_up_source_status_map(
+                shifu_bid=normalized_shifu_bid,
+                generated_block_bids=[
+                    str(getattr(row, "generated_block_bid", "") or "")
+                    for row in paged_rows
+                ],
+            )
 
         items: list[AdminOperationCourseFollowUpItemDTO] = []
         for row in paged_rows:
@@ -4524,20 +4716,21 @@ def get_operator_course_follow_ups(
                     ),
                     lesson_title=str(context.get("lesson_title", "") or ""),
                     follow_up_content=str(getattr(row, "follow_up_content", "") or ""),
+                    has_source_output=bool(
+                        source_status_map.get(generated_block_bid, False)
+                    ),
                     turn_index=int(getattr(row, "turn_index", 0) or 0),
-                    created_at=_format_operator_datetime(created_at),
+                    created_at=created_at,
                 )
             )
-        if include_summary:
+        if not source_status and include_summary:
             summary = AdminOperationCourseFollowUpSummaryDTO(
                 follow_up_count=total,
                 user_count=int(getattr(summary_row, "user_count", 0) or 0),
                 lesson_count=int(getattr(summary_row, "lesson_count", 0) or 0),
-                latest_follow_up_at=_format_operator_datetime(
-                    getattr(summary_row, "latest_follow_up_at", None)
-                ),
+                latest_follow_up_at=getattr(summary_row, "latest_follow_up_at", None),
             )
-        else:
+        elif not source_status:
             summary = AdminOperationCourseFollowUpSummaryDTO(follow_up_count=total)
         return AdminOperationCourseFollowUpListDTO(
             summary=summary,
@@ -4752,7 +4945,7 @@ def get_operator_course_ratings(
                     mode=_resolve_course_rating_mode(
                         str(getattr(row, "mode", "") or "")
                     ),
-                    rated_at=_format_operator_datetime(getattr(row, "rated_at", None)),
+                    rated_at=getattr(row, "rated_at", None),
                 )
             )
 
@@ -4763,9 +4956,7 @@ def get_operator_course_ratings(
                 ),
                 rating_count=total,
                 user_count=int(getattr(summary_row, "user_count", 0) or 0),
-                latest_rated_at=_format_operator_datetime(
-                    getattr(summary_row, "latest_rated_at", None)
-                ),
+                latest_rated_at=getattr(summary_row, "latest_rated_at", None),
             )
         else:
             summary = AdminOperationCourseRatingSummaryDTO()
@@ -4849,9 +5040,7 @@ def get_operator_course_follow_up_detail(
                     content=str(
                         getattr(current_ask_block, "generated_content", "") or ""
                     ),
-                    created_at=_format_operator_datetime(
-                        getattr(current_ask_block, "created_at", None)
-                    ),
+                    created_at=getattr(current_ask_block, "created_at", None),
                     is_current=is_current,
                 )
             )
@@ -4862,9 +5051,7 @@ def get_operator_course_follow_up_detail(
                     AdminOperationCourseFollowUpTimelineItemDTO(
                         role="teacher",
                         content=answer_content,
-                        created_at=_format_operator_datetime(
-                            getattr(answer_block, "created_at", None)
-                        ),
+                        created_at=getattr(answer_block, "created_at", None),
                         is_current=is_current,
                     )
                 )
@@ -4886,9 +5073,7 @@ def get_operator_course_follow_up_detail(
                 shifu_bid=normalized_shifu_bid,
                 chapter_title=str(context.get("chapter_title", "") or ""),
                 lesson_title=str(context.get("lesson_title", "") or ""),
-                created_at=_format_operator_datetime(
-                    getattr(ask_block, "created_at", None)
-                ),
+                created_at=getattr(ask_block, "created_at", None),
                 turn_index=selected_group_index + 1,
             ),
             current_record=AdminOperationCourseFollowUpCurrentRecordDTO(
@@ -5083,7 +5268,7 @@ def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewD
     if candidate_query is None:
         return AdminOperationCourseOverviewDTO()
     candidate_subquery = candidate_query.subquery("operator_course_overview_candidates")
-    now = datetime.now()
+    now = now_utc()
     created_window_start, created_window_end = _resolve_created_last_7d_window(now)
     recent_activity_window_start = now - timedelta(days=30)
     aggregate_row = db.session.query(
@@ -5199,7 +5384,7 @@ def _build_operator_course_overview_legacy(
     if total_course_count == 0:
         return AdminOperationCourseOverviewDTO()
 
-    now = datetime.now()
+    now = now_utc()
     created_window_start, created_window_end = _resolve_created_last_7d_window(now)
     recent_activity_window_start = now - timedelta(days=30)
     visible_shifu_bids = [
@@ -5334,7 +5519,9 @@ def _list_operator_courses_legacy(
                 == COURSE_STATUS_PUBLISHED
             ]
         elif quick_filter == COURSE_QUICK_FILTER_CREATED_LAST_7D:
-            created_window_start, created_window_end = _resolve_created_last_7d_window()
+            created_window_start, created_window_end = _resolve_created_last_7d_window(
+                now_utc()
+            )
             merged_courses = [
                 course
                 for course in merged_courses
@@ -5349,12 +5536,12 @@ def _list_operator_courses_legacy(
             ]
             if quick_filter == COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D:
                 matched_shifu_bids = _load_recent_learning_active_course_bids(
-                    since=datetime.now() - timedelta(days=30),
+                    since=now_utc() - timedelta(days=30),
                     shifu_bids=visible_shifu_bids,
                 )
             else:
                 matched_shifu_bids = _load_recent_paid_order_course_bids(
-                    since=datetime.now() - timedelta(days=30),
+                    since=now_utc() - timedelta(days=30),
                     shifu_bids=visible_shifu_bids,
                 )
             merged_courses = [
@@ -5472,7 +5659,7 @@ def list_operator_courses(
                 )
             elif quick_filter == COURSE_QUICK_FILTER_CREATED_LAST_7D:
                 created_window_start, created_window_end = (
-                    _resolve_created_last_7d_window()
+                    _resolve_created_last_7d_window(now_utc())
                 )
                 query = query.filter(
                     candidate_subquery.c.created_at >= created_window_start,
@@ -5486,7 +5673,7 @@ def list_operator_courses(
                         LearnProgressRecord.deleted == 0,
                         LearnProgressRecord.status != LEARN_STATUS_RESET,
                         LearnProgressRecord.created_at
-                        >= datetime.now() - timedelta(days=30),
+                        >= now_utc() - timedelta(days=30),
                     )
                     query = query.filter(
                         candidate_subquery.c.shifu_bid.in_(active_course_query)
@@ -5495,7 +5682,7 @@ def list_operator_courses(
                     paid_course_query = db.session.query(Order.shifu_bid).filter(
                         Order.deleted == 0,
                         Order.status == ORDER_STATUS_SUCCESS,
-                        Order.created_at >= datetime.now() - timedelta(days=30),
+                        Order.created_at >= now_utc() - timedelta(days=30),
                     )
                     query = query.filter(
                         candidate_subquery.c.shifu_bid.in_(paid_course_query)

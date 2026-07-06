@@ -20,6 +20,7 @@ import { ContactSideRail } from '@/components/contact/ContactSideRail';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import { resolveOfficialSiteUrl } from '@/config/environment';
 import {
   normalizeReferralInviteCode,
   saveReferralContext,
@@ -68,8 +69,7 @@ export function ReferralInviteLanding({
   const officialSiteUrlValue = useEnvStore(
     (state: EnvStoreState) => state.officialSiteUrl,
   );
-  const officialSiteUrl =
-    typeof officialSiteUrlValue === 'string' ? officialSiteUrlValue.trim() : '';
+  const officialSiteUrl = resolveOfficialSiteUrl(officialSiteUrlValue);
   const normalizedInitialCode = useMemo(
     () => normalizeReferralInviteCode(initialInviteCode),
     [initialInviteCode],

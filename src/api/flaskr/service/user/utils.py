@@ -26,6 +26,7 @@ from flaskr.service.common.phone_numbers import (
 )
 from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
 from flaskr.service.user.token_store import token_store
+from flaskr.util.datetime import now_utc
 from flaskr.util import generate_id
 
 
@@ -93,6 +94,7 @@ def mark_creator_role_if_needed(user_id: str) -> bool:
         return False
 
     mark_user_roles(normalized_user_id, is_creator=True)
+    entity.creator_activated_at = now_utc()
     return True
 
 
