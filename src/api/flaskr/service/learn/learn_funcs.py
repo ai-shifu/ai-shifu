@@ -105,7 +105,6 @@ from flaskr.service.tts.models import (
     TTSMiniMaxClonedVoice,
     TTS_MINIMAX_CLONE_STATUS_READY,
 )
-from flaskr.service.tts.minimax_voice_clone import is_valid_minimax_custom_voice_id
 from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
@@ -739,10 +738,9 @@ def _resolve_runtime_tts_voice_id(
     MiniMax accepts user-defined clone IDs that share the same character shape as
     historical built-in voices. A stale DB value can therefore pass local shape
     validation and fail only after the external API call with `2054 - voice id not
-    exist`. For learner-facing audio generation, keep valid manual custom voice
-    IDs so preview/runtime behavior matches publish, while still falling back
-    when this shifu explicitly points at a local cloned voice row that is not
-    ready yet.
+    exist`. For learner-facing audio generation, keep built-in voices and clone
+    IDs that are verified by a ready local row, while falling back when this
+    shifu explicitly points at a local cloned voice row that is not ready yet.
     """
     normalized_provider = (provider or "").strip().lower()
     normalized_voice_id = (voice_id or "").strip()
@@ -779,10 +777,18 @@ def _resolve_runtime_tts_voice_id(
             normalized_voice_id,
             normalized_shifu_bid,
         )
-    elif is_valid_minimax_custom_voice_id(normalized_voice_id):
-        # Manual custom voice IDs are allowed for MiniMax even when we do not
-        # have a local cloned-voice row for this shifu.
-        return normalized_voice_id
+    else:
+        ready_clone = (
+            TTSMiniMaxClonedVoice.query.filter(
+                TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+                TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
+                TTSMiniMaxClonedVoice.deleted == 0,
+            )
+            .order_by(TTSMiniMaxClonedVoice.id.desc())
+            .first()
+        )
+        if ready_clone:
+            return normalized_voice_id
 
     default_voice_settings = get_default_voice_settings(normalized_provider)
     fallback_voice_id = (getattr(default_voice_settings, "voice_id", "") or "").strip()
