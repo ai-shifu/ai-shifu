@@ -36,15 +36,21 @@ class _FakeAudioSettings:
     sample_rate: int = 24000
 
 
-def _patch_run_tts_processor(monkeypatch):
+def _patch_run_tts_processor(
+    monkeypatch,
+    *,
+    voice_settings: _FakeVoiceSettings | None = None,
+    tts_model: str = "test-model",
+):
     synthesized_texts = []
+    resolved_voice_settings = voice_settings or _FakeVoiceSettings()
 
     monkeypatch.setattr(
         "flaskr.service.learn.learn_funcs._resolve_shifu_tts_settings",
         lambda *_args, **_kwargs: (
             "minimax",
-            "test-model",
-            _FakeVoiceSettings(),
+            tts_model,
+            resolved_voice_settings,
             _FakeAudioSettings(),
         ),
     )
@@ -225,6 +231,113 @@ class TestGeneratedBlockListenTtsElementFirst:
             )
             assert [record.position for record in records] == [0]
             assert records[0].subtitle_cues[0]["text"] == ("Manual audio backfill.")
+
+    def test_stream_generated_block_audio_non_listen_ignores_cache_with_stale_voice(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+        from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED
+
+        user_bid = "user-stale-voice-cache-1"
+        shifu_bid = "shifu-stale-voice-cache-1"
+        generated_block_bid = "gen-stale-voice-cache-1"
+        generated_content = "Manual voice cache should refresh."
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-stale-voice-cache-1",
+                    user_bid=user_bid,
+                    block_bid="block-stale-voice-cache-1",
+                    outline_item_bid="outline-stale-voice-cache-1",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content=generated_content,
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.add(
+                self.LearnGeneratedAudio(
+                    audio_bid="audio-stale-voice-cache-1",
+                    generated_block_bid=generated_block_bid,
+                    position=0,
+                    progress_record_bid="progress-stale-voice-cache-1",
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    oss_url="https://example.com/stale-voice-cache.mp3",
+                    oss_bucket="test-bucket",
+                    oss_object_key="tts-audio/stale-voice-cache.mp3",
+                    duration_ms=1000,
+                    file_size=10,
+                    audio_format="mp3",
+                    sample_rate=24000,
+                    voice_id="old-voice",
+                    voice_settings={"speed": 1.0, "pitch": 0, "emotion": ""},
+                    model="test-model",
+                    text_length=len(generated_content),
+                    segment_count=1,
+                    subtitle_cues=[
+                        {
+                            "text": generated_content,
+                            "start_ms": 0,
+                            "end_ms": 1000,
+                            "segment_index": 0,
+                            "position": 0,
+                        }
+                    ],
+                    status=AUDIO_STATUS_COMPLETED,
+                    deleted=0,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(
+            monkeypatch,
+            voice_settings=_FakeVoiceSettings(voice_id="new-voice"),
+        )
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=True,
+                listen=False,
+            )
+        )
+
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+        assert synthesized_texts == [generated_content]
+        assert audio_complete_events[-1].content.audio_url != (
+            "https://example.com/stale-voice-cache.mp3"
+        )
+
+        with self.app.app_context():
+            newest_record = (
+                self.LearnGeneratedAudio.query.filter(
+                    self.LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                    self.LearnGeneratedAudio.user_bid == user_bid,
+                    self.LearnGeneratedAudio.shifu_bid == shifu_bid,
+                    self.LearnGeneratedAudio.deleted == 0,
+                )
+                .order_by(self.LearnGeneratedAudio.id.desc())
+                .first()
+            )
+            assert newest_record.voice_id == "new-voice"
 
     def test_stream_generated_block_audio_non_listen_ignores_segmented_listen_cache(
         self, monkeypatch
@@ -1097,6 +1210,128 @@ class TestGeneratedBlockListenTtsElementFirst:
             )
             assert [r.position for r in records] == [0, 1]
             assert records[0].audio_bid == "audio-cache-0"
+
+    def test_stream_generated_block_audio_listen_ignores_cache_with_stale_voice(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+        from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED
+
+        user_bid = "user-listen-stale-voice-1"
+        shifu_bid = "shifu-listen-stale-voice-1"
+        generated_block_bid = "gen-listen-stale-voice-1"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            db.session.add(
+                self.LearnGeneratedBlock(
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid="progress-listen-stale-voice-1",
+                    user_bid=user_bid,
+                    block_bid="block-listen-stale-voice-1",
+                    outline_item_bid="outline-listen-stale-voice-1",
+                    shifu_bid=shifu_bid,
+                    type=1,
+                    role=1,
+                    generated_content="First.",
+                    position=0,
+                    block_content_conf="",
+                    status=1,
+                )
+            )
+            db.session.add(
+                self.LearnGeneratedElement(
+                    element_bid="el-listen-stale-voice-1",
+                    progress_record_bid="progress-listen-stale-voice-1",
+                    user_bid=user_bid,
+                    generated_block_bid=generated_block_bid,
+                    outline_item_bid="outline-listen-stale-voice-1",
+                    shifu_bid=shifu_bid,
+                    run_session_bid="run-listen-stale-voice-1",
+                    run_event_seq=1,
+                    event_type="element",
+                    role="teacher",
+                    element_index=0,
+                    element_type="text",
+                    change_type="render",
+                    is_renderable=0,
+                    is_new=1,
+                    is_marker=0,
+                    sequence_number=1,
+                    is_speakable=1,
+                    is_navigable=1,
+                    is_final=1,
+                    content_text="First.",
+                    payload="",
+                    status=1,
+                    deleted=0,
+                )
+            )
+            db.session.add(
+                self.LearnGeneratedAudio(
+                    audio_bid="audio-listen-stale-voice-0",
+                    generated_block_bid=generated_block_bid,
+                    position=0,
+                    progress_record_bid="progress-listen-stale-voice-1",
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    oss_url="https://example.com/listen-stale-voice.mp3",
+                    oss_bucket="test-bucket",
+                    oss_object_key="tts-audio/listen-stale-voice.mp3",
+                    duration_ms=1000,
+                    file_size=10,
+                    audio_format="mp3",
+                    sample_rate=24000,
+                    voice_id="old-voice",
+                    voice_settings={"speed": 1.0, "pitch": 0, "emotion": ""},
+                    model="test-model",
+                    text_length=len("First."),
+                    segment_count=1,
+                    subtitle_cues=[
+                        {
+                            "text": "First.",
+                            "start_ms": 0,
+                            "end_ms": 1000,
+                            "segment_index": 0,
+                            "position": 0,
+                        }
+                    ],
+                    status=AUDIO_STATUS_COMPLETED,
+                    deleted=0,
+                )
+            )
+            db.session.commit()
+
+        synthesized_texts = _patch_run_tts_processor(
+            monkeypatch,
+            voice_settings=_FakeVoiceSettings(voice_id="new-voice"),
+        )
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=True,
+                listen=True,
+            )
+        )
+
+        audio_complete_events = [
+            event for event in events if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+        assert synthesized_texts == ["First."]
+        assert audio_complete_events[0].content.audio_url != (
+            "https://example.com/listen-stale-voice.mp3"
+        )
+        assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_listen_ignores_cache_with_mismatched_subtitles(
         self, monkeypatch
