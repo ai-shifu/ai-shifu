@@ -16,6 +16,11 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
+
 jest.mock('@/hooks/useBillingData', () => ({
   __esModule: true,
   useBillingOverview: jest.fn(),
