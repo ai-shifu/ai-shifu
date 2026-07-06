@@ -81,6 +81,7 @@ from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.api.tts import (
     get_default_audio_settings,
     get_default_voice_settings,
+    get_tts_provider,
     is_tts_configured,
     synthesize_text,
 )
@@ -98,7 +99,12 @@ from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
 )
-from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
+from flaskr.service.tts.models import (
+    AUDIO_STATUS_COMPLETED,
+    LearnGeneratedAudio,
+    TTSMiniMaxClonedVoice,
+    TTS_MINIMAX_CLONE_STATUS_READY,
+)
 from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
@@ -724,6 +730,62 @@ def get_generated_content(
         )
 
 
+def _resolve_runtime_tts_voice_id(
+    app: Flask, provider: str, voice_id: str, *, shifu_bid: str
+) -> str:
+    """Return a voice id that is safe to send to the provider at runtime.
+
+    MiniMax accepts user-defined clone IDs that share the same character shape as
+    historical built-in voices. A stale DB value can therefore pass local shape
+    validation and fail only after the external API call with `2054 - voice id not
+    exist`. For learner-facing audio generation, fall back to the provider's
+    default voice when the MiniMax voice is neither a current built-in voice nor a
+    ready cloned voice tracked by our system.
+    """
+    normalized_provider = (provider or "").strip().lower()
+    normalized_voice_id = (voice_id or "").strip()
+    if normalized_provider != "minimax" or not normalized_voice_id:
+        return normalized_voice_id
+
+    provider_config = get_tts_provider(normalized_provider).get_provider_config()
+    built_in_voice_ids = {
+        (voice.get("value") or "").strip()
+        for voice in (provider_config.voices or [])
+        if (voice.get("value") or "").strip()
+    }
+    if normalized_voice_id in built_in_voice_ids:
+        return normalized_voice_id
+
+    # Only accept a cloned voice that belongs to THIS shifu and is ready.
+    # Scoping by shifu_bid keeps a stale/misconfigured voice id from resolving to
+    # another shifu's clone, and filtering status in the query prevents a newer
+    # non-ready duplicate from hiding an older ready row.
+    normalized_shifu_bid = (shifu_bid or "").strip()
+    cloned_voice = (
+        TTSMiniMaxClonedVoice.query.filter(
+            TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+            TTSMiniMaxClonedVoice.shifu_bid == normalized_shifu_bid,
+            TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
+            TTSMiniMaxClonedVoice.deleted == 0,
+        )
+        .order_by(TTSMiniMaxClonedVoice.id.desc())
+        .first()
+    )
+    if cloned_voice:
+        return normalized_voice_id
+
+    default_voice_settings = get_default_voice_settings(normalized_provider)
+    fallback_voice_id = (getattr(default_voice_settings, "voice_id", "") or "").strip()
+    if not fallback_voice_id and built_in_voice_ids:
+        fallback_voice_id = sorted(built_in_voice_ids)[0]
+    app.logger.warning(
+        "MiniMax TTS voice_id %s is not a current built-in voice or ready cloned voice; falling back to %s",
+        normalized_voice_id,
+        fallback_voice_id,
+    )
+    return fallback_voice_id or normalized_voice_id
+
+
 def _resolve_shifu_tts_settings(
     app: Flask,
     *,
@@ -761,8 +823,15 @@ def _resolve_shifu_tts_settings(
         emotion=emotion,
     )
 
+    runtime_voice_id = _resolve_runtime_tts_voice_id(
+        app,
+        validated.provider,
+        validated.voice_id,
+        shifu_bid=shifu_bid,
+    )
+
     voice_settings = get_default_voice_settings(validated.provider)
-    voice_settings.voice_id = validated.voice_id
+    voice_settings.voice_id = runtime_voice_id
     voice_settings.speed = validated.speed
     voice_settings.pitch = validated.pitch
     voice_settings.emotion = validated.emotion
@@ -1469,10 +1538,17 @@ def stream_generated_block_audio(
                 # from the raw block text instead of failing.
                 cleaned_fallback_text = preprocess_for_tts(raw_text)
                 if not cleaned_fallback_text or len(cleaned_fallback_text.strip()) < 2:
-                    raise_error_with_args(
-                        "server.common.paramsError",
-                        param_message="No speakable text elements available for TTS synthesis",
+                    app.logger.info(
+                        "skip listen-mode TTS for non-speakable generated block | shifu_bid=%s | generated_block_bid=%s | user_bid=%s",
+                        shifu_bid,
+                        generated_block_bid,
+                        user_bid,
                     )
+                    yield _build_tts_done_message(
+                        outline_bid=generated_block.outline_item_bid or "",
+                        generated_block_bid=generated_block_bid,
+                    )
+                    return
 
                 def _generate_legacy_audio():
                     yield from _yield_run_tts_audio_events(

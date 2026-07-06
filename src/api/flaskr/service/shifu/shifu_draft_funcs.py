@@ -490,20 +490,13 @@ def save_shifu_draft_info(
                     else 1.0
                 )
             )
-            merged_pitch = (
-                tts_pitch
-                if tts_pitch is not None
-                else (
-                    int(shifu_draft.tts_pitch)
-                    if shifu_draft and shifu_draft.tts_pitch is not None
-                    else 0
-                )
-            )
-            merged_emotion = (
-                tts_emotion
-                if tts_emotion is not None
-                else (shifu_draft.tts_emotion if shifu_draft else "")
-            )
+            merged_pitch = 0
+            merged_emotion = ""
+            # Legacy pitch/emotion are always normalized to their defaults when
+            # TTS is enabled, so force them to persist even when the caller
+            # omitted them; otherwise stale legacy rows never converge to 0/"".
+            tts_pitch_provided = True
+            tts_emotion_provided = True
             validated = validate_tts_settings_strict(
                 provider=merged_provider,
                 model=merged_model,

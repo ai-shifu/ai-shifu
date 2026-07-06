@@ -13,6 +13,7 @@ describe('normalizeModelOptions', () => {
           model: 'ark/doubao-seed-2-0-lite-260428',
           display_name: 'Doubao-Seed-2.0-lite',
           creditMultiplier: 2.2,
+          creditMultiplierLabel: '3x',
         },
         {
           model: 'qwen/no-rate-model',
@@ -25,16 +26,19 @@ describe('normalizeModelOptions', () => {
         value: 'qwen/deepseek-v4-flash',
         label: 'DeepSeek-V4-Flash',
         creditMultiplier: 1,
+        creditMultiplierLabel: '',
       },
       {
         value: 'ark/doubao-seed-2-0-lite-260428',
         label: 'Doubao-Seed-2.0-lite',
         creditMultiplier: 3,
+        creditMultiplierLabel: '3x',
       },
       {
         value: 'qwen/no-rate-model',
         label: 'No Rate',
         creditMultiplier: null,
+        creditMultiplierLabel: '',
       },
     ]);
   });
