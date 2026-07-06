@@ -436,10 +436,19 @@ export default function ChatLayout({
       return;
     }
 
+    if (
+      !urlModeParam &&
+      !hasListenModeOverride &&
+      storedLearningMode === null
+    ) {
+      return;
+    }
+
     // Keep the course-scoped preference synced after auto resolution or manual toggles.
     writeLearningModeToStorage(storageCourseId, learningMode);
   }, [
     canUseClassroomModeForCourse,
+    hasListenModeOverride,
     learningMode,
     storageCourseId,
     urlModeParam,

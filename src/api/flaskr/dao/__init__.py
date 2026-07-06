@@ -2,14 +2,96 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from redis import Redis
 from sqlalchemy import event
+from sqlalchemy.exc import OperationalError
+import functools
+import random
 import sqlparse
 import logging
+import time
 import traceback
 import os
+
+logger = logging.getLogger(__name__)
 
 # create a global db object
 db = None
 redis_client = None
+
+# MySQL error codes that indicate a transient locking conflict; the current
+# transaction is already rolled back by the server, so re-running it is the
+# documented remedy.
+MYSQL_DEADLOCK_ERRNO = 1213
+MYSQL_LOCK_WAIT_TIMEOUT_ERRNO = 1205
+
+
+def _operational_errno(exc: OperationalError):
+    orig = getattr(exc, "orig", None)
+    args = getattr(orig, "args", None)
+    return args[0] if args else None
+
+
+def _is_retryable_operational_error(exc: OperationalError) -> bool:
+    return _operational_errno(exc) in (
+        MYSQL_DEADLOCK_ERRNO,
+        MYSQL_LOCK_WAIT_TIMEOUT_ERRNO,
+    )
+
+
+def _rollback_quietly() -> None:
+    """
+    Roll back the current session after a failed transaction. An OperationalError
+    leaves the session in a broken state, so this must run on every catch -
+    including non-retryable errors and the final attempt - otherwise later
+    operations in the same context raise InvalidRequestError. Best-effort: a
+    rollback failure is logged rather than masking the original error.
+    """
+    if db is None:
+        return
+    try:
+        db.session.rollback()
+    except Exception as rollback_exc:  # noqa: BLE001 - best-effort cleanup
+        logger.warning("retry_on_deadlock rollback failed: %s", rollback_exc)
+
+
+def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
+    """
+    Retry a transactional function when MySQL reports a deadlock (1213) or a
+    lock wait timeout (1205). The failed transaction is rolled back on every
+    caught error so the session is left clean; retryable errors are retried with
+    exponential backoff plus jitter, while non-retryable errors and the final
+    attempt propagate unchanged.
+    """
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            attempt = 0
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except OperationalError as exc:
+                    attempt += 1
+                    _rollback_quietly()
+                    if attempt >= max_attempts or not _is_retryable_operational_error(
+                        exc
+                    ):
+                        raise
+                    logger.warning(
+                        "retry_on_deadlock: retrying %s after MySQL errno %s "
+                        "(attempt %d/%d)",
+                        getattr(func, "__qualname__", func),
+                        _operational_errno(exc),
+                        attempt,
+                        max_attempts,
+                    )
+                    # Exponential backoff with jitter to avoid re-colliding with
+                    # the peer transaction under sustained lock contention.
+                    delay = backoff_seconds * (2 ** (attempt - 1))
+                    time.sleep(delay + random.uniform(0, backoff_seconds))
+
+        return wrapper
+
+    return decorator
 
 
 def init_db(app: Flask):
@@ -21,7 +103,10 @@ def init_db(app: Flask):
     # the standalone SQLALCHEMY_POOL_SIZE/TIMEOUT/RECYCLE/MAX_OVERFLOW keys are ignored.
     # QueuePool-only keys are skipped for SQLite (SingletonThreadPool / StaticPool
     # reject max_overflow / pool_timeout).
-    existing_options = dict(app.config.get("SQLALCHEMY_ENGINE_OPTIONS") or {})
+    _raw_engine_opts = app.config.get("SQLALCHEMY_ENGINE_OPTIONS")
+    existing_options = (
+        dict(_raw_engine_opts) if isinstance(_raw_engine_opts, dict) else {}
+    )
     db_uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
     is_sqlite = str(db_uri).startswith("sqlite")
 
@@ -50,6 +135,17 @@ def init_db(app: Flask):
     # pool_pre_ping is default-on; callers can opt out by pre-setting
     # SQLALCHEMY_ENGINE_OPTIONS["pool_pre_ping"] = False.
     existing_options.setdefault("pool_pre_ping", True)
+
+    # Force every MySQL connection to use the UTC session time zone so that
+    # DB-side time evaluation (func.now()/CURRENT_TIMESTAMP/NOW()) stores UTC,
+    # matching the UTC application process. Without this the session inherits
+    # the server time zone (e.g. +08:00) and func.now() defaults would persist
+    # local wall-clock values. SQLite (tests) has no session time zone.
+    if not is_sqlite:
+        connect_args = dict(existing_options.get("connect_args") or {})
+        connect_args.setdefault("init_command", "SET time_zone = '+00:00'")
+        existing_options["connect_args"] = connect_args
+
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = existing_options
 
     if db is None:

@@ -1,6 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/lib/admin-date-time';
 
 import OrdersPage from './page';
 
@@ -82,6 +86,24 @@ jest.mock('@/components/ErrorDisplay', () => ({
 jest.mock('@/components/loading', () => ({
   __esModule: true,
   default: () => <div data-testid='loading-indicator' />,
+}));
+jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
+  __esModule: true,
+  default: ({
+    placeholder,
+    onChange,
+  }: {
+    placeholder: string;
+    onChange: (range: { start: string; end: string }) => void;
+  }) => (
+    <button
+      type='button'
+      data-testid={`date-range-${placeholder}`}
+      onClick={() => onChange({ start: '2026-07-02', end: '2026-07-02' })}
+    >
+      {placeholder}
+    </button>
+  ),
 }));
 
 const mockGetAdminOrders = api.getAdminOrders as jest.Mock;
@@ -190,6 +212,40 @@ describe('OrdersPage', () => {
           page_size: 20,
           shifu_bid: '',
           status: '502',
+        }),
+      );
+    });
+  });
+
+  test('converts date filters to UTC bounds when searching orders', async () => {
+    render(<OrdersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOrders).toHaveBeenCalled();
+    });
+
+    mockGetAdminOrders.mockClear();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.expand',
+      }),
+    );
+    fireEvent.click(
+      screen.getByTestId(
+        'date-range-module.order.filters.dateRangePlaceholder',
+      ),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.order.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOrders).toHaveBeenCalledWith(
+        expect.objectContaining({
+          start_time: formatAdminDateRangeStartUtc('2026-07-02'),
+          end_time: formatAdminDateRangeEndUtc('2026-07-02'),
         }),
       );
     });

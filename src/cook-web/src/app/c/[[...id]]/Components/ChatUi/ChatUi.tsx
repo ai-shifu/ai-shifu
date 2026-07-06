@@ -24,6 +24,7 @@ interface ChatUiProps {
   onPurchased: () => void;
   lessonTitle?: string;
   lessonStatus?: string;
+  lessonHasContentUpdate?: boolean;
   showUserSettings?: boolean;
   userSettingBasicInfo?: boolean;
   onUserSettingsClose?: () => void;
@@ -47,6 +48,7 @@ export const ChatUi = ({
   onPurchased,
   lessonTitle = '',
   lessonStatus = '',
+  lessonHasContentUpdate = false,
   showUserSettings = true,
   userSettingBasicInfo = false,
   onUserSettingsClose = () => {},
@@ -147,6 +149,7 @@ export const ChatUi = ({
           onGoChapter={onGoChapter}
           lessonTitle={lessonTitle}
           lessonStatus={lessonStatus}
+          lessonHasContentUpdate={lessonHasContentUpdate}
           className={cn(
             styles.chatComponents,
             showUserSettings ? styles.chatComponentsHidden : '',

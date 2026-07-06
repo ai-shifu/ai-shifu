@@ -45,7 +45,17 @@ def get_request_trace_id() -> str:
 
 
 def resolve_langfuse_trace_id(observation: Any, trace_id: str | None = None) -> str:
-    return trace_id or getattr(observation, "trace_id", "") or get_request_trace_id()
+    # Only accept real string trace ids. When Langfuse is disabled the client is
+    # a MockClient whose __getattr__ returns a method object for any attribute
+    # (including ``trace_id``); using that object as the trace id later breaks the
+    # bill_usage insert ("Data too long for column 'trace_id'"), which rolls back
+    # the whole request transaction and silently drops user profile writes.
+    if isinstance(trace_id, str) and trace_id:
+        return trace_id
+    observation_trace_id = getattr(observation, "trace_id", "")
+    if isinstance(observation_trace_id, str) and observation_trace_id:
+        return observation_trace_id
+    return get_request_trace_id()
 
 
 def build_langfuse_observation_link(

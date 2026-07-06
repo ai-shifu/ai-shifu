@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Integer, TIMESTAMP
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 from ...dao import db
 
 
@@ -18,10 +18,10 @@ class Resource(db.Model):
     created_by = Column(String(36), nullable=False, comment="Created by")
     updated_by = Column(String(36), nullable=False, comment="Updated by")
     created_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"
     )
     updated_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Update time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Update time"
     )
 
 
@@ -36,8 +36,8 @@ class ResourceUsage(db.Model):
     created_by = Column(String(36), nullable=False, comment="Created by")
     updated_by = Column(String(36), nullable=False, comment="Updated by")
     created_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"
     )
     updated_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Update time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Update time"
     )

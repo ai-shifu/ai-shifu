@@ -13,6 +13,8 @@ from urllib.parse import urlsplit, urlunsplit
 
 from flask import Flask, has_app_context, has_request_context, request
 from sqlalchemy import func
+
+from flaskr.util.datetime import now_utc, to_utc_iso
 from sqlalchemy.exc import IntegrityError
 
 from flaskr.common.config import get_config as get_common_config
@@ -154,7 +156,7 @@ def _campaign_runtime_enabled(campaign: ReferralCampaign, *, now: datetime) -> b
 
 
 def load_active_campaign(*, now: datetime | None = None) -> ReferralCampaign | None:
-    resolved_now = now or datetime.now()
+    resolved_now = now or now_utc()
     candidates = (
         ReferralCampaign.query.filter(
             ReferralCampaign.deleted == 0,
@@ -192,7 +194,7 @@ def load_campaign_by_bid(
     )
     if campaign is None:
         return None
-    if not _campaign_runtime_enabled(campaign, now=now or datetime.now()):
+    if not _campaign_runtime_enabled(campaign, now=now or now_utc()):
         return None
     return campaign
 
@@ -203,7 +205,7 @@ def select_reward_rule(
     trigger_event: str = REFERRAL_TRIGGER_INVITED_REGISTRATION,
     now: datetime | None = None,
 ) -> ReferralCampaignRewardRule | None:
-    resolved_now = now or datetime.now()
+    resolved_now = now or now_utc()
     candidates = (
         ReferralCampaignRewardRule.query.filter(
             ReferralCampaignRewardRule.deleted == 0,
@@ -264,7 +266,7 @@ def _create_invite_code_with_retry(
             inviter_user_bid=inviter_user_bid,
             invite_code=_generate_invite_code(),
             status=REFERRAL_INVITE_CODE_STATUS_ACTIVE,
-            generated_at=datetime.now(),
+            generated_at=now_utc(),
         )
         db.session.add(invite_code)
         try:
@@ -673,7 +675,7 @@ def _mark_reward_grant_failed(
     reward.billing_artifacts = {
         **artifacts,
         "grant_error": str(error)[:500],
-        "last_failed_at": datetime.now().isoformat(),
+        "last_failed_at": to_utc_iso(now_utc()),
     }
     db.session.add(reward)
     db.session.commit()
@@ -791,7 +793,7 @@ def process_referral_post_auth(
                 reward_bid=existing_reward.reward_bid if existing_reward else "",
             )
 
-        now = datetime.now()
+        now = now_utc()
         relation = ReferralInviteRelation(
             relation_bid=generate_id(app),
             campaign_bid=campaign.campaign_bid,

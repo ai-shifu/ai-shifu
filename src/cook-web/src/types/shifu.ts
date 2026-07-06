@@ -14,6 +14,7 @@ export interface ModelOption {
   value: string;
   label: string;
   creditMultiplier?: number | null;
+  creditMultiplierLabel?: string;
 }
 
 export interface Shifu {
@@ -111,7 +112,6 @@ export interface DraftMeta {
 export interface MdflowHistoryItem {
   version_id: number;
   updated_at?: string | null;
-  updated_at_display?: string | null;
   updated_user_bid?: string;
   updated_user_name?: string;
 }
@@ -124,7 +124,6 @@ export interface MdflowHistoryVersionDetail {
   version_id: number;
   content: string;
   updated_at?: string | null;
-  updated_at_display?: string | null;
   updated_user_bid?: string;
   updated_user_name?: string;
 }

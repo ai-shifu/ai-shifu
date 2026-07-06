@@ -8,7 +8,7 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 from ...dao import db
 
 from flaskr.service.order.consts import LEARN_STATUS_LOCKED
@@ -76,15 +76,15 @@ class LearnProgressRecord(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Creation time",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
+        default=now_utc,
         comment="Update time",
-        onupdate=func.now(),
+        onupdate=now_utc,
     )
 
 
@@ -171,13 +171,13 @@ class LearnGeneratedBlock(db.Model):
         comment="Status of the record: 1=active, 0=history",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=now_utc, comment="Creation time"
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
+        default=now_utc,
+        onupdate=now_utc,
         comment="Update time",
     )
 
@@ -381,16 +381,14 @@ class LearnGeneratedElement(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
-        server_default=func.now(),
+        default=now_utc,
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
-        server_default=func.now(),
-        onupdate=func.now(),
+        default=now_utc,
+        onupdate=now_utc,
         comment="Last update timestamp",
     )
 
@@ -482,15 +480,13 @@ class LearnLessonFeedback(db.Model):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
-        server_default=func.now(),
+        default=now_utc,
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
-        server_default=func.now(),
-        onupdate=func.now(),
+        default=now_utc,
+        onupdate=now_utc,
         comment="Last update timestamp",
     )

@@ -68,6 +68,7 @@ jest.mock('markdown-flow-ui/slide', () => {
   return {
     Slide: jest.fn(
       (props: {
+        playerClassName?: string;
         playerCustomActions?:
           | React.ReactNode
           | ((context: typeof slideCustomActionContext) => React.ReactNode);
@@ -84,6 +85,9 @@ jest.mock('markdown-flow-ui/slide', () => {
     ),
   };
 });
+
+const getClassTokens = (className?: string) =>
+  (className ?? '').split(/\s+/).filter(Boolean);
 
 jest.mock('./useChatLogicHook', () => ({
   ChatContentItemType: {
@@ -219,6 +223,32 @@ describe('ListenModeSlideRenderer', () => {
         position: 0,
       }),
     ]);
+  });
+
+  it('passes a stable listen player class for footer-safe positioning', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { playerClassName?: string }
+      | undefined;
+
+    const playerClassTokens = getClassTokens(slideProps?.playerClassName);
+
+    expect(playerClassTokens).toContain('listen-slide-player');
+    expect(playerClassTokens).not.toContain('classroom-slide-player');
   });
 
   it('passes selected interaction user input to the slide during playback', () => {
@@ -485,14 +515,15 @@ describe('ListenModeSlideRenderer', () => {
     expect(slideProps?.playerCustomActions).toBeNull();
     expect(slideProps?.disableLoadingOverlay).toBe(true);
     expect(slideProps?.showPlayer).toBe(true);
-    expect(slideProps?.playerClassName ?? '').toContain(
-      'classroom-slide-player',
-    );
+    const playerClassTokens = getClassTokens(slideProps?.playerClassName);
+
+    expect(playerClassTokens).toContain('classroom-slide-player');
+    expect(playerClassTokens).not.toContain('listen-slide-player');
     expect(slideProps?.className ?? '').toContain('listen-slide-root');
     expect(slideProps?.className ?? '').not.toContain('classroom-slide-root');
     expect(
       screen.getByTestId('mock-slide').closest('.listen-reveal-wrapper'),
-    ).not.toHaveClass('listen-reveal-wrapper--classroom');
+    ).toHaveClass('listen-reveal-wrapper--classroom');
     expect(
       screen.queryByRole('button', {
         name: 'module.chat.listenPlaybackSpeedAriaLabel',

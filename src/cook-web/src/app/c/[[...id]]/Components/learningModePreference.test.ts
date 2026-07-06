@@ -1,7 +1,7 @@
 import { resolveCourseLearningMode } from './learningModePreference';
 
 describe('resolveCourseLearningMode', () => {
-  it('keeps read when the course supports listen mode and no storage exists yet', () => {
+  it('defaults to listen when the course supports listen mode and no storage exists yet', () => {
     expect(
       resolveCourseLearningMode({
         courseTtsEnabled: true,
@@ -10,7 +10,7 @@ describe('resolveCourseLearningMode', () => {
         listenModeParam: null,
         storedLearningMode: null,
       }),
-    ).toBe('read');
+    ).toBe('listen');
   });
 
   it('keeps read when the course listen capability is still unknown', () => {

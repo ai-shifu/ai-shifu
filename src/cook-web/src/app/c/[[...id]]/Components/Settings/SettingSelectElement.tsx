@@ -23,7 +23,7 @@ export const SettingSelectElement = ({
           className={styles.inputElement}
           placeholder={placeholder}
           readOnly={true}
-          value={value}
+          value={value ?? ''}
         />
         <ChevronDownIcon className={styles.icon} />
       </div>

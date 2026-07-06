@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Flask, request
 from flaskr.service.common.models import raise_param_error, raise_error
@@ -64,6 +64,7 @@ def register_order_handler(app: Flask, path_prefix: str):
         for datetime_format in (
             "%Y-%m-%d",
             "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%dT%H:%M",
             "%Y-%m-%dT%H:%M:%S",
         ):
             try:
@@ -76,7 +77,13 @@ def register_order_handler(app: Flask, path_prefix: str):
                 return parsed
             except ValueError:
                 continue
-        raise_param_error(field_name)
+        try:
+            parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+        except ValueError:
+            raise_param_error(field_name)
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed
 
     def _parse_admin_pagination():
         page_index = request.args.get("page_index", 1)

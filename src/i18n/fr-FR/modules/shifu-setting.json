@@ -142,6 +142,7 @@
   "minimaxCloneSubmitReasonSubmitting": "Envoi en cours. Veuillez patienter.",
   "minimaxCloneVoiceId": "Voice ID",
   "minimaxCloneVoiceIdPlaceholder": "voice_id MiniMax personnalisé facultatif",
+  "minimaxCloneVoiceOptionLabel": "{name}",
   "minimaxManualVoiceApply": "Utiliser",
   "minimaxManualVoiceBadge": "Perso.",
   "minimaxManualVoiceInvalid": "Saisissez un ID de voix MiniMax personnalisé valide",

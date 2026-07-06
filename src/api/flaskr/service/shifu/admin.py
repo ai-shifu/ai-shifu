@@ -16,6 +16,7 @@ from sqlalchemy.orm import defer
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.i18n import _
 from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from flaskr.service.billing.bucket_categories import (
     resolve_wallet_bucket_runtime_category,
     wallet_bucket_requires_active_subscription,
@@ -120,7 +121,6 @@ from flaskr.service.user.models import (
     UserInfo as UserEntity,
     UserToken,
 )
-from flaskr.util.timezone import serialize_with_app_timezone
 from flaskr.service.user.utils import (
     run_creator_granted_post_auth,
 )
@@ -343,18 +343,6 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
     return None
 
 
-def _format_operator_datetime(value: Any) -> str:
-    normalized_value = _coerce_operator_datetime(value)
-    if not normalized_value:
-        return ""
-    serialized_value = serialize_with_app_timezone(
-        current_app._get_current_object(),
-        normalized_value,
-        tz_name="UTC",
-    )
-    return str(serialized_value or "").replace("+00:00", "Z")
-
-
 def _format_average_score(value: Optional[Decimal]) -> str:
     if value is None:
         return ""
@@ -547,7 +535,7 @@ def _build_operator_course_credit_usage_item(
         usage_count=max(int(usage_count or 0), 1),
         model_variant_count=max(int(model_variant_count or 0), 0),
         consumed_credits=resolved_consumed_credits,
-        created_at=_format_operator_datetime(resolved_created_at),
+        created_at=resolved_created_at,
     )
 
 
@@ -910,7 +898,7 @@ def _build_operator_course_credit_usage_detail_item(
             if output_summary is not None
             else _resolve_course_credit_usage_output_summary(usage_row)
         ),
-        created_at=_format_operator_datetime(getattr(usage_row, "created_at", None)),
+        created_at=getattr(usage_row, "created_at", None),
     )
 
 
@@ -1579,7 +1567,7 @@ def _load_operator_user_credit_summary_map(
     if not normalized_user_bids:
         return {}
 
-    now = datetime.now()
+    now = now_utc()
     active_subscription_end_map = _load_active_subscription_end_map(
         normalized_user_bids,
         as_of=now,
@@ -2313,17 +2301,17 @@ def _build_operator_user_summary(
             else ""
         ),
         credits_expire_at=(
-            _format_operator_datetime((credit_summary or {}).get("credits_expire_at"))
+            (credit_summary or {}).get("credits_expire_at")
             if has_credit_account
-            else ""
+            else None
         ),
         has_active_subscription=bool(
             (credit_summary or {}).get("has_active_subscription", False)
         ),
-        last_login_at=_format_operator_datetime(last_login_map.get(user_bid)),
-        last_learning_at=_format_operator_datetime(last_learning_map.get(user_bid)),
-        created_at=_format_operator_datetime(user.created_at),
-        updated_at=_format_operator_datetime(user.updated_at),
+        last_login_at=last_login_map.get(user_bid),
+        last_learning_at=last_learning_map.get(user_bid),
+        created_at=user.created_at,
+        updated_at=user.updated_at,
     )
 
 
@@ -2352,9 +2340,9 @@ def _build_operator_user_credit_summary(
             else ""
         ),
         credits_expire_at=(
-            _format_operator_datetime((credit_summary or {}).get("credits_expire_at"))
+            (credit_summary or {}).get("credits_expire_at")
             if has_credit_account
-            else ""
+            else None
         ),
         has_active_subscription=bool(
             (credit_summary or {}).get("has_active_subscription", False)
@@ -2714,7 +2702,7 @@ def _build_operator_user_credit_ledger_item(
     )
     return AdminOperationUserCreditLedgerItemDTO(
         ledger_bid=str(row.ledger_bid or "").strip(),
-        created_at=_format_operator_datetime(row.created_at),
+        created_at=row.created_at,
         entry_type=CREDIT_LEDGER_ENTRY_TYPE_LABELS.get(row.entry_type, "grant"),
         source_type=CREDIT_SOURCE_TYPE_LABELS.get(row.source_type, "manual"),
         display_entry_type=_resolve_operator_credit_display_entry_type(
@@ -2727,8 +2715,8 @@ def _build_operator_user_credit_ledger_item(
         ),
         amount=_format_decimal(Decimal(row.amount or 0)),
         balance_after=_format_decimal(Decimal(row.balance_after or 0)),
-        expires_at=_format_operator_datetime(row.expires_at),
-        consumable_from=_format_operator_datetime(row.consumable_from),
+        expires_at=row.expires_at,
+        consumable_from=row.consumable_from,
         note=str(merged_metadata.get("note") or "").strip(),
         note_code=_resolve_operator_credit_note_code(
             row,
@@ -3416,8 +3404,8 @@ def _build_course_summary(
         updater_mobile=updater.get("mobile", ""),
         updater_email=updater.get("email", ""),
         updater_nickname=updater.get("nickname", ""),
-        created_at=_format_operator_datetime(course.created_at),
-        updated_at=_format_operator_datetime(updated_at),
+        created_at=course.created_at,
+        updated_at=updated_at,
     )
 
 
@@ -4168,7 +4156,6 @@ _OPERATOR_COURSE_COMPAT_EXPORTS = (
     "_resolve_operator_credit_grant_type",
     "_format_decimal",
     "_coerce_operator_datetime",
-    "_format_operator_datetime",
     "_format_average_score",
     "_resolve_course_rating_mode",
     "_resolve_course_rating_sort_by",

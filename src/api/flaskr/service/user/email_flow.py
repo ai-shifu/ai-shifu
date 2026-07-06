@@ -11,6 +11,7 @@ from flask import Flask
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_derived_prefix
 from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.user.phone_flow import migrate_user_study_record, init_first_course
@@ -46,7 +47,7 @@ def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
             value = value.replace(tzinfo=None)
     except Exception:
         pass
-    now = datetime.datetime.utcnow()
+    now = now_utc()
     return (now - value).total_seconds() <= seconds
 
 

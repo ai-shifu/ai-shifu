@@ -10,12 +10,6 @@
     var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
 }
 
-.learningModeSwitchDesktop {
-  .betaBadge {
-    right: -6px;
-  }
-}
-
 .segment {
   display: inline-flex;
   align-items: center;
@@ -40,11 +34,6 @@
   }
 }
 
-.listenSegment {
-  position: relative;
-  overflow: visible;
-}
-
 .segmentDesktop {
   height: 32px;
   padding: 4px 14px;
@@ -64,13 +53,4 @@
 
 .segmentLabel {
   line-height: inherit;
-}
-
-.betaBadge {
-  position: absolute;
-  top: 0;
-  right: -11px;
-  margin-left: 0;
-  transform: translate(40%, -45%);
-  z-index: 1;
 }

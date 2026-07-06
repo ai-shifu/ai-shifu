@@ -68,7 +68,9 @@ python scripts/check_dev_tools.py --strict   # also fail on Cook Web tooling gap
 3. Generate a migration for DB changes: `flask db migrate -m "description"`
 4. Test the relevant change surface
 5. Use English for code-facing text
-6. Follow Conventional Commits: `type: description`
+6. For human-authored and coding-agent-authored commits, follow the git commit
+   message requirements in
+   [`AGENTS.md`](../AGENTS.md#git-commit-message-requirements)
 
 ### Common Pitfalls To Avoid
 
@@ -378,11 +380,17 @@ src/api/tests/
    `v`, such as `v1.5.0`.
 2. Verify the generated version updates, release draft content, and tag
    expectations before publishing the GitHub release.
-3. Publishing the release triggers `build-on-release.yml`, which validates the
+3. The release draft includes repository commits since the previous `vX.Y.Z`
+   tag, plus MarkdownFlow dependency updates when the pinned `markdown-flow` or
+   `markdown-flow-ui` versions change; dependency notes are generated from the
+   corresponding library repository tag range when tags exist. When matching
+   tags do not exist, registry publish times are used to limit a GitHub commit
+   lookup for the dependency repository.
+4. Publishing the release triggers `build-on-release.yml`, which validates the
    tag, skips drafts or prereleases, and builds the release-tagged images.
-4. `main` continues to drive `build-latest.yml`, so `:latest` images and
+5. `main` continues to drive `build-latest.yml`, so `:latest` images and
    release-tagged images must remain semantically aligned.
-5. After image publication, smoke-check the pinned or latest Docker compose
+6. After image publication, smoke-check the pinned or latest Docker Compose
    startup path, backend boot, and the primary frontend entry path before
    treating the release as ready.
 

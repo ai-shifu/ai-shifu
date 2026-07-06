@@ -1,8 +1,7 @@
 import useSWR from 'swr';
 import api from '@/api';
 import { useEnvStore } from '@/c-store';
-import { buildBillingSwrKey, withBillingTimezone } from '@/lib/billing';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
+import { buildBillingSwrKey } from '@/lib/billing';
 import type {
   BillingBootstrap,
   BillingWalletBucketList,
@@ -33,32 +32,21 @@ export function useBillingBootstrap() {
 
 export function useBillingOverview() {
   const billingEnabled = useBillingEnabled();
-  const timezone = getBrowserTimeZone();
 
   return useSWR<CreatorBillingOverview>(
-    billingEnabled
-      ? buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY, timezone)
-      : null,
-    async () =>
-      (await api.getBillingOverview(
-        withBillingTimezone({}, timezone),
-      )) as CreatorBillingOverview,
+    billingEnabled ? buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY) : null,
+    async () => (await api.getBillingOverview({})) as CreatorBillingOverview,
     BILLING_SWR_OPTIONS,
   );
 }
 
 export function useBillingWalletBuckets() {
   const billingEnabled = useBillingEnabled();
-  const timezone = getBrowserTimeZone();
 
   return useSWR<BillingWalletBucketList>(
-    billingEnabled
-      ? buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY, timezone)
-      : null,
+    billingEnabled ? buildBillingSwrKey(BILLING_WALLET_BUCKETS_SWR_KEY) : null,
     async () =>
-      (await api.getBillingWalletBuckets(
-        withBillingTimezone({}, timezone),
-      )) as BillingWalletBucketList,
+      (await api.getBillingWalletBuckets({})) as BillingWalletBucketList,
     BILLING_SWR_OPTIONS,
   );
 }

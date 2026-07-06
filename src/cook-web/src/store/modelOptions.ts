@@ -29,8 +29,11 @@ export const normalizeModelOptions = (list: any): ModelOption[] => {
         Number.isFinite(parsedMultiplier) && parsedMultiplier > 0
           ? Math.ceil(parsedMultiplier)
           : null;
+      const creditMultiplierLabel = String(
+        item.credit_multiplier_label || item.creditMultiplierLabel || '',
+      ).trim();
       seen.add(value);
-      options.push({ value, label, creditMultiplier });
+      options.push({ value, label, creditMultiplier, creditMultiplierLabel });
     }
   });
 
