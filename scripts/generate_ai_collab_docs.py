@@ -1670,10 +1670,11 @@ def build_documents() -> dict[Path, str]:
                 "description in sync with the latest code changes so they "
                 "accurately describe the current implementation and "
                 "verification state.",
-                "Follow the canonical commit-message policy in "
-                "`docs/engineering-baseline.md#commit-message-policy`; keep "
-                "agent-specific rule files pointing there instead of "
-                "duplicating the policy.",
+                "For git commit message title, body, and classification "
+                "requirements, read "
+                "`AGENTS.md#git-commit-message-requirements`; keep "
+                "agent-specific rule files from duplicating the detailed "
+                "commit-message policy.",
                 "Keep generated knowledge artifacts in sync by running "
                 "`python scripts/build_repo_knowledge_index.py` after docs "
                 "structure or metadata changes.",
@@ -1836,10 +1837,11 @@ def build_documents() -> dict[Path, str]:
                 "description in sync with the latest code changes so they "
                 "accurately describe the current implementation and "
                 "verification state.",
-                "Follow the canonical commit-message policy in "
-                "`docs/engineering-baseline.md#commit-message-policy`; keep "
-                "agent-specific rule files pointing there instead of "
-                "duplicating the policy.",
+                "For git commit message title, body, and classification "
+                "requirements, read "
+                "`AGENTS.md#git-commit-message-requirements`; keep "
+                "agent-specific rule files from duplicating the detailed "
+                "commit-message policy.",
                 "Regenerate repository knowledge indexes with "
                 "`python scripts/build_repo_knowledge_index.py` after moving docs "
                 "or changing required metadata.",
