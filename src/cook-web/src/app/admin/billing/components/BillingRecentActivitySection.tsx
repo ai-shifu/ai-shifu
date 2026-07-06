@@ -159,7 +159,7 @@ export function BillingRecentActivitySection({
           }
           table={emptyRow => (
             <div
-              className='overflow-visible'
+              className='overflow-x-auto'
               style={usageTablePageStyle}
               data-testid='billing-usage-table-scroll'
             >

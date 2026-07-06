@@ -198,7 +198,8 @@ describe('BillingRecentActivitySection', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '1' })).toBeInTheDocument();
     const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
-    expect(scrollContainer).toHaveClass('overflow-visible');
+    expect(scrollContainer).toHaveClass('overflow-x-auto');
+    expect(scrollContainer).not.toHaveClass('overflow-visible');
     expect(scrollContainer).not.toHaveClass('overflow-auto');
     const columns = Array.from(container.querySelectorAll('col'));
     expect(columns.map(column => column.className)).toEqual([
@@ -265,7 +266,7 @@ describe('BillingRecentActivitySection', () => {
     expect(await screen.findByText('+1.00')).toBeInTheDocument();
     const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
     expect(scrollContainer).not.toHaveClass('flex-1');
-    expect(scrollContainer).toHaveClass('overflow-visible');
+    expect(scrollContainer).toHaveClass('overflow-x-auto');
     expect(scrollContainer.style.minHeight).toBe('1100px');
     expect(scrollContainer.parentElement).toHaveStyle({
       minHeight: '1100px',
@@ -285,7 +286,7 @@ describe('BillingRecentActivitySection', () => {
 
     expect(await screen.findByText('+1.00')).toBeInTheDocument();
     const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
-    expect(scrollContainer).toHaveClass('overflow-visible');
+    expect(scrollContainer).toHaveClass('overflow-x-auto');
     expect(scrollContainer).not.toHaveClass('flex-1');
     expect(scrollContainer.style.minHeight).toBe('');
     expect(scrollContainer.parentElement).not.toHaveClass('flex-1');

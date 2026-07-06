@@ -461,7 +461,7 @@ describe('AdminBillingPage', () => {
       await screen.findByTestId('billing-usage-table-section'),
     ).toHaveClass('space-y-6');
     expect(screen.getByTestId('billing-usage-table-scroll')).toHaveClass(
-      'overflow-visible',
+      'overflow-x-auto',
     );
     expect(mockGetBillingCatalog).toHaveBeenCalledWith({});
   });
