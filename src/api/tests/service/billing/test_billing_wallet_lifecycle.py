@@ -221,6 +221,84 @@ def test_expire_credit_wallet_buckets_skips_bucket_with_conflicting_ledger(
         assert len(conflict_ledgers) == 1
 
 
+def test_expire_credit_wallet_buckets_skips_bucket_on_wallet_version_conflict(
+    billing_wallet_lifecycle_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A concurrent wallet update makes persist_credit_wallet_snapshot raise
+    # credit_wallet_version_conflict for the first bucket. The batch must skip
+    # it (savepoint rollback + reload) and still expire the wallet's other
+    # bucket instead of crashing the whole scan.
+    from flaskr.service.billing import wallets as wallets_mod
+
+    with billing_wallet_lifecycle_app.app_context():
+        wallet = CreditWallet(
+            wallet_bid="wallet-version-race",
+            creator_bid="creator-version-race",
+            available_credits=Decimal("5.0000000000"),
+            reserved_credits=Decimal("0"),
+            lifetime_granted_credits=Decimal("5.0000000000"),
+            lifetime_consumed_credits=Decimal("0"),
+            last_settled_usage_id=0,
+            version=0,
+        )
+        dao.db.session.add(wallet)
+        for bid, amount in (
+            ("bucket-v1", "3.0000000000"),
+            ("bucket-v2", "2.0000000000"),
+        ):
+            dao.db.session.add(
+                CreditWalletBucket(
+                    wallet_bucket_bid=bid,
+                    wallet_bid=wallet.wallet_bid,
+                    creator_bid="creator-version-race",
+                    bucket_category=CREDIT_BUCKET_CATEGORY_TOPUP,
+                    source_type=CREDIT_SOURCE_TYPE_TOPUP,
+                    source_bid=f"order-{bid}",
+                    priority=30,
+                    original_credits=Decimal(amount),
+                    available_credits=Decimal(amount),
+                    reserved_credits=Decimal("0"),
+                    consumed_credits=Decimal("0"),
+                    expired_credits=Decimal("0"),
+                    effective_from=datetime(2026, 4, 1, 0, 0, 0),
+                    effective_to=datetime(2026, 4, 7, 0, 0, 0),
+                    status=CREDIT_BUCKET_STATUS_ACTIVE,
+                    metadata_json={},
+                    created_at=datetime(2026, 4, 1, 0, 0, 0),
+                    updated_at=datetime(2026, 4, 1, 0, 0, 0),
+                )
+            )
+        dao.db.session.commit()
+
+        real_persist = wallets_mod.persist_credit_wallet_snapshot
+        state = {"calls": 0}
+
+        def _persist_conflict_once(target_wallet, **kwargs):
+            state["calls"] += 1
+            if state["calls"] == 1:
+                raise RuntimeError("credit_wallet_version_conflict")
+            return real_persist(target_wallet, **kwargs)
+
+        monkeypatch.setattr(
+            wallets_mod, "persist_credit_wallet_snapshot", _persist_conflict_once
+        )
+
+        # Must not crash on the version conflict.
+        payload = expire_credit_wallet_buckets(
+            billing_wallet_lifecycle_app,
+            creator_bid="creator-version-race",
+            expire_before=datetime(2026, 4, 8, 0, 0, 0),
+        )
+
+        # First bucket skipped on conflict; the second still expired.
+        assert payload["bucket_count"] == 1
+        expired = CreditWalletBucket.query.filter_by(
+            status=CREDIT_BUCKET_STATUS_EXPIRED
+        ).all()
+        assert len(expired) == 1
+
+
 def test_repair_credit_bucket_runtime_statuses_reactivates_live_expired_bucket(
     billing_wallet_lifecycle_app: Flask,
 ) -> None:

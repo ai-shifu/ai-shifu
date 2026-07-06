@@ -1095,12 +1095,22 @@ def _expire_credit_wallet_buckets_in_session(
                 )
                 db.session.add(ledger_entry)
                 db.session.flush()
-        except IntegrityError:
-            # Bucket was expired concurrently; the savepoint rolled back this
-            # bucket's changes. Reload the wallet so its in-memory version and
-            # balances match the committed DB state (persist_credit_wallet_snapshot
-            # bumped wallet.version in memory, which the savepoint does not undo)
-            # before processing the next bucket of the same wallet.
+        except (IntegrityError, RuntimeError) as exc:
+            # IntegrityError: another transaction already wrote this bucket's
+            # "expire:" ledger row. RuntimeError("credit_wallet_version_conflict"):
+            # another transaction updated the wallet concurrently
+            # (persist_credit_wallet_snapshot's optimistic version check). Either
+            # way the begin_nested savepoint already rolled back this bucket's
+            # changes, so reload the wallet (its in-memory version/balances are
+            # stale) and skip the bucket; a later scan retries it. Do NOT call
+            # db.session.rollback() here -- that would discard buckets already
+            # expired earlier in this batch; the savepoint rollback is enough.
+            # Any other RuntimeError is unexpected -> re-raise.
+            if (
+                isinstance(exc, RuntimeError)
+                and str(exc) != "credit_wallet_version_conflict"
+            ):
+                raise
             db.session.refresh(wallet)
             continue
         expired_total += available

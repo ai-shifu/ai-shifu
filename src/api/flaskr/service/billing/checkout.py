@@ -398,15 +398,25 @@ def _credit_ledger_lock(app: Flask, creator_bid: str) -> Iterator[None]:
         timeout=_CREDIT_LEDGER_LOCK_TIMEOUT_SECONDS,
         blocking_timeout=_CREDIT_LEDGER_LOCK_BLOCKING_TIMEOUT_SECONDS,
     )
-    acquired = bool(lock.acquire(blocking=True)) if lock is not None else False
+    acquired = False
+    try:
+        if lock is not None:
+            acquired = bool(lock.acquire(blocking=True))
+    except Exception as exc:
+        # Lock-backend failure (e.g. Redis outage): degrade to running without
+        # the lock rather than crashing the order sync. The grant idempotency
+        # pre-check and unique key still guard correctness.
+        app.logger.warning(
+            "credit-ledger lock acquire failed; running without lock: %s", exc
+        )
     try:
         yield
     finally:
         if acquired and lock is not None:
             try:
                 lock.release()
-            except Exception:
-                pass
+            except Exception as exc:
+                app.logger.warning("credit-ledger lock release failed: %s", exc)
 
 
 def _load_active_pending_subscription_orders(
