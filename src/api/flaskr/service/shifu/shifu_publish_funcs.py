@@ -246,7 +246,8 @@ def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None)
             )
         else:
             app.logger.error(
-                f"Failed to generate shifu summary for {shifu_id}: {message}"
+                f"Failed to generate shifu summary for {shifu_id}: {message}",
+                exc_info=True,
             )
 
 
