@@ -259,13 +259,35 @@ describe('BillingRecentActivitySection', () => {
       total: 60,
     });
 
+    renderSection({ stretchToFill: false });
+
+    expect(await screen.findByText('+1.00')).toBeInTheDocument();
+    const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
+    expect(scrollContainer).not.toHaveClass('flex-1');
+    expect(scrollContainer.style.minHeight).toBe('1100px');
+    expect(scrollContainer.parentElement).toHaveStyle({
+      minHeight: '1100px',
+    });
+  });
+
+  test('omits the fixed page height when the usage table stretches to fill', async () => {
+    mockGetBillingLedger.mockResolvedValueOnce({
+      items: Array.from({ length: 20 }, (_, index) =>
+        createLedgerItem(index + 1),
+      ),
+      page: 1,
+      page_count: 3,
+      page_size: 20,
+      total: 60,
+    });
+
     renderSection({ stretchToFill: true });
 
     expect(await screen.findByText('+1.00')).toBeInTheDocument();
     const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
     expect(scrollContainer).toHaveClass('flex-1');
-    expect(scrollContainer.style.minHeight).toBe('1100px');
-    expect(scrollContainer.parentElement).toHaveStyle({
+    expect(scrollContainer.style.minHeight).toBe('');
+    expect(scrollContainer.parentElement).not.toHaveStyle({
       minHeight: '1100px',
     });
   });
