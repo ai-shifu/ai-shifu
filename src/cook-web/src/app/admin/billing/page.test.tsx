@@ -453,8 +453,15 @@ describe('AdminBillingPage', () => {
         name: 'module.billing.page.title · module.billing.page.tabs.ledger',
       }),
     ).toHaveClass('sr-only');
-    expect(screen.getByTestId('admin-billing-details-panel')).toHaveClass(
-      'mt-0',
+    const detailsPanel = screen.getByTestId('admin-billing-details-panel');
+    expect(detailsPanel).toHaveClass('mt-0');
+    expect(detailsPanel).not.toHaveClass('flex-1');
+    expect(detailsPanel.firstElementChild).toHaveClass('space-y-8');
+    expect(
+      await screen.findByTestId('billing-usage-table-section'),
+    ).toHaveClass('space-y-6');
+    expect(screen.getByTestId('billing-usage-table-scroll')).toHaveClass(
+      'overflow-visible',
     );
     expect(mockGetBillingCatalog).toHaveBeenCalledWith({});
   });

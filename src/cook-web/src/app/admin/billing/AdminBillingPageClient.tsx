@@ -151,18 +151,15 @@ export function AdminBillingPageClient({
           </TabsContent>
 
           <TabsContent
-            className='mt-0 min-h-0 flex-1'
+            className='mt-0'
             value='details'
             data-testid='admin-billing-details-panel'
           >
-            <div className='flex h-full min-h-0 flex-col gap-8 pb-6'>
+            <div className='space-y-8 pb-6'>
               <BillingCreditDetailsPanel
                 onUpgrade={() => updateTab('packages')}
               />
-              <BillingRecentActivitySection
-                className='flex-1'
-                stretchToFill
-              />
+              <BillingRecentActivitySection />
             </div>
           </TabsContent>
         </Tabs>

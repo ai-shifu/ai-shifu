@@ -31,7 +31,6 @@ const USAGE_TABLE_PAGE_MIN_HEIGHT =
 
 type BillingRecentActivitySectionProps = {
   className?: string;
-  stretchToFill?: boolean;
 };
 
 function formatSignedCredits(value: number, locale: string): string {
@@ -80,7 +79,6 @@ function UsageTableSkeleton() {
 
 export function BillingRecentActivitySection({
   className,
-  stretchToFill = false,
 }: BillingRecentActivitySectionProps) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
@@ -107,9 +105,8 @@ export function BillingRecentActivitySection({
   const currentPage = Number(ledgerData?.page || pageIndex);
   const shouldUsePageHeight =
     ledgerLoading || ledgerItems.length >= RECENT_ITEMS_LIMIT;
-  const shouldStretchTable = stretchToFill;
   const usageTablePageStyle: React.CSSProperties | undefined =
-    shouldUsePageHeight && !stretchToFill
+    shouldUsePageHeight
       ? {
           minHeight: USAGE_TABLE_PAGE_MIN_HEIGHT,
         }
@@ -118,10 +115,7 @@ export function BillingRecentActivitySection({
   return (
     <section
       id='billing-recent-orders'
-      className={cn(
-        stretchToFill ? 'flex min-h-0 flex-col gap-6' : 'space-y-6',
-        className,
-      )}
+      className={cn('space-y-6', className)}
       data-testid='billing-usage-table-section'
     >
       <div>
@@ -140,11 +134,7 @@ export function BillingRecentActivitySection({
           isEmpty={!ledgerLoading && ledgerItems.length === 0}
           emptyContent={t('module.billing.ledger.empty')}
           emptyColSpan={3}
-          containerClassName={cn(stretchToFill && 'min-h-0 flex-1')}
-          tableWrapperClassName={cn(
-            'overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] [&_tbody_tr[data-admin-skeleton-row]:hover]:!bg-transparent [&_tbody_tr[data-admin-skeleton-row]:hover_td]:!bg-transparent',
-            shouldStretchTable && 'flex min-h-0 flex-1 flex-col',
-          )}
+          tableWrapperClassName='overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] [&_tbody_tr[data-admin-skeleton-row]:hover]:!bg-transparent [&_tbody_tr[data-admin-skeleton-row]:hover_td]:!bg-transparent'
           tableWrapperStyle={usageTablePageStyle}
           footerClassName='px-0'
           pagination={
@@ -169,10 +159,7 @@ export function BillingRecentActivitySection({
           }
           table={emptyRow => (
             <div
-              className={cn(
-                'overflow-auto',
-                shouldStretchTable && 'min-h-0 flex-1',
-              )}
+              className='overflow-visible'
               style={usageTablePageStyle}
               data-testid='billing-usage-table-scroll'
             >
