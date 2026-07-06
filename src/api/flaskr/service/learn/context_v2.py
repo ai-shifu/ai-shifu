@@ -1394,6 +1394,11 @@ class RunScriptContextV2:
         self.shifu_ids = []
         self.outline_item_ids = []
         self.current_outline_item = None
+        # Initialize the private attribute the runtime actually reads: it is only
+        # assigned later when a matching outline is found in the struct, so
+        # without this default it stays undefined (AttributeError) whenever the
+        # requested outline is missing from the struct.
+        self._current_outline_item = None
         self._run_type = RunType.INPUT
         self._can_continue = True
         self._stop_event = stop_event
