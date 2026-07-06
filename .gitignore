@@ -185,6 +185,7 @@ docker/cook_data/
 docker/mysql_data/
 docker/redis_data/
 docker/milvus_data/
+docker/storage/
 
 # Logs
 src/api/logs/
