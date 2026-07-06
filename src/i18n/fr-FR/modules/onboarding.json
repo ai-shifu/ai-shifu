@@ -2,41 +2,41 @@
   "__namespace__": "module.onboarding",
   "adminHome": {
     "billingCard": {
-      "descriptionGeneric": "Consultez ici votre solde de crédits, ou achetez et mettez votre offre à niveau si nécessaire.",
-      "title": "Consultez vos crédits et achetez une offre ici"
+      "descriptionGeneric": "Consultez ici les crédits disponibles, souscrivez un abonnement ou achetez des crédits.",
+      "title": "Crédits et offres"
     },
     "blankCourse": {
-      "description": "Créez ici votre propre cours et construisez le contenu à partir de zéro.",
-      "title": "Cliquez pour créer un nouveau cours"
+      "description": "Créez ici un nouveau cours, puis modifiez son contenu à partir de zéro.",
+      "title": "Créer un cours vierge"
     },
     "lobsterCourse": {
       "descriptionLink": "Créer des cours avec l'assistant IA",
       "descriptionPrefix": "Vous pouvez aussi utiliser ",
-      "descriptionSuffix": " pour générer plus rapidement une première ébauche.",
-      "title": "Créer des cours avec l'assistant IA"
+      "descriptionSuffix": " pour collaborer avec d’autres Skills et générer une ébauche de cours modifiable à partir de vos ressources et consignes.",
+      "title": "Générer une ébauche avec l'assistant IA"
     }
   },
   "common": {
     "continue": "Cliquez n'importe où pour continuer",
-    "replay": "Utiliser le guide",
+    "replay": "Revoir le guide",
     "skip": "Passer"
   },
   "courseEditor": {
     "backHome": {
-      "description": "Cliquez ici pour revenir à la console d'administration afin de gérer et configurer la plateforme.",
-      "title": "Revenir à la console d'administration"
+      "description": "Revenez à la liste des cours pour continuer à gérer les autres cours, les commandes et les offres.",
+      "title": "Retour à la liste des cours"
     },
     "listenMode": {
-      "description": "Une fois le mode écoute activé, les apprenants étudient avec des diapositives et la voix.",
-      "title": "Activer le mode écoute"
+      "description": "Une fois activé, les apprenants peuvent suivre ce cours avec des diapositives et de l'audio.",
+      "title": "Interrupteur du mode écoute"
     },
     "publish": {
-      "description": "Cliquez ici pour mettre à jour le contenu brouillon du cours vers la version officielle ; les apprenants verront alors votre contenu le plus récent.",
-      "title": "Publier le cours"
+      "description": "Les apprenants verront cette version du contenu du cours uniquement après publication.",
+      "title": "Publier la dernière version"
     },
     "settingsEntry": {
-      "description": "Cliquez ici pour ajuster les paramètres du cours, comme l'invite pédagogique, le modèle d'IA et le prix.",
-      "title": "Ouvrir les paramètres du cours"
+      "description": "Définissez ici le prompt du cours, le modèle d'IA, le prix, et activez ou désactivez le mode écoute.",
+      "title": "Paramètres du cours"
     }
   }
 }
