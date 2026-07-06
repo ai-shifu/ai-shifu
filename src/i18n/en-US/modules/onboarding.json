@@ -12,7 +12,7 @@
     "lobsterCourse": {
       "descriptionLink": "Create courses with AI assistant",
       "descriptionPrefix": "You can also use ",
-      "descriptionSuffix": " to generate an editable course draft from your materials and requirements.",
+      "descriptionSuffix": " to work with other Skills and generate an editable course draft from your materials and requirements.",
       "title": "Generate a course draft with AI assistant"
     }
   },

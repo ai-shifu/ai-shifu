@@ -12,7 +12,7 @@
     "lobsterCourse": {
       "descriptionLink": "Créer des cours avec l'assistant IA",
       "descriptionPrefix": "Vous pouvez aussi utiliser ",
-      "descriptionSuffix": " pour générer une ébauche de cours modifiable à partir de vos ressources et consignes.",
+      "descriptionSuffix": " pour collaborer avec d’autres Skills et générer une ébauche de cours modifiable à partir de vos ressources et consignes.",
       "title": "Générer une ébauche avec l'assistant IA"
     }
   },
