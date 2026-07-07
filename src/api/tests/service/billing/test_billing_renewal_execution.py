@@ -14,6 +14,7 @@ from flaskr.service.billing.consts import (
     BILLING_INTERVAL_MONTH,
     BILLING_MODE_RECURRING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
@@ -56,6 +57,7 @@ from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end,
     calculate_self_managed_billing_cycle_end_after_boundary,
 )
+from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.subscriptions import (
     ensure_subscription_renewal_order,
     sync_subscription_lifecycle_events,
@@ -490,16 +492,36 @@ def test_run_billing_renewal_event_does_not_duplicate_expire_ledger_when_replaye
 def test_manual_trial_subscription_schedules_and_applies_expire(
     billing_renewal_app: Flask,
 ) -> None:
+    period_end_at = normalize_mysql_datetime(now_utc() - timedelta(minutes=1))
     with billing_renewal_app.app_context():
         subscription = _create_subscription(
             "sub-trial-expire-1",
             product_bid=BILLING_TRIAL_PRODUCT_BID,
             billing_provider="manual",
             provider_subscription_id="",
-            current_period_end_at=now_utc() - timedelta(minutes=1),
+            current_period_end_at=period_end_at,
+        )
+        wallet = _create_wallet(
+            subscription.creator_bid,
+            available_credits="100.0000000000",
         )
         dao.db.session.add(subscription)
+        dao.db.session.add(wallet)
         dao.db.session.flush()
+        dao.db.session.add(
+            _create_bucket(
+                wallet.wallet_bid,
+                subscription.creator_bid,
+                "bucket-trial-expire-1",
+                available_credits="100.0000000000",
+                source_bid=subscription.subscription_bid,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                effective_from=period_end_at - timedelta(days=15),
+                effective_to=period_end_at,
+                created_at=period_end_at - timedelta(days=15),
+            )
+        )
         sync_subscription_lifecycle_events(billing_renewal_app, subscription)
         dao.db.session.commit()
 
@@ -522,7 +544,68 @@ def test_manual_trial_subscription_schedules_and_applies_expire(
         subscription = BillingSubscription.query.filter_by(
             subscription_bid="sub-trial-expire-1"
         ).one()
+        wallet = CreditWallet.query.filter_by(
+            creator_bid=subscription.creator_bid
+        ).one()
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-trial-expire-1"
+        ).one()
+        ledger_entry = CreditLedgerEntry.query.filter_by(
+            wallet_bucket_bid="bucket-trial-expire-1",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+        ).one()
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_EXPIRED
+        assert wallet.available_credits == Decimal("0E-10")
+        assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
+        assert bucket.available_credits == Decimal("0")
+        assert bucket.expired_credits == Decimal("100.0000000000")
+        assert ledger_entry.amount == Decimal("-100.0000000000")
+
+
+def test_trial_expire_event_sync_reuses_second_precision_scheduled_at(
+    billing_renewal_app: Flask,
+) -> None:
+    period_end_at = (now_utc() + timedelta(days=15)).replace(microsecond=654321)
+    stored_period_end_at = normalize_mysql_datetime(period_end_at)
+    assert stored_period_end_at == period_end_at.replace(microsecond=0) + timedelta(
+        seconds=1
+    )
+    assert normalize_mysql_datetime(
+        period_end_at.replace(microsecond=499999)
+    ) == period_end_at.replace(microsecond=0)
+    with billing_renewal_app.app_context():
+        subscription = _create_subscription(
+            "sub-trial-expire-precision",
+            product_bid=BILLING_TRIAL_PRODUCT_BID,
+            billing_provider="manual",
+            provider_subscription_id="",
+            current_period_end_at=period_end_at,
+        )
+        stale_event = _create_renewal_event(
+            "renewal-trial-expire-precision",
+            subscription.subscription_bid,
+            subscription.creator_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+            scheduled_at=stored_period_end_at,
+            status=BILLING_RENEWAL_EVENT_STATUS_CANCELED,
+        )
+        stale_event.processed_at = subscription.current_period_start_at
+        dao.db.session.add(subscription)
+        dao.db.session.add(stale_event)
+        dao.db.session.commit()
+
+        sync_subscription_lifecycle_events(billing_renewal_app, subscription)
+        dao.db.session.commit()
+
+        events = BillingRenewalEvent.query.filter_by(
+            subscription_bid=subscription.subscription_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+        ).all()
+        assert len(events) == 1
+        assert events[0].renewal_event_bid == "renewal-trial-expire-precision"
+        assert events[0].scheduled_at == stored_period_end_at
+        assert events[0].status == BILLING_RENEWAL_EVENT_STATUS_PENDING
+        assert events[0].processed_at is None
 
 
 def test_run_billing_renewal_event_applies_downgrade_and_reschedules_renewal(
@@ -566,7 +649,7 @@ def test_run_billing_renewal_event_applies_downgrade_and_reschedules_renewal(
         assert subscription.product_bid == "bill-product-plan-monthly"
         assert subscription.next_product_bid == ""
         assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
-        assert renewal_event.scheduled_at == next_period_end
+        assert renewal_event.scheduled_at == normalize_mysql_datetime(next_period_end)
 
 
 def test_run_billing_downgrade_event_applies_paid_preorder(

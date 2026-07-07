@@ -67,6 +67,7 @@ from flaskr.service.billing.provider_state import (
 )
 import flaskr.service.billing.checkout as billing_checkout_module
 from flaskr.service.billing.preorders import mark_preorder_effective_applied
+from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end,
     calculate_self_managed_billing_cycle_end_after_boundary,
@@ -676,6 +677,68 @@ class TestBillingWriteRoutes:
             ).one()
 
             assert stale_subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+            assert new_subscription.status == BILLING_SUBSCRIPTION_STATUS_DRAFT
+            assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START
+
+    def test_subscription_checkout_allows_paid_plan_after_stale_active_trial(
+        self, billing_write_client
+    ) -> None:
+        client = billing_write_client["client"]
+        app = billing_write_client["app"]
+        now = now_utc()
+
+        with app.app_context():
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-stale-trial-checkout",
+                    creator_bid="creator-stale-trial-checkout",
+                    product_bid=BILLING_TRIAL_PRODUCT_BID,
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="manual",
+                    provider_subscription_id="",
+                    provider_customer_id="",
+                    current_period_start_at=now - timedelta(days=45),
+                    current_period_end_at=now - timedelta(days=30),
+                    cancel_at_period_end=0,
+                    next_product_bid="",
+                    metadata_json={"trial_bootstrap": True},
+                    created_at=now - timedelta(days=45),
+                    updated_at=now - timedelta(days=45),
+                )
+            )
+            dao.db.session.commit()
+
+        response = client.post(
+            "/api/billing/subscriptions/checkout",
+            json={
+                "product_bid": "bill-product-plan-monthly-pro",
+                "payment_provider": "stripe",
+            },
+            headers={"X-User-Id": "creator-stale-trial-checkout"},
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["checkout_type"] == "subscription"
+        with app.app_context():
+            stale_trial = BillingSubscription.query.filter_by(
+                subscription_bid="sub-stale-trial-checkout"
+            ).one()
+            new_subscription = (
+                BillingSubscription.query.filter(
+                    BillingSubscription.creator_bid == "creator-stale-trial-checkout",
+                    BillingSubscription.subscription_bid != "sub-stale-trial-checkout",
+                )
+                .order_by(BillingSubscription.id.desc())
+                .one()
+            )
+            order = BillingOrder.query.filter_by(
+                creator_bid="creator-stale-trial-checkout",
+                subscription_bid=new_subscription.subscription_bid,
+            ).one()
+
+            assert stale_trial.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+            assert new_subscription.product_bid == "bill-product-plan-monthly-pro"
             assert new_subscription.status == BILLING_SUBSCRIPTION_STATUS_DRAFT
             assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_START
 
@@ -1496,7 +1559,9 @@ class TestBillingWriteRoutes:
                 product,
                 current_period_end,
             )
-            assert downgrade_event.scheduled_at == current_period_end
+            assert downgrade_event.scheduled_at == normalize_mysql_datetime(
+                current_period_end
+            )
 
     def test_paid_same_plan_preorder_sync_reserves_until_cycle_boundary(
         self, billing_write_client
@@ -1628,7 +1693,9 @@ class TestBillingWriteRoutes:
             assert grant_ledger.consumable_from == current_period_end
             assert grant_ledger.expires_at == expected_cycle_end
             assert downgrade_event is not None
-            assert downgrade_event.scheduled_at == current_period_end
+            assert downgrade_event.scheduled_at == normalize_mysql_datetime(
+                current_period_end
+            )
 
         upgrade_checkout = client.post(
             "/api/billing/subscriptions/checkout",
@@ -3504,7 +3571,9 @@ class TestBillingWriteRoutes:
                 == 1
             )
             assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
-            assert renewal_event.scheduled_at == subscription.current_period_end_at
+            assert renewal_event.scheduled_at == normalize_mysql_datetime(
+                subscription.current_period_end_at
+            )
 
     def test_cancel_and_resume_subscription_toggle_status(
         self, billing_write_client

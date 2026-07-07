@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
@@ -189,6 +189,14 @@ def coerce_datetime(value: Any) -> datetime | None:
     if parsed.tzinfo is not None:
         return parsed.astimezone(timezone.utc).replace(tzinfo=None)
     return parsed
+
+
+def normalize_mysql_datetime(value: datetime) -> datetime:
+    """Normalize to MySQL DATETIME(0)'s default fractional-second rounding."""
+
+    if value.microsecond >= 500_000:
+        value = value + timedelta(seconds=1)
+    return value.replace(microsecond=0)
 
 
 def normalize_json_value(value: Any) -> Any:
