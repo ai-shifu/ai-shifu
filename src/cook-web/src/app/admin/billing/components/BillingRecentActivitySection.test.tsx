@@ -292,7 +292,12 @@ describe('BillingRecentActivitySection', () => {
       name: 'module.billing.details.usageTable.title',
     });
     expect(usageHeading).toHaveFocus();
-    expect(usageHeading).toHaveClass('focus:outline-none');
+    expect(usageHeading).toHaveClass(
+      'focus-visible:outline-none',
+      'focus-visible:ring-2',
+      'focus-visible:ring-primary/20',
+      'focus-visible:ring-offset-2',
+    );
   });
 
   test('does not smooth scroll when reduced motion is preferred', async () => {

@@ -138,7 +138,10 @@ export function BillingRecentActivitySection({
         <h2
           ref={headingRef}
           tabIndex={-1}
-          className={cn(BILLING_SUBSECTION_TITLE_CLASS, 'focus:outline-none')}
+          className={cn(
+            BILLING_SUBSECTION_TITLE_CLASS,
+            'rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2',
+          )}
         >
           {t('module.billing.details.usageTable.title')}
         </h2>
