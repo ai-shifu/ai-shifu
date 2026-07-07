@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from flaskr.service.tts.pipeline import build_av_segmentation_contract
+from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeout
 from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
@@ -38,4 +39,5 @@ __all__ = [
     "run_minimax_voice_clone",
     "serialize_minimax_cloned_voice",
     "submit_minimax_voice_clone",
+    "TTSRpmQueueTimeout",
 ]

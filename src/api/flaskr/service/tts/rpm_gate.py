@@ -170,7 +170,12 @@ def _get_redis_client():
 
 def _scope_key(*, provider: str, api_key: str, model: str = "") -> str:
     normalized_provider = (provider or "default").strip().lower() or "default"
-    key_hash = hashlib.sha256((api_key or "").encode("utf-8")).hexdigest()[:24]
+    # Fingerprint the API key so the raw secret never appears in Redis keys.
+    # This is a namespacing digest, not password storage, so a fast hash is
+    # appropriate (usedforsecurity=False documents that intent).
+    key_hash = hashlib.sha256(
+        (api_key or "").encode("utf-8"), usedforsecurity=False
+    ).hexdigest()[:24]
     normalized_model = (model or "").strip().lower()
     if normalized_model:
         return f"{normalized_provider}:{key_hash}:{normalized_model}"

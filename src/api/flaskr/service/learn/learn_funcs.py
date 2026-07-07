@@ -86,7 +86,7 @@ from flaskr.api.tts import (
     synthesize_text,
 )
 from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
-from flaskr.service.tts.api import create_streaming_tts_processor
+from flaskr.service.tts.api import create_streaming_tts_processor, TTSRpmQueueTimeout
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     get_audio_duration_ms,
@@ -106,7 +106,6 @@ from flaskr.service.tts.models import (
     TTS_MINIMAX_CLONE_STATUS_READY,
 )
 from flaskr.service.tts.pipeline import split_text_for_tts
-from flaskr.service.tts.rpm_gate import TTSRpmQueueTimeout
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.util import generate_id
