@@ -217,6 +217,13 @@ class RunScriptInfo:
         self.mdflow = mdflow
 
 
+def _resolve_runtime_output_language(user_profile: dict | None) -> str:
+    runtime_language = get_current_language()
+    profile = user_profile or {}
+    profile_language = profile.get(SYS_USER_LANGUAGE) or profile.get("language") or ""
+    return str(runtime_language or profile_language or "")
+
+
 class RUNLLMProvider(LLMProvider):
     app: Flask
     llm_settings: LLMSettings
@@ -2718,11 +2725,7 @@ class RunScriptContextV2:
             llm_provider=llm_provider,
             use_learner_language=self._shifu_info.use_learner_language,
             visual_mode=True,
-            output_language=str(
-                user_profile.get(SYS_USER_LANGUAGE)
-                or user_profile.get("language")
-                or ""
-            ),
+            output_language=_resolve_runtime_output_language(user_profile),
         )
         block_list = mdflow_context.get_all_blocks()
         message_list = MdflowContextV2.build_context_from_blocks(

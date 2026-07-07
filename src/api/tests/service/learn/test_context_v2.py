@@ -109,6 +109,7 @@ from flaskr.service.learn.context_v2 import (
     MdflowContextV2,
     PaidException,
     _find_outline_path_or_raise,
+    _resolve_runtime_output_language,
     RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
@@ -1178,6 +1179,19 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
         )
 
         self.assertEqual(filtered, context[1:])
+
+
+class RuntimeOutputLanguageTests(unittest.TestCase):
+    def test_runtime_language_overrides_stale_profile_language(self):
+        with patch(
+            "flaskr.service.learn.context_v2.get_current_language",
+            return_value="zh-CN",
+        ):
+            output_language = _resolve_runtime_output_language(
+                {"sys_user_language": "en-US", "language": "en-US"}
+            )
+
+        self.assertEqual(output_language, "zh-CN")
 
 
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
