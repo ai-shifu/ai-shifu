@@ -1,3 +1,5 @@
+'use client';
+
 import styles from './ChatUi.module.scss';
 
 import { memo, useEffect, useState } from 'react';
