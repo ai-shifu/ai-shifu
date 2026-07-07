@@ -7,6 +7,7 @@ export const IconButton = ({
   hoverIcon = '',
   activeIcon = '',
   selectedIcon = '',
+  ariaLabel = 'Icon button',
   width = 36,
   borderRadius = 10,
   selected = false,
@@ -69,6 +70,7 @@ export const IconButton = ({
       type='button'
       ref={topRef}
       className={styles.IconButton}
+      aria-label={ariaLabel}
       style={{
         width: `${width}px`,
         height: `${width}px`,
