@@ -466,6 +466,13 @@ describe('BillingRecentActivitySection', () => {
     expect(skeletonRows[0].querySelector('td:last-child > div')).toHaveClass(
       'ml-auto',
     );
+    expect(
+      screen.getByRole('navigation', { name: 'pagination' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '2' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
 
     await act(async () => {
       resolveSecondPage?.({
