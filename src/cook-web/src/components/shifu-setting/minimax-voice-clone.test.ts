@@ -38,7 +38,7 @@ describe('minimax voice clone helpers', () => {
     ).toBe(false);
   });
 
-  it('merges built-in, cloned, disabled, and manual voice options', () => {
+  it('merges cloned, built-in, disabled, and manual voice options', () => {
     const options = buildMiniMaxVoiceOptions({
       builtInVoices: [{ value: 'male-qn-qingse', label: 'Male' }],
       clonedVoices: [
@@ -65,19 +65,19 @@ describe('minimax voice clone helpers', () => {
     });
 
     expect(options.map(option => option.value)).toEqual([
-      'male-qn-qingse',
       'AiShifu_ready_voice',
       'AiShifu_processing_voice',
+      'male-qn-qingse',
       'AiShifu_manual_voice',
     ]);
-    expect(options[1]).toMatchObject({
+    expect(options[0]).toMatchObject({
       label: 'Teacher 语音clone 音色',
       source: 'cloned',
       disabled: false,
       voice_bid: 'voice-1',
       minimax_demo_audio_url: 'https://cdn.example.com/ready.mp3',
     });
-    expect(options[2]).toMatchObject({
+    expect(options[1]).toMatchObject({
       label: 'Assistant 语音clone 音色 · Processing',
       source: 'cloned',
       disabled: true,
@@ -88,6 +88,41 @@ describe('minimax voice clone helpers', () => {
       source: 'manual',
       disabled: false,
     });
+  });
+
+  it('keeps built-in voices selectable when cloned voice ids collide', () => {
+    const options = buildMiniMaxVoiceOptions({
+      builtInVoices: [{ value: 'male-qn-qingse', label: 'Male built-in' }],
+      clonedVoices: [
+        {
+          voice_bid: 'voice-collide-1',
+          voice_id: 'male-qn-qingse',
+          display_name: 'Failed clone using built-in id',
+          status: 'failed',
+        },
+        {
+          voice_bid: 'voice-ready-1',
+          voice_id: 'AiShifu_ready_voice',
+          display_name: 'Ready Voice',
+          status: 'ready',
+        },
+      ],
+      currentVoiceId: '',
+      manualLabel: 'Manual custom voice',
+    });
+
+    expect(options.map(option => option.value)).toEqual([
+      'AiShifu_ready_voice',
+      'male-qn-qingse',
+    ]);
+    expect(options[1]).toMatchObject({
+      label: 'Male built-in',
+      source: 'built_in',
+      disabled: false,
+    });
+    expect(options.some(option => option.voice_bid === 'voice-collide-1')).toBe(
+      false,
+    );
   });
 
   it('adds a manual option only for unknown current MiniMax custom voices', () => {

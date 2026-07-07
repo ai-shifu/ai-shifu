@@ -111,25 +111,16 @@ export function buildMiniMaxVoiceOptions({
   statusLabels?: Record<string, string>;
 }): MiniMaxVoiceOption[] {
   const seen = new Set<string>();
+  const builtInVoiceIds = new Set(
+    (builtInVoices || [])
+      .map(voice => (voice.value || '').trim())
+      .filter(Boolean),
+  );
   const options: MiniMaxVoiceOption[] = [];
-
-  for (const voice of builtInVoices || []) {
-    const value = (voice.value || '').trim();
-    if (!value || seen.has(value)) {
-      continue;
-    }
-    seen.add(value);
-    options.push({
-      ...voice,
-      value,
-      source: 'built_in',
-      disabled: false,
-    });
-  }
 
   for (const voice of clonedVoices || []) {
     const value = (voice.voice_id || '').trim();
-    if (!value || seen.has(value)) {
+    if (!value || seen.has(value) || builtInVoiceIds.has(value)) {
       continue;
     }
     seen.add(value);
@@ -148,6 +139,20 @@ export function buildMiniMaxVoiceOptions({
       voice_bid: voice.voice_bid,
       minimax_demo_audio_url: voice.minimax_demo_audio_url || '',
       disabled: !ready,
+    });
+  }
+
+  for (const voice of builtInVoices || []) {
+    const value = (voice.value || '').trim();
+    if (!value || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    options.push({
+      ...voice,
+      value,
+      source: 'built_in',
+      disabled: false,
     });
   }
 
