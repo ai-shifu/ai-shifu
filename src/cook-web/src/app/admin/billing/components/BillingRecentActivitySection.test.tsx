@@ -59,6 +59,8 @@ function renderSection(
 }
 
 describe('BillingRecentActivitySection', () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+
   beforeEach(() => {
     mockGetBillingLedger.mockReset();
     scrollIntoViewMock.mockClear();
@@ -149,6 +151,10 @@ describe('BillingRecentActivitySection', () => {
         total: 21,
       });
     });
+  });
+
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
   });
 
   test('renders the credit usage details table from recent ledger entries', async () => {

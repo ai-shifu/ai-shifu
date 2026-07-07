@@ -106,7 +106,7 @@ export function BillingRecentActivitySection({
         return;
       }
       setPageIndex(nextPage);
-      sectionRef.current?.scrollIntoView({ block: 'start' });
+      sectionRef.current?.scrollIntoView?.({ block: 'start' });
     },
     [pageIndex],
   );
