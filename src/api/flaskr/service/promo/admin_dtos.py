@@ -1,15 +1,53 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import List, Union, get_args, get_origin
 
-from typing import List
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from flaskr.common.swagger import register_schema_to_swagger
 
 
+_EMPTY_DATETIME_VALUES = {"", "0000-00-00", "0000-00-00 00:00:00"}
+
+# Cache the set of datetime-typed field names per DTO subclass. The membership
+# test below only runs for the rare dirty-data value, but a list endpoint can
+# repeat it once per empty cell across up to ~100 rows, so resolving the field
+# annotations once per class avoids the repeated get_args/get_origin walk.
+_DATETIME_FIELDS_CACHE: dict[type, frozenset[str]] = {}
+
+
+def _allows_datetime(annotation) -> bool:
+    if annotation is datetime:
+        return True
+    origin = get_origin(annotation)
+    if origin is Union or getattr(origin, "__name__", "") == "UnionType":
+        return any(_allows_datetime(arg) for arg in get_args(annotation))
+    return False
+
+
+def _datetime_fields_for(cls) -> frozenset[str]:
+    cached = _DATETIME_FIELDS_CACHE.get(cls)
+    if cached is None:
+        cached = frozenset(
+            name
+            for name, field in cls.model_fields.items()
+            if field.annotation is not None and _allows_datetime(field.annotation)
+        )
+        _DATETIME_FIELDS_CACHE[cls] = cached
+    return cached
+
+
 class _DTOBase(BaseModel):
+    @field_validator("*", mode="before")
+    @classmethod
+    def _coerce_empty_datetime(cls, value, info: ValidationInfo):
+        if not isinstance(value, str) or value.strip() not in _EMPTY_DATETIME_VALUES:
+            return value
+        if info.field_name in _datetime_fields_for(cls):
+            return None
+        return value
+
     def __json__(self):
         if hasattr(self, "model_dump"):
             return self.model_dump()

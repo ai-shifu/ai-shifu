@@ -22,6 +22,13 @@ from flaskr.service.promo.consts import (
     PROMO_CAMPAIGN_JOIN_TYPE_EVENT,
     PROMO_CAMPAIGN_JOIN_TYPE_MANUAL,
 )
+from flaskr.service.promo.admin_dtos import (
+    AdminPromotionCampaignItemDTO,
+    AdminPromotionSummaryDTO,
+)
+from flaskr.service.promo.creator_redemption import (
+    list_creator_course_redemption_coupons,
+)
 from flaskr.service.promo.models import (
     Coupon,
     CouponUsage,
@@ -61,6 +68,60 @@ def _isolate_tables(app):
         db.session.query(UserEntity).delete()
         db.session.commit()
         db.session.remove()
+
+
+def test_promotion_dtos_coerce_empty_and_zero_datetime_values_to_none():
+    summary = AdminPromotionSummaryDTO(
+        total=0,
+        active=0,
+        usage_count=0,
+        latest_usage_at="",
+        covered_courses=0,
+        discount_amount="0",
+    )
+    assert summary.latest_usage_at is None
+
+    campaign = AdminPromotionCampaignItemDTO(
+        promo_bid="promo-1",
+        name="Campaign",
+        shifu_bid="shifu-1",
+        course_name="Course",
+        apply_type=PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+        discount_type=COUPON_TYPE_FIXED,
+        discount_type_key="module.operationsPromotion.discountType.fixed",
+        value="1",
+        channel="",
+        start_at=None,
+        end_at=None,
+        computed_status="active",
+        computed_status_key="module.operationsPromotion.status.active",
+        applied_order_count=0,
+        has_redemptions=False,
+        total_discount_amount="0",
+        created_user_bid="user-1",
+        created_user_name="Operator",
+        created_at="0000-00-00 00:00:00",
+        updated_at="0000-00-00",
+    )
+    assert campaign.created_at is None
+    assert campaign.updated_at is None
+    assert campaign.channel == ""
+
+
+def test_creator_redemption_empty_result_summary_uses_none_latest_usage_at(app):
+    # Exercise the actual empty-result service branch (not just the DTO) so a
+    # regression reverting latest_usage_at back to "" would be caught here.
+    with app.app_context():
+        response = list_creator_course_redemption_coupons(
+            app,
+            creator_user_bid="creator-without-any-course",
+            page=1,
+            page_size=20,
+            filters={},
+        )
+
+    assert response.summary.latest_usage_at is None
+    assert response.items == []
 
 
 def _mock_operator(
