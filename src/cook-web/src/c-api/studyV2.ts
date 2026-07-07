@@ -3,6 +3,7 @@ import request, { attachSseBusinessResponseFallback } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
+import i18n from '@/i18n';
 import {
   getMockRunFixtureMode,
   MockRunStreamFixtureSource,
@@ -36,6 +37,11 @@ export const BLOCK_TYPE = {
   ERROR: 'error_message',
 } as const;
 export type BlockType = (typeof BLOCK_TYPE)[keyof typeof BLOCK_TYPE];
+
+const getCurrentLanguageHeaders = (): Record<string, string> => {
+  const currentLanguage = i18n.resolvedLanguage || i18n.language;
+  return currentLanguage ? { 'Accept-Language': currentLanguage } : {};
+};
 
 export const LIKE_STATUS = {
   LIKE: 'like',
@@ -334,6 +340,7 @@ export const getRunMessage = (
   const url = `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`;
   const traceHeaders = buildTraceHeaders({
     'Content-Type': 'application/json',
+    ...getCurrentLanguageHeaders(),
     ...(token
       ? {
           Authorization: `Bearer ${token}`,
@@ -401,6 +408,7 @@ const createSseSource = (
   const token = useUserStore.getState().getToken();
   const traceHeaders = buildTraceHeaders({
     'Content-Type': 'application/json',
+    ...getCurrentLanguageHeaders(),
     ...(token
       ? {
           Authorization: `Bearer ${token}`,

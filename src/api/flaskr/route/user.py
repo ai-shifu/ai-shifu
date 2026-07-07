@@ -81,6 +81,15 @@ def _apply_request_language(payload: dict | None = None) -> None:
         set_language(language)
 
 
+def _resolve_runtime_language(user, payload: dict | None = None) -> str:
+    """Prefer the current client language for this request without mutating the profile."""
+    return (
+        _extract_request_language(payload)
+        or getattr(user, "language", None)
+        or "en-US"
+    )
+
+
 def _request_client_ip() -> str:
     if "X-Forwarded-For" in request.headers:
         return request.headers["X-Forwarded-For"].split(",")[0].strip()
@@ -109,7 +118,7 @@ def optional_token_validation(f):
         if token:
             token = str(token)
             user = validate_user(current_app, token)
-            set_language(user.language)
+            set_language(_resolve_runtime_language(user))
             request.user = user
         return f(*args, **kwargs)
 
@@ -143,7 +152,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         if not token and request.endpoint in by_pass_login_func:
             return
         user = validate_user(app, token)
-        set_language(user.language)
+        set_language(_resolve_runtime_language(user))
         request.user = user
 
     @app.route(path_prefix + "/info", methods=["GET"])

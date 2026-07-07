@@ -455,7 +455,14 @@ export class Request {
           Token: token,
         }
       : {};
+    const currentLanguage = i18n.resolvedLanguage || i18n.language;
+    const languageHeaders: Record<string, string> = currentLanguage
+      ? {
+          'Accept-Language': currentLanguage,
+        }
+      : {};
     const traceHeaders = buildTraceHeaders({
+      ...languageHeaders,
       ...authHeaders,
       ...headersToRecord(mergedConfig.headers),
     });
