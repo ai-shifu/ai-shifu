@@ -14,6 +14,10 @@ jest.mock('@/c-utils/textutils', () => ({
   copyText: jest.fn(),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
+
 jest.mock('@/components/ErrorDisplay', () => ({
   __esModule: true,
   default: ({ errorMessage }: { errorMessage?: string }) => (
@@ -59,9 +63,9 @@ describe('AdminReferralPage', () => {
           reward_credit_amount: '1000.0000000000',
           reward_product_code: 'creator-plan-monthly-pro',
           ledger_credit_state: 'reserved',
-          effective_at: '2026-06-26T13:18:00',
-          expires_at: '2026-07-26T13:18:00',
-          created_at: '2026-06-11T12:00:00',
+          effective_at: '2026-06-26T13:18:00Z',
+          expires_at: '2026-07-26T13:18:00Z',
+          created_at: '2026-06-11T12:00:00Z',
         },
       ],
       rules_copy_i18n_key: 'module.referral.rules.default',
@@ -73,7 +77,6 @@ describe('AdminReferralPage', () => {
 
     await screen.findByDisplayValue('https://app.example.com/invite/AB12CD34');
 
-    expect(screen.queryByText('common.core.home')).not.toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('creator.inviteCardTitle')).toBeInTheDocument();
     expect(screen.getByText('creator.rewardRulesTitle')).toBeInTheDocument();
@@ -113,8 +116,8 @@ describe('AdminReferralPage', () => {
     expect(screen.getByText('135****0781')).toBeInTheDocument();
     expect(screen.queryByText('13521510781')).not.toBeInTheDocument();
     expect(screen.getAllByText(/"credits":"1,000"/).length).toBeGreaterThan(0);
-    expect(screen.getByText('2026-06-26T13:18:00')).toBeInTheDocument();
-    expect(screen.getByText('2026-07-26T13:18:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-26 21:18:00')).toBeInTheDocument();
+    expect(screen.getByText('2026-07-26 21:18:00')).toBeInTheDocument();
     expect(
       screen.queryByText('creator.ledgerStates.reserved'),
     ).not.toBeInTheDocument();

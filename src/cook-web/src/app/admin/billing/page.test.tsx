@@ -285,7 +285,6 @@ describe('AdminBillingPage', () => {
     renderPage();
     const tabs = screen.getByTestId('admin-billing-tabs');
     const packagesPanel = screen.getByTestId('admin-billing-packages-panel');
-    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
 
     expect(screen.getByTestId('admin-billing-page')).toBeInTheDocument();
     expect(screen.getByTestId('admin-billing-page')).toHaveClass(
@@ -303,14 +302,16 @@ describe('AdminBillingPage', () => {
       }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'module.billing.page.title · module.billing.page.tabs.plans',
+      }),
+    ).toHaveClass('sr-only');
+    expect(
       screen.queryByRole('heading', {
         name: 'module.billing.package.title',
       }),
     ).not.toBeInTheDocument();
-    expect(
-      within(breadcrumb).getByRole('link', { name: 'common.core.home' }),
-    ).toHaveAttribute('href', '/admin');
-    expect(breadcrumb).toHaveTextContent('module.billing.package.title');
 
     await waitFor(() => {
       expect(mockGetBillingCatalog).toHaveBeenCalledTimes(1);
@@ -431,7 +432,6 @@ describe('AdminBillingPage', () => {
 
     renderPage();
     const tabs = screen.getByTestId('admin-billing-tabs');
-    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
 
     expect(
       within(tabs).getByRole('tab', {
@@ -444,9 +444,15 @@ describe('AdminBillingPage', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText('module.billing.details.title'),
+      await screen.findByText('module.billing.details.totalCreditsLabel'),
     ).toBeInTheDocument();
-    expect(breadcrumb).toHaveTextContent('module.billing.page.tabs.ledger');
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'module.billing.page.title · module.billing.page.tabs.ledger',
+      }),
+    ).toHaveClass('sr-only');
     expect(screen.getByTestId('admin-billing-details-panel')).toHaveClass(
       'mt-0',
     );
@@ -456,7 +462,6 @@ describe('AdminBillingPage', () => {
   test('respects the server-provided initial details tab before search params hydrate', async () => {
     renderPage({ initialTab: 'details' });
     const tabs = screen.getByTestId('admin-billing-tabs');
-    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
 
     expect(
       within(tabs).getByRole('tab', {
@@ -469,8 +474,8 @@ describe('AdminBillingPage', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText('module.billing.details.title'),
+      await screen.findByText('module.billing.details.totalCreditsLabel'),
     ).toBeInTheDocument();
-    expect(breadcrumb).toHaveTextContent('module.billing.page.tabs.ledger');
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 });

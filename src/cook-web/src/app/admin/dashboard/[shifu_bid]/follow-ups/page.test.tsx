@@ -351,7 +351,7 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
     );
   });
 
-  test('renders follow-up list with breadcrumbs back to dashboard and course detail', async () => {
+  test('renders follow-up list', async () => {
     render(<AdminDashboardCourseFollowUpsPage />);
 
     expect(
@@ -379,12 +379,6 @@ describe('AdminDashboardCourseFollowUpsPage', () => {
       });
     });
 
-    expect(
-      screen.getByText('module.dashboard.title').closest('a'),
-    ).toHaveAttribute('href', '/admin/dashboard');
-    expect(
-      screen.getAllByText('module.dashboard.detail.title')[0].closest('a'),
-    ).toHaveAttribute('href', '/admin/dashboard/course-1');
     expect(screen.getByText('Second follow-up question')).toBeInTheDocument();
     expect(screen.getByText('2026-04-05 19:02:00')).toBeInTheDocument();
     expect(screen.getByText('2026-04-05 19:05:00')).toBeInTheDocument();

@@ -353,18 +353,17 @@
     "table": {
       "balance": "Balance",
       "creditType": "Type",
-      "validUntil": "Expires on"
+      "validUntil": "Valid until"
     },
-    "title": "Credits Overview",
-    "topupAvailabilityLabel": "No expiry",
-    "topupAvailabilityTooltip": "An active subscription is required before credit packs can be used",
-    "totalCreditsDescription": "Credits are consumed in priority order: plan credits > credit packs",
-    "totalCreditsLabel": "Credit balance",
+    "topupAvailabilityLabel": "No expiration",
+    "topupAvailabilityTooltip": "An active subscription is required to use credit packs.",
+    "totalCreditsDescription": "Plan credits are used first, then credit packs.",
+    "totalCreditsLabel": "Balance",
     "usageTable": {
       "columns": {
         "scene": "Usage item"
       },
-      "title": "Credit usage details"
+      "title": "Usage details"
     }
   },
   "domains": {

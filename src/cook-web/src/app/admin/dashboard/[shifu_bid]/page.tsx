@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import { useEnvStore } from '@/c-store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -469,15 +469,7 @@ export default function AdminDashboardCourseDetailPage() {
     <TooltipProvider delayDuration={150}>
       <div className='h-full overflow-auto pr-1'>
         <div className='pb-6'>
-          <AdminBreadcrumb
-            items={[
-              {
-                label: t('module.dashboard.title'),
-                href: '/admin/dashboard',
-              },
-              { label: t('module.dashboard.detail.title') },
-            ]}
-          />
+          <AdminTitle title={t('module.dashboard.detail.title')} />
           <div className='space-y-5'>
             <Card>
               <CardContent className='p-5'>

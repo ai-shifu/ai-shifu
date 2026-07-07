@@ -235,11 +235,6 @@ jest.mock('@/components/shifu-setting/ShifuPermissionDialog', () => ({
   default: () => null,
 }));
 
-jest.mock('./components/AdminBreadcrumb', () => ({
-  __esModule: true,
-  default: () => null,
-}));
-
 jest.mock('./components/AdminTitle', () => ({
   __esModule: true,
   default: ({ title }: { title: string }) => <div>{title}</div>,

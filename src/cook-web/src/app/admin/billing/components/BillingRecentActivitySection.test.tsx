@@ -167,6 +167,12 @@ describe('BillingRecentActivitySection', () => {
       screen.getByText('module.billing.details.usageTable.title'),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'module.billing.details.usageTable.title',
+      }),
+    ).toHaveClass('text-xl');
+    expect(
       await screen.findByText(
         'module.billing.ledger.usageScene.tts - Published Course 1 - learner@example.com',
       ),
@@ -176,7 +182,7 @@ describe('BillingRecentActivitySection', () => {
         'module.billing.ledger.usageScene.debug - Debug Course 1 - 15811237246',
       ),
     ).toBeInTheDocument();
-    const dateCells = await screen.findAllByText(/Apr 6, 2026/);
+    const dateCells = await screen.findAllByText(/^2026-04-06 /);
     expect(dateCells).toHaveLength(2);
     expect(dateCells[0].tagName).toBe('TD');
     const amountValue = await screen.findByText('-2.50');
