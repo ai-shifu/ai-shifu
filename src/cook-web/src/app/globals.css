@@ -118,6 +118,9 @@ body.listen-mode-vh-fallback #root {
   :where(
     a[href],
     button,
+    input[type='button'],
+    input[type='submit'],
+    input[type='reset'],
     summary,
     [role='button'],
     [role='link'],
@@ -137,6 +140,7 @@ body.listen-mode-vh-fallback #root {
     outline: none;
   }
   :disabled,
+  [disabled],
   [aria-disabled='true'],
   [data-disabled]:not([data-disabled='false']) {
     cursor: not-allowed !important;
