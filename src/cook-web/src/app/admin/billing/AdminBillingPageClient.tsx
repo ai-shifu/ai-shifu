@@ -106,13 +106,13 @@ export function AdminBillingPageClient({
 
   return (
     <div
-      className='h-full min-h-0 overscroll-none p-0'
+      className='overscroll-none p-0'
       data-testid='admin-billing-page'
     >
-      <div className='flex h-full min-h-0 flex-col px-1 pb-6'>
+      <div className='px-1 pb-6'>
         <h1 className='sr-only'>{pageHeading}</h1>
         <Tabs
-          className='flex min-h-0 flex-1 flex-col'
+          className='flex flex-col'
           value={activeTab}
           onValueChange={v => updateTab(v as BillingTab)}
         >
@@ -141,7 +141,7 @@ export function AdminBillingPageClient({
           />
 
           <TabsContent
-            className='mt-0 min-h-0'
+            className='mt-0'
             value='packages'
             data-testid='admin-billing-packages-panel'
           >
@@ -151,18 +151,15 @@ export function AdminBillingPageClient({
           </TabsContent>
 
           <TabsContent
-            className='mt-0 min-h-0 flex-1'
+            className='mt-0'
             value='details'
             data-testid='admin-billing-details-panel'
           >
-            <div className='flex h-full min-h-0 flex-col gap-8 pb-6'>
+            <div className='space-y-8 pb-6'>
               <BillingCreditDetailsPanel
                 onUpgrade={() => updateTab('packages')}
               />
-              <BillingRecentActivitySection
-                className='flex-1'
-                stretchToFill
-              />
+              <BillingRecentActivitySection />
             </div>
           </TabsContent>
         </Tabs>
