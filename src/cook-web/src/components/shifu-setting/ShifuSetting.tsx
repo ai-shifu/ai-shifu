@@ -1673,7 +1673,9 @@ export default function ShifuSettingDialog({
                           {...field}
                           disabled={currentShifu?.readonly}
                           maxLength={TITLE_MAX_LENGTH}
-                          placeholder={t('module.shifuSetting.placeholder')}
+                          placeholder={t(
+                            'module.shifuSetting.shifuNamePlaceholder',
+                          )}
                         />
                       </FormControl>
                       {/* <div className='text-xs text-muted-foreground text-right'>
@@ -1696,7 +1698,9 @@ export default function ShifuSettingDialog({
                         <Textarea
                           {...field}
                           maxLength={500}
-                          placeholder={t('module.shifuSetting.placeholder')}
+                          placeholder={t(
+                            'module.shifuSetting.shifuDescriptionPlaceholder',
+                          )}
                           rows={4}
                           disabled={currentShifu?.readonly}
                         />
