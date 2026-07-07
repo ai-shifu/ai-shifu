@@ -97,7 +97,9 @@ export const SimpleTreeItemWrapper = forwardRef<
           'dnd-sortable-tree_simple_tree-item group',
           contentClassName,
         )}
-        data-clickable={handleWrapperClick ? 'true' : undefined}
+        data-clickable={
+          handleWrapperClick && !disableInteraction ? 'true' : undefined
+        }
         ref={ref}
         {...(manualDrag ? undefined : handleProps)}
         onClick={handleWrapperClick}
