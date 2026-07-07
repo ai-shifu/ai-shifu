@@ -1254,6 +1254,27 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         self.assertEqual(variables.get("sys_user_language"), "zh-CN")
         self.assertEqual(variables.get("language"), "zh-CN")
 
+    def test_request_language_overrides_stale_profile_language(self):
+        app = Flask("preview-variables-request-language")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            variables={"language": "zh-CN"},
+        )
+
+        with patch(
+            "flaskr.service.learn.context_v2.get_user_profiles",
+            return_value={"sys_user_language": "en-US", "language": "en-US"},
+        ):
+            variables = preview_ctx._resolve_preview_variables(
+                preview_request=preview_request,
+                user_bid="user-1",
+                shifu_bid="shifu-1",
+            )
+
+        self.assertEqual(variables.get("sys_user_language"), "zh-CN")
+        self.assertEqual(variables.get("language"), "zh-CN")
+
     def test_keeps_existing_sys_user_language(self):
         app = Flask("preview-variables-existing")
         preview_ctx = RunScriptPreviewContextV2(app)

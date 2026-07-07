@@ -983,6 +983,15 @@ class RunScriptPreviewContextV2:
         variables = get_user_profiles(self.app, user_bid, shifu_bid)
         variables.update(request_variables)
 
+        request_language = str(
+            request_variables.get(SYS_USER_LANGUAGE)
+            or request_variables.get("language")
+            or ""
+        ).strip()
+        if request_language:
+            variables[SYS_USER_LANGUAGE] = request_language
+            variables["language"] = request_language
+
         # The editor preview may submit an empty sys_user_language placeholder.
         # Runtime language should follow the current request, not an empty variable.
         if not str(variables.get(SYS_USER_LANGUAGE) or "").strip():
