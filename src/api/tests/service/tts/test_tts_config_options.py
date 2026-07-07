@@ -95,140 +95,183 @@ def test_tts_config_model_options_follow_allowlist_and_localized_names(
     }
 
 
-def _baseline_config(baseline: str):
+class _FakeRate:
+    def __init__(self, credits_per_unit, unit_size, provider, model):
+        self.credits_per_unit = credits_per_unit
+        self.unit_size = unit_size
+        self.provider = provider
+        self.model = model
+
+
+def _chars_per_token_config(value: str):
     def _get_config(key, default=None):
-        if key == "TTS_CREDIT_MULTIPLIER_BASELINE":
-            return baseline
+        if key == "TTS_CHARS_PER_LLM_TOKEN":
+            return value
         return default
 
     return _get_config
 
 
-def test_tts_credit_multiplier_uses_tts_baseline_not_llm_rate(monkeypatch):
+def test_tts_credit_multiplier_uses_shared_llm_anchor(monkeypatch):
     import flaskr.api.tts as tts_api
-    from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
-    from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
-
-    class FakeRate:
-        def __init__(
-            self,
-            credits_per_unit: str,
-            unit_size: int,
-            provider: str,
-            model: str,
-        ):
-            self.credits_per_unit = credits_per_unit
-            self.unit_size = unit_size
-            self.provider = provider
-            self.model = model
+    from flaskr.service.billing.consts import (
+        BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        BILLING_METRIC_TTS_OUTPUT_CHARS,
+    )
+    from flaskr.service.metering.consts import (
+        BILL_USAGE_TYPE_LLM,
+        BILL_USAGE_TYPE_TTS,
+    )
 
     captured = []
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
-        captured.append(
-            {
-                "usage_type": usage.usage_type,
-                "provider": usage.provider,
-                "model": usage.model,
-                "billing_metric": billing_metric,
-            }
-        )
+        captured.append((usage.usage_type, usage.provider, usage.model, billing_metric))
+        if (
+            usage.usage_type == BILL_USAGE_TYPE_LLM
+            and usage.provider == "qwen"
+            and usage.model == "deepseek-v4-flash"
+            and billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS
+        ):
+            return _FakeRate("1", 10000, "qwen", "deepseek-v4-flash")  # 0.0001/token
         if (
             usage.usage_type == BILL_USAGE_TYPE_TTS
             and usage.provider == "tencent"
             and usage.model == ""
             and billing_metric == BILLING_METRIC_TTS_OUTPUT_CHARS
         ):
-            return FakeRate("4", 10000, "tencent", "")
+            return _FakeRate("8", 10000, "tencent", "")  # 0.0008/char
         return None
 
-    monkeypatch.setattr(tts_api, "get_config", _baseline_config("0.0001"))
+    monkeypatch.setattr(
+        tts_api,
+        "_resolve_default_llm_rate_identity",
+        lambda: ("qwen", ["deepseek-v4-flash"]),
+    )
+    monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config("0.5"))
     monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
         fake_load_usage_rate,
     )
 
-    # tencent TTS = 4 credits / 10,000 chars = 0.0004/char; baseline = 0.0001/char
-    # -> 0.0004 / 0.0001 = 4x. The label is decoupled from the LLM rate, so only
-    # the TTS rate is looked up (no BILL_USAGE_TYPE_LLM query).
+    # TTS 0.0008/char x 0.5 chars/token = 0.0004 credits per LLM token; the shared
+    # 1x anchor is the LLM rate 0.0001/token -> 0.0004 / 0.0001 = 4x. Both the LLM
+    # baseline and the TTS rate are looked up (one shared anchor, not a standalone
+    # TTS baseline).
     assert tts_api._resolve_credit_multiplier_label("tencent", "") == "4x"
-    assert captured == [
-        {
-            "usage_type": BILL_USAGE_TYPE_TTS,
-            "provider": "tencent",
-            "model": "",
-            "billing_metric": BILLING_METRIC_TTS_OUTPUT_CHARS,
-        },
-    ]
+    assert (
+        BILL_USAGE_TYPE_LLM,
+        "qwen",
+        "deepseek-v4-flash",
+        BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    ) in captured
+    assert (
+        BILL_USAGE_TYPE_TTS,
+        "tencent",
+        "",
+        BILLING_METRIC_TTS_OUTPUT_CHARS,
+    ) in captured
 
 
-def test_tts_credit_multiplier_scales_with_configured_baseline(monkeypatch):
+def test_tts_credit_multiplier_scales_with_chars_per_token(monkeypatch):
     import flaskr.api.tts as tts_api
-    from flaskr.service.billing.consts import BILLING_METRIC_TTS_OUTPUT_CHARS
-    from flaskr.service.metering.consts import BILL_USAGE_TYPE_TTS
-
-    class FakeRate:
-        def __init__(self, credits_per_unit, unit_size, provider, model):
-            self.credits_per_unit = credits_per_unit
-            self.unit_size = unit_size
-            self.provider = provider
-            self.model = model
+    from flaskr.service.billing.consts import (
+        BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        BILLING_METRIC_TTS_OUTPUT_CHARS,
+    )
+    from flaskr.service.metering.consts import (
+        BILL_USAGE_TYPE_LLM,
+        BILL_USAGE_TYPE_TTS,
+    )
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
+        if (
+            usage.usage_type == BILL_USAGE_TYPE_LLM
+            and billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS
+        ):
+            return _FakeRate("1", 10000, "qwen", "deepseek-v4-flash")  # 0.0001/token
         if (
             usage.usage_type == BILL_USAGE_TYPE_TTS
             and billing_metric == BILLING_METRIC_TTS_OUTPUT_CHARS
         ):
-            return FakeRate("22", 10000, "minimax", "speech-2.8-turbo")
+            return _FakeRate("8", 10000, "minimax", "speech-2.8-turbo")  # 0.0008/char
         return None
 
+    monkeypatch.setattr(
+        tts_api,
+        "_resolve_default_llm_rate_identity",
+        lambda: ("qwen", ["deepseek-v4-flash"]),
+    )
     monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
         fake_load_usage_rate,
     )
 
-    # 22 credits / 10,000 chars = 0.0022/char. Halving the baseline doubles the
-    # displayed multiplier, proving the label tracks the configured reference.
-    monkeypatch.setattr(tts_api, "get_config", _baseline_config("0.0001"))
+    # Doubling chars-per-token doubles the TTS consumption per LLM token, so the
+    # multiplier doubles (4x -> 8x). This is the token<->char conversion knob.
+    monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config("0.5"))
     assert (
-        tts_api._resolve_credit_multiplier_label("minimax", "speech-2.8-turbo") == "22x"
+        tts_api._resolve_credit_multiplier_label("minimax", "speech-2.8-turbo") == "4x"
     )
-    monkeypatch.setattr(tts_api, "get_config", _baseline_config("0.00005"))
+    monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config("1.0"))
     assert (
-        tts_api._resolve_credit_multiplier_label("minimax", "speech-2.8-turbo") == "44x"
+        tts_api._resolve_credit_multiplier_label("minimax", "speech-2.8-turbo") == "8x"
     )
 
 
-def test_tts_credit_multiplier_falls_back_to_baseline_when_rate_missing(monkeypatch):
+def test_tts_credit_multiplier_none_when_tts_rate_missing(monkeypatch):
     import flaskr.api.tts as tts_api
+    from flaskr.service.billing.consts import BILLING_METRIC_LLM_OUTPUT_TOKENS
+    from flaskr.service.metering.consts import BILL_USAGE_TYPE_LLM
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
-        # No curated TTS rate for this provider/model.
-        return None
+        if (
+            usage.usage_type == BILL_USAGE_TYPE_LLM
+            and billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS
+        ):
+            return _FakeRate("1", 10000, "qwen", "deepseek-v4-flash")
+        return None  # no curated TTS rate
 
-    monkeypatch.setattr(tts_api, "get_config", _baseline_config("0.0001"))
+    monkeypatch.setattr(
+        tts_api,
+        "_resolve_default_llm_rate_identity",
+        lambda: ("qwen", ["deepseek-v4-flash"]),
+    )
+    monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config("0.216"))
     monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
         fake_load_usage_rate,
     )
 
-    # Missing TTS rate -> actual cost falls back to the baseline -> 1x.
-    assert tts_api._resolve_credit_multiplier_label("unknown", "missing") == "1x"
+    # No TTS rate -> no meaningful multiplier -> no label (not a fabricated 1x).
+    assert tts_api._resolve_credit_multiplier_label("unknown", "missing") is None
 
 
-def test_tts_credit_multiplier_none_when_baseline_unset(monkeypatch):
+def test_tts_credit_multiplier_none_when_conversion_unset(monkeypatch):
     import flaskr.api.tts as tts_api
+    from flaskr.service.billing.consts import BILLING_METRIC_LLM_OUTPUT_TOKENS
+    from flaskr.service.metering.consts import BILL_USAGE_TYPE_LLM
 
     def fake_load_usage_rate(*, usage, billing_metric, settlement_at):
-        return None
+        if (
+            usage.usage_type == BILL_USAGE_TYPE_LLM
+            and billing_metric == BILLING_METRIC_LLM_OUTPUT_TOKENS
+        ):
+            return _FakeRate("1", 10000, "qwen", "deepseek-v4-flash")
+        return _FakeRate("8", 10000, "tencent", "")
 
-    monkeypatch.setattr(tts_api, "get_config", _baseline_config(""))
+    monkeypatch.setattr(
+        tts_api,
+        "_resolve_default_llm_rate_identity",
+        lambda: ("qwen", ["deepseek-v4-flash"]),
+    )
+    monkeypatch.setattr(tts_api, "get_config", _chars_per_token_config(""))
     monkeypatch.setattr(
         "flaskr.service.billing.charges.load_usage_rate",
         fake_load_usage_rate,
     )
 
-    # An unset/blank baseline disables the label instead of dividing by zero.
+    # A blank conversion factor disables the label instead of guessing.
     assert tts_api._resolve_credit_multiplier_label("tencent", "") is None
 
 

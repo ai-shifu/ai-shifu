@@ -1382,17 +1382,17 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="tts",
         required=False,
     ),
-    "TTS_CREDIT_MULTIPLIER_BASELINE": EnvVar(
-        name="TTS_CREDIT_MULTIPLIER_BASELINE",
-        default=0.0001,
+    "TTS_CHARS_PER_LLM_TOKEN": EnvVar(
+        name="TTS_CHARS_PER_LLM_TOKEN",
+        default=0.216,
         type=float,
         description=(
-            "Credits-per-character reference that represents the 1x TTS credit "
-            "multiplier shown in the model picker (default 0.0001 = 1 credit per "
-            "10,000 characters). This baseline is intentionally decoupled from the "
-            "default LLM output-token rate: TTS tiers are curated business "
-            "multipliers, so their displayed 'Nx' label is TTS char rate divided "
-            "by this reference, not by the LLM baseline."
+            "TTS characters synthesized per LLM output token in a task, used to "
+            "put TTS (billed per character) and LLM (billed per token) on one "
+            "shared 1x anchor. Default 0.216 = omega(13.5%) x 1.6 chars/token. "
+            "The picker multiplier is TTS char cost x this factor / the default "
+            "LLM output-token cost, so TTS tiers stay on the same scale as LLM "
+            "model multipliers and track the default LLM price automatically."
         ),
         group="tts",
     ),
