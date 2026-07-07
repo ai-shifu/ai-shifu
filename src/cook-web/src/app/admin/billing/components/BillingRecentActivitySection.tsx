@@ -80,9 +80,9 @@ export function BillingRecentActivitySection({
   registerBillingTranslationUsage(t);
   const sectionRef = React.useRef<HTMLElement | null>(null);
   const headingRef = React.useRef<HTMLHeadingElement | null>(null);
-  const lastPageCountRef = React.useRef(1);
-  const lastPageIndexRef = React.useRef(1);
   const [pageIndex, setPageIndex] = React.useState(1);
+  const [pageCount, setPageCount] = React.useState(1);
+  const lastPageIndexRef = React.useRef(pageIndex);
 
   const {
     data: ledgerData,
@@ -102,11 +102,10 @@ export function BillingRecentActivitySection({
 
   const ledgerItems = ledgerData?.items || [];
   const ledgerPageCount = Number(ledgerData?.page_count || 1);
-  const pageCount = ledgerData ? ledgerPageCount : lastPageCountRef.current;
   const currentPage = Number(ledgerData?.page || pageIndex);
   React.useEffect(() => {
     if (ledgerData) {
-      lastPageCountRef.current = ledgerPageCount;
+      setPageCount(ledgerPageCount);
     }
   }, [ledgerData, ledgerPageCount]);
   React.useEffect(() => {
