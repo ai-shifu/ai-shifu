@@ -24,6 +24,7 @@
   "lessonFeedbackScoreRequired": "Veuillez choisir une note de 1 à 5.",
   "lessonFeedbackSubmitted": "Merci pour votre retour !",
   "lessonUpdateRecommendRetake": "Cette leçon a été mise à jour. Nous vous recommandons de la <action>reprendre</action>",
+  "lessonUpdateRetakeAccessibleLabel": "reprendre cette leçon",
   "lessonUpdateRetakeAction": "Reprendre",
   "listenAudioBackfillFailed": "La génération audio a échoué. Veuillez réessayer ou continuer la lecture.",
   "listenInteractionHint": "Terminez cette étape pour continuer le cours",

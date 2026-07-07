@@ -754,6 +754,7 @@ export type I18nKey =
   | 'module.chat.lessonFeedbackScoreRequired'
   | 'module.chat.lessonFeedbackSubmitted'
   | 'module.chat.lessonUpdateRecommendRetake'
+  | 'module.chat.lessonUpdateRetakeAccessibleLabel'
   | 'module.chat.lessonUpdateRetakeAction'
   | 'module.chat.listenAudioBackfillFailed'
   | 'module.chat.listenInteractionHint'
