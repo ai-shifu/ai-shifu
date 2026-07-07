@@ -11,7 +11,7 @@ import {
   useEffect,
   useMemo,
 } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { runWithConcurrency } from '@/lib/runWithConcurrency';
@@ -1278,19 +1278,27 @@ export const NewChatComponents = ({
       </div>
     ) : null;
   const lessonUpdateNotice = showLessonUpdateNotice ? (
-    <div className='mx-auto mb-3 mt-2 max-w-[1000px] px-4 md:px-5'>
-      <div className='inline-flex max-w-full items-center gap-3 rounded-full border border-amber-200/80 bg-amber-50/90 px-4 py-2 text-sm leading-6 text-amber-900 shadow-sm shadow-amber-100/40'>
-        <span>{t('module.chat.lessonUpdateRecommendRetake')}</span>
-        <Button
-          type='button'
-          size='sm'
-          variant='outline'
-          className='h-8 rounded-[15px] border border-amber-300 bg-white/85 px-3 text-[13px] font-medium text-amber-900 shadow-none hover:bg-white'
-          onClick={handleRetakeButtonClick}
-          disabled={isRetakingCurrentLesson}
-        >
-          {t('module.chat.lessonUpdateRetakeAction')}
-        </Button>
+    <div className='mx-auto mb-3 mt-2 flex max-w-[1000px] justify-center px-4 md:px-5'>
+      <div
+        aria-live='polite'
+        className='inline-flex max-w-full items-center rounded-lg border border-amber-200/60 bg-amber-50/80 px-3 py-1.5 text-sm leading-6 text-amber-900'
+      >
+        <span className='min-w-0'>
+          <Trans
+            i18nKey='module.chat.lessonUpdateRecommendRetake'
+            components={{
+              action: (
+                <button
+                  type='button'
+                  aria-label={t('module.chat.lessonUpdateRetakeAction')}
+                  onClick={handleRetakeButtonClick}
+                  disabled={isRetakingCurrentLesson}
+                  className='inline-flex h-auto min-h-0 items-baseline rounded px-0.5 py-0 font-semibold text-amber-950 underline decoration-amber-700/35 underline-offset-[3px] transition-colors hover:bg-amber-100/80 hover:text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50 disabled:cursor-not-allowed disabled:opacity-60'
+                />
+              ),
+            }}
+          />
+        </span>
         <Dialog
           open={showRetakeConfirm}
           onOpenChange={handleRetakeConfirmOpenChange}

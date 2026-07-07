@@ -1,7 +1,7 @@
 {
   "__namespace__": "module.lesson",
   "reset": {
-    "confirmContent": "La réinitialisation effacera les données d’apprentissage actuelles. Confirmer ?",
+    "confirmContent": "La réinitialisation effacera les données d’apprentissage de cette leçon. Confirmer ?",
     "confirmTitle": "Confirmer la réinitialisation",
     "title": "Réinitialiser"
   },
