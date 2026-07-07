@@ -838,7 +838,10 @@ class RunScriptPreviewContextV2:
             user_bid=user_bid,
             shifu_bid=shifu_bid,
         )
-        preview_language = resolved_variables.get(SYS_USER_LANGUAGE)
+        preview_language = (
+            resolved_variables.get("language")
+            or resolved_variables.get(SYS_USER_LANGUAGE)
+        )
         original_language = get_current_language()
         restore_language = (
             bool(preview_language) and preview_language != original_language
@@ -870,8 +873,8 @@ class RunScriptPreviewContextV2:
                 shifu_bid,
                 outline_bid,
                 language=str(
-                    resolved_variables.get(SYS_USER_LANGUAGE)
-                    or resolved_variables.get("language")
+                    resolved_variables.get("language")
+                    or resolved_variables.get(SYS_USER_LANGUAGE)
                     or ""
                 ),
             )
@@ -887,8 +890,8 @@ class RunScriptPreviewContextV2:
                 context_store.replace_context(document, request_context)
 
             preview_output_language = str(
-                resolved_variables.get(SYS_USER_LANGUAGE)
-                or resolved_variables.get("language")
+                resolved_variables.get("language")
+                or resolved_variables.get(SYS_USER_LANGUAGE)
                 or ""
             )
             context_messages = MdflowContextV2.filter_context_by_output_language(
@@ -1038,6 +1041,8 @@ class RunScriptPreviewContextV2:
             variables[SYS_USER_LANGUAGE] = get_current_language()
         if not str(variables.get("language") or "").strip():
             variables["language"] = variables[SYS_USER_LANGUAGE]
+        elif variables.get("language") != variables.get(SYS_USER_LANGUAGE):
+            variables[SYS_USER_LANGUAGE] = variables["language"]
         return variables
 
     def _iter_preview_generated_events(
