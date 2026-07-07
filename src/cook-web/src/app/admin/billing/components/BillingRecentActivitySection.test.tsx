@@ -63,6 +63,10 @@ describe('BillingRecentActivitySection', () => {
     HTMLElement.prototype,
     'scrollIntoView',
   );
+  const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
+    window,
+    'matchMedia',
+  );
 
   beforeEach(() => {
     mockGetBillingLedger.mockReset();
@@ -168,6 +172,11 @@ describe('BillingRecentActivitySection', () => {
       );
     } else {
       Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+    }
+    if (originalMatchMediaDescriptor) {
+      Object.defineProperty(window, 'matchMedia', originalMatchMediaDescriptor);
+    } else {
+      Reflect.deleteProperty(window, 'matchMedia');
     }
   });
 
@@ -275,6 +284,41 @@ describe('BillingRecentActivitySection', () => {
     expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
     expect(scrollIntoViewMock).toHaveBeenCalledWith({
       behavior: 'smooth',
+      block: 'start',
+    });
+  });
+
+  test('does not smooth scroll when reduced motion is preferred', async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: query === '(prefers-reduced-motion: reduce)',
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    });
+
+    renderSection();
+
+    expect(
+      await screen.findByText(
+        'module.billing.ledger.usageScene.tts - Published Course 1 - learner@example.com',
+      ),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(screen.getByRole('link', { name: '2' }));
+    });
+
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({
+      behavior: 'auto',
       block: 'start',
     });
   });

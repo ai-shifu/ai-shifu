@@ -109,8 +109,12 @@ export function BillingRecentActivitySection({
   }, [ledgerData, ledgerPageCount]);
   const handlePageChange = React.useCallback((nextPage: number) => {
     setPageIndex(nextPage);
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     sectionRef.current?.scrollIntoView?.({
-      behavior: 'smooth',
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
       block: 'start',
     });
   }, []);
