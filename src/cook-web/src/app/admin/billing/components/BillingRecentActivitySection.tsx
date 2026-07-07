@@ -80,6 +80,7 @@ export function BillingRecentActivitySection({
   registerBillingTranslationUsage(t);
   const sectionRef = React.useRef<HTMLElement | null>(null);
   const lastPageCountRef = React.useRef(1);
+  const lastPageIndexRef = React.useRef(1);
   const [pageIndex, setPageIndex] = React.useState(1);
 
   const {
@@ -107,8 +108,11 @@ export function BillingRecentActivitySection({
       lastPageCountRef.current = ledgerPageCount;
     }
   }, [ledgerData, ledgerPageCount]);
-  const handlePageChange = React.useCallback((nextPage: number) => {
-    setPageIndex(nextPage);
+  React.useEffect(() => {
+    if (lastPageIndexRef.current === pageIndex) {
+      return;
+    }
+    lastPageIndexRef.current = pageIndex;
     const prefersReducedMotion =
       typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
@@ -117,6 +121,9 @@ export function BillingRecentActivitySection({
       behavior: prefersReducedMotion ? 'auto' : 'smooth',
       block: 'start',
     });
+  }, [pageIndex]);
+  const handlePageChange = React.useCallback((nextPage: number) => {
+    setPageIndex(nextPage);
   }, []);
 
   return (

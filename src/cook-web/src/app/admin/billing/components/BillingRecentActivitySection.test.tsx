@@ -281,7 +281,9 @@ describe('BillingRecentActivitySection', () => {
       await screen.findByText('module.billing.ledger.source.topup'),
     ).toBeInTheDocument();
     expect(await screen.findByText('+5.00')).toBeInTheDocument();
-    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+    });
     expect(scrollIntoViewMock).toHaveBeenCalledWith({
       behavior: 'smooth',
       block: 'start',
@@ -316,7 +318,9 @@ describe('BillingRecentActivitySection', () => {
       await user.click(screen.getByRole('link', { name: '2' }));
     });
 
-    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+    });
     expect(scrollIntoViewMock).toHaveBeenCalledWith({
       behavior: 'auto',
       block: 'start',
