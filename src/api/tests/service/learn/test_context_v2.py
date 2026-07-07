@@ -1138,6 +1138,30 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
         self.assertFalse(context._mdflow.visual_mode)
 
+    def test_init_uses_explicit_output_language_when_enabled(self):
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.output_language = None
+
+            def set_output_language(self, language):
+                self.output_language = language
+                return self
+
+        with (
+            patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow),
+            patch(
+                "flaskr.service.learn.context_v2.get_markdownflow_output_language",
+                return_value="English",
+            ),
+        ):
+            context = MdflowContextV2(
+                document="doc",
+                use_learner_language=True,
+                output_language="zh-CN",
+            )
+
+        self.assertEqual(context._mdflow.output_language, "简体中文")
+
 
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
     def test_falls_back_to_allowlist_when_persisted_model_not_allowed(self):

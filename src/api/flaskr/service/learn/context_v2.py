@@ -32,7 +32,10 @@ from markdown_flow import (
 )
 from markdown_flow.llm import LLMResult
 from flask import Flask
-from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.common.i18n_utils import (
+    get_markdownflow_output_language,
+    resolve_markdownflow_output_language,
+)
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import (
@@ -389,6 +392,7 @@ class MdflowContextV2:
         interaction_error_prompt: Optional[str] = None,
         use_learner_language: bool = False,
         visual_mode: bool = True,
+        output_language: Optional[str] = None,
     ):
         self._mdflow = MarkdownFlow(
             document=document,
@@ -401,11 +405,16 @@ class MdflowContextV2:
         set_visual_mode = getattr(self._mdflow, "set_visual_mode", None)
         if callable(set_visual_mode):
             set_visual_mode(visual_mode)
-        # Only set output language if use_learner_language is enabled
+        # Language must follow the learner profile/preview variables when provided;
+        # falling back to the request-local language keeps existing callers compatible.
         if use_learner_language:
-            self._mdflow = self._mdflow.set_output_language(
-                get_markdownflow_output_language()
+            language = (output_language or "").strip()
+            resolved_output_language = (
+                resolve_markdownflow_output_language(language)
+                if language
+                else get_markdownflow_output_language()
             )
+            self._mdflow = self._mdflow.set_output_language(resolved_output_language)
 
     def get_block(self, block_index: int):
         return self._mdflow.get_block(block_index)
@@ -851,6 +860,11 @@ class RunScriptPreviewContextV2:
                 interaction_error_prompt=preview_request.interaction_error_prompt,
                 use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
                 visual_mode=bool(preview_request.visual_mode),
+                output_language=str(
+                    resolved_variables.get(SYS_USER_LANGUAGE)
+                    or resolved_variables.get("language")
+                    or ""
+                ),
             )
 
             block_index = preview_request.block_index
@@ -1246,12 +1260,16 @@ class RunScriptPreviewContextV2:
         ]
         temperature_candidates = [
             preview_request.temperature,
-            self._decimal_to_float(getattr(outline, "llm_temperature", None))
-            if outline
-            else None,
-            self._decimal_to_float(getattr(shifu, "llm_temperature", None))
-            if shifu
-            else None,
+            (
+                self._decimal_to_float(getattr(outline, "llm_temperature", None))
+                if outline
+                else None
+            ),
+            (
+                self._decimal_to_float(getattr(shifu, "llm_temperature", None))
+                if shifu
+                else None
+            ),
             float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
         ]
 
@@ -2638,17 +2656,22 @@ class RunScriptContextV2:
             usage_context,
             usage_scene,
         )
+        user_profile = get_user_profiles(
+            app, self._user_info.user_id, self._outline_item_info.shifu_bid
+        )
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
             document_prompt=system_prompt,
             llm_provider=llm_provider,
             use_learner_language=self._shifu_info.use_learner_language,
             visual_mode=True,
+            output_language=str(
+                user_profile.get(SYS_USER_LANGUAGE)
+                or user_profile.get("language")
+                or ""
+            ),
         )
         block_list = mdflow_context.get_all_blocks()
-        user_profile = get_user_profiles(
-            app, self._user_info.user_id, self._outline_item_info.shifu_bid
-        )
         message_list = MdflowContextV2.build_context_from_blocks(
             generated_blocks, run_script_info.mdflow, user_profile
         )
@@ -3317,11 +3340,7 @@ class RunScriptContextV2:
                     stream_element_type: str | None = None,
                     stream_element_number: int | None = None,
                 ):
-                    nonlocal \
-                        tts_processor, \
-                        tts_enabled, \
-                        current_tts_stream_key, \
-                        next_tts_position
+                    nonlocal tts_processor, tts_enabled, current_tts_stream_key, next_tts_position
                     next_key = _normalize_tts_stream_key(
                         stream_element_type=stream_element_type,
                         stream_element_number=stream_element_number,
@@ -3351,11 +3370,7 @@ class RunScriptContextV2:
                     stream_element_type: str | None = None,
                     stream_element_number: int | None = None,
                 ):
-                    nonlocal \
-                        generated_content, \
-                        tts_processor, \
-                        tts_enabled, \
-                        current_tts_stream_key
+                    nonlocal generated_content, tts_processor, tts_enabled, current_tts_stream_key
                     if not chunk_content:
                         return
                     generated_content += chunk_content
@@ -3438,9 +3453,9 @@ class RunScriptContextV2:
                             payload,
                         ) in self._iter_stream_result_with_idle_callback(
                             stream_result,
-                            idle_callback=_drain_tts_ready_events
-                            if tts_enabled
-                            else None,
+                            idle_callback=(
+                                _drain_tts_ready_events if tts_enabled else None
+                            ),
                             idle_poll_interval=idle_poll_interval,
                         ):
                             if source == "idle":
