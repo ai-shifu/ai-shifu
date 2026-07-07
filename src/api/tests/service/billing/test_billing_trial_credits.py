@@ -201,7 +201,9 @@ def test_trial_bootstrap_creates_manual_order_subscription_and_expire_event_once
         assert subscription.billing_provider == "manual"
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
         assert subscription.current_period_start_at == order.paid_at
+        assert subscription.current_period_start_at.microsecond == 0
         assert subscription.current_period_end_at is not None
+        assert subscription.current_period_end_at.microsecond == 0
         assert (
             subscription.current_period_end_at - subscription.current_period_start_at
             == timedelta(days=15)

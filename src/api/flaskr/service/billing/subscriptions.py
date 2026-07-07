@@ -92,6 +92,7 @@ from .queries import (
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import normalize_json_value as _normalize_json_value
+from .primitives import normalize_mysql_datetime as _normalize_mysql_datetime
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 from .serializers import serialize_subscription as _serialize_subscription
@@ -2502,6 +2503,7 @@ def _upsert_subscription_renewal_event(
     event_type: int,
     scheduled_at: datetime,
 ) -> None:
+    normalized_scheduled_at = _normalize_mysql_datetime(scheduled_at)
     payload = _normalize_json_object(
         {
             "subscription_bid": subscription.subscription_bid,
@@ -2520,7 +2522,7 @@ def _upsert_subscription_renewal_event(
             BillingRenewalEvent.deleted == 0,
             BillingRenewalEvent.subscription_bid == subscription.subscription_bid,
             BillingRenewalEvent.event_type == event_type,
-            BillingRenewalEvent.scheduled_at == scheduled_at,
+            BillingRenewalEvent.scheduled_at == normalized_scheduled_at,
         )
         .order_by(BillingRenewalEvent.id.desc())
         .first()
@@ -2531,7 +2533,7 @@ def _upsert_subscription_renewal_event(
             subscription_bid=subscription.subscription_bid,
             creator_bid=subscription.creator_bid,
             event_type=event_type,
-            scheduled_at=scheduled_at,
+            scheduled_at=normalized_scheduled_at,
             status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
             attempt_count=0,
             last_error="",
@@ -2550,7 +2552,7 @@ def _upsert_subscription_renewal_event(
     _cancel_stale_subscription_renewal_events(
         subscription.subscription_bid,
         event_type=event_type,
-        keep_scheduled_at=scheduled_at,
+        keep_scheduled_at=normalized_scheduled_at,
     )
 
 
