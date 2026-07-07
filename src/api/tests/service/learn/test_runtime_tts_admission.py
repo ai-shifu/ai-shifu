@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import logging
 from pathlib import Path
 import sys
@@ -268,6 +269,49 @@ def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog):
 
     assert "synthesize generated block audio failed" in caplog.text
     assert [record for record in caplog.records if record.levelno >= logging.ERROR]
+
+
+def test_stream_sse_emits_error_event_for_business_error_with_factory(
+    monkeypatch, caplog
+):
+    from flaskr.service.common.models import AppException
+    from flaskr.service.learn import routes
+
+    app = Flask(__name__)
+    monkeypatch.setattr(
+        routes,
+        "db",
+        SimpleNamespace(session=SimpleNamespace(remove=lambda: None)),
+    )
+
+    def _messages():
+        raise AppException("TTS provider quota exceeded", 45000292)
+        yield  # pragma: no cover
+
+    with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):
+        resp = routes._stream_sse_response(
+            app,
+            message_iter_factory=_messages,
+            close_log="closed",
+            error_log="synthesize generated block audio failed",
+            error_event_factory=lambda exc: {
+                "type": "error",
+                "content": str(exc),
+            },
+        )
+        with caplog.at_level(logging.WARNING):
+            # The production path installs an error_event_factory, so the business
+            # error is surfaced as an SSE error event instead of propagating.
+            chunks = list(resp.response)
+
+    payloads = [
+        json.loads(chunk[len("data: ") :].strip())
+        for chunk in chunks
+        if isinstance(chunk, str) and chunk.startswith("data: ")
+    ]
+    assert {"type": "error", "content": "TTS provider quota exceeded"} in payloads
+    assert "code: 45000292" in caplog.text
+    assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
 
 
 def test_generated_block_tts_route_keeps_admission_but_skips_runtime_slot() -> None:

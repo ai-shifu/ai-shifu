@@ -97,7 +97,7 @@ def _stream_sse_response(
             app.logger.info(close_log)
             raise
         except AppException as exc:
-            app.logger.warning("%s: %s", error_log, exc)
+            app.logger.warning("%s: %s (code: %s)", error_log, exc, exc.code)
             if error_event_factory is None:
                 raise
             yield _to_sse_data_line(error_event_factory(exc))
