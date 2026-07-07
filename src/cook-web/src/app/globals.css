@@ -115,20 +115,19 @@ body.listen-mode-vh-fallback #root {
   body {
     @apply bg-background text-foreground;
   }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
   button {
+    cursor: pointer;
     outline: none;
+  }
+  button:disabled {
+    cursor: not-allowed;
   }
   button:focus {
     outline: none;
+  }
+  button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 }
 
