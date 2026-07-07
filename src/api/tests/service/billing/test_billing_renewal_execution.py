@@ -57,6 +57,7 @@ from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end,
     calculate_self_managed_billing_cycle_end_after_boundary,
 )
+from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.subscriptions import (
     ensure_subscription_renewal_order,
     sync_subscription_lifecycle_events,
@@ -491,7 +492,7 @@ def test_run_billing_renewal_event_does_not_duplicate_expire_ledger_when_replaye
 def test_manual_trial_subscription_schedules_and_applies_expire(
     billing_renewal_app: Flask,
 ) -> None:
-    period_end_at = (now_utc() - timedelta(minutes=1)).replace(microsecond=0)
+    period_end_at = normalize_mysql_datetime(now_utc() - timedelta(minutes=1))
     with billing_renewal_app.app_context():
         subscription = _create_subscription(
             "sub-trial-expire-1",
@@ -565,7 +566,13 @@ def test_trial_expire_event_sync_reuses_second_precision_scheduled_at(
     billing_renewal_app: Flask,
 ) -> None:
     period_end_at = (now_utc() + timedelta(days=15)).replace(microsecond=654321)
-    stored_period_end_at = period_end_at.replace(microsecond=0)
+    stored_period_end_at = normalize_mysql_datetime(period_end_at)
+    assert stored_period_end_at == period_end_at.replace(microsecond=0) + timedelta(
+        seconds=1
+    )
+    assert normalize_mysql_datetime(
+        period_end_at.replace(microsecond=499999)
+    ) == period_end_at.replace(microsecond=0)
     with billing_renewal_app.app_context():
         subscription = _create_subscription(
             "sub-trial-expire-precision",
@@ -642,7 +649,7 @@ def test_run_billing_renewal_event_applies_downgrade_and_reschedules_renewal(
         assert subscription.product_bid == "bill-product-plan-monthly"
         assert subscription.next_product_bid == ""
         assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
-        assert renewal_event.scheduled_at == next_period_end.replace(microsecond=0)
+        assert renewal_event.scheduled_at == normalize_mysql_datetime(next_period_end)
 
 
 def test_run_billing_downgrade_event_applies_paid_preorder(

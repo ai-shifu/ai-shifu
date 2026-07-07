@@ -92,6 +92,7 @@ from .queries import (
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import normalize_json_value as _normalize_json_value
+from .primitives import normalize_mysql_datetime as _normalize_mysql_datetime
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
 from .serializers import serialize_subscription as _serialize_subscription
@@ -2495,12 +2496,6 @@ def _sync_subscription_lifecycle_events(
     )
 
 
-def _normalize_renewal_event_scheduled_at(value: datetime) -> datetime:
-    """Match MySQL DATETIME precision before comparing renewal event boundaries."""
-
-    return value.replace(microsecond=0)
-
-
 def _upsert_subscription_renewal_event(
     app: Flask,
     subscription: BillingSubscription,
@@ -2508,7 +2503,7 @@ def _upsert_subscription_renewal_event(
     event_type: int,
     scheduled_at: datetime,
 ) -> None:
-    normalized_scheduled_at = _normalize_renewal_event_scheduled_at(scheduled_at)
+    normalized_scheduled_at = _normalize_mysql_datetime(scheduled_at)
     payload = _normalize_json_object(
         {
             "subscription_bid": subscription.subscription_bid,

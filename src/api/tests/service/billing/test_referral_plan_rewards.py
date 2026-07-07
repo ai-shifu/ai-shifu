@@ -35,6 +35,7 @@ from flaskr.service.billing.referral_plan_rewards import (
     ReferralPlanRewardRequest,
     grant_referral_plan_reward,
 )
+from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end_after_boundary,
 )
@@ -148,7 +149,7 @@ def test_referral_plan_reward_creates_manual_paid_order_and_credits(
 def test_referral_plan_reward_defers_active_trial_subscription_until_boundary(
     referral_billing_app: Flask,
 ) -> None:
-    trial_started_at = (now_utc() - timedelta(minutes=5)).replace(microsecond=0)
+    trial_started_at = normalize_mysql_datetime(now_utc() - timedelta(minutes=5))
     trial_ends_at = trial_started_at + timedelta(days=15)
 
     with referral_billing_app.app_context():
@@ -914,7 +915,7 @@ def test_referral_plan_reward_defers_after_higher_paid_subscription(
         expire_event = BillingRenewalEvent.query.filter_by(
             subscription_bid="sub-higher-paid",
             event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
-            scheduled_at=current_end.replace(microsecond=0),
+            scheduled_at=normalize_mysql_datetime(current_end),
         ).one()
         assert order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
         assert order.metadata_json["deferred_after_subscription_bid"] == (

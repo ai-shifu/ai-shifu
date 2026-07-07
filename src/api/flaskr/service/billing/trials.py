@@ -44,6 +44,7 @@ from .primitives import credit_decimal_to_number as _credit_decimal_to_number
 from .primitives import is_billing_enabled as _is_billing_enabled
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
+from .primitives import normalize_mysql_datetime as _normalize_mysql_datetime
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import safe_to_positive_int as _safe_to_positive_int
 from .subscriptions import grant_paid_order_credits as _grant_paid_order_credits
@@ -363,7 +364,7 @@ def _bootstrap_trial_subscription(
     if valid_days <= 0 or credit_amount <= 0:
         return
 
-    now = now_utc().replace(microsecond=0)
+    now = _normalize_mysql_datetime(now_utc())
     expires_at = now + timedelta(days=valid_days)
     product_bid = str(
         _trial_product_field(product_ref, "product_bid", BILLING_TRIAL_PRODUCT_BID)
