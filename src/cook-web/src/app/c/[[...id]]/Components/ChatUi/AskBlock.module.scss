@@ -127,6 +127,9 @@
 .mobileOverlay {
   position: fixed;
   inset: 0;
+  padding: 0;
+  border: 0;
+  appearance: none;
   background: rgba(0, 0, 0, 0.35);
   z-index: 1200;
 }

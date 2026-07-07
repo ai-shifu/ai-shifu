@@ -80,6 +80,12 @@
   pointer-events: auto;
 }
 
+.dnd-sortable-tree_simple_disable-interaction
+  > .dnd-sortable-tree_simple_tree-item[data-disabled='true']
+  * {
+  pointer-events: none;
+}
+
 .dnd-sortable-tree_folder_tree-item-collapse_button {
   border: 0;
   width: 20px;
