@@ -90,6 +90,41 @@ describe('minimax voice clone helpers', () => {
     });
   });
 
+  it('keeps built-in voices selectable when cloned voice ids collide', () => {
+    const options = buildMiniMaxVoiceOptions({
+      builtInVoices: [{ value: 'male-qn-qingse', label: 'Male built-in' }],
+      clonedVoices: [
+        {
+          voice_bid: 'voice-collide-1',
+          voice_id: 'male-qn-qingse',
+          display_name: 'Failed clone using built-in id',
+          status: 'failed',
+        },
+        {
+          voice_bid: 'voice-ready-1',
+          voice_id: 'AiShifu_ready_voice',
+          display_name: 'Ready Voice',
+          status: 'ready',
+        },
+      ],
+      currentVoiceId: '',
+      manualLabel: 'Manual custom voice',
+    });
+
+    expect(options.map(option => option.value)).toEqual([
+      'AiShifu_ready_voice',
+      'male-qn-qingse',
+    ]);
+    expect(options[1]).toMatchObject({
+      label: 'Male built-in',
+      source: 'built_in',
+      disabled: false,
+    });
+    expect(options.some(option => option.voice_bid === 'voice-collide-1')).toBe(
+      false,
+    );
+  });
+
   it('adds a manual option only for unknown current MiniMax custom voices', () => {
     const knownOptions = buildMiniMaxVoiceOptions({
       builtInVoices: [{ value: 'male-qn-qingse', label: 'Male' }],

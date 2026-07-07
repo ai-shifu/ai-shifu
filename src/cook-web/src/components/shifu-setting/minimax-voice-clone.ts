@@ -111,11 +111,16 @@ export function buildMiniMaxVoiceOptions({
   statusLabels?: Record<string, string>;
 }): MiniMaxVoiceOption[] {
   const seen = new Set<string>();
+  const builtInVoiceIds = new Set(
+    (builtInVoices || [])
+      .map(voice => (voice.value || '').trim())
+      .filter(Boolean),
+  );
   const options: MiniMaxVoiceOption[] = [];
 
   for (const voice of clonedVoices || []) {
     const value = (voice.voice_id || '').trim();
-    if (!value || seen.has(value)) {
+    if (!value || seen.has(value) || builtInVoiceIds.has(value)) {
       continue;
     }
     seen.add(value);
