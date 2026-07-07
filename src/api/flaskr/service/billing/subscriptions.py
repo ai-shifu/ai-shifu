@@ -2495,6 +2495,12 @@ def _sync_subscription_lifecycle_events(
     )
 
 
+def _normalize_renewal_event_scheduled_at(value: datetime) -> datetime:
+    """Match MySQL DATETIME precision before comparing renewal event boundaries."""
+
+    return value.replace(microsecond=0)
+
+
 def _upsert_subscription_renewal_event(
     app: Flask,
     subscription: BillingSubscription,
@@ -2502,6 +2508,7 @@ def _upsert_subscription_renewal_event(
     event_type: int,
     scheduled_at: datetime,
 ) -> None:
+    normalized_scheduled_at = _normalize_renewal_event_scheduled_at(scheduled_at)
     payload = _normalize_json_object(
         {
             "subscription_bid": subscription.subscription_bid,
@@ -2520,7 +2527,7 @@ def _upsert_subscription_renewal_event(
             BillingRenewalEvent.deleted == 0,
             BillingRenewalEvent.subscription_bid == subscription.subscription_bid,
             BillingRenewalEvent.event_type == event_type,
-            BillingRenewalEvent.scheduled_at == scheduled_at,
+            BillingRenewalEvent.scheduled_at == normalized_scheduled_at,
         )
         .order_by(BillingRenewalEvent.id.desc())
         .first()
@@ -2531,7 +2538,7 @@ def _upsert_subscription_renewal_event(
             subscription_bid=subscription.subscription_bid,
             creator_bid=subscription.creator_bid,
             event_type=event_type,
-            scheduled_at=scheduled_at,
+            scheduled_at=normalized_scheduled_at,
             status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
             attempt_count=0,
             last_error="",
@@ -2550,7 +2557,7 @@ def _upsert_subscription_renewal_event(
     _cancel_stale_subscription_renewal_events(
         subscription.subscription_bid,
         event_type=event_type,
-        keep_scheduled_at=scheduled_at,
+        keep_scheduled_at=normalized_scheduled_at,
     )
 
 

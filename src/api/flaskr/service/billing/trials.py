@@ -363,7 +363,7 @@ def _bootstrap_trial_subscription(
     if valid_days <= 0 or credit_amount <= 0:
         return
 
-    now = now_utc()
+    now = now_utc().replace(microsecond=0)
     expires_at = now + timedelta(days=valid_days)
     product_bid = str(
         _trial_product_field(product_ref, "product_bid", BILLING_TRIAL_PRODUCT_BID)
