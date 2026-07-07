@@ -98,6 +98,9 @@ export const SimpleTreeItemWrapper = forwardRef<
           contentClassName,
         )}
         data-clickable={handleWrapperClick ? 'true' : undefined}
+        data-disabled={
+          handleWrapperClick && disableInteraction ? 'true' : undefined
+        }
         ref={ref}
         {...(manualDrag ? undefined : handleProps)}
         onClick={handleWrapperClick}
