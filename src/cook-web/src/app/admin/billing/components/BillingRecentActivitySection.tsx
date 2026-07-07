@@ -102,7 +102,10 @@ export function BillingRecentActivitySection({
   const currentPage = Number(ledgerData?.page || pageIndex);
   const handlePageChange = React.useCallback((nextPage: number) => {
     setPageIndex(nextPage);
-    sectionRef.current?.scrollIntoView?.({ block: 'start' });
+    sectionRef.current?.scrollIntoView?.({
+      behavior: 'smooth',
+      block: 'start',
+    });
   }, []);
 
   return (

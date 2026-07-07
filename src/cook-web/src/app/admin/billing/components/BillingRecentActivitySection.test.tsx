@@ -259,7 +259,10 @@ describe('BillingRecentActivitySection', () => {
     ).toBeInTheDocument();
     expect(await screen.findByText('+5.00')).toBeInTheDocument();
     expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
-    expect(scrollIntoViewMock).toHaveBeenCalledWith({ block: 'start' });
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'start',
+    });
   });
 
   test('renders a full usage page without fixed vertical scrolling', async () => {
