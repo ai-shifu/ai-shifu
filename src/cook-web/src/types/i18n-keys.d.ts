@@ -439,7 +439,6 @@ export type I18nKey =
   | 'module.billing.details.table.balance'
   | 'module.billing.details.table.creditType'
   | 'module.billing.details.table.validUntil'
-  | 'module.billing.details.title'
   | 'module.billing.details.topupAvailabilityLabel'
   | 'module.billing.details.topupAvailabilityTooltip'
   | 'module.billing.details.totalCreditsDescription'

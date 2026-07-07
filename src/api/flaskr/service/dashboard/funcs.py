@@ -13,6 +13,7 @@ from sqlalchemy import and_, case, false, or_
 from sqlalchemy.orm import aliased
 
 from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.dashboard.dtos import (
     DashboardCourseDetailBasicInfoDTO,
@@ -2676,7 +2677,7 @@ def build_dashboard_course_detail(
                 LearnProgressRecord.shifu_bid == normalized_shifu_bid,
                 LearnProgressRecord.deleted == 0,
                 LearnProgressRecord.status != LEARN_STATUS_RESET,
-                LearnProgressRecord.updated_at >= datetime.utcnow() - timedelta(days=7),
+                LearnProgressRecord.updated_at >= now_utc() - timedelta(days=7),
             )
             .scalar()
             or 0
@@ -2716,7 +2717,7 @@ def build_dashboard_course_detail(
         new_learner_count_last_7_days = sum(
             1
             for joined_at in joined_at_map.values()
-            if joined_at >= datetime.utcnow() - timedelta(days=7)
+            if joined_at >= now_utc() - timedelta(days=7)
         )
         learning_learner_count = sum(
             1

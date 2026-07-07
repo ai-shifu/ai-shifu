@@ -1,23 +1,23 @@
 {
   "__namespace__": "module.profileOnboarding",
   "admin": {
-    "allowedVariables": "Allowed Variables",
-    "allowedVariablesHint": "This flow can only write nickname, teaching style, and background. Language is still detected automatically.",
+    "allowedVariables": "Information this guide can collect",
+    "allowedVariablesHint": "This guide can collect only nickname, preferred teaching style, and work or background. Language is still detected automatically.",
     "defaultMarkdownflow": "?[%{{sys_user_nickname}}...What should the course call you?]\n?[%{{sys_user_style}} Concise and direct | Step-by-step coaching | Vivid and lively]\n?[%{{sys_user_background}}...What is your work or background?]",
-    "description": "Configure the first-entry learner profile popup for the learning app.",
+    "description": "Configure the learning profile questions learners see the first time they enter the learning app.",
     "emptyPreview": "No recognizable interaction questions yet.",
-    "enabled": "Enable onboarding popup",
-    "enabledHint": "When enabled, learners who have not completed or skipped this flow will see it once.",
+    "enabled": "Enable learning profile guide",
+    "enabledHint": "When enabled, learners who have not completed or skipped this guide will see the popup once.",
     "hidePreview": "Hide Preview",
-    "invalidVariables": "Variables not allowed: {keys}",
-    "loadFailed": "Failed to load profile onboarding configuration",
+    "invalidVariables": "Information not supported yet: {keys}",
+    "loadFailed": "Failed to load learning profile guide configuration",
     "markdownflow": "MarkdownFlow",
     "preview": "Preview",
     "publishState": "Publish State",
     "save": "Save",
-    "saveFailed": "Failed to save profile onboarding configuration",
-    "saveSuccess": "Profile onboarding configuration saved",
-    "title": "Profile Onboarding",
+    "saveFailed": "Failed to save learning profile guide configuration",
+    "saveSuccess": "Learning profile guide configuration saved",
+    "title": "Learning Profile Guide",
     "updatedAt": "Updated At",
     "updatedBy": "Updated By",
     "version": "Version"
@@ -33,7 +33,7 @@
   "variableLabels": {
     "sys_user_background": "work or background",
     "sys_user_nickname": "nickname",
-    "sys_user_style": "teaching style"
+    "sys_user_style": "preferred teaching style"
   },
   "variablePrompt": "Please provide {variable}"
 }

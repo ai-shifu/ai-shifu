@@ -126,6 +126,15 @@ from flaskr.common.shifu_context import (
 context_local = threading.local()
 
 
+def _find_outline_path_or_raise(
+    struct: HistoryItem, outline_bid: str
+) -> list[HistoryItem]:
+    path = find_node_with_parents(struct, outline_bid)
+    if not path:
+        raise_error("server.shifu.lessonNotFoundInCourse")
+    return path
+
+
 def _normalize_stream_number(value: Any) -> int | None:
     try:
         return int(value) if value is not None else None
@@ -1385,6 +1394,11 @@ class RunScriptContextV2:
         self.shifu_ids = []
         self.outline_item_ids = []
         self.current_outline_item = None
+        # Initialize the private attribute the runtime actually reads: it is only
+        # assigned later when a matching outline is found in the struct, so
+        # without this default it stays undefined (AttributeError) whenever the
+        # requested outline is missing from the struct.
+        self._current_outline_item = None
         self._run_type = RunType.INPUT
         self._can_continue = True
         self._stop_event = stop_event
@@ -1506,6 +1520,7 @@ class RunScriptContextV2:
         """Create StreamingTTSProcessor if TTS is configured, else return None."""
         try:
             from flaskr.common.config import get_config
+            from flaskr.service.learn.learn_funcs import _resolve_runtime_tts_voice_id
             from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
             from flaskr.service.tts.validation import validate_tts_settings_strict
 
@@ -1545,6 +1560,13 @@ class RunScriptContextV2:
             if not validated:
                 return None
 
+            runtime_voice_id = _resolve_runtime_tts_voice_id(
+                self.app,
+                validated.provider,
+                validated.voice_id,
+                shifu_bid=effective_shifu_bid,
+            )
+
             max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
             if not max_segment_chars:
                 max_segment_chars = 300
@@ -1556,7 +1578,7 @@ class RunScriptContextV2:
                 user_bid=self._user_info.user_id,
                 shifu_bid=effective_shifu_bid,
                 position=int(position or 0),
-                voice_id=validated.voice_id,
+                voice_id=runtime_voice_id,
                 speed=validated.speed,
                 pitch=validated.pitch,
                 emotion=validated.emotion,
@@ -1718,7 +1740,7 @@ class RunScriptContextV2:
                     and not self._user_info.email
                 ):
                     raise UserNotLoginException()
-            parent_path = find_node_with_parents(self._struct, outline_bid)
+            parent_path = _find_outline_path_or_raise(self._struct, outline_bid)
             attend_info = None
             for item in parent_path:
                 if item.type == "outline":
@@ -1903,7 +1925,7 @@ class RunScriptContextV2:
         def _mark_sub_node_start(
             outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
         ):
-            path = find_node_with_parents(self._struct, outline_item_info.bid)
+            path = _find_outline_path_or_raise(self._struct, outline_item_info.bid)
             for item in path:
                 if item.type == "outline":
                     if item.children and item.children[0].type == "outline":
@@ -3509,7 +3531,7 @@ class RunScriptContextV2:
         return self._can_continue
 
     def get_system_prompt(self, outline_item_bid: str) -> str:
-        path = find_node_with_parents(self._struct, outline_item_bid)
+        path = _find_outline_path_or_raise(self._struct, outline_item_bid)
         path = list(reversed(path))
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]
@@ -3550,7 +3572,7 @@ class RunScriptContextV2:
         return None
 
     def get_llm_settings(self, outline_bid: str) -> LLMSettings:
-        path = find_node_with_parents(self._struct, outline_bid)
+        path = _find_outline_path_or_raise(self._struct, outline_bid)
         path.reverse()
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]

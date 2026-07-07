@@ -108,6 +108,7 @@ from flaskr.service.learn.context_v2 import (
     BlockType as PreviewBlockType,
     MdflowContextV2,
     PaidException,
+    _find_outline_path_or_raise,
     RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
@@ -170,6 +171,34 @@ class _FakeLangfuseTrace:
 
 _HAS_COLLECT_ASYNC = hasattr(RunScriptContextV2, "_collect_async_generator")
 _HAS_RUN_ASYNC = hasattr(RunScriptContextV2, "_run_async_in_safe_context")
+
+
+class OutlinePathGuardTests(unittest.TestCase):
+    def test_find_outline_path_returns_path_when_outline_exists(self):
+        root = HistoryItem(
+            bid="shifu-bid",
+            id=1,
+            type="shifu",
+            children=[
+                HistoryItem(bid="outline-bid", id=2, type="outline", children=[])
+            ],
+        )
+
+        path = _find_outline_path_or_raise(root, "outline-bid")
+
+        self.assertEqual([item.bid for item in path], ["shifu-bid", "outline-bid"])
+
+    def test_find_outline_path_raises_app_error_when_outline_missing(self):
+        root = HistoryItem(bid="shifu-bid", id=1, type="shifu", children=[])
+
+        with patch(
+            "flaskr.service.learn.context_v2.raise_error",
+            side_effect=RuntimeError("lesson missing"),
+        ) as raise_error_mock:
+            with self.assertRaises(RuntimeError):
+                _find_outline_path_or_raise(root, "missing-outline")
+
+        raise_error_mock.assert_called_once_with("server.shifu.lessonNotFoundInCourse")
 
 
 @unittest.skipIf(

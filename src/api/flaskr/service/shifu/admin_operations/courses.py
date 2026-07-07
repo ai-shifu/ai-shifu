@@ -16,6 +16,7 @@ from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
 from flaskr.common.umami_client import get_course_visit_count_30d
 from flaskr.i18n import _
+from flaskr.util.datetime import now_utc
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -2378,7 +2379,7 @@ def _update_course_creator_bid(
     published_values = {PublishedShifu.created_user_bid: creator_user_bid}
     normalized_updated_user_bid = str(updated_user_bid or "").strip()
     if normalized_updated_user_bid:
-        updated_at = datetime.now()
+        updated_at = now_utc()
         draft_values[DraftShifu.updated_user_bid] = normalized_updated_user_bid
         draft_values[DraftShifu.updated_at] = updated_at
         published_values[PublishedShifu.updated_user_bid] = normalized_updated_user_bid
@@ -2489,7 +2490,7 @@ def copy_operator_course(
             raise_error("server.shifu.copyCourseDemoNotAllowed")
 
         action_user_bid = normalized_operator_user_bid
-        now = datetime.now()
+        now = now_utc()
         new_shifu_bid = generate_id(app)
         resolved_new_course_name = _resolve_course_copy_title(
             source_draft.title,
@@ -5267,7 +5268,7 @@ def _build_operator_course_overview(app: Flask) -> AdminOperationCourseOverviewD
     if candidate_query is None:
         return AdminOperationCourseOverviewDTO()
     candidate_subquery = candidate_query.subquery("operator_course_overview_candidates")
-    now = datetime.now()
+    now = now_utc()
     created_window_start, created_window_end = _resolve_created_last_7d_window(now)
     recent_activity_window_start = now - timedelta(days=30)
     aggregate_row = db.session.query(
@@ -5383,7 +5384,7 @@ def _build_operator_course_overview_legacy(
     if total_course_count == 0:
         return AdminOperationCourseOverviewDTO()
 
-    now = datetime.now()
+    now = now_utc()
     created_window_start, created_window_end = _resolve_created_last_7d_window(now)
     recent_activity_window_start = now - timedelta(days=30)
     visible_shifu_bids = [
@@ -5518,7 +5519,9 @@ def _list_operator_courses_legacy(
                 == COURSE_STATUS_PUBLISHED
             ]
         elif quick_filter == COURSE_QUICK_FILTER_CREATED_LAST_7D:
-            created_window_start, created_window_end = _resolve_created_last_7d_window()
+            created_window_start, created_window_end = _resolve_created_last_7d_window(
+                now_utc()
+            )
             merged_courses = [
                 course
                 for course in merged_courses
@@ -5533,12 +5536,12 @@ def _list_operator_courses_legacy(
             ]
             if quick_filter == COURSE_QUICK_FILTER_LEARNING_ACTIVE_30D:
                 matched_shifu_bids = _load_recent_learning_active_course_bids(
-                    since=datetime.now() - timedelta(days=30),
+                    since=now_utc() - timedelta(days=30),
                     shifu_bids=visible_shifu_bids,
                 )
             else:
                 matched_shifu_bids = _load_recent_paid_order_course_bids(
-                    since=datetime.now() - timedelta(days=30),
+                    since=now_utc() - timedelta(days=30),
                     shifu_bids=visible_shifu_bids,
                 )
             merged_courses = [
@@ -5656,7 +5659,7 @@ def list_operator_courses(
                 )
             elif quick_filter == COURSE_QUICK_FILTER_CREATED_LAST_7D:
                 created_window_start, created_window_end = (
-                    _resolve_created_last_7d_window()
+                    _resolve_created_last_7d_window(now_utc())
                 )
                 query = query.filter(
                     candidate_subquery.c.created_at >= created_window_start,
@@ -5670,7 +5673,7 @@ def list_operator_courses(
                         LearnProgressRecord.deleted == 0,
                         LearnProgressRecord.status != LEARN_STATUS_RESET,
                         LearnProgressRecord.created_at
-                        >= datetime.now() - timedelta(days=30),
+                        >= now_utc() - timedelta(days=30),
                     )
                     query = query.filter(
                         candidate_subquery.c.shifu_bid.in_(active_course_query)
@@ -5679,7 +5682,7 @@ def list_operator_courses(
                     paid_course_query = db.session.query(Order.shifu_bid).filter(
                         Order.deleted == 0,
                         Order.status == ORDER_STATUS_SUCCESS,
-                        Order.created_at >= datetime.now() - timedelta(days=30),
+                        Order.created_at >= now_utc() - timedelta(days=30),
                     )
                     query = query.filter(
                         candidate_subquery.c.shifu_bid.in_(paid_course_query)

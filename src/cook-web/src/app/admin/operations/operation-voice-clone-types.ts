@@ -52,3 +52,9 @@ export type AdminOperationVoiceCloneFilters = {
   voice_keyword: string;
   minimax_status_code: string;
 };
+
+export type AdminOperationVoiceCloneRegisterRequest = {
+  owner_user_bid: string;
+  display_name: string;
+  voice_id: string;
+};

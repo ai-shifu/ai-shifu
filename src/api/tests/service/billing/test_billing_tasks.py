@@ -952,6 +952,144 @@ def test_expire_pending_orders_task_includes_legacy_orders_without_expires_at(
     assert payload["timeout_count"] == 1
 
 
+def test_sync_pingxx_order_without_reference_does_not_raise(
+    billing_task_integration_app: Flask,
+) -> None:
+    from flaskr.service.billing.checkout import _sync_pingxx_order
+
+    with billing_task_integration_app.app_context():
+        order = BillingOrder(
+            bill_order_bid="bill-order-refless-pingxx-unit",
+            creator_bid="creator-refless-unit",
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            product_bid="bill-product-plan-monthly",
+            subscription_bid="sub-refless-unit",
+            currency="CNY",
+            payable_amount=990,
+            paid_amount=0,
+            payment_provider="pingxx",
+            provider_reference_id="",
+            status=BILLING_ORDER_STATUS_PENDING,
+            metadata_json={},
+        )
+        # No pingxx charge was ever created: must not raise orderNotFound and
+        # must keep the order pending so the caller can expire it.
+        result = _sync_pingxx_order(billing_task_integration_app, order)
+
+    assert result is not None
+    assert int(order.status) == BILLING_ORDER_STATUS_PENDING
+
+
+def test_sync_billing_order_expires_reference_less_pingxx_order(
+    billing_task_integration_app: Flask,
+) -> None:
+    from flaskr.service.billing.checkout import sync_billing_order
+
+    now = datetime(2026, 6, 9, 12, 0, 0)
+    with billing_task_integration_app.app_context():
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid="bill-order-refless-pingxx-expire",
+                creator_bid="creator-refless-expire",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-refless-expire",
+                currency="CNY",
+                payable_amount=990,
+                paid_amount=0,
+                payment_provider="pingxx",
+                channel="alipay_qr",
+                provider_reference_id="",
+                status=BILLING_ORDER_STATUS_PENDING,
+                expires_at=now - timedelta(minutes=1),
+                metadata_json={},
+                created_at=now - timedelta(minutes=30),
+                updated_at=now - timedelta(minutes=30),
+            )
+        )
+        dao.db.session.commit()
+
+    # Reference-less pending order past expiry must be expired (TIMEOUT), not
+    # raise orderNotFound as it did before (the source of the alert storm).
+    result = sync_billing_order(
+        billing_task_integration_app,
+        "creator-refless-expire",
+        "bill-order-refless-pingxx-expire",
+        {},
+    )
+    assert result is not None
+
+    with billing_task_integration_app.app_context():
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="bill-order-refless-pingxx-expire"
+        ).one()
+        assert int(order.status) == BILLING_ORDER_STATUS_TIMEOUT
+
+
+def test_sync_billing_order_runs_under_per_creator_credit_ledger_lock(
+    billing_task_integration_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.billing import checkout as checkout_mod
+    from flaskr.service.billing.checkout import sync_billing_order
+
+    events: list[tuple[str, str]] = []
+
+    class _RecordingLock:
+        def __init__(self, key: str) -> None:
+            self._key = key
+
+        def acquire(self, blocking: bool = True) -> bool:
+            events.append(("acquire", self._key))
+            return True
+
+        def release(self) -> None:
+            events.append(("release", self._key))
+
+    class _RecordingCache:
+        def lock(self, key, timeout=None, blocking_timeout=None):
+            return _RecordingLock(key)
+
+    monkeypatch.setattr(checkout_mod.cache_provider, "cache", _RecordingCache())
+
+    now = datetime(2026, 6, 9, 12, 0, 0)
+    with billing_task_integration_app.app_context():
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid="bill-order-lock-1",
+                creator_bid="creator-lock-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-lock-1",
+                currency="CNY",
+                payable_amount=990,
+                paid_amount=0,
+                payment_provider="pingxx",
+                provider_reference_id="",  # reference-less: no provider network
+                status=BILLING_ORDER_STATUS_PENDING,
+                expires_at=now - timedelta(minutes=1),
+                metadata_json={},
+                created_at=now - timedelta(minutes=30),
+                updated_at=now - timedelta(minutes=30),
+            )
+        )
+        dao.db.session.commit()
+
+    sync_billing_order(
+        billing_task_integration_app,
+        "creator-lock-1",
+        "bill-order-lock-1",
+        {},
+    )
+
+    # The read-modify-commit critical section ran inside a per-creator
+    # credit-ledger lock, acquired before and released after the work.
+    lock_key = "billing-task-test:billing:credit-ledger:creator-lock-1"
+    assert ("acquire", lock_key) in events
+    assert ("release", lock_key) in events
+    assert events.index(("acquire", lock_key)) < events.index(("release", lock_key))
+
+
 def test_reconcile_provider_reference_task_delegates_to_reconcile_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

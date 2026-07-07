@@ -24,7 +24,7 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_outline_tree
 from flaskr.util import generate_id
-from datetime import datetime
+from flaskr.util.datetime import now_utc
 import threading
 import queue
 from flaskr.service.shifu.shifu_struct_manager import ShifuInfoDto
@@ -105,7 +105,7 @@ def publish_shifu_draft(
         str: Shifu published URL
     """
     with app.app_context():
-        now_time = datetime.now()
+        now_time = now_utc()
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
@@ -232,7 +232,23 @@ def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None)
         apply_shifu_context_snapshot(shifu_context_snapshot)
         get_shifu_summary(app, shifu_id)
     except Exception as e:
-        app.logger.error(f"Failed to generate shifu summary for {shifu_id}: {str(e)}")
+        message = str(e)
+        if "cannot schedule new futures after shutdown" in message:
+            # Summary generation runs in a fire-and-forget daemon thread. When
+            # the worker/process is recycled mid-LLM-call (e.g. a deploy),
+            # litellm's fallback tries to schedule on an executor that is already
+            # shutting down. This is an expected shutdown race, not a real
+            # failure, so log at warning level to avoid paging ops on deploys.
+            app.logger.warning(
+                "Skipped shifu summary for %s due to worker shutdown race: %s",
+                shifu_id,
+                message,
+            )
+        else:
+            app.logger.error(
+                f"Failed to generate shifu summary for {shifu_id}: {message}",
+                exc_info=True,
+            )
 
 
 def get_shifu_summary(app, shifu_id: str):

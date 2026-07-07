@@ -16,6 +16,11 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
+
 jest.mock('@/hooks/useBillingData', () => ({
   __esModule: true,
   useBillingOverview: jest.fn(),
@@ -126,7 +131,13 @@ describe('BillingCreditDetailsPanel', () => {
     render(<BillingCreditDetailsPanel onUpgrade={onUpgrade} />);
 
     expect(
-      screen.getByText('module.billing.details.title'),
+      within(screen.getByTestId('billing-credit-details-panel')).queryByRole(
+        'heading',
+        { level: 1 },
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('module.billing.details.totalCreditsLabel'),
     ).toBeInTheDocument();
     expect(screen.getByText('1,110')).toBeInTheDocument();
     expect(
@@ -137,8 +148,8 @@ describe('BillingCreditDetailsPanel', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('100.00')).toBeInTheDocument();
     expect(screen.getByText('1,000.00')).toBeInTheDocument();
-    expect(screen.getByText('2026年10月12日 23:59')).toBeInTheDocument();
-    expect(screen.getByText('2026年10月20日 23:59')).toBeInTheDocument();
+    expect(screen.getByText('2026-10-13 07:59')).toBeInTheDocument();
+    expect(screen.getByText('2026-10-21 07:59')).toBeInTheDocument();
 
     await user.click(
       screen.getByRole('button', {
@@ -241,7 +252,7 @@ describe('BillingCreditDetailsPanel', () => {
       within(subscriptionRow as HTMLElement).getByText('120.00'),
     ).toBeInTheDocument();
     expect(
-      within(subscriptionRow as HTMLElement).getByText('2026年05月06日 07:59'),
+      within(subscriptionRow as HTMLElement).getByText('2026-05-06 15:59'),
     ).toBeInTheDocument();
   });
 
@@ -324,9 +335,7 @@ describe('BillingCreditDetailsPanel', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(subscriptionRow as HTMLElement).queryByText(
-        '2026年05月06日 07:59',
-      ),
+      within(subscriptionRow as HTMLElement).queryByText('2026-05-06 15:59'),
     ).not.toBeInTheDocument();
   });
 

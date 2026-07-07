@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
 import AdminCountCard from '@/app/admin/components/AdminCountCard';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
@@ -207,7 +206,6 @@ export default function AdminDashboardEntryPage() {
   return (
     <div className='h-full p-0'>
       <div className='h-full overflow-hidden flex flex-col'>
-        <AdminBreadcrumb items={[{ label: t('module.dashboard.title') }]} />
         <AdminTitle
           title={t('module.dashboard.title')}
           actions={
