@@ -725,10 +725,8 @@ class TestBillingWriteRoutes:
             ).one()
             new_subscription = (
                 BillingSubscription.query.filter(
-                    BillingSubscription.creator_bid
-                    == "creator-stale-trial-checkout",
-                    BillingSubscription.subscription_bid
-                    != "sub-stale-trial-checkout",
+                    BillingSubscription.creator_bid == "creator-stale-trial-checkout",
+                    BillingSubscription.subscription_bid != "sub-stale-trial-checkout",
                 )
                 .order_by(BillingSubscription.id.desc())
                 .one()
