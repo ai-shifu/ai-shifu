@@ -490,16 +490,36 @@ def test_run_billing_renewal_event_does_not_duplicate_expire_ledger_when_replaye
 def test_manual_trial_subscription_schedules_and_applies_expire(
     billing_renewal_app: Flask,
 ) -> None:
+    period_end_at = now_utc() - timedelta(minutes=1)
     with billing_renewal_app.app_context():
         subscription = _create_subscription(
             "sub-trial-expire-1",
             product_bid=BILLING_TRIAL_PRODUCT_BID,
             billing_provider="manual",
             provider_subscription_id="",
-            current_period_end_at=now_utc() - timedelta(minutes=1),
+            current_period_end_at=period_end_at,
+        )
+        wallet = _create_wallet(
+            subscription.creator_bid,
+            available_credits="100.0000000000",
         )
         dao.db.session.add(subscription)
+        dao.db.session.add(wallet)
         dao.db.session.flush()
+        dao.db.session.add(
+            _create_bucket(
+                wallet.wallet_bid,
+                subscription.creator_bid,
+                "bucket-trial-expire-1",
+                available_credits="100.0000000000",
+                source_bid=subscription.subscription_bid,
+                source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+                category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+                effective_from=period_end_at - timedelta(days=15),
+                effective_to=period_end_at,
+                created_at=period_end_at - timedelta(days=15),
+            )
+        )
         sync_subscription_lifecycle_events(billing_renewal_app, subscription)
         dao.db.session.commit()
 
@@ -522,7 +542,22 @@ def test_manual_trial_subscription_schedules_and_applies_expire(
         subscription = BillingSubscription.query.filter_by(
             subscription_bid="sub-trial-expire-1"
         ).one()
+        wallet = CreditWallet.query.filter_by(
+            creator_bid=subscription.creator_bid
+        ).one()
+        bucket = CreditWalletBucket.query.filter_by(
+            wallet_bucket_bid="bucket-trial-expire-1"
+        ).one()
+        ledger_entry = CreditLedgerEntry.query.filter_by(
+            wallet_bucket_bid="bucket-trial-expire-1",
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+        ).one()
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_EXPIRED
+        assert wallet.available_credits == Decimal("0E-10")
+        assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
+        assert bucket.available_credits == Decimal("0")
+        assert bucket.expired_credits == Decimal("100.0000000000")
+        assert ledger_entry.amount == Decimal("-100.0000000000")
 
 
 def test_run_billing_renewal_event_applies_downgrade_and_reschedules_renewal(

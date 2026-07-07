@@ -23,6 +23,7 @@ from flaskr.service.billing.consts import (
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_PRODUCT_TYPE_PLAN,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_TRIAL_PRODUCT_BID,
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -802,6 +803,65 @@ class TestBillingRoutes:
         with app.app_context():
             subscription = BillingSubscription.query.filter_by(
                 subscription_bid="sub-stale-active"
+            ).one()
+            assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
+
+    def test_overview_marks_stale_active_trial_subscription_expired(
+        self, billing_test_client
+    ) -> None:
+        app = billing_test_client.application
+        with app.app_context():
+            dao.db.session.add(
+                CreditWallet(
+                    wallet_bid="wallet-stale-trial",
+                    creator_bid="creator-stale-trial",
+                    available_credits=Decimal("0"),
+                    reserved_credits=Decimal("0"),
+                    lifetime_granted_credits=Decimal("100.0000000000"),
+                    lifetime_consumed_credits=Decimal("100.0000000000"),
+                    created_at=datetime(2026, 3, 1, 0, 0, 0),
+                    updated_at=datetime(2026, 4, 5, 0, 0, 0),
+                )
+            )
+            dao.db.session.add(
+                BillingSubscription(
+                    subscription_bid="sub-stale-trial",
+                    creator_bid="creator-stale-trial",
+                    product_bid=BILLING_TRIAL_PRODUCT_BID,
+                    status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                    billing_provider="manual",
+                    provider_subscription_id="",
+                    provider_customer_id="",
+                    current_period_start_at=datetime(2026, 3, 1, 0, 0, 0),
+                    current_period_end_at=datetime(2026, 3, 16, 0, 0, 0),
+                    cancel_at_period_end=0,
+                    next_product_bid="",
+                    metadata_json={"trial_bootstrap": True},
+                    created_at=datetime(2026, 3, 1, 0, 0, 0),
+                    updated_at=datetime(2026, 3, 1, 0, 0, 0),
+                )
+            )
+            dao.db.session.commit()
+
+        response = billing_test_client.get(
+            "/api/billing/overview",
+            headers={"X-User-Id": "creator-stale-trial"},
+        )
+        payload = response.get_json(force=True)
+
+        assert payload["code"] == 0
+        assert payload["data"]["subscription"]["subscription_bid"] == (
+            "sub-stale-trial"
+        )
+        assert payload["data"]["subscription"]["product_bid"] == (
+            BILLING_TRIAL_PRODUCT_BID
+        )
+        assert payload["data"]["subscription"]["status"] == "expired"
+        assert payload["data"]["trial_offer"]["status"] == "granted"
+        assert payload["data"]["trial_offer"]["expires_at"] is not None
+        with app.app_context():
+            subscription = BillingSubscription.query.filter_by(
+                subscription_bid="sub-stale-trial"
             ).one()
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
 
