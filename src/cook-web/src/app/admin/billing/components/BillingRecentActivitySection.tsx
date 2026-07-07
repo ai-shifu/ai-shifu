@@ -78,6 +78,7 @@ export function BillingRecentActivitySection({
 }: BillingRecentActivitySectionProps) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
+  const sectionRef = React.useRef<HTMLElement | null>(null);
   const [pageIndex, setPageIndex] = React.useState(1);
 
   const {
@@ -99,9 +100,20 @@ export function BillingRecentActivitySection({
   const ledgerItems = ledgerData?.items || [];
   const pageCount = Number(ledgerData?.page_count || 1);
   const currentPage = Number(ledgerData?.page || pageIndex);
+  const handlePageChange = React.useCallback(
+    (nextPage: number) => {
+      if (nextPage === pageIndex) {
+        return;
+      }
+      setPageIndex(nextPage);
+      sectionRef.current?.scrollIntoView({ block: 'start' });
+    },
+    [pageIndex],
+  );
 
   return (
     <section
+      ref={sectionRef}
       id='billing-recent-orders'
       className={cn('space-y-6', className)}
       data-testid='billing-usage-table-section'
@@ -129,7 +141,7 @@ export function BillingRecentActivitySection({
               ? {
                   pageIndex: currentPage,
                   pageCount,
-                  onPageChange: setPageIndex,
+                  onPageChange: handlePageChange,
                   prevLabel: t('module.order.paginationPrev'),
                   nextLabel: t('module.order.paginationNext'),
                   prevAriaLabel: t(

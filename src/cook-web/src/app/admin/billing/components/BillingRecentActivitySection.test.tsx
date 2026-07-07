@@ -27,6 +27,7 @@ jest.mock('@/api', () => ({
 }));
 
 const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
+const scrollIntoViewMock = jest.fn();
 
 const createLedgerItem = (index: number) => ({
   ledger_bid: `ledger-${index}`,
@@ -60,6 +61,8 @@ function renderSection(
 describe('BillingRecentActivitySection', () => {
   beforeEach(() => {
     mockGetBillingLedger.mockReset();
+    scrollIntoViewMock.mockClear();
+    Element.prototype.scrollIntoView = scrollIntoViewMock;
 
     mockGetBillingLedger.mockImplementation(({ page_index, page_size }) => {
       if (page_index === 2) {
@@ -232,6 +235,7 @@ describe('BillingRecentActivitySection', () => {
         'module.billing.ledger.usageScene.tts - Published Course 1 - learner@example.com',
       ),
     ).toBeInTheDocument();
+    expect(scrollIntoViewMock).not.toHaveBeenCalled();
 
     await act(async () => {
       await user.click(screen.getByRole('link', { name: '2' }));
@@ -248,6 +252,8 @@ describe('BillingRecentActivitySection', () => {
       await screen.findByText('module.billing.ledger.source.topup'),
     ).toBeInTheDocument();
     expect(await screen.findByText('+5.00')).toBeInTheDocument();
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({ block: 'start' });
   });
 
   test('renders a full usage page without fixed vertical scrolling', async () => {
