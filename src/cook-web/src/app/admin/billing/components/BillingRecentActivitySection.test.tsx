@@ -288,6 +288,11 @@ describe('BillingRecentActivitySection', () => {
       behavior: 'smooth',
       block: 'start',
     });
+    expect(
+      screen.getByRole('heading', {
+        name: 'module.billing.details.usageTable.title',
+      }),
+    ).toHaveFocus();
   });
 
   test('does not smooth scroll when reduced motion is preferred', async () => {

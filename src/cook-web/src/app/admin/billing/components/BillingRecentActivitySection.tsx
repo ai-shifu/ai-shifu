@@ -79,6 +79,7 @@ export function BillingRecentActivitySection({
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
   const sectionRef = React.useRef<HTMLElement | null>(null);
+  const headingRef = React.useRef<HTMLHeadingElement | null>(null);
   const lastPageCountRef = React.useRef(1);
   const lastPageIndexRef = React.useRef(1);
   const [pageIndex, setPageIndex] = React.useState(1);
@@ -121,6 +122,7 @@ export function BillingRecentActivitySection({
       behavior: prefersReducedMotion ? 'auto' : 'smooth',
       block: 'start',
     });
+    headingRef.current?.focus({ preventScroll: true });
   }, [pageIndex]);
   const handlePageChange = React.useCallback((nextPage: number) => {
     setPageIndex(nextPage);
@@ -134,7 +136,11 @@ export function BillingRecentActivitySection({
       data-testid='billing-usage-table-section'
     >
       <div>
-        <h2 className={BILLING_SUBSECTION_TITLE_CLASS}>
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className={BILLING_SUBSECTION_TITLE_CLASS}
+        >
           {t('module.billing.details.usageTable.title')}
         </h2>
       </div>
