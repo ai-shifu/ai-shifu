@@ -1807,7 +1807,8 @@ def build_documents() -> dict[Path, str]:
                 "non-semantic element must handle clicks, mark the actual "
                 'clickable target with `data-clickable="true"` and preserve '
                 'disabled states with `disabled`, `aria-disabled="true"`, or '
-                "`data-disabled`.",
+                "`data-disabled`. Do not rely on page-local cursor styles or "
+                "broad `* { cursor: pointer; }` rules.",
                 "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
                 "`route.ts`, and treat legacy `c-*` directories as active "
                 "compatibility surfaces until a planned migration removes them.",
@@ -1932,7 +1933,8 @@ def build_documents() -> dict[Path, str]:
                 "non-semantic element must handle clicks, mark the actual "
                 'clickable target with `data-clickable="true"` and preserve '
                 'disabled states with `disabled`, `aria-disabled="true"`, or '
-                "`data-disabled`.",
+                "`data-disabled`. Do not rely on page-local cursor styles or "
+                "broad `* { cursor: pointer; }` rules.",
                 "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
                 "`route.ts`, and treat legacy `c-*` directories as active "
                 "compatibility surfaces until a deliberate migration removes them.",

@@ -589,18 +589,6 @@ export default function AskBlock({
     [onToggleAskExpanded, element_bid, expanded, mobileStyle],
   );
 
-  const handleTitleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>, index: number) => {
-      if (event.key !== 'Enter' && event.key !== ' ') {
-        return;
-      }
-
-      event.preventDefault();
-      handleClickTitle(index);
-    },
-    [handleClickTitle],
-  );
-
   const renderMessages = ({
     extraClass,
     messages = messagesToShow,
@@ -631,23 +619,14 @@ export default function AskBlock({
           // if (message.type === BLOCK_TYPE.ANSWER) {
           //   console.log('message', message, shouldEnableMessageTypewriter);
           // }
-          const isMessageClickable = index === 0 && !expanded && mobileStyle;
           return (
             <div
               key={messageRenderKey}
-              data-clickable={isMessageClickable ? 'true' : undefined}
-              role={isMessageClickable ? 'button' : undefined}
-              tabIndex={isMessageClickable ? 0 : undefined}
-              aria-label={isMessageClickable ? t('module.chat.ask') : undefined}
+              data-clickable={
+                index === 0 && !expanded && mobileStyle ? 'true' : undefined
+              }
               className={cn(styles.messageWrapper)}
-              onClick={
-                isMessageClickable ? () => handleClickTitle(index) : undefined
-              }
-              onKeyDown={
-                isMessageClickable
-                  ? event => handleTitleKeyDown(event, index)
-                  : undefined
-              }
+              onClick={() => handleClickTitle(index)}
               style={{
                 justifyContent:
                   message.type === BLOCK_TYPE.ASK ? 'flex-end' : 'flex-start',
@@ -731,10 +710,9 @@ export default function AskBlock({
         {!expanded && renderMessages()}
         {(expanded || hasStreamingAnswerTypewriterMessage) && (
           <>
-            <button
-              type='button'
+            <div
               className={styles.mobileOverlay}
-              aria-label='Close'
+              data-clickable='true'
               onClick={handleClose}
               style={expanded ? undefined : { display: 'none' }}
             />

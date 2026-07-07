@@ -64,12 +64,6 @@ export const SimpleTreeItemWrapper = forwardRef<
   const handleWrapperClick =
     shouldHandleCollapse || hasCustomItemClick
       ? (event: React.MouseEvent<HTMLDivElement>) => {
-          if (disableInteraction) {
-            event.preventDefault();
-            event.stopPropagation();
-            return;
-          }
-
           onItemClick?.(event);
 
           if (event.defaultPrevented) {
@@ -104,7 +98,6 @@ export const SimpleTreeItemWrapper = forwardRef<
           contentClassName,
         )}
         data-clickable={handleWrapperClick ? 'true' : undefined}
-        data-disabled={disableInteraction ? 'true' : undefined}
         ref={ref}
         {...(manualDrag ? undefined : handleProps)}
         onClick={handleWrapperClick}

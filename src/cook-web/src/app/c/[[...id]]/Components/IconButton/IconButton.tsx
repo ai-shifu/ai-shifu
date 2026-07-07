@@ -7,7 +7,6 @@ export const IconButton = ({
   hoverIcon = '',
   activeIcon = '',
   selectedIcon = '',
-  ariaLabel = 'Icon button',
   width = 36,
   borderRadius = 10,
   selected = false,
@@ -15,7 +14,7 @@ export const IconButton = ({
 }) => {
   const [isHover, setIsHover] = useState(false);
   const [isActive, setIsActive] = useState(false);
-  const topRef = useRef<HTMLButtonElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onMouseEnter = () => {
@@ -66,11 +65,10 @@ export const IconButton = ({
   }, [icon, activeIcon, hoverIcon, selectedIcon, isActive, isHover, selected]);
 
   return (
-    <button
-      type='button'
+    <div
       ref={topRef}
+      data-clickable='true'
       className={styles.IconButton}
-      aria-label={ariaLabel}
       style={{
         width: `${width}px`,
         height: `${width}px`,
@@ -83,7 +81,7 @@ export const IconButton = ({
         alt=''
         className={styles.innerIcon}
       />
-    </button>
+    </div>
   );
 };
 

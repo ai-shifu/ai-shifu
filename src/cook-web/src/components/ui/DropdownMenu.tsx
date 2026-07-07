@@ -21,32 +21,19 @@ const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
-const preventDisabledMenuClick: React.MouseEventHandler<
-  HTMLElement
-> = event => {
-  event.preventDefault();
-  event.stopPropagation();
-};
-
-const preventDisabledMenuSelect = (event: Event) => {
-  event.preventDefault();
-};
-
 const DropdownMenuSubTrigger = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
     inset?: boolean;
   }
->(({ className, disabled, inset, children, onClick, ...props }, ref) => (
+>(({ className, inset, children, ...props }, ref) => (
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
-    disabled={disabled}
     className={cn(
       'flex gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent data-[state=open]:bg-accent data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
       inset && 'pl-8',
       className,
     )}
-    onClick={disabled ? preventDisabledMenuClick : onClick}
     {...props}
   >
     {children}
@@ -97,12 +84,9 @@ const DropdownMenuItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean;
   }
->(({ className, disabled, inset, onClick, onSelect, ...props }, ref) => (
+>(({ className, inset, ...props }, ref) => (
   <DropdownMenuPrimitive.Item
     ref={ref}
-    disabled={disabled}
-    onClick={disabled ? preventDisabledMenuClick : onClick}
-    onSelect={disabled ? preventDisabledMenuSelect : onSelect}
     className={cn(
       'relative flex select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
       inset && 'pl-8',
@@ -116,48 +100,37 @@ DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName;
 const DropdownMenuCheckboxItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
->(
-  (
-    { className, children, checked, disabled, onClick, onSelect, ...props },
-    ref,
-  ) => (
-    <DropdownMenuPrimitive.CheckboxItem
-      ref={ref}
-      disabled={disabled}
-      className={cn(
-        'relative flex select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
-        className,
-      )}
-      checked={checked}
-      onClick={disabled ? preventDisabledMenuClick : onClick}
-      onSelect={disabled ? preventDisabledMenuSelect : onSelect}
-      {...props}
-    >
-      <span className='absolute left-2 flex h-3.5 w-3.5 items-center justify-center'>
-        <DropdownMenuPrimitive.ItemIndicator>
-          <Check className='h-4 w-4' />
-        </DropdownMenuPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </DropdownMenuPrimitive.CheckboxItem>
-  ),
-);
+>(({ className, children, checked, ...props }, ref) => (
+  <DropdownMenuPrimitive.CheckboxItem
+    ref={ref}
+    className={cn(
+      'relative flex select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
+      className,
+    )}
+    checked={checked}
+    {...props}
+  >
+    <span className='absolute left-2 flex h-3.5 w-3.5 items-center justify-center'>
+      <DropdownMenuPrimitive.ItemIndicator>
+        <Check className='h-4 w-4' />
+      </DropdownMenuPrimitive.ItemIndicator>
+    </span>
+    {children}
+  </DropdownMenuPrimitive.CheckboxItem>
+));
 DropdownMenuCheckboxItem.displayName =
   DropdownMenuPrimitive.CheckboxItem.displayName;
 
 const DropdownMenuRadioItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
->(({ className, children, disabled, onClick, onSelect, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
-    disabled={disabled}
     className={cn(
       'relative flex select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
       className,
     )}
-    onClick={disabled ? preventDisabledMenuClick : onClick}
-    onSelect={disabled ? preventDisabledMenuSelect : onSelect}
     {...props}
   >
     <span className='absolute left-2 flex h-3.5 w-3.5 items-center justify-center'>
