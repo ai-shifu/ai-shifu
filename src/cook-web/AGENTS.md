@@ -30,7 +30,9 @@ hard frontend constraints close to `src/cook-web/`.
   mark the actual clickable target with `data-clickable="true"` and preserve
   disabled states with `disabled`, `aria-disabled="true"`, or `data-disabled`.
   Do not rely on page-local cursor styles or broad `* { cursor: pointer; }`
-  rules.
+  rules. Full-screen onboarding/backdrop advance surfaces are the exception:
+  keep their large background or card hit areas on the default cursor so the
+  whole page does not read as a button.
 
 ## Avoid
 

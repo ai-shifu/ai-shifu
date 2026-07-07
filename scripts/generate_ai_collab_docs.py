@@ -1808,7 +1808,10 @@ def build_documents() -> dict[Path, str]:
                 'clickable target with `data-clickable="true"` and preserve '
                 'disabled states with `disabled`, `aria-disabled="true"`, or '
                 "`data-disabled`. Do not rely on page-local cursor styles or "
-                "broad `* { cursor: pointer; }` rules.",
+                "broad `* { cursor: pointer; }` rules. Full-screen "
+                "onboarding/backdrop advance surfaces are the exception: keep "
+                "their large background or card hit areas on the default "
+                "cursor so the whole page does not read as a button.",
                 "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
                 "`route.ts`, and treat legacy `c-*` directories as active "
                 "compatibility surfaces until a planned migration removes them.",
@@ -1934,7 +1937,10 @@ def build_documents() -> dict[Path, str]:
                 'clickable target with `data-clickable="true"` and preserve '
                 'disabled states with `disabled`, `aria-disabled="true"`, or '
                 "`data-disabled`. Do not rely on page-local cursor styles or "
-                "broad `* { cursor: pointer; }` rules.",
+                "broad `* { cursor: pointer; }` rules. Full-screen "
+                "onboarding/backdrop advance surfaces are the exception: keep "
+                "their large background or card hit areas on the default "
+                "cursor so the whole page does not read as a button.",
                 "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
                 "`route.ts`, and treat legacy `c-*` directories as active "
                 "compatibility surfaces until a deliberate migration removes them.",
