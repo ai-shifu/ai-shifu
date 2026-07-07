@@ -59,12 +59,18 @@ function renderSection(
 }
 
 describe('BillingRecentActivitySection', () => {
-  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  const originalScrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'scrollIntoView',
+  );
 
   beforeEach(() => {
     mockGetBillingLedger.mockReset();
     scrollIntoViewMock.mockClear();
-    Element.prototype.scrollIntoView = scrollIntoViewMock;
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoViewMock,
+    });
 
     mockGetBillingLedger.mockImplementation(({ page_index, page_size }) => {
       if (page_index === 2) {
@@ -154,7 +160,15 @@ describe('BillingRecentActivitySection', () => {
   });
 
   afterEach(() => {
-    Element.prototype.scrollIntoView = originalScrollIntoView;
+    if (originalScrollIntoViewDescriptor) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'scrollIntoView',
+        originalScrollIntoViewDescriptor,
+      );
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+    }
   });
 
   test('renders the credit usage details table from recent ledger entries', async () => {
