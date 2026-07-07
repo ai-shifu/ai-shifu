@@ -1259,7 +1259,7 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
             block_index=0,
-            variables={"language": "zh-CN"},
+            variables={"sys_user_language": "en-US", "language": "zh-CN"},
         )
 
         with patch(

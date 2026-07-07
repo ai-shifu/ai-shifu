@@ -559,11 +559,16 @@ class _PreviewContextStore:
         shifu_bid: str,
         outline_bid: str,
         ttl_seconds: Optional[int] = None,
+        language: Optional[str] = None,
     ):
         self._cache = cache_provider
         self._ttl_seconds = ttl_seconds or self._DEFAULT_TTL_SECONDS
         prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
-        self._key = f"{prefix}:preview_context:{user_bid}:{shifu_bid}:{outline_bid}"
+        language_suffix = f":{language}" if language else ""
+        self._key = (
+            f"{prefix}:preview_context:{user_bid}:{shifu_bid}:{outline_bid}"
+            f"{language_suffix}"
+        )
 
     def _hash_document(self, document: str) -> str:
         if not document:
@@ -839,7 +844,15 @@ class RunScriptPreviewContextV2:
             )
 
             context_store = _PreviewContextStore(
-                self.app, user_bid, shifu_bid, outline_bid
+                self.app,
+                user_bid,
+                shifu_bid,
+                outline_bid,
+                language=str(
+                    resolved_variables.get(SYS_USER_LANGUAGE)
+                    or resolved_variables.get("language")
+                    or ""
+                ),
             )
             request_context = MdflowContextV2.normalize_context_messages(
                 preview_request.context
@@ -984,8 +997,8 @@ class RunScriptPreviewContextV2:
         variables.update(request_variables)
 
         request_language = str(
-            request_variables.get(SYS_USER_LANGUAGE)
-            or request_variables.get("language")
+            request_variables.get("language")
+            or request_variables.get(SYS_USER_LANGUAGE)
             or ""
         ).strip()
         if request_language:
