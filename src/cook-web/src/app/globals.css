@@ -121,6 +121,8 @@ body.listen-mode-vh-fallback #root {
     input[type='button'],
     input[type='submit'],
     input[type='reset'],
+    input[type='checkbox'],
+    input[type='radio'],
     summary,
     [role='button'],
     [role='link'],
@@ -219,13 +221,8 @@ body.listen-mode-vh-fallback #root {
       var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
   }
 
-  .content-render .single-select-container button:not(:disabled),
   .content-render .single-select-container .select {
     cursor: pointer;
-  }
-
-  .content-render .single-select-container button:disabled {
-    cursor: not-allowed;
   }
 }
 
