@@ -1065,21 +1065,31 @@ def _get_tts_synth_sem_key(app: Flask, user_bid: str, outline_bid: str) -> str:
     )
 
 
-def _tts_synth_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> bool:
-    """Try to reserve a TTS-synthesis slot. Returns True if acquired.
+# Outcomes of a TTS-synthesis slot acquisition.
+_TTS_SLOT_ACQUIRED = "acquired"  # a real Redis slot was reserved -> must release
+_TTS_SLOT_FULL = "full"  # cap reached -> shed the request
+_TTS_SLOT_BYPASS = "bypass"  # limiter inactive -> proceed, nothing to release
 
-    Fails open (returns True) when the cap is disabled, the key is incomplete, or
-    Redis is unavailable, so audio synthesis is never blocked by the limiter
-    itself.
+
+def _tts_synth_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> str:
+    """Try to reserve a TTS-synthesis slot.
+
+    Returns one of:
+    - ``_TTS_SLOT_ACQUIRED``: a Redis slot was actually reserved; the caller must
+      release it.
+    - ``_TTS_SLOT_FULL``: the cap is reached; the caller should shed the request.
+    - ``_TTS_SLOT_BYPASS``: the limiter is inactive (disabled, incomplete key, or
+      Redis unavailable/erroring); proceed without a slot and do NOT release, so a
+      fail-open acquire can never decrement a slot it did not reserve.
     """
     max_count = _get_max_parallel_tts_synth_count(app)
     if max_count <= 0 or not user_bid or not outline_bid:
-        return True
+        return _TTS_SLOT_BYPASS
     try:
         from flaskr.dao import redis_client
 
         if redis_client is None:
-            return True  # fail open when Redis is unavailable
+            return _TTS_SLOT_BYPASS  # fail open when Redis is unavailable
         result = redis_client.eval(
             _LUA_ACQUIRE_TTS_SYNTH_SLOT,
             1,
@@ -1087,7 +1097,7 @@ def _tts_synth_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> bool:
             str(max_count),
             str(TTS_SYNTH_SEM_TTL_SECONDS),
         )
-        return bool(result)
+        return _TTS_SLOT_ACQUIRED if bool(result) else _TTS_SLOT_FULL
     except Exception as exc:
         app.logger.warning(
             "tts_synth_sem_acquire failed, failing open: user_bid=%s outline_bid=%s error=%s",
@@ -1095,7 +1105,7 @@ def _tts_synth_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> bool:
             outline_bid,
             repr(exc),
         )
-        return True  # fail open
+        return _TTS_SLOT_BYPASS  # fail open
 
 
 def _tts_synth_sem_release(app: Flask, user_bid: str, outline_bid: str) -> None:
@@ -1136,7 +1146,8 @@ def _yield_tts_synthesis(
     and returns) instead of piling onto the shared provider RPM queue; the client
     treats the block as having no audio yet and retries later.
     """
-    if not _tts_synth_sem_acquire(app, user_bid, outline_bid):
+    slot = _tts_synth_sem_acquire(app, user_bid, outline_bid)
+    if slot == _TTS_SLOT_FULL:
         app.logger.warning(
             "tts synthesis concurrency limit reached; shedding request | user_bid=%s outline_bid=%s",
             user_bid,
@@ -1150,7 +1161,10 @@ def _yield_tts_synthesis(
             body=body,
         )
     finally:
-        _tts_synth_sem_release(app, user_bid, outline_bid)
+        # Only release a slot we actually reserved; a fail-open bypass never
+        # incremented the counter, so it must not decrement it.
+        if slot == _TTS_SLOT_ACQUIRED:
+            _tts_synth_sem_release(app, user_bid, outline_bid)
 
 
 def _record_stream_segment_usage(
