@@ -100,16 +100,10 @@ export function BillingRecentActivitySection({
   const ledgerItems = ledgerData?.items || [];
   const pageCount = Number(ledgerData?.page_count || 1);
   const currentPage = Number(ledgerData?.page || pageIndex);
-  const handlePageChange = React.useCallback(
-    (nextPage: number) => {
-      if (nextPage === pageIndex) {
-        return;
-      }
-      setPageIndex(nextPage);
-      sectionRef.current?.scrollIntoView?.({ block: 'start' });
-    },
-    [pageIndex],
-  );
+  const handlePageChange = React.useCallback((nextPage: number) => {
+    setPageIndex(nextPage);
+    sectionRef.current?.scrollIntoView?.({ block: 'start' });
+  }, []);
 
   return (
     <section
