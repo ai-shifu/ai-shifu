@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
+import { runWithConcurrency } from '@/lib/runWithConcurrency';
 import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 import { AppContext } from '../AppContext';
@@ -81,6 +82,12 @@ import {
 import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
+
+// Max concurrent listen-mode audio backfill requests. Entering listen mode used
+// to fire TTS synthesis for every missing block at once (Promise.all), which
+// could burst past the provider RPM limit; a small bounded pool keeps the
+// instantaneous request rate well under it.
+const LISTEN_AUDIO_BACKFILL_CONCURRENCY = 3;
 
 interface NewChatComponentsProps {
   className?: string;
@@ -749,25 +756,40 @@ export const NewChatComponents = ({
 
     listenAudioBackfillLessonIdRef.current = lessonIdAtRequest;
 
-    const backfillPromises = missingAudioBlockBids.map(blockBid =>
-      requestListenAudioBackfillForBlock(blockBid, lessonIdAtRequest)
-        .then(result => {
-          if (listenAudioBackfillLessonIdRef.current !== lessonIdAtRequest) {
-            return null;
-          }
-
-          return result;
-        })
-        .catch(() => null),
+    // Prioritise blocks that will actually be played (non-history) so the first
+    // playable block is synthesised before history blocks, which auto-play
+    // skips. Otherwise the bounded pool could spend its slots on leading history
+    // blocks and delay first playback.
+    const historyBlockBidSet = new Set(
+      readyBackfillCandidateItems
+        .filter(item => item.isHistory)
+        .map(item => item.element_bid),
     );
+    const prioritizedBlockBids = [
+      ...missingAudioBlockBids.filter(bid => !historyBlockBidSet.has(bid)),
+      ...missingAudioBlockBids.filter(bid => historyBlockBidSet.has(bid)),
+    ];
 
-    void Promise.all(backfillPromises).then(results => {
+    void runWithConcurrency(
+      prioritizedBlockBids,
+      LISTEN_AUDIO_BACKFILL_CONCURRENCY,
+      blockBid =>
+        requestListenAudioBackfillForBlock(blockBid, lessonIdAtRequest)
+          .then(result => {
+            if (listenAudioBackfillLessonIdRef.current !== lessonIdAtRequest) {
+              return null;
+            }
+
+            return result;
+          })
+          .catch(() => null),
+    ).then(results => {
       if (listenAudioBackfillLessonIdRef.current !== lessonIdAtRequest) {
         return;
       }
 
       const hasGeneratedAudio = results.some(Boolean);
-      const failedBlockBids = missingAudioBlockBids.filter(
+      const failedBlockBids = prioritizedBlockBids.filter(
         (_, index) => !results[index],
       );
       failedBlockBids.forEach(blockBid => {

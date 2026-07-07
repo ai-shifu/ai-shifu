@@ -1008,6 +1008,165 @@ def _yield_with_tts_error_mapping(
         raise_error("server.common.unknownError")
 
 
+# --- Per-(user, outline) TTS synthesis concurrency gate --------------------
+#
+# A client that enters listen mode may fan out block-audio synthesis for a whole
+# lesson at once, which can saturate the shared provider RPM gate. This counting
+# semaphore caps how many block-audio syntheses a single learner runs in parallel
+# for one outline. It mirrors the ask semaphore in runscript_v2 (Redis Lua
+# counter, TTL leak-protection, fail-open when Redis is unavailable).
+
+DEFAULT_MAX_PARALLEL_TTS_SYNTH_COUNT = 6
+# Leak protection: the counter self-expires this long after the last acquire, in
+# case a release is ever missed (the finally block normally releases far sooner).
+TTS_SYNTH_SEM_TTL_SECONDS = 300
+
+_LUA_ACQUIRE_TTS_SYNTH_SLOT = """
+local key = KEYS[1]
+local max_count = tonumber(ARGV[1])
+local ttl = tonumber(ARGV[2])
+local current = tonumber(redis.call('get', key) or '0')
+if current < max_count then
+    redis.call('set', key, current + 1, 'EX', ttl)
+    return 1
+end
+return 0
+"""
+
+_LUA_RELEASE_TTS_SYNTH_SLOT = """
+local key = KEYS[1]
+local current = tonumber(redis.call('get', key) or '0')
+if current > 0 then
+    redis.call('decr', key)
+end
+return 1
+"""
+
+
+def _get_max_parallel_tts_synth_count(app: Flask) -> int:
+    try:
+        return int(
+            app.config.get(
+                "MAX_PARALLEL_TTS_SYNTH_COUNT",
+                DEFAULT_MAX_PARALLEL_TTS_SYNTH_COUNT,
+            )
+        )
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_PARALLEL_TTS_SYNTH_COUNT
+
+
+def _get_tts_synth_sem_key(app: Flask, user_bid: str, outline_bid: str) -> str:
+    return (
+        app.config.get("REDIS_KEY_PREFIX", "")
+        + ":tts_synth_sem:"
+        + user_bid
+        + ":"
+        + outline_bid
+    )
+
+
+# Outcomes of a TTS-synthesis slot acquisition.
+_TTS_SLOT_ACQUIRED = "acquired"  # a real Redis slot was reserved -> must release
+_TTS_SLOT_FULL = "full"  # cap reached -> shed the request
+_TTS_SLOT_BYPASS = "bypass"  # limiter inactive -> proceed, nothing to release
+
+
+def _tts_synth_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> str:
+    """Try to reserve a TTS-synthesis slot.
+
+    Returns one of:
+    - ``_TTS_SLOT_ACQUIRED``: a Redis slot was actually reserved; the caller must
+      release it.
+    - ``_TTS_SLOT_FULL``: the cap is reached; the caller should shed the request.
+    - ``_TTS_SLOT_BYPASS``: the limiter is inactive (disabled, incomplete key, or
+      Redis unavailable/erroring); proceed without a slot and do NOT release, so a
+      fail-open acquire can never decrement a slot it did not reserve.
+    """
+    max_count = _get_max_parallel_tts_synth_count(app)
+    if max_count <= 0 or not user_bid or not outline_bid:
+        return _TTS_SLOT_BYPASS
+    try:
+        from flaskr.dao import redis_client
+
+        if redis_client is None:
+            return _TTS_SLOT_BYPASS  # fail open when Redis is unavailable
+        result = redis_client.eval(
+            _LUA_ACQUIRE_TTS_SYNTH_SLOT,
+            1,
+            _get_tts_synth_sem_key(app, user_bid, outline_bid),
+            str(max_count),
+            str(TTS_SYNTH_SEM_TTL_SECONDS),
+        )
+        return _TTS_SLOT_ACQUIRED if bool(result) else _TTS_SLOT_FULL
+    except Exception as exc:
+        app.logger.warning(
+            "tts_synth_sem_acquire failed, failing open: user_bid=%s outline_bid=%s error=%s",
+            user_bid,
+            outline_bid,
+            repr(exc),
+        )
+        return _TTS_SLOT_BYPASS  # fail open
+
+
+def _tts_synth_sem_release(app: Flask, user_bid: str, outline_bid: str) -> None:
+    """Release a TTS-synthesis slot (no-op when the cap is disabled)."""
+    if _get_max_parallel_tts_synth_count(app) <= 0 or not user_bid or not outline_bid:
+        return
+    try:
+        from flaskr.dao import redis_client
+
+        if redis_client is None:
+            return
+        redis_client.eval(
+            _LUA_RELEASE_TTS_SYNTH_SLOT,
+            1,
+            _get_tts_synth_sem_key(app, user_bid, outline_bid),
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "tts_synth_sem_release failed: user_bid=%s outline_bid=%s error=%s",
+            user_bid,
+            outline_bid,
+            repr(exc),
+        )
+
+
+def _yield_tts_synthesis(
+    app: Flask,
+    *,
+    user_bid: str,
+    outline_bid: str,
+    unknown_error_log: str,
+    body,
+):
+    """Run a TTS synthesis body under a per-(user, outline) concurrency slot.
+
+    Cache-hit paths never reach here, so they do not consume a slot. When the
+    per-(user, outline) cap is already full, the request is shed (yields nothing
+    and returns) instead of piling onto the shared provider RPM queue; the client
+    treats the block as having no audio yet and retries later.
+    """
+    slot = _tts_synth_sem_acquire(app, user_bid, outline_bid)
+    if slot == _TTS_SLOT_FULL:
+        app.logger.warning(
+            "tts synthesis concurrency limit reached; shedding request | user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+        )
+        return
+    try:
+        yield from _yield_with_tts_error_mapping(
+            app,
+            unknown_error_log=unknown_error_log,
+            body=body,
+        )
+    finally:
+        # Only release a slot we actually reserved; a fail-open bypass never
+        # incremented the counter, so it must not decrement it.
+        if slot == _TTS_SLOT_ACQUIRED:
+            _tts_synth_sem_release(app, user_bid, outline_bid)
+
+
 def _record_stream_segment_usage(
     app: Flask,
     usage_context: UsageContext,
@@ -1480,8 +1639,10 @@ def stream_generated_block_audio(
                     preview_mode=preview_mode,
                 )
 
-            yield from _yield_with_tts_error_mapping(
+            yield from _yield_tts_synthesis(
                 app,
+                user_bid=user_bid,
+                outline_bid=generated_block.outline_item_bid or "",
                 unknown_error_log="TTS streaming synthesis failed",
                 body=_generate_single_audio,
             )
@@ -1571,8 +1732,10 @@ def stream_generated_block_audio(
                     subtitle_cues=subtitle_cues,
                 )
 
-            yield from _yield_with_tts_error_mapping(
+            yield from _yield_tts_synthesis(
                 app,
+                user_bid=user_bid,
+                outline_bid=generated_block.outline_item_bid or "",
                 unknown_error_log="Preview listen fallback TTS synthesis failed",
                 body=_generate_preview_audio,
             )
@@ -1639,8 +1802,10 @@ def stream_generated_block_audio(
                         position=0,
                     )
 
-                yield from _yield_with_tts_error_mapping(
+                yield from _yield_tts_synthesis(
                     app,
+                    user_bid=user_bid,
+                    outline_bid=generated_block.outline_item_bid or "",
                     unknown_error_log="Legacy listen TTS synthesis failed",
                     body=_generate_legacy_audio,
                 )
@@ -1746,8 +1911,10 @@ def stream_generated_block_audio(
                         stream_element_type=_audio_stream_element_type(element),
                     )
 
-            yield from _yield_with_tts_error_mapping(
+            yield from _yield_tts_synthesis(
                 app,
+                user_bid=user_bid,
+                outline_bid=generated_block.outline_item_bid or "",
                 unknown_error_log="AV TTS synthesis failed",
                 body=_generate_av_audio,
             )

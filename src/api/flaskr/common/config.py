@@ -1438,6 +1438,16 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Maximum seconds a MiniMax TTS request waits in the RPM queue",
         group="tts",
     ),
+    "MAX_PARALLEL_TTS_SYNTH_COUNT": EnvVar(
+        name="MAX_PARALLEL_TTS_SYNTH_COUNT",
+        default=6,
+        type=int,
+        description=(
+            "Max concurrent block-audio TTS syntheses per (user, outline); "
+            "0 disables the concurrency cap"
+        ),
+        group="tts",
+    ),
     # Volcengine TTS Configuration (shared by WebSocket + HTTP providers)
     "VOLCENGINE_TTS_APP_KEY": EnvVar(
         name="VOLCENGINE_TTS_APP_KEY",
