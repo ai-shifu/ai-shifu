@@ -251,10 +251,12 @@ describe('AdminDashboardCourseDetailPage', () => {
       });
     });
 
-    expect(screen.getByText('module.dashboard.title')).toBeInTheDocument();
     expect(
-      screen.getByText('module.dashboard.title').closest('a'),
-    ).toHaveAttribute('href', '/admin/dashboard');
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'module.dashboard.detail.title',
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByText('Course 1')).toBeInTheDocument();
     expect(
       screen.getByText(

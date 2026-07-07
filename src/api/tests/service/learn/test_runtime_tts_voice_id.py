@@ -110,18 +110,21 @@ def test_minimax_ready_clone_of_same_shifu_is_kept(voice_app, monkeypatch):
         )
 
 
-def test_minimax_ready_clone_of_other_shifu_falls_back(voice_app, monkeypatch):
+def test_minimax_ready_clone_of_other_shifu_is_kept_as_manual_custom_voice(
+    voice_app, monkeypatch
+):
     from flaskr.service.learn import learn_funcs
 
     _patch_provider(monkeypatch)
     with voice_app.app_context():
-        # Ready clone exists but belongs to a different shifu -> must not leak.
+        # Runtime preview should preserve MiniMax custom voice IDs only when
+        # they are verified by an existing READY clone row.
         _add_clone("shifu-2", "AiShifu_clone_1", TTS_MINIMAX_CLONE_STATUS_READY, "vb-2")
         assert (
             learn_funcs._resolve_runtime_tts_voice_id(
                 voice_app, "minimax", "AiShifu_clone_1", shifu_bid="shifu-1"
             )
-            == "default-voice"
+            == "AiShifu_clone_1"
         )
 
 
@@ -142,15 +145,16 @@ def test_minimax_non_ready_clone_of_same_shifu_falls_back(voice_app, monkeypatch
         )
 
 
-def test_minimax_unknown_voice_falls_back_to_default(voice_app, monkeypatch):
+def test_minimax_untracked_custom_voice_falls_back(voice_app, monkeypatch):
     from flaskr.service.learn import learn_funcs
 
     _patch_provider(monkeypatch)
     with voice_app.app_context():
-        # Not a built-in voice and no clone tracked at all -> fall back.
+        # Shape-valid MiniMax custom voice ids can still be stale provider-side;
+        # fallback unless we can verify them through a READY local clone row.
         assert (
             learn_funcs._resolve_runtime_tts_voice_id(
-                voice_app, "minimax", "stale-voice", shifu_bid="shifu-1"
+                voice_app, "minimax", "sunner-ai-shifu", shifu_bid="shifu-1"
             )
             == "default-voice"
         )

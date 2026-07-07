@@ -738,9 +738,9 @@ def _resolve_runtime_tts_voice_id(
     MiniMax accepts user-defined clone IDs that share the same character shape as
     historical built-in voices. A stale DB value can therefore pass local shape
     validation and fail only after the external API call with `2054 - voice id not
-    exist`. For learner-facing audio generation, fall back to the provider's
-    default voice when the MiniMax voice is neither a current built-in voice nor a
-    ready cloned voice tracked by our system.
+    exist`. For learner-facing audio generation, keep built-in voices and clone
+    IDs that are verified by a ready local row, while falling back when this
+    shifu explicitly points at a local cloned voice row that is not ready yet.
     """
     normalized_provider = (provider or "").strip().lower()
     normalized_voice_id = (voice_id or "").strip()
@@ -756,23 +756,39 @@ def _resolve_runtime_tts_voice_id(
     if normalized_voice_id in built_in_voice_ids:
         return normalized_voice_id
 
-    # Only accept a cloned voice that belongs to THIS shifu and is ready.
-    # Scoping by shifu_bid keeps a stale/misconfigured voice id from resolving to
-    # another shifu's clone, and filtering status in the query prevents a newer
-    # non-ready duplicate from hiding an older ready row.
+    # If this shifu tracks a local clone row for the selected voice id, only
+    # accept it when the latest row is ready. This prevents preview/runtime
+    # from trying to use a clone that is still queued or has already failed.
     normalized_shifu_bid = (shifu_bid or "").strip()
     cloned_voice = (
         TTSMiniMaxClonedVoice.query.filter(
             TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
             TTSMiniMaxClonedVoice.shifu_bid == normalized_shifu_bid,
-            TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
             TTSMiniMaxClonedVoice.deleted == 0,
         )
         .order_by(TTSMiniMaxClonedVoice.id.desc())
         .first()
     )
-    if cloned_voice:
+    if cloned_voice and cloned_voice.status == TTS_MINIMAX_CLONE_STATUS_READY:
         return normalized_voice_id
+    if cloned_voice:
+        app.logger.warning(
+            "MiniMax TTS voice_id %s for shifu %s is tracked locally but not ready; falling back to a default voice",
+            normalized_voice_id,
+            normalized_shifu_bid,
+        )
+    else:
+        ready_clone = (
+            TTSMiniMaxClonedVoice.query.filter(
+                TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+                TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
+                TTSMiniMaxClonedVoice.deleted == 0,
+            )
+            .order_by(TTSMiniMaxClonedVoice.id.desc())
+            .first()
+        )
+        if ready_clone:
+            return normalized_voice_id
 
     default_voice_settings = get_default_voice_settings(normalized_provider)
     fallback_voice_id = (getattr(default_voice_settings, "voice_id", "") or "").strip()
@@ -1180,6 +1196,53 @@ def _audio_record_matches_speakable_text(
     return record_text_length > 0 and record_text_length == expected_length
 
 
+def _float_settings_match(left, right) -> bool:
+    try:
+        return abs(float(left) - float(right)) < 0.0001
+    except (TypeError, ValueError):
+        return False
+
+
+def _audio_record_matches_tts_settings(
+    audio_record: LearnGeneratedAudio | None,
+    *,
+    voice_settings,
+    tts_model: str,
+) -> bool:
+    if audio_record is None:
+        return False
+
+    record_voice_id = (getattr(audio_record, "voice_id", "") or "").strip()
+    current_voice_id = (getattr(voice_settings, "voice_id", "") or "").strip()
+    if record_voice_id != current_voice_id:
+        return False
+
+    record_model = (getattr(audio_record, "model", "") or "").strip()
+    current_model = (tts_model or "").strip()
+    if record_model != current_model:
+        return False
+
+    record_settings = getattr(audio_record, "voice_settings", None)
+    if not isinstance(record_settings, dict):
+        record_settings = {}
+
+    if not _float_settings_match(
+        record_settings.get("speed", 1.0), getattr(voice_settings, "speed", 1.0)
+    ):
+        return False
+    if not _float_settings_match(
+        record_settings.get("volume", 1.0), getattr(voice_settings, "volume", 1.0)
+    ):
+        return False
+    if int(record_settings.get("pitch", 0) or 0) != int(
+        getattr(voice_settings, "pitch", 0) or 0
+    ):
+        return False
+    return (record_settings.get("emotion", "") or "") == (
+        getattr(voice_settings, "emotion", "") or ""
+    )
+
+
 def _yield_stream_tts_audio_segments(
     *,
     app: Flask,
@@ -1338,6 +1401,14 @@ def stream_generated_block_audio(
 
         raw_text = generated_block.generated_content or ""
 
+        provider, tts_model, voice_settings, _audio_settings = (
+            _resolve_shifu_tts_settings(
+                app,
+                shifu_bid=shifu_bid,
+                preview_mode=preview_mode,
+            )
+        )
+
         def _resolve_existing_single_block_audio():
             existing_audios = (
                 LearnGeneratedAudio.query.filter(
@@ -1355,6 +1426,11 @@ def stream_generated_block_audio(
                     audio
                     for audio in existing_audios
                     if _audio_record_matches_speakable_text(audio, raw_text)
+                    and _audio_record_matches_tts_settings(
+                        audio,
+                        voice_settings=voice_settings,
+                        tts_model=tts_model,
+                    )
                     and audio.oss_url
                 ),
                 None,
@@ -1375,14 +1451,6 @@ def stream_generated_block_audio(
             if existing_audio:
                 yield from _yield_existing_single_block_audio(existing_audio)
                 return
-
-        provider, tts_model, voice_settings, _audio_settings = (
-            _resolve_shifu_tts_settings(
-                app,
-                shifu_bid=shifu_bid,
-                preview_mode=preview_mode,
-            )
-        )
 
         def _yield_single_block_audio():
             cleaned_text = preprocess_for_tts(raw_text)
@@ -1600,6 +1668,12 @@ def stream_generated_block_audio(
                     continue
                 if not _audio_record_matches_speakable_text(
                     record, speakable_segments[pos]
+                ):
+                    continue
+                if not _audio_record_matches_tts_settings(
+                    record,
+                    voice_settings=voice_settings,
+                    tts_model=tts_model,
                 ):
                     continue
                 existing_by_position[pos] = record

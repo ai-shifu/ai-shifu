@@ -27,6 +27,7 @@ jest.mock('@/api', () => ({
 }));
 
 const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
+const scrollIntoViewMock = jest.fn();
 
 const createLedgerItem = (index: number) => ({
   ledger_bid: `ledger-${index}`,
@@ -58,8 +59,22 @@ function renderSection(
 }
 
 describe('BillingRecentActivitySection', () => {
+  const originalScrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'scrollIntoView',
+  );
+  const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
+    window,
+    'matchMedia',
+  );
+
   beforeEach(() => {
     mockGetBillingLedger.mockReset();
+    scrollIntoViewMock.mockClear();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoViewMock,
+    });
 
     mockGetBillingLedger.mockImplementation(({ page_index, page_size }) => {
       if (page_index === 2) {
@@ -83,7 +98,7 @@ describe('BillingRecentActivitySection', () => {
           page: 2,
           page_count: 2,
           page_size,
-          total: 11,
+          total: 21,
         });
       }
 
@@ -143,9 +158,26 @@ describe('BillingRecentActivitySection', () => {
         page: 1,
         page_count: 2,
         page_size,
-        total: 11,
+        total: 21,
       });
     });
+  });
+
+  afterEach(() => {
+    if (originalScrollIntoViewDescriptor) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'scrollIntoView',
+        originalScrollIntoViewDescriptor,
+      );
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+    }
+    if (originalMatchMediaDescriptor) {
+      Object.defineProperty(window, 'matchMedia', originalMatchMediaDescriptor);
+    } else {
+      Reflect.deleteProperty(window, 'matchMedia');
+    }
   });
 
   test('renders the credit usage details table from recent ledger entries', async () => {
@@ -154,7 +186,7 @@ describe('BillingRecentActivitySection', () => {
     await waitFor(() => {
       expect(mockGetBillingLedger).toHaveBeenCalledWith({
         page_index: 1,
-        page_size: 10,
+        page_size: 20,
       });
     });
 
@@ -167,6 +199,12 @@ describe('BillingRecentActivitySection', () => {
       screen.getByText('module.billing.details.usageTable.title'),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'module.billing.details.usageTable.title',
+      }),
+    ).toHaveClass('text-xl');
+    expect(
       await screen.findByText(
         'module.billing.ledger.usageScene.tts - Published Course 1 - learner@example.com',
       ),
@@ -176,7 +214,7 @@ describe('BillingRecentActivitySection', () => {
         'module.billing.ledger.usageScene.debug - Debug Course 1 - 15811237246',
       ),
     ).toBeInTheDocument();
-    const dateCells = await screen.findAllByText(/Apr 6, 2026/);
+    const dateCells = await screen.findAllByText(/^2026-04-06 /);
     expect(dateCells).toHaveLength(2);
     expect(dateCells[0].tagName).toBe('TD');
     const amountValue = await screen.findByText('-2.50');
@@ -192,7 +230,9 @@ describe('BillingRecentActivitySection', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '1' })).toBeInTheDocument();
     const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
-    expect(scrollContainer).toHaveClass('overflow-auto');
+    expect(scrollContainer).toHaveClass('overflow-x-auto');
+    expect(scrollContainer).not.toHaveClass('overflow-visible');
+    expect(scrollContainer).not.toHaveClass('overflow-auto');
     const columns = Array.from(container.querySelectorAll('col'));
     expect(columns.map(column => column.className)).toEqual([
       'w-[64%]',
@@ -224,6 +264,7 @@ describe('BillingRecentActivitySection', () => {
         'module.billing.ledger.usageScene.tts - Published Course 1 - learner@example.com',
       ),
     ).toBeInTheDocument();
+    expect(scrollIntoViewMock).not.toHaveBeenCalled();
 
     await act(async () => {
       await user.click(screen.getByRole('link', { name: '2' }));
@@ -232,7 +273,7 @@ describe('BillingRecentActivitySection', () => {
     await waitFor(() => {
       expect(mockGetBillingLedger).toHaveBeenCalledWith({
         page_index: 2,
-        page_size: 10,
+        page_size: 20,
       });
     });
 
@@ -240,28 +281,102 @@ describe('BillingRecentActivitySection', () => {
       await screen.findByText('module.billing.ledger.source.topup'),
     ).toBeInTheDocument();
     expect(await screen.findByText('+5.00')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+    });
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'start',
+    });
+    const usageHeading = screen.getByRole('heading', {
+      name: 'module.billing.details.usageTable.title',
+    });
+    expect(usageHeading).toHaveFocus();
+    expect(usageHeading).toHaveClass(
+      'focus-visible:outline-none',
+      'focus-visible:ring-2',
+      'focus-visible:ring-primary/20',
+      'focus-visible:ring-offset-2',
+    );
   });
 
-  test('keeps one full page height when a full usage page is available', async () => {
+  test('does not smooth scroll when reduced motion is preferred', async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: query === '(prefers-reduced-motion: reduce)',
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    });
+
+    renderSection();
+
+    expect(
+      await screen.findByText(
+        'module.billing.ledger.usageScene.tts - Published Course 1 - learner@example.com',
+      ),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(screen.getByRole('link', { name: '2' }));
+    });
+
+    await waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+    });
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({
+      behavior: 'auto',
+      block: 'start',
+    });
+  });
+
+  test('renders a full usage page without fixed vertical scrolling', async () => {
     mockGetBillingLedger.mockResolvedValueOnce({
-      items: Array.from({ length: 10 }, (_, index) =>
+      items: Array.from({ length: 20 }, (_, index) =>
         createLedgerItem(index + 1),
       ),
       page: 1,
       page_count: 3,
-      page_size: 10,
-      total: 30,
+      page_size: 20,
+      total: 60,
     });
 
-    renderSection({ stretchToFill: true });
+    renderSection();
 
     expect(await screen.findByText('+1.00')).toBeInTheDocument();
     const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
-    expect(scrollContainer).toHaveClass('flex-1');
-    expect(scrollContainer.style.minHeight).toBe('570px');
-    expect(scrollContainer.parentElement).toHaveStyle({
-      minHeight: '570px',
+    expect(scrollContainer).not.toHaveClass('flex-1');
+    expect(scrollContainer).toHaveClass('overflow-x-auto');
+    expect(scrollContainer.style.minHeight).toBe('');
+    expect(scrollContainer.parentElement).not.toHaveStyle({
+      minHeight: '1100px',
     });
+  });
+
+  test('does not force page height when a usage page has fewer rows', async () => {
+    mockGetBillingLedger.mockResolvedValueOnce({
+      items: [createLedgerItem(1)],
+      page: 2,
+      page_count: 2,
+      page_size: 20,
+      total: 21,
+    });
+
+    renderSection();
+
+    expect(await screen.findByText('+1.00')).toBeInTheDocument();
+    const scrollContainer = screen.getByTestId('billing-usage-table-scroll');
+    expect(scrollContainer).toHaveClass('overflow-x-auto');
+    expect(scrollContainer).not.toHaveClass('flex-1');
+    expect(scrollContainer.style.minHeight).toBe('');
+    expect(scrollContainer.parentElement).not.toHaveClass('flex-1');
   });
 
   test('does not render an empty pagination footer for a single page result', async () => {
@@ -287,7 +402,7 @@ describe('BillingRecentActivitySection', () => {
       ],
       page: 1,
       page_count: 1,
-      page_size: 10,
+      page_size: 20,
       total: 1,
     });
 
@@ -315,7 +430,7 @@ describe('BillingRecentActivitySection', () => {
     ).not.toBeInTheDocument();
   });
 
-  test('keeps a full 10-row skeleton height while the next ledger page is loading', async () => {
+  test('keeps a full 20-row skeleton height while the next ledger page is loading', async () => {
     const user = userEvent.setup();
     let resolveSecondPage:
       | ((value: {
@@ -380,7 +495,7 @@ describe('BillingRecentActivitySection', () => {
         page: 1,
         page_count: 2,
         page_size,
-        total: 11,
+        total: 21,
       });
     });
 
@@ -404,10 +519,17 @@ describe('BillingRecentActivitySection', () => {
     const skeleton = await screen.findByTestId('billing-usage-table-skeleton');
     expect(skeleton).toBeInTheDocument();
     const skeletonRows = screen.getAllByTestId('billing-usage-skeleton-row');
-    expect(skeletonRows).toHaveLength(10);
+    expect(skeletonRows).toHaveLength(20);
     expect(skeletonRows[0]).toHaveClass('hover:!bg-transparent');
     expect(skeletonRows[0].querySelector('td:last-child > div')).toHaveClass(
       'ml-auto',
+    );
+    expect(
+      screen.getByRole('navigation', { name: 'pagination' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '2' })).toHaveAttribute(
+      'aria-current',
+      'page',
     );
 
     await act(async () => {
@@ -430,8 +552,8 @@ describe('BillingRecentActivitySection', () => {
         ],
         page: 2,
         page_count: 2,
-        page_size: 10,
-        total: 11,
+        page_size: 20,
+        total: 21,
       });
     });
 
