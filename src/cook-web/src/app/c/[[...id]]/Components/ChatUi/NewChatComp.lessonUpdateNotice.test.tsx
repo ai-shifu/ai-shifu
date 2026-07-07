@@ -13,7 +13,7 @@ jest.mock('react-i18next', () => {
     'module.chat.ask': '追问',
     'module.chat.lessonUpdateRecommendRetake':
       '本节课程已更新，建议<action>重修</action>',
-    'module.chat.lessonUpdateRetakeAction': '重修本节课程',
+    'module.chat.lessonUpdateRetakeAction': '重修',
     'module.lesson.reset.confirmContent': '重修会清空本节学习数据。确定重修？',
     'module.lesson.reset.confirmTitle': '确认重修',
     'module.renderUi.core.confirm': '确认',
@@ -305,7 +305,7 @@ describe('NewChatComponents lesson update notice', () => {
     renderLessonUpdateNotice();
 
     const retakeAction = screen.getByRole('button', {
-      name: '重修本节课程',
+      name: '重修',
     });
     expect(retakeAction.closest('span')).toHaveTextContent(
       '本节课程已更新，建议重修',
