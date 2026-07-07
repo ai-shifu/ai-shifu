@@ -1162,6 +1162,23 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
         self.assertEqual(context._mdflow.output_language, "简体中文")
 
+    def test_filter_context_removes_stale_english_output_instruction(self):
+        context = [
+            {
+                "role": "user",
+                "content": "<output_language_instruction>\nOUTPUT: 100% English\n</output_language_instruction>",
+            },
+            {"role": "assistant", "content": "English answer"},
+            {"role": "user", "content": "中文问题"},
+        ]
+
+        filtered = MdflowContextV2.filter_context_by_output_language(
+            context,
+            "zh-CN",
+        )
+
+        self.assertEqual(filtered, context[1:])
+
 
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
     def test_falls_back_to_allowlist_when_persisted_model_not_allowed(self):

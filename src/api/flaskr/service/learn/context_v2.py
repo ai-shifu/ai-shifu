@@ -457,6 +457,27 @@ class MdflowContextV2:
         return filtered or None
 
     @staticmethod
+    def filter_context_by_output_language(
+        context: Optional[list[dict[str, str]]],
+        output_language: str,
+    ) -> Optional[list[dict[str, str]]]:
+        if not context:
+            return context
+        normalized_language = (output_language or "").strip().lower()
+        if not normalized_language or normalized_language in {"en", "en-us", "english"}:
+            return context
+
+        filtered: list[dict[str, str]] = []
+        for message in context:
+            content = str(message.get("content") or "")
+            if "OUTPUT: 100% English" in content:
+                continue
+            if "Translate ALL non-English" in content:
+                continue
+            filtered.append(message)
+        return filtered or None
+
+    @staticmethod
     def normalize_user_input_map(
         input_value: str | dict | list | None,
         default_key: str = "input",
@@ -865,6 +886,16 @@ class RunScriptPreviewContextV2:
                 context_messages = request_context
                 context_store.replace_context(document, request_context)
 
+            preview_output_language = str(
+                resolved_variables.get(SYS_USER_LANGUAGE)
+                or resolved_variables.get("language")
+                or ""
+            )
+            context_messages = MdflowContextV2.filter_context_by_output_language(
+                context_messages,
+                preview_output_language,
+            )
+
             mdflow_context = MdflowContextV2(
                 document=document,
                 llm_provider=provider,
@@ -873,11 +904,7 @@ class RunScriptPreviewContextV2:
                 interaction_error_prompt=preview_request.interaction_error_prompt,
                 use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
                 visual_mode=bool(preview_request.visual_mode),
-                output_language=str(
-                    resolved_variables.get(SYS_USER_LANGUAGE)
-                    or resolved_variables.get("language")
-                    or ""
-                ),
+                output_language=preview_output_language,
             )
 
             block_index = preview_request.block_index
