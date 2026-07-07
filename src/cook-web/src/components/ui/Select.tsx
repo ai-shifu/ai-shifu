@@ -111,34 +111,60 @@ type SelectItemProps = React.ComponentPropsWithoutRef<
   indicatorClassName?: string;
 };
 
+const handleDisabledSelectItemClick = (
+  disabled: boolean | undefined,
+  onClick: React.MouseEventHandler<HTMLDivElement> | undefined,
+): React.MouseEventHandler<HTMLDivElement> | undefined => {
+  if (!disabled && !onClick) {
+    return undefined;
+  }
+
+  return event => {
+    if (disabled) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    onClick?.(event);
+  };
+};
+
 const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
   SelectItemProps
->(({ className, children, indicatorClassName, ...props }, ref) => (
-  <SelectPrimitive.Item
-    ref={ref}
-    className={cn(
-      'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
-      className,
-    )}
-    {...props}
-  >
-    <span
+>(
+  (
+    { className, children, disabled, indicatorClassName, onClick, ...props },
+    ref,
+  ) => (
+    <SelectPrimitive.Item
+      ref={ref}
+      disabled={disabled}
       className={cn(
-        'absolute left-2 flex h-3.5 w-3.5 items-center justify-center',
-        indicatorClassName,
+        'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
+        className,
       )}
+      onClick={handleDisabledSelectItemClick(disabled, onClick)}
+      {...props}
     >
-      <SelectPrimitive.ItemIndicator>
-        <Check className='h-4 w-4' />
-      </SelectPrimitive.ItemIndicator>
-    </span>
+      <span
+        className={cn(
+          'absolute left-2 flex h-3.5 w-3.5 items-center justify-center',
+          indicatorClassName,
+        )}
+      >
+        <SelectPrimitive.ItemIndicator>
+          <Check className='h-4 w-4' />
+        </SelectPrimitive.ItemIndicator>
+      </span>
 
-    <SelectPrimitive.ItemText asChild>
-      <span className='flex min-w-0 flex-1'>{children}</span>
-    </SelectPrimitive.ItemText>
-  </SelectPrimitive.Item>
-));
+      <SelectPrimitive.ItemText asChild>
+        <span className='flex min-w-0 flex-1'>{children}</span>
+      </SelectPrimitive.ItemText>
+    </SelectPrimitive.Item>
+  ),
+);
 SelectItem.displayName = SelectPrimitive.Item.displayName;
 
 const SelectSeparator = React.forwardRef<
