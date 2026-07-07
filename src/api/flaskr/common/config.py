@@ -1382,6 +1382,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="tts",
         required=False,
     ),
+    "TTS_CHARS_PER_LLM_TOKEN": EnvVar(
+        name="TTS_CHARS_PER_LLM_TOKEN",
+        default=0.216,
+        type=float,
+        description=(
+            "TTS characters synthesized per LLM output token in a task, used to "
+            "put TTS (billed per character) and LLM (billed per token) on one "
+            "shared 1x anchor. Default 0.216 = omega(13.5%) x 1.6 chars/token. "
+            "The picker multiplier is TTS char cost x this factor / the default "
+            "LLM output-token cost, so TTS tiers stay on the same scale as LLM "
+            "model multipliers and track the default LLM price automatically."
+        ),
+        group="tts",
+    ),
     "MINIMAX_TTS_SAMPLE_RATE": EnvVar(
         name="MINIMAX_TTS_SAMPLE_RATE",
         default=24000,
