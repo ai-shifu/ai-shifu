@@ -138,7 +138,7 @@
   "minimaxCloneSubmitReasonInsufficientCredits": "当前积分不足，无法提交音色克隆。",
   "minimaxCloneSubmitReasonMissingSource": "请先录满至少 {seconds} 秒的声音样本。",
   "minimaxCloneSubmitReasonRecording": "正在录音，请先停止录音。",
-  "minimaxCloneSubmitReasonSourceTooShort": "声音样本至少需要 {minSeconds} 秒，当前 {currentSeconds} 秒。继续录到 10 秒以上后再停止。",
+  "minimaxCloneSubmitReasonSourceTooShort": "声音样本至少需要 {minSeconds} 秒，当前 {currentSeconds} 秒。继续录到 {minSeconds} 秒以上后再停止。",
   "minimaxCloneSubmitReasonSubmitting": "正在提交，请稍候。",
   "minimaxCloneVoiceId": "自定义 Voice ID",
   "minimaxCloneVoiceIdPlaceholder": "可选，填写自定义 MiniMax voice_id",

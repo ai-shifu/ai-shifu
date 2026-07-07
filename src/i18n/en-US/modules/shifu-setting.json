@@ -138,7 +138,7 @@
   "minimaxCloneSubmitReasonInsufficientCredits": "Insufficient credits to submit voice cloning.",
   "minimaxCloneSubmitReasonMissingSource": "Record at least {seconds}s of voice sample.",
   "minimaxCloneSubmitReasonRecording": "Recording is in progress. Stop recording before submitting.",
-  "minimaxCloneSubmitReasonSourceTooShort": "The voice sample must be at least {minSeconds}s. Current length is {currentSeconds}s. Continue recording past 10s before stopping.",
+  "minimaxCloneSubmitReasonSourceTooShort": "The voice sample must be at least {minSeconds}s. Current length is {currentSeconds}s. Continue recording past {minSeconds}s before stopping.",
   "minimaxCloneSubmitReasonSubmitting": "Submitting. Please wait.",
   "minimaxCloneVoiceId": "Custom Voice ID",
   "minimaxCloneVoiceIdPlaceholder": "Optional custom MiniMax voice_id",

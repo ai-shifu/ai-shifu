@@ -138,7 +138,7 @@
   "minimaxCloneSubmitReasonInsufficientCredits": "Crédits insuffisants pour envoyer le clonage vocal.",
   "minimaxCloneSubmitReasonMissingSource": "Enregistrez au moins {seconds}s d’échantillon vocal.",
   "minimaxCloneSubmitReasonRecording": "Enregistrement en cours. Arrêtez l’enregistrement avant d’envoyer.",
-  "minimaxCloneSubmitReasonSourceTooShort": "L’échantillon vocal doit durer au moins {minSeconds}s. Durée actuelle : {currentSeconds}s. Continuez au-delà de 10s avant d’arrêter.",
+  "minimaxCloneSubmitReasonSourceTooShort": "L’échantillon vocal doit durer au moins {minSeconds}s. Durée actuelle : {currentSeconds}s. Continuez au-delà de {minSeconds}s avant d’arrêter.",
   "minimaxCloneSubmitReasonSubmitting": "Envoi en cours. Veuillez patienter.",
   "minimaxCloneVoiceId": "Voice ID personnalisé",
   "minimaxCloneVoiceIdPlaceholder": "voice_id MiniMax personnalisé facultatif",
