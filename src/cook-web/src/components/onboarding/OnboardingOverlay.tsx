@@ -216,13 +216,11 @@ export function OnboardingOverlay({
       )}
       <div
         ref={cardRef}
-        data-clickable='true'
         className='pointer-events-auto absolute z-20'
         style={{
           ...cardStyle,
           visibility: isCardMeasured ? 'visible' : 'hidden',
         }}
-        onClick={onAdvance}
       >
         <OnboardingCard
           title={title}
@@ -233,6 +231,7 @@ export function OnboardingOverlay({
           actionLabel={actionLabel}
           actionHref={actionHref}
           skipLabel={skipLabel}
+          onAdvance={onAdvance}
           onSkip={onSkip}
         />
       </div>

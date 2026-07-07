@@ -9,6 +9,7 @@ type OnboardingCardProps = {
   actionLabel?: React.ReactNode;
   actionHref?: string;
   skipLabel?: React.ReactNode;
+  onAdvance: () => void;
   onSkip?: () => void;
 };
 
@@ -21,6 +22,7 @@ export function OnboardingCard({
   actionLabel,
   actionHref,
   skipLabel,
+  onAdvance,
   onSkip,
 }: OnboardingCardProps) {
   const progressLabel = `${stepIndex + 1} / ${totalSteps}`;
@@ -39,21 +41,23 @@ export function OnboardingCard({
           href={actionHref}
           target='_blank'
           rel='noopener noreferrer'
-          onClick={event => event.stopPropagation()}
           className='mt-3 inline-flex text-sm font-medium leading-6 text-blue-600 underline-offset-4 transition-colors hover:text-blue-700 hover:underline'
         >
           {actionLabel}
         </a>
       ) : null}
       <div className='mt-4 flex items-center justify-between gap-3'>
-        <p className='text-xs font-medium uppercase tracking-[0.12em] text-slate-400'>
+        <button
+          type='button'
+          onClick={onAdvance}
+          className='text-xs font-medium uppercase tracking-[0.12em] text-blue-600 underline-offset-4 transition-colors hover:text-blue-700 hover:underline'
+        >
           {continueLabel}
-        </p>
+        </button>
         {skipLabel ? (
           <button
             type='button'
-            onClick={event => {
-              event.stopPropagation();
+            onClick={() => {
               onSkip?.();
             }}
             className='shrink-0 text-xs font-medium text-slate-400 underline-offset-4 transition-colors hover:text-slate-600 hover:underline'
