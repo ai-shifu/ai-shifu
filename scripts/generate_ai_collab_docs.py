@@ -1802,6 +1802,16 @@ def build_documents() -> dict[Path, str]:
                 "path or ad-hoc component fetch logic.",
                 "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
                 "and preserve the unified request/business-code handling flow.",
+                "For clickable UI, prefer semantic elements (`button`, `a`, "
+                "`summary`) or shared Radix/shadcn primitives. If a "
+                "non-semantic element must handle clicks, mark the actual "
+                'clickable target with `data-clickable="true"` and preserve '
+                'disabled states with `disabled`, `aria-disabled="true"`, or '
+                "`data-disabled`. Do not rely on page-local cursor styles or "
+                "broad `* { cursor: pointer; }` rules. Full-screen "
+                "onboarding/backdrop advance surfaces are the exception: keep "
+                "their large background or card hit areas on the default "
+                "cursor so the whole page does not read as a button.",
                 "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
                 "`route.ts`, and treat legacy `c-*` directories as active "
                 "compatibility surfaces until a planned migration removes them.",
@@ -1921,6 +1931,16 @@ def build_documents() -> dict[Path, str]:
                 "implementations or ad-hoc component fetch logic.",
                 "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
                 "and preserve the unified business-code handling path.",
+                "For clickable UI, prefer semantic elements (`button`, `a`, "
+                "`summary`) or shared Radix/shadcn primitives. If a "
+                "non-semantic element must handle clicks, mark the actual "
+                'clickable target with `data-clickable="true"` and preserve '
+                'disabled states with `disabled`, `aria-disabled="true"`, or '
+                "`data-disabled`. Do not rely on page-local cursor styles or "
+                "broad `* { cursor: pointer; }` rules. Full-screen "
+                "onboarding/backdrop advance surfaces are the exception: keep "
+                "their large background or card hit areas on the default "
+                "cursor so the whole page does not read as a button.",
                 "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
                 "`route.ts`, and treat legacy `c-*` directories as active "
                 "compatibility surfaces until a deliberate migration removes them.",

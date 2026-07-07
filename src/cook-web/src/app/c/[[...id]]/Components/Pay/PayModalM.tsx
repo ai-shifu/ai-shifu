@@ -649,6 +649,7 @@ export const PayModalM = ({
                                     payChannel === PAY_CHANNEL_WECHAT_JSAPI &&
                                       styles.selected,
                                   )}
+                                  data-clickable='true'
                                   onClick={onPayChannelWechatClick}
                                 >
                                   <div className={styles.payChannelBasic}>
@@ -674,6 +675,7 @@ export const PayModalM = ({
                                     payChannel === PAY_CHANNEL_ZHIFUBAO &&
                                       styles.selected,
                                   )}
+                                  data-clickable='true'
                                   onClick={onPayChannelZhifubaoClick}
                                 >
                                   <div className={styles.payChannelBasic}>

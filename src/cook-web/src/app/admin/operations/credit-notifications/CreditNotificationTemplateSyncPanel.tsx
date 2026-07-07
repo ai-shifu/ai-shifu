@@ -132,7 +132,7 @@ export function CreditNotificationPlaceholderGuide({
 
   return (
     <details className='group rounded-md border border-border bg-white px-3 py-2'>
-      <summary className='flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-medium text-muted-foreground marker:hidden'>
+      <summary className='flex list-none items-center justify-between gap-3 text-xs font-medium text-muted-foreground marker:hidden'>
         <span className='flex min-w-0 items-center gap-2'>
           <Info className='h-3.5 w-3.5 shrink-0' />
           <span>

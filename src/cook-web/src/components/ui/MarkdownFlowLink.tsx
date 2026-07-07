@@ -25,7 +25,7 @@ export const MarkdownFlowLink: React.FC<MarkdownFlowLinkProps> = ({
   targetUrl = 'https://markdownflow.ai/',
 }) => {
   const defaultLinkClass =
-    'underline hover:opacity-80 transition-opacity duration-200 cursor-pointer';
+    'underline hover:opacity-80 transition-opacity duration-200';
 
   // Build content parts array and filter out empty elements
   const contentParts: React.ReactNode[] = [

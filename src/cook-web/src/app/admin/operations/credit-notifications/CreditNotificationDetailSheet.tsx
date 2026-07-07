@@ -384,7 +384,7 @@ export function CreditNotificationDetailSheet({
               </Section>
 
               <details className='rounded-lg border border-border bg-white p-4'>
-                <summary className='cursor-pointer text-sm font-semibold text-foreground'>
+                <summary className='text-sm font-semibold text-foreground'>
                   {t(
                     'module.operationsCreditNotifications.detail.sections.diagnostics',
                   )}

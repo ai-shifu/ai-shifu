@@ -622,6 +622,9 @@ export default function AskBlock({
           return (
             <div
               key={messageRenderKey}
+              data-clickable={
+                index === 0 && !expanded && mobileStyle ? 'true' : undefined
+              }
               className={cn(styles.messageWrapper)}
               onClick={() => handleClickTitle(index)}
               style={{
@@ -709,6 +712,7 @@ export default function AskBlock({
           <>
             <div
               className={styles.mobileOverlay}
+              data-clickable='true'
               onClick={handleClose}
               style={expanded ? undefined : { display: 'none' }}
             />
