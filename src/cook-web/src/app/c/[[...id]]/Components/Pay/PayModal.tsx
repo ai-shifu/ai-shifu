@@ -663,6 +663,7 @@ export const PayModal = ({
                         {isStripeAvailable ? (
                           <div className={styles.stripeSelector}>
                             <div
+                              data-clickable='true'
                               onClick={() =>
                                 onPayChannelSelectChange({
                                   channel: PAY_CHANNEL_STRIPE,

@@ -115,11 +115,26 @@ body.listen-mode-vh-fallback #root {
   body {
     @apply bg-background text-foreground;
   }
-  button {
+  :where(
+    a[href],
+    button,
+    summary,
+    [role='button'],
+    [role='link'],
+    [role='tab'],
+    [role='menuitem'],
+    [role='option'],
+    [role='checkbox'],
+    [role='radio'],
+    [role='switch'],
+    [data-clickable='true']
+  ) {
     cursor: pointer;
+  }
+  button {
     outline: none;
   }
-  button:disabled {
+  :where(:disabled, [aria-disabled='true'], [data-disabled]) {
     cursor: not-allowed;
   }
   button:focus {

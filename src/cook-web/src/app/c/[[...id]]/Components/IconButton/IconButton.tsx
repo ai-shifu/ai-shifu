@@ -67,6 +67,7 @@ export const IconButton = ({
   return (
     <div
       ref={topRef}
+      data-clickable='true'
       className={styles.IconButton}
       style={{
         width: `${width}px`,

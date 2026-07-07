@@ -216,6 +216,7 @@ export function OnboardingOverlay({
       )}
       <div
         ref={cardRef}
+        data-clickable='true'
         className='pointer-events-auto absolute z-20'
         style={{
           ...cardStyle,
