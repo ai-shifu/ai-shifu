@@ -113,7 +113,11 @@ def test_minimax_http_streaming_parses_audio_and_final_subtitles(monkeypatch):
     assert chunks[-1].word_count == 2
     assert chunks[-1].usage_characters == 6
     assert chunks[-1].subtitles[0]["text"] == "First."
-    assert gate_calls[0]["rpm_limit"] == 60
+    # speech-2.8-turbo resolves to its turbo-tier quota (200), overriding the
+    # global MINIMAX_TTS_RPM_LIMIT fallback, and the model is passed through so
+    # the gate queues per model.
+    assert gate_calls[0]["rpm_limit"] == 200
+    assert gate_calls[0]["model"] == "speech-2.8-turbo"
     assert post_calls[0][0].endswith("GroupId=test-group")
     assert post_calls[0][1]["stream"] is True
     assert post_calls[0][1]["json"]["stream"] is True

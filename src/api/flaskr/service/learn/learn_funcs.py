@@ -86,7 +86,7 @@ from flaskr.api.tts import (
     synthesize_text,
 )
 from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
-from flaskr.service.tts.api import create_streaming_tts_processor
+from flaskr.service.tts.api import create_streaming_tts_processor, TTSRpmQueueTimeout
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     get_audio_duration_ms,
@@ -996,6 +996,13 @@ def _yield_with_tts_error_mapping(
         yield from body()
     except ValueError as exc:
         raise_error_with_args("server.common.paramsError", param_message=str(exc))
+    except TTSRpmQueueTimeout as exc:
+        # The TTS provider's RPM quota is saturated. This is expected
+        # backpressure, not a crash: log at WARNING (so it does not page ops as
+        # an ERROR) and surface a retryable message instead of a generic
+        # unknown error.
+        app.logger.warning("%s: %s", unknown_error_log, exc)
+        raise_error("server.learn.ttsRateLimited")
     except Exception:
         app.logger.error(unknown_error_log, exc_info=True)
         raise_error("server.common.unknownError")
