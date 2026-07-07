@@ -441,6 +441,12 @@ def _to_sse_chunk(payload: object) -> str:
 
 
 def _log_run_script_stream_error(app: Flask, stream_error: Exception) -> None:
+    """Log a run-script stream error, keeping handled AppExceptions off ERROR.
+
+    Unexpected errors are logged at ERROR for operational alerting, while a
+    handled, user-facing AppException is logged at INFO so it stays out of the
+    alert stream but remains diagnosable.
+    """
     error_traceback = "".join(
         traceback.format_exception(
             type(stream_error),

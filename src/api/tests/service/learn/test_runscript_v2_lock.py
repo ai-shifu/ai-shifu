@@ -590,12 +590,12 @@ def test_log_run_script_stream_error_does_not_error_for_app_exception():
     app.logger.error = lambda *args, **kwargs: error_calls.append(args)
 
     runscript_v2._log_run_script_stream_error(
-        app, AppException("大纲单元不存在", status_code=1001)
+        app, AppException("outline unit does not exist", status_code=1001)
     )
 
     assert error_calls == []
     assert info_calls[0] == ("run_script handled app exception",)
-    assert info_calls[1][0]["description"] == "大纲单元不存在"
+    assert info_calls[1][0]["description"] == "outline unit does not exist"
 
 
 def test_log_run_script_stream_error_keeps_error_for_unexpected_exception():
