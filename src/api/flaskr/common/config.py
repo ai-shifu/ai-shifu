@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional, Callable, Dict, List, Type
@@ -76,6 +77,31 @@ class EnvVar:
             return list(value)
         else:
             return str(value)
+
+
+def _is_valid_rpm_limits_json(value: Any) -> bool:
+    """Validate the MINIMAX_TTS_RPM_LIMITS override map.
+
+    Empty is allowed (no overrides). A non-empty value must be a JSON object
+    whose values are integer-coercible RPM limits.
+    """
+    if not value:
+        return True
+    if isinstance(value, dict):
+        candidate = value
+    else:
+        try:
+            candidate = json.loads(value)
+        except (TypeError, ValueError):
+            return False
+    if not isinstance(candidate, dict):
+        return False
+    for rpm in candidate.values():
+        try:
+            int(rpm)
+        except (TypeError, ValueError):
+            return False
+    return True
 
 
 # Environment variable registry
@@ -1389,6 +1415,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
             'the per-tier defaults (e.g. {"speech-2.8-hd": 20})'
         ),
         group="tts",
+        validator=_is_valid_rpm_limits_json,
     ),
     "MINIMAX_TTS_QUEUE_MAX_WAIT_SECONDS": EnvVar(
         name="MINIMAX_TTS_QUEUE_MAX_WAIT_SECONDS",
