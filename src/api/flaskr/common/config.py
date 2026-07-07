@@ -1374,7 +1374,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         name="MINIMAX_TTS_RPM_LIMIT",
         default=0,
         type=int,
-        description="MiniMax TTS RPM queue limit; 0 disables queue gating",
+        description=(
+            "Fallback MiniMax TTS RPM queue limit for models without a known "
+            "tier or explicit override; 0 disables queue gating"
+        ),
+        group="tts",
+    ),
+    "MINIMAX_TTS_RPM_LIMITS": EnvVar(
+        name="MINIMAX_TTS_RPM_LIMITS",
+        default="",
+        type=str,
+        description=(
+            "Optional JSON map of MiniMax TTS model -> RPM limit that overrides "
+            'the per-tier defaults (e.g. {"speech-2.8-hd": 20})'
+        ),
         group="tts",
     ),
     "MINIMAX_TTS_QUEUE_MAX_WAIT_SECONDS": EnvVar(
