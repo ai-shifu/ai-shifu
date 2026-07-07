@@ -961,11 +961,20 @@ class RunScriptPreviewContextV2:
         user_bid: str,
         shifu_bid: str,
     ) -> Optional[dict]:
-        variables = (
+        request_variables = (
             dict(preview_request.variables)
             if isinstance(preview_request.variables, dict)
             else {}
         )
+        variables = get_user_profiles(self.app, user_bid, shifu_bid)
+        variables.update(request_variables)
+
+        # The editor preview may submit an empty sys_user_language placeholder.
+        # Runtime language should follow the current request, not an empty variable.
+        if not str(variables.get(SYS_USER_LANGUAGE) or "").strip():
+            variables[SYS_USER_LANGUAGE] = get_current_language()
+        if not str(variables.get("language") or "").strip():
+            variables["language"] = variables[SYS_USER_LANGUAGE]
         return variables
 
     def _iter_preview_generated_events(
