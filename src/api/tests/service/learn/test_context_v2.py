@@ -1522,6 +1522,10 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
             def normalize_context_messages(_value):
                 return None
 
+            @staticmethod
+            def filter_context_by_output_language(context, _output_language):
+                return context
+
             def get_block(self, _block_index):
                 return types.SimpleNamespace(
                     block_type=PreviewBlockType.CONTENT, content="Prompt block"

@@ -838,9 +838,8 @@ class RunScriptPreviewContextV2:
             user_bid=user_bid,
             shifu_bid=shifu_bid,
         )
-        preview_language = (
-            resolved_variables.get("language")
-            or resolved_variables.get(SYS_USER_LANGUAGE)
+        preview_language = resolved_variables.get("language") or resolved_variables.get(
+            SYS_USER_LANGUAGE
         )
         original_language = get_current_language()
         restore_language = (
@@ -3394,7 +3393,11 @@ class RunScriptContextV2:
                     stream_element_type: str | None = None,
                     stream_element_number: int | None = None,
                 ):
-                    nonlocal tts_processor, tts_enabled, current_tts_stream_key, next_tts_position
+                    nonlocal \
+                        tts_processor, \
+                        tts_enabled, \
+                        current_tts_stream_key, \
+                        next_tts_position
                     next_key = _normalize_tts_stream_key(
                         stream_element_type=stream_element_type,
                         stream_element_number=stream_element_number,
@@ -3424,7 +3427,11 @@ class RunScriptContextV2:
                     stream_element_type: str | None = None,
                     stream_element_number: int | None = None,
                 ):
-                    nonlocal generated_content, tts_processor, tts_enabled, current_tts_stream_key
+                    nonlocal \
+                        generated_content, \
+                        tts_processor, \
+                        tts_enabled, \
+                        current_tts_stream_key
                     if not chunk_content:
                         return
                     generated_content += chunk_content
