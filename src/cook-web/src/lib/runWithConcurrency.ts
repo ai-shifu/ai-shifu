@@ -19,7 +19,10 @@ export async function runWithConcurrency<T, R>(
     return results;
   }
 
-  const effectiveLimit = Math.max(1, Math.min(Math.floor(limit) || 1, items.length));
+  const effectiveLimit = Math.max(
+    1,
+    Math.min(Math.floor(limit) || 1, items.length),
+  );
   let nextIndex = 0;
 
   const runOne = async (): Promise<void> => {
