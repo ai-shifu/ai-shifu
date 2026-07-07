@@ -17,6 +17,7 @@ from flaskr.service.learn.models import (
 from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 from flaskr.util import generate_id
+from flaskr.util.datetime import to_utc_iso
 
 _FEEDBACK_COMMENT_MAX_LENGTH = 1000
 _VALID_MODES = {"read", "listen"}
@@ -166,13 +167,18 @@ def submit_lesson_feedback(
             )
             db.session.add(feedback_record)
 
-        _sync_feedback_to_generated_block(
-            user_bid,
-            shifu_bid,
-            outline_bid,
-            normalized_score,
-            normalized_comment,
-        )
+        # Querying the generated block must not autoflush a newly-added feedback row.
+        # During concurrent submissions another request may have inserted the unique
+        # active feedback first; let the commit path catch that IntegrityError and
+        # merge into the existing row instead of surfacing a 500 from autoflush.
+        with db.session.no_autoflush:
+            _sync_feedback_to_generated_block(
+                user_bid,
+                shifu_bid,
+                outline_bid,
+                normalized_score,
+                normalized_comment,
+            )
         try:
             db.session.commit()
         except IntegrityError:
@@ -258,12 +264,8 @@ def list_lesson_feedbacks(
                     "score": row.score,
                     "comment": row.comment,
                     "mode": row.mode,
-                    "created_at": row.created_at.strftime("%Y-%m-%d %H:%M:%S")
-                    if row.created_at
-                    else "",
-                    "updated_at": row.updated_at.strftime("%Y-%m-%d %H:%M:%S")
-                    if row.updated_at
-                    else "",
+                    "created_at": to_utc_iso(row.created_at),
+                    "updated_at": to_utc_iso(row.updated_at),
                 }
                 for row in rows
             ],

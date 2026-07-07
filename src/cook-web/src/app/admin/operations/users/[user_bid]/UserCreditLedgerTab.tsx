@@ -48,10 +48,7 @@ import {
   FILTER_ALL_OPTION,
   sanitizeCreditFiltersByType,
 } from './creditFilterUtils';
-import {
-  formatOperatorNaiveDateTime,
-  formatOperatorUtcDateTime,
-} from '../dateTime';
+import { formatOperatorUtcDateTime } from '../dateTime';
 
 type ErrorState = { message: string; code?: number };
 
@@ -447,7 +444,7 @@ const CreditUsageDetailDialog = ({
                         }
                       >
                         <TableCell className='border-r border-border py-2.5 text-center text-xs text-muted-foreground/70'>
-                          {formatOperatorNaiveDateTime(item.created_at) ||
+                          {formatOperatorUtcDateTime(item.created_at) ||
                             emptyValue}
                         </TableCell>
                         <TableCell className='border-r border-border py-2.5 text-center text-sm font-medium tabular-nums text-foreground'>
@@ -929,7 +926,7 @@ export default function UserCreditLedgerTab({
   const renderCreatedAtCell = (createdAt: string) => (
     <TableCell className='max-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-center'>
       <AdminTooltipText
-        text={formatOperatorNaiveDateTime(createdAt)}
+        text={formatOperatorUtcDateTime(createdAt)}
         emptyValue={emptyValue}
         alwaysShowTooltip
       />

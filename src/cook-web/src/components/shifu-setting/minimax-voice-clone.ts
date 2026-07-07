@@ -99,12 +99,14 @@ export function buildMiniMaxVoiceOptions({
   builtInVoices,
   clonedVoices,
   currentVoiceId,
+  clonedVoiceLabelFormatter,
   manualLabel,
   statusLabels = {},
 }: {
   builtInVoices: TTSVoiceOptionBase[];
   clonedVoices: MiniMaxClonedVoice[];
   currentVoiceId: string;
+  clonedVoiceLabelFormatter?: (name: string) => string;
   manualLabel: string;
   statusLabels?: Record<string, string>;
 }): MiniMaxVoiceOption[] {
@@ -134,11 +136,13 @@ export function buildMiniMaxVoiceOptions({
     const status = String(voice.status || '').trim();
     const ready = status === 'ready';
     const statusLabel = statusLabels[status] || status;
+    const baseName = voice.display_name || value;
+    const displayLabel = clonedVoiceLabelFormatter
+      ? clonedVoiceLabelFormatter(baseName)
+      : baseName;
     options.push({
       value,
-      label: ready
-        ? voice.display_name || value
-        : `${voice.display_name || value} · ${statusLabel}`,
+      label: ready ? displayLabel : `${displayLabel} · ${statusLabel}`,
       source: 'cloned',
       status,
       voice_bid: voice.voice_bid,

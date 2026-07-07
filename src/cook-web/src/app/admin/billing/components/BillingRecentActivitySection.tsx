@@ -2,7 +2,6 @@ import React from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { Skeleton } from '@/components/ui/Skeleton';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import {
@@ -15,25 +14,19 @@ import {
 } from '@/components/ui/Table';
 import { cn } from '@/lib/utils';
 import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
-import { BILLING_SECTION_TITLE_CLASS } from '@/components/billing/billingSectionTitleClass';
+import { BILLING_SUBSECTION_TITLE_CLASS } from '@/components/billing/billingSectionTitleClass';
 import {
   buildBillingSwrKey,
   formatBillingCreditDetail,
   formatBillingDateTime,
   registerBillingTranslationUsage,
   resolveBillingLedgerReasonLabel,
-  withBillingTimezone,
 } from '@/lib/billing';
 
-const RECENT_ITEMS_LIMIT = 10;
-const USAGE_TABLE_HEADER_HEIGHT = 40;
-const USAGE_TABLE_ROW_HEIGHT = 53;
-const USAGE_TABLE_PAGE_MIN_HEIGHT =
-  USAGE_TABLE_HEADER_HEIGHT + RECENT_ITEMS_LIMIT * USAGE_TABLE_ROW_HEIGHT;
+const RECENT_ITEMS_LIMIT = 20;
 
 type BillingRecentActivitySectionProps = {
   className?: string;
-  stretchToFill?: boolean;
 };
 
 function formatSignedCredits(value: number, locale: string): string {
@@ -82,33 +75,25 @@ function UsageTableSkeleton() {
 
 export function BillingRecentActivitySection({
   className,
-  stretchToFill = false,
 }: BillingRecentActivitySectionProps) {
   const { t, i18n } = useTranslation();
   registerBillingTranslationUsage(t);
-  const timezone = getBrowserTimeZone();
+  const sectionRef = React.useRef<HTMLElement | null>(null);
+  const headingRef = React.useRef<HTMLHeadingElement | null>(null);
   const [pageIndex, setPageIndex] = React.useState(1);
+  const [pageCount, setPageCount] = React.useState(1);
+  const lastPageIndexRef = React.useRef(pageIndex);
 
   const {
     data: ledgerData,
     error: ledgerError,
     isLoading: ledgerLoading,
   } = useSWR<BillingPagedResponse<BillingLedgerItem>>(
-    buildBillingSwrKey(
-      'billing-ledger-recent',
-      timezone,
-      pageIndex,
-      RECENT_ITEMS_LIMIT,
-    ),
+    buildBillingSwrKey('billing-ledger-recent', pageIndex, RECENT_ITEMS_LIMIT),
     async () =>
       (await api.getBillingLedger({
-        ...withBillingTimezone(
-          {
-            page_index: pageIndex,
-            page_size: RECENT_ITEMS_LIMIT,
-          },
-          timezone,
-        ),
+        page_index: pageIndex,
+        page_size: RECENT_ITEMS_LIMIT,
       })) as BillingPagedResponse<BillingLedgerItem>,
     {
       revalidateOnFocus: false,
@@ -116,29 +101,48 @@ export function BillingRecentActivitySection({
   );
 
   const ledgerItems = ledgerData?.items || [];
-  const pageCount = Number(ledgerData?.page_count || 1);
+  const ledgerPageCount = Number(ledgerData?.page_count || 1);
   const currentPage = Number(ledgerData?.page || pageIndex);
-  const shouldUsePageHeight =
-    ledgerLoading || ledgerItems.length >= RECENT_ITEMS_LIMIT;
-  const shouldStretchTable = stretchToFill && shouldUsePageHeight;
-  const usageTablePageStyle: React.CSSProperties | undefined =
-    shouldUsePageHeight
-      ? {
-          minHeight: USAGE_TABLE_PAGE_MIN_HEIGHT,
-        }
-      : undefined;
+  React.useEffect(() => {
+    if (ledgerData) {
+      setPageCount(ledgerPageCount);
+    }
+  }, [ledgerData, ledgerPageCount]);
+  React.useEffect(() => {
+    if (lastPageIndexRef.current === pageIndex) {
+      return;
+    }
+    lastPageIndexRef.current = pageIndex;
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    sectionRef.current?.scrollIntoView?.({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      block: 'start',
+    });
+    headingRef.current?.focus({ preventScroll: true });
+  }, [pageIndex]);
+  const handlePageChange = React.useCallback((nextPage: number) => {
+    setPageIndex(nextPage);
+  }, []);
 
   return (
     <section
+      ref={sectionRef}
       id='billing-recent-orders'
-      className={cn(
-        stretchToFill ? 'flex min-h-0 flex-col gap-6' : 'space-y-6',
-        className,
-      )}
+      className={cn('space-y-6', className)}
       data-testid='billing-usage-table-section'
     >
       <div>
-        <h2 className={BILLING_SECTION_TITLE_CLASS}>
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className={cn(
+            BILLING_SUBSECTION_TITLE_CLASS,
+            'rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2',
+          )}
+        >
           {t('module.billing.details.usageTable.title')}
         </h2>
       </div>
@@ -153,19 +157,14 @@ export function BillingRecentActivitySection({
           isEmpty={!ledgerLoading && ledgerItems.length === 0}
           emptyContent={t('module.billing.ledger.empty')}
           emptyColSpan={3}
-          containerClassName={cn(stretchToFill && 'min-h-0 flex-1')}
-          tableWrapperClassName={cn(
-            'overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] [&_tbody_tr[data-admin-skeleton-row]:hover]:!bg-transparent [&_tbody_tr[data-admin-skeleton-row]:hover_td]:!bg-transparent',
-            shouldStretchTable && 'flex min-h-0 flex-1 flex-col',
-          )}
-          tableWrapperStyle={usageTablePageStyle}
+          tableWrapperClassName='overflow-hidden rounded-[var(--border-radius-rounded-lg,10px)] [&_tbody_tr[data-admin-skeleton-row]:hover]:!bg-transparent [&_tbody_tr[data-admin-skeleton-row]:hover_td]:!bg-transparent'
           footerClassName='px-0'
           pagination={
             pageCount > 1
               ? {
                   pageIndex: currentPage,
                   pageCount,
-                  onPageChange: setPageIndex,
+                  onPageChange: handlePageChange,
                   prevLabel: t('module.order.paginationPrev'),
                   nextLabel: t('module.order.paginationNext'),
                   prevAriaLabel: t(
@@ -182,11 +181,7 @@ export function BillingRecentActivitySection({
           }
           table={emptyRow => (
             <div
-              className={cn(
-                'overflow-auto',
-                shouldStretchTable && 'min-h-0 flex-1',
-              )}
-              style={usageTablePageStyle}
+              className='overflow-x-auto'
               data-testid='billing-usage-table-scroll'
             >
               <Table

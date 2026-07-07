@@ -184,7 +184,7 @@ describe('AdminDashboardCourseRatingsPage', () => {
         average_score: '4.0',
         rating_count: 2,
         user_count: 2,
-        latest_rated_at: '2026-04-06 17:05:00',
+        latest_rated_at: '2026-04-06T09:05:00Z',
       },
       items: [
         {
@@ -198,7 +198,7 @@ describe('AdminDashboardCourseRatingsPage', () => {
           lesson_title: 'Lesson 2',
           score: 4,
           comment: 'Helpful examples',
-          rated_at: '2026-04-06 17:05:00',
+          rated_at: '2026-04-06T09:05:00Z',
         },
       ],
       page: 1,
@@ -225,7 +225,7 @@ describe('AdminDashboardCourseRatingsPage', () => {
     });
   });
 
-  test('renders ratings list with breadcrumbs back to dashboard and course detail', async () => {
+  test('renders ratings list', async () => {
     render(<AdminDashboardCourseRatingsPage />);
 
     expect(
@@ -244,16 +244,9 @@ describe('AdminDashboardCourseRatingsPage', () => {
         has_comment: '',
         start_time: '',
         end_time: '',
-        timezone: 'Asia/Shanghai',
       });
     });
 
-    expect(
-      screen.getByText('module.dashboard.title').closest('a'),
-    ).toHaveAttribute('href', '/admin/dashboard');
-    expect(
-      screen.getByText('module.dashboard.detail.title').closest('a'),
-    ).toHaveAttribute('href', '/admin/dashboard/course-1');
     expect(
       screen.getByText('module.dashboard.detail.ratings.summary.averageScore'),
     ).toBeInTheDocument();
@@ -262,10 +255,13 @@ describe('AdminDashboardCourseRatingsPage', () => {
     expect(screen.getByText('Lesson 2')).toBeInTheDocument();
     expect(screen.getByText('Chapter 2')).toBeInTheDocument();
     expect(
-      screen.getAllByText('module.dashboard.detail.ratings.scoreValue:4')
+      screen.queryAllByText('module.dashboard.detail.ratings.scoreValue:4')
         .length,
     ).toBeGreaterThan(0);
     expect(screen.getByText('Helpful examples')).toBeInTheDocument();
+    expect(screen.queryAllByText('2026-04-06 17:05:00').length).toBeGreaterThan(
+      0,
+    );
   });
 
   test('supports rating filters and email placeholder mode', async () => {
@@ -320,7 +316,6 @@ describe('AdminDashboardCourseRatingsPage', () => {
         has_comment: '',
         start_time: '2026-04-05',
         end_time: '2026-04-06',
-        timezone: 'Asia/Shanghai',
       });
     });
   });

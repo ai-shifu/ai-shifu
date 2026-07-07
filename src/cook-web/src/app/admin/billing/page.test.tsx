@@ -241,7 +241,7 @@ describe('AdminBillingPage', () => {
       ],
       page: 1,
       page_count: 1,
-      page_size: 4,
+      page_size: 20,
       total: 1,
     });
     mockUseBillingOverview.mockReturnValue({
@@ -285,13 +285,15 @@ describe('AdminBillingPage', () => {
     renderPage();
     const tabs = screen.getByTestId('admin-billing-tabs');
     const packagesPanel = screen.getByTestId('admin-billing-packages-panel');
-    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
 
     expect(screen.getByTestId('admin-billing-page')).toBeInTheDocument();
     expect(screen.getByTestId('admin-billing-page')).toHaveClass(
       'overscroll-none',
     );
+    expect(screen.getByTestId('admin-billing-page')).not.toHaveClass('h-full');
+    expect(screen.getByTestId('admin-billing-page')).not.toHaveClass('min-h-0');
     expect(packagesPanel).toHaveClass('mt-0');
+    expect(packagesPanel).not.toHaveClass('min-h-0');
     expect(
       within(tabs).getByRole('tab', {
         name: 'module.billing.page.tabs.plans',
@@ -303,14 +305,16 @@ describe('AdminBillingPage', () => {
       }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'module.billing.page.title · module.billing.page.tabs.plans',
+      }),
+    ).toHaveClass('sr-only');
+    expect(
       screen.queryByRole('heading', {
         name: 'module.billing.package.title',
       }),
     ).not.toBeInTheDocument();
-    expect(
-      within(breadcrumb).getByRole('link', { name: 'common.core.home' }),
-    ).toHaveAttribute('href', '/admin');
-    expect(breadcrumb).toHaveTextContent('module.billing.package.title');
 
     await waitFor(() => {
       expect(mockGetBillingCatalog).toHaveBeenCalledTimes(1);
@@ -416,8 +420,7 @@ describe('AdminBillingPage', () => {
     });
     expect(mockGetBillingLedger).toHaveBeenCalledWith({
       page_index: 1,
-      page_size: 10,
-      timezone: 'Asia/Shanghai',
+      page_size: 20,
     });
 
     expect(
@@ -432,7 +435,6 @@ describe('AdminBillingPage', () => {
 
     renderPage();
     const tabs = screen.getByTestId('admin-billing-tabs');
-    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
 
     expect(
       within(tabs).getByRole('tab', {
@@ -445,21 +447,31 @@ describe('AdminBillingPage', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText('module.billing.details.title'),
+      await screen.findByText('module.billing.details.totalCreditsLabel'),
     ).toBeInTheDocument();
-    expect(breadcrumb).toHaveTextContent('module.billing.page.tabs.ledger');
-    expect(screen.getByTestId('admin-billing-details-panel')).toHaveClass(
-      'mt-0',
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'module.billing.page.title · module.billing.page.tabs.ledger',
+      }),
+    ).toHaveClass('sr-only');
+    const detailsPanel = screen.getByTestId('admin-billing-details-panel');
+    expect(detailsPanel).toHaveClass('mt-0');
+    expect(detailsPanel).not.toHaveClass('flex-1');
+    expect(detailsPanel.firstElementChild).toHaveClass('space-y-8');
+    expect(
+      await screen.findByTestId('billing-usage-table-section'),
+    ).toHaveClass('space-y-6');
+    expect(screen.getByTestId('billing-usage-table-scroll')).toHaveClass(
+      'overflow-x-auto',
     );
-    expect(mockGetBillingCatalog).toHaveBeenCalledWith({
-      timezone: 'Asia/Shanghai',
-    });
+    expect(mockGetBillingCatalog).toHaveBeenCalledWith({});
   });
 
   test('respects the server-provided initial details tab before search params hydrate', async () => {
     renderPage({ initialTab: 'details' });
     const tabs = screen.getByTestId('admin-billing-tabs');
-    const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
 
     expect(
       within(tabs).getByRole('tab', {
@@ -472,8 +484,8 @@ describe('AdminBillingPage', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText('module.billing.details.title'),
+      await screen.findByText('module.billing.details.totalCreditsLabel'),
     ).toBeInTheDocument();
-    expect(breadcrumb).toHaveTextContent('module.billing.page.tabs.ledger');
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 });

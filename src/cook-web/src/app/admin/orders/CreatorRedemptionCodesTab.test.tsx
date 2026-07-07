@@ -9,6 +9,12 @@ import {
 import api from '@/api';
 import CreatorRedemptionCodesTab from './CreatorRedemptionCodesTab';
 
+const mockBrowserTimeZone = jest.fn(() => 'America/Los_Angeles');
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
+}));
+
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
@@ -202,14 +208,14 @@ const createListResponse = (
       scope_type: 'single_course',
       shifu_bid: 'course-1',
       course_name: 'Course A',
-      start_at: '2026-05-01 00:00:00',
-      end_at: '2026-06-01 23:59:59',
+      start_at: '2026-05-01T00:00:00Z',
+      end_at: '2026-06-01T23:59:59Z',
       total_count: 20,
       used_count: 3,
       computed_status: 'active',
       computed_status_key: 'module.operationsPromotion.status.active',
-      created_at: '2026-05-01 12:00:00',
-      updated_at: '2026-05-01 12:00:00',
+      created_at: '2026-05-01T12:00:00Z',
+      updated_at: '2026-05-01T12:00:00Z',
     },
   ],
   page: 1,
@@ -221,6 +227,7 @@ const createListResponse = (
 
 describe('CreatorRedemptionCodesTab', () => {
   beforeEach(() => {
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockToast.mockReset();
     mockGetCreatorCourseRedemptionCodes.mockReset();
     mockGetCreatorCourseRedemptionCodeDetail.mockReset();
@@ -242,14 +249,14 @@ describe('CreatorRedemptionCodesTab', () => {
           scope_type: 'single_course',
           shifu_bid: 'course-1',
           course_name: 'Course A',
-          start_at: '2026-05-01 00:00:00',
-          end_at: '2026-06-01 23:59:59',
+          start_at: '2026-05-01T00:00:00Z',
+          end_at: '2026-06-01T23:59:59Z',
           total_count: 20,
           used_count: 3,
           computed_status: 'active',
           computed_status_key: 'module.operationsPromotion.status.active',
-          created_at: '2026-05-01 12:00:00',
-          updated_at: '2026-05-01 12:00:00',
+          created_at: '2026-05-01T12:00:00Z',
+          updated_at: '2026-05-01T12:00:00Z',
         },
         {
           coupon_bid: 'coupon-2',
@@ -263,14 +270,14 @@ describe('CreatorRedemptionCodesTab', () => {
           scope_type: 'single_course',
           shifu_bid: 'course-2',
           course_name: 'Course B',
-          start_at: '2026-05-01 00:00:00',
-          end_at: '2026-06-01 23:59:59',
+          start_at: '2026-05-01T00:00:00Z',
+          end_at: '2026-06-01T23:59:59Z',
           total_count: 30,
           used_count: 0,
           computed_status: 'active',
           computed_status_key: 'module.operationsPromotion.status.active',
-          created_at: '2026-05-01 12:00:00',
-          updated_at: '2026-05-01 12:00:00',
+          created_at: '2026-05-01T12:00:00Z',
+          updated_at: '2026-05-01T12:00:00Z',
         },
       ],
       page: 1,
@@ -298,8 +305,8 @@ describe('CreatorRedemptionCodesTab', () => {
           payable_price: '99.00',
           discount_amount: '10.00',
           paid_price: '89.00',
-          used_at: '2026-05-02 12:00:00',
-          updated_at: '2026-05-02 12:00:00',
+          used_at: '2026-05-02T12:00:00Z',
+          updated_at: '2026-05-02T12:00:00Z',
         },
       ],
       page: 1,
@@ -321,7 +328,7 @@ describe('CreatorRedemptionCodesTab', () => {
           user_nickname: '',
           order_bid: '',
           used_at: '',
-          updated_at: '2026-05-02 12:00:00',
+          updated_at: '2026-05-02T12:00:00Z',
         },
       ],
       page: 1,
@@ -343,14 +350,14 @@ describe('CreatorRedemptionCodesTab', () => {
         scope_type: 'single_course',
         shifu_bid: 'course-1',
         course_name: 'Course A',
-        start_at: '2026-05-01 00:00:00',
-        end_at: '2026-06-01 23:59:59',
+        start_at: '2026-05-01T00:00:00Z',
+        end_at: '2026-06-01T23:59:59Z',
         total_count: 20,
         used_count: 3,
         computed_status: 'active',
         computed_status_key: 'module.operationsPromotion.status.active',
-        created_at: '2026-05-01 12:00:00',
-        updated_at: '2026-05-01 12:00:00',
+        created_at: '2026-05-01T12:00:00Z',
+        updated_at: '2026-05-01T12:00:00Z',
       },
     });
     mockUpdateCreatorCourseRedemptionCodeStatus.mockResolvedValue({
@@ -382,6 +389,13 @@ describe('CreatorRedemptionCodesTab', () => {
     expect(screen.getByText('3/20')).toBeInTheDocument();
     expect(screen.getByText('Batch B')).toBeInTheDocument();
     expect(screen.getAllByText('table.codesEntry').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('2026-04-30 17:00:00 ~ 2026-06-01 16:59:59').length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText('2026-05-01 05:00:00').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText('2026-05-01T00:00:00Z')).not.toBeInTheDocument();
 
     const actionHeader = screen.getByText('table.actions').closest('th');
     expect(actionHeader).toHaveClass('sticky');
@@ -414,6 +428,8 @@ describe('CreatorRedemptionCodesTab', () => {
     expect(await screen.findByText('coupon.usages')).toBeInTheDocument();
     expect(screen.getAllByText('CODE-A').length).toBeGreaterThan(0);
     expect(screen.getByText('order-1')).toBeInTheDocument();
+    expect(screen.getByText('2026-05-02 05:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-05-02T12:00:00Z')).not.toBeInTheDocument();
   });
 
   test('opens and exports single-use sub-codes', async () => {

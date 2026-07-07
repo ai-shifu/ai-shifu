@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 
-from flask import Flask
+from flask import Flask, request
 
 from flaskr.dao import db
 from flaskr.service.referral.routes import register_referral_routes
@@ -150,6 +151,64 @@ def test_invite_profile_lazily_creates_stable_campaign_scoped_code(
         assert first.reward_remaining_count == 12
 
 
+def test_invite_profile_route_returns_unavailable_without_campaign(
+    referral_app,
+) -> None:
+    register_referral_routes(referral_app, "/api/referral")
+
+    @referral_app.before_request
+    def _inject_request_user() -> None:
+        request.user = SimpleNamespace(user_id="inviter-no-campaign")
+
+    response = referral_app.test_client().get("/api/referral/invite-profile")
+    payload = response.get_json(force=True)["data"]
+
+    assert response.status_code == 200
+    assert payload == {
+        "available": False,
+        "campaign_bid": "",
+        "campaign_code": "",
+        "invite_code": "",
+        "invite_url": "",
+        "reward_product_code": "",
+        "reward_cycle_count": 0,
+        "reward_credit_amount": None,
+        "reward_credit_validity_days": None,
+        "reward_cap_scope": "",
+        "reward_cap_count": None,
+        "reward_granted_count": 0,
+        "reward_remaining_count": None,
+        "reward_queue_summary": {},
+        "reward_queue": [],
+        "rules_copy_i18n_key": "",
+    }
+    assert ReferralInviteCode.query.count() == 0
+
+
+def test_invite_profile_route_returns_unavailable_without_reward_rule(
+    referral_app,
+) -> None:
+    register_referral_routes(referral_app, "/api/referral")
+
+    @referral_app.before_request
+    def _inject_request_user() -> None:
+        request.user = SimpleNamespace(user_id="inviter-no-rule")
+
+    with referral_app.app_context():
+        _campaign, rule = _seed_campaign(campaign_bid="ref-campaign-no-rule")
+        rule.deleted = 1
+        db.session.commit()
+
+    response = referral_app.test_client().get("/api/referral/invite-profile")
+    payload = response.get_json(force=True)["data"]
+
+    assert response.status_code == 200
+    assert payload["available"] is False
+    assert payload["campaign_bid"] == ""
+    assert payload["invite_url"] == ""
+    assert ReferralInviteCode.query.count() == 0
+
+
 def test_invite_profile_includes_creator_reward_queue(
     referral_app,
     monkeypatch,
@@ -216,9 +275,9 @@ def test_invite_profile_includes_creator_reward_queue(
                 "reward_credit_amount": "1000.0000000000",
                 "reward_product_code": "creator-plan-monthly-pro",
                 "ledger_credit_state": "",
-                "effective_at": "2026-06-26T13:18:00",
-                "expires_at": "2026-07-26T13:18:00",
-                "created_at": reward.created_at.isoformat(),
+                "effective_at": "2026-06-26T13:18:00Z",
+                "expires_at": "2026-07-26T13:18:00Z",
+                "created_at": reward.created_at.isoformat() + "Z",
             }
         ]
         assert "13521510781" not in str(queue)
@@ -487,6 +546,7 @@ def test_post_auth_preserves_reward_when_billing_grant_fails_then_repairs(
         ).one()
         assert relation.relation_status == REFERRAL_RELATION_STATUS_REGISTERED
         assert reward.billing_artifacts["grant_error"] == "billing offline"
+        assert reward.billing_artifacts["last_failed_at"].endswith("Z")
 
         dry_run = retry_pending_referral_rewards(referral_app, dry_run=True)
         assert dry_run == [

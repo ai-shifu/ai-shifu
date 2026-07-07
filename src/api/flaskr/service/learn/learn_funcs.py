@@ -1,55 +1,91 @@
+import base64
+import json
+import logging
+import queue
+import time
+import uuid
+from dataclasses import replace
+from datetime import datetime, timezone
+
+from flask import Flask, has_request_context, request
 from markdown_flow import (
     InteractionParser,
 )
-from flask import Flask, request, has_request_context
-import base64
-import json
-import time
-import logging
-from dataclasses import replace
-import uuid
+
+from flaskr.dao import db
+from flaskr.i18n import _
+from flaskr.service.common import raise_error, raise_error_with_args
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
-    LearnShifuInfoDTO,
-    LearnOutlineItemInfoDTO,
-    LearnStatus,
-    BlockType,
-    LikeStatus,
-    LearnOutlineItemsWithBannerInfoDTO,
-    LearnBannerInfoDTO,
-    OutlineType,
-    GeneratedInfoDTO,
-    RunMarkdownFlowDTO,
-    GeneratedType,
-    AudioSegmentDTO,
     AudioCompleteDTO,
+    AudioSegmentDTO,
+    BlockType,
+    GeneratedInfoDTO,
+    GeneratedType,
+    LearnBannerInfoDTO,
+    LearnOutlineItemsWithBannerInfoDTO,
+    LearnOutlineItemInfoDTO,
+    LearnShifuInfoDTO,
+    LearnStatus,
+    LikeStatus,
+    OutlineType,
+    RunMarkdownFlowDTO,
 )
-from flaskr.service.shifu.models import (
-    DraftShifu,
-    PublishedShifu,
-    DraftOutlineItem,
-    PublishedOutlineItem,
-    LogDraftStruct,
-    LogPublishedStruct,
+from flaskr.service.learn.lesson_feedback import (
+    build_lesson_feedback_interaction_md,
+    is_lesson_feedback_interaction,
+)
+from flaskr.service.learn.legacy_record_builder import (
+    LegacyGeneratedBlockRecord,
+    LegacyLearnRecord,
+    build_legacy_record_for_progress,
+)
+from flaskr.service.learn.listen_element_matching import (
+    get_speakable_text_elements,
 )
 from flaskr.service.learn.models import (
-    LearnProgressRecord,
     LearnGeneratedBlock,
     LearnLessonFeedback,
+    LearnProgressRecord,
 )
-from flaskr.service.tts.models import LearnGeneratedAudio, AUDIO_STATUS_COMPLETED
 from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
 )
-from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
-from flaskr.service.tts.pipeline import split_text_for_tts
+from flaskr.service.order.consts import (
+    LEARN_STATUS_COMPLETED,
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_LOCKED,
+    LEARN_STATUS_NOT_STARTED,
+    LEARN_STATUS_RESET,
+    ORDER_STATUS_SUCCESS,
+)
+from flaskr.service.order.models import BannerInfo, Order
+from flaskr.service.shifu.consts import (
+    UNIT_TYPE_VALUE_GUEST,
+    UNIT_TYPE_VALUE_NORMAL,
+    UNIT_TYPE_VALUE_TRIAL,
+)
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    LogDraftStruct,
+    LogPublishedStruct,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.struct_utils import find_node_with_parents
+from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.api.tts import (
     get_default_audio_settings,
     get_default_voice_settings,
-    synthesize_text,
+    get_tts_provider,
     is_tts_configured,
+    synthesize_text,
 )
+from flaskr.service.tts import preprocess_for_tts, resolve_tts_billable_chars
 from flaskr.service.tts.api import create_streaming_tts_processor
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
@@ -63,43 +99,42 @@ from flaskr.service.tts.subtitle_utils import (
     append_subtitle_cue,
     normalize_subtitle_cues,
 )
+from flaskr.service.tts.models import (
+    AUDIO_STATUS_COMPLETED,
+    LearnGeneratedAudio,
+    TTSMiniMaxClonedVoice,
+    TTS_MINIMAX_CLONE_STATUS_READY,
+)
+from flaskr.service.tts.pipeline import split_text_for_tts
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
-from flaskr.service.common import raise_error, raise_error_with_args
-from flaskr.service.shifu.utils import get_shifu_res_url
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.shifu.struct_utils import find_node_with_parents
-from flaskr.service.order.models import Order, BannerInfo
-from flaskr.i18n import _
-from flaskr.service.order.consts import (
-    ORDER_STATUS_SUCCESS,
-    LEARN_STATUS_LOCKED,
-    LEARN_STATUS_NOT_STARTED,
-    LEARN_STATUS_IN_PROGRESS,
-    LEARN_STATUS_COMPLETED,
-    LEARN_STATUS_RESET,
-)
-import queue
-from flaskr.dao import db
-from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
-from flaskr.service.learn.lesson_feedback import (
-    build_lesson_feedback_interaction_md,
-    is_lesson_feedback_interaction,
-)
-from flaskr.service.learn.listen_element_matching import (
-    get_speakable_text_elements,
-)
-from flaskr.service.learn.legacy_record_builder import (
-    LegacyGeneratedBlockRecord,
-    LegacyLearnRecord,
-    build_legacy_record_for_progress,
-)
-from flaskr.service.shifu.consts import (
-    UNIT_TYPE_VALUE_TRIAL,
-    UNIT_TYPE_VALUE_NORMAL,
-    UNIT_TYPE_VALUE_GUEST,
-)
 from flaskr.util import generate_id
+
+
+def _normalize_dt_to_utc(
+    value: datetime | None,
+) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc)
+    return value.replace(tzinfo=timezone.utc)
+
+
+def _resolve_published_effective_updated_at(
+    outline_item: PublishedOutlineItem,
+) -> datetime | None:
+    updated_at = _normalize_dt_to_utc(getattr(outline_item, "updated_at", None))
+    return updated_at
+
+
+def _resolve_progress_effective_updated_at(
+    progress_record: LearnProgressRecord | None,
+) -> datetime | None:
+    return _normalize_dt_to_utc(
+        getattr(progress_record, "updated_at", None) if progress_record else None,
+    )
+
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
@@ -300,9 +335,48 @@ def get_outline_item_tree(
             LearnProgressRecord.status != LEARN_STATUS_RESET,
             LearnProgressRecord.deleted == 0,
         ).all()
-        progress_records_map: dict[str, LearnProgressRecord] = {
-            i.outline_item_bid: i for i in progress_records
-        }
+        progress_records_map: dict[str, LearnProgressRecord] = {}
+        latest_progress_record_map: dict[str, LearnProgressRecord] = {}
+        for progress_record in progress_records:
+            current_status_record = progress_records_map.get(
+                progress_record.outline_item_bid
+            )
+            if (
+                current_status_record is None
+                or progress_record.id > current_status_record.id
+            ):
+                progress_records_map[progress_record.outline_item_bid] = progress_record
+            latest_progress_record = latest_progress_record_map.get(
+                progress_record.outline_item_bid
+            )
+            progress_updated_at = _resolve_progress_effective_updated_at(
+                progress_record
+            )
+            latest_progress_updated_at = _resolve_progress_effective_updated_at(
+                latest_progress_record
+            )
+            if latest_progress_record is None:
+                latest_progress_record_map[progress_record.outline_item_bid] = (
+                    progress_record
+                )
+            elif (
+                (
+                    progress_updated_at is not None
+                    and latest_progress_updated_at is not None
+                    and progress_updated_at > latest_progress_updated_at
+                )
+                or (
+                    latest_progress_updated_at is None
+                    and progress_updated_at is not None
+                )
+                or (
+                    progress_updated_at == latest_progress_updated_at
+                    and progress_record.id > latest_progress_record.id
+                )
+            ):
+                latest_progress_record_map[progress_record.outline_item_bid] = (
+                    progress_record
+                )
 
         def build_outline_item_tree(item: HistoryItem):
             outline_item: DraftOutlineItem | PublishedOutlineItem = next(
@@ -319,6 +393,26 @@ def get_outline_item_tree(
                 status = progress_record.status
                 if status == LEARN_STATUS_LOCKED:
                     status = LEARN_STATUS_NOT_STARTED
+            is_lesson_node = not bool(item.children)
+            has_content_update_for_current_user = False
+            if not preview_mode and is_lesson_node:
+                latest_progress_record = latest_progress_record_map.get(
+                    outline_item.outline_item_bid
+                )
+                published_updated_at = _resolve_published_effective_updated_at(
+                    outline_item
+                )
+                latest_progress_updated_at = _resolve_progress_effective_updated_at(
+                    latest_progress_record
+                )
+                has_content_update_for_current_user = bool(
+                    latest_progress_record is not None
+                    and latest_progress_record.status
+                    in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
+                    and published_updated_at
+                    and latest_progress_updated_at
+                    and published_updated_at > latest_progress_updated_at
+                )
             outline_item_info = LearnOutlineItemInfoDTO(
                 bid=outline_item.outline_item_bid,
                 position=outline_item.position,
@@ -326,6 +420,7 @@ def get_outline_item_tree(
                 status=STATUS_MAP.get(status, LearnStatus.NOT_STARTED),
                 type=outline_type_map.get(outline_item.type, OutlineType.NORMAL),
                 is_paid=is_paid,
+                has_content_update_for_current_user=has_content_update_for_current_user,
                 children=[],
             )
             if item.children:
@@ -635,6 +730,78 @@ def get_generated_content(
         )
 
 
+def _resolve_runtime_tts_voice_id(
+    app: Flask, provider: str, voice_id: str, *, shifu_bid: str
+) -> str:
+    """Return a voice id that is safe to send to the provider at runtime.
+
+    MiniMax accepts user-defined clone IDs that share the same character shape as
+    historical built-in voices. A stale DB value can therefore pass local shape
+    validation and fail only after the external API call with `2054 - voice id not
+    exist`. For learner-facing audio generation, keep built-in voices and clone
+    IDs that are verified by a ready local row, while falling back when this
+    shifu explicitly points at a local cloned voice row that is not ready yet.
+    """
+    normalized_provider = (provider or "").strip().lower()
+    normalized_voice_id = (voice_id or "").strip()
+    if normalized_provider != "minimax" or not normalized_voice_id:
+        return normalized_voice_id
+
+    provider_config = get_tts_provider(normalized_provider).get_provider_config()
+    built_in_voice_ids = {
+        (voice.get("value") or "").strip()
+        for voice in (provider_config.voices or [])
+        if (voice.get("value") or "").strip()
+    }
+    if normalized_voice_id in built_in_voice_ids:
+        return normalized_voice_id
+
+    # If this shifu tracks a local clone row for the selected voice id, only
+    # accept it when the latest row is ready. This prevents preview/runtime
+    # from trying to use a clone that is still queued or has already failed.
+    normalized_shifu_bid = (shifu_bid or "").strip()
+    cloned_voice = (
+        TTSMiniMaxClonedVoice.query.filter(
+            TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+            TTSMiniMaxClonedVoice.shifu_bid == normalized_shifu_bid,
+            TTSMiniMaxClonedVoice.deleted == 0,
+        )
+        .order_by(TTSMiniMaxClonedVoice.id.desc())
+        .first()
+    )
+    if cloned_voice and cloned_voice.status == TTS_MINIMAX_CLONE_STATUS_READY:
+        return normalized_voice_id
+    if cloned_voice:
+        app.logger.warning(
+            "MiniMax TTS voice_id %s for shifu %s is tracked locally but not ready; falling back to a default voice",
+            normalized_voice_id,
+            normalized_shifu_bid,
+        )
+    else:
+        ready_clone = (
+            TTSMiniMaxClonedVoice.query.filter(
+                TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+                TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
+                TTSMiniMaxClonedVoice.deleted == 0,
+            )
+            .order_by(TTSMiniMaxClonedVoice.id.desc())
+            .first()
+        )
+        if ready_clone:
+            return normalized_voice_id
+
+    default_voice_settings = get_default_voice_settings(normalized_provider)
+    fallback_voice_id = (getattr(default_voice_settings, "voice_id", "") or "").strip()
+    if not fallback_voice_id and built_in_voice_ids:
+        fallback_voice_id = sorted(built_in_voice_ids)[0]
+    app.logger.warning(
+        "MiniMax TTS voice_id %s is not a current built-in voice or ready cloned voice; falling back to %s",
+        normalized_voice_id,
+        fallback_voice_id,
+    )
+    return fallback_voice_id or normalized_voice_id
+
+
 def _resolve_shifu_tts_settings(
     app: Flask,
     *,
@@ -672,8 +839,15 @@ def _resolve_shifu_tts_settings(
         emotion=emotion,
     )
 
+    runtime_voice_id = _resolve_runtime_tts_voice_id(
+        app,
+        validated.provider,
+        validated.voice_id,
+        shifu_bid=shifu_bid,
+    )
+
     voice_settings = get_default_voice_settings(validated.provider)
-    voice_settings.voice_id = validated.voice_id
+    voice_settings.voice_id = runtime_voice_id
     voice_settings.speed = validated.speed
     voice_settings.pitch = validated.pitch
     voice_settings.emotion = validated.emotion
@@ -1022,6 +1196,53 @@ def _audio_record_matches_speakable_text(
     return record_text_length > 0 and record_text_length == expected_length
 
 
+def _float_settings_match(left, right) -> bool:
+    try:
+        return abs(float(left) - float(right)) < 0.0001
+    except (TypeError, ValueError):
+        return False
+
+
+def _audio_record_matches_tts_settings(
+    audio_record: LearnGeneratedAudio | None,
+    *,
+    voice_settings,
+    tts_model: str,
+) -> bool:
+    if audio_record is None:
+        return False
+
+    record_voice_id = (getattr(audio_record, "voice_id", "") or "").strip()
+    current_voice_id = (getattr(voice_settings, "voice_id", "") or "").strip()
+    if record_voice_id != current_voice_id:
+        return False
+
+    record_model = (getattr(audio_record, "model", "") or "").strip()
+    current_model = (tts_model or "").strip()
+    if record_model != current_model:
+        return False
+
+    record_settings = getattr(audio_record, "voice_settings", None)
+    if not isinstance(record_settings, dict):
+        record_settings = {}
+
+    if not _float_settings_match(
+        record_settings.get("speed", 1.0), getattr(voice_settings, "speed", 1.0)
+    ):
+        return False
+    if not _float_settings_match(
+        record_settings.get("volume", 1.0), getattr(voice_settings, "volume", 1.0)
+    ):
+        return False
+    if int(record_settings.get("pitch", 0) or 0) != int(
+        getattr(voice_settings, "pitch", 0) or 0
+    ):
+        return False
+    return (record_settings.get("emotion", "") or "") == (
+        getattr(voice_settings, "emotion", "") or ""
+    )
+
+
 def _yield_stream_tts_audio_segments(
     *,
     app: Flask,
@@ -1180,6 +1401,14 @@ def stream_generated_block_audio(
 
         raw_text = generated_block.generated_content or ""
 
+        provider, tts_model, voice_settings, _audio_settings = (
+            _resolve_shifu_tts_settings(
+                app,
+                shifu_bid=shifu_bid,
+                preview_mode=preview_mode,
+            )
+        )
+
         def _resolve_existing_single_block_audio():
             existing_audios = (
                 LearnGeneratedAudio.query.filter(
@@ -1197,6 +1426,11 @@ def stream_generated_block_audio(
                     audio
                     for audio in existing_audios
                     if _audio_record_matches_speakable_text(audio, raw_text)
+                    and _audio_record_matches_tts_settings(
+                        audio,
+                        voice_settings=voice_settings,
+                        tts_model=tts_model,
+                    )
                     and audio.oss_url
                 ),
                 None,
@@ -1217,14 +1451,6 @@ def stream_generated_block_audio(
             if existing_audio:
                 yield from _yield_existing_single_block_audio(existing_audio)
                 return
-
-        provider, tts_model, voice_settings, _audio_settings = (
-            _resolve_shifu_tts_settings(
-                app,
-                shifu_bid=shifu_bid,
-                preview_mode=preview_mode,
-            )
-        )
 
         def _yield_single_block_audio():
             cleaned_text = preprocess_for_tts(raw_text)
@@ -1374,10 +1600,48 @@ def stream_generated_block_audio(
                         generated_block_bid=generated_block_bid,
                     )
                     return
-                raise_error_with_args(
-                    "server.common.paramsError",
-                    param_message="No speakable text elements available for TTS synthesis",
+
+                # Non-preview historical blocks may have generated_content but
+                # no learn_generated_elements. Fall back to synthesizing audio
+                # from the raw block text instead of failing.
+                cleaned_fallback_text = preprocess_for_tts(raw_text)
+                if not cleaned_fallback_text or len(cleaned_fallback_text.strip()) < 2:
+                    app.logger.info(
+                        "skip listen-mode TTS for non-speakable generated block | shifu_bid=%s | generated_block_bid=%s | user_bid=%s",
+                        shifu_bid,
+                        generated_block_bid,
+                        user_bid,
+                    )
+                    yield _build_tts_done_message(
+                        outline_bid=generated_block.outline_item_bid or "",
+                        generated_block_bid=generated_block_bid,
+                    )
+                    return
+
+                def _generate_legacy_audio():
+                    yield from _yield_run_tts_audio_events(
+                        app=app,
+                        text=raw_text,
+                        provider=provider,
+                        tts_model=tts_model,
+                        voice_settings=voice_settings,
+                        generated_block=generated_block,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        preview_mode=preview_mode,
+                        position=0,
+                    )
+
+                yield from _yield_with_tts_error_mapping(
+                    app,
+                    unknown_error_log="Legacy listen TTS synthesis failed",
+                    body=_generate_legacy_audio,
                 )
+                yield _build_tts_done_message(
+                    outline_bid=generated_block.outline_item_bid or "",
+                    generated_block_bid=generated_block_bid,
+                )
+                return
 
             expected_segment_count = len(speakable_segments)
             existing_by_position: dict[int, LearnGeneratedAudio] = {}
@@ -1404,6 +1668,12 @@ def stream_generated_block_audio(
                     continue
                 if not _audio_record_matches_speakable_text(
                     record, speakable_segments[pos]
+                ):
+                    continue
+                if not _audio_record_matches_tts_settings(
+                    record,
+                    voice_settings=voice_settings,
+                    tts_model=tts_model,
                 ):
                     continue
                 existing_by_position[pos] = record

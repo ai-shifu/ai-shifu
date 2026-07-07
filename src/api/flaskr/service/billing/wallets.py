@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 from .consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
@@ -207,7 +208,7 @@ def persist_credit_wallet_snapshot(
         "available_credits": _quantize_credit_amount(available_credits),
         "reserved_credits": _quantize_credit_amount(reserved_credits),
         "version": next_version,
-        "updated_at": updated_at or datetime.now(),
+        "updated_at": updated_at or now_utc(),
     }
     if lifetime_granted_credits is not None:
         values["lifetime_granted_credits"] = _quantize_credit_amount(
@@ -388,7 +389,7 @@ def rebuild_credit_wallet_snapshots(
                 wallets=[],
             )
 
-        rebuilt_at = datetime.now()
+        rebuilt_at = now_utc()
         payload_wallets: list[WalletSnapshotRecord] = []
         for wallet in wallets:
             refresh_credit_wallet_snapshot(wallet)
@@ -429,7 +430,7 @@ def repair_credit_bucket_runtime_statuses(
 
     normalized_creator_bid = str(creator_bid or "").strip()
     normalized_wallet_bucket_bid = str(wallet_bucket_bid or "").strip()
-    repaired_at = datetime.now()
+    repaired_at = now_utc()
     with app.app_context():
         query = CreditWalletBucket.query.filter(
             CreditWalletBucket.deleted == 0,
@@ -547,7 +548,7 @@ def grant_refund_return_credits(
             )
 
         wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
-        now = effective_from or datetime.now()
+        now = effective_from or now_utc()
         bucket_category = resolve_runtime_credit_bucket_category(
             source_type=CREDIT_SOURCE_TYPE_REFUND,
             source_bid=normalized_refund_bid,
@@ -668,7 +669,7 @@ def adjust_credit_wallet_balance(
     with app.app_context():
         wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
         adjustment_bid = generate_id(app)
-        adjusted_at = datetime.now()
+        adjusted_at = now_utc()
         metadata = {
             "adjustment_bid": adjustment_bid,
             "note": normalized_note,
@@ -852,7 +853,7 @@ def grant_manual_credit_wallet_balance(
         )
 
     with app.app_context():
-        granted_at = effective_from or datetime.now()
+        granted_at = effective_from or now_utc()
         wallet = _load_or_create_credit_wallet(app, normalized_creator_bid)
         grant_bid = normalized_source_bid or generate_id(app)
         ledger_key = normalized_idempotency_key or f"manual_grant:{grant_bid}"
@@ -988,7 +989,7 @@ def expire_credit_wallet_buckets(
     """Expire currently active buckets whose effective window has ended."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
-    cutoff = expire_before or datetime.now()
+    cutoff = expire_before or now_utc()
     with app.app_context():
         result = _expire_credit_wallet_buckets_in_session(
             app,
@@ -1008,7 +1009,7 @@ def _expire_credit_wallet_buckets_in_session(
     """Expire eligible buckets inside the current transaction without committing."""
 
     normalized_creator_bid = str(creator_bid or "").strip()
-    cutoff = expire_before or datetime.now()
+    cutoff = expire_before or now_utc()
     query = CreditWalletBucket.query.filter(
         CreditWalletBucket.deleted == 0,
         CreditWalletBucket.status == CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1047,42 +1048,71 @@ def _expire_credit_wallet_buckets_in_session(
                 continue
             wallets[bucket.wallet_bid] = wallet
 
-        bucket.available_credits = _ZERO
-        bucket.expired_credits = _quantize_credit_amount(
-            _to_decimal(bucket.expired_credits) + available
-        )
-        if _to_decimal(bucket.reserved_credits) > _ZERO:
-            sync_credit_bucket_status(bucket)
-        else:
-            bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
-        db.session.add(bucket)
+        # Expire each bucket inside its own savepoint and flush the "expire:"
+        # ledger row here. A concurrent transaction (another expire event, the
+        # beat scan, or referral grant) may have already expired this bucket; its
+        # committed ledger row then trips the (creator_bid, idempotency_key)
+        # unique key. Catching it here rolls back only this bucket's changes and
+        # skips it, instead of surfacing later from a query-invoked autoflush and
+        # aborting the whole expiration batch. Autoflush stays enabled so the
+        # snapshot recompute below still sees the pending bucket update.
+        try:
+            with db.session.begin_nested():
+                bucket.available_credits = _ZERO
+                bucket.expired_credits = _quantize_credit_amount(
+                    _to_decimal(bucket.expired_credits) + available
+                )
+                if _to_decimal(bucket.reserved_credits) > _ZERO:
+                    sync_credit_bucket_status(bucket)
+                else:
+                    bucket.status = CREDIT_BUCKET_STATUS_EXPIRED
+                db.session.add(bucket)
 
-        refresh_credit_wallet_snapshot(wallet)
-        ledger_entry = CreditLedgerEntry(
-            ledger_bid=generate_id(app),
-            creator_bid=bucket.creator_bid,
-            wallet_bid=wallet.wallet_bid,
-            wallet_bucket_bid=bucket.wallet_bucket_bid,
-            entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
-            source_type=bucket.source_type,
-            source_bid=bucket.source_bid,
-            idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
-            amount=-available,
-            balance_after=_quantize_credit_amount(wallet.available_credits),
-            expires_at=bucket.effective_to,
-            consumable_from=bucket.effective_from,
-            metadata_json={
-                "expired_bucket_bid": bucket.wallet_bucket_bid,
-                "expired_at": cutoff.isoformat(),
-            },
-        )
-        persist_credit_wallet_snapshot(
-            wallet,
-            available_credits=wallet.available_credits,
-            reserved_credits=wallet.reserved_credits,
-            updated_at=cutoff,
-        )
-        db.session.add(ledger_entry)
+                refresh_credit_wallet_snapshot(wallet)
+                ledger_entry = CreditLedgerEntry(
+                    ledger_bid=generate_id(app),
+                    creator_bid=bucket.creator_bid,
+                    wallet_bid=wallet.wallet_bid,
+                    wallet_bucket_bid=bucket.wallet_bucket_bid,
+                    entry_type=CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
+                    source_type=bucket.source_type,
+                    source_bid=bucket.source_bid,
+                    idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
+                    amount=-available,
+                    balance_after=_quantize_credit_amount(wallet.available_credits),
+                    expires_at=bucket.effective_to,
+                    consumable_from=bucket.effective_from,
+                    metadata_json={
+                        "expired_bucket_bid": bucket.wallet_bucket_bid,
+                        "expired_at": cutoff.isoformat(),
+                    },
+                )
+                persist_credit_wallet_snapshot(
+                    wallet,
+                    available_credits=wallet.available_credits,
+                    reserved_credits=wallet.reserved_credits,
+                    updated_at=cutoff,
+                )
+                db.session.add(ledger_entry)
+                db.session.flush()
+        except (IntegrityError, RuntimeError) as exc:
+            # IntegrityError: another transaction already wrote this bucket's
+            # "expire:" ledger row. RuntimeError("credit_wallet_version_conflict"):
+            # another transaction updated the wallet concurrently
+            # (persist_credit_wallet_snapshot's optimistic version check). Either
+            # way the begin_nested savepoint already rolled back this bucket's
+            # changes, so reload the wallet (its in-memory version/balances are
+            # stale) and skip the bucket; a later scan retries it. Do NOT call
+            # db.session.rollback() here -- that would discard buckets already
+            # expired earlier in this batch; the savepoint rollback is enough.
+            # Any other RuntimeError is unexpected -> re-raise.
+            if (
+                isinstance(exc, RuntimeError)
+                and str(exc) != "credit_wallet_version_conflict"
+            ):
+                raise
+            db.session.refresh(wallet)
+            continue
         expired_total += available
         expired_count += 1
 

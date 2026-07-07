@@ -242,14 +242,14 @@
       "amount": "Saisir le montant des crédits",
       "note": "Optionnel. Indiquez la raison de cette attribution",
       "product": "Sélectionnez un forfait",
-      "productLoading": "Chargement des forfaits...",
+      "productLoading": "Chargement des forfaits…",
       "referralRewardAmount": "Saisir les crédits de récompense",
       "source": "Sélectionnez une source",
       "validityPreset": "Sélectionnez une validité"
     },
     "referralReward": {
       "bootstrapError": "Impossible de charger les données de récompense de parrainage. Veuillez réessayer plus tard.",
-      "bootstrapLoading": "Chargement des données de récompense de parrainage...",
+      "bootstrapLoading": "Chargement des données de récompense de parrainage…",
       "currentCredits": "Crédits de récompense de parrainage actuels",
       "currentExpireAt": "Validité actuelle de la récompense de parrainage",
       "description": "Chaque attribution de récompense de parrainage ajoute les crédits saisis et prolonge la validité actuelle de 1 mois.",
@@ -372,7 +372,7 @@
     "topupCredits": "Crédits du pack de crédits",
     "totalPaidAmount": "Total payé",
     "updatedAt": "Mis à jour le",
-    "userId": "ID utilisateur"
+    "userId": "ID d’utilisateur"
   },
   "title": "Gestion des utilisateurs"
 }

@@ -159,21 +159,21 @@ jobs:
 
           # 1. Node.js/npm projects - Look for package.json files
           echo "🔍 Scanning for Node.js/npm projects..."
-          find . -name "package.json" -not -path "./node_modules/*" -not -path "./.git/*" | while read -r file; do
+          while read -r file; do
             if [ -f "$file" ]; then
               update_json_version "$file"
               UPDATED_FILES+=("$file")
             fi
-          done
+          done < <(find . -name "package.json" -not -path "./node_modules/*" -not -path "./.git/*")
 
           # 2. Python pyproject.toml projects
           echo "🔍 Scanning for Python pyproject.toml projects..."
-          find . -name "pyproject.toml" -not -path "./.git/*" | while read -r file; do
+          while read -r file; do
             if [ -f "$file" ] && grep -q "version.*=" "$file"; then
               update_toml_version "$file"
               UPDATED_FILES+=("$file")
             fi
-          done
+          done < <(find . -name "pyproject.toml" -not -path "./.git/*")
 
           # 3. Python setup.py projects
           echo "🔍 Scanning for Python setup.py projects..."
@@ -188,33 +188,46 @@ jobs:
 
           # 4. Python __init__.py version files
           echo "🔍 Scanning for Python __init__.py version files..."
-          find . -name "__init__.py" -not -path "./.git/*" | while read -r file; do
+          while read -r file; do
             if grep -q "__version__\|VERSION" "$file" 2>/dev/null; then
               update_python_version "$file"
               UPDATED_FILES+=("$file")
             fi
-          done
+          done < <(find . -name "__init__.py" -not -path "./.git/*")
 
           # 5. Cargo.toml for Rust projects
           echo "🔍 Scanning for Rust Cargo.toml projects..."
-          find . -name "Cargo.toml" -not -path "./.git/*" | while read -r file; do
+          while read -r file; do
             if [ -f "$file" ]; then
               update_toml_version "$file"
               UPDATED_FILES+=("$file")
             fi
-          done
+          done < <(find . -name "Cargo.toml" -not -path "./.git/*")
 
-          # 6. Docker Compose files (project-specific, should be customized)
+          # 6. Docker Compose files (AI-Shifu release images only)
           echo "🔍 Scanning for Docker Compose files..."
-          find . -name "docker-compose*.yml" -o -name "docker-compose*.yaml" | while read -r file; do
+          while read -r file; do
             if [ -f "$file" ]; then
-              echo "  → Updating Docker image tags in $file..."
-              # Generic pattern - update any image tags that look like versions
-              sed -i.bak -E "s|image: ([^:]+):v[0-9]+\.[0-9]+\.[0-9]+[^[:space:]]*|image: \1:$TAG_NAME|g" "$file"
+              before_hash=$(sha256sum "$file" | cut -d' ' -f1)
+              echo "  → Updating AI-Shifu Docker image tags in $file..."
+              # Keep third-party image tags (Prometheus, Grafana, MySQL, Redis, etc.) unchanged.
+              sed -i.bak -E "s#image: aishifu/(ai-shifu-api|ai-shifu-cook-web):[^[:space:]]+#image: aishifu/\1:$TAG_NAME#g" "$file"
               rm -f "$file.bak"
-              UPDATED_FILES+=("$file")
+              after_hash=$(sha256sum "$file" | cut -d' ' -f1)
+              if [ "$before_hash" != "$after_hash" ]; then
+                UPDATED_FILES+=("$file")
+              fi
             fi
-          done
+          done < <(find . \( -name "docker-compose*.yml" -o -name "docker-compose*.yaml" \) -not -path "./.git/*")
+
+          # Guard against accidental third-party image tag changes in release PRs.
+          if git diff --unified=0 -- 'docker/docker-compose*.yml' 'docker/docker-compose*.yaml' \
+            | grep -E '^[+-][[:space:]]*image: ' \
+            | grep -Ev '^[+-][[:space:]]*image: aishifu/(ai-shifu-api|ai-shifu-cook-web):' \
+            | grep -Ev '^(---|\+\+\+)' ; then
+            echo "❌ Release version bump changed a third-party Docker image tag. Refusing to continue."
+            exit 1
+          fi
 
           # 7. Version files (VERSION, version.txt, etc.)
           echo "🔍 Scanning for version files..."
@@ -490,14 +503,13 @@ jobs:
               def annotate(match: re.Match[str], line=line) -> str:
                   pr_number = int(match.group(1))
                   author = authors.get(pr_number, "")
-                  if not author:
-                      return match.group(0)
+                  pr_ref = match.group(0)
 
                   suffix = line[match.end():]
                   if re.match(r"\s*\(@", suffix) or re.match(r"\s+by\s+@", suffix):
-                      return match.group(0)
+                      return pr_ref
 
-                  return f"{match.group(0)} ({author})"
+                  return f"{pr_ref} ({author})" if author else pr_ref
 
               out_lines.append(pr_pattern.sub(annotate, line))
 
@@ -512,6 +524,453 @@ jobs:
 
           echo "✅ Changelog generated successfully"
 
+      - name: Generate MarkdownFlow dependency changelog
+        id: markdownflow_dependency_changelog
+        env:
+          RELEASE_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          PREV_TAG: ${{ steps.prev_tag.outputs.prev_tag }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          PREV_TAG = os.environ.get("PREV_TAG", "")
+          MAX_COMMITS_PER_DEPENDENCY = 20
+          MAX_COMMIT_LOOKUP_PAGES = 3
+
+          DEPENDENCIES = [
+              {
+                  "name": "markdown-flow",
+                  "repo": "ai-shifu/markdown-flow-agent-py",
+                  "path": "src/api/requirements.txt",
+                  "type": "requirements",
+                  "registry": "pypi",
+              },
+              {
+                  "name": "markdown-flow-ui",
+                  "repo": "ai-shifu/markdown-flow-ui",
+                  "path": "src/cook-web/package-lock.json",
+                  "type": "package_lock",
+                  "registry": "npm",
+              },
+          ]
+
+
+          def write_output(content: str) -> None:
+              output_path = os.environ.get("GITHUB_OUTPUT")
+              if not output_path:
+                  print(content)
+                  return
+
+              delimiter = "MARKDOWNFLOW_DEPENDENCY_CHANGELOG"
+              with open(output_path, "a", encoding="utf-8") as output:
+                  output.write(f"content<<{delimiter}\n")
+                  output.write(content)
+                  output.write(f"\n{delimiter}\n")
+
+
+          def git_show(ref: str, path: str) -> str:
+              if not ref:
+                  return ""
+
+              try:
+                  return subprocess.check_output(
+                      ["git", "show", f"{ref}:{path}"],
+                      text=True,
+                      stderr=subprocess.DEVNULL,
+                  )
+              except Exception:
+                  return ""
+
+
+          def read_current(path: str) -> str:
+              try:
+                  with open(path, encoding="utf-8") as current_file:
+                      return current_file.read()
+              except FileNotFoundError:
+                  return ""
+
+
+          def normalize_version(raw: str) -> str:
+              match = re.search(
+                  r"\d+\.\d+\.\d+(?:[.-][0-9A-Za-z][0-9A-Za-z.-]*)?",
+                  raw,
+              )
+              return match.group(0) if match else ""
+
+
+          def extract_version(content: str, dependency: dict[str, str]) -> str:
+              if not content:
+                  return ""
+
+              name = dependency["name"]
+              if dependency["type"] == "requirements":
+                  match = re.search(
+                      rf"(?m)^\s*{re.escape(name)}==\s*([^#;\s]+)",
+                      content,
+                  )
+                  return normalize_version(match.group(1)) if match else ""
+
+              if dependency["type"] == "package_json":
+                  try:
+                      package = json.loads(content)
+                  except json.JSONDecodeError:
+                      return ""
+
+                  for section in (
+                      "dependencies",
+                      "devDependencies",
+                      "optionalDependencies",
+                      "peerDependencies",
+                  ):
+                      raw = (package.get(section) or {}).get(name)
+                      if raw:
+                          return normalize_version(str(raw))
+
+              if dependency["type"] == "package_lock":
+                  try:
+                      package_lock = json.loads(content)
+                  except json.JSONDecodeError:
+                      return ""
+
+                  locked_package = (package_lock.get("packages") or {}).get(
+                      f"node_modules/{name}",
+                  ) or {}
+                  raw = locked_package.get("version")
+                  return normalize_version(str(raw)) if raw else ""
+
+              return ""
+
+
+          token = (
+              (os.environ.get("RELEASE_TOKEN") or "").strip()
+              or (os.environ.get("GITHUB_TOKEN") or "").strip()
+          )
+
+
+          def github_json(api_path: str):
+              request = urllib.request.Request(f"https://api.github.com{api_path}")
+              request.add_header("Accept", "application/vnd.github+json")
+              request.add_header("X-GitHub-Api-Version", "2022-11-28")
+              if token:
+                  request.add_header("Authorization", f"Bearer {token}")
+
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  return json.load(response)
+
+
+          pr_author_cache: dict[tuple[str, int], str] = {}
+
+
+          def fetch_pr_author(repo: str, pr_number: int) -> str:
+              cache_key = (repo, pr_number)
+              if cache_key in pr_author_cache:
+                  return pr_author_cache[cache_key]
+
+              try:
+                  data = github_json(f"/repos/{repo}/pulls/{pr_number}")
+              except urllib.error.HTTPError:
+                  author = ""
+              except Exception:
+                  author = ""
+              else:
+                  login = ((data.get("user") or {}).get("login") or "").strip()
+                  author = f"@{login}" if login else ""
+
+              pr_author_cache[cache_key] = author
+              return author
+
+
+          def fetch_public_json(url: str) -> dict:
+              request = urllib.request.Request(url)
+              request.add_header("Accept", "application/json")
+              request.add_header("User-Agent", "ai-shifu-release-notes")
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  return json.load(response)
+
+
+          def tag_exists(repo: str, tag: str) -> bool:
+              encoded_tag = urllib.parse.quote(tag, safe="")
+              try:
+                  github_json(f"/repos/{repo}/git/ref/tags/{encoded_tag}")
+              except urllib.error.HTTPError as error:
+                  if error.code == 404:
+                      return False
+                  raise
+              return True
+
+
+          def resolve_tag(repo: str, package_name: str, version: str) -> str:
+              candidates = [
+                  f"v{version}",
+                  version,
+                  f"{package_name}@{version}",
+              ]
+              for candidate in candidates:
+                  if tag_exists(repo, candidate):
+                      return candidate
+              return ""
+
+
+          def compare_tags(repo: str, base_tag: str, head_tag: str) -> dict:
+              encoded_base = urllib.parse.quote(base_tag, safe="")
+              encoded_head = urllib.parse.quote(head_tag, safe="")
+              return github_json(f"/repos/{repo}/compare/{encoded_base}...{encoded_head}")
+
+
+          def package_publish_time(dependency: dict[str, str], version: str) -> str:
+              name = dependency["name"]
+              registry = dependency["registry"]
+              if registry == "pypi":
+                  data = fetch_public_json(f"https://pypi.org/pypi/{name}/json")
+                  uploads = data.get("releases", {}).get(version, [])
+                  times = sorted(
+                      upload.get("upload_time_iso_8601", "")
+                      for upload in uploads
+                      if upload.get("upload_time_iso_8601")
+                  )
+                  return times[-1] if times else ""
+
+              if registry == "npm":
+                  encoded_name = urllib.parse.quote(name, safe="")
+                  data = fetch_public_json(f"https://registry.npmjs.org/{encoded_name}")
+                  return ((data.get("time") or {}).get(version) or "").strip()
+
+              return ""
+
+
+          def format_commit_subject(subject: str) -> str:
+              subject = re.sub(r"\s+", " ", subject.strip())
+              subject = re.sub(r"^Merge pull request #\d+ from \S+\s*", "", subject)
+              return subject
+
+
+          def is_version_only_commit(subject: str) -> bool:
+              conventional_prefix = r"(?:feat|fix|chore|build|ci|bump)(?:\([^)]+\))?!?:"
+              version_action = r"(?:update|bump|release|set)"
+              version_target = r"(?:package\s+)?version(?:\s+number)?"
+              version_value = r"v?\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?"
+              patterns = [
+                  rf"^{conventional_prefix}\s+release\b",
+                  rf"^{conventional_prefix}\s+{version_action}\s+{version_target}\b",
+                  rf"^{conventional_prefix}\s+{version_target}\s+{version_action}\b",
+                  rf"^{conventional_prefix}\s+{version_target}\s+{version_value}\b",
+              ]
+              return any(re.match(pattern, subject, re.IGNORECASE) for pattern in patterns)
+
+
+          def commit_sort_key(index_and_subject: tuple[int, str]) -> tuple[int, int]:
+              index, subject = index_and_subject
+              if re.match(r"^feat(?:\([^)]+\))?!?:", subject, re.IGNORECASE):
+                  return (0, index)
+              if re.match(r"^fix(?:\([^)]+\))?!?:", subject, re.IGNORECASE):
+                  return (1, index)
+              return (2, index)
+
+
+          def link_pr_references(subject: str, repo: str) -> str:
+              pr_pattern = re.compile(r"\(#(\d+)\)")
+
+              def replace(match: re.Match[str]) -> str:
+                  pr_number = int(match.group(1))
+                  pr_ref = f"({repo}#{pr_number})"
+                  author = fetch_pr_author(repo, pr_number)
+                  return f"{pr_ref} ({author})" if author else pr_ref
+
+              return pr_pattern.sub(replace, subject)
+
+
+          def commits_between_times(repo: str, since: str, until: str) -> list[str]:
+              per_page = 100
+              page = 1
+              commits = []
+              while True:
+                  query = urllib.parse.urlencode(
+                      {
+                          "since": since,
+                          "until": until,
+                          "per_page": str(per_page),
+                          "page": str(page),
+                      },
+                  )
+                  page_commits = github_json(f"/repos/{repo}/commits?{query}")
+                  if not page_commits:
+                      break
+                  if not isinstance(page_commits, list):
+                      message = ""
+                      if isinstance(page_commits, dict):
+                          message = str(page_commits.get("message") or "").strip()
+                      details = f": {message}" if message else ""
+                      print(
+                          "::warning::"
+                          f"Stopped scanning commits for {repo}; GitHub returned "
+                          f"{type(page_commits).__name__}{details}.",
+                          file=sys.stderr,
+                      )
+                      break
+
+                  commits.extend(page_commits)
+                  if len(page_commits) < per_page:
+                      break
+                  if page >= MAX_COMMIT_LOOKUP_PAGES:
+                      print(
+                          "::warning::"
+                          f"Stopped scanning commits for {repo} after "
+                          f"{MAX_COMMIT_LOOKUP_PAGES} pages.",
+                          file=sys.stderr,
+                      )
+                      break
+                  page += 1
+
+              subjects = []
+              seen_subjects = set()
+              for commit in reversed(commits):
+                  message = ((commit.get("commit") or {}).get("message") or "").splitlines()
+                  subject = format_commit_subject(message[0] if message else "")
+                  if not subject or subject in seen_subjects:
+                      continue
+                  if is_version_only_commit(subject):
+                      continue
+                  seen_subjects.add(subject)
+                  subjects.append(subject)
+              return subjects
+
+
+          def append_commit_subjects(lines: list[str], commits: list[str], repo: str) -> None:
+              if commits:
+                  ordered_commits = [
+                      subject
+                      for _, subject in sorted(enumerate(commits), key=commit_sort_key)
+                  ]
+                  visible_commits = ordered_commits[:MAX_COMMITS_PER_DEPENDENCY]
+                  if len(ordered_commits) > MAX_COMMITS_PER_DEPENDENCY:
+                      hidden_count = len(ordered_commits) - (MAX_COMMITS_PER_DEPENDENCY - 1)
+                      visible_commits = [
+                          *ordered_commits[: MAX_COMMITS_PER_DEPENDENCY - 1],
+                          f"...and {hidden_count} more commits",
+                      ]
+
+                  for subject in visible_commits:
+                      lines.append(f"- {link_pr_references(subject, repo)}")
+              else:
+                  lines.append("- No non-release commit details were returned for this range.")
+
+
+          def build_dependency_section(dependency: dict[str, str]) -> list[str]:
+              name = dependency["name"]
+              repo = dependency["repo"]
+              path = dependency["path"]
+              previous_version = extract_version(git_show(PREV_TAG, path), dependency)
+              current_version = extract_version(read_current(path), dependency)
+
+              if not previous_version or not current_version:
+                  return []
+              if previous_version == current_version:
+                  return []
+
+              lines = [
+                  f"### `{name}` `{previous_version}` -> `{current_version}`",
+              ]
+
+              try:
+                  base_tag = ""
+                  head_tag = ""
+                  try:
+                      base_tag = resolve_tag(repo, name, previous_version)
+                      head_tag = resolve_tag(repo, name, current_version)
+                  except Exception as error:
+                      print(
+                          f"::warning::Failed to resolve GitHub tags for {name}: {error}",
+                          file=sys.stderr,
+                      )
+
+                  if base_tag and head_tag:
+                      try:
+                          comparison = compare_tags(repo, base_tag, head_tag)
+                          if not isinstance(comparison, dict):
+                              raise TypeError(
+                                  f"unexpected compare payload: {type(comparison).__name__}",
+                              )
+                      except Exception as error:
+                          print(
+                              f"::warning::Failed to compare GitHub tags for {name}: {error}",
+                              file=sys.stderr,
+                          )
+                      else:
+                          compare_url = comparison.get("html_url") or (
+                              f"https://github.com/{repo}/compare/"
+                              f"{urllib.parse.quote(base_tag, safe='')}..."
+                              f"{urllib.parse.quote(head_tag, safe='')}"
+                          )
+                          lines.append(f"Compare: [`{base_tag}...{head_tag}`]({compare_url})")
+
+                          commits = []
+                          seen_subjects = set()
+                          for commit in comparison.get("commits", []):
+                              message = (
+                                  ((commit.get("commit") or {}).get("message") or "").splitlines()
+                              )
+                              subject = format_commit_subject(message[0] if message else "")
+                              if not subject or subject in seen_subjects:
+                                  continue
+                              if is_version_only_commit(subject):
+                                  continue
+                              seen_subjects.add(subject)
+                              commits.append(subject)
+                          append_commit_subjects(lines, commits, repo)
+                          return lines
+
+                  previous_time = package_publish_time(dependency, previous_version)
+                  current_time = package_publish_time(dependency, current_version)
+                  if previous_time and current_time:
+                      append_commit_subjects(
+                          lines,
+                          commits_between_times(repo, previous_time, current_time),
+                          repo,
+                      )
+                  else:
+                      lines.append(
+                          "- Version changed, but matching GitHub tags and package publish "
+                          "times were not found for one or both pinned versions.",
+                      )
+              except Exception as error:
+                  print(
+                      f"::warning::Failed to build MarkdownFlow changelog for {name}: {error}",
+                      file=sys.stderr,
+                  )
+                  lines.append("- Version changed, but release note lookup failed.")
+
+              return lines
+
+
+          def main() -> None:
+              if not PREV_TAG:
+                  write_output("")
+                  return
+
+              sections = []
+              for dependency in DEPENDENCIES:
+                  section = build_dependency_section(dependency)
+                  if section:
+                      sections.append("\n".join(section))
+
+              if not sections:
+                  write_output("")
+                  return
+
+              content = "## MarkdownFlow Dependency Updates\n\n" + "\n\n".join(sections)
+              write_output(content)
+
+
+          main()
+          PY
+
       - name: Create GitHub Release Draft
         if: env.ACT != 'true'
         uses: softprops/action-gh-release@v2.6.1
@@ -521,6 +980,8 @@ jobs:
           name: Release ${{ steps.version.outputs.tag }}
           body: |
             ${{ steps.changelog.outputs.changelog_content }}
+
+            ${{ steps.markdownflow_dependency_changelog.outputs.content }}
 
             ## 📦 Installation from Source
 
@@ -571,6 +1032,8 @@ jobs:
             Changelog preview:
 
             ${{ steps.changelog.outputs.changelog_content }}
+
+            ${{ steps.markdownflow_dependency_changelog.outputs.content }}
 
           labels: |
             release

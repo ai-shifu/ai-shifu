@@ -5,7 +5,7 @@ from sqlalchemy import (
     TIMESTAMP,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from sqlalchemy.sql import func
+from flaskr.util.datetime import now_utc
 
 
 class FeedBack(db.Model):
@@ -15,13 +15,13 @@ class FeedBack(db.Model):
     user_id = Column(String(36), nullable=False, default="", comment="User UUID")
     feedback = Column(String(300), nullable=False, comment="Feedback")
     created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"
     )
     updated = Column(
         TIMESTAMP,
         nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
+        default=now_utc,
+        onupdate=now_utc,
         comment="Update time",
     )
 

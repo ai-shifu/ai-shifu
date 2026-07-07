@@ -5,6 +5,10 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
@@ -55,6 +59,8 @@ import {
   type NotificationFilters,
   type PageTab,
 } from './creditNotificationUtils';
+import { useCreditNotificationDryRun } from './useCreditNotificationDryRun';
+import { useCreditNotificationTemplateSyncState } from './useCreditNotificationTemplateSyncState';
 
 const normalizeResolvedPolicyLists = (
   payload: unknown,
@@ -114,20 +120,6 @@ export default function AdminOperationCreditNotificationsPage() {
   const [configError, setConfigError] = React.useState('');
   const [configLoaded, setConfigLoaded] = React.useState(false);
   const [configLoading, setConfigLoading] = React.useState(false);
-  const [dryRunResult, setDryRunResult] =
-    React.useState<AdminOperationCreditNotificationDryRunResponse | null>(null);
-  const [dryRunError, setDryRunError] = React.useState('');
-  const [templateSyncResults, setTemplateSyncResults] = React.useState<
-    Partial<
-      Record<
-        KnownNotificationType,
-        AdminOperationCreditNotificationTemplateSyncResponse
-      >
-    >
-  >({});
-  const [templateSyncLoading, setTemplateSyncLoading] = React.useState<
-    Partial<Record<KnownNotificationType, boolean>>
-  >({});
   const [templateOptions, setTemplateOptions] = React.useState<
     AdminOperationCreditNotificationTemplateOption[]
   >([]);
@@ -212,6 +204,20 @@ export default function AdminOperationCreditNotificationsPage() {
     [],
   );
 
+  const { dryRunError, dryRunResult, runDryRun } =
+    useCreditNotificationDryRun(t);
+  const {
+    clearTemplateSyncResult,
+    syncTemplate,
+    templateSyncError,
+    templateSyncLoading,
+    templateSyncResults,
+  } = useCreditNotificationTemplateSyncState({
+    policyTypes: policy.types,
+    setTemplateOptions,
+    t,
+  });
+
   const fetchConfig = React.useCallback(async () => {
     const response = await api.getAdminOperationCreditNotificationConfig({});
     const nextPolicy = normalizePolicy(response);
@@ -272,8 +278,8 @@ export default function AdminOperationCreditNotificationsPage() {
               ? nextFilters.skip_reason.trim()
               : '',
           source_type: nextFilters.source_type.trim(),
-          start_time: nextFilters.start_time.trim(),
-          end_time: nextFilters.end_time.trim(),
+          start_time: formatAdminDateRangeStartUtc(nextFilters.start_time),
+          end_time: formatAdminDateRangeEndUtc(nextFilters.end_time),
         })) as AdminOperationCreditNotificationListResponse;
         if (requestId !== requestIdRef.current) {
           return;
@@ -551,113 +557,9 @@ export default function AdminOperationCreditNotificationsPage() {
       document.removeEventListener('click', handleDocumentClick, true);
   }, [activeTab, isConfigDirty]);
 
-  const syncTemplate = React.useCallback(
-    async (
-      notificationType: KnownNotificationType,
-      templateCodeOverride?: string,
-    ) => {
-      const templateCode = (
-        templateCodeOverride ?? policy.types[notificationType].template_code
-      ).trim();
-      if (!templateCode) {
-        setConfigError(
-          t(
-            'module.operationsCreditNotifications.config.templateSync.templateCodeRequired',
-          ),
-        );
-        return false;
-      }
-      setTemplateSyncLoading(current => ({
-        ...current,
-        [notificationType]: true,
-      }));
-      try {
-        const response =
-          (await api.syncAdminOperationCreditNotificationTemplate({
-            notification_type: notificationType,
-            template_code: templateCode,
-          })) as AdminOperationCreditNotificationTemplateSyncResponse;
-        setTemplateSyncResults(current => ({
-          ...current,
-          [notificationType]: response,
-        }));
-        setTemplateOptions(current => {
-          const nextOption: AdminOperationCreditNotificationTemplateOption = {
-            notification_template_bid: response.notification_template_bid,
-            channel: response.channel,
-            provider: response.provider,
-            template_code: response.template_code,
-            template_name: response.template_name,
-            template_content: response.template_content,
-            template_status: response.template_status,
-            template_type: response.template_type,
-            sync_status: response.sync_status,
-            error_code: response.error_code,
-            error_message: response.error_message,
-            placeholders: response.placeholders,
-            compatible_notification_types: response.compatible
-              ? [notificationType]
-              : [],
-            last_synced_at: response.last_synced_at,
-            source: 'local',
-          };
-          return [
-            nextOption,
-            ...current.filter(
-              option => option.template_code !== response.template_code,
-            ),
-          ];
-        });
-        setConfigError('');
-        return Boolean(response.compatible);
-      } catch (requestError) {
-        const resolvedError = requestError as ErrorWithCode;
-        setConfigError(
-          resolvedError.message ||
-            t(
-              'module.operationsCreditNotifications.config.templateSync.syncFailed',
-            ),
-        );
-        return false;
-      } finally {
-        setTemplateSyncLoading(current => ({
-          ...current,
-          [notificationType]: false,
-        }));
-      }
-    },
-    [policy.types, t],
-  );
-
-  const clearTemplateSyncResult = React.useCallback(
-    (notificationType: KnownNotificationType) => {
-      setTemplateSyncResults(current => {
-        if (current[notificationType] === undefined) {
-          return current;
-        }
-        return {
-          ...current,
-          [notificationType]: undefined,
-        };
-      });
-    },
-    [],
-  );
-
   const dryRun = React.useCallback(async () => {
-    try {
-      setDryRunError('');
-      const response = (await api.dryRunAdminOperationCreditNotifications({
-        notification_type: draftFilters.notification_type.trim(),
-        creator_bid: '',
-      })) as AdminOperationCreditNotificationDryRunResponse;
-      setDryRunResult(response);
-    } catch (requestError) {
-      const resolvedError = requestError as ErrorWithCode;
-      setDryRunResult(null);
-      setDryRunError(resolvedError.message || t('common.core.submitFailed'));
-    }
-  }, [draftFilters.notification_type, t]);
+    await runDryRun(draftFilters.notification_type);
+  }, [draftFilters.notification_type, runDryRun]);
 
   const requeue = React.useCallback(
     async (notificationBid: string) => {
@@ -781,6 +683,7 @@ export default function AdminOperationCreditNotificationsPage() {
             configError={configError}
             dryRunResult={dryRunResult}
             dryRunError={dryRunError}
+            templateSyncError={templateSyncError}
             templateSyncResults={templateSyncResults}
             templateSyncLoading={templateSyncLoading}
             templateOptions={templateOptions}

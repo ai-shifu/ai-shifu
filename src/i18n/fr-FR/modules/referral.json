@@ -1,11 +1,5 @@
 {
   "__namespace__": "module.referral",
-  "abnormalStatus": {
-    "confirmedAbnormal": "Anomalie confirmée",
-    "normal": "Normal",
-    "reviewing": "En vérification",
-    "unknown": "Statut d’anomalie inconnu"
-  },
   "creator": {
     "copied": "Copié",
     "copyLink": "Copier le lien",
@@ -61,65 +55,23 @@
   },
   "operator": {
     "actions": {
-      "cancelReward": "Annuler relation et récompense",
-      "detail": "Détail",
-      "freezeReward": "Geler la récompense",
-      "markNormal": "Marquer normal",
-      "markReviewing": "Marquer en vérification",
       "reset": "Réinitialiser",
       "search": "Rechercher"
     },
-    "description": "Consultez les relations d’invitation, les statuts de récompense, les comptes invités, les artefacts de facturation et les exceptions manuelles.",
-    "detail": {
-      "abnormalStatus": "Statut d’anomalie",
-      "billOrder": "BID commande",
-      "boundAt": "Date de liaison",
-      "campaign": "Campagne",
-      "inviteCode": "Code d’invitation",
-      "invitee": "Invité",
-      "inviteeMobile": "Mobile invité",
-      "inviter": "Invitant",
-      "ledger": "BID écriture",
-      "loading": "Chargement",
-      "operatorNote": "Note opérateur",
-      "operatorNotePlaceholder": "Indiquer la raison de l’action manuelle",
-      "relationStatus": "Statut relation",
-      "reward": "Récompense et facturation",
-      "rewardBid": "BID récompense",
-      "rewardProduct": "Produit récompense",
-      "rewardQueue": {
-        "artifacts": {
-          "ledger": "Écriture",
-          "order": "Commande",
-          "reward": "Récompense"
-        },
-        "columns": {
-          "artifacts": "Commande / écriture",
-          "credits": "Crédits",
-          "effectiveAt": "Début",
-          "expiresAt": "Expiration",
-          "index": "Cycle",
-          "invitee": "Invité",
-          "ledgerState": "État comptable",
-          "status": "Statut"
-        },
-        "empty": "Aucune file de récompenses.",
-        "title": "File de récompenses"
-      },
-      "rewardStatus": "Statut récompense",
-      "subscription": "BID abonnement",
-      "title": "Détail relation d’invitation",
-      "walletBucket": "BID du compartiment de crédits"
-    },
+    "description": "Consultez les relations d’invitation, les statuts de récompense, les comptes invités et les artefacts de facturation.",
     "empty": "Aucune relation d’invitation.",
     "filters": {
-      "abnormalStatus": "Statut d’anomalie",
       "all": "Tous",
-      "campaignBid": "BID campagne",
+      "boundAt": "Date de liaison",
+      "campaignBid": "BID de campagne",
       "inviteCode": "Code d’invitation",
-      "inviteeUserBid": "BID utilisateur invité",
-      "inviterUserBid": "BID utilisateur invitant",
-      "relationStatus": "Statut relation"
+      "invitee": "Invité",
+      "inviteeEmailPlaceholder": "Saisir l'e-mail de l'invité",
+      "inviteeMobilePlaceholder": "Saisir le mobile de l'invité",
+      "inviter": "Invitant",
+      "inviterEmailPlaceholder": "Saisir l'e-mail de l'invitant",
+      "inviterMobilePlaceholder": "Saisir le mobile de l'invitant",
+      "relationStatus": "Statut de la relation"
     },
     "loadFailed": "Échec du chargement des relations. Actualisez puis réessayez.",
     "metrics": {
@@ -143,8 +95,8 @@
       "inviteCode": "Code",
       "invitee": "Invité",
       "inviter": "Invitant",
-      "relationStatus": "Statut relation",
-      "rewardStatus": "Statut récompense"
+      "relationStatus": "Statut de la relation",
+      "rewardStatus": "Statut de la récompense"
     },
     "title": "Récompenses d’invitation",
     "tooltips": {
@@ -163,7 +115,7 @@
     "rewardGenerated": "Récompense générée",
     "rewardPendingEffective": "Récompense en attente",
     "rewardSkippedCap": "Ignorée par plafond",
-    "unknown": "Statut relation inconnu"
+    "unknown": "Statut de la relation inconnu"
   },
   "rewardStatus": {
     "active": "Active",
@@ -173,6 +125,6 @@
     "generated": "Générée",
     "pendingEffective": "En attente",
     "skippedCap": "Ignorée par plafond",
-    "unknown": "Statut récompense inconnu"
+    "unknown": "Statut de la récompense inconnu"
   }
 }

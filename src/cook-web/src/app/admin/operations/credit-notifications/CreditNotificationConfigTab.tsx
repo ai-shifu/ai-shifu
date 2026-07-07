@@ -88,6 +88,7 @@ export function CreditNotificationConfigTab({
   configError,
   dryRunResult,
   dryRunError,
+  templateSyncError,
   templateSyncResults,
   templateSyncLoading,
   templateOptions,
@@ -107,6 +108,7 @@ export function CreditNotificationConfigTab({
   configError: string;
   dryRunResult: AdminOperationCreditNotificationDryRunResponse | null;
   dryRunError: string;
+  templateSyncError: string;
   templateSyncResults: Partial<
     Record<
       KnownNotificationType,
@@ -233,6 +235,11 @@ export function CreditNotificationConfigTab({
             'module.operationsCreditNotifications.config.sections.types',
           )}
         >
+          {templateSyncError ? (
+            <div className='mb-3 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive'>
+              {templateSyncError}
+            </div>
+          ) : null}
           <div className='space-y-3'>
             {NOTIFICATION_TYPES.map(type => (
               <CreditNotificationTypeConfigCard

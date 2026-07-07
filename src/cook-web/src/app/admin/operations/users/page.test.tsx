@@ -18,6 +18,8 @@ const mockGrantDialogPrefix = 'grant-dialog-';
 const mockGrantSuccessLabel = 'mock-grant-success';
 const buildGrantDialogLabel = (userBid: string) =>
   `${mockGrantDialogPrefix}${userBid}`;
+const formatUtcBoundary = (date: Date) =>
+  date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 let mockLanguage = 'en-US';
 const translationCache = new Map<
   string,
@@ -607,7 +609,7 @@ describe('AdminOperationUsersPage', () => {
     ).toBeInTheDocument();
   });
 
-  test('keeps user activity and metadata timestamps as returned wall-clock time', async () => {
+  test('converts user activity and metadata timestamps to the browser timezone', async () => {
     mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
     mockGetAdminOperationUsers.mockResolvedValueOnce({
       items: [
@@ -645,15 +647,15 @@ describe('AdminOperationUsersPage', () => {
 
     await renderResolvedPage();
 
-    expect(screen.getByText('2026-06-09 14:01:50')).toBeInTheDocument();
-    expect(screen.getByText('2026-06-09 15:01:50')).toBeInTheDocument();
-    expect(screen.getByText('2026-06-09 12:01:50')).toBeInTheDocument();
-    expect(screen.getByText('2026-06-09 13:01:50')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-09 07:01:50')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-09 08:01:50')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-08 21:01:50')).toBeInTheDocument();
+    expect(screen.getByText('2026-06-08 22:01:50')).toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 14:01:50')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 15:01:50')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 12:01:50')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-06-09 13:01:50')).not.toBeInTheDocument();
     expect(screen.queryByText('2026-06-09 04:01:50')).not.toBeInTheDocument();
-    expect(screen.queryByText('2026-06-09 07:01:50')).not.toBeInTheDocument();
-    expect(screen.queryByText('2026-06-09 08:01:50')).not.toBeInTheDocument();
-    expect(screen.queryByText('2026-06-08 21:01:50')).not.toBeInTheDocument();
-    expect(screen.queryByText('2026-06-08 22:01:50')).not.toBeInTheDocument();
   });
 
   test('formats overview counts and credits without grouping in Chinese locale', async () => {
@@ -780,7 +782,6 @@ describe('AdminOperationUsersPage', () => {
     expect(mockMutateBillingOverview).toHaveBeenCalledTimes(1);
     expect(mockMutateBillingOverview).toHaveBeenCalledWith([
       'creator-billing-overview',
-      'UTC',
     ]);
   });
 
@@ -905,6 +906,12 @@ describe('AdminOperationUsersPage', () => {
     try {
       await renderResolvedPage();
 
+      const expectedEndDate = new Date();
+      const expectedStartDate = new Date(expectedEndDate);
+      expectedStartDate.setDate(expectedEndDate.getDate() - 29);
+      expectedStartDate.setHours(0, 0, 0, 0);
+      expectedEndDate.setHours(23, 59, 59, 0);
+
       fireEvent.click(
         screen.getByRole('button', {
           name: /module\.operationsUser\.overview\.metrics\.newUsers30d/i,
@@ -915,8 +922,8 @@ describe('AdminOperationUsersPage', () => {
         expect(mockGetAdminOperationUsers).toHaveBeenLastCalledWith(
           expect.objectContaining({
             quick_filter: 'created_last_30d',
-            start_time: '2026-04-07',
-            end_time: '2026-05-06',
+            start_time: formatUtcBoundary(expectedStartDate),
+            end_time: formatUtcBoundary(expectedEndDate),
           }),
         );
       });

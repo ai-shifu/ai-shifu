@@ -500,12 +500,18 @@ const getListenPlaybackSequenceActive = ({
 
 const createEmptyStateElement = (
   sectionTitle: string | undefined,
+  sectionPlaceholderTips?: string,
 ): ListenSlideElement => ({
   sequence_number: 1,
   type: 'slot',
   content: (
-    <div className='flex h-full w-full items-center justify-center text-center text-[40px] font-bold leading-[1.3] text-primary'>
-      {sectionTitle}
+    <div className='flex h-full w-full flex-col items-center justify-center text-center text-primary'>
+      <div className='text-[40px] font-bold leading-[1.3]'>{sectionTitle}</div>
+      {sectionPlaceholderTips ? (
+        <div className='mt-4 text-[18px] font-normal leading-7 text-primary/65'>
+          {sectionPlaceholderTips}
+        </div>
+      ) : null}
     </div>
   ),
   is_marker: true,
@@ -519,6 +525,7 @@ const buildSlideElementList = ({
   items,
   askListByAnchorElementBid,
   sectionTitle,
+  sectionPlaceholderTips,
   interactionInputMap,
   lastInteractionBid,
   lastItemIsInteraction,
@@ -529,6 +536,7 @@ const buildSlideElementList = ({
   items: ChatContentItem[];
   askListByAnchorElementBid: Map<string, AskMessage[]>;
   sectionTitle?: string;
+  sectionPlaceholderTips?: string;
   interactionInputMap: Record<string, string>;
   lastInteractionBid: string | null;
   lastItemIsInteraction: boolean;
@@ -632,7 +640,7 @@ const buildSlideElementList = ({
   });
 
   if (!elementList.length) {
-    return [createEmptyStateElement(sectionTitle)];
+    return [createEmptyStateElement(sectionTitle, sectionPlaceholderTips)];
   }
 
   // Keep a leading placeholder when the first content payload is text.
@@ -680,6 +688,10 @@ const ListenModeSlideRenderer = ({
     disableLoadingOverlay,
     playerClassName,
   } = presentationProfile;
+  const sectionPlaceholderTips =
+    variant === 'classroom'
+      ? t('module.chat.classroomTitlePlaceholderTips')
+      : undefined;
   const renderSequenceByStreamKeyRef = useRef<Map<string, number>>(new Map());
   const audioListenerCleanupMapRef = useRef<Map<HTMLAudioElement, () => void>>(
     new Map(),
@@ -863,6 +875,7 @@ const ListenModeSlideRenderer = ({
       items,
       askListByAnchorElementBid,
       sectionTitle,
+      sectionPlaceholderTips,
       interactionInputMap,
       lastInteractionBid,
       lastItemIsInteraction,
@@ -887,6 +900,7 @@ const ListenModeSlideRenderer = ({
     lastInteractionBid,
     lastItemIsInteraction,
     sectionTitle,
+    sectionPlaceholderTips,
     showLeadingTextPlaceholder,
   ]);
   const markerStepCount = useMemo(
@@ -1844,6 +1858,8 @@ const ListenModeSlideRenderer = ({
     showAskOverlays && isMobileAskPanelMounted && !shouldRenderEmptyPpt;
   const shouldRenderManualFullscreenButton =
     showManualFullscreenButton && !isClassroomFullscreenActive;
+  const listenPlayerClassName =
+    variant === 'listen' ? 'listen-slide-player' : '';
 
   const desktopAskOverlay = shouldRenderDesktopAskOverlay ? (
     <div
@@ -1880,6 +1896,7 @@ const ListenModeSlideRenderer = ({
       className={cn(
         'listen-reveal-wrapper',
         previewMode && !mobileStyle && 'listen-reveal-wrapper--preview',
+        variant === 'classroom' && 'listen-reveal-wrapper--classroom',
         mobileStyle ? 'mobile bg-white' : 'bg-[var(--color-slide-desktop-bg)]',
       )}
       ref={chatRef}
@@ -1976,6 +1993,7 @@ const ListenModeSlideRenderer = ({
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
           playerClassName={cn(
+            listenPlayerClassName,
             mobileStyle ? 'listen-slide-player-mobile' : '',
             playerClassName,
           )}

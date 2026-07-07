@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from math import ceil
 from typing import Any
@@ -18,6 +18,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import BillingProduct
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
 
 from .consts import (
@@ -41,6 +42,8 @@ from .consts import (
 from .models import (
     ReferralCampaign,
     ReferralCampaignRewardRule,
+    ReferralInviteCode,
+    ReferralInviteEvent,
     ReferralInviteRelation,
     ReferralInviteReward,
 )
@@ -96,7 +99,7 @@ def list_operator_referral_campaigns(
             )
 
         status_filter = _normalize_text(filters.get("status"))
-        now = datetime.now()
+        now = now_utc()
         if status_filter:
             query = _apply_status_filter(query, status_filter, now=now)
 
@@ -113,12 +116,23 @@ def list_operator_referral_campaigns(
         rules = _latest_rule_map(campaign_bids)
         relation_counts = _count_by_campaign(ReferralInviteRelation, campaign_bids)
         reward_counts = _count_by_campaign(ReferralInviteReward, campaign_bids)
+        invite_code_counts = _count_by_campaign(ReferralInviteCode, campaign_bids)
+        invite_event_stats = _invite_event_stats_by_campaign(campaign_bids)
         items = [
             _serialize_campaign(
                 row,
                 rule=rules.get(row.campaign_bid),
                 relation_count=relation_counts.get(row.campaign_bid, 0),
                 reward_count=reward_counts.get(row.campaign_bid, 0),
+                invite_code_count=invite_code_counts.get(row.campaign_bid, 0),
+                invite_event_count=invite_event_stats.get(row.campaign_bid, {}).get(
+                    "count",
+                    0,
+                ),
+                latest_invite_event_at=invite_event_stats.get(
+                    row.campaign_bid,
+                    {},
+                ).get("latest_at"),
                 now=now,
             )
             for row in rows
@@ -136,6 +150,10 @@ def list_operator_referral_campaigns(
                 ),
                 "relation_count": sum(relation_counts.values()),
                 "reward_count": sum(reward_counts.values()),
+                "invite_code_count": sum(invite_code_counts.values()),
+                "invite_event_count": sum(
+                    int(stats.get("count", 0)) for stats in invite_event_stats.values()
+                ),
             },
         }
 
@@ -148,6 +166,8 @@ def get_operator_referral_campaign_detail(
     with app.app_context():
         campaign = _load_campaign_or_404(campaign_bid)
         rule = _load_latest_rule(campaign.campaign_bid)
+        invite_event_stats = _invite_event_stats_by_campaign([campaign.campaign_bid])
+        stats = invite_event_stats.get(campaign.campaign_bid, {})
         return {
             "campaign": _serialize_campaign(
                 campaign,
@@ -157,7 +177,13 @@ def get_operator_referral_campaign_detail(
                     campaign.campaign_bid,
                 ),
                 reward_count=_count_rows(ReferralInviteReward, campaign.campaign_bid),
-                now=datetime.now(),
+                invite_code_count=_count_rows(
+                    ReferralInviteCode,
+                    campaign.campaign_bid,
+                ),
+                invite_event_count=int(stats.get("count", 0)),
+                latest_invite_event_at=stats.get("latest_at"),
+                now=now_utc(),
             )
         }
 
@@ -283,7 +309,7 @@ def update_operator_referral_campaign_status(
     with app.app_context():
         campaign = _load_campaign_or_404(campaign_bid)
         enabled_value = _parse_bool(enabled, "enabled")
-        now = datetime.now()
+        now = now_utc()
         if enabled_value and campaign.ends_at is not None and campaign.ends_at <= now:
             raise_param_error("enabled")
         rule = _load_latest_rule(campaign.campaign_bid)
@@ -325,8 +351,10 @@ def _normalize_page(page_index: int, page_size: int) -> tuple[int, int]:
     return safe_page_index, min(safe_page_size, MAX_PAGE_SIZE)
 
 
-def _serialize_dt(value: datetime | None) -> str:
-    return value.isoformat() if value is not None else ""
+def _serialize_dt(value: datetime | None) -> str | None:
+    # Match the API fmt sink: stored values are UTC; missing timestamps remain
+    # null so the frontend can distinguish "no event yet" from a real value.
+    return to_utc_iso(value)
 
 
 def _serialize_decimal(value: Decimal | None) -> str | None:
@@ -349,6 +377,8 @@ def _parse_datetime(value: object, field_name: str) -> datetime | None:
         parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
     except ValueError:
         raise_param_error(field_name)
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc)
     return parsed.replace(tzinfo=None)
 
 
@@ -455,7 +485,7 @@ def _normalize_payload(
     if "enabled" in payload:
         enabled = _parse_bool(payload.get("enabled"), "enabled")
     resolved_enabled = enabled if enabled is not None else (True if is_create else None)
-    if resolved_enabled and ends_at is not None and ends_at <= datetime.now():
+    if resolved_enabled and ends_at is not None and ends_at <= now_utc():
         raise_param_error("enabled")
 
     rule_code = (
@@ -597,6 +627,27 @@ def _count_by_campaign(model, campaign_bids: list[str]) -> dict[str, int]:
     return {campaign_bid: int(count or 0) for campaign_bid, count in rows}
 
 
+def _invite_event_stats_by_campaign(
+    campaign_bids: list[str],
+) -> dict[str, dict[str, Any]]:
+    if not campaign_bids:
+        return {}
+    rows = (
+        db.session.query(
+            ReferralInviteEvent.campaign_bid,
+            db.func.count(ReferralInviteEvent.id),
+            db.func.max(ReferralInviteEvent.created_at),
+        )
+        .filter(ReferralInviteEvent.campaign_bid.in_(campaign_bids))
+        .group_by(ReferralInviteEvent.campaign_bid)
+        .all()
+    )
+    return {
+        campaign_bid: {"count": int(count or 0), "latest_at": latest_at}
+        for campaign_bid, count, latest_at in rows
+    }
+
+
 def _count_rows(model, campaign_bid: str) -> int:
     return int(
         model.query.filter(
@@ -698,6 +749,9 @@ def _serialize_campaign(
     rule: ReferralCampaignRewardRule | None,
     relation_count: int,
     reward_count: int,
+    invite_code_count: int,
+    invite_event_count: int,
+    latest_invite_event_at: datetime | None,
     now: datetime,
 ) -> dict[str, Any]:
     return {
@@ -720,9 +774,9 @@ def _serialize_campaign(
         "rule_code": rule.rule_code if rule is not None else "",
         "rule_status": int(rule.rule_status or 0) if rule is not None else 0,
         "reward_product_code": rule.reward_product_code if rule is not None else "",
-        "reward_cycle_count": int(rule.reward_cycle_count or 0)
-        if rule is not None
-        else 0,
+        "reward_cycle_count": (
+            int(rule.reward_cycle_count or 0) if rule is not None else 0
+        ),
         "reward_credit_amount": _serialize_decimal(
             rule.reward_credit_amount if rule is not None else None
         ),
@@ -743,6 +797,9 @@ def _serialize_campaign(
         "priority": int(rule.priority or 0) if rule is not None else 0,
         "relation_count": relation_count,
         "reward_count": reward_count,
+        "invite_code_count": invite_code_count,
+        "invite_event_count": invite_event_count,
+        "latest_invite_event_at": _serialize_dt(latest_invite_event_at),
         "created_at": _serialize_dt(campaign.created_at),
         "updated_at": _serialize_dt(campaign.updated_at),
     }

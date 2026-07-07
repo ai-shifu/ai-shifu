@@ -1,28 +1,27 @@
 'use client';
 
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useMemo } from 'react';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
-import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
-import { Button } from '@/components/ui/Button';
+import type { AdminFilterItem } from '@/app/admin/components/AdminFilter';
+import AdminFilter from '@/app/admin/components/AdminFilter';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select';
+  createDateRangeFilterItem,
+  createSelectFilterItem,
+  createTextFilterItem,
+} from '@/app/admin/components/adminFilterFieldBuilders';
 import { COUPON_OPS_STATE_OPTIONS } from '@/app/admin/operations/promotions/promotionPageShared';
-import { cn } from '@/lib/utils';
 import {
-  FILTER_LABEL_CLASS,
   SINGLE_SELECT_INDICATOR_CLASS,
   SINGLE_SELECT_ITEM_CLASS,
   fromSelectValue,
   toSelectValue,
   type RedemptionCodeFilters,
-  type RedemptionFilterItem,
 } from './creatorRedemptionCodeShared';
+import {
+  ORDER_FILTER_CONTENT_CLASS,
+  ORDER_FILTER_GRID_CLASS,
+  type OrderFilterLabelWidth,
+  getOrderFilterLabelClassName,
+} from './orderFilterUiShared';
 
 type TranslationFn = (key: string, options?: Record<string, unknown>) => string;
 
@@ -85,227 +84,126 @@ export default function CreatorRedemptionCodesFilterPanel({
     [t, tPromotion],
   );
 
-  const filterItems: RedemptionFilterItem[] = [
-    {
-      key: 'name',
-      label: tPromotion('filters.name'),
-      component: (
-        <AdminClearableInput
-          value={filters.name}
-          onChange={value => onFilterChange('name', value)}
-          placeholder={tPromotion('filters.namePlaceholder')}
-          clearLabel={t('common.core.close')}
-        />
-      ),
-    },
-    {
-      key: 'course_query',
-      label: tPromotion('filters.courseId'),
-      component: (
-        <AdminClearableInput
-          value={filters.course_query}
-          onChange={value => onFilterChange('course_query', value)}
-          placeholder={tPromotion('filters.courseIdPlaceholder')}
-          clearLabel={t('common.core.close')}
-        />
-      ),
-    },
-    {
-      key: 'usage_type',
-      label: tPromotion('filters.usageType'),
-      component: (
-        <Select
-          value={toSelectValue(filters.usage_type)}
-          onValueChange={value =>
-            onFilterChange('usage_type', fromSelectValue(value))
-          }
-        >
-          <SelectTrigger className='h-9'>
-            <SelectValue placeholder={tPromotion('filters.usageType')} />
-          </SelectTrigger>
-          <SelectContent>
-            {usageTypeOptions.map(option => (
-              <SelectItem
-                key={option.value || 'all'}
-                value={toSelectValue(option.value)}
-                className={SINGLE_SELECT_ITEM_CLASS}
-                indicatorClassName={SINGLE_SELECT_INDICATOR_CLASS}
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ),
-    },
-    {
-      key: 'status',
-      label: tPromotion('filters.status'),
-      component: (
-        <Select
-          value={toSelectValue(filters.status)}
-          onValueChange={value =>
-            onFilterChange('status', fromSelectValue(value))
-          }
-        >
-          <SelectTrigger className='h-9'>
-            <SelectValue placeholder={tPromotion('filters.status')} />
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map(option => (
-              <SelectItem
-                key={option.value || 'all'}
-                value={toSelectValue(option.value)}
-                className={SINGLE_SELECT_ITEM_CLASS}
-                indicatorClassName={SINGLE_SELECT_INDICATOR_CLASS}
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ),
-    },
-    {
-      key: 'ops_state',
-      label: t('module.order.redemptionCodes.opsState'),
-      component: (
-        <Select
-          value={toSelectValue(filters.ops_state)}
-          onValueChange={value =>
-            onFilterChange('ops_state', fromSelectValue(value))
-          }
-        >
-          <SelectTrigger className='h-9'>
-            <SelectValue
-              placeholder={t('module.order.redemptionCodes.opsState')}
-            />
-          </SelectTrigger>
-          <SelectContent>
-            {opsStateOptions.map(option => (
-              <SelectItem
-                key={option.value || 'all'}
-                value={toSelectValue(option.value)}
-                className={SINGLE_SELECT_ITEM_CLASS}
-                indicatorClassName={SINGLE_SELECT_INDICATOR_CLASS}
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ),
-    },
-    {
-      key: 'discount_type',
-      label: tPromotion('filters.discountType'),
-      component: (
-        <Select
-          value={toSelectValue(filters.discount_type)}
-          onValueChange={value =>
-            onFilterChange('discount_type', fromSelectValue(value))
-          }
-        >
-          <SelectTrigger className='h-9'>
-            <SelectValue placeholder={tPromotion('filters.discountType')} />
-          </SelectTrigger>
-          <SelectContent>
-            {discountTypeOptions.map(option => (
-              <SelectItem
-                key={option.value || 'all'}
-                value={toSelectValue(option.value)}
-                className={SINGLE_SELECT_ITEM_CLASS}
-                indicatorClassName={SINGLE_SELECT_INDICATOR_CLASS}
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ),
-    },
-    {
+  const buildSelectItem = (
+    key: keyof RedemptionCodeFilters,
+    label: string,
+    placeholder: string,
+    value: string,
+    options: Array<{ value: string; label: string }>,
+    labelWidth: OrderFilterLabelWidth = 'default',
+  ): AdminFilterItem =>
+    createSelectFilterItem({
+      key,
+      label,
+      value: toSelectValue(value),
+      onChange: nextValue => onFilterChange(key, fromSelectValue(nextValue)),
+      placeholder,
+      options: options.map(option => ({
+        value: toSelectValue(option.value),
+        label: option.label,
+      })),
+      labelClassName: getOrderFilterLabelClassName(labelWidth),
+      selectItemClassName: SINGLE_SELECT_ITEM_CLASS,
+      indicatorClassName: SINGLE_SELECT_INDICATOR_CLASS,
+    });
+
+  const buildTextItem = (
+    key: keyof RedemptionCodeFilters,
+    label: string,
+    placeholder: string,
+    value: string,
+    labelWidth: OrderFilterLabelWidth = 'default',
+  ): AdminFilterItem =>
+    createTextFilterItem({
+      key,
+      label,
+      value,
+      onChange: nextValue => onFilterChange(key, nextValue),
+      placeholder,
+      clearLabel: t('common.core.close'),
+      labelClassName: getOrderFilterLabelClassName(labelWidth),
+    });
+
+  const filterItems: AdminFilterItem[] = [
+    buildTextItem(
+      'name',
+      tPromotion('filters.name'),
+      tPromotion('filters.namePlaceholder'),
+      filters.name,
+    ),
+    buildTextItem(
+      'course_query',
+      tPromotion('filters.courseId'),
+      tPromotion('filters.courseIdPlaceholder'),
+      filters.course_query,
+      'compact',
+    ),
+    buildSelectItem(
+      'usage_type',
+      tPromotion('filters.usageType'),
+      tPromotion('filters.usageType'),
+      filters.usage_type,
+      usageTypeOptions,
+    ),
+    buildSelectItem(
+      'status',
+      tPromotion('filters.status'),
+      tPromotion('filters.status'),
+      filters.status,
+      statusOptions,
+    ),
+    buildSelectItem(
+      'ops_state',
+      t('module.order.redemptionCodes.opsState'),
+      t('module.order.redemptionCodes.opsState'),
+      filters.ops_state,
+      opsStateOptions,
+    ),
+    buildSelectItem(
+      'discount_type',
+      tPromotion('filters.discountType'),
+      tPromotion('filters.discountType'),
+      filters.discount_type,
+      discountTypeOptions,
+    ),
+    createDateRangeFilterItem({
       key: 'date_range',
       label: tPromotion('filters.activeTime'),
-      component: (
-        <AdminDateRangeFilter
-          startValue={filters.start_time}
-          endValue={filters.end_time}
-          onChange={range => {
-            onFilterChange('start_time', range.start);
-            onFilterChange('end_time', range.end);
-          }}
-          placeholder={`${t('module.order.filters.startTime')} ~ ${t(
-            'module.order.filters.endTime',
-          )}`}
-          resetLabel={t('module.order.filters.reset')}
-          clearLabel={t('common.core.close')}
-        />
-      ),
-    },
-    {
-      key: 'keyword',
-      label: tPromotion('filters.keyword'),
-      component: (
-        <AdminClearableInput
-          value={filters.keyword}
-          onChange={value => onFilterChange('keyword', value)}
-          placeholder={tPromotion('filters.keywordPlaceholder')}
-          clearLabel={t('common.core.close')}
-        />
-      ),
-    },
+      startValue: filters.start_time,
+      endValue: filters.end_time,
+      onChange: range => {
+        onFilterChange('start_time', range.start);
+        onFilterChange('end_time', range.end);
+      },
+      placeholder: t('module.order.filters.dateRangePlaceholder'),
+      resetLabel: t('module.order.filters.reset'),
+      clearLabel: t('common.core.close'),
+    }),
+    buildTextItem(
+      'keyword',
+      tPromotion('filters.keyword'),
+      tPromotion('filters.keywordPlaceholder'),
+      filters.keyword,
+    ),
   ];
-  const visibleFilterItems = expanded ? filterItems : filterItems.slice(0, 4);
 
   return (
-    <div className='w-full bg-white'>
-      <div className='grid min-w-0 grid-cols-1 gap-x-7 gap-y-4 xl:grid-cols-4'>
-        {visibleFilterItems.map(item => (
-          <div
-            key={item.key}
-            className='flex min-w-0 items-center gap-3 md:[&>span]:text-right'
-          >
-            <span className={cn(FILTER_LABEL_CLASS, 'w-24')}>{item.label}</span>
-            <div className='min-w-0 flex-1'>{item.component}</div>
-          </div>
-        ))}
-      </div>
-      <div className='mt-5 flex items-center justify-end'>
-        <div className='flex shrink-0 items-center justify-end'>
-          <Button
-            size='sm'
-            type='button'
-            variant='outline'
-            className='px-4'
-            onClick={onReset}
-          >
-            {t('module.order.filters.reset')}
-          </Button>
-          <Button
-            size='sm'
-            type='button'
-            className='ml-2 px-4'
-            onClick={onSearch}
-          >
-            {t('module.order.filters.search')}
-          </Button>
-          <Button
-            size='sm'
-            type='button'
-            variant='ghost'
-            className='ml-4 gap-1 px-2 text-[var(--base-foreground,#0A0A0A)] hover:text-[var(--base-foreground,#0A0A0A)]'
-            onClick={() => onExpandedChange(!expanded)}
-          >
-            {expanded ? t('common.core.collapse') : t('common.core.expand')}
-            {expanded ? (
-              <ChevronUp className='h-4 w-4' />
-            ) : (
-              <ChevronDown className='h-4 w-4' />
-            )}
-          </Button>
-        </div>
-      </div>
-    </div>
+    <AdminFilter
+      items={filterItems}
+      expanded={expanded}
+      onExpandedChange={onExpandedChange}
+      onReset={onReset}
+      onSearch={onSearch}
+      resetLabel={t('module.order.filters.reset')}
+      searchLabel={t('module.order.filters.search')}
+      expandLabel={t('common.core.expand')}
+      collapseLabel={t('common.core.collapse')}
+      collapsedCount={4}
+      labelClassName={getOrderFilterLabelClassName()}
+      contentClassName={ORDER_FILTER_CONTENT_CLASS}
+      collapsedGridClassName={ORDER_FILTER_GRID_CLASS}
+      expandedGridClassName={ORDER_FILTER_GRID_CLASS}
+      showToggle
+    />
   );
 }

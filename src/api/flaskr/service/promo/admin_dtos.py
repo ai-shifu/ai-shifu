@@ -1,13 +1,53 @@
 from __future__ import annotations
 
-from typing import List
+from datetime import datetime
+from typing import List, Union, get_args, get_origin
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from flaskr.common.swagger import register_schema_to_swagger
 
 
+_EMPTY_DATETIME_VALUES = {"", "0000-00-00", "0000-00-00 00:00:00"}
+
+# Cache the set of datetime-typed field names per DTO subclass. The membership
+# test below only runs for the rare dirty-data value, but a list endpoint can
+# repeat it once per empty cell across up to ~100 rows, so resolving the field
+# annotations once per class avoids the repeated get_args/get_origin walk.
+_DATETIME_FIELDS_CACHE: dict[type, frozenset[str]] = {}
+
+
+def _allows_datetime(annotation) -> bool:
+    if annotation is datetime:
+        return True
+    origin = get_origin(annotation)
+    if origin is Union or getattr(origin, "__name__", "") == "UnionType":
+        return any(_allows_datetime(arg) for arg in get_args(annotation))
+    return False
+
+
+def _datetime_fields_for(cls) -> frozenset[str]:
+    cached = _DATETIME_FIELDS_CACHE.get(cls)
+    if cached is None:
+        cached = frozenset(
+            name
+            for name, field in cls.model_fields.items()
+            if field.annotation is not None and _allows_datetime(field.annotation)
+        )
+        _DATETIME_FIELDS_CACHE[cls] = cached
+    return cached
+
+
 class _DTOBase(BaseModel):
+    @field_validator("*", mode="before")
+    @classmethod
+    def _coerce_empty_datetime(cls, value, info: ValidationInfo):
+        if not isinstance(value, str) or value.strip() not in _EMPTY_DATETIME_VALUES:
+            return value
+        if info.field_name in _datetime_fields_for(cls):
+            return None
+        return value
+
     def __json__(self):
         if hasattr(self, "model_dump"):
             return self.model_dump()
@@ -19,7 +59,9 @@ class AdminPromotionSummaryDTO(_DTOBase):
     total: int = Field(..., description="Total item count", required=False)
     active: int = Field(..., description="Active item count", required=False)
     usage_count: int = Field(..., description="Usage count", required=False)
-    latest_usage_at: str = Field(..., description="Latest usage time", required=False)
+    latest_usage_at: datetime | None = Field(
+        ..., description="Latest usage time", required=False
+    )
     covered_courses: int = Field(
         ..., description="Covered course count", required=False
     )
@@ -43,8 +85,10 @@ class AdminPromotionCouponItemDTO(_DTOBase):
     scope_type: str = Field(..., description="Coupon scope type", required=False)
     shifu_bid: str = Field(..., description="Course identifier", required=False)
     course_name: str = Field(..., description="Course name", required=False)
-    start_at: str = Field(..., description="Coupon start time", required=False)
-    end_at: str = Field(..., description="Coupon end time", required=False)
+    start_at: datetime | None = Field(
+        ..., description="Coupon start time", required=False
+    )
+    end_at: datetime | None = Field(..., description="Coupon end time", required=False)
     total_count: int = Field(..., description="Total count", required=False)
     used_count: int = Field(..., description="Used count", required=False)
     ops_states: List[str] = Field(
@@ -58,8 +102,8 @@ class AdminPromotionCouponItemDTO(_DTOBase):
         ..., description="Creator user identifier", required=False
     )
     created_user_name: str = Field(..., description="Creator user name", required=False)
-    created_at: str = Field(..., description="Created time", required=False)
-    updated_at: str = Field(..., description="Updated time", required=False)
+    created_at: datetime | None = Field(..., description="Created time", required=False)
+    updated_at: datetime | None = Field(..., description="Updated time", required=False)
 
 
 @register_schema_to_swagger
@@ -75,8 +119,8 @@ class AdminPromotionCampaignItemDTO(_DTOBase):
     )
     value: str = Field(..., description="Discount value", required=False)
     channel: str = Field(..., description="Channel", required=False)
-    start_at: str = Field(..., description="Start time", required=False)
-    end_at: str = Field(..., description="End time", required=False)
+    start_at: datetime | None = Field(..., description="Start time", required=False)
+    end_at: datetime | None = Field(..., description="End time", required=False)
     computed_status: str = Field(..., description="Computed status", required=False)
     computed_status_key: str = Field(
         ..., description="Computed status i18n key", required=False
@@ -94,8 +138,8 @@ class AdminPromotionCampaignItemDTO(_DTOBase):
         ..., description="Creator user identifier", required=False
     )
     created_user_name: str = Field(..., description="Creator user name", required=False)
-    created_at: str = Field(..., description="Created time", required=False)
-    updated_at: str = Field(..., description="Updated time", required=False)
+    created_at: datetime | None = Field(..., description="Created time", required=False)
+    updated_at: datetime | None = Field(..., description="Updated time", required=False)
 
 
 @register_schema_to_swagger
@@ -122,8 +166,8 @@ class AdminPromotionCouponUsageDTO(_DTOBase):
     payable_price: str = Field(..., description="Payable price", required=False)
     discount_amount: str = Field(..., description="Discount amount", required=False)
     paid_price: str = Field(..., description="Paid price", required=False)
-    used_at: str = Field(..., description="Used time", required=False)
-    updated_at: str = Field(..., description="Updated time", required=False)
+    used_at: datetime | None = Field(..., description="Used time", required=False)
+    updated_at: datetime | None = Field(..., description="Updated time", required=False)
 
 
 @register_schema_to_swagger
@@ -141,8 +185,8 @@ class AdminPromotionCouponCodeDTO(_DTOBase):
     user_email: str = Field(..., description="User email", required=False)
     user_nickname: str = Field(..., description="User nickname", required=False)
     order_bid: str = Field(..., description="Order identifier", required=False)
-    used_at: str = Field(..., description="Used time", required=False)
-    updated_at: str = Field(..., description="Updated time", required=False)
+    used_at: datetime | None = Field(..., description="Used time", required=False)
+    updated_at: datetime | None = Field(..., description="Updated time", required=False)
 
 
 @register_schema_to_swagger
@@ -166,8 +210,8 @@ class AdminPromotionCampaignRedemptionDTO(_DTOBase):
     status_key: str = Field(
         ..., description="Redemption status i18n key", required=False
     )
-    applied_at: str = Field(..., description="Applied time", required=False)
-    updated_at: str = Field(..., description="Updated time", required=False)
+    applied_at: datetime | None = Field(..., description="Applied time", required=False)
+    updated_at: datetime | None = Field(..., description="Updated time", required=False)
 
 
 @register_schema_to_swagger
@@ -186,7 +230,9 @@ class AdminPromotionCouponDetailDTO(_DTOBase):
     remaining_count: int = Field(
         ..., description="Remaining code count", required=False
     )
-    latest_used_at: str = Field(..., description="Latest used time", required=False)
+    latest_used_at: datetime | None = Field(
+        ..., description="Latest used time", required=False
+    )
 
 
 @register_schema_to_swagger
@@ -203,7 +249,7 @@ class AdminPromotionCampaignDetailDTO(_DTOBase):
         ..., description="Updater user identifier", required=False
     )
     updated_user_name: str = Field(..., description="Updater user name", required=False)
-    latest_applied_at: str = Field(
+    latest_applied_at: datetime | None = Field(
         ..., description="Latest applied time", required=False
     )
 

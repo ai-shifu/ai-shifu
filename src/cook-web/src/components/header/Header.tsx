@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
 
@@ -12,10 +12,10 @@ import {
   ChevronDown,
   ChevronLeft,
   CircleAlert,
-  CircleCheck,
   CircleHelp,
   Copy,
   Headphones,
+  History,
   Presentation,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -45,6 +45,11 @@ import {
   isPublishLearningModeAvailable,
   PUBLISH_LEARNING_MODES,
 } from './publishLearningMode';
+import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
+import {
+  formatLessonRelativeTime,
+  parseLessonHistoryDate,
+} from '@/lib/lesson-history-time';
 
 const publishModeIcons: Record<LearningMode, LucideIcon> = {
   read: BookOpen,
@@ -77,13 +82,36 @@ const writeClipboardText = async (text: string) => {
   }
 };
 
-const Header = () => {
+type HeaderProps = {
+  backHomeTargetId?: string;
+  settingsTriggerTargetId?: string;
+  settingsOpenSignal?: string;
+  settingsShouldStayOpen?: boolean;
+  previewTargetId?: string;
+  publishTargetId?: string;
+  lessonHistoryUrl?: string | null;
+  lessonHistoryUpdatedAt?: Date | string | null;
+  onLessonHistoryClick?: () => void;
+};
+
+const Header = ({
+  backHomeTargetId,
+  settingsTriggerTargetId,
+  settingsOpenSignal,
+  settingsShouldStayOpen,
+  previewTargetId,
+  publishTargetId,
+  lessonHistoryUrl,
+  lessonHistoryUpdatedAt,
+  onLessonHistoryClick,
+}: HeaderProps) => {
   const { t } = useTranslation();
   const alert = useAlert();
   const [publishing, setPublishing] = useState(false);
+  const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now());
   const { toast } = useToast();
   const { trackEvent } = useTracking();
-  const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
+  const { isSaving, currentShifu, error, actions } = useShifu();
   // Only allow publish when backend grants explicit publish permission.
   const canPublish =
     Boolean(currentShifu?.bid) && currentShifu?.canPublish === true;
@@ -92,6 +120,41 @@ const Header = () => {
       await actions.loadShifu(currentShifu.bid, { silent: true });
     }
   };
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setRelativeTimeNow(Date.now());
+    }, 30_000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const lessonHistoryDate = useMemo(() => {
+    return parseLessonHistoryDate(lessonHistoryUpdatedAt);
+  }, [lessonHistoryUpdatedAt]);
+  const lessonHistoryLabel = useMemo(() => {
+    if (!lessonHistoryDate) {
+      return '';
+    }
+    return formatLessonRelativeTime(
+      lessonHistoryDate,
+      {
+        justNow: t('component.header.justNow'),
+        minutesAgo: count => t('component.header.minutesAgo', { count }),
+        hoursAgo: count => t('component.header.hoursAgo', { count }),
+        daysAgo: count => t('component.header.daysAgo', { count }),
+      },
+      new Date(relativeTimeNow),
+    );
+  }, [lessonHistoryDate, relativeTimeNow, t]);
+  const lastModifiedLabel = t('component.header.lastLessonModified');
+  const lessonHistoryText = lessonHistoryLabel
+    ? t('component.header.lastLessonModifiedWithRelativeTime', {
+        relativeTime: lessonHistoryLabel,
+      })
+    : lastModifiedLabel;
+  const historyTooltip = t('module.shifu.history.title');
+  const showHistoryEntry = !error && !isSaving && Boolean(lessonHistoryUrl);
   const getCourseUrl = () =>
     buildCourseLearningUrl(currentShifu?.bid || '', currentShifu?.url);
   const getLearningModeUrl = (mode: LearningMode) =>
@@ -169,7 +232,7 @@ const Header = () => {
   ) => {
     alert.showAlert({
       title: t('component.header.publishSuccess'),
-      cancelText: t('component.header.close'),
+      confirmText: t('component.header.publishSuccessDone'),
       showConfirm: false,
       descriptionAsChild: true,
       description: (
@@ -289,7 +352,12 @@ const Header = () => {
   return (
     <div className='flex items-center w-full h-16 px-4 py-[11px] bg-white border-b border-gray-200'>
       <div className='flex items-center space-x-4'>
-        <Link href={'/admin'}>
+        <Link
+          href={'/admin'}
+          {...(backHomeTargetId
+            ? buildOnboardingTargetProps(backHomeTargetId)
+            : {})}
+        >
           <ChevronLeft size={24} />
         </Link>
 
@@ -321,20 +389,15 @@ const Header = () => {
                 <ShifuSetting
                   shifuId={currentShifu?.bid || ''}
                   onSave={onShifuSave}
+                  triggerTargetId={settingsTriggerTargetId}
+                  openSignal={settingsOpenSignal}
+                  shouldStayOpen={settingsShouldStayOpen}
                 />
               </div>
             </div>
 
             <div className='flex items-center'>
               {isSaving && <Loading className='h-4 w-4 mr-1' />}
-              {!error && !isSaving && lastSaveTime && (
-                <span className='flex flex-row items-center'>
-                  <CircleCheck
-                    size={16}
-                    className='mr-2  text-green-500'
-                  />
-                </span>
-              )}
               {error && (
                 <span className='flex flex-row items-center text-red-500'>
                   <CircleAlert
@@ -344,15 +407,29 @@ const Header = () => {
                   {error}
                 </span>
               )}
-              {lastSaveTime && (
-                <div
-                  key={lastSaveTime.getTime()}
-                  style={{ color: 'rgba(0, 0, 0, 0.45)' }}
-                  className='text-sm not-italic font-normal bg-white leading-5 tracking-normal transform transition-all duration-300 ease-in-out translate-x-0 animate-slide-in'
-                >
-                  {t('component.header.saved')} {lastSaveTime?.toLocaleString()}
-                </div>
-              )}
+              {showHistoryEntry ? (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={lessonHistoryUrl || '#'}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        onClick={onLessonHistoryClick}
+                        className='inline-flex items-center text-sm font-normal leading-5 text-[rgba(0,0,0,0.45)] transition-colors hover:text-foreground'
+                        aria-label={historyTooltip}
+                        title={historyTooltip}
+                      >
+                        <History className='mr-2 h-4 w-4 shrink-0' />
+                        <span className='underline decoration-dashed decoration-1 underline-offset-[3px]'>
+                          {lessonHistoryText}
+                        </span>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>{historyTooltip}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
             </div>
           </div>
         </div>
@@ -360,7 +437,7 @@ const Header = () => {
       <div className='flex-1'></div>
 
       <div className='flex flex-row items-center'>
-        <Preivew />
+        <Preivew targetId={previewTargetId} />
         <div className='flex items-center justify-center h-9 rounded-lg cursor-pointer shifu-setting-icon-container ml-2'>
           <DropdownMenu>
             <div className='flex items-center'>
@@ -368,6 +445,9 @@ const Header = () => {
                 size='sm'
                 className='rounded-r-none'
                 disabled={!canPublish || publishing}
+                {...(publishTargetId && canPublish
+                  ? buildOnboardingTargetProps(publishTargetId)
+                  : {})}
                 onClick={() => {
                   void publish();
                 }}

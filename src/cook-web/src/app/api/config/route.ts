@@ -1,5 +1,24 @@
 import { NextResponse } from 'next/server';
 import { environment } from '@/config/environment';
+import { normalizeHost, shouldUseSameOriginApiBase } from './route-utils';
+
+const LOCALHOST_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+const normalizeHostname = (host: string) => {
+  const trimmed = host.trim().toLowerCase();
+  if (!trimmed) {
+    return '';
+  }
+  if (trimmed.startsWith('[')) {
+    const closingBracket = trimmed.indexOf(']');
+    return closingBracket >= 0 ? trimmed.slice(0, closingBracket + 1) : trimmed;
+  }
+  return trimmed.split(':')[0] || '';
+};
+
+const isLocalDevHost = (host: string) => {
+  return LOCALHOST_HOSTS.has(normalizeHostname(host));
+};
 
 export async function GET(request: Request) {
   const configured = environment.apiBaseUrl || '';
@@ -13,37 +32,19 @@ export async function GET(request: Request) {
   if (configured) {
     try {
       const configuredHost = new URL(configured).host.toLowerCase();
-      const requestHost = (
+      const requestHost = normalizeHost(
         request.headers.get('x-forwarded-host') ||
-        request.headers.get('host') ||
-        ''
-      )
-        .split(',')[0]
-        .trim()
-        .toLowerCase();
-      // Local development serves the frontend on localhost while pointing at a
-      // remote API (e.g. dev.sh sets NEXT_PUBLIC_API_BASE_URL to a remote
-      // host). There is no same-origin /api proxy on localhost, so always
-      // return the configured absolute base instead of treating the host
-      // mismatch as a white-label domain.
-      // Parse the host as an authority so the port is stripped correctly for
-      // both IPv4 and bracketed IPv6 forms (e.g. "[::1]:3000"). A bare "::1"
-      // is not a valid authority, so fall back to a plain split.
-      let requestHostname: string;
-      try {
-        requestHostname = new URL(
-          `http://${requestHost}`,
-        ).hostname.toLowerCase();
-      } catch {
-        requestHostname = requestHost.split(':')[0];
+          request.headers.get('host') ||
+          '',
+      );
+      // Local frontend dev commonly runs on :3000 while the API runs on :8080.
+      // Treat localhost-to-localhost as the same environment so the browser can
+      // still target the explicit backend origin instead of falling back to the
+      // Next app's own /api namespace, which does not proxy every backend route.
+      if (isLocalDevHost(requestHost) && isLocalDevHost(configuredHost)) {
+        return NextResponse.json({ apiBaseUrl: configured });
       }
-      const isLocalhost =
-        requestHostname === 'localhost' ||
-        requestHostname === '127.0.0.1' ||
-        requestHostname === '0.0.0.0' ||
-        requestHostname === '::1' ||
-        requestHostname === '[::1]';
-      if (!isLocalhost && requestHost && requestHost !== configuredHost) {
+      if (shouldUseSameOriginApiBase(configuredHost, requestHost)) {
         return NextResponse.json({ apiBaseUrl: '' });
       }
     } catch {

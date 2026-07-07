@@ -28,6 +28,7 @@ from flaskr.service.billing.models import (
     BillingEntitlement,
     BillingSubscription,
 )
+from flaskr.util.datetime import now_utc
 from tests.common.fixtures.bill_products import build_bill_products
 
 
@@ -195,7 +196,7 @@ def test_resolve_creator_entitlement_state_falls_back_to_product_payload_or_defa
 def test_primary_active_subscription_prefers_higher_sort_order_paid_plan_over_trial(
     billing_entitlement_app: Flask,
 ) -> None:
-    now = datetime.now()
+    now = now_utc()
     with billing_entitlement_app.app_context():
         dao.db.session.add_all(build_bill_products())
         dao.db.session.add_all(

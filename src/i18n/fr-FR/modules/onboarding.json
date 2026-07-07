@@ -1,0 +1,42 @@
+{
+  "__namespace__": "module.onboarding",
+  "adminHome": {
+    "billingCard": {
+      "descriptionGeneric": "Consultez ici les crédits disponibles, souscrivez un abonnement ou achetez des crédits.",
+      "title": "Crédits et offres"
+    },
+    "blankCourse": {
+      "description": "Créez ici un nouveau cours, puis modifiez son contenu à partir de zéro.",
+      "title": "Créer un cours vierge"
+    },
+    "lobsterCourse": {
+      "descriptionLink": "Créer des cours avec l'assistant IA",
+      "descriptionPrefix": "Vous pouvez aussi utiliser ",
+      "descriptionSuffix": " pour collaborer avec d’autres Skills et générer une ébauche de cours modifiable à partir de vos ressources et consignes.",
+      "title": "Générer une ébauche avec l'assistant IA"
+    }
+  },
+  "common": {
+    "continue": "Cliquez n'importe où pour continuer",
+    "replay": "Revoir le guide",
+    "skip": "Passer"
+  },
+  "courseEditor": {
+    "backHome": {
+      "description": "Revenez à la liste des cours pour continuer à gérer les autres cours, les commandes et les offres.",
+      "title": "Retour à la liste des cours"
+    },
+    "listenMode": {
+      "description": "Une fois activé, les apprenants peuvent suivre ce cours avec des diapositives et de l'audio.",
+      "title": "Interrupteur du mode écoute"
+    },
+    "publish": {
+      "description": "Les apprenants verront cette version du contenu du cours uniquement après publication.",
+      "title": "Publier la dernière version"
+    },
+    "settingsEntry": {
+      "description": "Définissez ici le prompt du cours, le modèle d'IA, le prix, et activez ou désactivez le mode écoute.",
+      "title": "Paramètres du cours"
+    }
+  }
+}

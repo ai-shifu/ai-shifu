@@ -8,6 +8,7 @@ from flask import Flask
 
 from flaskr.common.cache_provider import cache
 from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from flaskr.service.user.models import UserToken as UserTokenModel
 
 
@@ -37,7 +38,7 @@ class TokenStoreProvider:
             return
 
         ttl_seconds = int(ttl_seconds)
-        now = datetime.datetime.utcnow()
+        now = now_utc()
         expires_at = now + datetime.timedelta(seconds=ttl_seconds)
 
         with db.session.begin_nested():
@@ -85,7 +86,7 @@ class TokenStoreProvider:
         except Exception:
             pass
 
-        now = datetime.datetime.utcnow()
+        now = now_utc()
         record = (
             UserTokenModel.query.filter(
                 UserTokenModel.token == token,

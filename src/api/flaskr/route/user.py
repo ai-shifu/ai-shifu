@@ -46,6 +46,11 @@ from ..service.feedback.funs import submit_feedback
 from ..service.user.auth import get_provider
 from ..service.user.auth.base import OAuthCallbackRequest, VerificationRequest
 from ..service.user.post_auth import PostAuthContext, run_post_auth_extensions
+from ..service.user.onboarding import (
+    ONBOARDING_VERSION,
+    build_onboarding_status,
+    complete_onboarding_scene,
+)
 from ..service.referral.service import extract_referral_post_auth_fields
 from ..service.common.dtos import OAuthStartDTO
 from .common import make_common_response, bypass_token_validation, by_pass_login_func
@@ -197,6 +202,32 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             ),
         )
         return make_common_response({"granted": True})
+
+    @app.route(path_prefix + "/onboarding/status", methods=["GET"])
+    def onboarding_status():
+        return make_common_response(
+            build_onboarding_status(
+                app,
+                request.user.user_id,
+                getattr(request.user, "language", None),
+            )
+        )
+
+    @app.route(path_prefix + "/onboarding/complete", methods=["POST"])
+    def complete_onboarding():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            payload = {}
+        return make_common_response(
+            complete_onboarding_scene(
+                app,
+                request.user.user_id,
+                scene_key=payload.get("scene_key"),
+                version=payload.get("version") or ONBOARDING_VERSION,
+                trigger_source=payload.get("trigger_source"),
+                status=payload.get("status"),
+            )
+        )
 
     @app.route(path_prefix + "/update_info", methods=["POST"])
     def update_info():

@@ -32,6 +32,10 @@
   sync with the latest code changes so they accurately describe the current
   implementation and verification state.
 
+- For git commit message title, body, and classification requirements, read
+  `AGENTS.md#git-commit-message-requirements`; keep agent-specific rule files
+  from duplicating the detailed commit-message policy.
+
 - Regenerate repository knowledge indexes with
   `python scripts/build_repo_knowledge_index.py` after moving docs or changing
   required metadata.

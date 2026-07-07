@@ -211,6 +211,7 @@ def test_transfer_creator_creates_missing_user_and_preserves_shared_auth(
         assert target_entity is not None
         assert target_entity.state == USER_STATE_REGISTERED
         assert target_entity.is_creator == 1
+        assert target_entity.creator_activated_at is not None
         assert target_credential is not None
         assert auth is not None
         assert auth.status == 1
@@ -265,6 +266,7 @@ def test_transfer_creator_promotes_unregistered_existing_user(app, monkeypatch):
         assert target_entity is not None
         assert target_entity.state == USER_STATE_REGISTERED
         assert target_entity.is_creator == 1
+        assert target_entity.creator_activated_at is not None
         assert demo_auth is not None
         assert get_shifu_creator_bid(app, shifu_bid) == target_user_bid
 
@@ -299,6 +301,7 @@ def test_transfer_creator_bootstraps_trial_when_target_becomes_creator(
         ).one()
 
         assert target_entity.is_creator == 1
+        assert target_entity.creator_activated_at is not None
         assert trial_order.payment_provider == "manual"
 
 

@@ -23,7 +23,7 @@ from .consts import (
 from .models import DraftOutlineItem
 from ...dao import db
 from ...util import generate_id
-from ..common.models import raise_error
+from ..common.models import raise_error, raise_param_error
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from decimal import Decimal
 from .shifu_history_manager import (
@@ -34,7 +34,7 @@ from .shifu_history_manager import (
     delete_outline_history,
 )
 from .shifu_mdflow_funcs import cleanup_outline_history_versions
-from datetime import datetime
+from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
 
 from flaskr.common.i18n_utils import get_markdownflow_output_language
@@ -50,15 +50,22 @@ def convert_outline_to_reorder_outline_item_dto(
     Returns:
         The reorder outline item dto
     """
-    return [
-        ReorderOutlineItemDto(
-            bid=item.get("bid"),
-            children=convert_outline_to_reorder_outline_item_dto(
-                item.get("children", [])
-            ),
+    if not isinstance(json_array, list):
+        raise_param_error("outlines")
+
+    result = []
+    for item in json_array:
+        if not isinstance(item, dict):
+            raise_param_error("outlines")
+        result.append(
+            ReorderOutlineItemDto(
+                bid=item.get("bid"),
+                children=convert_outline_to_reorder_outline_item_dto(
+                    item.get("children") or []
+                ),
+            )
         )
-        for item in json_array
-    ]
+    return result
 
 
 def __get_existing_outline_items(shifu_bid: str) -> list[DraftOutlineItem]:
@@ -105,20 +112,70 @@ def build_outline_tree(app, shifu_bid: str) -> list[ShifuOutlineTreeNode]:
 
     # build tree structure
     for position, node in nodes_map.items():
+        # Only positions two chars deeper than a root have a real parent to
+        # look up. Requiring len > 2 (rather than the previous "!= 2") is what
+        # keeps a malformed position such as "" or a single char from ever
+        # looking up itself as its own parent: "".removesuffix path,
+        # ""[:-2] == "" would be found in nodes_map and the node would be
+        # add_child()'d onto itself, producing a self-cycle that later blows up
+        # get_outline_tree_dto with RecursionError. Such degenerate positions
+        # now fall through to the orphan branch and are lifted to the root.
+        parent_position = position[:-2]
         if len(position) == 2:
             # root node
             outline_tree.append(node)
+        elif len(position) > 2 and parent_position in nodes_map:
+            parent_node = nodes_map[parent_position]
+            if node not in parent_node.children:
+                parent_node.add_child(node)
         else:
-            # find parent node
-            parent_position = position[:-2]
-            if parent_position in nodes_map:
-                parent_node = nodes_map[parent_position]
-                if node not in parent_node.children:
-                    parent_node.add_child(node)
-            else:
-                app.logger.error(f"Parent node not found for position: {position}")
+            # Orphan / malformed node: either its parent position is missing
+            # (e.g. the parent unit was deleted without cascading to this child)
+            # or the position itself is degenerate (empty / odd length). Instead
+            # of silently dropping the node and its whole subtree, self-heal by
+            # attaching it at the root level and log it. This keeps the node
+            # visible in the editor (so a creator can delete or re-parent it)
+            # and prevents publish from losing data. Iteration order is by
+            # position length, so a well-formed orphan is already in nodes_map
+            # before its own children are processed; they will still attach to
+            # it normally.
+            app.logger.warning(
+                f"Parent node not found for position: {position}, "
+                f"attaching orphan '{node.outline_id}' at root level"
+            )
+            outline_tree.append(node)
 
     return outline_tree
+
+
+def assert_outline_tree_publishable(app, shifu_bid: str) -> None:
+    """
+    Validate that the outline structure can be published without silent data
+    loss. Orphaned nodes are tolerated (build_outline_tree self-heals them by
+    lifting them to the root level), but two live items sharing the same
+    `position` cannot be reconciled: build_outline_tree keys nodes by position,
+    so one would overwrite the other and disappear from the published result.
+    Block publishing in that case with a clear, actionable error instead of
+    quietly shipping a broken course.
+
+    Args:
+        app: Flask application instance
+        shifu_bid: Shifu bid
+
+    Raises:
+        AppException: server.shifu.outlineStructureBroken when positions collide
+    """
+    existing_items = __get_existing_outline_items(shifu_bid)
+    positions: dict[str, list[str]] = {}
+    for item in existing_items:
+        positions.setdefault(item.position, []).append(item.outline_item_bid)
+
+    collisions = {pos: bids for pos, bids in positions.items() if len(bids) > 1}
+    if collisions:
+        app.logger.error(
+            f"Outline position collisions for shifu {shifu_bid}: {collisions}"
+        )
+        raise_error("server.shifu.outlineStructureBroken")
 
 
 def get_outline_tree_dto(
@@ -207,7 +264,7 @@ def create_outline(
         SimpleOutlineDto: Outline dto
     """
     with app.app_context():
-        now_time = datetime.now()
+        now_time = now_utc()
         # generate new outline id
         outline_bid = generate_id(app)
 
@@ -218,7 +275,10 @@ def create_outline(
         if is_hidden is None:
             is_hidden = False
 
-        # validate name length
+        # validate name
+        if not isinstance(outline_name, str) or not outline_name.strip():
+            raise_param_error("name")
+        outline_name = outline_name.strip()
         if len(outline_name) > 100:
             raise_error("server.shifu.outlineNameTooLong")
 
@@ -318,7 +378,7 @@ def reorder_outline_tree(
         app.logger.info(
             f"reorder outline tree, user_id: {user_id}, shifu_id: {shifu_id}"
         )
-        now_time = datetime.now()
+        now_time = now_utc()
 
         # get existing outlines
         existing_items = __get_existing_outline_items(shifu_id)
@@ -449,7 +509,7 @@ def modify_unit(
     """
     with app.app_context():
         app.logger.info(f"modify unit: {unit_id}, name: {unit_name}")
-        now_time = datetime.now()
+        now_time = now_utc()
         # find existing unit
         existing_unit = (
             DraftOutlineItem.query.filter(
@@ -529,7 +589,7 @@ def delete_unit(app, user_id: str, unit_id: str):
         bool: True if deleted, False otherwise
     """
     with app.app_context():
-        now_time = datetime.now()
+        now_time = now_utc()
         # find the unit to delete
         unit_to_delete = (
             DraftOutlineItem.query.filter(
@@ -543,32 +603,33 @@ def delete_unit(app, user_id: str, unit_id: str):
         if not unit_to_delete:
             raise_error("server.shifu.unitNotFound")
 
-        # build outline tree to find all children
-        outline_tree = build_outline_tree(app, unit_to_delete.shifu_bid)
+        # Collect the unit itself plus every live descendant.
+        #
+        # We deliberately walk parent_bid instead of building the position
+        # tree: build_outline_tree keys nodes by `position`, so when two live
+        # items collide on the same position (a data bug we also guard against
+        # elsewhere) one overwrites the other in the map and disappears from
+        # the tree. A tree-based cascade would then miss the shadowed sibling
+        # and leave it orphaned after its parent is deleted. parent_bid gives a
+        # deterministic closure that is immune to position collisions.
+        existing_items = __get_existing_outline_items(unit_to_delete.shifu_bid)
+        children_by_parent: dict[str, list[str]] = {}
+        for item in existing_items:
+            children_by_parent.setdefault(item.parent_bid, []).append(
+                item.outline_item_bid
+            )
 
-        # find the node to delete
-        def find_node_by_id(nodes: list[ShifuOutlineTreeNode], target_id: str):
-            for node in nodes:
-                if node.outline_id == target_id:
-                    return node
-                if node.children:
-                    found = find_node_by_id(node.children, target_id)
-                    if found:
-                        return found
-            return None
-
-        node_to_delete = find_node_by_id(outline_tree, unit_id)
-        if not node_to_delete:
-            raise_error("server.shifu.unitNotFound")
-
-        # collect all node ids to delete (including children)
-        def collect_all_node_ids(node: ShifuOutlineTreeNode):
-            ids = [node.outline_id]
-            for child in node.children:
-                ids.extend(collect_all_node_ids(child))
-            return ids
-
-        ids_to_delete = collect_all_node_ids(node_to_delete)
+        ids_to_delete = []
+        seen = set()
+        stack = [unit_id]
+        while stack:
+            current = stack.pop()
+            if current in seen:
+                # Defensive: a corrupted parent_bid cycle must not loop forever.
+                continue
+            seen.add(current)
+            ids_to_delete.append(current)
+            stack.extend(children_by_parent.get(current, []))
 
         # mark all related outlines as deleted
         for item_id in ids_to_delete:

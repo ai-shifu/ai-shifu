@@ -12,6 +12,7 @@ from flask import Flask, has_app_context
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.uuid import generate_id
+from flaskr.util.datetime import now_utc
 
 _MANUAL_PROVIDER_NAME = "manual"
 _CHECKOUT_TYPE = "referral_invitation_reward"
@@ -473,7 +474,7 @@ def grant_referral_plan_reward(
                 reused_existing_reward=True,
             )
 
-        now = datetime.now()
+        now = now_utc()
         safe_request = ReferralPlanRewardRequest(
             reward_bid=normalized_reward_bid,
             inviter_user_bid=normalized_inviter_user_bid,

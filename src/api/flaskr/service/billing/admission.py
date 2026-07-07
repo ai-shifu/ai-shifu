@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
 from flask import Flask
 
 from flaskr.service.common.models import raise_error
+from flaskr.util.datetime import now_utc
 
 from .bucket_categories import (
     load_billing_order_type_by_bid,
@@ -101,7 +101,7 @@ def admit_creator_usage(
             .first()
         )
 
-        admission_at = datetime.now()
+        admission_at = now_utc()
         active_buckets = [
             bucket
             for bucket in buckets

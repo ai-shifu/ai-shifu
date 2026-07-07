@@ -55,6 +55,7 @@ interface SheetContentProps
     React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {
   onCloseIconClick?: React.MouseEventHandler<HTMLButtonElement>;
+  hideOverlay?: boolean;
 }
 
 const SheetContent = React.forwardRef<
@@ -68,12 +69,13 @@ const SheetContent = React.forwardRef<
       children,
       onInteractOutside,
       onCloseIconClick,
+      hideOverlay = false,
       ...props
     },
     ref,
   ) => (
     <SheetPortal>
-      <SheetOverlay />
+      {hideOverlay ? null : <SheetOverlay />}
       <SheetPrimitive.Content
         ref={ref}
         onInteractOutside={event => {

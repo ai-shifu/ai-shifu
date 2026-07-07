@@ -1,24 +1,20 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminCountCard from '@/app/admin/components/AdminCountCard';
+import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTitle from '@/app/admin/components/AdminTitle';
 import { useUserStore } from '@/store';
 import { useEnvStore } from '@/c-store';
 import { ErrorWithCode } from '@/lib/request';
-import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/Popover';
-import { Calendar } from '@/components/ui/Calendar';
-import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Table,
@@ -27,7 +23,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import type { DateRange } from 'react-day-picker';
 import type {
   DashboardEntryCourseItem,
   DashboardEntryResponse,
@@ -41,139 +36,12 @@ import {
   DashboardCourseTableRow,
   formatOrderAmount,
 } from './dashboardCourseTableRow';
-import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
-import AdminCountCard from '@/app/admin/components/AdminCountCard';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
-import AdminTitle from '@/app/admin/components/AdminTitle';
 import {
   ADMIN_TABLE_HEADER_CELL_CLASS,
   getAdminStickyRightHeaderClass,
 } from '@/app/admin/components/adminTableStyles';
 
 const PAGE_SIZE = 20;
-
-const formatDateValue = (value: Date): string => {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const parseDateValue = (value: string): Date | undefined => {
-  if (!value) {
-    return undefined;
-  }
-  const parsed = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
-  }
-  return parsed;
-};
-
-type DateRangeFilterProps = {
-  startValue: string;
-  endValue: string;
-  placeholder: string;
-  resetLabel: string;
-  onChange: (range: { start: string; end: string }) => void;
-};
-
-const DateRangeFilter = ({
-  startValue,
-  endValue,
-  placeholder,
-  resetLabel,
-  onChange,
-}: DateRangeFilterProps) => {
-  const selectedRange = useMemo<DateRange | undefined>(() => {
-    const from = parseDateValue(startValue);
-    const to = parseDateValue(endValue);
-    if (!from && !to) {
-      return undefined;
-    }
-    return { from, to };
-  }, [startValue, endValue]);
-  const [draftRange, setDraftRange] = useState<DateRange | undefined>(
-    selectedRange,
-  );
-
-  useEffect(() => {
-    setDraftRange(selectedRange);
-  }, [selectedRange]);
-
-  const label = useMemo(() => {
-    if (draftRange?.from && draftRange?.to) {
-      return `${formatDateValue(draftRange.from)} ~ ${formatDateValue(
-        draftRange.to,
-      )}`;
-    }
-    if (draftRange?.from) {
-      return formatDateValue(draftRange.from);
-    }
-    return placeholder;
-  }, [draftRange?.from, draftRange?.to, placeholder]);
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          size='sm'
-          variant='outline'
-          type='button'
-          className='h-9 w-full justify-between font-normal'
-        >
-          <span
-            className={cn(
-              'flex-1 truncate text-left',
-              draftRange?.from ? 'text-foreground' : 'text-muted-foreground',
-            )}
-          >
-            {label}
-          </span>
-          <CalendarIcon className='h-4 w-4 text-muted-foreground' />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align='start'
-        className='w-auto max-w-[90vw] p-0'
-      >
-        <Calendar
-          mode='range'
-          numberOfMonths={2}
-          selected={draftRange}
-          onSelect={range => {
-            const nextRange = range;
-            setDraftRange(nextRange);
-            if (!nextRange?.from) {
-              onChange({ start: '', end: '' });
-              return;
-            }
-            if (nextRange.from && nextRange.to) {
-              onChange({
-                start: formatDateValue(nextRange.from),
-                end: formatDateValue(nextRange.to),
-              });
-            }
-          }}
-          className='p-3 md:p-4 [--cell-size:2.4rem]'
-        />
-        <div className='flex items-center justify-end gap-2 border-t border-border px-3 py-2'>
-          <Button
-            size='sm'
-            variant='ghost'
-            type='button'
-            onClick={() => {
-              setDraftRange(undefined);
-              onChange({ start: '', end: '' });
-            }}
-          >
-            {resetLabel}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-};
 
 type ErrorState = { message: string; code?: number };
 
@@ -190,7 +58,6 @@ export default function AdminDashboardEntryPage() {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currencySymbol = useEnvStore(state => state.currencySymbol || '¥');
-  const timezone = getBrowserTimeZone();
 
   const [keyword, setKeyword] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -219,7 +86,6 @@ export default function AdminDashboardEntryPage() {
           keyword: params.keyword.trim(),
           start_date: params.startDate,
           end_date: params.endDate,
-          ...(timezone ? { timezone } : {}),
         })) as DashboardEntryResponse;
 
         setSummary(response.summary || EMPTY_SUMMARY);
@@ -244,7 +110,7 @@ export default function AdminDashboardEntryPage() {
         setLoading(false);
       }
     },
-    [t, timezone],
+    [t],
   );
 
   useEffect(() => {
@@ -340,47 +206,55 @@ export default function AdminDashboardEntryPage() {
   return (
     <div className='h-full p-0'>
       <div className='h-full overflow-hidden flex flex-col'>
-        <AdminBreadcrumb items={[{ label: t('module.dashboard.title') }]} />
         <AdminTitle
           title={t('module.dashboard.title')}
           actions={
             <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-end'>
-              <Input
-                value={keyword}
-                onChange={event => setKeyword(event.target.value)}
-                placeholder={t(
-                  'module.dashboard.entry.table.searchPlaceholder',
-                )}
-                className='h-9 w-[280px] max-w-[80vw]'
-              />
+              <div className='w-[280px] max-w-[80vw]'>
+                <AdminClearableInput
+                  value={keyword}
+                  onChange={setKeyword}
+                  onSubmit={handleSearch}
+                  placeholder={t(
+                    'module.dashboard.entry.table.searchPlaceholder',
+                  )}
+                  clearLabel={t('common.core.close')}
+                />
+              </div>
               <div className='w-[260px] max-w-[80vw]'>
-                <DateRangeFilter
+                <AdminDateRangeFilter
                   startValue={startDate}
                   endValue={endDate}
                   onChange={range => {
                     setStartDate(range.start);
                     setEndDate(range.end);
                   }}
+                  triggerAriaLabel={t(
+                    'module.dashboard.entry.table.lastActive',
+                  )}
                   placeholder={t(
                     'module.dashboard.filters.dateRangePlaceholder',
                   )}
                   resetLabel={t('module.dashboard.filters.reset')}
+                  clearLabel={t('common.core.close')}
                 />
               </div>
               <Button
                 size='sm'
                 type='button'
-                onClick={handleSearch}
+                variant='outline'
+                onClick={handleReset}
+                disabled={loading}
               >
-                {t('module.dashboard.entry.table.search')}
+                {t('module.dashboard.entry.table.reset')}
               </Button>
               <Button
                 size='sm'
-                variant='outline'
                 type='button'
-                onClick={handleReset}
+                onClick={handleSearch}
+                disabled={loading}
               >
-                {t('module.dashboard.entry.table.reset')}
+                {t('module.dashboard.entry.table.search')}
               </Button>
             </div>
           }

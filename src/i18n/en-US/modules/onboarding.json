@@ -1,0 +1,42 @@
+{
+  "__namespace__": "module.onboarding",
+  "adminHome": {
+    "billingCard": {
+      "descriptionGeneric": "Check available credits here, or subscribe or buy credits.",
+      "title": "Credits and plans"
+    },
+    "blankCourse": {
+      "description": "Create a new course here, then edit the content from scratch.",
+      "title": "Create a blank course"
+    },
+    "lobsterCourse": {
+      "descriptionLink": "Create courses with AI assistant",
+      "descriptionPrefix": "You can also use ",
+      "descriptionSuffix": " to work with other Skills and generate an editable course draft from your materials and requirements.",
+      "title": "Generate a course draft with AI assistant"
+    }
+  },
+  "common": {
+    "continue": "Click anywhere to continue",
+    "replay": "Replay the guide",
+    "skip": "Skip"
+  },
+  "courseEditor": {
+    "backHome": {
+      "description": "Return to the course list to keep managing other courses, orders, and plans.",
+      "title": "Back to the course list"
+    },
+    "listenMode": {
+      "description": "When it is on, learners can study this course with slides and voice.",
+      "title": "Listen mode switch"
+    },
+    "publish": {
+      "description": "Learners will only see this version of the course content after publishing.",
+      "title": "Publish the latest version"
+    },
+    "settingsEntry": {
+      "description": "Set the course prompt, AI model, price, and turn listen mode on or off here.",
+      "title": "Course settings"
+    }
+  }
+}

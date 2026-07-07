@@ -39,6 +39,8 @@ export type TreeItemProps = {
   currentNode?: Outline;
   onChange?: (node: Outline, value: string) => void;
   onChapterSelect?: () => void;
+  addLessonTargetId?: string;
+  forceShowAddLessonAction?: boolean;
 };
 
 const MinimalTreeItemComponent = React.forwardRef<
@@ -46,6 +48,10 @@ const MinimalTreeItemComponent = React.forwardRef<
   TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
   const { actions, cataData, currentNode, currentShifu } = useShifu();
+  // Pull custom TreeItemProps out of the spread so they are not forwarded onto
+  // the underlying <li> DOM node (React warns on unknown attributes).
+  const { addLessonTargetId, forceShowAddLessonAction, ...wrapperProps } =
+    props;
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [addLessonDialogOpen, setAddLessonDialogOpen] = useState(false);
@@ -279,7 +285,7 @@ const MinimalTreeItemComponent = React.forwardRef<
   return (
     <>
       <SimpleTreeItemWrapper
-        {...props}
+        {...wrapperProps}
         readonly={currentShifu?.readonly || false}
         ref={ref}
         disableCollapseOnItemClick={!isChapterNode}
@@ -291,6 +297,11 @@ const MinimalTreeItemComponent = React.forwardRef<
                 onSettingsClick: handleChapterSettingsClick,
                 onAddClick: showChapter ? handleAddSectionClick : undefined,
                 showAdd: showChapter,
+                forceShowActions: showChapter && forceShowAddLessonAction,
+                addActionTargetProps:
+                  showChapter && addLessonTargetId
+                    ? { 'data-onboarding-id': addLessonTargetId }
+                    : undefined,
               }
             : undefined
         }

@@ -261,10 +261,21 @@ def load_translations(app: Flask, translations_dir=None):
     _load_python_translations(app, Path(__file__).resolve().parent)
 
 
+def translate_for_language(text: str, language: str | None = None):
+    language = language or getattr(_thread_local, "language", "en-US")
+    translations = _translations.get(language) or {}
+    default_translations = _translations.get("en-US", {})
+    return (
+        translations.get(text)
+        or translations.get(text.upper())
+        or default_translations.get(text)
+        or default_translations.get(text.upper())
+        or text
+    )
+
+
 def _(text: str):
-    language = getattr(_thread_local, "language", "en-US")
-    translations = _translations.get(language) or _translations.get("en-US", {})
-    return translations.get(text) or translations.get(text.upper(), text)
+    return translate_for_language(text)
 
 
 def get_current_language():
@@ -286,6 +297,7 @@ def get_i18n_list(app: Flask):
 
 __all__ = [
     "_",
+    "translate_for_language",
     "set_language",
     "clear_language",
     "get_i18n_list",

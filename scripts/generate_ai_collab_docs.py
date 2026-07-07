@@ -153,8 +153,8 @@ ROOT_SPEC = DocSpec(
         "`SKILL.md` for repeatable workflows that need step-by-step guidance.",
     ),
     commands=(
-        "`pre-commit run -a` from the repository root is the shared quality gate "
-        "before any commit-sized change lands.",
+        "`lefthook run pre-commit --all-files` from the repository root is the "
+        "shared quality gate before any commit-sized change lands.",
         "`cd src/api && pytest -q` is the broad backend verification baseline "
         "when a change touches shared backend contracts or multiple services.",
         "`cd src/cook-web && npm run type-check && npm run lint` is the broad "
@@ -1670,6 +1670,11 @@ def build_documents() -> dict[Path, str]:
                 "description in sync with the latest code changes so they "
                 "accurately describe the current implementation and "
                 "verification state.",
+                "For git commit message title, body, and classification "
+                "requirements, read "
+                "`AGENTS.md#git-commit-message-requirements`; keep "
+                "agent-specific rule files from duplicating the detailed "
+                "commit-message policy.",
                 "Keep generated knowledge artifacts in sync by running "
                 "`python scripts/build_repo_knowledge_index.py` after docs "
                 "structure or metadata changes.",
@@ -1832,6 +1837,11 @@ def build_documents() -> dict[Path, str]:
                 "description in sync with the latest code changes so they "
                 "accurately describe the current implementation and "
                 "verification state.",
+                "For git commit message title, body, and classification "
+                "requirements, read "
+                "`AGENTS.md#git-commit-message-requirements`; keep "
+                "agent-specific rule files from duplicating the detailed "
+                "commit-message policy.",
                 "Regenerate repository knowledge indexes with "
                 "`python scripts/build_repo_knowledge_index.py` after moving docs "
                 "or changing required metadata.",

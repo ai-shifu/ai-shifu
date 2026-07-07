@@ -13,6 +13,7 @@ from flaskr.util import generate_id
 from pydantic import BaseModel, Field
 from flaskr.framework import extensible
 from sqlalchemy.exc import SQLAlchemyError
+from redis.exceptions import LockNotOwnedError
 import random
 
 MAX_UPDATED_BY_LEN = 36
@@ -167,7 +168,15 @@ def get_config(key: str, default: str = None) -> str:
                     )
                     return value
                 finally:
-                    lock.release()
+                    try:
+                        lock.release()
+                    except LockNotOwnedError:
+                        # The lock TTL (1 s) elapsed before release; the key
+                        # is already gone from Redis, so this is harmless.
+                        app.logger.debug(
+                            "get_config lock for %s expired before release; ignoring",
+                            key,
+                        )
             return default
         except (SQLAlchemyError, RuntimeError) as exc:
             app.logger.warning("Database not ready for get_config(%s): %s", key, exc)
@@ -255,13 +264,6 @@ def update_config(
         if has_explicit_env_override(key):
             return False
         cache_key = _get_config_cache_key(app, key)
-        cache = redis.get(cache_key)
-        if cache:
-            cache_config = ConfigCache.model_validate_json(cache)
-            if cache_config.is_encrypted:
-                value = _decrypt_config(app, cache_config.value)
-            else:
-                value = cache_config.value
         if value:
             if is_secret:
                 value = _encrypt_config(app, value)

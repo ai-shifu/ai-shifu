@@ -68,6 +68,7 @@ jest.mock('markdown-flow-ui/slide', () => {
   return {
     Slide: jest.fn(
       (props: {
+        playerClassName?: string;
         playerCustomActions?:
           | React.ReactNode
           | ((context: typeof slideCustomActionContext) => React.ReactNode);
@@ -84,6 +85,9 @@ jest.mock('markdown-flow-ui/slide', () => {
     ),
   };
 });
+
+const getClassTokens = (className?: string) =>
+  (className ?? '').split(/\s+/).filter(Boolean);
 
 jest.mock('./useChatLogicHook', () => ({
   ChatContentItemType: {
@@ -221,6 +225,32 @@ describe('ListenModeSlideRenderer', () => {
     ]);
   });
 
+  it('passes a stable listen player class for footer-safe positioning', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { playerClassName?: string }
+      | undefined;
+
+    const playerClassTokens = getClassTokens(slideProps?.playerClassName);
+
+    expect(playerClassTokens).toContain('listen-slide-player');
+    expect(playerClassTokens).not.toContain('classroom-slide-player');
+  });
+
   it('passes selected interaction user input to the slide during playback', () => {
     render(
       <ListenModeSlideRenderer
@@ -306,7 +336,60 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
-  it('skips the leading section-title placeholder in classroom mode', () => {
+  it('shows classroom paging tips on the empty title placeholder', () => {
+    render(
+      <ListenModeSlideRenderer
+        variant='classroom'
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        sectionTitle='Section title'
+      />,
+    );
+
+    const classroomSlideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { elementList?: Array<Record<string, unknown>>; showPlayer?: boolean }
+      | undefined;
+    expect(classroomSlideProps?.elementList?.[0]?.blockBid).toBe('empty-ppt');
+    expect(classroomSlideProps?.showPlayer).toBe(false);
+
+    const { unmount: unmountClassroomPlaceholder } = render(
+      classroomSlideProps?.elementList?.[0]?.content as React.ReactElement,
+    );
+    expect(screen.getByText('Section title')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.chat.classroomTitlePlaceholderTips'),
+    ).toBeInTheDocument();
+    unmountClassroomPlaceholder();
+  });
+
+  it('does not prepend the classroom title placeholder once a slide is available', () => {
+    render(
+      <ListenModeSlideRenderer
+        variant='classroom'
+        items={[
+          {
+            type: 'content',
+            content: '<section>First slide</section>',
+            element_bid: 'first-slide',
+            element_type: 'html',
+            is_speakable: true,
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        sectionTitle='Section title'
+      />,
+    );
+
+    const classroomSlideProps = getMockSlide().mock.calls[0]?.[0] as
+      | { elementList?: Array<Record<string, unknown>> }
+      | undefined;
+    expect(classroomSlideProps?.elementList).toHaveLength(1);
+    expect(classroomSlideProps?.elementList?.[0]?.blockBid).toBe('first-slide');
+  });
+
+  it('keeps listen leading text placeholder without classroom tips', () => {
     const items: ChatContentItem[] = [
       {
         type: 'content',
@@ -324,29 +407,6 @@ describe('ListenModeSlideRenderer', () => {
       },
     ];
 
-    const { unmount } = render(
-      <ListenModeSlideRenderer
-        variant='classroom'
-        items={items}
-        mobileStyle={false}
-        chatRef={createChatRef()}
-        sectionTitle='Section title'
-      />,
-    );
-
-    const classroomSlideProps = getMockSlide().mock.calls[0]?.[0] as
-      | { elementList?: Array<Record<string, unknown>> }
-      | undefined;
-    expect(
-      classroomSlideProps?.elementList?.some(
-        element => element.blockBid === 'empty-ppt',
-      ),
-    ).toBe(false);
-    expect(classroomSlideProps?.elementList?.[0]?.blockBid).toBe('intro-text');
-
-    unmount();
-    getMockSlide().mockClear();
-
     render(
       <ListenModeSlideRenderer
         items={items}
@@ -360,9 +420,16 @@ describe('ListenModeSlideRenderer', () => {
       | { elementList?: Array<Record<string, unknown>> }
       | undefined;
     expect(listenSlideProps?.elementList?.[0]?.blockBid).toBe('empty-ppt');
+    const { unmount: unmountListenPlaceholder } = render(
+      listenSlideProps?.elementList?.[0]?.content as React.ReactElement,
+    );
+    expect(
+      screen.queryByText('module.chat.classroomTitlePlaceholderTips'),
+    ).not.toBeInTheDocument();
+    unmountListenPlaceholder();
   });
 
-  it('strips audio data and disables loading overlay in classroom mode', async () => {
+  it('omits audio data and disables loading overlay in classroom mode', async () => {
     const requestFullscreen = jest
       .fn()
       .mockRejectedValue(new Error('fullscreen blocked'));
@@ -379,6 +446,7 @@ describe('ListenModeSlideRenderer', () => {
             type: 'content',
             content: 'Slide',
             element_bid: 'content-1',
+            element_type: 'html',
             is_speakable: true,
             audio_url: '/tts.mp3',
             audio_segments: [
@@ -447,14 +515,15 @@ describe('ListenModeSlideRenderer', () => {
     expect(slideProps?.playerCustomActions).toBeNull();
     expect(slideProps?.disableLoadingOverlay).toBe(true);
     expect(slideProps?.showPlayer).toBe(true);
-    expect(slideProps?.playerClassName ?? '').toContain(
-      'classroom-slide-player',
-    );
+    const playerClassTokens = getClassTokens(slideProps?.playerClassName);
+
+    expect(playerClassTokens).toContain('classroom-slide-player');
+    expect(playerClassTokens).not.toContain('listen-slide-player');
     expect(slideProps?.className ?? '').toContain('listen-slide-root');
     expect(slideProps?.className ?? '').not.toContain('classroom-slide-root');
     expect(
       screen.getByTestId('mock-slide').closest('.listen-reveal-wrapper'),
-    ).not.toHaveClass('listen-reveal-wrapper--classroom');
+    ).toHaveClass('listen-reveal-wrapper--classroom');
     expect(
       screen.queryByRole('button', {
         name: 'module.chat.listenPlaybackSpeedAriaLabel',

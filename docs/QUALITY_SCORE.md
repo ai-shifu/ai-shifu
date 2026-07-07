@@ -49,5 +49,5 @@ governance work can be prioritized mechanically.
 - Current grade: `B`
 - Gaps: strong targeted tests exist, but cross-surface verification depends on
   contributors choosing the right commands.
-- Next action: keep pre-commit and the repo harness checker authoritative for
+- Next action: keep lefthook and the repo harness checker authoritative for
   docs and instruction changes.

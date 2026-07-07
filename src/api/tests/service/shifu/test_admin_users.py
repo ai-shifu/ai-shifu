@@ -179,8 +179,11 @@ def _mock_operator(
     )
 
 
-def _format_operator_datetime(value: datetime) -> str:
-    return value.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+def _z(value):
+    """Serialize a datetime the way flaskr.route.common.fmt does (UTC ISO 'Z')."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _build_active_window(
@@ -686,10 +689,10 @@ def test_list_operator_users_returns_paginated_summaries_with_resolved_metadata(
     assert item.learning_courses == []
     assert item.created_courses == []
     assert item.total_paid_amount == "0"
-    assert item.last_login_at == ""
-    assert item.last_learning_at == ""
-    assert item.created_at == _format_operator_datetime(datetime(2026, 4, 3, 9, 0, 0))
-    assert item.updated_at == _format_operator_datetime(datetime(2026, 4, 4, 9, 0, 0))
+    assert item.last_login_at is None
+    assert item.last_learning_at is None
+    assert item.created_at == datetime(2026, 4, 3, 9, 0, 0)
+    assert item.updated_at == datetime(2026, 4, 4, 9, 0, 0)
 
 
 def test_list_operator_users_filters_by_identifier_status_role_and_created_time(app):
@@ -1315,12 +1318,12 @@ def test_list_operator_users_includes_creator_credit_summaries(app):
     assert creator_item.available_credits == "20.50"
     assert creator_item.subscription_credits == "12.50"
     assert creator_item.topup_credits == "8"
-    assert creator_item.credits_expire_at == _format_operator_datetime(active_end_at)
+    assert creator_item.credits_expire_at == active_end_at
     assert creator_item.has_active_subscription is True
     assert regular_item.available_credits == ""
     assert regular_item.subscription_credits == ""
     assert regular_item.topup_credits == ""
-    assert regular_item.credits_expire_at == ""
+    assert regular_item.credits_expire_at is None
     assert regular_item.has_active_subscription is False
 
 
@@ -1393,7 +1396,7 @@ def test_get_operator_user_detail_returns_full_summary(app):
     assert item.available_credits == "0"
     assert item.subscription_credits == "0"
     assert item.topup_credits == "0"
-    assert item.credits_expire_at == ""
+    assert item.credits_expire_at is None
     assert item.has_active_subscription is False
 
 
@@ -1435,13 +1438,9 @@ def test_get_operator_user_detail_returns_registration_login_payment_and_learnin
         item = get_operator_user_detail(app, "user-profile-rich")
 
     assert item.registration_source == "email"
-    assert item.last_login_at == _format_operator_datetime(
-        datetime(2026, 4, 10, 8, 0, 0)
-    )
+    assert item.last_login_at == datetime(2026, 4, 10, 8, 0, 0)
     assert item.total_paid_amount == "88.50"
-    assert item.last_learning_at == _format_operator_datetime(
-        datetime(2026, 4, 11, 10, 0, 0)
-    )
+    assert item.last_learning_at == datetime(2026, 4, 11, 10, 0, 0)
 
 
 def test_get_operator_user_credits_returns_summary_and_paginated_ledger(app):
@@ -1529,7 +1528,7 @@ def test_get_operator_user_credits_returns_summary_and_paginated_ledger(app):
     assert result.summary.available_credits == "18"
     assert result.summary.subscription_credits == "10"
     assert result.summary.topup_credits == "8"
-    assert result.summary.credits_expire_at == _format_operator_datetime(active_end_at)
+    assert result.summary.credits_expire_at == active_end_at
     assert result.summary.has_active_subscription is True
     assert result.total == 2
     assert result.page == 1
@@ -1628,7 +1627,7 @@ def test_get_operator_user_credits_uses_empty_expiry_for_long_term_balances(app)
         )
 
     assert result.summary.available_credits == "12"
-    assert result.summary.credits_expire_at == ""
+    assert result.summary.credits_expire_at is None
     assert result.summary.has_active_subscription is False
     assert result.items == []
 
@@ -2519,9 +2518,7 @@ def test_get_operator_user_credits_excludes_topup_from_available_without_subscri
     assert result.summary.available_credits == "3"
     assert result.summary.subscription_credits == "3"
     assert result.summary.topup_credits == "8"
-    assert result.summary.credits_expire_at == _format_operator_datetime(
-        manual_grant_expires_at
-    )
+    assert result.summary.credits_expire_at == manual_grant_expires_at
     assert result.summary.has_active_subscription is False
 
 
@@ -2602,7 +2599,7 @@ def test_get_operator_user_detail_serializes_last_learning_at_using_app_timezone
         finally:
             app.config["TZ"] = original_tz
 
-    assert result.last_learning_at == "2026-04-22T03:56:11Z"
+    assert result.last_learning_at == datetime(2026, 4, 22, 11, 56, 11)
 
 
 def test_get_operator_user_credits_serializes_ledger_time_using_app_timezone(app):
@@ -2653,8 +2650,8 @@ def test_get_operator_user_credits_serializes_ledger_time_using_app_timezone(app
             app.config["TZ"] = original_tz
 
     assert len(result.items) == 1
-    assert result.items[0].created_at == "2026-04-22T08:29:09Z"
-    assert result.items[0].expires_at == "2026-04-29T08:29:09Z"
+    assert result.items[0].created_at == datetime(2026, 4, 22, 16, 29, 9)
+    assert result.items[0].expires_at == datetime(2026, 4, 29, 16, 29, 9)
 
 
 def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app):
@@ -2705,13 +2702,13 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(app
     assert result.grant_type == "manual_credit"
     assert result.grant_source == "compensation"
     assert result.validity_preset == "7d"
-    assert result.expires_at.endswith("Z")
+    assert result.expires_at is not None
     assert result.display_name == "模型扣费补偿"
     assert result.note == "ops support"
     assert result.summary.available_credits == "5"
     assert result.summary.subscription_credits == "5"
     assert result.summary.topup_credits == "0"
-    assert result.summary.credits_expire_at.endswith("Z")
+    assert result.summary.credits_expire_at is not None
     assert bucket is not None
     assert bucket.source_type == CREDIT_SOURCE_TYPE_MANUAL
     assert bucket.metadata_json["grant_source"] == "compensation"
@@ -2780,12 +2777,15 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(app, monke
             return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(referral_reward_grants_module, "datetime", FixedDateTime)
-    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
-    monkeypatch.setattr(user_credits_module, "datetime", FixedDateTime)
     monkeypatch.setattr(
-        user_credits_module,
-        "_format_operator_datetime",
-        _format_operator_datetime,
+        referral_reward_grants_module,
+        "now_utc",
+        lambda: datetime(2026, 4, 21, 0, 0, 0),
+    )
+    monkeypatch.setattr(admin_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(admin_module, "now_utc", lambda: datetime(2026, 4, 21, 0, 0, 0))
+    monkeypatch.setattr(
+        user_credits_module, "now_utc", lambda: datetime(2026, 4, 21, 0, 0, 0)
     )
 
     with app.app_context():
@@ -2846,9 +2846,9 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(app, monke
         )
 
     assert first_result.grant_type == "referral_reward"
-    assert first_result.expires_at == "2026-05-21T00:00:00Z"
+    assert first_result.expires_at == datetime(2026, 5, 21, 0, 0, 0)
     assert second_result.grant_type == "referral_reward"
-    assert second_result.expires_at == "2026-06-21T00:00:00Z"
+    assert second_result.expires_at == datetime(2026, 6, 21, 0, 0, 0)
     assert second_result.wallet_bucket_bid == first_result.wallet_bucket_bid
     assert second_result.amount == "800"
     assert second_result.summary.available_credits == "1800"
@@ -2875,6 +2875,11 @@ def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
             return cls(2026, 4, 21, 0, 0, 0, tzinfo=tz)
 
     monkeypatch.setattr(referral_reward_grants_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(
+        referral_reward_grants_module,
+        "now_utc",
+        lambda: datetime(2026, 4, 21, 0, 0, 0),
+    )
 
     with app.app_context():
         _seed_user(
@@ -2940,7 +2945,7 @@ def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
         ).all()
 
     assert result.wallet_bucket_bid == "bucket-referral-reward-empty-active"
-    assert result.expires_at == "2026-06-21T00:00:00Z"
+    assert result.expires_at == datetime(2026, 6, 21, 0, 0, 0)
     assert result.note == "extend empty active bucket"
     assert len(buckets) == 1
     assert buckets[0].effective_to == datetime(2026, 6, 21, 0, 0, 0)
@@ -3285,8 +3290,8 @@ def test_grant_operator_user_package_creates_manual_paid_order_and_summary(app):
     assert result.notification_status == "template_pending"
     assert result.summary.available_credits == "5"
     assert result.summary.subscription_credits == "5"
-    assert result.current_period_start_at.endswith("Z")
-    assert result.current_period_end_at.endswith("Z")
+    assert result.current_period_start_at is not None
+    assert result.current_period_end_at is not None
     assert order is not None
     assert order.status == BILLING_ORDER_STATUS_PAID
     assert order.payment_provider == "manual"
@@ -3910,12 +3915,12 @@ def test_admin_operation_users_route_returns_filtered_payload(
             "available_credits": "",
             "subscription_credits": "",
             "topup_credits": "",
-            "credits_expire_at": "",
+            "credits_expire_at": None,
             "has_active_subscription": False,
-            "last_login_at": "",
-            "last_learning_at": "",
-            "created_at": _format_operator_datetime(datetime(2026, 4, 6, 8, 0, 0)),
-            "updated_at": _format_operator_datetime(datetime(2026, 4, 6, 12, 0, 0)),
+            "last_login_at": None,
+            "last_learning_at": None,
+            "created_at": _z(datetime(2026, 4, 6, 8, 0, 0)),
+            "updated_at": _z(datetime(2026, 4, 6, 12, 0, 0)),
         }
     ]
 
@@ -3997,12 +4002,12 @@ def test_admin_operation_user_detail_route_returns_payload(
         "available_credits": "",
         "subscription_credits": "",
         "topup_credits": "",
-        "credits_expire_at": "",
+        "credits_expire_at": None,
         "has_active_subscription": False,
-        "last_login_at": "",
-        "last_learning_at": "",
-        "created_at": _format_operator_datetime(datetime(2026, 4, 10, 8, 0, 0)),
-        "updated_at": _format_operator_datetime(datetime(2026, 4, 10, 12, 0, 0)),
+        "last_login_at": None,
+        "last_learning_at": None,
+        "created_at": _z(datetime(2026, 4, 10, 8, 0, 0)),
+        "updated_at": _z(datetime(2026, 4, 10, 12, 0, 0)),
     }
 
 
@@ -4116,23 +4121,21 @@ def test_admin_operation_user_credits_route_returns_payload(
             "available_credits": "7",
             "subscription_credits": "7",
             "topup_credits": "0",
-            "credits_expire_at": _format_operator_datetime(active_end_at),
+            "credits_expire_at": _z(active_end_at),
             "has_active_subscription": True,
         },
         "items": [
             {
                 "ledger_bid": "ledger-preview-route",
-                "created_at": _format_operator_datetime(
-                    datetime(2026, 4, 10, 12, 30, 0)
-                ),
+                "created_at": _z(datetime(2026, 4, 10, 12, 30, 0)),
                 "entry_type": "consume",
                 "source_type": "usage",
                 "display_entry_type": "consume",
                 "display_source_type": "usage",
                 "amount": "-1",
                 "balance_after": "6",
-                "expires_at": "",
-                "consumable_from": "",
+                "expires_at": None,
+                "consumable_from": None,
                 "note": "",
                 "note_code": "",
                 "usage_bid": "usage-preview-route",
@@ -4145,19 +4148,15 @@ def test_admin_operation_user_credits_route_returns_payload(
             },
             {
                 "ledger_bid": "ledger-grant-route",
-                "created_at": _format_operator_datetime(
-                    datetime(2026, 4, 10, 12, 0, 0)
-                ),
+                "created_at": _z(datetime(2026, 4, 10, 12, 0, 0)),
                 "entry_type": "grant",
                 "source_type": "subscription",
                 "display_entry_type": "subscription_grant",
                 "display_source_type": "subscription",
                 "amount": "7",
                 "balance_after": "7",
-                "expires_at": _format_operator_datetime(active_end_at),
-                "consumable_from": _format_operator_datetime(
-                    datetime(2026, 4, 10, 12, 0, 0)
-                ),
+                "expires_at": _z(active_end_at),
+                "consumable_from": _z(datetime(2026, 4, 10, 12, 0, 0)),
                 "note": "",
                 "note_code": "subscription_purchase",
                 "usage_bid": "",
