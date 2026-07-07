@@ -1,9 +1,11 @@
 import { SSE } from 'sse.js';
-import request, { attachSseBusinessResponseFallback } from '@/lib/request';
+import request, {
+  attachSseBusinessResponseFallback,
+  getCurrentLanguageHeaders,
+} from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
-import i18n from '@/i18n';
 import {
   getMockRunFixtureMode,
   MockRunStreamFixtureSource,
@@ -37,11 +39,6 @@ export const BLOCK_TYPE = {
   ERROR: 'error_message',
 } as const;
 export type BlockType = (typeof BLOCK_TYPE)[keyof typeof BLOCK_TYPE];
-
-const getCurrentLanguageHeaders = (): Record<string, string> => {
-  const currentLanguage = i18n.resolvedLanguage || i18n.language;
-  return currentLanguage ? { 'Accept-Language': currentLanguage } : {};
-};
 
 export const LIKE_STATUS = {
   LIKE: 'like',

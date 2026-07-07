@@ -55,24 +55,68 @@ from ..service.referral.service import extract_referral_post_auth_fields
 from ..service.common.dtos import OAuthStartDTO
 from .common import make_common_response, bypass_token_validation, by_pass_login_func
 from flaskr.dao import db
-from flaskr.i18n import set_language
+from flaskr.i18n import _translations, set_language
+
+
+_DEFAULT_SUPPORTED_RUNTIME_LANGUAGES = ("zh-CN", "en-US", "fr-FR")
+
+
+def _normalize_runtime_language_code(language_code: str) -> str:
+    normalized = str(language_code or "").strip().replace("_", "-")
+    parts = [segment for segment in normalized.split("-") if segment]
+    if not parts:
+        return ""
+
+    normalized_parts = [parts[0].lower()]
+    for segment in parts[1:]:
+        if len(segment) == 2 and segment.isalpha():
+            normalized_parts.append(segment.upper())
+        elif len(segment) == 4 and segment.isalpha():
+            normalized_parts.append(segment.title())
+        else:
+            normalized_parts.append(segment)
+    return "-".join(normalized_parts)
+
+
+def _resolve_supported_runtime_language(raw_language: str | None) -> str | None:
+    normalized_language = _normalize_runtime_language_code(raw_language or "")
+    if not normalized_language:
+        return None
+
+    supported_languages = (
+        tuple(_translations.keys()) or _DEFAULT_SUPPORTED_RUNTIME_LANGUAGES
+    )
+    normalized_language_lower = normalized_language.lower()
+    for supported_language in supported_languages:
+        if supported_language.lower() == normalized_language_lower:
+            return supported_language
+
+    primary_language = normalized_language_lower.split("-", 1)[0]
+    for supported_language in supported_languages:
+        if supported_language.lower().split("-", 1)[0] == primary_language:
+            return supported_language
+
+    return normalized_language
 
 
 def _extract_request_language(payload: dict | None = None) -> str | None:
+    raw_language = None
     if isinstance(payload, dict):
         language = payload.get("language")
         if language:
-            return str(language).strip()
+            raw_language = str(language).strip()
 
-    accept_language = request.headers.get("Accept-Language", "")
-    if not accept_language:
-        return None
+    if not raw_language:
+        accept_language = request.headers.get("Accept-Language", "")
+        if not accept_language:
+            return None
 
-    first_part = accept_language.split(",")[0].strip()
-    if not first_part:
-        return None
+        first_part = accept_language.split(",")[0].strip()
+        if not first_part:
+            return None
+        raw_language = first_part.split(";")[0].strip()
 
-    return first_part.split(";")[0].strip() or None
+    return _resolve_supported_runtime_language(raw_language)
 
 
 def _apply_request_language(payload: dict | None = None) -> None:
@@ -83,10 +127,12 @@ def _apply_request_language(payload: dict | None = None) -> None:
 
 def _resolve_runtime_language(user, payload: dict | None = None) -> str:
     """Prefer the current client language for this request without mutating the profile."""
+    if payload is None and request.is_json:
+        json_data = request.get_json(silent=True) or {}
+        if isinstance(json_data, dict):
+            payload = json_data
     return (
-        _extract_request_language(payload)
-        or getattr(user, "language", None)
-        or "en-US"
+        _extract_request_language(payload) or getattr(user, "language", None) or "en-US"
     )
 
 

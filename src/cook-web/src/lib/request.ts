@@ -61,6 +61,11 @@ const getRequestFallbackMessage = (error?: Partial<ErrorWithCode>) => {
   return i18n.t('common.core.requestFailed');
 };
 
+export const getCurrentLanguageHeaders = (): Record<string, string> => {
+  const currentLanguage = i18n.resolvedLanguage || i18n.language;
+  return currentLanguage ? { 'Accept-Language': currentLanguage } : {};
+};
+
 // ===== Error Handling =====
 export class ErrorWithCode extends Error {
   code: number;
@@ -455,14 +460,8 @@ export class Request {
           Token: token,
         }
       : {};
-    const currentLanguage = i18n.resolvedLanguage || i18n.language;
-    const languageHeaders: Record<string, string> = currentLanguage
-      ? {
-          'Accept-Language': currentLanguage,
-        }
-      : {};
     const traceHeaders = buildTraceHeaders({
-      ...languageHeaders,
+      ...getCurrentLanguageHeaders(),
       ...authHeaders,
       ...headersToRecord(mergedConfig.headers),
     });
