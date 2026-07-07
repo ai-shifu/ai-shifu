@@ -67,6 +67,7 @@ from flaskr.service.billing.provider_state import (
 )
 import flaskr.service.billing.checkout as billing_checkout_module
 from flaskr.service.billing.preorders import mark_preorder_effective_applied
+from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end,
     calculate_self_managed_billing_cycle_end_after_boundary,
@@ -1558,7 +1559,9 @@ class TestBillingWriteRoutes:
                 product,
                 current_period_end,
             )
-            assert downgrade_event.scheduled_at == current_period_end
+            assert downgrade_event.scheduled_at == normalize_mysql_datetime(
+                current_period_end
+            )
 
     def test_paid_same_plan_preorder_sync_reserves_until_cycle_boundary(
         self, billing_write_client
@@ -1690,7 +1693,9 @@ class TestBillingWriteRoutes:
             assert grant_ledger.consumable_from == current_period_end
             assert grant_ledger.expires_at == expected_cycle_end
             assert downgrade_event is not None
-            assert downgrade_event.scheduled_at == current_period_end
+            assert downgrade_event.scheduled_at == normalize_mysql_datetime(
+                current_period_end
+            )
 
         upgrade_checkout = client.post(
             "/api/billing/subscriptions/checkout",
@@ -3566,7 +3571,9 @@ class TestBillingWriteRoutes:
                 == 1
             )
             assert renewal_event.status == BILLING_RENEWAL_EVENT_STATUS_PENDING
-            assert renewal_event.scheduled_at == subscription.current_period_end_at
+            assert renewal_event.scheduled_at == normalize_mysql_datetime(
+                subscription.current_period_end_at
+            )
 
     def test_cancel_and_resume_subscription_toggle_status(
         self, billing_write_client
