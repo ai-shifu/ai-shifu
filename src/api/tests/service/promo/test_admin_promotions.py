@@ -26,6 +26,9 @@ from flaskr.service.promo.admin_dtos import (
     AdminPromotionCampaignItemDTO,
     AdminPromotionSummaryDTO,
 )
+from flaskr.service.promo.creator_redemption import (
+    list_creator_course_redemption_coupons,
+)
 from flaskr.service.promo.models import (
     Coupon,
     CouponUsage,
@@ -103,6 +106,22 @@ def test_promotion_dtos_coerce_empty_and_zero_datetime_values_to_none():
     assert campaign.created_at is None
     assert campaign.updated_at is None
     assert campaign.channel == ""
+
+
+def test_creator_redemption_empty_result_summary_uses_none_latest_usage_at(app):
+    # Exercise the actual empty-result service branch (not just the DTO) so a
+    # regression reverting latest_usage_at back to "" would be caught here.
+    with app.app_context():
+        response = list_creator_course_redemption_coupons(
+            app,
+            creator_user_bid="creator-without-any-course",
+            page=1,
+            page_size=20,
+            filters={},
+        )
+
+    assert response.summary.latest_usage_at is None
+    assert response.items == []
 
 
 def _mock_operator(
