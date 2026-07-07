@@ -111,23 +111,11 @@ type SelectItemProps = React.ComponentPropsWithoutRef<
   indicatorClassName?: string;
 };
 
-const handleDisabledSelectItemClick = (
-  disabled: boolean | undefined,
-  onClick: React.MouseEventHandler<HTMLDivElement> | undefined,
-): React.MouseEventHandler<HTMLDivElement> | undefined => {
-  if (!disabled && !onClick) {
-    return undefined;
-  }
-
-  return event => {
-    if (disabled) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
-    onClick?.(event);
-  };
+const preventDisabledSelectItemClick: React.MouseEventHandler<
+  HTMLDivElement
+> = event => {
+  event.preventDefault();
+  event.stopPropagation();
 };
 
 const SelectItem = React.forwardRef<
@@ -145,7 +133,7 @@ const SelectItem = React.forwardRef<
         'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
         className,
       )}
-      onClick={handleDisabledSelectItemClick(disabled, onClick)}
+      onClick={disabled ? preventDisabledSelectItemClick : onClick}
       {...props}
     >
       <span

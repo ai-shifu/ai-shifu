@@ -134,7 +134,9 @@ body.listen-mode-vh-fallback #root {
   button {
     outline: none;
   }
-  :where(:disabled, [aria-disabled='true'], [data-disabled]) {
+  :disabled,
+  [aria-disabled='true'],
+  [data-disabled] {
     cursor: not-allowed;
   }
   button:focus {
