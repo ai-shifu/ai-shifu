@@ -1267,7 +1267,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/SimpleOutlineDto"
         """
         user_id = request.user.user_id
-        json_data = request.get_json() or {}
+        json_data = request.get_json(silent=True) or {}
         if not isinstance(json_data, dict):
             raise_param_error("json body")
         parent_bid = json_data.get("parent_bid")
@@ -1591,7 +1591,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                             description: latest outline content draft revision
         """
         user_id = request.user.user_id
-        json_data = request.get_json() or {}
+        json_data = request.get_json(silent=True) or {}
         if not isinstance(json_data, dict):
             raise_param_error("json body")
         content = json_data.get("data") or ""

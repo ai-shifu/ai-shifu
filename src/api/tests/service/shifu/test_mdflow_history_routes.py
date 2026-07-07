@@ -77,7 +77,7 @@ def test_create_outline_route_rejects_missing_name_without_500(
     _seed_shifu_with_outline(app, shifu_bid, outline_bid, owner_bid, "seed")
     _mock_user(monkeypatch, owner_bid)
 
-    resp = test_client.post(
+    resp = test_client.put(
         f"/api/shifu/shifus/{shifu_bid}/outlines",
         headers={"Token": "test-token"},
         json={"name": None},
