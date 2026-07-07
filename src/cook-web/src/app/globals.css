@@ -206,10 +206,18 @@ body.listen-mode-vh-fallback #root {
     background: var(--base-background, #fff);
     color: var(--base-foreground, #0a0a0a);
     opacity: 1;
-    cursor: pointer;
     box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
       var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
       var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+  }
+
+  .content-render .single-select-container button:not(:disabled),
+  .content-render .single-select-container .select {
+    cursor: pointer;
+  }
+
+  .content-render .single-select-container button:disabled {
+    cursor: not-allowed;
   }
 }
 
