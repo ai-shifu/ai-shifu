@@ -4,6 +4,7 @@ from flask import Flask, request
 import uuid
 from logging.handlers import TimedRotatingFileHandler
 import socket
+import threading
 import time
 from datetime import datetime
 import pytz
@@ -76,23 +77,54 @@ class RequestFormatter(logging.Formatter):
 
 
 class FeishuLogHandler(logging.Handler):
+    MAX_TEXT_LENGTH = 18000
+
     def __init__(self, webhook_url):
         super().__init__(level=logging.ERROR)
         self.webhook_url = webhook_url
+        # This handler is attached to app.logger, so reporting a webhook
+        # delivery failure through the same logger would loop straight back
+        # into emit() and re-hit the webhook. A thread-local re-entrancy guard
+        # breaks that loop while still letting the failure surface through the
+        # standard file/console handlers (unlike silencing it on a
+        # non-propagating logger).
+        self._delivering = threading.local()
 
-    def emit(self, record):
-        log_entry = self.format(record)
-        payload = {
-            "msg_type": "text",
-            "content": {"text": f"师傅出错啦！\n{log_entry}\n"},
-        }
+    def _build_message_text(self, log_entry: str) -> str:
+        text = f"师傅出错啦！\n{log_entry}\n"
+        if len(text) <= self.MAX_TEXT_LENGTH:
+            return text
+        omitted = len(text) - self.MAX_TEXT_LENGTH
+        suffix = f"\n...[truncated {omitted} chars to fit Feishu webhook limit]"
+        return text[: self.MAX_TEXT_LENGTH - len(suffix)] + suffix
+
+    def _report_delivery_failure(self, exc: Exception) -> None:
+        message = "Failed to send log to Feishu webhook: %s"
         try:
-            response = requests.post(self.webhook_url, json=payload)
-            response.raise_for_status()
-        except requests.exceptions.RequestException as e:
             from flask import current_app
 
-            current_app.logger.error(f"Failed to send log to Feishu: {e}")
+            current_app.logger.warning(message, exc, exc_info=True)
+        except Exception:
+            logging.getLogger(__name__).warning(message, exc, exc_info=True)
+
+    def emit(self, record):
+        if getattr(self._delivering, "active", False):
+            return
+        self._delivering.active = True
+        try:
+            log_entry = self.format(record)
+            payload = {
+                "msg_type": "text",
+                "content": {"text": self._build_message_text(log_entry)},
+            }
+            response = requests.post(self.webhook_url, json=payload, timeout=5)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as exc:
+            self._report_delivery_failure(exc)
+        except Exception:
+            self.handleError(record)
+        finally:
+            self._delivering.active = False
 
 
 class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):
