@@ -1382,6 +1382,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="tts",
         required=False,
     ),
+    "TTS_CREDIT_MULTIPLIER_BASELINE": EnvVar(
+        name="TTS_CREDIT_MULTIPLIER_BASELINE",
+        default=0.0001,
+        type=float,
+        description=(
+            "Credits-per-character reference that represents the 1x TTS credit "
+            "multiplier shown in the model picker (default 0.0001 = 1 credit per "
+            "10,000 characters). This baseline is intentionally decoupled from the "
+            "default LLM output-token rate: TTS tiers are curated business "
+            "multipliers, so their displayed 'Nx' label is TTS char rate divided "
+            "by this reference, not by the LLM baseline."
+        ),
+        group="tts",
+    ),
     "MINIMAX_TTS_SAMPLE_RATE": EnvVar(
         name="MINIMAX_TTS_SAMPLE_RATE",
         default=24000,

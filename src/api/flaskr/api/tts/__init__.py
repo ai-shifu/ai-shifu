@@ -24,12 +24,10 @@ from flaskr.util.datetime import now_utc
 from flaskr.common.log import AppLoggerProxy
 from flaskr.i18n import get_current_language
 from flaskr.service.billing.consts import (
-    BILLING_METRIC_LLM_OUTPUT_TOKENS,
     BILLING_METRIC_TTS_OUTPUT_CHARS,
 )
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_LLM,
     BILL_USAGE_TYPE_TTS,
 )
 
@@ -344,7 +342,7 @@ def _resolve_localized_tts_label(
 
 def _resolve_credit_multiplier_label(provider_name: str, model: str) -> str | None:
     try:
-        baseline_cost = _load_default_llm_unit_cost()
+        baseline_cost = _load_tts_multiplier_baseline()
         if baseline_cost is None or baseline_cost <= 0:
             return None
         actual_cost = (
@@ -365,26 +363,22 @@ def _resolve_credit_multiplier_label(provider_name: str, model: str) -> str | No
         return None
 
 
-def _resolve_default_llm_rate_identity() -> tuple[str, list[str]]:
-    default_model = str(get_config("DEFAULT_LLM_MODEL", "") or "").strip()
-    if not default_model:
-        return "", [""]
+def _load_tts_multiplier_baseline() -> Decimal | None:
+    # TTS credit multipliers are curated business tiers, not a live ratio to the
+    # default LLM output-token price. The 1x reference is a fixed
+    # credits-per-character anchor (TTS_CREDIT_MULTIPLIER_BASELINE, default
+    # 0.0001 = 1 credit / 10,000 characters), decoupled from the LLM baseline so
+    # the picker shows the intended "Nx" no matter how the default LLM is priced.
     try:
-        from flaskr.api.llm import _resolve_billing_rate_identity
-
-        return _resolve_billing_rate_identity(default_model)
-    except Exception:
-        return "", [default_model]
-
-
-def _load_default_llm_unit_cost() -> Decimal | None:
-    provider, model_candidates = _resolve_default_llm_rate_identity()
-    return _load_usage_rate_unit_cost(
-        usage_type=BILL_USAGE_TYPE_LLM,
-        provider=provider,
-        model_candidates=model_candidates or [""],
-        billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-    )
+        raw = get_config("TTS_CREDIT_MULTIPLIER_BASELINE", "")
+        if raw is None or str(raw).strip() == "":
+            return None
+        baseline = Decimal(str(raw))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    if baseline <= 0:
+        return None
+    return baseline
 
 
 def _load_usage_rate_unit_cost(
