@@ -72,9 +72,38 @@ jobs:
           CELERY_RESULT_BACKEND=redis://ai-shifu-redis:6379/1
           EOF
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build the two from-source images with a persistent GitHub Actions layer
+      # cache and load them into the local Docker daemon under the exact tags the
+      # compose file references, so "up" below reuses them instead of rebuilding
+      # from scratch on every run. Contexts/dockerfiles mirror docker-compose.dev.yml.
+      - name: Build API image (cached)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/api/Dockerfile
+          tags: ai-shifu-api-dev:latest
+          load: true
+          cache-from: type=gha,scope=runtime-harness-api
+          cache-to: type=gha,mode=max,scope=runtime-harness-api
+
+      - name: Build cook-web image (cached)
+        uses: docker/build-push-action@v6
+        with:
+          context: src/cook-web
+          file: src/cook-web/Dockerfile_DEV
+          tags: ai-shifu-cook-web-dev:latest
+          load: true
+          cache-from: type=gha,scope=runtime-harness-cook-web
+          cache-to: type=gha,mode=max,scope=runtime-harness-cook-web
+
       - name: Start dev stack
         working-directory: docker
-        run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker-compose.dev.yml up -d --build
+        # Images are prebuilt above; --build is intentionally omitted so compose
+        # reuses the cached images instead of rebuilding.
+        run: docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker-compose.dev.yml up -d
 
       - name: Wait for API and observability health
         run: |
@@ -92,6 +121,14 @@ jobs:
           docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml ps
           docker compose -p "$AI_SHIFU_COMPOSE_PROJECT" -f docker/docker-compose.dev.yml logs ai-shifu-api-dev
           exit 1
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('src/cook-web/package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       - name: Install frontend dependencies
         working-directory: src/cook-web
