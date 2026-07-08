@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
 import { ContentRender } from 'markdown-flow-ui/renderer';
+import { useTranslation } from 'react-i18next';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
@@ -16,7 +17,10 @@ import {
   stripCustomButtonAfterContent,
 } from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
-import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
+import {
+  isPaySystemInteractionContent,
+  localizeSystemInteractionContent,
+} from '@/c-utils/system-interaction';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
 
 interface ContentBlockProps {
@@ -57,6 +61,7 @@ const ContentBlock = memo(
     onTypeFinished,
     enableStreamingTypewriter = false,
   }: ContentBlockProps) => {
+    const { t } = useTranslation();
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
     }, [blockBid, onClickCustomButtonAfterContent]);
@@ -101,10 +106,14 @@ const ContentBlock = memo(
       item.type === ChatContentItemType.CONTENT && item.element_type !== 'text';
     const shouldRenderExternalCustomButton =
       isRichContentElement && hasCustomButtonAfterContent(item.content);
+    const localizedContent = localizeSystemInteractionContent(
+      item.content || '',
+      t,
+    );
     const renderedContent =
       shouldEnableTypewriter || shouldRenderExternalCustomButton
-        ? (stripCustomButtonAfterContent(item.content) ?? '')
-        : item.content || '';
+        ? (stripCustomButtonAfterContent(localizedContent) ?? '')
+        : localizedContent;
     const externalCustomButtonInnerHtml = shouldRenderExternalCustomButton
       ? extractCustomButtonAfterContentInnerHtml(item.content)
       : '';

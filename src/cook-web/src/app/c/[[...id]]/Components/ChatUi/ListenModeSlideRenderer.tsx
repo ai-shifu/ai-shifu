@@ -23,7 +23,10 @@ import {
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
-import { isSystemInteractionContent } from '@/c-utils/system-interaction';
+import {
+  isSystemInteractionContent,
+  localizeSystemInteractionContent,
+} from '@/c-utils/system-interaction';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
@@ -532,6 +535,7 @@ const buildSlideElementList = ({
   includeAudio,
   showLeadingTextPlaceholder,
   resolveRenderSequence,
+  localizeSystemContent,
 }: {
   items: ChatContentItem[];
   askListByAnchorElementBid: Map<string, AskMessage[]>;
@@ -543,6 +547,7 @@ const buildSlideElementList = ({
   includeAudio: boolean;
   showLeadingTextPlaceholder: boolean;
   resolveRenderSequence: ResolveRenderSequence;
+  localizeSystemContent: (content: string) => string;
 }) => {
   let pageCursor = 0;
   let sequenceNumber = 0;
@@ -623,7 +628,7 @@ const buildSlideElementList = ({
         fallbackSequence: sequenceNumber,
       }),
       type: 'interaction',
-      content: item.content || '',
+      content: localizeSystemContent(item.content || ''),
       is_marker: item.is_marker ?? true,
       is_renderable: item.is_renderable ?? true,
       is_new: item.is_new ?? true,
@@ -882,6 +887,8 @@ const ListenModeSlideRenderer = ({
       includeAudio,
       showLeadingTextPlaceholder,
       resolveRenderSequence,
+      localizeSystemContent: content =>
+        localizeSystemInteractionContent(content, t),
     });
 
     for (const streamKey of Array.from(sequenceMap.keys())) {
@@ -902,6 +909,7 @@ const ListenModeSlideRenderer = ({
     sectionTitle,
     sectionPlaceholderTips,
     showLeadingTextPlaceholder,
+    t,
   ]);
   const markerStepCount = useMemo(
     () => elementList.filter(element => Boolean(element.is_marker)).length,

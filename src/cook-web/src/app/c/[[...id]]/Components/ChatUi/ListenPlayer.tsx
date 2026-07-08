@@ -11,7 +11,10 @@ import {
 import styles from './ListenPlayer.module.scss';
 import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
-import { isPaySystemInteractionContent } from '@/c-utils/system-interaction';
+import {
+  isPaySystemInteractionContent,
+  localizeSystemInteractionContent,
+} from '@/c-utils/system-interaction';
 import type { ChatContentItem } from './useChatLogicHook';
 import {
   ContentRender,
@@ -161,7 +164,10 @@ const ListenPlayer = ({
             >
               <ContentRender
                 enableTypewriter={false}
-                content={effectiveInteraction.content || ''}
+                content={localizeSystemInteractionContent(
+                  effectiveInteraction.content || '',
+                  t,
+                )}
                 customRenderBar={effectiveInteraction.customRenderBar}
                 userInput={resolvedInteractionUserInput}
                 interactionDefaultValueOptions={
