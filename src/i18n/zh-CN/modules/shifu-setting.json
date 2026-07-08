@@ -208,7 +208,7 @@
   "shifuPriceFormat": "价格必须为有效数字格式",
   "shifuPrompt": "课程提示词",
   "shifuPromptHint": "对所有课节如何授课做全面的要求和约束",
-  "shifuPromptMaxLength": "课程提示词不能超过 2000 个字符",
+  "shifuPromptMaxLength": "课程提示词不能超过 20000 个字符",
   "shifuPromptPlaceholder": "告诉 AI 你是谁，这门课面向谁，应该用什么语气、风格讲课，幻灯片要怎么画，哪些规矩必须遵守，哪些错误不要犯等等",
   "shifuTemperature": "授课温度",
   "shifuTemperatureFormat": "温度必须为有效数字格式",
