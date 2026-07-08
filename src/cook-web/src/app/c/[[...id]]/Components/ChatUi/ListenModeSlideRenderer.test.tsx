@@ -117,6 +117,14 @@ jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
 jest.mock('@/c-utils/system-interaction', () => ({
   isSystemInteractionContent: (content?: string) =>
     content?.includes('_sys_') ?? false,
+  localizeSystemInteractionContent: (
+    content: string,
+    translate: (key: string) => string,
+  ) =>
+    content.replace(
+      '?[' + 'Next//_sys_next_chapter]',
+      `?[${translate('server.learn.nextChapterButton')}//_sys_next_chapter]`,
+    ),
 }));
 
 jest.mock('@/c-api/studyV2', () => ({
