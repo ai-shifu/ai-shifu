@@ -87,7 +87,7 @@
   "askProviderSelect": "选择追问方式",
   "askTemperature": "追问温度",
   "askTemperatureHint": "控制回答问题的发散程度（取值范围 0-2，建议用 0）",
-  "askTitle": "追问设置",
+  "askTitle": "追问的知识来源",
   "debugDisabledBySoftLimit": "积分余额已低于提醒阈值，暂不能使用调试预览。",
   "draftConflictDescription": "课程已被 {phone} 修改，请加载最新内容获取最新记录",
   "draftConflictRefresh": "加载最新内容",
