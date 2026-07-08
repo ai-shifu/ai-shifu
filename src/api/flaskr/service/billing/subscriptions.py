@@ -483,17 +483,9 @@ def ensure_subscription_renewal_order(
         cycle_start_at=cycle_start_at,
         cycle_end_at=cycle_end_at,
     )
-    if order is not None and _is_paid_referral_invitation_renewal(order):
-        metadata = (
-            dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
-        )
-        metadata["renewal_event_bid"] = _normalize_bid(renewal_event_bid) or None
-        order.metadata_json = _normalize_json_object(metadata).to_metadata_json()
-        db.session.add(order)
-        db.session.flush()
-        return order
-
-    if order is not None and _is_preorder_order(order):
+    if order is not None and (
+        _is_paid_referral_invitation_renewal(order) or _is_preorder_order(order)
+    ):
         metadata = (
             dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
         )
@@ -671,18 +663,10 @@ def _is_referral_invitation_renewal(order: BillingOrder) -> bool:
     )
 
 
-def _is_manual_referral_invitation_renewal(order: BillingOrder) -> bool:
-    return (
-        _normalize_bid(order.payment_provider) == "manual"
-        and _is_referral_invitation_renewal(order)
-    )
-
-
 def _is_paid_referral_invitation_renewal(order: BillingOrder) -> bool:
-    return (
-        int(order.status or 0) == BILLING_ORDER_STATUS_PAID
-        and _is_referral_invitation_renewal(order)
-    )
+    return int(
+        order.status or 0
+    ) == BILLING_ORDER_STATUS_PAID and _is_referral_invitation_renewal(order)
 
 
 def _should_defer_subscription_renewal_activation(

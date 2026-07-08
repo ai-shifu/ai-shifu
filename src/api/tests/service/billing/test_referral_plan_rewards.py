@@ -827,8 +827,7 @@ def test_pingxx_renewal_event_preserves_paid_referral_reward_order(
         assert order.payment_provider == "manual"
         assert order.channel == "manual"
         assert (
-            order.provider_reference_id
-            == "referral-reward:ref-reward-pingxx-renewal"
+            order.provider_reference_id == "referral-reward:ref-reward-pingxx-renewal"
         )
         assert order.product_bid == "bill-product-plan-monthly-pro"
         assert order.metadata_json["renewal_event_bid"] == "renewal-referral-pingxx"
