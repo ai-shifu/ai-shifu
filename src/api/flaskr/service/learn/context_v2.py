@@ -1912,6 +1912,12 @@ class RunScriptContextV2:
 
     # get the outline items to start or complete
     def _get_next_outline_item(self) -> list[OutlineItemUpdateDTO]:
+        if not self._current_outline_item:
+            self.app.logger.warning(
+                "Skip outline progress update because current outline item is missing"
+            )
+            return []
+
         res = []
         q = queue.Queue()
         q.put(self._struct)

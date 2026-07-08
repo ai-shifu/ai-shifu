@@ -430,6 +430,17 @@ class CompletionTailInteractionTests(unittest.TestCase):
 
 
 class RuntimeOutlineBlockCountTests(unittest.TestCase):
+    def test_get_next_outline_item_skips_missing_current_outline_item(self):
+        ctx = _make_context()
+        ctx.app = Flask("missing-current-outline-tests")
+        ctx._current_outline_item = None
+        ctx._current_attend = types.SimpleNamespace(
+            block_position=1,
+            status=LEARN_STATUS_IN_PROGRESS,
+        )
+
+        self.assertEqual(ctx._get_next_outline_item(), [])
+
     def test_get_next_outline_item_uses_runtime_block_count_for_leaf_outline(self):
         ctx = _make_context()
         ctx.app = Flask("runtime-outline-block-count-tests")
