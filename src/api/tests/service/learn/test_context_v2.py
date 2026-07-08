@@ -2143,5 +2143,71 @@ class BuildContextFromBlocksTests(unittest.TestCase):
             )
 
 
+class BuildContextNoVariableInteractionTests(unittest.TestCase):
+    """No-variable button interactions (e.g. ?[A | B | C]) carry a real learner
+    choice, but markdown-flow has no variable to recover it from and would
+    collapse the turn into {user: "ok"} + {assistant: "ok"}, dropping the
+    selection. build_context_from_blocks must reuse the choice captured in
+    generated_content, and skip the turn entirely when it is empty."""
+
+    DOC = (
+        "Content one.\n"
+        "---\n"
+        "?[网络招聘网站 | 猎头公司 | 人才测评 | 培训业务]\n"
+        "---\n"
+        "Second content."
+    )
+
+    def _blocks(self, selection):
+        return [
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                position=0,
+                generated_content="reply zero",
+            ),
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                position=1,
+                generated_content=selection,
+            ),
+        ]
+
+    def test_selection_reused_instead_of_collapsing_to_ok(self):
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks("猎头公司"), self.DOC, {}
+            )
+
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "Content one."},
+                {"role": "assistant", "content": "reply zero"},
+                {"role": "user", "content": "猎头公司"},
+                {"role": "assistant", "content": "ok"},
+            ],
+        )
+        # No raw ?[...] leaks and the user turn is the real choice, not "ok".
+        self.assertTrue(all("?[" not in m["content"] for m in messages))
+
+    def test_empty_selection_skips_the_interaction_turn(self):
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks("   "), self.DOC, {}
+            )
+
+        # Only the content block survives; the empty interaction contributes
+        # nothing rather than a fabricated {user: "ok"} pair.
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "Content one."},
+                {"role": "assistant", "content": "reply zero"},
+            ],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
