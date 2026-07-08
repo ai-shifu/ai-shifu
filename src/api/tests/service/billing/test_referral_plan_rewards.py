@@ -11,7 +11,9 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
+    BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
+    BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -720,6 +722,117 @@ def test_referral_plan_reward_releases_reserved_manual_renewal_at_boundary(
         assert bucket.effective_from == boundary_at
         assert bucket.effective_to == next_cycle_end
         assert ledger.metadata_json["bucket_credit_state"] == "available"
+
+
+def test_pingxx_renewal_event_preserves_paid_referral_reward_order(
+    referral_billing_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    boundary_at = normalize_mysql_datetime(now_utc() - timedelta(minutes=1))
+    current_cycle_start = boundary_at - timedelta(days=30)
+
+    def _fail_provider_sync(*_args, **_kwargs):
+        raise AssertionError("paid referral reward orders must not sync providers")
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.renewal.sync_billing_order",
+        _fail_provider_sync,
+    )
+
+    with referral_billing_app.app_context():
+        product = BillingProduct.query.filter_by(
+            product_bid="bill-product-plan-monthly-pro",
+        ).one()
+        next_cycle_end = calculate_self_managed_billing_cycle_end_after_boundary(
+            product,
+            cycle_boundary_at=boundary_at,
+        )
+        assert next_cycle_end is not None
+        subscription = BillingSubscription(
+            subscription_bid="sub-referral-pingxx-renewal",
+            creator_bid="creator-ref-billing-1",
+            product_bid="bill-product-plan-monthly-pro",
+            status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+            billing_provider="pingxx",
+            provider_subscription_id="",
+            provider_customer_id="",
+            billing_anchor_at=current_cycle_start,
+            current_period_start_at=current_cycle_start,
+            current_period_end_at=boundary_at,
+            grace_period_end_at=None,
+            cancel_at_period_end=0,
+            next_product_bid="",
+            last_renewed_at=current_cycle_start,
+            last_failed_at=None,
+            metadata_json={"checkout_started": True},
+        )
+        order = BillingOrder(
+            bill_order_bid="bill-referral-pingxx-paid-renewal",
+            creator_bid="creator-ref-billing-1",
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            product_bid="bill-product-plan-monthly-pro",
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=0,
+            paid_amount=0,
+            payment_provider="manual",
+            channel="manual",
+            provider_reference_id="referral-reward:ref-reward-pingxx-renewal",
+            status=BILLING_ORDER_STATUS_PAID,
+            paid_at=boundary_at - timedelta(days=1),
+            metadata_json={
+                "checkout_type": "referral_invitation_reward",
+                "referral_invitation_reward": True,
+                "reward_bid": "ref-reward-pingxx-renewal",
+                "campaign_bid": "ref-campaign-billing",
+                "reward_rule_bid": "ref-rule-billing",
+                "renewal_cycle_start_at": boundary_at.isoformat(),
+                "renewal_cycle_end_at": next_cycle_end.isoformat(),
+            },
+        )
+        event = BillingRenewalEvent(
+            renewal_event_bid="renewal-referral-pingxx",
+            subscription_bid=subscription.subscription_bid,
+            creator_bid=subscription.creator_bid,
+            event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
+            scheduled_at=boundary_at - timedelta(days=7),
+            status=BILLING_RENEWAL_EVENT_STATUS_PENDING,
+            attempt_count=0,
+            last_error="",
+            payload_json={"source": "pytest"},
+            processed_at=None,
+        )
+        dao.db.session.add_all([subscription, order, event])
+        dao.db.session.commit()
+
+    payload = run_billing_renewal_event(
+        referral_billing_app,
+        renewal_event_bid="renewal-referral-pingxx",
+    )
+
+    assert payload.status == "queued_for_reconcile"
+    assert payload.bill_order_bid == "bill-referral-pingxx-paid-renewal"
+
+    with referral_billing_app.app_context():
+        event = BillingRenewalEvent.query.filter_by(
+            renewal_event_bid="renewal-referral-pingxx",
+        ).one()
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="bill-referral-pingxx-paid-renewal",
+        ).one()
+
+        assert event.status == BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED
+        assert event.last_error == ""
+        assert event.payload_json["bill_order_bid"] == order.bill_order_bid
+        assert order.payment_provider == "manual"
+        assert order.channel == "manual"
+        assert (
+            order.provider_reference_id
+            == "referral-reward:ref-reward-pingxx-renewal"
+        )
+        assert order.product_bid == "bill-product-plan-monthly-pro"
+        assert order.metadata_json["renewal_event_bid"] == "renewal-referral-pingxx"
+        assert order.metadata_json["referral_invitation_reward"] is True
 
 
 def test_referral_plan_reward_releases_reserved_trial_reward_at_boundary(

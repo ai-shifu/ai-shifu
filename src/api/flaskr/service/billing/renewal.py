@@ -48,6 +48,7 @@ from .queries import (
 from .subscriptions import (
     activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
     ensure_subscription_renewal_order,
+    is_paid_referral_invitation_renewal as _is_paid_referral_invitation_renewal,
     load_billing_product_by_bid as _load_billing_product_by_bid,
     load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
     load_subscription_by_bid as _load_subscription_by_bid,
@@ -586,6 +587,15 @@ def _execute_subscription_renewal(
     payload_json["bill_order_bid"] = order.bill_order_bid
     event.payload_json = payload_json
     db.session.add(event)
+
+    if _is_paid_referral_invitation_renewal(order):
+        _complete_renewal_event(event, now=now)
+        db.session.commit()
+        return _result_from_event(
+            "queued_for_reconcile",
+            event,
+            bill_order_bid=order.bill_order_bid,
+        )
 
     if order.payment_provider == "pingxx" and not order.provider_reference_id:
         _complete_renewal_event(event, now=now)
