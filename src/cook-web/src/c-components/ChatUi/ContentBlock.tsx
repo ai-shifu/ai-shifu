@@ -104,18 +104,18 @@ const ContentBlock = memo(
       item.element_type === 'text';
     const isRichContentElement =
       item.type === ChatContentItemType.CONTENT && item.element_type !== 'text';
-    const shouldRenderExternalCustomButton =
-      isRichContentElement && hasCustomButtonAfterContent(item.content);
     const localizedContent = localizeSystemInteractionContent(
       item.content || '',
       t,
     );
+    const shouldRenderExternalCustomButton =
+      isRichContentElement && hasCustomButtonAfterContent(localizedContent);
     const renderedContent =
       shouldEnableTypewriter || shouldRenderExternalCustomButton
         ? (stripCustomButtonAfterContent(localizedContent) ?? '')
         : localizedContent;
     const externalCustomButtonInnerHtml = shouldRenderExternalCustomButton
-      ? extractCustomButtonAfterContentInnerHtml(item.content)
+      ? extractCustomButtonAfterContentInnerHtml(localizedContent)
       : '';
     const handleTypeFinished = useCallback(() => {
       onTypeFinished?.(blockBid, renderedContent);

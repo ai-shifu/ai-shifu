@@ -21,7 +21,7 @@ const SYSTEM_INTERACTION_LABEL_KEYS: Partial<
   [SYS_INTERACTION_TYPE.LOGIN]: 'server.user.login',
 };
 
-const SYSTEM_INTERACTION_REGEX = /\?\[([^\]]*?)\/\/(_sys_[a-z_]+)\]/g;
+const SYSTEM_INTERACTION_REGEX = /\?\[([^\]]*?)\/\/(_sys_[a-zA-Z0-9_]+)\]/g;
 
 export const localizeSystemInteractionContent = (
   content: string | undefined | null,
