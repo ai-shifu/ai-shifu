@@ -210,7 +210,7 @@ def test_ask_provider_metadata_localizes_text_for_zh_cn(app):
     coze = providers["coze"]
 
     assert coze["title"] == "Coze"
-    assert coze["description"] == "使用 Coze Bot 对话接口处理追问。"
+    assert coze["description"] == "用 Coze Bot 回答学员追问。"
     assert coze["json_schema"]["properties"]["api_key"]["title"] == "API 密钥"
     assert (
         coze["json_schema"]["properties"]["bot_id"]["description"] == "Coze Bot 标识。"
