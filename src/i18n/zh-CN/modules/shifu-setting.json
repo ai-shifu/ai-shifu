@@ -17,11 +17,11 @@
   "askProviderConfigInvalidJson": "{field} 必须是合法 JSON 对象",
   "askProviderConfigRequired": "{field} 为必填项",
   "askProviderDescriptions": {
-    "coze": "用 Coze Bot 处理学员追问。",
-    "coze_workflow": "用 Coze 工作流处理学员追问。",
-    "dify": "用 Dify 对话应用处理学员追问。",
-    "llm": "用内置模型处理学员追问。",
-    "volc_knowledge": "用火山引擎知识库检索后处理学员追问。"
+    "coze": "用 Coze Bot 回答学员追问。",
+    "coze_workflow": "用 Coze 工作流回答学员追问。",
+    "dify": "用 Dify 对话应用回答学员追问。",
+    "llm": "用内置模型回答学员追问。",
+    "volc_knowledge": "用火山引擎知识库检索后回答学员追问。"
   },
   "askProviderFields": {
     "coze": {
