@@ -195,7 +195,7 @@
   "priceUnit": "Currency",
   "selectModelHint": "Controls main course content generation; use the default model if unsure",
   "selected": "Selected",
-  "shifuAvatar": "Course avatar",
+  "shifuAvatar": "Teacher avatar",
   "shifuDescription": "Course description",
   "shifuDescriptionEmpty": "Course description cannot be empty",
   "shifuDescriptionMaxLength": "Course description cannot exceed 500 characters",

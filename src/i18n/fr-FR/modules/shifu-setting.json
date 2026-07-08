@@ -195,7 +195,7 @@
   "priceUnit": "Devise",
   "selectModelHint": "Contrôle la génération du contenu principal du cours ; utilisez le modèle par défaut en cas de doute",
   "selected": "Sélectionné",
-  "shifuAvatar": "Avatar du cours",
+  "shifuAvatar": "Avatar de l’enseignant",
   "shifuDescription": "Description du cours",
   "shifuDescriptionEmpty": "La description du cours ne peut pas être vide",
   "shifuDescriptionMaxLength": "La description du cours ne peut pas dépasser 500 caractères",

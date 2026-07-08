@@ -195,7 +195,7 @@
   "priceUnit": "币种",
   "selectModelHint": "不同模型会有不同的授课质量。不确定时推荐使用默认模型",
   "selected": "已选择",
-  "shifuAvatar": "教师头像",
+  "shifuAvatar": "老师头像",
   "shifuDescription": "课程简介",
   "shifuDescriptionEmpty": "课程简介不能为空",
   "shifuDescriptionMaxLength": "课程简介不能超过 500 个字符",
