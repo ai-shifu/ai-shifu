@@ -575,7 +575,7 @@ def test_copy_course_rejects_builtin_demo_course(app):
                 operator_user_bid=SOURCE_OPERATOR_BID,
             )
 
-        assert "copied" in exc_info.value.message.lower()
+        assert exc_info.value.message == _("server.shifu.copyCourseDemoNotAllowed")
         assert DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).count() == 1
 
 
