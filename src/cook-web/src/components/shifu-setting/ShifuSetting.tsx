@@ -960,7 +960,7 @@ export default function ShifuSettingDialog({
     model: z.string(),
     systemPrompt: z
       .string()
-      .max(20000, t('module.shifuSetting.shifuPromptMaxLength')),
+      .max(2000, t('module.shifuSetting.shifuPromptMaxLength')),
     price: z
       .string()
       .min(0.5, t('module.shifuSetting.shifuPriceEmpty'))
@@ -1883,7 +1883,7 @@ export default function ShifuSettingDialog({
                         <Textarea
                           disabled={currentShifu?.readonly}
                           {...field}
-                          maxLength={20000}
+                          maxLength={2000}
                           placeholder={t(
                             'module.shifuSetting.shifuPromptPlaceholder',
                           )}

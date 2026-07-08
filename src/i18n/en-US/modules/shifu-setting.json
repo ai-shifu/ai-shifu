@@ -208,7 +208,7 @@
   "shifuPriceFormat": "Price must be a valid number",
   "shifuPrompt": "AI teaching instructions",
   "shifuPromptHint": "Tell the AI who this course is for, what tone to use, and which rules it must follow",
-  "shifuPromptMaxLength": "AI teaching instructions cannot exceed 20000 characters",
+  "shifuPromptMaxLength": "Course prompt cannot exceed 2000 characters",
   "shifuPromptPlaceholder": "Example: For beginners, use a friendly tone, show an example before explaining each concept",
   "shifuTemperature": "Content generation temperature",
   "shifuTemperatureFormat": "Temperature must be a valid number",

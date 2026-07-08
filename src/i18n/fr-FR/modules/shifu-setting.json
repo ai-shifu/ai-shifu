@@ -208,7 +208,7 @@
   "shifuPriceFormat": "Le prix doit être un nombre valide",
   "shifuPrompt": "Consignes d’enseignement IA",
   "shifuPromptHint": "Indiquez à l’IA à qui s’adresse le cours, quel ton utiliser et quelles règles respecter",
-  "shifuPromptMaxLength": "Les consignes d’enseignement IA ne peuvent pas dépasser 20 000 caractères",
+  "shifuPromptMaxLength": "Le prompt de cours ne peut pas dépasser 2 000 caractères",
   "shifuPromptPlaceholder": "Exemple : pour débutants, ton bienveillant, montrer un exemple avant chaque notion",
   "shifuTemperature": "Température de génération du contenu",
   "shifuTemperatureFormat": "La température doit être un nombre valide",
