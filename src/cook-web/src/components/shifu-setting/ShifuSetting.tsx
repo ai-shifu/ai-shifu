@@ -1891,9 +1891,6 @@ export default function ShifuSettingDialog({
                           maxRows={30}
                         />
                       </FormControl>
-                      {/* <div className='text-xs text-muted-foreground text-right'>
-                      {field.value?.length ?? 0}/10000
-                    </div> */}
                       <FormMessage />
                     </FormItem>
                   )}
