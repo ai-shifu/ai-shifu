@@ -140,6 +140,11 @@ def _resolve_output_language(language: str) -> str:
     return raw_language
 
 
+def resolve_markdownflow_output_language(language: str | None = None) -> str:
+    """Resolve a locale code or language name to MarkdownFlow output language."""
+    return _resolve_output_language(language or get_current_language())
+
+
 def get_markdownflow_output_language() -> str:
     """
     Get the output language string for MarkdownFlow based on current user language.
@@ -150,4 +155,4 @@ def get_markdownflow_output_language() -> str:
              and "Français" for fr-FR.
              Defaults to "English" if language not found, otherwise returns the input.
     """
-    return _resolve_output_language(get_current_language())
+    return resolve_markdownflow_output_language()

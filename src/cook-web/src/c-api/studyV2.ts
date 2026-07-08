@@ -1,5 +1,8 @@
 import { SSE } from 'sse.js';
-import request, { attachSseBusinessResponseFallback } from '@/lib/request';
+import request, {
+  attachSseBusinessResponseFallback,
+  getCurrentLanguageHeaders,
+} from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
@@ -334,6 +337,7 @@ export const getRunMessage = (
   const url = `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`;
   const traceHeaders = buildTraceHeaders({
     'Content-Type': 'application/json',
+    ...getCurrentLanguageHeaders(),
     ...(token
       ? {
           Authorization: `Bearer ${token}`,
@@ -401,6 +405,7 @@ const createSseSource = (
   const token = useUserStore.getState().getToken();
   const traceHeaders = buildTraceHeaders({
     'Content-Type': 'application/json',
+    ...getCurrentLanguageHeaders(),
     ...(token
       ? {
           Authorization: `Bearer ${token}`,

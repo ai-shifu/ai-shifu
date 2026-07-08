@@ -109,6 +109,7 @@ from flaskr.service.learn.context_v2 import (
     MdflowContextV2,
     PaidException,
     _find_outline_path_or_raise,
+    _resolve_runtime_output_language,
     RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
@@ -1138,6 +1139,60 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
         self.assertFalse(context._mdflow.visual_mode)
 
+    def test_init_uses_explicit_output_language_when_enabled(self):
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.output_language = None
+
+            def set_output_language(self, language):
+                self.output_language = language
+                return self
+
+        with (
+            patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow),
+            patch(
+                "flaskr.service.learn.context_v2.get_markdownflow_output_language",
+                return_value="English",
+            ),
+        ):
+            context = MdflowContextV2(
+                document="doc",
+                use_learner_language=True,
+                output_language="zh-CN",
+            )
+
+        self.assertEqual(context._mdflow.output_language, "简体中文")
+
+    def test_filter_context_removes_stale_english_output_instruction(self):
+        context = [
+            {
+                "role": "user",
+                "content": "<output_language_instruction>\nOUTPUT: 100% English\n</output_language_instruction>",
+            },
+            {"role": "assistant", "content": "English answer"},
+            {"role": "user", "content": "中文问题"},
+        ]
+
+        filtered = MdflowContextV2.filter_context_by_output_language(
+            context,
+            "zh-CN",
+        )
+
+        self.assertEqual(filtered, context[1:])
+
+
+class RuntimeOutputLanguageTests(unittest.TestCase):
+    def test_runtime_language_overrides_stale_profile_language(self):
+        with patch(
+            "flaskr.service.learn.context_v2.get_current_language",
+            return_value="zh-CN",
+        ):
+            output_language = _resolve_runtime_output_language(
+                {"sys_user_language": "en-US", "language": "en-US"}
+            )
+
+        self.assertEqual(output_language, "zh-CN")
+
 
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
     def test_falls_back_to_allowlist_when_persisted_model_not_allowed(self):
@@ -1177,30 +1232,92 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
 
 
 class PreviewResolveVariablesTests(unittest.TestCase):
-    def test_does_not_inject_sys_user_language_when_missing(self):
+    def test_injects_request_language_when_missing(self):
         app = Flask("preview-variables")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(block_index=0)
 
-        with patch("flaskr.service.learn.context_v2.get_user_profiles") as mock_fetch:
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.get_user_profiles",
+                return_value={"sys_user_nickname": "017"},
+            ) as mock_fetch,
+            patch(
+                "flaskr.service.learn.context_v2.get_current_language",
+                return_value="zh-CN",
+            ),
+        ):
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
                 user_bid="user-1",
                 shifu_bid="shifu-1",
             )
 
-        self.assertIsNone(variables.get("sys_user_language"))
-        mock_fetch.assert_not_called()
+        self.assertEqual(variables.get("sys_user_language"), "zh-CN")
+        self.assertEqual(variables.get("language"), "zh-CN")
+        self.assertEqual(variables.get("sys_user_nickname"), "017")
+        mock_fetch.assert_called_once_with(app, "user-1", "shifu-1")
+
+    def test_empty_sys_user_language_uses_request_language(self):
+        app = Flask("preview-variables-empty-language")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            variables={"sys_user_language": "", "language": ""},
+        )
+
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.get_user_profiles",
+                return_value={"sys_user_language": "en-US", "language": "en-US"},
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.get_current_language",
+                return_value="zh-CN",
+            ),
+        ):
+            variables = preview_ctx._resolve_preview_variables(
+                preview_request=preview_request,
+                user_bid="user-1",
+                shifu_bid="shifu-1",
+            )
+
+        self.assertEqual(variables.get("sys_user_language"), "zh-CN")
+        self.assertEqual(variables.get("language"), "zh-CN")
+
+    def test_request_language_overrides_stale_profile_language(self):
+        app = Flask("preview-variables-request-language")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(
+            block_index=0,
+            variables={"sys_user_language": "en-US", "language": "zh-CN"},
+        )
+
+        with patch(
+            "flaskr.service.learn.context_v2.get_user_profiles",
+            return_value={"sys_user_language": "en-US", "language": "en-US"},
+        ):
+            variables = preview_ctx._resolve_preview_variables(
+                preview_request=preview_request,
+                user_bid="user-1",
+                shifu_bid="shifu-1",
+            )
+
+        self.assertEqual(variables.get("sys_user_language"), "zh-CN")
+        self.assertEqual(variables.get("language"), "zh-CN")
 
     def test_keeps_existing_sys_user_language(self):
         app = Flask("preview-variables-existing")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
             block_index=0,
-            variables={"sys_user_language": "fr-FR"},
+            variables={"sys_user_language": "fr-FR", "language": "fr-FR"},
         )
 
-        with patch("flaskr.service.learn.context_v2.get_user_profiles") as mock_fetch:
+        with patch(
+            "flaskr.service.learn.context_v2.get_user_profiles",
+            return_value={"sys_user_nickname": "017"},
+        ) as mock_fetch:
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
                 user_bid="user-1",
@@ -1208,7 +1325,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
             )
 
         self.assertEqual(variables.get("sys_user_language"), "fr-FR")
-        mock_fetch.assert_not_called()
+        self.assertEqual(variables.get("language"), "fr-FR")
+        mock_fetch.assert_called_once_with(app, "user-1", "shifu-1")
 
 
 class PreviewRunLlmLoggingTests(unittest.TestCase):
@@ -1417,6 +1535,10 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
             @staticmethod
             def normalize_context_messages(_value):
                 return None
+
+            @staticmethod
+            def filter_context_by_output_language(context, _output_language):
+                return context
 
             def get_block(self, _block_index):
                 return types.SimpleNamespace(
