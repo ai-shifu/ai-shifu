@@ -3,7 +3,6 @@ export const USAGE_PROGRESS_SEPARATOR = '/';
 export const ALL_OPTION_VALUE = '__all__';
 export const SINGLE_SELECT_ITEM_CLASS =
   'pl-3 pr-8 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
-export const SINGLE_SELECT_INDICATOR_CLASS = 'left-auto right-2';
 export const FILTER_LABEL_CLASS =
   'shrink-0 whitespace-nowrap text-[length:var(--text-sm-font-size,14px)] not-italic font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)]';
 

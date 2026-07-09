@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { ModelOption } from '@/types/shifu';
 
-const MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME = 'left-auto right-3';
+const MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME = 'right-3';
 
 function ModelOptionLabel({
   label,
