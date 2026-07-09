@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
-import { X } from 'lucide-react';
+import { AlertCircle, X } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -139,8 +139,9 @@ export function AdminMetricCardGroup({
   const grid = (
     <>
       {staleMessage ? (
-        <div className='mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'>
-          {staleMessage}
+        <div className='mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'>
+          <AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />
+          <span>{staleMessage}</span>
         </div>
       ) : null}
       <TooltipProvider delayDuration={tooltipDelayDuration}>
