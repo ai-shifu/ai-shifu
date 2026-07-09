@@ -9,7 +9,11 @@ from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.tts.validation import (
     assert_minimax_preview_voice_available,
 )
-from flaskr.service.tts.models import TTSMiniMaxClonedVoice
+from flaskr.service.tts.models import (
+    TTSMiniMaxClonedVoice,
+    TTS_MINIMAX_CLONE_STATUS_FAILED,
+    TTS_MINIMAX_CLONE_STATUS_READY,
+)
 
 
 _BUILT_IN_VOICE_ID = "female-shaonv"
@@ -62,7 +66,12 @@ def test_built_in_voice_is_always_allowed(app):
 
 def test_ready_clone_owned_by_requester_is_allowed(app):
     _prepare_tables(app)
-    _seed_clone(app, voice_id="AiShifu_ready_1", owner="creator-1", status="ready")
+    _seed_clone(
+        app,
+        voice_id="AiShifu_ready_1",
+        owner="creator-1",
+        status=TTS_MINIMAX_CLONE_STATUS_READY,
+    )
     with app.app_context():
         assert_minimax_preview_voice_available(
             app, voice_id="AiShifu_ready_1", owner_user_bid="creator-1"
@@ -71,7 +80,12 @@ def test_ready_clone_owned_by_requester_is_allowed(app):
 
 def test_ready_clone_owned_by_another_user_is_rejected(app):
     _prepare_tables(app)
-    _seed_clone(app, voice_id="AiShifu_ready_2", owner="other-creator", status="ready")
+    _seed_clone(
+        app,
+        voice_id="AiShifu_ready_2",
+        owner="other-creator",
+        status=TTS_MINIMAX_CLONE_STATUS_READY,
+    )
     with app.app_context():
         with pytest.raises(AppException) as exc_info:
             assert_minimax_preview_voice_available(
@@ -80,13 +94,83 @@ def test_ready_clone_owned_by_another_user_is_rejected(app):
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
+def test_isolation_when_same_voice_id_has_different_owners(app):
+    """Two clones share the same voice_id but differ by owner: the requester
+    only matches their own row, never the foreign one."""
+    _prepare_tables(app)
+    _seed_clone(
+        app,
+        voice_id="AiShifu_shared_id",
+        owner="creator-1",
+        status=TTS_MINIMAX_CLONE_STATUS_READY,
+    )
+    _seed_clone(
+        app,
+        voice_id="AiShifu_shared_id",
+        owner="creator-2",
+        status=TTS_MINIMAX_CLONE_STATUS_READY,
+    )
+    with app.app_context():
+        # creator-1 owns a ready clone with this id -> allowed.
+        assert_minimax_preview_voice_available(
+            app, voice_id="AiShifu_shared_id", owner_user_bid="creator-1"
+        )
+        # creator-3 owns none -> rejected even though the id exists for others.
+        with pytest.raises(AppException) as exc_info:
+            assert_minimax_preview_voice_available(
+                app, voice_id="AiShifu_shared_id", owner_user_bid="creator-3"
+            )
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+
+
+def test_custom_voice_with_empty_owner_is_rejected(app):
+    """An empty owner must not bypass owner scoping and match any ready clone."""
+    _prepare_tables(app)
+    _seed_clone(
+        app,
+        voice_id="AiShifu_ready_owned",
+        owner="creator-1",
+        status=TTS_MINIMAX_CLONE_STATUS_READY,
+    )
+    with app.app_context():
+        with pytest.raises(AppException) as exc_info:
+            assert_minimax_preview_voice_available(
+                app, voice_id="AiShifu_ready_owned", owner_user_bid=""
+            )
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+
+
 def test_failed_clone_is_rejected(app):
     _prepare_tables(app)
-    _seed_clone(app, voice_id="AiShifu_failed_1", owner="creator-1", status="failed")
+    _seed_clone(
+        app,
+        voice_id="AiShifu_failed_1",
+        owner="creator-1",
+        status=TTS_MINIMAX_CLONE_STATUS_FAILED,
+    )
     with app.app_context():
         with pytest.raises(AppException) as exc_info:
             assert_minimax_preview_voice_available(
                 app, voice_id="AiShifu_failed_1", owner_user_bid="creator-1"
+            )
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+
+
+def test_deleted_clone_is_rejected(app):
+    """A ready, owned clone that has been soft-deleted is rejected like an
+    unknown voice."""
+    _prepare_tables(app)
+    _seed_clone(
+        app,
+        voice_id="AiShifu_deleted_1",
+        owner="creator-1",
+        status=TTS_MINIMAX_CLONE_STATUS_READY,
+        deleted=1,
+    )
+    with app.app_context():
+        with pytest.raises(AppException) as exc_info:
+            assert_minimax_preview_voice_available(
+                app, voice_id="AiShifu_deleted_1", owner_user_bid="creator-1"
             )
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 

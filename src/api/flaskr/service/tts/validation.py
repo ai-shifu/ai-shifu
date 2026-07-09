@@ -198,24 +198,30 @@ def assert_minimax_preview_voice_available(
     if normalized_voice_id in built_in_voice_ids:
         return
 
-    with app.app_context():
-        query = TTSMiniMaxClonedVoice.query.filter(
-            TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
-            TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
-            TTSMiniMaxClonedVoice.deleted == 0,
-        )
-        normalized_owner = (owner_user_bid or "").strip()
-        if normalized_owner:
-            query = query.filter(
-                TTSMiniMaxClonedVoice.owner_user_bid == normalized_owner
+    # Custom clone voices are private per creator. Always scope the lookup by the
+    # requesting owner so an empty/whitespace owner cannot bypass the filter and
+    # preview another creator's clone. An empty owner therefore matches nothing
+    # and is rejected below, exactly like an unknown voice.
+    normalized_owner = (owner_user_bid or "").strip()
+    ready_clone = None
+    if normalized_owner:
+        with app.app_context():
+            ready_clone = (
+                TTSMiniMaxClonedVoice.query.filter(
+                    TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+                    TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
+                    TTSMiniMaxClonedVoice.deleted == 0,
+                    TTSMiniMaxClonedVoice.owner_user_bid == normalized_owner,
+                )
+                .order_by(TTSMiniMaxClonedVoice.id.desc())
+                .first()
             )
-        ready_clone = query.order_by(TTSMiniMaxClonedVoice.id.desc()).first()
 
     if ready_clone is None:
         app.logger.warning(
             "Rejecting MiniMax preview voice_id %s for owner %s: "
             "no ready cloned voice found",
             normalized_voice_id,
-            (owner_user_bid or "").strip() or "-",
+            normalized_owner or "-",
         )
         _raise_param_error(f"TTS voice is not available: {normalized_voice_id}")
