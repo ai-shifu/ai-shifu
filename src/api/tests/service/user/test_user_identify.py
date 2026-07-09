@@ -506,19 +506,25 @@ def test_universal_verification_code_policy_requires_opt_in(app):
 
     with app.app_context():
         original_env = app.config.get("ENV")
+        original_mode = app.config.get("MODE")
         original_enabled = app.config.get("UNIVERSAL_VERIFICATION_CODE_ENABLED")
         original_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
         try:
             app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+            app.config["MODE"] = ""
 
             app.config["ENV"] = "development"
             app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = False
             assert get_enabled_universal_verification_code(app) == ""
 
-            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = True
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = "false"
+            assert get_enabled_universal_verification_code(app) == ""
+
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = "true"
             assert get_enabled_universal_verification_code(app) == "9999"
         finally:
             app.config["ENV"] = original_env
+            app.config["MODE"] = original_mode
             app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = original_enabled
             app.config["UNIVERSAL_VERIFICATION_CODE"] = original_code
 
@@ -530,16 +536,29 @@ def test_universal_verification_code_policy_ignores_production(app):
 
     with app.app_context():
         original_env = app.config.get("ENV")
+        original_mode = app.config.get("MODE")
+        original_environment = app.config.get("ENVIRONMENT")
+        original_enveriment = app.config.get("ENVERIMENT")
         original_enabled = app.config.get("UNIVERSAL_VERIFICATION_CODE_ENABLED")
         original_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
         try:
-            app.config["ENV"] = "production"
+            app.config["ENV"] = "development"
+            app.config["MODE"] = "prod"
+            app.config["ENVIRONMENT"] = ""
+            app.config["ENVERIMENT"] = ""
             app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = True
             app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
 
             assert get_enabled_universal_verification_code(app) == ""
+
+            app.config["MODE"] = ""
+            app.config["ENVIRONMENT"] = "production"
+            assert get_enabled_universal_verification_code(app) == ""
         finally:
             app.config["ENV"] = original_env
+            app.config["MODE"] = original_mode
+            app.config["ENVIRONMENT"] = original_environment
+            app.config["ENVERIMENT"] = original_enveriment
             app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = original_enabled
             app.config["UNIVERSAL_VERIFICATION_CODE"] = original_code
 
