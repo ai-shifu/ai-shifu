@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import { X } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +19,13 @@ export type AdminMetricCardItem = {
   onClick?: () => void;
 };
 
+export type AdminMetricCardActiveFilter = {
+  label: ReactNode;
+  value: ReactNode;
+  clearAriaLabel: string;
+  onClear: () => void;
+};
+
 type AdminMetricCardProps = Omit<AdminMetricCardItem, 'key'> & {
   hoverMode?: AdminMetricCardHoverMode;
   className?: string;
@@ -32,6 +40,8 @@ type AdminMetricCardGroupProps = {
   cardHoverMode?: AdminMetricCardHoverMode;
   tooltipDelayDuration?: number;
   valueClassName?: string;
+  staleMessage?: ReactNode;
+  activeFilter?: AdminMetricCardActiveFilter | null;
 };
 
 const CARD_CLASS = 'rounded-lg border border-border/70 bg-muted/20 p-4';
@@ -123,23 +133,48 @@ export function AdminMetricCardGroup({
   cardHoverMode = 'card',
   tooltipDelayDuration = 150,
   valueClassName,
+  staleMessage,
+  activeFilter,
 }: AdminMetricCardGroupProps) {
   const grid = (
-    <TooltipProvider delayDuration={tooltipDelayDuration}>
-      <div className={cn('grid gap-3', gridClassName)}>
-        {items.map(item => (
-          <AdminMetricCard
-            key={item.key}
-            label={item.label}
-            value={item.value}
-            tooltip={item.tooltip}
-            onClick={item.onClick}
-            hoverMode={cardHoverMode}
-            valueClassName={valueClassName}
-          />
-        ))}
-      </div>
-    </TooltipProvider>
+    <>
+      {staleMessage ? (
+        <div className='mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'>
+          {staleMessage}
+        </div>
+      ) : null}
+      <TooltipProvider delayDuration={tooltipDelayDuration}>
+        <div className={cn('grid gap-3', gridClassName)}>
+          {items.map(item => (
+            <AdminMetricCard
+              key={item.key}
+              label={item.label}
+              value={item.value}
+              tooltip={item.tooltip}
+              onClick={item.onClick}
+              hoverMode={cardHoverMode}
+              valueClassName={valueClassName}
+            />
+          ))}
+        </div>
+      </TooltipProvider>
+      {activeFilter ? (
+        <div className='mt-4 flex flex-wrap items-center gap-2'>
+          <span className='text-sm text-muted-foreground'>
+            {activeFilter.label}
+          </span>
+          <button
+            type='button'
+            aria-label={activeFilter.clearAriaLabel}
+            className='inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground transition-colors hover:bg-muted'
+            onClick={activeFilter.onClear}
+          >
+            <span>{activeFilter.value}</span>
+            <X className='h-3.5 w-3.5' />
+          </button>
+        </div>
+      ) : null}
+    </>
   );
 
   if (!title) {
