@@ -8,7 +8,7 @@ resetting passwords where we only want to validate ownership of an identifier.
 from __future__ import annotations
 
 import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from flask import Flask
 
@@ -19,6 +19,9 @@ from flaskr.util.datetime import now_utc
 from flaskr.service.common.models import raise_error
 from flaskr.service.user.models import UserVerifyCode
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.user.verification_code_policy import (
+    get_enabled_universal_verification_code,
+)
 
 CodeKind = Literal["sms", "email"]
 
@@ -102,7 +105,7 @@ def consume_verification_code(app: Flask, *, identifier: str, code: str) -> None
     if not identifier or not code:
         raise_error("server.common.unknownError")
 
-    fix_code: Optional[str] = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+    fix_code = get_enabled_universal_verification_code(app)
     if fix_code and code == fix_code:
         # Universal code is accepted in dev/test environments and should not
         # affect cache/db state.

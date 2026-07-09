@@ -79,6 +79,8 @@ def user_trial_client(monkeypatch, tmp_path):
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SECRET_KEY="test-secret-key",
         TOKEN_EXPIRE_TIME=60 * 60,
+        ENV="testing",
+        UNIVERSAL_VERIFICATION_CODE_ENABLED=True,
         UNIVERSAL_VERIFICATION_CODE="9999",
         REDIS_KEY_PREFIX="test:",
         REDIS_KEY_PREFIX_USER="test:user:",

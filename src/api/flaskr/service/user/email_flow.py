@@ -17,6 +17,9 @@ from flaskr.service.common.models import raise_error
 from flaskr.service.user.phone_flow import migrate_user_study_record, init_first_course
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.utils import generate_token
+from flaskr.service.user.verification_code_policy import (
+    get_enabled_universal_verification_code,
+)
 from flaskr.service.user.models import UserVerifyCode
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
@@ -30,13 +33,6 @@ from flaskr.service.user.repository import (
     upsert_credential,
     transactional_session,
 )
-
-FIX_CHECK_CODE = None
-
-
-def configure_fix_check_code(value: Optional[str]) -> None:
-    global FIX_CHECK_CODE
-    FIX_CHECK_CODE = value
 
 
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
@@ -96,14 +92,13 @@ def verify_email_code(
         update_user_profile_with_lable,
     )
 
-    if FIX_CHECK_CODE is None:
-        configure_fix_check_code(app.config.get("UNIVERSAL_VERIFICATION_CODE"))
+    fix_code = get_enabled_universal_verification_code(app)
 
     email_key = (email or "").strip()
     code_key = (
         get_redis_derived_prefix("REDIS_KEY_PREFIX_MAIL_CODE", app=app) + email_key
     )
-    if code != FIX_CHECK_CODE:
+    if not fix_code or code != fix_code:
         cached = redis.get(code_key)
         if cached is not None:
             cached_str = (

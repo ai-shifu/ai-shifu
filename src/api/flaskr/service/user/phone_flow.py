@@ -42,14 +42,11 @@ from flaskr.service.user.repository import (
     transactional_session,
 )
 from flaskr.common.config import get_redis_derived_prefix
+from flaskr.service.user.verification_code_policy import (
+    get_enabled_universal_verification_code,
+)
 
-FIX_CHECK_CODE = None
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
-
-
-def configure_fix_check_code(value: Optional[str]) -> None:
-    global FIX_CHECK_CODE
-    FIX_CHECK_CODE = value
 
 
 def _acquire_bootstrap_lock(app: Flask, timeout_seconds: int = 5) -> Optional[bool]:
@@ -287,8 +284,7 @@ def verify_phone_code(
         update_user_profile_with_lable,
     )
 
-    if FIX_CHECK_CODE is None:
-        configure_fix_check_code(app.config.get("UNIVERSAL_VERIFICATION_CODE"))
+    fix_code = get_enabled_universal_verification_code(app)
 
     raw_phone = (phone or "").strip()
     normalized_phone = normalize_phone_identifier(raw_phone)
@@ -299,7 +295,7 @@ def verify_phone_code(
         lookup_phones.append(raw_phone)
     phone_code_prefix = get_redis_derived_prefix("REDIS_KEY_PREFIX_PHONE_CODE", app=app)
     code_keys = [phone_code_prefix + lookup_phone for lookup_phone in lookup_phones]
-    if code != FIX_CHECK_CODE:
+    if not fix_code or code != fix_code:
         cached = None
         cached_phone = normalized_phone
         for code_key, lookup_phone in zip(code_keys, lookup_phones):

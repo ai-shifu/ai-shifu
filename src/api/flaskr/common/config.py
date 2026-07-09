@@ -877,15 +877,25 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="IP ban time (seconds)",
         group="auth",
     ),
+    "UNIVERSAL_VERIFICATION_CODE_ENABLED": EnvVar(
+        name="UNIVERSAL_VERIFICATION_CODE_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Explicitly enable UNIVERSAL_VERIFICATION_CODE for local development "
+            "and automated tests. Ignored when ENV/MODE is production."
+        ),
+        group="auth",
+    ),
     "UNIVERSAL_VERIFICATION_CODE": EnvVar(
         name="UNIVERSAL_VERIFICATION_CODE",
         required=False,
         example="1024",
         description=(
-            "Universal verification code for testing.\n"
-            "**SECURITY WARNING:** Do NOT set this in production environments.\n"
-            "If set, it will allow anyone to bypass verification.\n"
-            "Only use for local development or testing."
+            "Universal verification code for local development and automated "
+            "tests. Requires UNIVERSAL_VERIFICATION_CODE_ENABLED=true and is "
+            "ignored when ENV/MODE is production. Do not enable in public or "
+            "real-user environments."
         ),
         group="auth",
     ),

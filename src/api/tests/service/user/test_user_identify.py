@@ -1,3 +1,4 @@
+import pytest
 import uuid
 
 
@@ -69,6 +70,8 @@ def test_phone_flow_marks_temp_phone_claim_as_created_new_user(tmp_path, monkeyp
         },
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         TOKEN_EXPIRE_TIME=60 * 60,
+        ENV="testing",
+        UNIVERSAL_VERIFICATION_CODE_ENABLED=True,
         UNIVERSAL_VERIFICATION_CODE="9999",
         REDIS_KEY_PREFIX_PHONE_CODE="test:phone:",
         REDIS_KEY_PREFIX_USER="test:user:",
@@ -494,3 +497,143 @@ def test_email_flow_verifies_code_from_db_when_cache_missing(app):
         updated = UserVerifyCode.query.filter_by(id=record.id).first()
         assert updated is not None
         assert updated.verify_code_used == 1
+
+
+def test_universal_verification_code_policy_requires_opt_in(app):
+    from flaskr.service.user.verification_code_policy import (
+        get_enabled_universal_verification_code,
+    )
+
+    with app.app_context():
+        original_env = app.config.get("ENV")
+        original_enabled = app.config.get("UNIVERSAL_VERIFICATION_CODE_ENABLED")
+        original_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+        try:
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+
+            app.config["ENV"] = "development"
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = False
+            assert get_enabled_universal_verification_code(app) == ""
+
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = True
+            assert get_enabled_universal_verification_code(app) == "9999"
+        finally:
+            app.config["ENV"] = original_env
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = original_enabled
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = original_code
+
+
+def test_universal_verification_code_policy_ignores_production(app):
+    from flaskr.service.user.verification_code_policy import (
+        get_enabled_universal_verification_code,
+    )
+
+    with app.app_context():
+        original_env = app.config.get("ENV")
+        original_enabled = app.config.get("UNIVERSAL_VERIFICATION_CODE_ENABLED")
+        original_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+        try:
+            app.config["ENV"] = "production"
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = True
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+
+            assert get_enabled_universal_verification_code(app) == ""
+        finally:
+            app.config["ENV"] = original_env
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = original_enabled
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = original_code
+
+
+def test_email_flow_rejects_universal_code_when_guard_disabled(app):
+    import flaskr.service.user.email_flow as email_flow
+
+    with app.app_context():
+        original_enabled = app.config.get("UNIVERSAL_VERIFICATION_CODE_ENABLED")
+        original_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+        try:
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = False
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+            app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
+            email_flow.redis = _FakeRedis()
+
+            _reset_user_auth_tables()
+            with pytest.raises(Exception):
+                email_flow.verify_email_code(
+                    app, user_id=None, email="guard@example.com", code="9999"
+                )
+        finally:
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = original_enabled
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = original_code
+            _reset_user_auth_tables()
+
+
+def test_email_flow_accepts_universal_code_when_guard_enabled(app):
+    import flaskr.service.user.email_flow as email_flow
+
+    with app.app_context():
+        original_env = app.config.get("ENV")
+        original_enabled = app.config.get("UNIVERSAL_VERIFICATION_CODE_ENABLED")
+        original_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+        try:
+            app.config["ENV"] = "development"
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = True
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+            app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
+            email_flow.redis = _FakeRedis()
+
+            _reset_user_auth_tables()
+            token, _created, _ctx = email_flow.verify_email_code(
+                app, user_id=None, email="guard@example.com", code="9999"
+            )
+
+            assert token is not None
+        finally:
+            app.config["ENV"] = original_env
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = original_enabled
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = original_code
+            _reset_user_auth_tables()
+
+
+def test_consume_verification_code_rejects_universal_code_in_production(app):
+    import flaskr.service.user.verification_codes as verification_codes
+
+    with app.app_context():
+        original_env = app.config.get("ENV")
+        original_enabled = app.config.get("UNIVERSAL_VERIFICATION_CODE_ENABLED")
+        original_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+        try:
+            app.config["ENV"] = "production"
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = True
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+            verification_codes.redis = _FakeRedis()
+
+            with pytest.raises(Exception):
+                verification_codes.consume_verification_code(
+                    app, identifier="guard@example.com", code="9999"
+                )
+        finally:
+            app.config["ENV"] = original_env
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = original_enabled
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = original_code
+
+
+def test_consume_verification_code_accepts_universal_code_when_guard_enabled(app):
+    import flaskr.service.user.verification_codes as verification_codes
+
+    with app.app_context():
+        original_env = app.config.get("ENV")
+        original_enabled = app.config.get("UNIVERSAL_VERIFICATION_CODE_ENABLED")
+        original_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+        try:
+            app.config["ENV"] = "development"
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = True
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+            verification_codes.redis = _FakeRedis()
+
+            verification_codes.consume_verification_code(
+                app, identifier="guard@example.com", code="9999"
+            )
+        finally:
+            app.config["ENV"] = original_env
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = original_enabled
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = original_code
