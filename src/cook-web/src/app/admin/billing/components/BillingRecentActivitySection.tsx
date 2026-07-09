@@ -22,6 +22,7 @@ import {
   registerBillingTranslationUsage,
   resolveBillingLedgerReasonLabel,
 } from '@/lib/billing';
+import { useAdminPaginatedListState } from '@/app/admin/hooks/useAdminPaginatedListState';
 
 const RECENT_ITEMS_LIMIT = 20;
 
@@ -80,8 +81,8 @@ export function BillingRecentActivitySection({
   registerBillingTranslationUsage(t);
   const sectionRef = React.useRef<HTMLElement | null>(null);
   const headingRef = React.useRef<HTMLHeadingElement | null>(null);
-  const [pageIndex, setPageIndex] = React.useState(1);
-  const [pageCount, setPageCount] = React.useState(1);
+  const { pageIndex, pageCount, setPageCount, goToPage } =
+    useAdminPaginatedListState();
   const lastPageIndexRef = React.useRef(pageIndex);
 
   const {
@@ -107,7 +108,7 @@ export function BillingRecentActivitySection({
     if (ledgerData) {
       setPageCount(ledgerPageCount);
     }
-  }, [ledgerData, ledgerPageCount]);
+  }, [ledgerData, ledgerPageCount, setPageCount]);
   React.useEffect(() => {
     if (lastPageIndexRef.current === pageIndex) {
       return;
@@ -123,10 +124,6 @@ export function BillingRecentActivitySection({
     });
     headingRef.current?.focus({ preventScroll: true });
   }, [pageIndex]);
-  const handlePageChange = React.useCallback((nextPage: number) => {
-    setPageIndex(nextPage);
-  }, []);
-
   return (
     <section
       ref={sectionRef}
@@ -164,7 +161,7 @@ export function BillingRecentActivitySection({
               ? {
                   pageIndex: currentPage,
                   pageCount,
-                  onPageChange: handlePageChange,
+                  onPageChange: goToPage,
                   prevLabel: t('module.order.paginationPrev'),
                   nextLabel: t('module.order.paginationNext'),
                   prevAriaLabel: t(
