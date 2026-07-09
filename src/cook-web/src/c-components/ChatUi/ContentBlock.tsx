@@ -22,6 +22,7 @@ import {
   localizeSystemInteractionContent,
 } from '@/c-utils/system-interaction';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -61,7 +62,10 @@ const ContentBlock = memo(
     onTypeFinished,
     enableStreamingTypewriter = false,
   }: ContentBlockProps) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const markdownFlowLocale = resolveMarkdownFlowLocale(
+      i18n.resolvedLanguage ?? i18n.language,
+    );
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
     }, [blockBid, onClickCustomButtonAfterContent]);
@@ -136,6 +140,7 @@ const ContentBlock = memo(
       >
         <ContentRender
           key={contentRenderKey}
+          locale={markdownFlowLocale}
           enableTypewriter={shouldEnableTypewriter}
           typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
           content={renderedContent}

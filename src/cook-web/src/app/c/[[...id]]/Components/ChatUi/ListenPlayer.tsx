@@ -22,6 +22,7 @@ import {
 } from 'markdown-flow-ui/renderer';
 import { useTranslation } from 'react-i18next';
 import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 
 interface ListenPlayerProps {
   className?: string;
@@ -64,7 +65,10 @@ const ListenPlayer = ({
   onSend,
   showControls = true,
 }: ListenPlayerProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const markdownFlowLocale = resolveMarkdownFlowLocale(
+    i18n.resolvedLanguage ?? i18n.language,
+  );
   const [isInteractionOpen, setIsInteractionOpen] = useState(false);
   const lastInteractionBidRef = useRef<string | null>(null);
   const disabledClassName = '!cursor-not-allowed !opacity-20';
@@ -163,6 +167,7 @@ const ListenPlayer = ({
               )}
             >
               <ContentRender
+                locale={markdownFlowLocale}
                 enableTypewriter={false}
                 content={localizeSystemInteractionContent(
                   effectiveInteraction.content || '',

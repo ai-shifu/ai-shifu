@@ -214,6 +214,13 @@ jest.mock('@/i18n', () => ({
   normalizeLanguage: (language: string) => language,
 }));
 
+const getMockI18nState = () =>
+  jest.requireMock('@/i18n').default as {
+    resolvedLanguage: string;
+    language: string;
+    changeLanguage: jest.Mock;
+  };
+
 const mockLoadDraftMeta = jest.fn();
 const mockLoadModels = jest.fn();
 const mockLoadChapters = jest.fn();
@@ -330,6 +337,10 @@ describe('ShifuEdit draft conflict checks', () => {
     mockLoadModels.mockReset();
     mockLoadChapters.mockReset();
     mockCancelAutoSaveBlocks.mockReset();
+    const mockI18nState = getMockI18nState();
+    mockI18nState.resolvedLanguage = 'zh-CN';
+    mockI18nState.language = 'zh-CN';
+    mockI18nState.changeLanguage.mockReset();
     Object.values(baseActions).forEach(action => {
       if (typeof action === 'function' && 'mockReset' in action) {
         (action as jest.Mock).mockReset();
@@ -579,6 +590,25 @@ describe('ShifuEdit draft conflict checks', () => {
     await waitFor(() => {
       expect(getLatestEditorProps().content).toBe('remote synced content');
     });
+  });
+
+  test('passes French locale through to MarkdownFlow editor', async () => {
+    setLessonNode();
+    const mockI18nState = getMockI18nState();
+    mockI18nState.resolvedLanguage = 'fr-FR';
+    mockI18nState.language = 'fr-FR';
+
+    render(<ScriptEditor id='shifu-1' />);
+
+    await waitFor(() => {
+      expect(mockMarkdownFlowEditor).toHaveBeenCalled();
+    });
+
+    expect(mockMarkdownFlowEditor.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        locale: 'fr-FR',
+      }),
+    );
   });
 
   test('renders the history entry as a native link for the current lesson', async () => {

@@ -1,10 +1,10 @@
 import { memo } from 'react';
 import { isEqual } from 'lodash';
 import { IframeSandbox, type RenderSegment } from 'markdown-flow-ui/renderer';
-import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
+import { useTranslation } from 'react-i18next';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 
 interface ContentIframeProps {
-  // item: ChatContentItem;
   segments: RenderSegment[];
   mobileStyle: boolean;
   blockBid: string;
@@ -18,6 +18,11 @@ interface ContentIframeProps {
 
 const ContentIframe = memo(
   ({ segments, blockBid, sectionTitle }: ContentIframeProps) => {
+    const { i18n } = useTranslation();
+    const markdownFlowLocale = resolveMarkdownFlowLocale(
+      i18n.resolvedLanguage ?? i18n.language,
+    );
+
     return (
       <>
         {segments.map((segment, index) => {
@@ -38,6 +43,7 @@ const ContentIframe = memo(
           const iframeNode = (
             <IframeSandbox
               key={'iframe' + index}
+              locale={markdownFlowLocale}
               type={segment.type}
               mode='blackboard'
               hideFullScreen

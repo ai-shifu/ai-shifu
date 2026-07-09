@@ -31,6 +31,7 @@ import {
 } from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 export type { AskMessage } from './askState';
 
 export interface AskBlockProps {
@@ -60,7 +61,10 @@ export default function AskBlock({
   element_bid,
   onToggleAskExpanded,
 }: AskBlockProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const markdownFlowLocale = resolveMarkdownFlowLocale(
+    i18n.resolvedLanguage ?? i18n.language,
+  );
   const copyButtonText = t('module.renderUi.core.copyCode');
   const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
@@ -649,6 +653,7 @@ export default function AskBlock({
                   )}
                 >
                   <ContentRender
+                    locale={markdownFlowLocale}
                     content={message.content}
                     customRenderBar={
                       message.isStreaming
@@ -691,6 +696,7 @@ export default function AskBlock({
         ref={inputWrapperRef}
       >
         <MarkdownFlowInput
+          locale={markdownFlowLocale}
           placeholder={t('module.chat.askContent')}
           value={inputValue}
           onChange={handleInputChange}
