@@ -595,20 +595,28 @@ describe('ShifuEdit draft conflict checks', () => {
   test('passes French locale through to MarkdownFlow editor', async () => {
     setLessonNode();
     const mockI18nState = getMockI18nState();
-    mockI18nState.resolvedLanguage = 'fr-FR';
-    mockI18nState.language = 'fr-FR';
+    const originalResolvedLanguage = mockI18nState.resolvedLanguage;
+    const originalLanguage = mockI18nState.language;
 
-    render(<ScriptEditor id='shifu-1' />);
+    try {
+      mockI18nState.resolvedLanguage = 'fr-FR';
+      mockI18nState.language = 'fr-FR';
 
-    await waitFor(() => {
-      expect(mockMarkdownFlowEditor).toHaveBeenCalled();
-    });
+      render(<ScriptEditor id='shifu-1' />);
 
-    expect(mockMarkdownFlowEditor.mock.calls.at(-1)?.[0]).toEqual(
-      expect.objectContaining({
-        locale: 'fr-FR',
-      }),
-    );
+      await waitFor(() => {
+        expect(mockMarkdownFlowEditor).toHaveBeenCalled();
+      });
+
+      expect(mockMarkdownFlowEditor.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({
+          locale: 'fr-FR',
+        }),
+      );
+    } finally {
+      mockI18nState.resolvedLanguage = originalResolvedLanguage;
+      mockI18nState.language = originalLanguage;
+    }
   });
 
   test('renders the history entry as a native link for the current lesson', async () => {
