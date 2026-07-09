@@ -191,9 +191,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
-  const confirmButtonText = t('module.renderUi.core.confirm');
-  const copyButtonText = t('module.renderUi.core.copyCode');
-  const copiedButtonText = t('module.renderUi.core.copied');
   const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
 
   const showEmpty = !loading && items.length === 0;
@@ -495,9 +492,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                           item,
                           false,
                         )}
-                        confirmButtonText={confirmButtonText}
-                        copyButtonText={copyButtonText}
-                        copiedButtonText={copiedButtonText}
                         onSend={onSend}
                         onTypeFinished={
                           ENABLE_PREVIEW_TYPEWRITER
@@ -547,9 +541,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                             enableStreamingTypewriter,
                           )}
                           enableStreamingTypewriter={enableStreamingTypewriter}
-                          confirmButtonText={confirmButtonText}
-                          copyButtonText={copyButtonText}
-                          copiedButtonText={copiedButtonText}
                           onSend={onSend}
                           onTypeFinished={
                             ENABLE_PREVIEW_TYPEWRITER
