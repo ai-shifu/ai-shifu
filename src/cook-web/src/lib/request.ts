@@ -61,7 +61,7 @@ const getRequestFallbackMessage = (error?: Partial<ErrorWithCode>) => {
     return i18n.t('common.core.networkError');
   }
 
-  if (isServerSideStatus(error?.status ?? error?.code)) {
+  if (isServerSideStatus(error?.status)) {
     return i18n.t('common.core.serviceUnavailable');
   }
 
