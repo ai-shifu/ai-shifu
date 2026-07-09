@@ -5,7 +5,7 @@ import threading
 import time
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -175,6 +175,28 @@ _HAS_RUN_ASYNC = hasattr(RunScriptContextV2, "_run_async_in_safe_context")
 
 
 class OutlinePathGuardTests(unittest.TestCase):
+    def test_get_next_outline_item_ignores_missing_current_outline_item(self):
+        ctx = _make_context()
+        ctx._struct = HistoryItem(bid="shifu-bid", id=1, type="shifu", children=[])
+        ctx._current_outline_item = None
+        ctx._current_attend = types.SimpleNamespace(
+            block_position=0,
+            status=LEARN_STATUS_IN_PROGRESS,
+        )
+        ctx._outline_model = types.SimpleNamespace(
+            outline_item_bid=MagicMock(),
+            hidden=MagicMock(),
+            title=MagicMock(),
+            deleted=MagicMock(),
+        )
+        query = MagicMock()
+        query.filter.return_value.all.return_value = []
+
+        with patch.object(context_v2_module.db.session, "query", return_value=query):
+            result = ctx._get_next_outline_item()
+
+        self.assertEqual(result, [])
+
     def test_find_outline_path_returns_path_when_outline_exists(self):
         root = HistoryItem(
             bid="shifu-bid",
