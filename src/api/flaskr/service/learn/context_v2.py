@@ -2047,12 +2047,15 @@ class RunScriptContextV2:
                             )
                         )
 
-        if (
+        if self._current_outline_item and (
             self._current_attend.block_position
             >= self._get_current_outline_block_count()
         ):
             _mark_sub_node_completed(self._current_outline_item, res)
-        if self._current_attend.status == LEARN_STATUS_NOT_STARTED:
+        if (
+            self._current_outline_item
+            and self._current_attend.status == LEARN_STATUS_NOT_STARTED
+        ):
             _mark_sub_node_start(self._current_outline_item, res)
         return res
 
