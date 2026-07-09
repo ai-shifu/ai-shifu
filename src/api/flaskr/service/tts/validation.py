@@ -3,9 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from flask import Flask
+
 from flaskr.api.tts import get_tts_provider
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.tts.minimax_voice_clone import is_valid_minimax_custom_voice_id
+from flaskr.service.tts.models import (
+    TTSMiniMaxClonedVoice,
+    TTS_MINIMAX_CLONE_STATUS_READY,
+)
 
 
 SUPPORTED_TTS_PROVIDERS = {
@@ -164,3 +170,52 @@ def validate_tts_settings_strict(
         pitch=pitch_value,
         emotion=emotion_value,
     )
+
+
+def assert_minimax_preview_voice_available(
+    app: Flask, *, voice_id: str, owner_user_bid: str
+) -> None:
+    """Reject a MiniMax preview voice id that would fail at the provider.
+
+    Built-in MiniMax voices are always allowed. A custom (clone) voice id shares
+    the same character shape as built-in ids, so it passes local format
+    validation even when it was never created, has failed, or belongs to another
+    account. Such an id only surfaces as ``2054 - voice id not exist`` after the
+    external call, aborting the preview stream. Fail fast instead: accept a
+    custom id only when a ready, non-deleted clone row exists and belongs to the
+    requesting creator.
+    """
+    normalized_voice_id = (voice_id or "").strip()
+    if not normalized_voice_id:
+        _raise_param_error("TTS voice_id is required when TTS is enabled")
+
+    provider_config = get_tts_provider("minimax").get_provider_config()
+    built_in_voice_ids = {
+        (voice.get("value") or "").strip()
+        for voice in (provider_config.voices or [])
+        if (voice.get("value") or "").strip()
+    }
+    if normalized_voice_id in built_in_voice_ids:
+        return
+
+    with app.app_context():
+        query = TTSMiniMaxClonedVoice.query.filter(
+            TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+            TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
+            TTSMiniMaxClonedVoice.deleted == 0,
+        )
+        normalized_owner = (owner_user_bid or "").strip()
+        if normalized_owner:
+            query = query.filter(
+                TTSMiniMaxClonedVoice.owner_user_bid == normalized_owner
+            )
+        ready_clone = query.order_by(TTSMiniMaxClonedVoice.id.desc()).first()
+
+    if ready_clone is None:
+        app.logger.warning(
+            "Rejecting MiniMax preview voice_id %s for owner %s: "
+            "no ready cloned voice found",
+            normalized_voice_id,
+            (owner_user_bid or "").strip() or "-",
+        )
+        _raise_param_error(f"TTS voice is not available: {normalized_voice_id}")
