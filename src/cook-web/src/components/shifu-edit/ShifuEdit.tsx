@@ -486,6 +486,7 @@ const ScriptEditor = ({
   }, [
     courseEditorOnboardingOpen,
     editorOnboardingTriggerSource,
+    i18n.language,
     onboardingStatus?.user_segment,
     onboardingStatus?.version,
     profile?.language,
