@@ -9,9 +9,11 @@ describe('adaptMarkdownFlowInteractionForRender', () => {
 
   it('escapes the prompt when adapting it into an HTML attribute', () => {
     expect(
-      adaptMarkdownFlowInteractionForRender('?[...输入 "昵称" & <个人标签>]'),
+      adaptMarkdownFlowInteractionForRender(
+        '?[...输入 "昵称"、\'代号\' & <个人标签>]',
+      ),
     ).toBe(
-      '<custom-variable placeholder="输入 &quot;昵称&quot; &amp; &lt;个人标签&gt;"></custom-variable>',
+      '<custom-variable placeholder="输入 &quot;昵称&quot;、&#39;代号&#39; &amp; &lt;个人标签&gt;"></custom-variable>',
     );
   });
 
