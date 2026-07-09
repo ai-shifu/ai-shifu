@@ -14,13 +14,11 @@ jest.mock('react-i18next', () => {
     'module.chat.ask': '追问',
     'module.chat.lessonUpdateRecommendRetake':
       '本节课程已更新，建议<action>重修</action>',
+    'module.chat.lessonFeedbackSubmit': '提交',
     'module.chat.lessonUpdateRetakeAccessibleLabel': '重修本节课程',
     'module.chat.lessonUpdateRetakeAction': '重修',
     'module.lesson.reset.confirmContent': '重修会清空本节学习数据。确定重修？',
     'module.lesson.reset.confirmTitle': '确认重修',
-    'module.renderUi.core.confirm': '确认',
-    'module.renderUi.core.copied': '已复制',
-    'module.renderUi.core.copyCode': '复制代码',
   };
 
   return {

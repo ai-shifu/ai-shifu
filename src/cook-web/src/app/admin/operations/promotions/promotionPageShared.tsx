@@ -254,7 +254,7 @@ export const PROMOTION_USAGE_DIALOG_COLUMN_COUNT = {
   withCourse: 5,
 } as const;
 export const SINGLE_SELECT_ITEM_CLASS =
-  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
+  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
 export const TABLE_HEAD_CLASS = ADMIN_TABLE_HEADER_CELL_CENTER_CLASS;
 export const TABLE_ACTION_HEAD_CLASS =
   getAdminStickyRightHeaderClass('text-center');

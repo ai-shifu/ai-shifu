@@ -39,6 +39,10 @@ const mockAskBlock = jest.fn(
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
+    i18n: {
+      language: 'zh-CN',
+      resolvedLanguage: 'zh-CN',
+    },
   }),
 }));
 
@@ -171,9 +175,7 @@ describe('ListenModeSlideRenderer', () => {
       />,
     );
 
-    expect(
-      screen.queryByText('module.chat.slideAudioBufferingWaitingForAudio'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('module.chat.thinking')).not.toBeInTheDocument();
     expect(
       screen.getByRole('status', {
         name: 'module.chat.slideAudioBufferingLoadingAudio',
@@ -356,10 +358,13 @@ describe('ListenModeSlideRenderer', () => {
     );
 
     const classroomSlideProps = getMockSlide().mock.calls[0]?.[0] as
-      | { elementList?: Array<Record<string, unknown>>; showPlayer?: boolean }
+      | {
+          elementList?: Array<Record<string, unknown>>;
+          playerEnabled?: boolean;
+        }
       | undefined;
     expect(classroomSlideProps?.elementList?.[0]?.blockBid).toBe('empty-ppt');
-    expect(classroomSlideProps?.showPlayer).toBe(false);
+    expect(classroomSlideProps?.playerEnabled).toBe(false);
 
     const { unmount: unmountClassroomPlaceholder } = render(
       classroomSlideProps?.elementList?.[0]?.content as React.ReactElement,
@@ -498,7 +503,8 @@ describe('ListenModeSlideRenderer', () => {
           playerClassName?: string;
           className?: string;
           disableLoadingOverlay?: boolean;
-          showPlayer?: boolean;
+          playerEnabled?: boolean;
+          locale?: string;
         }
       | undefined;
     const contentElement = slideProps?.elementList?.find(
@@ -522,7 +528,8 @@ describe('ListenModeSlideRenderer', () => {
     expect(contentElement).not.toHaveProperty('isAudioStreaming');
     expect(slideProps?.playerCustomActions).toBeNull();
     expect(slideProps?.disableLoadingOverlay).toBe(true);
-    expect(slideProps?.showPlayer).toBe(true);
+    expect(slideProps?.playerEnabled).toBe(true);
+    expect(slideProps?.locale).toBe('zh-CN');
     const playerClassTokens = getClassTokens(slideProps?.playerClassName);
 
     expect(playerClassTokens).toContain('classroom-slide-player');

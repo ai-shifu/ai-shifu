@@ -43,7 +43,7 @@ import {
 export const REFERRAL_PAGE_SIZE = 20;
 const ALL_OPTION_VALUE = '__all__';
 const SINGLE_SELECT_ITEM_CLASS =
-  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
+  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
 const TABLE_HEAD_CLASS = 'whitespace-nowrap';
 const TABLE_CELL_CLASS = 'whitespace-nowrap';
 
