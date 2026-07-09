@@ -2247,6 +2247,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
                 {"role": "assistant", "content": "ok"},
             ],
         )
+        self.assertTrue(all("?[" not in message["content"] for message in messages))
 
 
 if __name__ == "__main__":
