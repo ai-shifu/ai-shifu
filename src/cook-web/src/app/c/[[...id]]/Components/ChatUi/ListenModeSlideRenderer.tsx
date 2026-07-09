@@ -1713,12 +1713,6 @@ const ListenModeSlideRenderer = ({
   const isMobileFullscreen = mobileViewMode === 'fullscreen';
   const playerTexts = useMemo(
     () => ({
-      settingsTitle: t('module.chat.listenPlayerSettingsTitle'),
-      subtitleLabel: t('module.chat.listenPlayerSubtitleLabel'),
-      subtitleToggleAriaLabel: t('module.chat.listenPlayerSubtitleToggle'),
-      screenLabel: t('module.chat.listenPlayerScreenLabel'),
-      nonFullscreenLabel: t('module.chat.listenPlayerPortraitLabel'),
-      fullscreenLabel: t('module.chat.listenPlayerLandscapeLabel'),
       fullscreenHintText: t('module.chat.listenPlayerFullscreenHint'),
     }),
     [t],
@@ -1965,9 +1959,6 @@ const ListenModeSlideRenderer = ({
           elementList={elementList}
           interactionTexts={{
             title: t('module.chat.listenInteractionHint'),
-            confirmButtonText: t('module.renderUi.core.confirm'),
-            copyButtonText: t('module.renderUi.core.copyCode'),
-            copiedButtonText: t('module.renderUi.core.copied'),
           }}
           bufferingText={{
             waitingForAudio: t('module.chat.thinking'),

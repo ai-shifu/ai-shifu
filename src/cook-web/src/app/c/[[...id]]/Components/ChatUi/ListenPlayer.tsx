@@ -178,9 +178,6 @@ const ListenPlayer = ({
                 interactionDefaultValueOptions={
                   lessonFeedbackInteractionDefaultValueOptions
                 }
-                confirmButtonText={t('module.renderUi.core.confirm')}
-                copyButtonText={t('module.renderUi.core.copyCode')}
-                copiedButtonText={t('module.renderUi.core.copied')}
                 readonly={resolvedInteractionReadonly}
                 sandboxMode='content'
                 onSend={_onSend}

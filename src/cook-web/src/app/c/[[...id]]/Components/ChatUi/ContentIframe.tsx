@@ -8,9 +8,6 @@ interface ContentIframeProps {
   segments: RenderSegment[];
   mobileStyle: boolean;
   blockBid: string;
-  confirmButtonText?: string;
-  copyButtonText?: string;
-  copiedButtonText?: string;
   //   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   //   onSend: (content: OnSendContentParams, blockBid: string) => void;
   sectionTitle?: string;
@@ -73,14 +70,11 @@ const ContentIframe = memo(
     );
   },
   (prevProps, nextProps) => {
-    // Only re-render when content, layout, or i18n-driven button texts actually change
+    // Only re-render when content or layout actually changes
     return (
       isEqual(prevProps.segments, nextProps.segments) &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
-      prevProps.confirmButtonText === nextProps.confirmButtonText &&
-      prevProps.copyButtonText === nextProps.copyButtonText &&
-      prevProps.copiedButtonText === nextProps.copiedButtonText &&
       prevProps.sectionTitle === nextProps.sectionTitle
     );
   },

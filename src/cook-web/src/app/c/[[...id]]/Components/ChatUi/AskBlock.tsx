@@ -65,8 +65,6 @@ export default function AskBlock({
   const markdownFlowLocale = resolveMarkdownFlowLocale(
     i18n.resolvedLanguage ?? i18n.language,
   );
-  const copyButtonText = t('module.renderUi.core.copyCode');
-  const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
   const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
@@ -673,8 +671,6 @@ export default function AskBlock({
                     enableTypewriter={shouldEnableMessageTypewriter}
                     typingSpeed={CHAT_TYPEWRITER_SPEED_MS}
                     readonly={true}
-                    copyButtonText={copyButtonText}
-                    copiedButtonText={copiedButtonText}
                   />
                 </div>
               )}

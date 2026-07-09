@@ -135,9 +135,7 @@ export const NewChatComponents = ({
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
   const router = useRouter();
-  const confirmButtonText = t('module.renderUi.core.confirm');
-  const copyButtonText = t('module.renderUi.core.copyCode');
-  const copiedButtonText = t('module.renderUi.core.copied');
+  const lessonFeedbackSubmitLabel = t('module.chat.lessonFeedbackSubmit');
   const askButtonMarkup = useMemo(
     () =>
       `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
@@ -1229,7 +1227,7 @@ export const NewChatComponents = ({
             defaultScoreText={lessonFeedbackPopup.defaultScoreText}
             defaultCommentText={lessonFeedbackPopup.defaultCommentText}
             placeholder={t('module.chat.lessonFeedbackCommentPlaceholder')}
-            submitLabel={confirmButtonText}
+            submitLabel={lessonFeedbackSubmitLabel}
             clearLabel={t('module.chat.lessonFeedbackClearInput')}
             readonly={lessonFeedbackPopup.readonly}
             onSubmit={lessonFeedbackPopup.onSubmit}
@@ -1432,9 +1430,6 @@ export const NewChatComponents = ({
                           item={item}
                           mobileStyle={mobileStyle}
                           blockBid={item.element_bid}
-                          confirmButtonText={confirmButtonText}
-                          copyButtonText={copyButtonText}
-                          copiedButtonText={copiedButtonText}
                           onClickCustomButtonAfterContent={handleClickAskButton}
                           onSend={memoizedOnSend}
                           onLongPress={handleLongPress}
@@ -1501,9 +1496,6 @@ export const NewChatComponents = ({
                                 item.element_bid,
                           },
                         )}
-                        confirmButtonText={confirmButtonText}
-                        copyButtonText={copyButtonText}
-                        copiedButtonText={copiedButtonText}
                         onClickCustomButtonAfterContent={handleClickAskButton}
                         onSend={memoizedOnSend}
                         onLongPress={handleLongPress}

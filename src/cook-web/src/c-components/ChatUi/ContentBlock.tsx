@@ -29,9 +29,6 @@ interface ContentBlockProps {
   mobileStyle: boolean;
   blockBid: string;
   contentRenderKey?: string;
-  confirmButtonText?: string;
-  copyButtonText?: string;
-  copiedButtonText?: string;
   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
@@ -49,9 +46,6 @@ const ContentBlock = memo(
     mobileStyle,
     blockBid,
     contentRenderKey,
-    confirmButtonText,
-    copyButtonText,
-    copiedButtonText,
     onClickCustomButtonAfterContent,
     onSend,
     onLongPress,
@@ -151,9 +145,6 @@ const ContentBlock = memo(
             lessonFeedbackInteractionDefaultValueOptions
           }
           readonly={resolvedReadonly}
-          confirmButtonText={confirmButtonText}
-          copyButtonText={copyButtonText}
-          copiedButtonText={copiedButtonText}
           onSend={_onSend}
           onTypeFinished={handleTypeFinished}
         />
@@ -207,9 +198,6 @@ const ContentBlock = memo(
       prevProps.contentRenderKey === nextProps.contentRenderKey &&
       prevProps.item.isHistory === nextProps.item.isHistory &&
       prevProps.item.element_type === nextProps.item.element_type &&
-      prevProps.confirmButtonText === nextProps.confirmButtonText &&
-      prevProps.copyButtonText === nextProps.copyButtonText &&
-      prevProps.copiedButtonText === nextProps.copiedButtonText &&
       Boolean(prevProps.enableStreamingTypewriter) ===
         Boolean(nextProps.enableStreamingTypewriter) &&
       Boolean(prevProps.autoPlayAudio) === Boolean(nextProps.autoPlayAudio) &&
