@@ -27,6 +27,7 @@ jest.mock('next/dynamic', () => () => {
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
+    i18n: jest.requireMock('@/i18n').default,
   }),
 }));
 

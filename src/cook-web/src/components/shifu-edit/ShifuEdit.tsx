@@ -31,7 +31,7 @@ import {
   replaceCurrentUrlWithLessonId,
 } from '@/c-utils/urlUtils';
 import { toast } from '@/hooks/useToast';
-import i18n, { normalizeLanguage } from '@/i18n';
+import { normalizeLanguage } from '@/i18n';
 import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
@@ -140,7 +140,7 @@ const ScriptEditor = ({
   initialLessonId = '',
   initialViewMode = 'edit',
 }: ScriptEditorProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOnboarding } = useTranslation('module.onboarding');
   const { trackEvent } = useTracking();
   const searchParams = useSearchParams();
@@ -244,7 +244,7 @@ const ScriptEditor = ({
         i18n.changeLanguage(next);
       }
     }
-  }, [profile]);
+  }, [i18n, profile]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
