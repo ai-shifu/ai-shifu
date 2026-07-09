@@ -171,9 +171,7 @@ describe('ListenModeSlideRenderer', () => {
       />,
     );
 
-    expect(
-      screen.queryByText('module.chat.slideAudioBufferingWaitingForAudio'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('module.chat.thinking')).not.toBeInTheDocument();
     expect(
       screen.getByRole('status', {
         name: 'module.chat.slideAudioBufferingLoadingAudio',
