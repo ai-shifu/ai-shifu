@@ -37,17 +37,15 @@ export function useAdminPaginatedListState({
 
   const goToPage = React.useCallback(
     (nextPage: number) => {
-      setPageIndexState(currentPageIndex => {
-        const normalizedNextPage = normalizePageValue(nextPage, currentPageIndex);
-        const clampedNextPage = Math.min(normalizedNextPage, pageCount);
-        if (clampedNextPage === currentPageIndex) {
-          return currentPageIndex;
-        }
-        onPageChange?.(clampedNextPage);
-        return clampedNextPage;
-      });
+      const normalizedNextPage = normalizePageValue(nextPage, pageIndex);
+      const clampedNextPage = Math.min(normalizedNextPage, pageCount);
+      if (clampedNextPage === pageIndex) {
+        return;
+      }
+      setPageIndexState(clampedNextPage);
+      onPageChange?.(clampedNextPage);
     },
-    [onPageChange, pageCount],
+    [onPageChange, pageCount, pageIndex],
   );
 
   const resetPage = React.useCallback(() => {
