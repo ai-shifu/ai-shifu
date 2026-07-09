@@ -40,6 +40,7 @@
   "requestFailed": "Request failed, please try again later",
   "retry": "Retry",
   "selectModel": "Model",
+  "serviceUnavailable": "Service is temporarily unavailable. Please try again later",
   "settings": "Settings",
   "shifu": "Course",
   "shortcut": {
@@ -62,6 +63,5 @@
   "unsupportedBrowserTitle": "Your iOS Version Is Not Supported",
   "userManagement": "User Management",
   "voiceCloneManagement": "Voice Clone Management",
-  "waitingForCompletion": "Coming Soon",
-  "serviceUnavailable": "Service is temporarily unavailable. Please try again later"
+  "waitingForCompletion": "Coming Soon"
 }

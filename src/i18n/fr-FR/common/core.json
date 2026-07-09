@@ -40,6 +40,7 @@
   "requestFailed": "Échec de la requête, veuillez réessayer plus tard",
   "retry": "Réessayer",
   "selectModel": "Modèle",
+  "serviceUnavailable": "Service temporairement indisponible, veuillez réessayer plus tard",
   "settings": "Paramètres",
   "shifu": "Cours",
   "shortcut": {
@@ -62,6 +63,5 @@
   "unsupportedBrowserTitle": "Votre version d’iOS n’est pas prise en charge",
   "userManagement": "Gestion des utilisateurs",
   "voiceCloneManagement": "Gestion du clonage vocal",
-  "waitingForCompletion": "Bientôt disponible",
-  "serviceUnavailable": "Service temporairement indisponible, veuillez réessayer plus tard"
+  "waitingForCompletion": "Bientôt disponible"
 }

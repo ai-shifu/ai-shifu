@@ -40,6 +40,7 @@
   "requestFailed": "请求失败，请稍后重试",
   "retry": "重试",
   "selectModel": "模型",
+  "serviceUnavailable": "服务暂不可用，请稍后重试",
   "settings": "设置",
   "shifu": "课程",
   "shortcut": {
@@ -62,6 +63,5 @@
   "unsupportedBrowserTitle": "当前 iOS 版本暂不支持",
   "userManagement": "用户管理",
   "voiceCloneManagement": "克隆音色",
-  "waitingForCompletion": "敬请期待",
-  "serviceUnavailable": "服务暂不可用,请稍后重试"
+  "waitingForCompletion": "敬请期待"
 }

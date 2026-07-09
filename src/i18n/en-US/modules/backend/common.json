@@ -8,7 +8,7 @@
     "paramsError": "Params Error {param_message}",
     "stateInvalid": "This action is not available in the current state",
     "systemError": "System Error",
-    "unknownError": "Unknown Error",
-    "unexpectedError": "The service is temporarily unavailable. Please try again later."
+    "unexpectedError": "The service is temporarily unavailable. Please try again later.",
+    "unknownError": "Unknown Error"
   }
 }
