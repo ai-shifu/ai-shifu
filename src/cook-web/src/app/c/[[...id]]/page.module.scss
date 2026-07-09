@@ -35,4 +35,12 @@
   &.previewMode {
     --mobile-chat-header-height: 84px;
   }
+
+  &.lessonUpdateNoticeVisible {
+    --mobile-chat-header-height: 76px;
+  }
+
+  &.previewMode.lessonUpdateNoticeVisible {
+    --mobile-chat-header-height: 116px;
+  }
 }

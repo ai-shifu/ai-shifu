@@ -144,6 +144,8 @@ export default function ChatPage() {
     })),
   );
   const isSlideMode = learningMode === 'listen' || learningMode === 'classroom';
+  const [lessonUpdateNoticeVisible, setLessonUpdateNoticeVisible] =
+    useState(false);
 
   useEffect(() => {
     if (!initialized) {
@@ -870,6 +872,7 @@ export default function ChatPage() {
       className={clsx(
         styles.newChatPage,
         previewMode ? styles.previewMode : '',
+        lessonUpdateNoticeVisible ? styles.lessonUpdateNoticeVisible : '',
         isSlideMode ? styles.listenMode : '',
         mobileStyle ? 'flex-col' : 'h-screen flex-row',
         'flex',
@@ -884,6 +887,10 @@ export default function ChatPage() {
             className={styles.chatMobileHeader}
             iconPopoverPayload={tree?.bannerInfo}
             onSettingClick={onNavToggle}
+            lessonUpdateNoticeVisible={lessonUpdateNoticeVisible}
+            chapterId={chapterId}
+            lessonId={lessonId}
+            lessonTitle={currentLessonTitle}
           />
         ) : null}
 
@@ -939,6 +946,7 @@ export default function ChatPage() {
             isNavOpen={navOpen}
             onListenMobileViewModeChange={setListenMobileViewMode}
             showGenerateBtn={false}
+            onLessonUpdateNoticeVisibilityChange={setLessonUpdateNoticeVisible}
           />
         ) : null}
 
