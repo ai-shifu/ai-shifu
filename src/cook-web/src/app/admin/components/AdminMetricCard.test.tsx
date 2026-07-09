@@ -113,4 +113,38 @@ describe('AdminMetricCardGroup', () => {
       screen.getByText('Failed notifications').closest('.rounded-lg'),
     ).toHaveClass('has-[.metric-control:hover]:border-primary/30');
   });
+
+  test('renders shared stale warning and active filter chip', () => {
+    const onClear = jest.fn();
+
+    render(
+      <AdminMetricCardGroup
+        title='Order overview'
+        staleMessage='Showing the last successful overview'
+        activeFilter={{
+          label: 'Active filter',
+          value: 'Paid orders',
+          clearAriaLabel: 'Paid orders Clear',
+          onClear,
+        }}
+        items={[
+          {
+            key: 'paid',
+            label: 'Paid orders',
+            value: 5,
+            tooltip: 'Paid order records',
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByText('Showing the last successful overview'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Active filter')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Paid orders Clear' }));
+
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
 });
