@@ -144,6 +144,35 @@ def test_sequential_single_creates_still_increment(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
+def test_batch_risk_checks_every_node(app, monkeypatch):
+    """Every node (including nested children) is risk-checked exactly once.
+
+    The check runs before the per-shifu lock is taken, so no external network
+    call happens inside the locked transaction.
+    """
+    shifu_bid = "shifu_batch_risk"
+    checked = []
+    monkeypatch.setattr(
+        shifu_outline_funcs,
+        "check_text_with_risk_control",
+        lambda app, bid, user_id, text: checked.append(text),
+        raising=True,
+    )
+    with app.app_context():
+        _seed_shifu(shifu_bid)
+        create_outlines_batch(
+            app,
+            "creator-1",
+            shifu_bid,
+            [
+                {"name": "Ch A", "children": [{"name": "A1"}, {"name": "A2"}]},
+                {"name": "Ch B"},
+            ],
+        )
+    # 2 chapters + 2 children = 4 nodes -> 4 risk checks.
+    assert len(checked) == 4
+
+
 def test_batch_rejects_empty_payload(app):
     shifu_bid = "shifu_batch_empty"
     with app.app_context():
