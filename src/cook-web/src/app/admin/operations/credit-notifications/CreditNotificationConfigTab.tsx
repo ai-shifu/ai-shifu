@@ -585,7 +585,6 @@ export function CreditNotificationConfigTab({
                         key={timezone}
                         value={timezone}
                         className='pl-2 pr-8'
-                        indicatorClassName='left-auto right-2'
                       >
                         {timezone}
                       </SelectItem>

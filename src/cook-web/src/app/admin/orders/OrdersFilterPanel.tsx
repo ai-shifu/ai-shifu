@@ -29,7 +29,7 @@ import type { OrderFilters } from './ordersPageShared';
 
 const ALL_OPTION_VALUE = '__all__';
 const SINGLE_SELECT_ITEM_CLASS =
-  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
+  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
 
 type SelectOption = {
   value: string;

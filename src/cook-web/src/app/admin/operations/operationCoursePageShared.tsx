@@ -54,7 +54,7 @@ export const DEFAULT_COLUMN_WIDTHS = {
 export type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 export const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
 export const SINGLE_SELECT_ITEM_CLASS =
-  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
+  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
 export const TRANSFER_PHONE_PATTERN = /^\d{11}$/;
 export const EMPTY_STATE_LABEL = '--';
 export const EMPTY_COURSE_OVERVIEW: AdminOperationCourseOverview = {
