@@ -62,5 +62,6 @@
   "unsupportedBrowserTitle": "Votre version d’iOS n’est pas prise en charge",
   "userManagement": "Gestion des utilisateurs",
   "voiceCloneManagement": "Gestion du clonage vocal",
-  "waitingForCompletion": "Bientôt disponible"
+  "waitingForCompletion": "Bientôt disponible",
+  "serviceUnavailable": "Service temporairement indisponible, veuillez réessayer plus tard"
 }

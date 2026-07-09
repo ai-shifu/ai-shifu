@@ -49,6 +49,9 @@ type RequestDebugMeta = {
 
 const getBusinessFallbackMessage = () => i18n.t('common.core.actionFailed');
 
+const isServerSideStatus = (status?: number) =>
+  typeof status === 'number' && status >= 500;
+
 const getRequestFallbackMessage = (error?: Partial<ErrorWithCode>) => {
   if (
     typeof navigator !== 'undefined' &&
@@ -56,6 +59,10 @@ const getRequestFallbackMessage = (error?: Partial<ErrorWithCode>) => {
     navigator.onLine === false
   ) {
     return i18n.t('common.core.networkError');
+  }
+
+  if (isServerSideStatus(error?.status ?? error?.code)) {
+    return i18n.t('common.core.serviceUnavailable');
   }
 
   return i18n.t('common.core.requestFailed');
@@ -705,10 +712,9 @@ export class Request {
         responseTraceHeaders.harnessRunId || harnessRunId;
 
       if (!response.ok) {
-        const isDevelopment = process.env.NODE_ENV === 'development';
-        const errorMessage = isDevelopment
-          ? `Request failed with status ${response.status}`
-          : 'Network request failed';
+        const errorMessage = getRequestFallbackMessage({
+          status: response.status,
+        });
         const error = new ErrorWithCode(errorMessage, response.status);
         error.status = response.status;
         error.requestId = activeRequestId;
@@ -798,10 +804,9 @@ export class Request {
         responseTraceHeaders.harnessRunId || harnessRunId;
 
       if (!response.ok) {
-        const isDevelopment = process.env.NODE_ENV === 'development';
-        const errorMessage = isDevelopment
-          ? `Request failed with status ${response.status}`
-          : 'Network request failed';
+        const errorMessage = getRequestFallbackMessage({
+          status: response.status,
+        });
         const error = new ErrorWithCode(errorMessage, response.status);
         error.status = response.status;
         error.requestId = activeRequestId;

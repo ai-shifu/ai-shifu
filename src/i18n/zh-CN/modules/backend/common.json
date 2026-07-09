@@ -8,6 +8,7 @@
     "paramsError": "参数错误 {param_message}",
     "stateInvalid": "当前状态暂不支持此操作",
     "systemError": "系统错误",
-    "unknownError": "未知错误"
+    "unknownError": "未知错误",
+    "unexpectedError": "系统繁忙，请稍后重试"
   }
 }

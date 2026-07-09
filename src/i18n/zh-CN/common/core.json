@@ -62,5 +62,6 @@
   "unsupportedBrowserTitle": "当前 iOS 版本暂不支持",
   "userManagement": "用户管理",
   "voiceCloneManagement": "克隆音色",
-  "waitingForCompletion": "敬请期待"
+  "waitingForCompletion": "敬请期待",
+  "serviceUnavailable": "服务暂不可用，请稍后重试"
 }

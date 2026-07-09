@@ -8,6 +8,7 @@
     "paramsError": "Erreur de paramètres {param_message}",
     "stateInvalid": "Cette action n'est pas disponible dans l'état actuel",
     "systemError": "Erreur système",
-    "unknownError": "Erreur inconnue"
+    "unknownError": "Erreur inconnue",
+    "unexpectedError": "Le service est temporairement indisponible. Veuillez réessayer plus tard."
   }
 }

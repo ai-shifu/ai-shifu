@@ -90,7 +90,7 @@ def register_common_handler(app: Flask) -> Flask:
         language = _extract_request_language()
         if language:
             set_language(language)
-        response = jsonify({"code": -1, "message": _("server.common.operationFailed")})
+        response = jsonify({"code": -1, "message": _("server.common.unexpectedError")})
         response.status_code = 200
         return response
 
