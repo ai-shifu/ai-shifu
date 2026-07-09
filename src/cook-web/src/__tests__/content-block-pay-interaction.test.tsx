@@ -99,6 +99,45 @@ describe('ContentBlock pay interaction overrides', () => {
     );
   });
 
+  it('adapts a variable-free ellipsis interaction into a text input', () => {
+    const onSend = jest.fn();
+    render(
+      <ContentBlock
+        item={
+          {
+            type: 'interaction',
+            content: '?[...你叫什么名字]',
+            element_bid: 'anonymous-input',
+            readonly: false,
+            user_input: '小明',
+          } as any
+        }
+        mobileStyle={false}
+        blockBid='anonymous-input'
+        onSend={onSend}
+      />,
+    );
+
+    const contentRenderProps = mockContentRender.mock.calls[0]?.[0];
+    expect(contentRenderProps).toEqual(
+      expect.objectContaining({
+        content:
+          '<custom-variable placeholder="你叫什么名字"></custom-variable>',
+        userInput: '小明',
+      }),
+    );
+
+    const onContentRenderSend = contentRenderProps?.onSend as
+      | ((content: Record<string, unknown>) => void)
+      | undefined;
+    onContentRenderSend?.({ variableName: '', inputText: '小红' });
+
+    expect(onSend).toHaveBeenCalledWith(
+      { variableName: '', inputText: '小红' },
+      'anonymous-input',
+    );
+  });
+
   it('enables typewriter only for text elements marked as typewriter candidates', () => {
     render(
       <ContentBlock

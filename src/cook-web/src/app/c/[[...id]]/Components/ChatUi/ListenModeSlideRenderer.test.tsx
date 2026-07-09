@@ -301,6 +301,64 @@ describe('ListenModeSlideRenderer', () => {
     );
   });
 
+  it('adapts a variable-free ellipsis interaction into a slide text input', () => {
+    const onSend = jest.fn();
+    render(
+      <ListenModeSlideRenderer
+        items={[
+          {
+            type: 'content',
+            content: 'Hello',
+            element_bid: 'content-1',
+            is_speakable: true,
+          },
+          {
+            type: 'interaction',
+            content: '?[...你叫什么名字]',
+            element_bid: 'anonymous-input',
+            user_input: '小明',
+          },
+        ]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+        onSend={onSend}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | {
+          elementList?: Array<Record<string, unknown>>;
+          onSend?: (
+            content: Record<string, unknown>,
+            element?: Record<string, unknown>,
+          ) => void;
+        }
+      | undefined;
+    const interactionElement = slideProps?.elementList?.find(
+      element => element.blockBid === 'anonymous-input',
+    );
+
+    expect(interactionElement).toEqual(
+      expect.objectContaining({
+        content:
+          '<custom-variable placeholder="你叫什么名字"></custom-variable>',
+        user_input: '小明',
+      }),
+    );
+
+    act(() => {
+      slideProps?.onSend?.(
+        { variableName: '', inputText: '小红' },
+        interactionElement,
+      );
+    });
+
+    expect(onSend).toHaveBeenCalledWith(
+      { variableName: '', inputText: '小红' },
+      'anonymous-input',
+    );
+  });
+
   it('keeps the next lesson system interaction clickable when lesson feedback follows', () => {
     render(
       <ListenModeSlideRenderer
