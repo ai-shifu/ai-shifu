@@ -1,5 +1,8 @@
 .newChatPage {
-  --mobile-chat-header-height: 44px;
+  --mobile-chat-header-base-height: 44px;
+  --mobile-chat-header-notice-height: 32px;
+  --mobile-chat-preview-banner-height: 40px;
+  --mobile-chat-header-height: var(--mobile-chat-header-base-height);
   width: 100%;
   min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
   display: flex;
@@ -33,14 +36,24 @@
   }
 
   &.previewMode {
-    --mobile-chat-header-height: 84px;
+    --mobile-chat-header-height: calc(
+      var(--mobile-chat-header-base-height) +
+        var(--mobile-chat-preview-banner-height)
+    );
   }
 
   &.lessonUpdateNoticeVisible {
-    --mobile-chat-header-height: 76px;
+    --mobile-chat-header-height: calc(
+      var(--mobile-chat-header-base-height) +
+        var(--mobile-chat-header-notice-height)
+    );
   }
 
   &.previewMode.lessonUpdateNoticeVisible {
-    --mobile-chat-header-height: 116px;
+    --mobile-chat-header-height: calc(
+      var(--mobile-chat-header-base-height) +
+        var(--mobile-chat-preview-banner-height) +
+        var(--mobile-chat-header-notice-height)
+    );
   }
 }

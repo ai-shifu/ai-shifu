@@ -889,7 +889,7 @@ export default function ChatPage() {
             onSettingClick={onNavToggle}
             lessonUpdateNoticeVisible={lessonUpdateNoticeVisible}
             chapterId={chapterId}
-            lessonId={lessonId}
+            lessonId={resolvedLessonId}
             lessonTitle={currentLessonTitle}
           />
         ) : null}
@@ -929,7 +929,7 @@ export default function ChatPage() {
 
         {initialized && profileOnboardingRuntimeReady ? (
           <ChatUi
-            lessonId={lessonId}
+            lessonId={resolvedLessonId}
             chapterId={chapterId}
             lessonTitle={currentLessonTitle}
             lessonStatus={currentLessonStatus}

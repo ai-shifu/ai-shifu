@@ -15,8 +15,8 @@
   .headerRow {
     display: flex;
     width: 100%;
-    flex: 0 0 44px;
-    min-height: 44px;
+    flex: 0 0 var(--mobile-chat-header-base-height, 44px);
+    min-height: var(--mobile-chat-header-base-height, 44px);
     align-items: center;
     padding: 6px 20px;
     box-sizing: border-box;
@@ -49,7 +49,7 @@
 
   .noticeRow {
     display: flex;
-    flex: 0 0 32px;
+    flex: 0 0 var(--mobile-chat-header-notice-height, 32px);
     min-width: 0;
     align-items: center;
     justify-content: center;
