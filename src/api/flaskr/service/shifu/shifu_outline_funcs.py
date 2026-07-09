@@ -20,7 +20,7 @@ from .consts import (
     UNIT_TYPE_TRIAL,
     UNIT_TYPE_GUEST,
 )
-from .models import DraftOutlineItem
+from .models import DraftOutlineItem, DraftShifu
 from ...dao import db
 from ...util import generate_id
 from ..common.models import raise_error, raise_param_error
@@ -235,6 +235,138 @@ def get_outline_tree(app, user_id: str, shifu_bid: str) -> list[SimpleOutlineDto
         return get_outline_tree_dto(outline_tree)
 
 
+def __lock_shifu_for_outline_write(shifu_id: str) -> None:
+    """Serialize concurrent outline structural writes for a single shifu.
+
+    A new outline's ``position`` is allocated by reading the current siblings and
+    taking ``max(position) + 1``. Without a lock, concurrent create requests read
+    the same snapshot and allocate the *same* position, producing colliding
+    positions that later block publishing (``assert_outline_tree_publishable``).
+
+    Take a row lock on the shifu's latest draft row so position allocation is
+    serialized per shifu. ``DraftShifu`` rows are not written by outline creation,
+    so the latest row is a stable lock target that concurrent creators contend on
+    (unlike the append-only outline/struct-log rows, whose "latest" identity
+    shifts per write). ``FOR UPDATE`` is a no-op on SQLite (unit tests) and
+    effective on MySQL (production).
+    """
+    (
+        DraftShifu.query.filter(DraftShifu.shifu_bid == shifu_id)
+        .order_by(DraftShifu.id.desc())
+        .with_for_update()
+        .first()
+    )
+
+
+def __insert_outline_locked(
+    app,
+    user_id: str,
+    shifu_id: str,
+    parent_id: str,
+    outline_name: str,
+    outline_type: str,
+    system_prompt: str,
+    is_hidden: bool,
+    now_time,
+) -> SimpleOutlineDto:
+    """Insert one outline row, allocating its position from current siblings.
+
+    Caller must already hold the app context, the per-shifu write lock (see
+    ``__lock_shifu_for_outline_write``), and own the surrounding transaction: this
+    helper flushes but does not commit, so a batch of inserts reads each other's
+    freshly flushed positions and stays collision-free within one transaction.
+    """
+    outline_bid = generate_id(app)
+
+    # A brand-new outline has no current value to preserve, so a None
+    # type/is_hidden (caller omitted it) falls back to a concrete default.
+    if outline_type is None:
+        outline_type = UNIT_TYPE_GUEST
+    if is_hidden is None:
+        is_hidden = False
+
+    # validate name
+    if not isinstance(outline_name, str) or not outline_name.strip():
+        raise_param_error("name")
+    outline_name = outline_name.strip()
+    if len(outline_name) > 100:
+        raise_error("server.shifu.outlineNameTooLong")
+
+    # determine position
+    existing_items = __get_existing_outline_items(shifu_id)
+    if parent_id:
+        # child outline
+        parent_item = next(
+            (item for item in existing_items if item.outline_item_bid == parent_id),
+            None,
+        )
+        if not parent_item:
+            raise_error("server.shifu.parentOutlineNotFound")
+
+        # find max index of same level
+        siblings = [item for item in existing_items if item.parent_bid == parent_id]
+        max_index = (
+            max([int(item.position[-2:]) for item in siblings]) if siblings else 0
+        )
+        new_position = f"{parent_item.position}{max_index + 1:02d}"
+    else:
+        # top level outline
+        root_items = [item for item in existing_items if len(item.position) == 2]
+        max_index = (
+            max([int(item.position) for item in root_items]) if root_items else 0
+        )
+        new_position = f"{max_index + 1:02d}"
+    type_value = UNIT_TYPE_VALUES.get(outline_type, UNIT_TYPE_VALUE_TRIAL)
+    type_label = UNIT_TYPE_VALUES_REVERSE.get(
+        type_value, outline_type or UNIT_TYPE_TRIAL
+    )
+
+    # create new outline
+    new_outline = DraftOutlineItem(
+        outline_item_bid=outline_bid,
+        shifu_bid=shifu_id,
+        title=outline_name,
+        parent_bid=parent_id or "",
+        position=new_position,
+        prerequisite_item_bids="",
+        llm="",
+        llm_temperature=Decimal("0.3"),
+        llm_system_prompt=system_prompt or "",
+        ask_enabled_status=5101,  # ASK_MODE_DEFAULT
+        ask_llm="",
+        ask_llm_temperature=Decimal("0.3"),
+        ask_llm_system_prompt="",
+        deleted=0,
+        created_at=now_time,
+        updated_at=now_time,
+        created_user_bid=user_id,
+        updated_user_bid=user_id,
+        type=type_value,
+        hidden=is_hidden,
+    )
+
+    # risk check
+    check_text_with_risk_control(
+        app, outline_bid, user_id, f"{outline_name} {system_prompt or ''}"
+    )
+
+    # save to database (flush only; the caller owns the commit)
+    db.session.add(new_outline)
+    db.session.flush()
+    save_new_outline_history(
+        app, user_id, shifu_id, outline_bid, new_outline.id, parent_id, max_index
+    )
+
+    return SimpleOutlineDto(
+        bid=outline_bid,
+        position=new_position,
+        name=outline_name,
+        children=[],
+        type=type_label,
+        is_hidden=is_hidden,
+    )
+
+
 def create_outline(
     app,
     user_id: str,
@@ -265,97 +397,77 @@ def create_outline(
     """
     with app.app_context():
         now_time = now_utc()
-        # generate new outline id
-        outline_bid = generate_id(app)
-
-        # A brand-new outline has no current value to preserve, so a None
-        # type/is_hidden (caller omitted it) falls back to a concrete default.
-        if outline_type is None:
-            outline_type = UNIT_TYPE_GUEST
-        if is_hidden is None:
-            is_hidden = False
-
-        # validate name
-        if not isinstance(outline_name, str) or not outline_name.strip():
-            raise_param_error("name")
-        outline_name = outline_name.strip()
-        if len(outline_name) > 100:
-            raise_error("server.shifu.outlineNameTooLong")
-
-        # determine position
-        existing_items = __get_existing_outline_items(shifu_id)
-        if parent_id:
-            # child outline
-            parent_item = next(
-                (item for item in existing_items if item.outline_item_bid == parent_id),
-                None,
-            )
-            if not parent_item:
-                raise_error("server.shifu.parentOutlineNotFound")
-
-            # find max index of same level
-            siblings = [item for item in existing_items if item.parent_bid == parent_id]
-            max_index = (
-                max([int(item.position[-2:]) for item in siblings]) if siblings else 0
-            )
-            new_position = f"{parent_item.position}{max_index + 1:02d}"
-        else:
-            # top level outline
-            root_items = [item for item in existing_items if len(item.position) == 2]
-            max_index = (
-                max([int(item.position) for item in root_items]) if root_items else 0
-            )
-            new_position = f"{max_index + 1:02d}"
-        type_value = UNIT_TYPE_VALUES.get(outline_type, UNIT_TYPE_VALUE_TRIAL)
-        type_label = UNIT_TYPE_VALUES_REVERSE.get(
-            type_value, outline_type or UNIT_TYPE_TRIAL
-        )
-
-        # create new outline
-        new_outline = DraftOutlineItem(
-            outline_item_bid=outline_bid,
-            shifu_bid=shifu_id,
-            title=outline_name,
-            parent_bid=parent_id or "",
-            position=new_position,
-            prerequisite_item_bids="",
-            llm="",
-            llm_temperature=Decimal("0.3"),
-            llm_system_prompt=system_prompt or "",
-            ask_enabled_status=5101,  # ASK_MODE_DEFAULT
-            ask_llm="",
-            ask_llm_temperature=Decimal("0.3"),
-            ask_llm_system_prompt="",
-            deleted=0,
-            created_at=now_time,
-            updated_at=now_time,
-            created_user_bid=user_id,
-            updated_user_bid=user_id,
-            type=type_value,
-            hidden=is_hidden,
-        )
-
-        # risk check
-        check_text_with_risk_control(
-            app, outline_bid, user_id, f"{outline_name} {system_prompt or ''}"
-        )
-
-        # save to database
-        db.session.add(new_outline)
-        db.session.flush()
-        save_new_outline_history(
-            app, user_id, shifu_id, outline_bid, new_outline.id, parent_id, max_index
+        __lock_shifu_for_outline_write(shifu_id)
+        dto = __insert_outline_locked(
+            app,
+            user_id,
+            shifu_id,
+            parent_id,
+            outline_name,
+            outline_type,
+            system_prompt,
+            is_hidden,
+            now_time,
         )
         db.session.commit()
+        return dto
 
-        return SimpleOutlineDto(
-            bid=outline_bid,
-            position=new_position,
-            name=outline_name,
-            children=[],
-            type=type_label,
-            is_hidden=is_hidden,
-        )
+
+def create_outlines_batch(
+    app,
+    user_id: str,
+    shifu_id: str,
+    outlines: list,
+    parent_id: str = "",
+):
+    """Create multiple outlines atomically with correct sequential positions.
+
+    Every row is inserted under a single per-shifu lock inside one transaction,
+    so a batch of siblings can never collide on the same position. This is the
+    safe alternative to issuing N concurrent single-create requests, which race
+    on position allocation and can leave a shifu unpublishable.
+
+    Args:
+        outlines: nested nodes, each a dict with keys ``name`` (required),
+            ``type``, ``system_prompt``, ``is_hidden``, and ``children`` (a list
+            of the same shape).
+        parent_id: parent outline bid the whole batch is nested under ("" = root).
+
+    Returns:
+        list[SimpleOutlineDto]: created nodes, children populated recursively.
+    """
+    if not isinstance(outlines, list) or not outlines:
+        raise_param_error("outlines")
+
+    with app.app_context():
+        now_time = now_utc()
+        __lock_shifu_for_outline_write(shifu_id)
+
+        def _create_nodes(nodes: list, node_parent_id: str) -> list:
+            created = []
+            for node in nodes:
+                if not isinstance(node, dict):
+                    raise_param_error("outlines")
+                dto = __insert_outline_locked(
+                    app,
+                    user_id,
+                    shifu_id,
+                    node_parent_id,
+                    node.get("name"),
+                    node.get("type"),
+                    node.get("system_prompt"),
+                    node.get("is_hidden"),
+                    now_time,
+                )
+                children = node.get("children") or []
+                if children:
+                    dto.children = _create_nodes(children, dto.bid)
+                created.append(dto)
+            return created
+
+        results = _create_nodes(outlines, parent_id or "")
+        db.session.commit()
+        return results
 
 
 def reorder_outline_tree(

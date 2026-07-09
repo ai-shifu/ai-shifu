@@ -119,6 +119,7 @@ from flaskr.service.shifu.shifu_publish_funcs import (
 from flaskr.service.shifu.shifu_outline_funcs import (
     reorder_outline_tree,
     create_outline,
+    create_outlines_batch,
     modify_unit,
     get_unit_by_id,
     delete_unit,
@@ -1294,6 +1295,72 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 system_prompt,
                 is_hidden,
             )
+        )
+
+    @app.route(path_prefix + "/shifus/<shifu_bid>/outlines/batch", methods=["PUT"])
+    @ShifuTokenValidation(ShifuPermission.EDIT)
+    @with_shifu_context()
+    def create_outlines_batch_api(shifu_bid: str):
+        """
+        Create multiple outlines atomically
+        ---
+        tags:
+            - shifu
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    parent_bid:
+                        type: string
+                        description: parent outline bid the batch nests under
+                    outlines:
+                        type: array
+                        description: nested outline nodes to create in order
+                        items:
+                            type: object
+                            properties:
+                                name:
+                                    type: string
+                                type:
+                                    type: string
+                                system_prompt:
+                                    type: string
+                                is_hidden:
+                                    type: boolean
+                                children:
+                                    type: array
+                                    items:
+                                        type: object
+        responses:
+            200:
+                description: create outlines success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    type: array
+                                    items:
+                                        $ref: "#/components/schemas/SimpleOutlineDto"
+        """
+        user_id = request.user.user_id
+        json_data = request.get_json(silent=True) or {}
+        if not isinstance(json_data, dict):
+            raise_param_error("json body")
+        parent_bid = json_data.get("parent_bid") or ""
+        outlines = json_data.get("outlines")
+        return make_common_response(
+            create_outlines_batch(app, user_id, shifu_bid, outlines, parent_bid)
         )
 
     @app.route(
