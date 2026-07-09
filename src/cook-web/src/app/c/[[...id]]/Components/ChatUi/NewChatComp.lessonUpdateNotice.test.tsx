@@ -1,8 +1,9 @@
 import React from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AppContext } from '../AppContext';
 import { NewChatComponents } from './NewChatComp';
+import LessonUpdateNotice from '../LessonUpdateNotice';
 
 const mockUseChatLogicHook = jest.fn();
 
@@ -13,13 +14,11 @@ jest.mock('react-i18next', () => {
     'module.chat.ask': '追问',
     'module.chat.lessonUpdateRecommendRetake':
       '本节课程已更新，建议<action>重修</action>',
+    'module.chat.lessonFeedbackSubmit': '提交',
     'module.chat.lessonUpdateRetakeAccessibleLabel': '重修本节课程',
     'module.chat.lessonUpdateRetakeAction': '重修',
     'module.lesson.reset.confirmContent': '重修会清空本节学习数据。确定重修？',
     'module.lesson.reset.confirmTitle': '确认重修',
-    'module.renderUi.core.confirm': '确认',
-    'module.renderUi.core.copied': '已复制',
-    'module.renderUi.core.copyCode': '复制代码',
   };
 
   return {
@@ -235,7 +234,9 @@ jest.mock('@/components/audio/AudioPlayer', () => ({
   },
 }));
 
-const renderLessonUpdateNotice = () => {
+const renderNewChatComponents = (
+  onLessonUpdateNoticeVisibilityChange = jest.fn(),
+) => {
   mockUseChatLogicHook.mockReturnValue({
     currentStreamingElementBid: '',
     currentTypewriterElementBid: '',
@@ -283,10 +284,22 @@ const renderLessonUpdateNotice = () => {
         onGoChapter={jest.fn()}
         onPurchased={jest.fn()}
         updateSelectedLesson={jest.fn()}
+        onLessonUpdateNoticeVisibilityChange={
+          onLessonUpdateNoticeVisibilityChange
+        }
       />
     </AppContext.Provider>,
   );
 };
+
+const renderTitlebarLessonUpdateNotice = () =>
+  render(
+    <LessonUpdateNotice
+      chapterId='chapter-1'
+      lessonId='lesson-1'
+      lessonTitle='第一课'
+    />,
+  );
 
 describe('NewChatComponents lesson update notice', () => {
   let requestAnimationFrameSpy: jest.SpyInstance;
@@ -302,8 +315,8 @@ describe('NewChatComponents lesson update notice', () => {
     requestAnimationFrameSpy.mockRestore();
   });
 
-  it('renders retake as an inline action and opens the existing confirm dialog', async () => {
-    renderLessonUpdateNotice();
+  it('renders the titlebar retake action and opens the existing confirm dialog', async () => {
+    renderTitlebarLessonUpdateNotice();
 
     const retakeAction = screen.getByRole('button', {
       name: '重修本节课程',
@@ -323,5 +336,24 @@ describe('NewChatComponents lesson update notice', () => {
     expect(
       screen.getByText('重修会清空本节学习数据。确定重修？'),
     ).toBeInTheDocument();
+  });
+
+  it('reports the notice visibility without rendering it in chat content', async () => {
+    const onLessonUpdateNoticeVisibilityChange = jest.fn();
+    renderNewChatComponents(onLessonUpdateNoticeVisibilityChange);
+
+    await waitFor(() => {
+      expect(onLessonUpdateNoticeVisibilityChange).toHaveBeenLastCalledWith(
+        true,
+      );
+    });
+    expect(
+      screen.queryByRole('button', {
+        name: '重修本节课程',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('本节课程已更新，建议重修'),
+    ).not.toBeInTheDocument();
   });
 });

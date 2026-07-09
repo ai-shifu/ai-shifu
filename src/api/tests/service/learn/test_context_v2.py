@@ -5,7 +5,7 @@ import threading
 import time
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -175,6 +175,28 @@ _HAS_RUN_ASYNC = hasattr(RunScriptContextV2, "_run_async_in_safe_context")
 
 
 class OutlinePathGuardTests(unittest.TestCase):
+    def test_get_next_outline_item_ignores_missing_current_outline_item(self):
+        ctx = _make_context()
+        ctx._struct = HistoryItem(bid="shifu-bid", id=1, type="shifu", children=[])
+        ctx._current_outline_item = None
+        ctx._current_attend = types.SimpleNamespace(
+            block_position=0,
+            status=LEARN_STATUS_IN_PROGRESS,
+        )
+        ctx._outline_model = types.SimpleNamespace(
+            outline_item_bid=MagicMock(),
+            hidden=MagicMock(),
+            title=MagicMock(),
+            deleted=MagicMock(),
+        )
+        query = MagicMock()
+        query.filter.return_value.all.return_value = []
+
+        with patch.object(context_v2_module.db.session, "query", return_value=query):
+            result = ctx._get_next_outline_item()
+
+        self.assertEqual(result, [])
+
     def test_find_outline_path_returns_path_when_outline_exists(self):
         root = HistoryItem(
             bid="shifu-bid",
@@ -2141,6 +2163,72 @@ class BuildContextFromBlocksTests(unittest.TestCase):
                 prev == "user" and cur == "user",
                 f"adjacent user messages in {roles}",
             )
+
+
+class BuildContextNoVariableInteractionTests(unittest.TestCase):
+    """No-variable button interactions (e.g. ?[A | B | C]) carry a real learner
+    choice, but markdown-flow has no variable to recover it from and would
+    collapse the turn into {user: "ok"} + {assistant: "ok"}, dropping the
+    selection. build_context_from_blocks must reuse the choice captured in
+    generated_content, and skip the turn entirely when it is empty."""
+
+    DOC = (
+        "Content one.\n"
+        "---\n"
+        "?[网络招聘网站 | 猎头公司 | 人才测评 | 培训业务]\n"
+        "---\n"
+        "Second content."
+    )
+
+    def _blocks(self, selection):
+        return [
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                position=0,
+                generated_content="reply zero",
+            ),
+            types.SimpleNamespace(
+                type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                position=1,
+                generated_content=selection,
+            ),
+        ]
+
+    def test_selection_reused_instead_of_collapsing_to_ok(self):
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks("猎头公司"), self.DOC, {}
+            )
+
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "Content one."},
+                {"role": "assistant", "content": "reply zero"},
+                {"role": "user", "content": "猎头公司"},
+                {"role": "assistant", "content": "ok"},
+            ],
+        )
+        # No raw ?[...] leaks and the user turn is the real choice, not "ok".
+        self.assertTrue(all("?[" not in m["content"] for m in messages))
+
+    def test_empty_selection_skips_the_interaction_turn(self):
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks("   "), self.DOC, {}
+            )
+
+        # Only the content block survives; the empty interaction contributes
+        # nothing rather than a fabricated {user: "ok"} pair.
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "Content one."},
+                {"role": "assistant", "content": "reply zero"},
+            ],
+        )
 
 
 if __name__ == "__main__":

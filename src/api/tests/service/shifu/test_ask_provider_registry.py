@@ -204,16 +204,19 @@ def test_ask_provider_metadata_exposes_minimal_schema_properties():
 def test_ask_provider_metadata_localizes_text_for_zh_cn(app):
     _ = app
     set_language("zh-CN")
+    try:
+        metadata = module.get_ask_provider_metadata()
+        providers = {item["provider"]: item for item in metadata.get("providers", [])}
+        coze = providers["coze"]
 
-    metadata = module.get_ask_provider_metadata()
-    providers = {item["provider"]: item for item in metadata.get("providers", [])}
-    coze = providers["coze"]
-
-    assert coze["title"] == "Coze"
-    assert coze["description"] == "使用 Coze Bot 对话接口处理追问。"
-    assert coze["json_schema"]["properties"]["api_key"]["title"] == "API 密钥"
-    assert (
-        coze["json_schema"]["properties"]["bot_id"]["description"] == "Coze Bot 标识。"
-    )
-
-    set_language("en-US")
+        assert coze["title"] == "Coze"
+        assert coze["description"] == "用 Coze Bot 回答学员追问。"
+        assert coze["json_schema"]["properties"]["api_key"]["title"] == "API 密钥"
+        assert (
+            coze["json_schema"]["properties"]["bot_id"]["description"]
+            == "Coze Bot 标识。"
+        )
+    finally:
+        # Always restore the default locale so a failed assertion above
+        # cannot leak zh-CN into subsequent tests.
+        set_language("en-US")

@@ -483,7 +483,9 @@ def ensure_subscription_renewal_order(
         cycle_start_at=cycle_start_at,
         cycle_end_at=cycle_end_at,
     )
-    if order is not None and _is_preorder_order(order):
+    if order is not None and (
+        _is_paid_referral_invitation_renewal(order) or _is_preorder_order(order)
+    ):
         metadata = (
             dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
         )
@@ -650,11 +652,8 @@ def _should_defer_pingxx_renewal_activation(order: BillingOrder) -> bool:
     return order.paid_at < renewal_cycle_start_at
 
 
-def _is_manual_referral_invitation_renewal(order: BillingOrder) -> bool:
-    if (
-        order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
-        or _normalize_bid(order.payment_provider) != "manual"
-    ):
+def _is_referral_invitation_renewal(order: BillingOrder) -> bool:
+    if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
         return False
 
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
@@ -662,6 +661,12 @@ def _is_manual_referral_invitation_renewal(order: BillingOrder) -> bool:
     return checkout_type == "referral_invitation_reward" or (
         metadata.get("referral_invitation_reward") is True
     )
+
+
+def _is_paid_referral_invitation_renewal(order: BillingOrder) -> bool:
+    return int(
+        order.status or 0
+    ) == BILLING_ORDER_STATUS_PAID and _is_referral_invitation_renewal(order)
 
 
 def _should_defer_subscription_renewal_activation(
@@ -683,7 +688,7 @@ def _should_defer_subscription_renewal_activation(
     return (
         _should_defer_pingxx_renewal_activation(order)
         or _is_preorder_order(order)
-        or _is_manual_referral_invitation_renewal(order)
+        or _is_referral_invitation_renewal(order)
     )
 
 
@@ -701,7 +706,7 @@ def _has_paid_referral_invitation_renewal_at_boundary(
     )
     if order is None:
         return False
-    return _is_manual_referral_invitation_renewal(order)
+    return _is_referral_invitation_renewal(order)
 
 
 def _is_same_product_preorder_renewal(order: BillingOrder) -> bool:
@@ -2613,5 +2618,6 @@ load_billing_product_by_bid = _load_billing_product_by_bid
 load_or_create_credit_wallet = _load_or_create_credit_wallet
 sync_subscription_lifecycle_events = _sync_subscription_lifecycle_events
 merge_provider_metadata = _merge_provider_metadata
+is_paid_referral_invitation_renewal = _is_paid_referral_invitation_renewal
 void_reserved_subscription_grant_for_order = _void_reserved_subscription_grant_for_order
 void_reserved_preorder_grant = _void_reserved_subscription_grant_for_order

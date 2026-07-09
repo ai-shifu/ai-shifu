@@ -11,6 +11,16 @@ jest.mock('markdown-flow-ui/renderer', () => ({
   },
 }));
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: {
+      language: 'zh-CN',
+      resolvedLanguage: 'zh-CN',
+    },
+  }),
+}));
+
 jest.mock('react-use', () => ({
   useLongPress: () => ({}),
 }));
@@ -28,6 +38,7 @@ jest.mock('@/c-utils/system-interaction', () => ({
   isPaySystemInteractionContent: jest.fn((content?: string) =>
     Boolean(content?.includes('_sys_pay')),
   ),
+  localizeSystemInteractionContent: (content: string) => content,
 }));
 
 describe('ContentBlock pay interaction overrides', () => {
@@ -55,6 +66,7 @@ describe('ContentBlock pay interaction overrides', () => {
 
     expect(mockContentRender).toHaveBeenCalledWith(
       expect.objectContaining({
+        locale: 'zh-CN',
         readonly: false,
         userInput: '',
       }),

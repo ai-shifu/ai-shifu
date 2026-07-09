@@ -2,8 +2,6 @@
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
-import { AlertCircle, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
 import api from '@/api';
@@ -15,6 +13,7 @@ import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTableShell from '@/app/admin/components/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
+import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
 import {
   formatAdminCount,
   formatAdminCredits,
@@ -55,12 +54,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useEnvStore } from '@/c-store';
 import type { EnvStoreState } from '@/c-types/store';
 import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
@@ -1081,76 +1075,35 @@ export default function AdminOperationUsersPage() {
           <AdminBreadcrumb items={[{ label: tOperationsUsers('title') }]} />
           <AdminTitle title={tOperationsUsers('title')} />
 
-          <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm'>
-            <div className='mb-3'>
-              <h2 className='text-base font-semibold text-foreground'>
-                {tOperationsUsers('overview.title')}
-              </h2>
-            </div>
-            {userOverviewError ? (
-              <div className='mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'>
-                <AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />
-                <span>{tOperationsUsers('overview.staleData')}</span>
-              </div>
-            ) : null}
-            <div className='grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-5'>
-              {overviewCards.map(card => (
-                <div
-                  key={card.key}
-                  className='rounded-lg border border-border/70 bg-muted/20 p-4 transition-colors hover:border-primary/30 hover:bg-primary/[0.04]'
-                >
-                  <div className='flex items-start justify-between gap-2'>
-                    <button
-                      type='button'
-                      aria-label={card.label}
-                      className='group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
-                      onClick={() => applyQuickFilter(card.quickFilterKey)}
-                    >
-                      <div className='text-sm text-muted-foreground'>
-                        {card.label}
-                      </div>
-                      <div className='mt-3 text-2xl font-semibold text-foreground transition-colors group-hover:text-primary'>
-                        {formatAdminCount(card.value, i18n.language)}
-                      </div>
-                    </button>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type='button'
-                          aria-label={card.tooltip}
-                          className='inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
-                        >
-                          <QuestionMarkCircleIcon className='h-4 w-4' />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className='max-w-56 text-left leading-5'>
-                        {card.tooltip}
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <AdminMetricCardGroup
+            title={tOperationsUsers('overview.title')}
+            items={overviewCards.map(card => ({
+              key: card.key,
+              label: card.label,
+              value: formatAdminCount(card.value, i18n.language),
+              tooltip: card.tooltip,
+              onClick: () => applyQuickFilter(card.quickFilterKey),
+            }))}
+            gridClassName='grid-cols-2 md:grid-cols-4 xl:grid-cols-5'
+            staleMessage={
+              userOverviewError ? tOperationsUsers('overview.staleData') : null
+            }
+            activeFilter={
+              activeQuickFilterCard
+                ? {
+                    label: tOperationsUsers('overview.activeFilter'),
+                    value: activeQuickFilterCard.label,
+                    clearAriaLabel: `${activeQuickFilterCard.label} ${t(
+                      'common.core.close',
+                    )}`,
+                    onClear: () => applyQuickFilter(''),
+                  }
+                : null
+            }
+          />
 
           <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'>
             <div className='space-y-4'>
-              {activeQuickFilterCard ? (
-                <div className='flex flex-wrap items-center gap-2'>
-                  <span className='text-sm text-muted-foreground'>
-                    {tOperationsUsers('overview.activeFilter')}
-                  </span>
-                  <button
-                    type='button'
-                    aria-label={`${activeQuickFilterCard.label} ${t('common.core.close')}`}
-                    className='inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground transition-colors hover:bg-muted'
-                    onClick={() => applyQuickFilter('')}
-                  >
-                    <span>{activeQuickFilterCard.label}</span>
-                    <X className='h-3.5 w-3.5' />
-                  </button>
-                </div>
-              ) : null}
               <AdminFilter
                 items={[
                   ...expandedFirstRowFilterItems,

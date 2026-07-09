@@ -56,7 +56,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
             return _load_user_info(lookup.user_id)
         except jwt.exceptions.ExpiredSignatureError:
             raise_error("server.user.userTokenExpired")
-        except jwt.exceptions.DecodeError:
+        except jwt.exceptions.InvalidTokenError:
             raise_error("server.user.userNotFound")
 
     if has_app_context():

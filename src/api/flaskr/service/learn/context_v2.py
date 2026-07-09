@@ -559,17 +559,30 @@ class MdflowContextV2:
                     }
                 )
             elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
-                # Hand the raw interaction syntax to markdown-flow as an
-                # assistant message. Its _transform_context_messages expands
-                # ?[%{{var}}...] into {user: <value>} + {assistant: "ok"}
-                # using `variables`, instead of us crudely flattening the
-                # input into a bare user message.
-                message_list.append(
-                    {
-                        "role": "assistant",
-                        "content": block.content or "",
-                    }
-                )
+                interaction = InteractionParser().parse(block.content or "")
+                if interaction.get("variable"):
+                    # Variable interaction (e.g. ?[%{{var}} A | B]): hand the
+                    # raw syntax to markdown-flow, whose
+                    # _transform_context_messages expands it into
+                    # {user: <value>} + {assistant: "ok"} using `variables`.
+                    message_list.append(
+                        {
+                            "role": "assistant",
+                            "content": block.content or "",
+                        }
+                    )
+                else:
+                    # No-variable interaction (e.g. plain button choice
+                    # ?[A | B | C]): markdown-flow has no variable to recover
+                    # the learner's choice from and would collapse the turn
+                    # into {user: "ok"} + {assistant: "ok"}, dropping the
+                    # actual selection. Use the selection captured in
+                    # generated_content instead; if it is empty, skip the turn
+                    # rather than fabricate an "ok".
+                    user_content = (generated_block.generated_content or "").strip()
+                    if user_content:
+                        message_list.append({"role": "user", "content": user_content})
+                        message_list.append({"role": "assistant", "content": "ok"})
         return message_list
 
 
@@ -2034,12 +2047,15 @@ class RunScriptContextV2:
                             )
                         )
 
-        if (
+        if self._current_outline_item and (
             self._current_attend.block_position
             >= self._get_current_outline_block_count()
         ):
             _mark_sub_node_completed(self._current_outline_item, res)
-        if self._current_attend.status == LEARN_STATUS_NOT_STARTED:
+        if (
+            self._current_outline_item
+            and self._current_attend.status == LEARN_STATUS_NOT_STARTED
+        ):
             _mark_sub_node_start(self._current_outline_item, res)
         return res
 

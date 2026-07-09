@@ -12,8 +12,41 @@ const mockReloadTree = jest.fn();
 const mockUpdateLessonId = jest.fn();
 const mockUpdateChapterId = jest.fn();
 const mockTrackEvent = jest.fn();
+
+interface MockChatMobileHeaderProps {
+  lessonId?: string;
+  lessonTitle?: string;
+}
+
+interface MockChatUiProps {
+  lessonId?: string;
+}
+
+const mockChatMobileHeader = jest.fn(
+  ({ lessonId, lessonTitle }: MockChatMobileHeaderProps) => (
+    <div
+      data-testid='mobile-header'
+      data-lesson-id={lessonId}
+      data-lesson-title={lessonTitle}
+    />
+  ),
+);
+const mockChatUi = jest.fn(({ lessonId }: MockChatUiProps) => (
+  <div
+    data-testid='chat-ui'
+    data-lesson-id={lessonId}
+  />
+));
 const completeOnboardingLabel = 'complete onboarding';
 const skipOnboardingLabel = 'skip onboarding';
+let mockSelectedLessonId = 'lesson-1';
+let mockLessonTreeLessons = [
+  {
+    id: 'lesson-1',
+    name: 'Lesson title',
+    status: 'not_started',
+  },
+];
 
 const mockUserStoreState = {
   userInfo: {
@@ -172,17 +205,11 @@ jest.mock('./hooks/useLessonTree', () => ({
       catalogs: [
         {
           id: 'chapter-1',
-          lessons: [
-            {
-              id: 'lesson-1',
-              name: 'Lesson title',
-              status: 'not_started',
-            },
-          ],
+          lessons: mockLessonTreeLessons,
         },
       ],
     },
-    selectedLessonId: 'lesson-1',
+    selectedLessonId: mockSelectedLessonId,
     loadTree: mockLoadTree,
     reloadTree: mockReloadTree,
     updateSelectedLesson: jest.fn(),
@@ -209,12 +236,12 @@ jest.mock('./Components/NavDrawer/NavDrawer', () => ({
 
 jest.mock('./Components/ChatMobileHeader', () => ({
   __esModule: true,
-  default: () => null,
+  default: (props: MockChatMobileHeaderProps) => mockChatMobileHeader(props),
 }));
 
 jest.mock('./Components/ChatUi/ChatUi', () => ({
   __esModule: true,
-  default: () => <div data-testid='chat-ui' />,
+  default: (props: MockChatUiProps) => mockChatUi(props),
 }));
 
 jest.mock('@/c-components/TrackingVisit', () => ({
@@ -264,12 +291,30 @@ jest.mock('@/components/profile-onboarding/ProfileOnboardingModal', () => ({
 describe('ChatPage profile onboarding gate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCourseStoreState.lessonId = 'lesson-1';
+    mockCourseStoreState.chapterId = 'chapter-1';
+    mockSystemStoreState.previewMode = false;
+    mockSystemStoreState.learningMode = 'read';
+    mockUiLayoutStoreState.frameLayout = 'desktop';
+    mockSelectedLessonId = 'lesson-1';
+    mockLessonTreeLessons = [
+      {
+        id: 'lesson-1',
+        name: 'Lesson title',
+        status: 'not_started',
+      },
+    ];
     window.matchMedia = jest.fn().mockReturnValue({
       matches: false,
       addEventListener: jest.fn(),
       removeEventListener: jest.fn(),
       addListener: jest.fn(),
       removeListener: jest.fn(),
+    });
+    mockGetProfileOnboarding.mockResolvedValue({
+      should_show: false,
+      markdownflow: '',
+      current_values: {},
     });
     mockCompleteProfileOnboarding.mockResolvedValue({
       completed: true,
@@ -329,5 +374,30 @@ describe('ChatPage profile onboarding gate', () => {
     await waitFor(() => {
       expect(screen.getByTestId('chat-ui')).toBeInTheDocument();
     });
+  });
+
+  test('passes the resolved selected lesson id to chat headers when the store id is stale', async () => {
+    mockUiLayoutStoreState.frameLayout = 'mobile';
+    mockCourseStoreState.lessonId = 'lesson-old';
+    mockSelectedLessonId = 'lesson-new';
+    mockLessonTreeLessons = [
+      {
+        id: 'lesson-new',
+        name: 'New lesson title',
+        status: 'not_started',
+      },
+    ];
+
+    render(<ChatPage />);
+
+    const mobileHeader = await screen.findByTestId('mobile-header');
+    expect(mobileHeader).toHaveAttribute('data-lesson-id', 'lesson-new');
+    expect(mobileHeader).toHaveAttribute(
+      'data-lesson-title',
+      'New lesson title',
+    );
+
+    const chatUi = await screen.findByTestId('chat-ui');
+    expect(chatUi).toHaveAttribute('data-lesson-id', 'lesson-new');
   });
 });

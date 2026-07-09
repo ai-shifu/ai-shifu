@@ -21,7 +21,6 @@ import {
 } from './creditNotificationUtils';
 
 const SELECT_ITEM_CLASS = 'pl-3 pr-8';
-const SELECT_ITEM_INDICATOR_CLASS = 'left-auto right-2';
 
 export function CreditNotificationRecordsFilter({
   draftFilters,
@@ -74,7 +73,6 @@ export function CreditNotificationRecordsFilter({
           <SelectItem
             value={ALL_OPTION_VALUE}
             className={SELECT_ITEM_CLASS}
-            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
           >
             {t('module.operationsCreditNotifications.filters.all')}
           </SelectItem>
@@ -83,7 +81,6 @@ export function CreditNotificationRecordsFilter({
               key={type}
               value={type}
               className={SELECT_ITEM_CLASS}
-              indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
             >
               {resolveTypeLabel(type)}
             </SelectItem>
@@ -114,7 +111,6 @@ export function CreditNotificationRecordsFilter({
           <SelectItem
             value={ALL_OPTION_VALUE}
             className={SELECT_ITEM_CLASS}
-            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
           >
             {t('module.operationsCreditNotifications.filters.all')}
           </SelectItem>
@@ -123,7 +119,6 @@ export function CreditNotificationRecordsFilter({
               key={status}
               value={status}
               className={SELECT_ITEM_CLASS}
-              indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
             >
               {resolveDeliveryStatusLabel(status)}
             </SelectItem>
@@ -153,7 +148,6 @@ export function CreditNotificationRecordsFilter({
           <SelectItem
             value={ALL_OPTION_VALUE}
             className={SELECT_ITEM_CLASS}
-            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
           >
             {t('module.operationsCreditNotifications.filters.all')}
           </SelectItem>
@@ -162,7 +156,6 @@ export function CreditNotificationRecordsFilter({
               key={reason}
               value={reason}
               className={SELECT_ITEM_CLASS}
-              indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
             >
               {resolveSkipReasonLabel(reason)}
             </SelectItem>
@@ -192,7 +185,6 @@ export function CreditNotificationRecordsFilter({
           <SelectItem
             value={ALL_OPTION_VALUE}
             className={SELECT_ITEM_CLASS}
-            indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
           >
             {t('module.operationsCreditNotifications.filters.all')}
           </SelectItem>
@@ -201,7 +193,6 @@ export function CreditNotificationRecordsFilter({
               key={sourceType}
               value={sourceType}
               className={SELECT_ITEM_CLASS}
-              indicatorClassName={SELECT_ITEM_INDICATOR_CLASS}
             >
               {resolveSourceTypeLabel(sourceType)}
             </SelectItem>

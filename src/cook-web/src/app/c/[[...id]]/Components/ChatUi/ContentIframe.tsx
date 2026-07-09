@@ -1,16 +1,13 @@
 import { memo } from 'react';
 import { isEqual } from 'lodash';
 import { IframeSandbox, type RenderSegment } from 'markdown-flow-ui/renderer';
-import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
+import { useTranslation } from 'react-i18next';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 
 interface ContentIframeProps {
-  // item: ChatContentItem;
   segments: RenderSegment[];
   mobileStyle: boolean;
   blockBid: string;
-  confirmButtonText?: string;
-  copyButtonText?: string;
-  copiedButtonText?: string;
   //   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   //   onSend: (content: OnSendContentParams, blockBid: string) => void;
   sectionTitle?: string;
@@ -18,6 +15,11 @@ interface ContentIframeProps {
 
 const ContentIframe = memo(
   ({ segments, blockBid, sectionTitle }: ContentIframeProps) => {
+    const { i18n } = useTranslation();
+    const markdownFlowLocale = resolveMarkdownFlowLocale(
+      i18n.resolvedLanguage ?? i18n.language,
+    );
+
     return (
       <>
         {segments.map((segment, index) => {
@@ -38,6 +40,7 @@ const ContentIframe = memo(
           const iframeNode = (
             <IframeSandbox
               key={'iframe' + index}
+              locale={markdownFlowLocale}
               type={segment.type}
               mode='blackboard'
               hideFullScreen
@@ -67,14 +70,11 @@ const ContentIframe = memo(
     );
   },
   (prevProps, nextProps) => {
-    // Only re-render when content, layout, or i18n-driven button texts actually change
+    // Only re-render when content or layout actually changes
     return (
       isEqual(prevProps.segments, nextProps.segments) &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
-      prevProps.confirmButtonText === nextProps.confirmButtonText &&
-      prevProps.copyButtonText === nextProps.copyButtonText &&
-      prevProps.copiedButtonText === nextProps.copiedButtonText &&
       prevProps.sectionTitle === nextProps.sectionTitle
     );
   },

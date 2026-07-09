@@ -402,12 +402,16 @@
   .slide-ask-overlay,
 .listen-reveal-wrapper:not(.mobile):not(.listen-reveal-wrapper--classroom)
   .listen-slide-root:not(.slide--browser-fullscreen)
-  .slide-interaction-overlay,
+  .slide-interaction-overlay {
+  --slide-player-bottom-offset: var(--listen-slide-player-bottom-offset);
+  z-index: 90;
+}
+
 .listen-reveal-wrapper:not(.mobile):not(.listen-reveal-wrapper--classroom)
   .listen-slide-root:not(.slide--browser-fullscreen)
   .slide-subtitle-overlay {
   --slide-player-bottom-offset: var(--listen-slide-player-bottom-offset);
-  z-index: 90;
+  z-index: 89;
 }
 
 .listen-reveal-wrapper.mobile

@@ -31,10 +31,11 @@ import {
   replaceCurrentUrlWithLessonId,
 } from '@/c-utils/urlUtils';
 import { toast } from '@/hooks/useToast';
-import i18n, { normalizeLanguage } from '@/i18n';
+import { normalizeLanguage } from '@/i18n';
 import { formatAdminUtcDateTime } from '@/lib/admin-date-time';
 import { cn } from '@/lib/utils';
 import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
+import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 import { useOnboardingReplayStore, useShifu, useUserStore } from '@/store';
 import {
   DraftMeta,
@@ -104,16 +105,6 @@ export const resolveEditorOnboardingTriggerSource = (
     ? explicitSource
     : DEFAULT_EDITOR_TRIGGER_SOURCE;
 };
-type MarkdownFlowEditorLocale = 'en-US' | 'zh-CN';
-
-const resolveMarkdownFlowEditorLocale = (
-  language?: string | null,
-): MarkdownFlowEditorLocale => {
-  const normalizedLanguage = normalizeLanguage(language);
-  // markdown-flow-ui/editor currently ships only en-US and zh-CN resources.
-  return normalizedLanguage === 'zh-CN' ? 'zh-CN' : 'en-US';
-};
-
 // Collect variable names that truly exist in current markdown content
 const extractVariableNames = (text?: string | null) => {
   if (!text) {
@@ -149,7 +140,7 @@ const ScriptEditor = ({
   initialLessonId = '',
   initialViewMode = 'edit',
 }: ScriptEditorProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { t: tOnboarding } = useTranslation('module.onboarding');
   const { trackEvent } = useTracking();
   const searchParams = useSearchParams();
@@ -253,7 +244,7 @@ const ScriptEditor = ({
         i18n.changeLanguage(next);
       }
     }
-  }, [profile]);
+  }, [i18n, profile]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -495,6 +486,7 @@ const ScriptEditor = ({
   }, [
     courseEditorOnboardingOpen,
     editorOnboardingTriggerSource,
+    i18n.language,
     onboardingStatus?.user_segment,
     onboardingStatus?.version,
     profile?.language,
@@ -1883,7 +1875,7 @@ const ScriptEditor = ({
                   ) : (
                     <MarkdownFlowEditor
                       key={editorScopeKey}
-                      locale={resolveMarkdownFlowEditorLocale(
+                      locale={resolveMarkdownFlowLocale(
                         i18n.resolvedLanguage ?? i18n.language,
                       )}
                       disabled={currentShifu?.readonly}
