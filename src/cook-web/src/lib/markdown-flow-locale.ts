@@ -6,11 +6,14 @@ const MARKDOWN_FLOW_LOCALES: readonly MarkdownFlowLocale[] = [
   'zh-CN',
 ];
 
-const localeByBaseCode: Record<string, MarkdownFlowLocale> = {
-  en: 'en-US',
-  fr: 'fr-FR',
-  zh: 'zh-CN',
-};
+const localeByBaseCode: Record<string, MarkdownFlowLocale> = Object.assign(
+  Object.create(null),
+  {
+    en: 'en-US',
+    fr: 'fr-FR',
+    zh: 'zh-CN',
+  },
+);
 
 export const resolveMarkdownFlowLocale = (
   language?: string | null,
