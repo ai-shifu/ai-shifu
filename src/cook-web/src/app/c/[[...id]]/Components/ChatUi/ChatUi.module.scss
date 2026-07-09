@@ -28,7 +28,9 @@
     line-height: 20px;
 
     .headerMain {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      column-gap: 12px;
       width: 100%;
       min-height: 64px;
       align-items: center;
@@ -37,8 +39,9 @@
     }
 
     .headerContent {
+      grid-column: 1;
       min-width: 0;
-      max-width: calc(100% - 160px);
+      max-width: 100%;
     }
 
     .courseSummary {
@@ -52,11 +55,20 @@
       line-height: var(--text-sm-line-height, 18px);
     }
 
+    .lessonUpdateNoticeTarget {
+      grid-column: 2;
+      display: flex;
+      min-width: 0;
+      max-width: min(420px, 42vw);
+      justify-content: center;
+    }
+
     .headerActions {
+      grid-column: 3;
+      justify-self: end;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      margin-left: auto;
       flex-shrink: 0;
     }
   }

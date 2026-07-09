@@ -15,7 +15,8 @@
   .headerRow {
     display: flex;
     width: 100%;
-    min-height: 44px;
+    flex: 0 0 var(--mobile-chat-header-base-height, 44px);
+    min-height: var(--mobile-chat-header-base-height, 44px);
     align-items: center;
     padding: 6px 20px;
     box-sizing: border-box;
@@ -44,6 +45,21 @@
       outline: 2px solid var(--primary, #0f63ee);
       outline-offset: 2px;
     }
+  }
+
+  .noticeRow {
+    display: flex;
+    flex: 0 0 var(--mobile-chat-header-notice-height, 32px);
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0 20px 8px;
+    box-sizing: border-box;
+  }
+
+  .lessonUpdateNotice {
+    width: 100%;
   }
 }
 

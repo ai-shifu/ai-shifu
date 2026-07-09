@@ -12,12 +12,17 @@ import { shifu } from '@/c-service/Shifu';
 import CourseHeaderSummary from './CourseHeaderSummary';
 import LearningModeSwitch from './LearningModeSwitch';
 import PreviewHeaderBanner from './PreviewHeaderBanner';
+import LessonUpdateNotice from './LessonUpdateNotice';
 
 export const ChatMobileHeader = ({
   className,
   onSettingClick,
   navOpen,
   iconPopoverPayload,
+  lessonUpdateNoticeVisible = false,
+  chapterId,
+  lessonId,
+  lessonTitle,
 }) => {
   const { t } = useTranslation();
   const { onOpen: onIconPopoverOpen, onClose: onIconPopoverClose } =
@@ -74,6 +79,17 @@ export const ChatMobileHeader = ({
           </button>
         </div>
       </div>
+      {lessonUpdateNoticeVisible ? (
+        <div className={styles.noticeRow}>
+          <LessonUpdateNotice
+            chapterId={chapterId}
+            lessonId={lessonId}
+            lessonTitle={lessonTitle}
+            compact
+            className={styles.lessonUpdateNotice}
+          />
+        </div>
+      ) : null}
     </div>
   );
 };
