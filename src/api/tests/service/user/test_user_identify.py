@@ -567,6 +567,29 @@ def test_email_flow_rejects_universal_code_when_guard_disabled(app):
             _reset_user_auth_tables()
 
 
+def test_phone_flow_rejects_universal_code_when_guard_disabled(app):
+    import flaskr.service.user.phone_flow as phone_flow
+
+    with app.app_context():
+        original_enabled = app.config.get("UNIVERSAL_VERIFICATION_CODE_ENABLED")
+        original_code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+        try:
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = False
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+            app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
+            phone_flow.redis = _FakeRedis()
+
+            _reset_user_auth_tables()
+            with pytest.raises(Exception):
+                phone_flow.verify_phone_code(
+                    app, user_id=None, phone="15500009999", code="9999"
+                )
+        finally:
+            app.config["UNIVERSAL_VERIFICATION_CODE_ENABLED"] = original_enabled
+            app.config["UNIVERSAL_VERIFICATION_CODE"] = original_code
+            _reset_user_auth_tables()
+
+
 def test_email_flow_accepts_universal_code_when_guard_enabled(app):
     import flaskr.service.user.email_flow as email_flow
 

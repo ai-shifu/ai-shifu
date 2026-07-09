@@ -56,6 +56,7 @@ jobs:
           SECRET_KEY=ci-runtime-harness-secret
           OPENAI_API_KEY=ci-runtime-harness-placeholder
           UNIVERSAL_VERIFICATION_CODE=1024
+          UNIVERSAL_VERIFICATION_CODE_ENABLED=true
           ENV=development
           FLASK_APP=app.py
           MODE=api

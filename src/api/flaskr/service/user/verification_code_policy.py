@@ -8,12 +8,7 @@ _PRODUCTION_ENVIRONMENTS = {"prod", "production"}
 
 
 def is_production_environment(app: Flask) -> bool:
-    environment = (
-        app.config.get("ENV")
-        or app.config.get("MODE")
-        or app.config.get("ENVERIMENT")
-        or ""
-    )
+    environment = app.config.get("ENV") or app.config.get("MODE") or ""
     return str(environment).strip().lower() in _PRODUCTION_ENVIRONMENTS
 
 
@@ -28,3 +23,10 @@ def get_enabled_universal_verification_code(app: Flask) -> str:
     if is_production_environment(app):
         return ""
     return code
+
+
+def is_universal_verification_code_match(app: Flask, code: str) -> bool:
+    """Return True when code matches the enabled universal verification code."""
+
+    fix_code = get_enabled_universal_verification_code(app)
+    return bool(fix_code) and code == fix_code

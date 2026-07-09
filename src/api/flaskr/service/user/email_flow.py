@@ -18,7 +18,7 @@ from flaskr.service.user.phone_flow import migrate_user_study_record, init_first
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.utils import generate_token
 from flaskr.service.user.verification_code_policy import (
-    get_enabled_universal_verification_code,
+    is_universal_verification_code_match,
 )
 from flaskr.service.user.models import UserVerifyCode
 from flaskr.service.user.repository import (
@@ -92,13 +92,11 @@ def verify_email_code(
         update_user_profile_with_lable,
     )
 
-    fix_code = get_enabled_universal_verification_code(app)
-
     email_key = (email or "").strip()
     code_key = (
         get_redis_derived_prefix("REDIS_KEY_PREFIX_MAIL_CODE", app=app) + email_key
     )
-    if not fix_code or code != fix_code:
+    if not is_universal_verification_code_match(app, code):
         cached = redis.get(code_key)
         if cached is not None:
             cached_str = (
