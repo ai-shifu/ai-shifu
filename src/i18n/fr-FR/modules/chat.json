@@ -52,7 +52,6 @@
   "regenerateConfirmTitle": "Confirmer la régénération de ce contenu ?",
   "slideAudioBuffering": "Mise en mémoire tampon…",
   "slideAudioBufferingLoadingAudio": "Chargement audio…",
-  "slideAudioBufferingWaitingForAudio": "En attente de l’audio…",
   "slideAudioBufferingWaitingForMoreAudio": "En attente de plus d’audio…",
   "streamTimeoutRetry": "Le service a expiré. Veuillez actualiser et réessayer.",
   "thinking": "Réflexion…",

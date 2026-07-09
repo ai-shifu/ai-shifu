@@ -52,7 +52,6 @@
   "regenerateConfirmTitle": "确定重新生成此内容？",
   "slideAudioBuffering": "正在缓冲中...",
   "slideAudioBufferingLoadingAudio": "正在加载音频",
-  "slideAudioBufferingWaitingForAudio": "正在合成音频",
   "slideAudioBufferingWaitingForMoreAudio": "正在等待音频",
   "streamTimeoutRetry": "系统服务超时，请刷新重试",
   "thinking": "思考中...",

@@ -52,7 +52,6 @@
   "regenerateConfirmTitle": "Confirm regenerate this content?",
   "slideAudioBuffering": "Buffering...",
   "slideAudioBufferingLoadingAudio": "Loading audio...",
-  "slideAudioBufferingWaitingForAudio": "Waiting for audio...",
   "slideAudioBufferingWaitingForMoreAudio": "Waiting for more audio...",
   "streamTimeoutRetry": "The service timed out. Please refresh and try again.",
   "thinking": "Thinking...",

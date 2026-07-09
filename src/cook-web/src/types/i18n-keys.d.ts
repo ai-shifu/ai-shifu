@@ -782,7 +782,6 @@ export type I18nKey =
   | 'module.chat.regenerateConfirmTitle'
   | 'module.chat.slideAudioBuffering'
   | 'module.chat.slideAudioBufferingLoadingAudio'
-  | 'module.chat.slideAudioBufferingWaitingForAudio'
   | 'module.chat.slideAudioBufferingWaitingForMoreAudio'
   | 'module.chat.streamTimeoutRetry'
   | 'module.chat.thinking'
