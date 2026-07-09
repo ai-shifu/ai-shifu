@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from types import SimpleNamespace
 
+import pytest
 from flask import Flask
 
+from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.shifu.tts_preview import build_tts_preview_response
 
@@ -210,3 +212,59 @@ def test_build_tts_preview_response_normalizes_removed_fields(monkeypatch) -> No
 
     assert captured["pitch"] == 0
     assert captured["emotion"] == ""
+
+
+def test_build_tts_preview_response_guards_minimax_custom_voice(monkeypatch) -> None:
+    app = Flask(__name__)
+    guard_calls: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.validate_tts_settings_strict",
+        lambda **_kwargs: SimpleNamespace(
+            provider="minimax",
+            model="speech-2.8-turbo",
+            voice_id="AiShifu_missing_voice",
+            speed=1.0,
+            pitch=0,
+            emotion="",
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.is_tts_configured",
+        lambda _provider: True,
+        raising=False,
+    )
+
+    def _fake_guard(_app, *, voice_id, owner_user_bid):
+        guard_calls.append({"voice_id": voice_id, "owner_user_bid": owner_user_bid})
+        raise AppException("voice unavailable", ERROR_CODE["server.common.paramsError"])
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.tts_preview.assert_minimax_preview_voice_available",
+        _fake_guard,
+        raising=False,
+    )
+
+    with app.test_request_context("/api/shifu/tts/preview", method="POST"):
+        with pytest.raises(AppException) as exc_info:
+            build_tts_preview_response(
+                {
+                    "provider": "minimax",
+                    "model": "speech-2.8-turbo",
+                    "voice_id": "AiShifu_missing_voice",
+                    "speed": 1.0,
+                    "text": "hello",
+                },
+                request_user_id="creator-debug-tts-1",
+                request_user_is_creator=True,
+            )
+
+    # The guard runs before any streaming/synthesis and blocks the request.
+    assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+    assert guard_calls == [
+        {
+            "voice_id": "AiShifu_missing_voice",
+            "owner_user_bid": "creator-debug-tts-1",
+        }
+    ]

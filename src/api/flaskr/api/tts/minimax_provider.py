@@ -612,6 +612,14 @@ class MinimaxTTSProvider(BaseTTSProvider):
         if status_code != 0:
             status_msg = base_resp.get("status_msg", "Unknown error")
             logger.error(f"Minimax TTS API error: {status_code} - {status_msg}")
+            # 2054 means the requested voice id does not exist on MiniMax (a stale
+            # or foreign clone id that passed local shape validation). Surface it
+            # as an actionable message instead of a generic API error.
+            if status_code == 2054:
+                raise ValueError(
+                    "Minimax TTS voice is not available "
+                    f"(voice id does not exist on provider): {status_msg}"
+                )
             raise ValueError(f"Minimax TTS API error: {status_code} - {status_msg}")
 
         return result
