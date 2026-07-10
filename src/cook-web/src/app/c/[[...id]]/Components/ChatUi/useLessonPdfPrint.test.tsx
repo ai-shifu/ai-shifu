@@ -136,16 +136,28 @@ describe('useLessonPdfPrint', () => {
 
     const iframeDocument = iframe.contentDocument;
     expect(iframeDocument).toBeTruthy();
+    iframeDocument!.head.innerHTML = `
+      <style>
+        html, body, #root {
+          font-family: system-ui, -apple-system, BlinkMacSystemFont,
+            'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+        }
+        .font-sans {
+          font-family: system-ui, -apple-system, BlinkMacSystemFont,
+            'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+        }
+      </style>
+    `;
     iframeDocument!.body.innerHTML = `
       <div id='root'>
         <div class='sandbox-wrapper' aria-busy='true'>
-          <div class='sandbox-container' style='font-family: system-ui, sans-serif'>
+          <div class='sandbox-container font-sans'>
             中文图卡 iframe bottom marker
-            <input data-print-field='text' style='font-family: system-ui, sans-serif' />
+            <input data-print-field='text' />
             <input data-print-field='checked' type='checkbox' />
             <input data-print-field='file' type='file' />
-            <textarea data-print-field='textarea' style='font-family: system-ui, sans-serif'></textarea>
-            <select data-print-field='select' style='font-family: system-ui, sans-serif'>
+            <textarea data-print-field='textarea'></textarea>
+            <select data-print-field='select'>
               <option value='first'>第一项</option>
               <option value='second'>第二项</option>
             </select>
@@ -198,8 +210,7 @@ describe('useLessonPdfPrint', () => {
     sourceMultiSelect!.options[2].selected = true;
     const onError = jest.fn();
     let snapshotTextDuringPrint = '';
-    let snapshotFontFamilyDuringPrint = '';
-    let snapshotControlFontsDuringPrint: Record<string, string> = {};
+    let snapshotStylesDuringPrint = '';
     let snapshotFormStateDuringPrint = {};
     printSpy.mockImplementation(() => {
       const snapshot = printRoot.querySelector<HTMLElement>(
@@ -207,24 +218,11 @@ describe('useLessonPdfPrint', () => {
       );
       const shadowRoot = snapshot?.shadowRoot;
       snapshotTextDuringPrint = shadowRoot?.textContent ?? '';
-      snapshotFontFamilyDuringPrint =
-        shadowRoot
-          ?.querySelector<HTMLElement>('.sandbox-container')
-          ?.style.getPropertyValue('font-family') ?? '';
-      snapshotControlFontsDuringPrint = {
-        input:
-          shadowRoot
-            ?.querySelector<HTMLElement>('[data-print-field="text"]')
-            ?.style.getPropertyValue('font-family') ?? '',
-        textarea:
-          shadowRoot
-            ?.querySelector<HTMLElement>('[data-print-field="textarea"]')
-            ?.style.getPropertyValue('font-family') ?? '',
-        select:
-          shadowRoot
-            ?.querySelector<HTMLElement>('[data-print-field="select"]')
-            ?.style.getPropertyValue('font-family') ?? '',
-      };
+      snapshotStylesDuringPrint = Array.from(
+        shadowRoot?.querySelectorAll('style') ?? [],
+      )
+        .map(style => style.textContent ?? '')
+        .join('\n');
       snapshotFormStateDuringPrint = {
         text: shadowRoot?.querySelector<HTMLInputElement>(
           '[data-print-field="text"]',
@@ -281,10 +279,8 @@ describe('useLessonPdfPrint', () => {
     });
 
     expect(snapshotTextDuringPrint).toContain('iframe bottom marker');
-    expect(snapshotFontFamilyDuringPrint).toContain('PingFang SC');
-    Object.values(snapshotControlFontsDuringPrint).forEach(fontFamily => {
-      expect(fontFamily).toContain('PingFang SC');
-    });
+    expect(snapshotStylesDuringPrint).toContain('PingFang SC');
+    expect(snapshotStylesDuringPrint).toContain('.font-sans');
     expect(snapshotFormStateDuringPrint).toEqual({
       text: '已填写答案',
       checked: true,

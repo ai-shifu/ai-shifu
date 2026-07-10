@@ -327,22 +327,6 @@ body.listen-mode-vh-fallback #root {
     display: block !important;
   }
 
-  html.lesson-pdf-print .lesson-pdf-print-header,
-  html.lesson-pdf-print .lesson-pdf-print-header *,
-  html.lesson-pdf-print [data-lesson-print-interaction='true'],
-  html.lesson-pdf-print [data-lesson-print-interaction='true'] * {
-    font-family:
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      'PingFang SC',
-      'Hiragino Sans GB',
-      'Microsoft YaHei',
-      'Source Han Sans SC',
-      'Noto Sans CJK SC',
-      sans-serif !important;
-  }
-
   html.lesson-pdf-print [data-lesson-print-interaction='true'] {
     pointer-events: none !important;
     break-inside: avoid;
