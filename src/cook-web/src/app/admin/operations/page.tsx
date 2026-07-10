@@ -424,7 +424,9 @@ const OperationsPage = () => {
         } else if (err instanceof Error) {
           setError({ message: err.message });
         } else {
-          setError({ message: t('common.core.unknownError') });
+          setError({
+            message: t('module.operationsCourse.messages.loadCoursesFailed'),
+          });
         }
       } finally {
         if (requestId === requestIdRef.current) {
@@ -570,7 +572,9 @@ const OperationsPage = () => {
         if (err instanceof Error) {
           setPromptDetailError(err.message);
         } else {
-          setPromptDetailError(t('common.core.unknownError'));
+          setPromptDetailError(
+            t('module.operationsCourse.messages.loadPromptDetailFailed'),
+          );
         }
       } finally {
         if (requestId === promptRequestIdRef.current) {
@@ -905,7 +909,9 @@ const OperationsPage = () => {
         return;
       }
       setTransferError(
-        error instanceof Error ? error.message : t('common.core.unknownError'),
+        error instanceof Error
+          ? error.message
+          : t('module.operationsCourse.messages.transferCreatorFailed'),
       );
       setTransferLoading(false);
     } finally {
@@ -959,7 +965,9 @@ const OperationsPage = () => {
         return;
       }
       setCopyError(
-        error instanceof Error ? error.message : t('common.core.unknownError'),
+        error instanceof Error
+          ? error.message
+          : t('module.operationsCourse.messages.copyCourseFailed'),
       );
       setCopyLoading(false);
     } finally {

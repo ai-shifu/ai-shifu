@@ -363,6 +363,20 @@
     "startTime": "Start Date",
     "status": "Status"
   },
+  "messages": {
+    "copyCourseFailed": "Failed to copy course. Please try again later.",
+    "loadChapterDetailFailed": "Failed to load chapter detail. Please try again later.",
+    "loadCourseDetailFailed": "Failed to load course detail. Please try again later.",
+    "loadCoursesFailed": "Failed to load course list. Please refresh and try again.",
+    "loadCourseUsersFailed": "Failed to load course user data. Please try again later.",
+    "loadCreditUsageDetailsFailed": "Failed to load credit usage details. Please try again later.",
+    "loadCreditUsageFailed": "Failed to load credit usage data. Please try again later.",
+    "loadFollowUpDetailFailed": "Failed to load follow-up detail. Please try again later.",
+    "loadFollowUpsFailed": "Failed to load follow-up data. Please refresh and try again.",
+    "loadPromptDetailFailed": "Failed to load course prompt. Please try again later.",
+    "loadRatingsFailed": "Failed to load rating data. Please refresh and try again.",
+    "transferCreatorFailed": "Failed to transfer the course creator. Please try again later."
+  },
   "overview": {
     "activeFilter": "Quick Filter",
     "metrics": {

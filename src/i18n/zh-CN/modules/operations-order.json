@@ -126,6 +126,10 @@
       "totalOrders": "学习订单总数"
     }
   },
+  "messages": {
+    "loadCreditOrderDetailFailed": "积分订单详情加载失败，请稍后重试",
+    "loadDetailFailed": "订单详情加载失败，请稍后重试"
+  },
   "source": {
     "couponRedeem": "兑换码兑换",
     "importActivation": "开通导入",

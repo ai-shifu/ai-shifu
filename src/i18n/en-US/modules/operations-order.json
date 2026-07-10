@@ -126,6 +126,10 @@
       "totalOrders": "Total learning orders"
     }
   },
+  "messages": {
+    "loadCreditOrderDetailFailed": "Failed to load credit order detail. Please try again later.",
+    "loadDetailFailed": "Failed to load order detail. Please try again later."
+  },
   "source": {
     "couponRedeem": "Coupon Redemption",
     "importActivation": "Import Activation",
