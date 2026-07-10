@@ -89,6 +89,7 @@ export const LessonUpdateNotice = ({
 
   return (
     <div
+      role='status'
       aria-live='polite'
       className={cn(
         'inline-flex max-w-full items-center text-amber-900',
