@@ -253,6 +253,35 @@ export default function AskBlock({
     currentAnswerElementBidRef.current = '';
     isStreamingRef.current = true;
 
+    let streamSettled = false;
+    const rollbackFailedExchange = () => {
+      if (streamSettled) {
+        return;
+      }
+
+      streamSettled = true;
+      isStreamingRef.current = false;
+      setAskList(element_bid, prev => {
+        const next = [...prev];
+        if (next.at(-1)?.type === BLOCK_TYPE.ANSWER) {
+          next.pop();
+        }
+        if (next.at(-1)?.type === BLOCK_TYPE.ASK) {
+          next.pop();
+        }
+        return next;
+      });
+      setInputValue(question);
+    };
+    const finishSuccessfulExchange = () => {
+      if (streamSettled) {
+        return;
+      }
+
+      streamSettled = true;
+      finalizeStreamingMessage();
+    };
+
     // Initiate the SSE request
     const source = getRunMessage(
       shifu_bid,
@@ -279,23 +308,7 @@ export default function AskBlock({
             // ANSWER we appended before opening the SSE, restore the user's
             // text so they can retry, and surface the backend's localized
             // reason via toast.
-            setAskList(element_bid, prev => {
-              const next = [...prev];
-              if (
-                next.length &&
-                next[next.length - 1].type === BLOCK_TYPE.ANSWER
-              ) {
-                next.pop();
-              }
-              if (
-                next.length &&
-                next[next.length - 1].type === BLOCK_TYPE.ASK
-              ) {
-                next.pop();
-              }
-              return next;
-            });
-            setInputValue(question);
+            rollbackFailedExchange();
 
             const backendMessage =
               typeof response.content === 'string' ? response.content : '';
@@ -303,7 +316,6 @@ export default function AskBlock({
               title: backendMessage || t('module.chat.outputInProgress'),
             });
 
-            isStreamingRef.current = false;
             sseRef.current?.close();
             return;
           }
@@ -350,27 +362,32 @@ export default function AskBlock({
               return;
             }
 
-            finalizeStreamingMessage();
+            finishSuccessfulExchange();
             sseRef.current?.close();
             return;
           }
         } catch {
-          finalizeStreamingMessage();
+          rollbackFailedExchange();
         }
       },
     );
 
-    // Add error and close listeners to ensure the state resets
+    // A transport failure can leave a partial answer in the local store. Roll
+    // the incomplete exchange back so it cannot be mistaken for printable
+    // follow-up content.
     source.addEventListener('error', () => {
-      finalizeStreamingMessage();
+      rollbackFailedExchange();
+      source.close();
     });
 
     source.addEventListener('readystatechange', () => {
       // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
       if (source.readyState === 1) {
-        isStreamingRef.current = true;
+        if (!streamSettled) {
+          isStreamingRef.current = true;
+        }
       } else if (source.readyState === 2) {
-        finalizeStreamingMessage();
+        rollbackFailedExchange();
       }
     });
 

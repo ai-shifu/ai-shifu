@@ -253,8 +253,63 @@ describe('AskBlock', () => {
       });
 
       await waitFor(() => expect(activeRun?.source.close).toHaveBeenCalled());
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1'],
+      ).toHaveLength(2);
     },
   );
+
+  it('rolls back a partial follow-up answer when the transport fails', async () => {
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: false,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[]}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'follow up question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.CONTENT,
+        content: 'partial answer',
+      });
+    });
+
+    expect(screen.getByText('partial answer')).toBeInTheDocument();
+
+    act(() => {
+      activeRun?.source.emit('error');
+    });
+
+    await waitFor(() =>
+      expect(
+        useAskStateStore.getState().askListByAnchorElementBid['block-1'] ?? [],
+      ).toHaveLength(0),
+    );
+    expect(screen.queryByText('partial answer')).not.toBeInTheDocument();
+    expect(
+      (screen.getByLabelText('ask-input') as HTMLTextAreaElement).value,
+    ).toBe('follow up question');
+    expect(activeRun?.source.close).toHaveBeenCalled();
+  });
 
   it('updates the live answer when the server emits answer element patches', async () => {
     render(
