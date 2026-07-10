@@ -85,8 +85,12 @@ def test_manual_credit_grant_failure_returns_specific_error(app, monkeypatch):
     assert exc_info.value.code == ERROR_CODE["server.billing.manualCreditGrantFailed"]
 
 
-def test_credit_notification_policy_save_failure_returns_specific_error(app, monkeypatch):
-    monkeypatch.setattr(credit_notifications_module, "add_config", lambda *_, **__: False)
+def test_credit_notification_policy_save_failure_returns_specific_error(
+    app, monkeypatch
+):
+    monkeypatch.setattr(
+        credit_notifications_module, "add_config", lambda *_, **__: False
+    )
 
     with pytest.raises(AppException) as exc_info:
         save_credit_notification_policy(
@@ -96,6 +100,5 @@ def test_credit_notification_policy_save_failure_returns_specific_error(app, mon
         )
 
     assert (
-        exc_info.value.code
-        == ERROR_CODE["server.billing.notificationPolicySaveFailed"]
+        exc_info.value.code == ERROR_CODE["server.billing.notificationPolicySaveFailed"]
     )
