@@ -2166,10 +2166,10 @@ class BuildContextFromBlocksTests(unittest.TestCase):
 
 
 class BuildContextNoVariableInteractionTests(unittest.TestCase):
-    """No-variable button interactions (e.g. ?[A | B | C]) carry a real learner
-    choice, but markdown-flow has no variable to recover it from and would
-    collapse the turn into {user: "ok"} + {assistant: "ok"}, dropping the
-    selection. build_context_from_blocks must reuse the choice captured in
+    """No-variable interactions carry a real learner answer, but markdown-flow
+    has no variable to recover it from and would collapse the turn into
+    {user: "ok"} + {assistant: "ok"}, dropping the answer.
+    build_context_from_blocks must reuse the value captured in
     generated_content, and skip the turn entirely when it is empty."""
 
     DOC = (
@@ -2229,6 +2229,25 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
                 {"role": "assistant", "content": "reply zero"},
             ],
         )
+
+    def test_variable_free_text_input_reuses_the_learner_answer(self):
+        document = "Content one.\n---\n?[...What is your name?]\n---\nSecond content."
+        app = Flask(__name__)
+        with app.app_context():
+            messages = MdflowContextV2.build_context_from_blocks(
+                self._blocks("Alice"), document, {}
+            )
+
+        self.assertEqual(
+            messages,
+            [
+                {"role": "user", "content": "Content one."},
+                {"role": "assistant", "content": "reply zero"},
+                {"role": "user", "content": "Alice"},
+                {"role": "assistant", "content": "ok"},
+            ],
+        )
+        self.assertTrue(all("?[" not in message["content"] for message in messages))
 
 
 if __name__ == "__main__":
