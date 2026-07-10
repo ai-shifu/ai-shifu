@@ -124,6 +124,68 @@ describe('useLessonPdfPrint', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it('prints a paginatable snapshot after the sandbox finishes rendering', async () => {
+    const printRoot = document.createElement('div');
+    const iframeWrapper = document.createElement('div');
+    iframeWrapper.className = 'content-render-iframe-sandbox';
+    const iframe = document.createElement('iframe');
+    iframe.className = 'content-render-iframe';
+    iframeWrapper.appendChild(iframe);
+    printRoot.appendChild(iframeWrapper);
+    document.body.appendChild(printRoot);
+
+    const iframeDocument = iframe.contentDocument;
+    expect(iframeDocument).toBeTruthy();
+    iframeDocument!.body.innerHTML = `
+      <div id='root'>
+        <div class='sandbox-wrapper' aria-busy='true'>
+          <div class='sandbox-container'>iframe bottom marker</div>
+        </div>
+      </div>
+    `;
+    const onError = jest.fn();
+    let snapshotTextDuringPrint = '';
+    printSpy.mockImplementation(() => {
+      const snapshot = printRoot.querySelector<HTMLElement>(
+        '[data-lesson-print-iframe-snapshot="true"]',
+      );
+      snapshotTextDuringPrint = snapshot?.shadowRoot?.textContent ?? '';
+      window.dispatchEvent(new Event('afterprint'));
+    });
+
+    const { result } = renderHook(() =>
+      useLessonPdfPrint({
+        printRootRef: { current: printRoot },
+        lessonId: 'lesson-1',
+        courseName: 'Course',
+        lessonTitle: 'Lesson',
+        onError,
+      }),
+    );
+    let printPromise!: Promise<void>;
+
+    act(() => {
+      printPromise = result.current.printLessonPdf();
+    });
+    await waitFor(() => expect(result.current.isPreparing).toBe(true));
+    expect(printSpy).not.toHaveBeenCalled();
+
+    iframeDocument!
+      .querySelector('.sandbox-wrapper')
+      ?.setAttribute('aria-busy', 'false');
+    await act(async () => {
+      await printPromise;
+    });
+
+    expect(snapshotTextDuringPrint).toContain('iframe bottom marker');
+    expect(
+      printRoot.querySelector('[data-lesson-print-iframe-snapshot="true"]'),
+    ).not.toBeInTheDocument();
+    expect(onError).not.toHaveBeenCalled();
+
+    printRoot.remove();
+  });
+
   it('cancels preparation when the current lesson changes', async () => {
     const printRoot = document.createElement('div');
     const pendingImage = document.createElement('img');

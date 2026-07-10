@@ -263,6 +263,10 @@ body.listen-mode-vh-fallback #root {
   display: none;
 }
 
+[data-lesson-print-iframe-snapshot='true'] {
+  display: none;
+}
+
 @media print {
   html.lesson-pdf-print,
   html.lesson-pdf-print body,
@@ -323,6 +327,21 @@ body.listen-mode-vh-fallback #root {
     display: block !important;
   }
 
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-iframe-sandbox {
+    display: none !important;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    [data-lesson-print-iframe-snapshot='true'] {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
   html.lesson-pdf-print [data-lesson-print-scroll] button,
   html.lesson-pdf-print [data-lesson-print-scroll] audio,
   html.lesson-pdf-print [data-lesson-print-scroll] input,
@@ -345,6 +364,10 @@ body.listen-mode-vh-fallback #root {
   html.lesson-pdf-print
     [data-lesson-print-scroll]
     .content-render-table-container,
+  html.lesson-pdf-print [data-lesson-print-scroll] .content-render-mermaid,
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-mermaid-inner,
   html.lesson-pdf-print [data-lesson-print-scroll] .mermaid-chart-container,
   html.lesson-pdf-print [data-lesson-print-scroll] .content-render-svg-scroll,
   html.lesson-pdf-print [data-lesson-print-scroll] .content-render-iframe,

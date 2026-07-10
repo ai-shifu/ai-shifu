@@ -12,7 +12,12 @@ const PRINT_DIALOG_FALLBACK_MS = 15000;
 const PRINT_DOM_MIN_SETTLE_MS = 600;
 const PRINT_DOM_QUIET_MS = 250;
 const PRINT_DOM_WAIT_TIMEOUT_MS = 5000;
+const SANDBOX_IFRAME_SELECTOR =
+  '.content-render-iframe-sandbox > iframe.content-render-iframe, .content-render-iframe-sandbox > iframe';
+const IFRAME_PRINT_SNAPSHOT_ATTRIBUTE = 'data-lesson-print-iframe-snapshot';
 const ASYNC_PRINT_CONTENT_SELECTOR = [
+  '.content-render-mermaid',
+  '.content-render-mermaid-inner',
   '.mermaid-chart-container',
   '.content-render-iframe',
   '.content-render-iframe-sandbox',
@@ -91,9 +96,47 @@ const shouldWaitForIframe = (iframe: HTMLIFrameElement) => {
   }
 };
 
-const waitForPrintAssets = async (root: HTMLElement, signal: AbortSignal) => {
+interface SandboxIframeDocument {
+  iframe: HTMLIFrameElement;
+  iframeDocument: Document;
+}
+
+const getSandboxIframes = (root: HTMLElement) =>
+  Array.from(root.querySelectorAll<HTMLIFrameElement>(SANDBOX_IFRAME_SELECTOR));
+
+const getAccessibleSandboxIframeDocuments = (root: HTMLElement) =>
+  getSandboxIframes(root).flatMap<SandboxIframeDocument>(iframe => {
+    try {
+      return iframe.contentDocument
+        ? [{ iframe, iframeDocument: iframe.contentDocument }]
+        : [];
+    } catch {
+      return [];
+    }
+  });
+
+const waitForPrintAssets = async (
+  root: HTMLElement,
+  signal: AbortSignal,
+  extraRoots: ParentNode[] = [],
+) => {
   const waiters: LoadWaiter[] = [];
-  const imageReady = Array.from(root.querySelectorAll('img')).map(image => {
+  const iframeDocuments = getAccessibleSandboxIframeDocuments(root);
+  const assetRoots: ParentNode[] = [
+    root,
+    ...iframeDocuments.flatMap(({ iframeDocument }) =>
+      iframeDocument.body ? [iframeDocument.body] : [],
+    ),
+    ...extraRoots,
+  ];
+  const images = Array.from(
+    new Set(
+      assetRoots.flatMap(assetRoot =>
+        Array.from(assetRoot.querySelectorAll<HTMLImageElement>('img')),
+      ),
+    ),
+  );
+  const imageReady = images.map(image => {
     if (image.complete) {
       return decodeImage(image);
     }
@@ -101,6 +144,18 @@ const waitForPrintAssets = async (root: HTMLElement, signal: AbortSignal) => {
     waiters.push(waiter);
     return waiter.promise.then(() => decodeImage(image));
   });
+  const stylesheetReady = extraRoots
+    .flatMap(extraRoot =>
+      Array.from(
+        extraRoot.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
+      ),
+    )
+    .filter(link => !link.sheet)
+    .map(link => {
+      const waiter = createLoadWaiter(link);
+      waiters.push(waiter);
+      return waiter.promise;
+    });
   const iframeReady = Array.from(root.querySelectorAll('iframe'))
     .filter(shouldWaitForIframe)
     .map(iframe => {
@@ -108,16 +163,25 @@ const waitForPrintAssets = async (root: HTMLElement, signal: AbortSignal) => {
       waiters.push(waiter);
       return waiter.promise;
     });
-  const fontReady = (document.fonts?.ready ?? Promise.resolve()).catch(
-    () => undefined,
-  );
+  const fontDocuments = [
+    document,
+    ...iframeDocuments.map(({ iframeDocument }) => iframeDocument),
+  ];
 
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   let handleAbort = () => {};
   const result = await Promise.race([
-    Promise.all([fontReady, ...imageReady, ...iframeReady]).then(
-      () => 'ready' as const,
-    ),
+    Promise.all([...imageReady, ...stylesheetReady, ...iframeReady])
+      .then(() =>
+        Promise.all(
+          fontDocuments.map(assetDocument =>
+            (assetDocument.fonts?.ready ?? Promise.resolve()).catch(
+              () => undefined,
+            ),
+          ),
+        ),
+      )
+      .then(() => 'ready' as const),
     new Promise<'timeout'>(resolve => {
       timeoutId = setTimeout(
         () => resolve('timeout'),
@@ -140,9 +204,11 @@ const waitForPrintAssets = async (root: HTMLElement, signal: AbortSignal) => {
 };
 
 const waitForPrintDomToSettle = (root: HTMLElement, signal: AbortSignal) => {
+  const iframeDocuments = getAccessibleSandboxIframeDocuments(root);
   if (
     signal.aborted ||
-    !root.querySelector(ASYNC_PRINT_CONTENT_SELECTOR) ||
+    (!root.querySelector(ASYNC_PRINT_CONTENT_SELECTOR) &&
+      iframeDocuments.length === 0) ||
     typeof MutationObserver === 'undefined'
   ) {
     return Promise.resolve(signal.aborted ? 'aborted' : 'ready');
@@ -172,6 +238,14 @@ const waitForPrintDomToSettle = (root: HTMLElement, signal: AbortSignal) => {
       cleanup();
       resolve(result);
     };
+    const areSandboxIframesReady = () =>
+      iframeDocuments.every(({ iframeDocument }) => {
+        const sandboxWrapper = iframeDocument.querySelector('.sandbox-wrapper');
+        return (
+          sandboxWrapper !== null &&
+          sandboxWrapper.getAttribute('aria-busy') !== 'true'
+        );
+      });
     const scheduleQuietCheck = () => {
       if (quietTimer) {
         clearTimeout(quietTimer);
@@ -185,7 +259,8 @@ const waitForPrintDomToSettle = (root: HTMLElement, signal: AbortSignal) => {
         const now = Date.now();
         if (
           now - startedAt >= PRINT_DOM_MIN_SETTLE_MS &&
-          now - lastMutationAt >= PRINT_DOM_QUIET_MS
+          now - lastMutationAt >= PRINT_DOM_QUIET_MS &&
+          areSandboxIframesReady()
         ) {
           finish('ready');
           return;
@@ -209,14 +284,86 @@ const waitForPrintDomToSettle = (root: HTMLElement, signal: AbortSignal) => {
       childList: true,
       subtree: true,
     });
+    iframeDocuments.forEach(({ iframeDocument }) => {
+      if (iframeDocument.body) {
+        observer.observe(iframeDocument.body, {
+          attributes: true,
+          characterData: true,
+          childList: true,
+          subtree: true,
+        });
+      }
+    });
     signal.addEventListener('abort', handleAbort, { once: true });
     scheduleQuietCheck();
   });
 };
 
-const preparePrintEmbeds = (root: HTMLElement) => {
+const PRINT_SNAPSHOT_STYLES = `
+  :host {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    color-scheme: light;
+  }
+  html,
+  body {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0;
+    padding: 0;
+    overflow: visible !important;
+  }
+  #root,
+  .sandbox-wrapper,
+  .sandbox-container {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  button,
+  audio,
+  input,
+  textarea,
+  select,
+  [role='button'] {
+    display: none !important;
+  }
+  img,
+  svg,
+  video,
+  canvas,
+  table {
+    max-width: 100% !important;
+  }
+  pre {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+  }
+`;
+
+const preparePrintAssets = (root: HTMLElement) => {
+  const assetRoots: ParentNode[] = [
+    root,
+    ...getAccessibleSandboxIframeDocuments(root).flatMap(
+      ({ iframeDocument }) =>
+        iframeDocument.body ? [iframeDocument.body] : [],
+    ),
+  ];
   const elementStates = Array.from(
-    root.querySelectorAll<HTMLImageElement | HTMLIFrameElement>('img, iframe'),
+    new Set(
+      assetRoots.flatMap(assetRoot =>
+        Array.from(
+          assetRoot.querySelectorAll<HTMLImageElement | HTMLIFrameElement>(
+            'img, iframe',
+          ),
+        ),
+      ),
+    ),
   ).map(element => ({
     element,
     loading: element.getAttribute('loading'),
@@ -234,6 +381,123 @@ const preparePrintEmbeds = (root: HTMLElement) => {
       }
       element.setAttribute('loading', loading);
     });
+  };
+};
+
+const copySnapshotCanvasBitmaps = (
+  sourceRoot: HTMLElement,
+  snapshotRoot: HTMLElement,
+) => {
+  const sourceCanvases = Array.from(sourceRoot.querySelectorAll('canvas'));
+  const snapshotCanvases = Array.from(snapshotRoot.querySelectorAll('canvas'));
+
+  sourceCanvases.forEach((sourceCanvas, index) => {
+    const snapshotCanvas = snapshotCanvases[index];
+    if (!snapshotCanvas) {
+      return;
+    }
+    try {
+      snapshotCanvas.width = sourceCanvas.width;
+      snapshotCanvas.height = sourceCanvas.height;
+      snapshotCanvas
+        .getContext('2d')
+        ?.drawImage(
+          sourceCanvas,
+          0,
+          0,
+          sourceCanvas.width,
+          sourceCanvas.height,
+        );
+    } catch {
+      // Keep the cloned canvas if the browser cannot copy its current bitmap.
+    }
+  });
+};
+
+const copyElementAttributes = (source: Element, target: Element) => {
+  Array.from(source.attributes).forEach(attribute => {
+    target.setAttribute(attribute.name, attribute.value);
+  });
+};
+
+interface IframePrintSnapshots {
+  assetRoots: ShadowRoot[];
+  cleanup: () => void;
+}
+
+const createIframePrintSnapshots = (
+  root: HTMLElement,
+): IframePrintSnapshots | null => {
+  const sandboxIframes = getSandboxIframes(root);
+  const snapshots: HTMLElement[] = [];
+  const assetRoots: ShadowRoot[] = [];
+
+  sandboxIframes.forEach(iframe => {
+    try {
+      const iframeDocument = iframe.contentDocument;
+      const iframeWindow = iframe.contentWindow;
+      const iframeRoot = iframeDocument?.getElementById('root');
+      const wrapper = iframe.closest<HTMLElement>(
+        '.content-render-iframe-sandbox',
+      );
+      if (!iframeDocument || !iframeWindow || !iframeRoot || !wrapper) {
+        return;
+      }
+
+      const snapshot = document.createElement('div');
+      snapshot.setAttribute(IFRAME_PRINT_SNAPSHOT_ATTRIBUTE, 'true');
+      const bodyStyle = iframeWindow.getComputedStyle(iframeDocument.body);
+      const documentStyle = iframeWindow.getComputedStyle(
+        iframeDocument.documentElement,
+      );
+      snapshot.style.setProperty('font-family', bodyStyle.fontFamily);
+      snapshot.style.setProperty('font-size', bodyStyle.fontSize);
+      snapshot.style.setProperty('line-height', bodyStyle.lineHeight);
+      snapshot.style.setProperty('color', bodyStyle.color);
+      Array.from(documentStyle).forEach(property => {
+        if (property.startsWith('--')) {
+          snapshot.style.setProperty(
+            property,
+            documentStyle.getPropertyValue(property),
+          );
+        }
+      });
+
+      const shadowRoot = snapshot.attachShadow({ mode: 'open' });
+      const snapshotStyles = document.createElement('style');
+      snapshotStyles.textContent = PRINT_SNAPSHOT_STYLES;
+      shadowRoot.appendChild(snapshotStyles);
+      iframeDocument
+        .querySelectorAll('head style, head link[rel="stylesheet"]')
+        .forEach(styleElement => {
+          shadowRoot.appendChild(document.importNode(styleElement, true));
+        });
+
+      const snapshotRoot = document.importNode(iframeRoot, true);
+      copySnapshotCanvasBitmaps(iframeRoot, snapshotRoot);
+      const snapshotHtml = document.createElement('html');
+      const snapshotBody = document.createElement('body');
+      copyElementAttributes(iframeDocument.documentElement, snapshotHtml);
+      copyElementAttributes(iframeDocument.body, snapshotBody);
+      snapshotBody.appendChild(snapshotRoot);
+      snapshotHtml.appendChild(snapshotBody);
+      shadowRoot.appendChild(snapshotHtml);
+      wrapper.insertAdjacentElement('afterend', snapshot);
+      snapshots.push(snapshot);
+      assetRoots.push(shadowRoot);
+    } catch {
+      // A missing same-origin document is handled as a preparation failure.
+    }
+  });
+
+  if (snapshots.length !== sandboxIframes.length) {
+    snapshots.forEach(snapshot => snapshot.remove());
+    return null;
+  }
+
+  return {
+    assetRoots,
+    cleanup: () => snapshots.forEach(snapshot => snapshot.remove()),
   };
 };
 
@@ -350,7 +614,8 @@ export const useLessonPdfPrint = ({
     const originalTitle = document.title;
     let printStateApplied = false;
     let cleaned = false;
-    let restorePrintEmbeds = () => {};
+    let restorePrintAssets = () => {};
+    let cleanupPrintSnapshots = () => {};
 
     const isOperationActive = () =>
       mountedRef.current &&
@@ -369,7 +634,8 @@ export const useLessonPdfPrint = ({
         document.documentElement.classList.remove(LESSON_PDF_PRINT_CLASS);
         document.title = originalTitle;
       }
-      restorePrintEmbeds();
+      cleanupPrintSnapshots();
+      restorePrintAssets();
 
       if (cleanupRef.current === cleanup) {
         cleanupRef.current = null;
@@ -417,7 +683,7 @@ export const useLessonPdfPrint = ({
         throw new Error('Lesson content did not finish rendering');
       }
 
-      restorePrintEmbeds = preparePrintEmbeds(printRoot);
+      restorePrintAssets = preparePrintAssets(printRoot);
       const assetState = await waitForPrintAssets(
         printRoot,
         abortController.signal,
@@ -438,6 +704,29 @@ export const useLessonPdfPrint = ({
       }
       if (finalDomState !== 'ready') {
         throw new Error('Lesson content did not stabilize');
+      }
+
+      const iframeSnapshots = createIframePrintSnapshots(printRoot);
+      if (!iframeSnapshots) {
+        throw new Error('Lesson embeds could not be prepared for printing');
+      }
+      cleanupPrintSnapshots = iframeSnapshots.cleanup;
+      if (iframeSnapshots.assetRoots.length > 0) {
+        await waitForNextPaint(abortController.signal);
+        if (!isOperationActive()) {
+          return;
+        }
+        const snapshotAssetState = await waitForPrintAssets(
+          printRoot,
+          abortController.signal,
+          iframeSnapshots.assetRoots,
+        );
+        if (!isOperationActive()) {
+          return;
+        }
+        if (snapshotAssetState !== 'ready') {
+          throw new Error('Lesson print snapshots did not finish loading');
+        }
       }
 
       const printDialogClosed = waitForPrintDialogToClose(
