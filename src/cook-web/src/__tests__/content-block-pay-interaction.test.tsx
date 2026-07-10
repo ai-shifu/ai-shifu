@@ -408,4 +408,41 @@ describe('ContentBlock pay interaction overrides', () => {
       expect.objectContaining({ customRenderBar: nextCustomRenderBar }),
     );
   });
+
+  it('rerenders when callback props are replaced', () => {
+    const item = {
+      type: 'content',
+      content: '正文',
+      element_bid: 'changing-callbacks',
+    } as any;
+    let callbackProps: React.ComponentProps<typeof ContentBlock> = {
+      item,
+      mobileStyle: false,
+      blockBid: 'changing-callbacks',
+      onSend: jest.fn(),
+      onClickCustomButtonAfterContent: jest.fn(),
+      onLongPress: jest.fn(),
+      onAudioPlayStateChange: jest.fn(),
+      onAudioEnded: jest.fn(),
+      onTypeFinished: jest.fn(),
+    };
+    const { rerender } = render(<ContentBlock {...callbackProps} />);
+    const callbackUpdates: Array<
+      Partial<React.ComponentProps<typeof ContentBlock>>
+    > = [
+      { onSend: jest.fn() },
+      { onClickCustomButtonAfterContent: jest.fn() },
+      { onLongPress: jest.fn() },
+      { onAudioPlayStateChange: jest.fn() },
+      { onAudioEnded: jest.fn() },
+      { onTypeFinished: jest.fn() },
+    ];
+
+    callbackUpdates.forEach(update => {
+      const previousCallCount = mockContentRender.mock.calls.length;
+      callbackProps = { ...callbackProps, ...update };
+      rerender(<ContentBlock {...callbackProps} />);
+      expect(mockContentRender).toHaveBeenCalledTimes(previousCallCount + 1);
+    });
+  });
 });

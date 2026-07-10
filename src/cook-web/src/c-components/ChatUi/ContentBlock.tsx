@@ -220,6 +220,13 @@ const ContentBlock = memo(
       Boolean(prevProps.showAudioAction) ===
         Boolean(nextProps.showAudioAction) &&
       Boolean(prevProps.printMode) === Boolean(nextProps.printMode) &&
+      prevProps.onSend === nextProps.onSend &&
+      prevProps.onClickCustomButtonAfterContent ===
+        nextProps.onClickCustomButtonAfterContent &&
+      prevProps.onLongPress === nextProps.onLongPress &&
+      prevProps.onAudioPlayStateChange === nextProps.onAudioPlayStateChange &&
+      prevProps.onAudioEnded === nextProps.onAudioEnded &&
+      prevProps.onTypeFinished === nextProps.onTypeFinished &&
       (prevPrimaryTrack?.audioUrl ?? '') ===
         (nextPrimaryTrack?.audioUrl ?? '') &&
       Boolean(prevPrimaryTrack?.isAudioStreaming) ===
