@@ -15,6 +15,10 @@ const PRINT_DOM_WAIT_TIMEOUT_MS = 5000;
 const SANDBOX_IFRAME_SELECTOR =
   '.content-render-iframe-sandbox > iframe.content-render-iframe, .content-render-iframe-sandbox > iframe';
 const IFRAME_PRINT_SNAPSHOT_ATTRIBUTE = 'data-lesson-print-iframe-snapshot';
+const LESSON_PDF_CJK_FONT_FALLBACKS =
+  "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans CJK SC'";
+const LESSON_PDF_CJK_FONT_STACK = `system-ui, -apple-system, BlinkMacSystemFont, ${LESSON_PDF_CJK_FONT_FALLBACKS}, sans-serif`;
+const CJK_CHARACTER_PATTERN = /[\u3400-\u9fff\uf900-\ufaff]/;
 const ASYNC_PRINT_CONTENT_SELECTOR = [
   '.content-render-mermaid',
   '.content-render-mermaid-inner',
@@ -305,6 +309,9 @@ const PRINT_SNAPSHOT_STYLES = `
     width: 100%;
     max-width: 100%;
     color-scheme: light;
+    --font-sans: ${LESSON_PDF_CJK_FONT_STACK};
+    --default-font-family: ${LESSON_PDF_CJK_FONT_STACK};
+    font-family: ${LESSON_PDF_CJK_FONT_STACK};
   }
   html,
   body {
@@ -316,6 +323,9 @@ const PRINT_SNAPSHOT_STYLES = `
     padding: 0;
     overflow: visible !important;
   }
+  .font-sans {
+    font-family: ${LESSON_PDF_CJK_FONT_STACK} !important;
+  }
   #root,
   .sandbox-wrapper,
   .sandbox-container {
@@ -325,12 +335,11 @@ const PRINT_SNAPSHOT_STYLES = `
     max-height: none !important;
     overflow: visible !important;
   }
-  button,
   audio,
-  input,
-  textarea,
-  select,
-  [role='button'] {
+  .multi-select-confirm-button,
+  .input-container > button,
+  .copy-button,
+  .content-render-custom-button-after-content {
     display: none !important;
   }
   img,
@@ -414,6 +423,133 @@ const copySnapshotCanvasBitmaps = (
   });
 };
 
+const buildCjkSafeFontFamily = (fontFamily: string) => {
+  const finalGenericFamily = fontFamily.match(
+    /^(.*?)(?:,\s*)?(ui-sans-serif|ui-serif|ui-monospace|sans-serif|serif|monospace)$/i,
+  );
+  if (!finalGenericFamily) {
+    return `${fontFamily}, ${LESSON_PDF_CJK_FONT_FALLBACKS}`;
+  }
+
+  const prefix = finalGenericFamily[1].trim().replace(/,$/, '');
+  return [prefix, LESSON_PDF_CJK_FONT_FALLBACKS, finalGenericFamily[2]]
+    .filter(Boolean)
+    .join(', ');
+};
+
+const hasCjkDisplayText = (element: HTMLElement) => {
+  const hasDirectCjkText = Array.from(element.childNodes).some(
+    node =>
+      node.nodeType === Node.TEXT_NODE &&
+      CJK_CHARACTER_PATTERN.test(node.textContent ?? ''),
+  );
+  if (hasDirectCjkText) {
+    return true;
+  }
+
+  if (element.tagName === 'INPUT') {
+    const input = element as HTMLInputElement;
+    return CJK_CHARACTER_PATTERN.test(`${input.value}${input.placeholder}`);
+  }
+  if (element.tagName === 'TEXTAREA') {
+    const textarea = element as HTMLTextAreaElement;
+    return CJK_CHARACTER_PATTERN.test(
+      `${textarea.value}${textarea.placeholder}`,
+    );
+  }
+  if (element.tagName === 'SELECT') {
+    const select = element as HTMLSelectElement;
+    return Array.from(select.selectedOptions).some(option =>
+      CJK_CHARACTER_PATTERN.test(
+        `${option.label}${option.textContent ?? ''}${option.value}`,
+      ),
+    );
+  }
+  return false;
+};
+
+const applySnapshotCjkFontFallbacks = (
+  iframeWindow: Window,
+  sourceRoot: HTMLElement,
+  snapshotRoot: HTMLElement,
+) => {
+  const sourceElements = [
+    sourceRoot,
+    ...Array.from(sourceRoot.querySelectorAll<HTMLElement>('*')),
+  ];
+  const snapshotElements = [
+    snapshotRoot,
+    ...Array.from(snapshotRoot.querySelectorAll<HTMLElement>('*')),
+  ];
+
+  sourceElements.forEach((sourceElement, index) => {
+    const snapshotElement = snapshotElements[index];
+    if (!hasCjkDisplayText(sourceElement) || !snapshotElement) {
+      return;
+    }
+
+    const sourceFontFamily =
+      iframeWindow.getComputedStyle(sourceElement).fontFamily;
+    snapshotElement.style.setProperty(
+      'font-family',
+      buildCjkSafeFontFamily(sourceFontFamily),
+      'important',
+    );
+  });
+};
+
+const copySnapshotFormState = (
+  sourceRoot: HTMLElement,
+  snapshotRoot: HTMLElement,
+) => {
+  const sourceFields = Array.from(
+    sourceRoot.querySelectorAll<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >('input, textarea, select'),
+  );
+  const snapshotFields = Array.from(
+    snapshotRoot.querySelectorAll<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >('input, textarea, select'),
+  );
+
+  sourceFields.forEach((sourceField, index) => {
+    const snapshotField = snapshotFields[index];
+    if (!snapshotField || sourceField.tagName !== snapshotField.tagName) {
+      return;
+    }
+    if (sourceField.tagName === 'INPUT') {
+      const sourceInput = sourceField as HTMLInputElement;
+      const snapshotInput = snapshotField as HTMLInputElement;
+      if (sourceInput.type !== 'file') {
+        snapshotInput.value = sourceInput.value;
+      }
+      snapshotInput.checked = sourceInput.checked;
+      return;
+    }
+    if (sourceField.tagName === 'TEXTAREA') {
+      const sourceTextarea = sourceField as HTMLTextAreaElement;
+      const snapshotTextarea = snapshotField as HTMLTextAreaElement;
+      snapshotTextarea.value = sourceTextarea.value;
+      snapshotTextarea.textContent = sourceTextarea.value;
+      return;
+    }
+    if (sourceField.tagName === 'SELECT') {
+      const sourceSelect = sourceField as HTMLSelectElement;
+      const snapshotSelect = snapshotField as HTMLSelectElement;
+      Array.from(sourceSelect.options).forEach((sourceOption, optionIndex) => {
+        const snapshotOption = snapshotSelect.options[optionIndex];
+        if (snapshotOption) {
+          snapshotOption.selected = sourceOption.selected;
+        }
+      });
+      if (!sourceSelect.multiple) {
+        snapshotSelect.selectedIndex = sourceSelect.selectedIndex;
+      }
+    }
+  });
+};
+
 const copyElementAttributes = (source: Element, target: Element) => {
   Array.from(source.attributes).forEach(attribute => {
     target.setAttribute(attribute.name, attribute.value);
@@ -475,6 +611,8 @@ const createIframePrintSnapshots = (
 
       const snapshotRoot = document.importNode(iframeRoot, true);
       copySnapshotCanvasBitmaps(iframeRoot, snapshotRoot);
+      copySnapshotFormState(iframeRoot, snapshotRoot);
+      applySnapshotCjkFontFallbacks(iframeWindow, iframeRoot, snapshotRoot);
       const snapshotHtml = document.createElement('html');
       const snapshotBody = document.createElement('body');
       copyElementAttributes(iframeDocument.documentElement, snapshotHtml);

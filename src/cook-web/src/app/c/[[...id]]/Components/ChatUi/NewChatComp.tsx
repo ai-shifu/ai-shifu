@@ -81,7 +81,10 @@ import {
 } from './chatUiModeProjection';
 import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
 import LessonPdfDownloadCard from './LessonPdfDownloadCard';
-import { isLessonPdfContentReady } from './lessonPdfState';
+import {
+  isLessonPdfContentReady,
+  shouldExcludeLessonPdfInteraction,
+} from './lessonPdfState';
 import { useLessonPdfPrint } from './useLessonPdfPrint';
 import LessonPdfPreparingOverlay from './LessonPdfPreparingOverlay';
 
@@ -620,6 +623,8 @@ export const NewChatComponents = ({
     shouldShowReadModeStreamingDots,
   });
   const isLessonPdfReady = isLessonPdfContentReady({
+    courseName,
+    lessonTitle,
     lessonStatus,
     isSlideMode,
     isLoading,
@@ -1323,16 +1328,20 @@ export const NewChatComponents = ({
           <div>
             <header
               data-lesson-print-only='true'
-              className='mx-auto max-w-[1000px] border-b border-border px-5 pb-5'
+              className='lesson-pdf-print-header mx-auto max-w-[1000px] border-b border-border px-5 pb-5'
             >
-              {courseName ? (
-                <p className='mb-2 text-sm text-muted-foreground'>
-                  {courseName}
-                </p>
-              ) : null}
-              <h1 className='text-3xl font-semibold leading-tight text-foreground'>
-                {lessonTitle}
+              <h1
+                data-lesson-print-course-name='true'
+                className='text-2xl font-semibold leading-tight text-foreground'
+              >
+                {courseName}
               </h1>
+              <h2
+                data-lesson-print-lesson-title='true'
+                className='mt-2 text-lg font-medium leading-tight text-muted-foreground'
+              >
+                {lessonTitle}
+              </h2>
             </header>
             {shouldShowResetLoading ? (
               <div
@@ -1510,12 +1519,20 @@ export const NewChatComponents = ({
                     );
                   }
 
+                  const isCourseInteraction =
+                    item.type === ChatContentItemType.INTERACTION &&
+                    !shouldExcludeLessonPdfInteraction(item.content);
+
                   return (
                     <div
                       data-lesson-print-exclude={
-                        item.type === ChatContentItemType.INTERACTION
+                        item.type === ChatContentItemType.INTERACTION &&
+                        !isCourseInteraction
                           ? 'true'
                           : undefined
+                      }
+                      data-lesson-print-interaction={
+                        isCourseInteraction ? 'true' : undefined
                       }
                       key={`content-${baseKey}`}
                       style={{
@@ -1544,6 +1561,7 @@ export const NewChatComponents = ({
                       */}
                       <ContentBlock
                         item={item}
+                        printMode={isPreparingLessonPdf && isCourseInteraction}
                         mobileStyle={mobileStyle}
                         blockBid={item.element_bid}
                         enableStreamingTypewriter={shouldEnableReadModeTypewriter(

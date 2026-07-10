@@ -1,5 +1,18 @@
 import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
-import { isLessonPdfContentReady } from './lessonPdfState';
+import {
+  isLessonPdfContentReady,
+  shouldExcludeLessonPdfInteraction,
+} from './lessonPdfState';
+
+jest.mock('@/c-utils/lesson-feedback-interaction', () => ({
+  isLessonFeedbackInteractionContent: (content?: string) =>
+    content?.includes('sys_lesson_feedback_score') ?? false,
+}));
+
+jest.mock('@/c-utils/system-interaction', () => ({
+  isSystemInteractionContent: (content?: string) =>
+    /_sys_(next_chapter|pay|login)/.test(content ?? ''),
+}));
 
 const textItem: ChatContentItem = {
   type: ChatContentItemType.CONTENT,
@@ -11,6 +24,8 @@ const textItem: ChatContentItem = {
 };
 
 const readyOptions = {
+  courseName: 'One-person Company',
+  lessonTitle: 'Lesson Two',
   lessonStatus: 'completed',
   isSlideMode: false,
   isLoading: false,
@@ -33,6 +48,8 @@ describe('isLessonPdfContentReady', () => {
   });
 
   it.each([
+    ['course name', { courseName: '  ' }],
+    ['lesson title', { lessonTitle: '' }],
     ['lesson status', { lessonStatus: 'in_progress' }],
     ['lesson loading', { isLoading: true }],
     ['main output', { isOutputInProgress: true }],
@@ -69,5 +86,24 @@ describe('isLessonPdfContentReady', () => {
         },
       }),
     ).toBe(false);
+  });
+});
+
+describe('shouldExcludeLessonPdfInteraction', () => {
+  it('keeps ordinary course interactions printable', () => {
+    expect(
+      shouldExcludeLessonPdfInteraction(
+        '?[%{{knowledge_level}} 完全不了解 | 略知一二 | 比较熟悉]',
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    ['lesson feedback', '%{{sys_lesson_feedback_score}}1|2|3|4|5'],
+    ['next lesson', '?[继续学习//_sys_next_chapter]'],
+    ['payment', '?[购买课程//_sys_pay]'],
+    ['login', '?[登录//_sys_login]'],
+  ])('excludes the %s interaction', (_label, content) => {
+    expect(shouldExcludeLessonPdfInteraction(content)).toBe(true);
   });
 });

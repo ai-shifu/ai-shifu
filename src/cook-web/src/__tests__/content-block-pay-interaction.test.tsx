@@ -99,6 +99,33 @@ describe('ContentBlock pay interaction overrides', () => {
     );
   });
 
+  it('freezes a course interaction for printing without dropping its answer', () => {
+    render(
+      <ContentBlock
+        item={
+          {
+            type: 'interaction',
+            content: '请选择\n?[继续学习//continue]',
+            element_bid: 'print-block',
+            readonly: false,
+            user_input: 'continue',
+          } as any
+        }
+        printMode={true}
+        mobileStyle={false}
+        blockBid='print-block'
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledWith(
+      expect.objectContaining({
+        readonly: true,
+        userInput: 'continue',
+      }),
+    );
+  });
+
   it('adapts a variable-free ellipsis interaction into a text input', () => {
     const onSend = jest.fn();
     render(

@@ -139,17 +139,120 @@ describe('useLessonPdfPrint', () => {
     iframeDocument!.body.innerHTML = `
       <div id='root'>
         <div class='sandbox-wrapper' aria-busy='true'>
-          <div class='sandbox-container'>iframe bottom marker</div>
+          <div class='sandbox-container' style='font-family: system-ui, sans-serif'>
+            中文图卡 iframe bottom marker
+            <input data-print-field='text' style='font-family: system-ui, sans-serif' />
+            <input data-print-field='checked' type='checkbox' />
+            <input data-print-field='file' type='file' />
+            <textarea data-print-field='textarea' style='font-family: system-ui, sans-serif'></textarea>
+            <select data-print-field='select' style='font-family: system-ui, sans-serif'>
+              <option value='first'>第一项</option>
+              <option value='second'>第二项</option>
+            </select>
+            <select data-print-field='duplicate-select'>
+              <option value='shared'>重复值第一项</option>
+              <option value='shared'>重复值第二项</option>
+            </select>
+            <select data-print-field='multi-select' multiple>
+              <option value='alpha'>甲</option>
+              <option value='beta'>乙</option>
+              <option value='gamma'>丙</option>
+            </select>
+            <button type='button'>课程按钮</button>
+          </div>
         </div>
       </div>
     `;
+    const sourceTextInput = iframeDocument!.querySelector<HTMLInputElement>(
+      '[data-print-field="text"]',
+    );
+    const sourceCheckbox = iframeDocument!.querySelector<HTMLInputElement>(
+      '[data-print-field="checked"]',
+    );
+    const sourceFileInput = iframeDocument!.querySelector<HTMLInputElement>(
+      '[data-print-field="file"]',
+    );
+    const sourceTextarea = iframeDocument!.querySelector<HTMLTextAreaElement>(
+      '[data-print-field="textarea"]',
+    );
+    const sourceSelect = iframeDocument!.querySelector<HTMLSelectElement>(
+      '[data-print-field="select"]',
+    );
+    const sourceDuplicateSelect =
+      iframeDocument!.querySelector<HTMLSelectElement>(
+        '[data-print-field="duplicate-select"]',
+      );
+    const sourceMultiSelect = iframeDocument!.querySelector<HTMLSelectElement>(
+      '[data-print-field="multi-select"]',
+    );
+    sourceTextInput!.value = '已填写答案';
+    sourceCheckbox!.checked = true;
+    Object.defineProperty(sourceFileInput, 'value', {
+      configurable: true,
+      value: 'C:\\fakepath\\资料.pdf',
+    });
+    sourceTextarea!.value = '补充说明';
+    sourceSelect!.value = 'second';
+    sourceDuplicateSelect!.selectedIndex = 1;
+    sourceMultiSelect!.options[0].selected = true;
+    sourceMultiSelect!.options[2].selected = true;
     const onError = jest.fn();
     let snapshotTextDuringPrint = '';
+    let snapshotFontFamilyDuringPrint = '';
+    let snapshotControlFontsDuringPrint: Record<string, string> = {};
+    let snapshotFormStateDuringPrint = {};
     printSpy.mockImplementation(() => {
       const snapshot = printRoot.querySelector<HTMLElement>(
         '[data-lesson-print-iframe-snapshot="true"]',
       );
-      snapshotTextDuringPrint = snapshot?.shadowRoot?.textContent ?? '';
+      const shadowRoot = snapshot?.shadowRoot;
+      snapshotTextDuringPrint = shadowRoot?.textContent ?? '';
+      snapshotFontFamilyDuringPrint =
+        shadowRoot
+          ?.querySelector<HTMLElement>('.sandbox-container')
+          ?.style.getPropertyValue('font-family') ?? '';
+      snapshotControlFontsDuringPrint = {
+        input:
+          shadowRoot
+            ?.querySelector<HTMLElement>('[data-print-field="text"]')
+            ?.style.getPropertyValue('font-family') ?? '',
+        textarea:
+          shadowRoot
+            ?.querySelector<HTMLElement>('[data-print-field="textarea"]')
+            ?.style.getPropertyValue('font-family') ?? '',
+        select:
+          shadowRoot
+            ?.querySelector<HTMLElement>('[data-print-field="select"]')
+            ?.style.getPropertyValue('font-family') ?? '',
+      };
+      snapshotFormStateDuringPrint = {
+        text: shadowRoot?.querySelector<HTMLInputElement>(
+          '[data-print-field="text"]',
+        )?.value,
+        checked: shadowRoot?.querySelector<HTMLInputElement>(
+          '[data-print-field="checked"]',
+        )?.checked,
+        textarea: shadowRoot?.querySelector<HTMLTextAreaElement>(
+          '[data-print-field="textarea"]',
+        )?.value,
+        select: shadowRoot?.querySelector<HTMLSelectElement>(
+          '[data-print-field="select"]',
+        )?.value,
+        duplicateSelect: {
+          selectedIndex: shadowRoot?.querySelector<HTMLSelectElement>(
+            '[data-print-field="duplicate-select"]',
+          )?.selectedIndex,
+          label: shadowRoot?.querySelector<HTMLSelectElement>(
+            '[data-print-field="duplicate-select"]',
+          )?.selectedOptions[0]?.textContent,
+        },
+        multiSelect: Array.from(
+          shadowRoot?.querySelector<HTMLSelectElement>(
+            '[data-print-field="multi-select"]',
+          )?.selectedOptions ?? [],
+        ).map(option => option.value),
+        button: shadowRoot?.querySelector('button')?.textContent,
+      };
       window.dispatchEvent(new Event('afterprint'));
     });
 
@@ -178,6 +281,22 @@ describe('useLessonPdfPrint', () => {
     });
 
     expect(snapshotTextDuringPrint).toContain('iframe bottom marker');
+    expect(snapshotFontFamilyDuringPrint).toContain('PingFang SC');
+    Object.values(snapshotControlFontsDuringPrint).forEach(fontFamily => {
+      expect(fontFamily).toContain('PingFang SC');
+    });
+    expect(snapshotFormStateDuringPrint).toEqual({
+      text: '已填写答案',
+      checked: true,
+      textarea: '补充说明',
+      select: 'second',
+      duplicateSelect: {
+        selectedIndex: 1,
+        label: '重复值第二项',
+      },
+      multiSelect: ['alpha', 'gamma'],
+      button: '课程按钮',
+    });
     expect(
       printRoot.querySelector('[data-lesson-print-iframe-snapshot="true"]'),
     ).not.toBeInTheDocument();

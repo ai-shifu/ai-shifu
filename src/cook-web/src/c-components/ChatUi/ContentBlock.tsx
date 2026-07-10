@@ -37,6 +37,7 @@ interface ContentBlockProps {
   onAudioPlayStateChange?: (blockBid: string, isPlaying: boolean) => void;
   onAudioEnded?: (blockBid: string) => void;
   showAudioAction?: boolean;
+  printMode?: boolean;
   onTypeFinished?: (blockBid: string, content: string) => void;
   enableStreamingTypewriter?: boolean;
 }
@@ -54,6 +55,7 @@ const ContentBlock = memo(
     onAudioPlayStateChange,
     onAudioEnded,
     showAudioAction = true,
+    printMode = false,
     onTypeFinished,
     enableStreamingTypewriter = false,
   }: ContentBlockProps) => {
@@ -95,7 +97,11 @@ const ContentBlock = memo(
     const isPayInteraction =
       item.type === ChatContentItemType.INTERACTION &&
       isPaySystemInteractionContent(item.content);
-    const resolvedReadonly = isPayInteraction ? false : item.readonly;
+    const resolvedReadonly = printMode
+      ? true
+      : isPayInteraction
+        ? false
+        : item.readonly;
     const resolvedUserInput = isPayInteraction ? '' : item.user_input;
     const shouldEnableTypewriter =
       enableStreamingTypewriter &&
@@ -208,6 +214,7 @@ const ContentBlock = memo(
       Boolean(prevProps.autoPlayAudio) === Boolean(nextProps.autoPlayAudio) &&
       Boolean(prevProps.showAudioAction) ===
         Boolean(nextProps.showAudioAction) &&
+      Boolean(prevProps.printMode) === Boolean(nextProps.printMode) &&
       (prevPrimaryTrack?.audioUrl ?? '') ===
         (nextPrimaryTrack?.audioUrl ?? '') &&
       Boolean(prevPrimaryTrack?.isAudioStreaming) ===

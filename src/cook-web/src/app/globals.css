@@ -327,6 +327,35 @@ body.listen-mode-vh-fallback #root {
     display: block !important;
   }
 
+  html.lesson-pdf-print .lesson-pdf-print-header,
+  html.lesson-pdf-print .lesson-pdf-print-header *,
+  html.lesson-pdf-print [data-lesson-print-interaction='true'],
+  html.lesson-pdf-print [data-lesson-print-interaction='true'] * {
+    font-family:
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'PingFang SC',
+      'Hiragino Sans GB',
+      'Microsoft YaHei',
+      'Source Han Sans SC',
+      'Noto Sans CJK SC',
+      sans-serif !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-interaction='true'] {
+    pointer-events: none !important;
+    break-inside: avoid;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-interaction='true']
+    :is(button, label, input, textarea, select) {
+    opacity: 1 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   html.lesson-pdf-print
     [data-lesson-print-scroll]
     .content-render-iframe-sandbox {
@@ -342,12 +371,14 @@ body.listen-mode-vh-fallback #root {
     overflow: visible !important;
   }
 
-  html.lesson-pdf-print [data-lesson-print-scroll] button,
   html.lesson-pdf-print [data-lesson-print-scroll] audio,
-  html.lesson-pdf-print [data-lesson-print-scroll] input,
-  html.lesson-pdf-print [data-lesson-print-scroll] textarea,
-  html.lesson-pdf-print [data-lesson-print-scroll] select,
-  html.lesson-pdf-print [data-lesson-print-scroll] [role='button'],
+  html.lesson-pdf-print
+    [data-lesson-print-interaction='true']
+    .multi-select-confirm-button,
+  html.lesson-pdf-print
+    [data-lesson-print-interaction='true']
+    .input-container
+    > button,
   html.lesson-pdf-print [data-lesson-print-scroll] custom-button-after-content,
   html.lesson-pdf-print
     [data-lesson-print-scroll]
