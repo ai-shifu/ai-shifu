@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.discount",
   "__flat__": {
+    "couponCodeGenerationFailed": "Failed to generate coupon codes. Please try again later.",
     "discountAlreadyExpired": "The voucher code is invalid.",
     "discountAlreadyUsed": "The voucher code has been used.",
     "discountLimitExceeded": "The voucher code limit exceeded.",

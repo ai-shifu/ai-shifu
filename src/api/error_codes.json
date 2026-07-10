@@ -29,6 +29,7 @@
   "server.order.orderPayNotFound": 3007,
   "server.order.orderHasPaid": 3008,
   "server.order.courseNotPaid": 3009,
+  "server.order.importActivationFailed": 3010,
 
   "server.discount.discountNotFound": 3101,
   "server.discount.discountAlreadyUsed": 3102,
@@ -39,6 +40,7 @@
   "server.discount.discountLimitExceeded": 3107,
   "server.discount.discountAlreadyExpired": 3108,
   "server.discount.discountCountNotZero": 3109,
+  "server.discount.couponCodeGenerationFailed": 3110,
 
   "server.course.courseNotFound": 4001,
   "server.course.lessonCannotBeReset": 4002,
@@ -75,6 +77,11 @@
   "server.billing.campaignOverlapActive": 7116,
   "server.billing.campaignLockedAfterHit": 7117,
   "server.billing.campaignNotFound": 7118,
+  "server.billing.subscriptionCheckoutBusy": 7119,
+  "server.billing.manualPlanGrantBusy": 7120,
+  "server.billing.notificationPolicySaveFailed": 7121,
+  "server.billing.manualPlanGrantFailed": 7122,
+  "server.billing.manualCreditGrantFailed": 7123,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,

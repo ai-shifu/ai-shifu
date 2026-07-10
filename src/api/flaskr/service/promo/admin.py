@@ -351,7 +351,7 @@ def _generate_unique_coupon_code() -> str:
         ).first()
         if not usage_exists:
             return code
-    raise_error("server.common.unknownError")
+    raise_error("server.discount.couponCodeGenerationFailed")
 
 
 def _generate_unique_coupon_codes(count: int) -> list[str]:
@@ -364,7 +364,7 @@ def _generate_unique_coupon_codes(count: int) -> list[str]:
     seen_candidates: set[str] = set()
     while len(generated) < count:
         if rounds >= max_rounds:
-            raise_error("server.common.unknownError")
+            raise_error("server.discount.couponCodeGenerationFailed")
         rounds += 1
         remaining = count - len(generated)
         batch_size = max(remaining * 2, 20)
