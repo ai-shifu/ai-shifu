@@ -40,6 +40,7 @@
   "requestFailed": "请求失败，请稍后重试",
   "retry": "重试",
   "selectModel": "模型",
+  "serviceUnavailable": "服务暂不可用，请稍后重试",
   "settings": "设置",
   "shifu": "课程",
   "shortcut": {

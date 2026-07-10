@@ -40,6 +40,7 @@
   "requestFailed": "Request failed, please try again later",
   "retry": "Retry",
   "selectModel": "Model",
+  "serviceUnavailable": "Service is temporarily unavailable. Please try again later",
   "settings": "Settings",
   "shifu": "Course",
   "shortcut": {
