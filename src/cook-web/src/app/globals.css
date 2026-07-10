@@ -422,9 +422,12 @@ body.listen-mode-vh-fallback #root {
     overflow-wrap: anywhere;
   }
 
-  html.lesson-pdf-print
-    [data-lesson-print-scroll]
-    :is(img, video, canvas, iframe, table) {
+  html.lesson-pdf-print [data-lesson-print-scroll] :is(img, video, canvas) {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] :is(iframe, table) {
     max-width: 100% !important;
   }
 }
