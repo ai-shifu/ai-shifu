@@ -286,24 +286,19 @@ body.listen-mode-vh-fallback #root {
     print-color-adjust: exact;
   }
 
-  html.lesson-pdf-print body > :not(#root),
-  html.lesson-pdf-print body #root > :not([data-lesson-print-page]),
+  /* Keep only the ancestor branch that contains the exact lesson scroll root.
+     This remains valid if layout components add intermediate wrappers. */
   html.lesson-pdf-print
-    [data-lesson-print-page]
-    > :not([data-lesson-print-shell]),
-  html.lesson-pdf-print
-    [data-lesson-print-shell]
-    > :not([data-lesson-print-content]),
-  html.lesson-pdf-print
-    [data-lesson-print-content]
-    > :not([data-lesson-print-scroll]),
+    :is(body, body *):has([data-lesson-print-scroll='true'])
+    > :not([data-lesson-print-scroll='true']):not(
+      :has([data-lesson-print-scroll='true'])
+    ),
   html.lesson-pdf-print [data-lesson-print-exclude='true'] {
     display: none !important;
   }
 
-  html.lesson-pdf-print [data-lesson-print-page],
-  html.lesson-pdf-print [data-lesson-print-shell],
-  html.lesson-pdf-print [data-lesson-print-content],
+  html.lesson-pdf-print body #root,
+  html.lesson-pdf-print body #root :has([data-lesson-print-scroll='true']),
   html.lesson-pdf-print [data-lesson-print-scroll] {
     position: static !important;
     display: block !important;
