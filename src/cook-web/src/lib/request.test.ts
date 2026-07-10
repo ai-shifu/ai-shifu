@@ -131,7 +131,7 @@ describe('request SSE business fallback', () => {
     );
   });
 
-  test('falls back to requestFailed for HTTP request failures', async () => {
+  test('falls back to serviceUnavailable for server request failures', async () => {
     const request = new Request();
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
@@ -143,8 +143,32 @@ describe('request SSE business fallback', () => {
       request.get('http://example.com/api/demo'),
     ).rejects.toMatchObject({
       code: 503,
-      message: 'common.core.requestFailed',
+      message: 'common.core.serviceUnavailable',
       status: 503,
+    });
+
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'common.core.serviceUnavailable',
+        variant: 'destructive',
+      }),
+    );
+  });
+
+  test('keeps requestFailed for client-side HTTP request failures', async () => {
+    const request = new Request();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      headers: new Headers(),
+    }) as jest.Mock;
+
+    await expect(
+      request.get('http://example.com/api/missing'),
+    ).rejects.toMatchObject({
+      code: 404,
+      message: 'common.core.requestFailed',
+      status: 404,
     });
 
     expect(toast).toHaveBeenCalledWith(
