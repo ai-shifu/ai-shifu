@@ -1579,6 +1579,7 @@ describe('useChatLogicHook stream cleanup', () => {
       title: 'module.chat.streamTimeoutRetry',
       variant: 'destructive',
     });
+    expect(result.current.hasRunFailed).toBe(true);
     expect(activeRun?.source.close).toHaveBeenCalled();
 
     jest.useRealTimers();
@@ -2888,7 +2889,7 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
-  it('marks a run failed when the connection drops after a completed status update', async () => {
+  it('marks the active run failed when the connection drops before a new completion update', async () => {
     const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
       wrapper,
     });
@@ -2896,20 +2897,60 @@ describe('useChatLogicHook stream cleanup', () => {
     await waitFor(() => expect(activeRun).toBeDefined());
 
     await act(async () => {
+      activeRun?.onError(new Error('connection dropped'));
+    });
+
+    await waitFor(() => expect(result.current.hasRunFailed).toBe(true));
+    expect(result.current.isOutputInProgress).toBe(false);
+  });
+
+  it('clears a previous run failure when a retry starts and succeeds', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    await act(async () => {
       await activeRun?.onMessage({
-        type: SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE,
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
         content: {
-          outline_bid: 'lesson-1',
-          title: 'Lesson 1',
-          status: 'completed',
-          has_children: false,
+          element_bid: 'content-1',
+          generated_block_bid: 'content-1',
+          element_type: 'content',
+          content: 'partial content',
+          like_status: 'none',
         },
       });
       activeRun?.onError(new Error('connection dropped'));
     });
 
     await waitFor(() => expect(result.current.hasRunFailed).toBe(true));
-    expect(result.current.isOutputInProgress).toBe(false);
+    const failedRun = activeRun;
+    const initialRunCount = mockGetRunMessage.mock.calls.length;
+
+    await act(async () => {
+      await result.current.onRefresh('content-1');
+    });
+
+    await waitFor(() =>
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount + 1),
+    );
+    expect(activeRun).not.toBe(failedRun);
+    expect(result.current.hasRunFailed).toBe(false);
+    expect(result.current.isOutputInProgress).toBe(true);
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.TEXT_END,
+        content: '',
+        is_terminal: true,
+      });
+    });
+
+    await waitFor(() => expect(result.current.isOutputInProgress).toBe(false));
+    expect(result.current.hasRunFailed).toBe(false);
   });
 
   it('does not treat the latest interaction as regenerate when helper rows are trailing', async () => {

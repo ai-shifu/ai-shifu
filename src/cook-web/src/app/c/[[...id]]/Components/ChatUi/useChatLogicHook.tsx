@@ -1695,6 +1695,7 @@ function useChatLogicHook({
       isTypeFinishedRef.current = false;
       isStreamingRef.current = true;
       setIsOutputInProgress(true);
+      setHasRunFailed(false);
       isInitHistoryRef.current = false;
       currentBlockIdRef.current = null;
       setCurrentStreamingElementBid('');
@@ -1756,9 +1757,7 @@ function useChatLogicHook({
         }
 
         cleanupRunStreamState();
-        if (isEnd) {
-          setHasRunFailed(true);
-        }
+        setHasRunFailed(true);
         appendRunTimeoutError(runSerial);
 
         try {
@@ -1819,9 +1818,7 @@ function useChatLogicHook({
           try {
             if (response?.type === SSE_OUTPUT_TYPE.ERROR) {
               clearRunStreamTimeout();
-              if (isEnd) {
-                setHasRunFailed(true);
-              }
+              setHasRunFailed(true);
               const rawContent = response?.content;
               const errorContent =
                 typeof rawContent === 'string'
@@ -2176,9 +2173,7 @@ function useChatLogicHook({
             ) {
               if (response.is_terminal === true) {
                 didReachTerminalSuccess = true;
-                if (isEnd) {
-                  setHasRunFailed(false);
-                }
+                setHasRunFailed(false);
                 cleanupRunStreamState();
                 try {
                   source?.close?.();
@@ -2403,18 +2398,14 @@ function useChatLogicHook({
               variant: 'destructive',
             });
             cleanupRunStreamState();
-            if (isEnd) {
-              setHasRunFailed(true);
-            }
+            setHasRunFailed(true);
             appendRunBusinessError(
               businessError.message.trim(),
               businessError.code,
             );
             return;
           }
-          if (isEnd) {
-            setHasRunFailed(true);
-          }
+          setHasRunFailed(true);
           cleanupRunStreamState();
         },
       );
