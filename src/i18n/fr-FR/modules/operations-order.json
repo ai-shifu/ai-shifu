@@ -111,6 +111,10 @@
     "userKeywordPlaceholderEmail": "ID d’utilisateur / e-mail",
     "userKeywordPlaceholderPhone": "ID d’utilisateur / téléphone"
   },
+  "messages": {
+    "loadCreditOrderDetailFailed": "Échec du chargement du détail de la commande de crédits. Veuillez réessayer plus tard.",
+    "loadDetailFailed": "Échec du chargement du détail de la commande. Veuillez réessayer plus tard."
+  },
   "overview": {
     "activeFilter": "Filtre actuel",
     "metrics": {
@@ -125,10 +129,6 @@
       "paidOrders": "Commandes d’apprentissage payées",
       "totalOrders": "Total des commandes d’apprentissage"
     }
-  },
-  "messages": {
-    "loadCreditOrderDetailFailed": "Échec du chargement du détail de la commande de crédits. Veuillez réessayer plus tard.",
-    "loadDetailFailed": "Échec du chargement du détail de la commande. Veuillez réessayer plus tard."
   },
   "source": {
     "couponRedeem": "Utilisation du coupon",
