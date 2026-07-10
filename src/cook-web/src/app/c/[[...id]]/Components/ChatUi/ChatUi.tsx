@@ -125,6 +125,7 @@ export const ChatUi = ({
 
   return (
     <div
+      data-lesson-print-shell='true'
       className={cn(
         styles.ChatUi,
         frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '',

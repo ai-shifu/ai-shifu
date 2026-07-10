@@ -38,6 +38,7 @@ export interface AskBlockProps {
   askList?: AskMessage[];
   className?: string;
   isExpanded?: boolean;
+  printMode?: boolean;
   forceDesktopSlidePanel?: boolean;
   shifu_bid: string;
   outline_bid: string;
@@ -54,6 +55,7 @@ export default function AskBlock({
   askList = [],
   className,
   isExpanded = undefined,
+  printMode = false,
   forceDesktopSlidePanel = false,
   shifu_bid,
   outline_bid,
@@ -395,7 +397,11 @@ export default function AskBlock({
   );
 
   // Decide which messages to display
-  const messagesToShow = expanded ? displayList : displayList.slice(0, 1);
+  const messagesToShow = printMode
+    ? displayList
+    : expanded
+      ? displayList
+      : displayList.slice(0, 1);
   const hasAskAnswerMessages = messagesToShow.length > 0;
   const shouldRenderMobileDialog =
     mobileStyle &&
@@ -616,6 +622,7 @@ export default function AskBlock({
         {messages.map((message, index) => {
           const messageRenderKey = `${message.type}-${message.element_bid || index}`;
           const shouldEnableMessageTypewriter =
+            !printMode &&
             message.type === BLOCK_TYPE.ANSWER &&
             message.shouldUseTypewriter === true;
           // if (message.type === BLOCK_TYPE.ANSWER) {
@@ -638,7 +645,7 @@ export default function AskBlock({
                 <div
                   className={cn(
                     styles.userMessage,
-                    expanded && styles.isExpanded,
+                    (expanded || printMode) && styles.isExpanded,
                   )}
                 >
                   {message.content}
@@ -682,7 +689,7 @@ export default function AskBlock({
   };
 
   const renderInput = (extraClass?: string) => {
-    if (!expanded) {
+    if (printMode || !expanded) {
       return null;
     }
 
@@ -706,7 +713,7 @@ export default function AskBlock({
     );
   };
 
-  if (shouldRenderMobileDialog) {
+  if (!printMode && shouldRenderMobileDialog) {
     return (
       <div className={cn(styles.askBlock, className, styles.mobile)}>
         {!expanded && renderMessages()}
@@ -779,6 +786,7 @@ export default function AskBlock({
   }
 
   if (
+    !printMode &&
     (isDesktopSlideAskBlock || forceDesktopSlidePanel) &&
     (expanded || hasStreamingAnswerTypewriterMessage)
   ) {

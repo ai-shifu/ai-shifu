@@ -196,6 +196,7 @@ describe('useChatLogicHook stream cleanup', () => {
     | {
         source: MockRunSource;
         onMessage: (response: any) => Promise<void> | void;
+        onError: (error: unknown) => void;
       }
     | undefined;
 
@@ -231,11 +232,13 @@ describe('useChatLogicHook stream cleanup', () => {
           input_type: SSE_INPUT_TYPE;
         },
         onMessage: (response: any) => Promise<void> | void,
+        onError: (error: unknown) => void,
       ) => {
         const source = new MockRunSource();
         activeRun = {
           source,
           onMessage,
+          onError,
         };
         return source;
       },
@@ -2820,6 +2823,7 @@ describe('useChatLogicHook stream cleanup', () => {
         content: '',
         is_terminal: true,
       });
+      activeRun?.onError(new Error('source closed after terminal event'));
     });
 
     expect(params.lessonUpdate).toHaveBeenCalledWith({
@@ -2830,6 +2834,7 @@ describe('useChatLogicHook stream cleanup', () => {
     });
     expect(mockGetRunMessage).toHaveBeenCalledTimes(initialRunCount);
     await waitFor(() => expect(result.current.isOutputInProgress).toBe(false));
+    expect(result.current.hasRunFailed).toBe(false);
     expect(activeRun?.source.close).toHaveBeenCalled();
   });
 
@@ -2881,6 +2886,30 @@ describe('useChatLogicHook stream cleanup', () => {
         }),
       ),
     );
+  });
+
+  it('marks a run failed when the connection drops after a completed status update', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        type: SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE,
+        content: {
+          outline_bid: 'lesson-1',
+          title: 'Lesson 1',
+          status: 'completed',
+          has_children: false,
+        },
+      });
+      activeRun?.onError(new Error('connection dropped'));
+    });
+
+    await waitFor(() => expect(result.current.hasRunFailed).toBe(true));
+    expect(result.current.isOutputInProgress).toBe(false);
   });
 
   it('does not treat the latest interaction as regenerate when helper rows are trailing', async () => {

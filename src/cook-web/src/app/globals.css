@@ -258,3 +258,141 @@ body.listen-mode-vh-fallback #root {
 .reveal iframe {
   max-width: 100% !important;
 }
+
+[data-lesson-print-only='true'] {
+  display: none;
+}
+
+@media print {
+  html.lesson-pdf-print,
+  html.lesson-pdf-print body,
+  html.lesson-pdf-print body #root {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  html.lesson-pdf-print body {
+    background: #fff !important;
+    color: #0a0a0a !important;
+    overscroll-behavior: auto !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html.lesson-pdf-print body > :not(#root),
+  html.lesson-pdf-print body #root > :not([data-lesson-print-page]),
+  html.lesson-pdf-print
+    [data-lesson-print-page]
+    > :not([data-lesson-print-shell]),
+  html.lesson-pdf-print
+    [data-lesson-print-shell]
+    > :not([data-lesson-print-content]),
+  html.lesson-pdf-print
+    [data-lesson-print-content]
+    > :not([data-lesson-print-scroll]),
+  html.lesson-pdf-print [data-lesson-print-exclude='true'] {
+    display: none !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-page],
+  html.lesson-pdf-print [data-lesson-print-shell],
+  html.lesson-pdf-print [data-lesson-print-content],
+  html.lesson-pdf-print [data-lesson-print-scroll] {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    flex: none !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] > div {
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-only='true'] {
+    display: block !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] button,
+  html.lesson-pdf-print [data-lesson-print-scroll] audio,
+  html.lesson-pdf-print [data-lesson-print-scroll] input,
+  html.lesson-pdf-print [data-lesson-print-scroll] textarea,
+  html.lesson-pdf-print [data-lesson-print-scroll] select,
+  html.lesson-pdf-print [data-lesson-print-scroll] [role='button'],
+  html.lesson-pdf-print [data-lesson-print-scroll] custom-button-after-content,
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-custom-button-after-content,
+  html.lesson-pdf-print [data-lesson-print-scroll] .copy-button,
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-iframe-sandbox
+    > button {
+    display: none !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] .content-render,
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-table-container,
+  html.lesson-pdf-print [data-lesson-print-scroll] .mermaid-chart-container,
+  html.lesson-pdf-print [data-lesson-print-scroll] .content-render-svg-scroll,
+  html.lesson-pdf-print [data-lesson-print-scroll] .content-render-iframe,
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-iframe-sandbox,
+  html.lesson-pdf-print [data-lesson-print-scroll] pre {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-svg.content-render-svg--fixed {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    .content-render-svg.content-render-svg--fixed
+    svg {
+    width: auto !important;
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] .content-render-table {
+    width: 100% !important;
+    table-layout: fixed;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    :is(.content-render-th, .content-render-td) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  html.lesson-pdf-print [data-lesson-print-scroll] pre {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+  }
+
+  html.lesson-pdf-print
+    [data-lesson-print-scroll]
+    :is(img, video, canvas, iframe, table) {
+    max-width: 100% !important;
+  }
+}

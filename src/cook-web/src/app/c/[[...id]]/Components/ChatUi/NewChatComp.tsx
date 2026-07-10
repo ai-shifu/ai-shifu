@@ -49,7 +49,10 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useSystemStore } from '@/c-store/useSystemStore';
-import { buildAskListByAnchorElementBid } from './askState';
+import {
+  buildAskListByAnchorElementBid,
+  hasStreamingAskMessage,
+} from './askState';
 import { useAskStateStore } from './useAskStateStore';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import { isListenModeActive as getIsListenModeActive } from '../learningModeOptions';
@@ -77,6 +80,10 @@ import {
   projectReadModeItems,
 } from './chatUiModeProjection';
 import { findLastVisibleLessonFeedbackElementBid } from './lessonFeedbackPromptState';
+import LessonPdfDownloadCard from './LessonPdfDownloadCard';
+import { isLessonPdfContentReady } from './lessonPdfState';
+import { useLessonPdfPrint } from './useLessonPdfPrint';
+import LessonPdfPreparingOverlay from './LessonPdfPreparingOverlay';
 
 const CREDIT_INSUFFICIENT_ERROR_CODE = 7101;
 
@@ -408,6 +415,7 @@ export const NewChatComponents = ({
     items,
     isLoading,
     isOutputInProgress,
+    hasRunFailed,
     currentStreamingElementBid,
     currentTypewriterElementBid,
     onSend,
@@ -527,6 +535,13 @@ export const NewChatComponents = ({
     () => buildVisibleReadModeItems(readModeItems, readModeTypewriterCache),
     [readModeItems, readModeTypewriterCache],
   );
+  const isFollowUpStreaming = useMemo(
+    () =>
+      Object.values(scopedAskListByAnchorElementBid).some(
+        hasStreamingAskMessage,
+      ),
+    [scopedAskListByAnchorElementBid],
+  );
   const trailingVisibleReadModeTextBid = useMemo(
     () =>
       [...visibleReadModeItems]
@@ -604,6 +619,30 @@ export const NewChatComponents = ({
     hasReadModeItems: visibleReadModeItems.length > 0,
     shouldShowReadModeStreamingDots,
   });
+  const isLessonPdfReady = isLessonPdfContentReady({
+    lessonStatus,
+    isSlideMode,
+    isLoading,
+    isOutputInProgress,
+    hasGenerationError:
+      hasRunFailed ||
+      items.some(item => item.type === ChatContentItemType.ERROR),
+    currentStreamingElementBid,
+    readModeItems,
+    visibleReadModeItems,
+    readModeTypewriterCache,
+  });
+  const handleLessonPdfPrintError = useCallback(() => {
+    fail(t('module.chat.lessonPdfPrepareFailed'));
+  }, [t]);
+  const { isPreparing: isPreparingLessonPdf, printLessonPdf } =
+    useLessonPdfPrint({
+      printRootRef: chatRef,
+      lessonId: resolvedLessonId,
+      courseName,
+      lessonTitle,
+      onError: handleLessonPdfPrintError,
+    });
 
   useEffect(() => {
     ensureLessonScope(resolvedLessonId);
@@ -1237,6 +1276,7 @@ export const NewChatComponents = ({
     ) : null;
   return (
     <div
+      data-lesson-print-content='true'
       className={containerClassName}
       style={{ position: 'relative', overflow: 'hidden', padding: 0 }}
     >
@@ -1275,11 +1315,25 @@ export const NewChatComponents = ({
         )
       ) : (
         <div
+          data-lesson-print-scroll='true'
           className={containerClassName}
           ref={chatRef}
           style={{ width: '100%', height: '100%', overflowY: 'auto' }}
         >
           <div>
+            <header
+              data-lesson-print-only='true'
+              className='mx-auto max-w-[1000px] border-b border-border px-5 pb-5'
+            >
+              {courseName ? (
+                <p className='mb-2 text-sm text-muted-foreground'>
+                  {courseName}
+                </p>
+              ) : null}
+              <h1 className='text-3xl font-semibold leading-tight text-foreground'>
+                {lessonTitle}
+              </h1>
+            </header>
             {shouldShowResetLoading ? (
               <div
                 style={{
@@ -1302,6 +1356,7 @@ export const NewChatComponents = ({
                   if (item.type === ChatContentItemType.ASK) {
                     return (
                       <div
+                        data-lesson-print-follow-up='true'
                         key={`ask-${parentKey}`}
                         style={{
                           position: 'relative',
@@ -1312,6 +1367,7 @@ export const NewChatComponents = ({
                       >
                         <AskBlock
                           isExpanded={item.isAskExpanded}
+                          printMode={isPreparingLessonPdf}
                           shifu_bid={shifuBid}
                           outline_bid={resolvedLessonId}
                           preview_mode={previewMode}
@@ -1352,6 +1408,7 @@ export const NewChatComponents = ({
 
                     return (
                       <div
+                        data-lesson-print-exclude='true'
                         key={`like-${parentKey}`}
                         className={cn(!mobileStyle && 'flex justify-end')}
                         style={{
@@ -1418,6 +1475,7 @@ export const NewChatComponents = ({
                   if (item.type === ChatContentItemType.ERROR) {
                     return (
                       <div
+                        data-lesson-print-exclude='true'
                         key={`error-${baseKey}`}
                         style={{
                           position: 'relative',
@@ -1454,6 +1512,11 @@ export const NewChatComponents = ({
 
                   return (
                     <div
+                      data-lesson-print-exclude={
+                        item.type === ChatContentItemType.INTERACTION
+                          ? 'true'
+                          : undefined
+                      }
                       key={`content-${baseKey}`}
                       style={{
                         position: 'relative',
@@ -1512,6 +1575,7 @@ export const NewChatComponents = ({
                 })}
                 {shouldShowReadModeStreamingDots ? (
                   <div
+                    data-lesson-print-exclude='true'
                     style={{
                       margin: visibleReadModeItems.length
                         ? '16px auto 0'
@@ -1525,9 +1589,17 @@ export const NewChatComponents = ({
                     <StreamingLoadingDotsBar />
                   </div>
                 ) : null}
+                {isLessonPdfReady ? (
+                  <LessonPdfDownloadCard
+                    isFollowUpStreaming={isFollowUpStreaming}
+                    isPreparing={isPreparingLessonPdf}
+                    onDownload={printLessonPdf}
+                  />
+                ) : null}
               </>
             )}
             <div
+              data-lesson-print-exclude='true'
               ref={chatBoxBottomRef}
               id='chat-box-bottom'
             ></div>
@@ -1572,6 +1644,7 @@ export const NewChatComponents = ({
             )
           : lessonFeedbackPopupContent
         : null}
+      {isPreparingLessonPdf ? <LessonPdfPreparingOverlay /> : null}
       <Dialog
         open={reGenerateConfirm.open}
         onOpenChange={open => {

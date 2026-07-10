@@ -27,7 +27,20 @@ jest.mock('@/c-utils/markdownUtils', () => ({
 }));
 
 jest.mock('markdown-flow-ui/renderer', () => ({
-  ContentRender: ({ content }: { content: string }) => <div>{content}</div>,
+  ContentRender: ({
+    content,
+    enableTypewriter,
+  }: {
+    content: string;
+    enableTypewriter?: boolean;
+  }) => (
+    <div
+      data-testid='follow-up-answer'
+      data-typewriter={String(Boolean(enableTypewriter))}
+    >
+      {content}
+    </div>
+  ),
   MarkdownFlowInput: ({
     value,
     onChange,
@@ -693,6 +706,54 @@ describe('AskBlock', () => {
         shouldUseTypewriter: false,
       }),
     );
+  });
+
+  it('renders every follow-up inline without controls or typewriter in print mode', () => {
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={false}
+          printMode={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[
+            { type: 'ask', content: 'first question' },
+            {
+              type: 'answer',
+              content: 'first answer',
+              shouldUseTypewriter: true,
+            },
+            { type: 'ask', content: 'second question' },
+            {
+              type: 'answer',
+              content: 'second answer',
+              shouldUseTypewriter: true,
+            },
+          ]}
+        />
+      </AppContext.Provider>,
+    );
+
+    expect(screen.getByText('first question')).toBeInTheDocument();
+    expect(screen.getByText('first answer')).toBeInTheDocument();
+    expect(screen.getByText('second question')).toBeInTheDocument();
+    expect(screen.getByText('second answer')).toBeInTheDocument();
+    expect(screen.queryByLabelText('ask-input')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    screen
+      .getAllByTestId('follow-up-answer')
+      .forEach(answer =>
+        expect(answer).toHaveAttribute('data-typewriter', 'false'),
+      );
   });
 
   describe('when the backend rejects the ask via SSE error', () => {
