@@ -192,6 +192,31 @@ describe('ContentBlock pay interaction overrides', () => {
     );
   });
 
+  it('disables typewriter while preparing printable content', () => {
+    render(
+      <ContentBlock
+        item={
+          {
+            type: 'content',
+            element_type: 'text',
+            content: '完整打印正文',
+            element_bid: 'print-text',
+            shouldUseTypewriter: true,
+          } as any
+        }
+        printMode={true}
+        mobileStyle={false}
+        blockBid='print-text'
+        enableStreamingTypewriter={true}
+        onSend={jest.fn()}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledWith(
+      expect.objectContaining({ enableTypewriter: false }),
+    );
+  });
+
   it('strips custom-button markup from typewriter content', () => {
     render(
       <ContentBlock

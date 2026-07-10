@@ -104,6 +104,7 @@ const ContentBlock = memo(
         : item.readonly;
     const resolvedUserInput = isPayInteraction ? '' : item.user_input;
     const shouldEnableTypewriter =
+      !printMode &&
       enableStreamingTypewriter &&
       item.shouldUseTypewriter === true &&
       item.element_type === 'text';
