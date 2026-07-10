@@ -4,6 +4,7 @@
     "checkout": "去支付",
     "courseNotPaid": "课程未购买，请先购买课程",
     "emailAlreadyActivated": "邮箱 {email} 已开通过该课程",
+    "importActivationFailed": "导入开通失败，请检查该行数据后重试。",
     "learnStatusBranch": "分支",
     "learnStatusCompleted": "已完成",
     "learnStatusInProgress": "正在学",
