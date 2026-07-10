@@ -277,4 +277,110 @@ describe('ContentBlock pay interaction overrides', () => {
       }),
     );
   });
+
+  it('rerenders when an item changes from content to interaction', () => {
+    const onSend = jest.fn();
+    const baseItem = {
+      type: 'content',
+      content: '?[...你叫什么名字]',
+      element_bid: 'changing-type',
+    } as any;
+    const { rerender } = render(
+      <ContentBlock
+        item={baseItem}
+        mobileStyle={false}
+        blockBid='changing-type'
+        onSend={onSend}
+      />,
+    );
+    const initialCallCount = mockContentRender.mock.calls.length;
+
+    rerender(
+      <ContentBlock
+        item={{ ...baseItem, type: 'interaction' }}
+        mobileStyle={false}
+        blockBid='changing-type'
+        onSend={onSend}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledTimes(initialCallCount + 1);
+    expect(mockContentRender).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        content:
+          '<custom-variable placeholder="你叫什么名字"></custom-variable>',
+      }),
+    );
+  });
+
+  it('rerenders when an item becomes a typewriter candidate', () => {
+    const onSend = jest.fn();
+    const baseItem = {
+      type: 'content',
+      element_type: 'text',
+      content: '流式正文',
+      element_bid: 'changing-typewriter',
+      shouldUseTypewriter: false,
+    } as any;
+    const { rerender } = render(
+      <ContentBlock
+        item={baseItem}
+        mobileStyle={false}
+        blockBid='changing-typewriter'
+        enableStreamingTypewriter={true}
+        onSend={onSend}
+      />,
+    );
+    const initialCallCount = mockContentRender.mock.calls.length;
+
+    rerender(
+      <ContentBlock
+        item={{ ...baseItem, shouldUseTypewriter: true }}
+        mobileStyle={false}
+        blockBid='changing-typewriter'
+        enableStreamingTypewriter={true}
+        onSend={onSend}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledTimes(initialCallCount + 1);
+    expect(mockContentRender).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enableTypewriter: true }),
+    );
+  });
+
+  it('rerenders when an item replaces its custom render bar', () => {
+    const onSend = jest.fn();
+    const firstCustomRenderBar = jest.fn(() => null);
+    const nextCustomRenderBar = jest.fn(() => null);
+    const baseItem = {
+      type: 'content',
+      content: '正文',
+      element_bid: 'changing-render-bar',
+      customRenderBar: firstCustomRenderBar,
+    } as any;
+    const { rerender } = render(
+      <ContentBlock
+        item={baseItem}
+        mobileStyle={false}
+        blockBid='changing-render-bar'
+        onSend={onSend}
+      />,
+    );
+    const initialCallCount = mockContentRender.mock.calls.length;
+
+    rerender(
+      <ContentBlock
+        item={{ ...baseItem, customRenderBar: nextCustomRenderBar }}
+        mobileStyle={false}
+        blockBid='changing-render-bar'
+        onSend={onSend}
+      />,
+    );
+
+    expect(mockContentRender).toHaveBeenCalledTimes(initialCallCount + 1);
+    expect(mockContentRender).toHaveBeenLastCalledWith(
+      expect.objectContaining({ customRenderBar: nextCustomRenderBar }),
+    );
+  });
 });

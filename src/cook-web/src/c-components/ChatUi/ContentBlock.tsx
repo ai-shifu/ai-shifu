@@ -208,7 +208,11 @@ const ContentBlock = memo(
       prevProps.blockBid === nextProps.blockBid &&
       prevProps.contentRenderKey === nextProps.contentRenderKey &&
       prevProps.item.isHistory === nextProps.item.isHistory &&
+      prevProps.item.type === nextProps.item.type &&
       prevProps.item.element_type === nextProps.item.element_type &&
+      Boolean(prevProps.item.shouldUseTypewriter) ===
+        Boolean(nextProps.item.shouldUseTypewriter) &&
+      prevProps.item.customRenderBar === nextProps.item.customRenderBar &&
       Boolean(prevProps.enableStreamingTypewriter) ===
         Boolean(nextProps.enableStreamingTypewriter) &&
       Boolean(prevProps.autoPlayAudio) === Boolean(nextProps.autoPlayAudio) &&
