@@ -178,9 +178,39 @@ describe('ListenModeSlideRenderer', () => {
     expect(screen.queryByText('module.chat.thinking')).not.toBeInTheDocument();
     expect(
       screen.getByRole('status', {
-        name: 'module.chat.slideAudioBufferingLoadingAudio',
+        name: 'module.chat.audioLoading',
       }),
     ).toBeInTheDocument();
+  });
+
+  it('relies on slide locale defaults for matching built-in copy', () => {
+    render(
+      <ListenModeSlideRenderer
+        items={[]}
+        mobileStyle={false}
+        chatRef={createChatRef()}
+      />,
+    );
+
+    const slideProps = getMockSlide().mock.calls[0]?.[0] as
+      | {
+          bufferingText?: Record<string, string>;
+          fullscreenHeader?: { backAriaLabel?: string };
+          interactionTexts?: Record<string, string>;
+          locale?: string;
+          playerTexts?: Record<string, string>;
+        }
+      | undefined;
+
+    expect(slideProps?.locale).toBe('zh-CN');
+    expect(slideProps?.bufferingText).toEqual({
+      waitingForAudio: 'module.chat.thinking',
+    });
+    expect(slideProps?.interactionTexts).toEqual({
+      title: 'module.chat.listenInteractionHint',
+    });
+    expect(slideProps?.fullscreenHeader).not.toHaveProperty('backAriaLabel');
+    expect(slideProps).not.toHaveProperty('playerTexts');
   });
 
   it('passes finalized stream segments to slide with the complete url', () => {
