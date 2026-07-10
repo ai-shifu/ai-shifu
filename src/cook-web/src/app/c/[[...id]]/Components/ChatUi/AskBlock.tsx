@@ -368,6 +368,7 @@ export default function AskBlock({
           }
         } catch {
           rollbackFailedExchange();
+          sseRef.current?.close();
         }
       },
     );
