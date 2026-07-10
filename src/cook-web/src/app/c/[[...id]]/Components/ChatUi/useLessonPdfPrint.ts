@@ -156,13 +156,18 @@ const waitForPrintAssets = async (
       waiters.push(waiter);
       return waiter.promise;
     });
-  const iframeReady = Array.from(root.querySelectorAll('iframe'))
-    .filter(shouldWaitForIframe)
-    .map(iframe => {
-      const waiter = createLoadWaiter(iframe);
-      waiters.push(waiter);
-      return waiter.promise;
-    });
+  const iframes = Array.from(
+    new Set(
+      assetRoots.flatMap(assetRoot =>
+        Array.from(assetRoot.querySelectorAll<HTMLIFrameElement>('iframe')),
+      ),
+    ),
+  );
+  const iframeReady = iframes.filter(shouldWaitForIframe).map(iframe => {
+    const waiter = createLoadWaiter(iframe);
+    waiters.push(waiter);
+    return waiter.promise;
+  });
   const fontDocuments = [
     document,
     ...iframeDocuments.map(({ iframeDocument }) => iframeDocument),
@@ -345,13 +350,17 @@ const PRINT_SNAPSHOT_STYLES = `
   }
 `;
 
-const preparePrintAssets = (root: HTMLElement) => {
+const preparePrintAssets = (
+  root: HTMLElement,
+  extraRoots: ParentNode[] = [],
+) => {
   const assetRoots: ParentNode[] = [
     root,
     ...getAccessibleSandboxIframeDocuments(root).flatMap(
       ({ iframeDocument }) =>
         iframeDocument.body ? [iframeDocument.body] : [],
     ),
+    ...extraRoots,
   ];
   const elementStates = Array.from(
     new Set(
@@ -666,7 +675,7 @@ export const useLessonPdfPrint = ({
     const originalTitle = document.title;
     let printStateApplied = false;
     let cleaned = false;
-    let restorePrintAssets = () => {};
+    const restorePrintAssetStates: Array<() => void> = [];
     let cleanupPrintSnapshots = () => {};
 
     const isOperationActive = () =>
@@ -687,7 +696,7 @@ export const useLessonPdfPrint = ({
         document.title = originalTitle;
       }
       cleanupPrintSnapshots();
-      restorePrintAssets();
+      [...restorePrintAssetStates].reverse().forEach(restore => restore());
 
       if (cleanupRef.current === cleanup) {
         cleanupRef.current = null;
@@ -735,7 +744,7 @@ export const useLessonPdfPrint = ({
         throw new Error('Lesson content did not finish rendering');
       }
 
-      restorePrintAssets = preparePrintAssets(printRoot);
+      restorePrintAssetStates.push(preparePrintAssets(printRoot));
       const assetState = await waitForPrintAssets(
         printRoot,
         abortController.signal,
@@ -763,22 +772,26 @@ export const useLessonPdfPrint = ({
         throw new Error('Lesson embeds could not be prepared for printing');
       }
       cleanupPrintSnapshots = iframeSnapshots.cleanup;
+
+      restorePrintAssetStates.push(
+        preparePrintAssets(printRoot, iframeSnapshots.assetRoots),
+      );
       if (iframeSnapshots.assetRoots.length > 0) {
         await waitForNextPaint(abortController.signal);
         if (!isOperationActive()) {
           return;
         }
-        const snapshotAssetState = await waitForPrintAssets(
-          printRoot,
-          abortController.signal,
-          iframeSnapshots.assetRoots,
-        );
-        if (!isOperationActive()) {
-          return;
-        }
-        if (snapshotAssetState !== 'ready') {
-          throw new Error('Lesson print snapshots did not finish loading');
-        }
+      }
+      const finalAssetState = await waitForPrintAssets(
+        printRoot,
+        abortController.signal,
+        iframeSnapshots.assetRoots,
+      );
+      if (!isOperationActive()) {
+        return;
+      }
+      if (finalAssetState !== 'ready') {
+        throw new Error('Lesson print assets did not finish loading');
       }
 
       const printDialogClosed = waitForPrintDialogToClose(

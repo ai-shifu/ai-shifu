@@ -33,15 +33,29 @@ describe('useLessonPdfPrint', () => {
     const lessonImage = document.createElement('img');
     lessonImage.setAttribute('loading', 'lazy');
     printRoot.appendChild(lessonImage);
+    const lateImage = document.createElement('img');
+    lateImage.setAttribute('loading', 'lazy');
+    let lateImageAppended = false;
+    Object.defineProperty(lessonImage, 'decode', {
+      configurable: true,
+      value: jest.fn(async () => {
+        if (!lateImageAppended) {
+          lateImageAppended = true;
+          printRoot.appendChild(lateImage);
+        }
+      }),
+    });
     const onError = jest.fn();
     let classAppliedDuringPrint = false;
     let titleDuringPrint = '';
     let imageLoadingDuringPrint = '';
+    let lateImageLoadingDuringPrint = '';
     printSpy.mockImplementation(() => {
       classAppliedDuringPrint =
         document.documentElement.classList.contains('lesson-pdf-print');
       titleDuringPrint = document.title;
       imageLoadingDuringPrint = lessonImage.getAttribute('loading') || '';
+      lateImageLoadingDuringPrint = lateImage.getAttribute('loading') || '';
       window.dispatchEvent(new Event('afterprint'));
     });
 
@@ -64,10 +78,12 @@ describe('useLessonPdfPrint', () => {
     expect(classAppliedDuringPrint).toBe(true);
     expect(titleDuringPrint).toBe('Course - Lesson- One');
     expect(imageLoadingDuringPrint).toBe('eager');
+    expect(lateImageLoadingDuringPrint).toBe('eager');
     expect(onError).not.toHaveBeenCalled();
     expect(document.documentElement).not.toHaveClass('lesson-pdf-print');
     expect(document.title).toBe(originalTitle);
     expect(lessonImage).toHaveAttribute('loading', 'lazy');
+    expect(lateImage).toHaveAttribute('loading', 'lazy');
     expect(result.current.isPreparing).toBe(false);
   });
 
@@ -153,6 +169,8 @@ describe('useLessonPdfPrint', () => {
         <div class='sandbox-wrapper' aria-busy='true'>
           <div class='sandbox-container font-sans'>
             中文图卡 iframe bottom marker
+            <img data-print-image='initial' loading='lazy' />
+            <iframe data-print-iframe='nested' loading='lazy'></iframe>
             <input data-print-field='text' />
             <input data-print-field='checked' type='checkbox' />
             <input data-print-field='file' type='file' />
@@ -178,6 +196,31 @@ describe('useLessonPdfPrint', () => {
     const sourceTextInput = iframeDocument!.querySelector<HTMLInputElement>(
       '[data-print-field="text"]',
     );
+    const sourceInitialImage = iframeDocument!.querySelector<HTMLImageElement>(
+      '[data-print-image="initial"]',
+    );
+    const sourceLateImage = iframeDocument!.createElement('img');
+    sourceLateImage.dataset.printImage = 'late';
+    sourceLateImage.setAttribute('loading', 'lazy');
+    let sourceLateImageAppended = false;
+    Object.defineProperty(sourceInitialImage!, 'decode', {
+      configurable: true,
+      value: jest.fn(async () => {
+        if (!sourceLateImageAppended) {
+          sourceLateImageAppended = true;
+          iframeDocument!
+            .querySelector('.sandbox-container')
+            ?.appendChild(sourceLateImage);
+        }
+      }),
+    });
+    const sourceNestedIframe = iframeDocument!.querySelector<HTMLIFrameElement>(
+      '[data-print-iframe="nested"]',
+    );
+    Object.defineProperty(sourceNestedIframe!.contentDocument!, 'readyState', {
+      configurable: true,
+      value: 'loading',
+    });
     const sourceCheckbox = iframeDocument!.querySelector<HTMLInputElement>(
       '[data-print-field="checked"]',
     );
@@ -211,6 +254,10 @@ describe('useLessonPdfPrint', () => {
     const onError = jest.fn();
     let snapshotTextDuringPrint = '';
     let snapshotStylesDuringPrint = '';
+    let sourceLateImageLoadingDuringPrint = '';
+    let snapshotLateImageLoadingDuringPrint = '';
+    let sourceNestedIframeLoadingDuringPrint = '';
+    let snapshotNestedIframeLoadingDuringPrint = '';
     let snapshotFormStateDuringPrint = {};
     printSpy.mockImplementation(() => {
       const snapshot = printRoot.querySelector<HTMLElement>(
@@ -223,6 +270,18 @@ describe('useLessonPdfPrint', () => {
       )
         .map(style => style.textContent ?? '')
         .join('\n');
+      sourceLateImageLoadingDuringPrint =
+        sourceLateImage.getAttribute('loading') || '';
+      snapshotLateImageLoadingDuringPrint =
+        shadowRoot
+          ?.querySelector<HTMLImageElement>('[data-print-image="late"]')
+          ?.getAttribute('loading') || '';
+      sourceNestedIframeLoadingDuringPrint =
+        sourceNestedIframe?.getAttribute('loading') || '';
+      snapshotNestedIframeLoadingDuringPrint =
+        shadowRoot
+          ?.querySelector<HTMLIFrameElement>('[data-print-iframe="nested"]')
+          ?.getAttribute('loading') || '';
       snapshotFormStateDuringPrint = {
         text: shadowRoot?.querySelector<HTMLInputElement>(
           '[data-print-field="text"]',
@@ -274,6 +333,27 @@ describe('useLessonPdfPrint', () => {
     iframeDocument!
       .querySelector('.sandbox-wrapper')
       ?.setAttribute('aria-busy', 'false');
+    await waitFor(() => expect(sourceInitialImage!.decode).toHaveBeenCalled());
+    expect(printSpy).not.toHaveBeenCalled();
+    sourceNestedIframe!.dispatchEvent(new Event('load'));
+    let snapshotNestedIframe: HTMLIFrameElement | null = null;
+    await waitFor(
+      () => {
+        snapshotNestedIframe =
+          printRoot
+            .querySelector<HTMLElement>(
+              '[data-lesson-print-iframe-snapshot="true"]',
+            )
+            ?.shadowRoot?.querySelector<HTMLIFrameElement>(
+              '[data-print-iframe="nested"]',
+            ) ?? null;
+        expect(snapshotNestedIframe).toBeTruthy();
+      },
+      { timeout: 2000 },
+    );
+    expect(printSpy).not.toHaveBeenCalled();
+    sourceNestedIframe!.dispatchEvent(new Event('load'));
+    snapshotNestedIframe!.dispatchEvent(new Event('load'));
     await act(async () => {
       await printPromise;
     });
@@ -281,6 +361,10 @@ describe('useLessonPdfPrint', () => {
     expect(snapshotTextDuringPrint).toContain('iframe bottom marker');
     expect(snapshotStylesDuringPrint).toContain('PingFang SC');
     expect(snapshotStylesDuringPrint).toContain('.font-sans');
+    expect(sourceLateImageLoadingDuringPrint).toBe('eager');
+    expect(snapshotLateImageLoadingDuringPrint).toBe('eager');
+    expect(sourceNestedIframeLoadingDuringPrint).toBe('eager');
+    expect(snapshotNestedIframeLoadingDuringPrint).toBe('eager');
     expect(snapshotFormStateDuringPrint).toEqual({
       text: '已填写答案',
       checked: true,
@@ -297,6 +381,8 @@ describe('useLessonPdfPrint', () => {
       printRoot.querySelector('[data-lesson-print-iframe-snapshot="true"]'),
     ).not.toBeInTheDocument();
     expect(onError).not.toHaveBeenCalled();
+    expect(sourceLateImage).toHaveAttribute('loading', 'lazy');
+    expect(sourceNestedIframe).toHaveAttribute('loading', 'lazy');
 
     printRoot.remove();
   });

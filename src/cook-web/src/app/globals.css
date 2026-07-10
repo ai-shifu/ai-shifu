@@ -420,7 +420,6 @@ body.listen-mode-vh-fallback #root {
     [data-lesson-print-scroll]
     :is(.content-render-th, .content-render-td) {
     overflow-wrap: anywhere;
-    word-break: break-word;
   }
 
   html.lesson-pdf-print [data-lesson-print-scroll] pre {
