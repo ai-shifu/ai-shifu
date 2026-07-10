@@ -75,6 +75,11 @@
   "server.billing.campaignOverlapActive": 7116,
   "server.billing.campaignLockedAfterHit": 7117,
   "server.billing.campaignNotFound": 7118,
+  "server.billing.subscriptionCheckoutBusy": 7119,
+  "server.billing.manualPlanGrantBusy": 7120,
+  "server.billing.notificationPolicySaveFailed": 7121,
+  "server.billing.manualPlanGrantFailed": 7122,
+  "server.billing.manualCreditGrantFailed": 7123,
 
   "server.file.fileUploadError": 6001,
   "server.file.fileTypeNotSupport": 6002,

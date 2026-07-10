@@ -356,7 +356,7 @@ def _subscription_checkout_lock(app: Flask, creator_bid: str) -> Iterator[None]:
     )
     acquired = bool(lock.acquire(blocking=True))
     if not acquired:
-        raise_error("server.common.systemError")
+        raise_error("server.billing.subscriptionCheckoutBusy")
     try:
         yield
     finally:
