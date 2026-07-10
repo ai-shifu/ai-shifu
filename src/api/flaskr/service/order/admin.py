@@ -785,7 +785,7 @@ def import_activation_orders(
             results["failed"].append(
                 {
                     "mobile": normalized_mobile,
-                    "message": _("server.common.unknownError"),
+                    "message": _("server.order.importActivationFailed"),
                 }
             )
     return results
@@ -835,7 +835,7 @@ def import_activation_orders_from_entries(
             results["failed"].append(
                 {
                     "mobile": normalized_mobile,
-                    "message": _("server.common.unknownError"),
+                    "message": _("server.order.importActivationFailed"),
                 }
             )
     return results

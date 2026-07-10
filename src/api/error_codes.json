@@ -29,6 +29,7 @@
   "server.order.orderPayNotFound": 3007,
   "server.order.orderHasPaid": 3008,
   "server.order.courseNotPaid": 3009,
+  "server.order.importActivationFailed": 3010,
 
   "server.discount.discountNotFound": 3101,
   "server.discount.discountAlreadyUsed": 3102,
@@ -39,6 +40,7 @@
   "server.discount.discountLimitExceeded": 3107,
   "server.discount.discountAlreadyExpired": 3108,
   "server.discount.discountCountNotZero": 3109,
+  "server.discount.couponCodeGenerationFailed": 3110,
 
   "server.course.courseNotFound": 4001,
   "server.course.lessonCannotBeReset": 4002,

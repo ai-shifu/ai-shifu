@@ -4,6 +4,7 @@
     "checkout": "Paiement",
     "courseNotPaid": "Cours non acheté, veuillez d’abord acheter le cours",
     "emailAlreadyActivated": "L’e-mail {email} est déjà activé pour ce cours",
+    "importActivationFailed": "Échec de l’importation de cette ligne d’activation. Vérifiez les données de la ligne, puis réessayez.",
     "learnStatusBranch": "Branche",
     "learnStatusCompleted": "Terminé",
     "learnStatusInProgress": "En apprentissage",

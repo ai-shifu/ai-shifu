@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.discount",
   "__flat__": {
+    "couponCodeGenerationFailed": "优惠码生成失败，请稍后重试。",
     "discountAlreadyExpired": "兑换码已过期",
     "discountAlreadyUsed": "兑换码已使用",
     "discountLimitExceeded": "兑换码使用次数已达到上限",
